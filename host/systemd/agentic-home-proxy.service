@@ -1,0 +1,15 @@
+[Unit]
+Description=Agentic Home local HA browser access
+After=network.target
+
+[Service]
+User=nobody
+Environment=PYTHONPATH=/opt/agentic-home/host
+ExecStart=/usr/bin/python3 -m agentic_host.proxy
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

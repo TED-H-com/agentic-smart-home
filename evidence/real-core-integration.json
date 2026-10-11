@@ -1,0 +1,59 @@
+{
+  "run_at": "2026-10-11T21:09:31.522648+00:00",
+  "core": "2026.10.1",
+  "image": "ghcr.io/home-assistant/home-assistant:2026.10.1",
+  "image_digest": [
+    "ghcr.io/home-assistant/home-assistant@sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0"
+  ],
+  "real": [
+    "owner WebSocket authorization",
+    "states and registries",
+    "native validate_config",
+    "automation config POST/GET",
+    "staging and activation",
+    "helper state transition",
+    "correlated automation/target events",
+    "enabled state and real trigger after Core restart"
+  ],
+  "fixtures": [
+    "Supervisor backup response",
+    "Agent structured intent (no cloud login)"
+  ],
+  "before_restart": {
+    "source": "input_boolean.agentic_motion_test",
+    "source_at": "2026-10-11T21:09:25.158825+00:00",
+    "automation_context": "01M4PCS316Z9J00EQMBHNET9ZV",
+    "targets": [
+      {
+        "entity_id": "input_boolean.agentic_lamp_test",
+        "state": "on",
+        "at": "2026-10-11T21:09:25.159424+00:00",
+        "context_id": "01M4PCS316Z9J00EQMBHNET9ZV"
+      }
+    ],
+    "kind": "real_state_transition",
+    "observed_at": "2026-10-11T21:09:25.160202+00:00"
+  },
+  "after_restart": {
+    "source": "input_boolean.agentic_motion_test",
+    "source_at": "2026-10-11T21:09:31.511794+00:00",
+    "automation_context": "01M4PCS97QP5DVZQFQ3R404S7C",
+    "targets": [
+      {
+        "entity_id": "input_boolean.agentic_lamp_test",
+        "state": "on",
+        "at": "2026-10-11T21:09:31.512384+00:00",
+        "context_id": "01M4PCS97QP5DVZQFQ3R404S7C"
+      }
+    ],
+    "kind": "real_state_transition",
+    "observed_at": "2026-10-11T21:09:31.513130+00:00"
+  },
+  "not_tested": [
+    "HAOS Ingress",
+    "Supervisor backup role",
+    "laptop hardware",
+    "cloud account login",
+    "72h soak"
+  ]
+}

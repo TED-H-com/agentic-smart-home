@@ -1,0 +1,16 @@
+[Unit]
+StartLimitIntervalSec=0
+Description=Install Agentic Home outer Linux product
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=!/var/lib/agentic-home/installed.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/agentic-home/host/install.py --apply
+TimeoutStartSec=0
+Restart=on-failure
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target

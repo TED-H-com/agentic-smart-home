@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "checked_at": "2026-10-11",
+  "bases": {
+    "ubuntu-24.04-amd64": {
+      "os_id": "ubuntu", "os_version": "24.04", "arch": "amd64",
+      "release": "24.04.5", "filename": "ubuntu-24.04.5-live-server-amd64.iso",
+      "url": "https://releases.ubuntu.com/24.04/ubuntu-24.04.5-live-server-amd64.iso",
+      "sha256": "97f3d7ffb032c3eb3b23d2c8be9cc76e60c2c1f2c0146ba5ba9fe01cafae0fd8",
+      "checksums": "https://releases.ubuntu.com/24.04/SHA256SUMS"
+    },
+    "ubuntu-26.04-amd64": {
+      "os_id": "ubuntu", "os_version": "26.04", "arch": "amd64",
+      "release": "26.04.1", "filename": "ubuntu-26.04.1-live-server-amd64.iso",
+      "url": "https://releases.ubuntu.com/26.04/ubuntu-26.04.1-live-server-amd64.iso",
+      "sha256": "cc8a95cde20f6ced61a322420de00f10cc3c90ced545daa46cb9c1a117f1d927",
+      "checksums": "https://releases.ubuntu.com/26.04/SHA256SUMS"
+    }
+  },
+  "haos": {
+    "version": "18.3", "filename": "haos_ova-18.3.qcow2.xz",
+    "url": "https://github.com/home-assistant/operating-system/releases/download/18.3/haos_ova-18.3.qcow2.xz",
+    "sha256": "fae6a728768cc10aff60d4820bfcd40d64cd77fab82c8bd92af13b3d9d414090"
+  }
+}

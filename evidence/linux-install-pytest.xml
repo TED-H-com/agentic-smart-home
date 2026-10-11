@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="1707.912" timestamp="2026-10-11T01:38:33.179568-04:00"><testcase classname="tests.test_linux_install" name="test_full_linux_install_with_nested_haos" time="1707.789" /></testsuite></testsuites>

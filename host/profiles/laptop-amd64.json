@@ -1,0 +1,7 @@
+{
+  "id": "laptop-amd64", "label": "Intel / AMD 筆電",
+  "base": "ubuntu-24.04-amd64", "desktop": true,
+  "memory_mib": 4096, "vcpus": 2, "disk_gib": 64,
+  "network": "nat", "bridge": null, "appliance_lid": true,
+  "minimum_host_memory_mib": 7680
+}

@@ -1,0 +1,54 @@
+{
+  "probes": [
+    {
+      "provider": "codex",
+      "version": "0.157.1",
+      "version_matches": true,
+      "billing": "由所選官方登入方式與帳號方案決定",
+      "hardware_verified": false,
+      "status": "needs_reauth",
+      "auth_method": "subscription"
+    },
+    {
+      "provider": "claude",
+      "version": "2.1.296",
+      "version_matches": true,
+      "billing": "由所選官方登入方式與帳號方案決定",
+      "hardware_verified": false,
+      "status": "needs_reauth",
+      "auth_method": "none"
+    },
+    {
+      "provider": "agy",
+      "version": "1.3.3",
+      "version_matches": true,
+      "billing": "由所選官方登入方式與帳號方案決定",
+      "hardware_verified": false,
+      "status": "needs_reauth",
+      "auth_method": "none"
+    },
+    {
+      "provider": "grok",
+      "version": "1.0.50",
+      "version_matches": true,
+      "billing": "由所選官方登入方式與帳號方案決定",
+      "hardware_verified": false,
+      "status": "needs_reauth",
+      "auth_method": "subscription"
+    }
+  ],
+  "codex_models": [
+    "gpt-5.4",
+    "gpt-6-astra"
+  ],
+  "codex_tools": [],
+  "claude_tools": [
+    "StructuredOutput"
+  ],
+  "structured_output": "passed",
+  "tls_pin_and_pairing": "passed",
+  "uid_and_secret_isolation": "passed",
+  "run_at": 1791752945.089487,
+  "inference": "local protocol fixture; no cloud account",
+  "image": "sha256:6d18dc6c67d7bdf248eadd509e8b85e7abb55f9c68e3e9604496d04f0093f14f"
+}

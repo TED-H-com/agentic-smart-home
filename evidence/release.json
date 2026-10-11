@@ -1,0 +1,20 @@
+{
+  "version": "0.3.0",
+  "recorded_at": "2026-10-11T21:13:03.467163+00:00",
+  "artifacts": {
+    "agentic-home-0.3.0-linux-amd64.tar": {
+      "sha256": "63c061282ec578f1fe953b0c2c5f84e4b12a782dc6720d55976c7a8f0c83908c",
+      "bytes": 1148446720
+    }
+  },
+  "regression": {
+    "passed": 80,
+    "skipped": 2,
+    "evidence": "pytest-0.3.0.xml",
+    "skipped_cases": "Full HAOS and Linux installation VM cases were not rerun."
+  },
+  "cloud_login": "not_run",
+  "external_channel_messages": "not_run",
+  "physical_hardware": "not_run",
+  "antigravity_subscription_login": "not_integrated"
+}

@@ -1,0 +1,6 @@
+{
+  "scope": "Exported product allowlist, including nested Runner source archive; private parent repository excluded",
+  "scanner": "Gitleaks 8.30.1",
+  "findings": 0,
+  "date": "2026-10-11"
+}

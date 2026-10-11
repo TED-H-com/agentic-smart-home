@@ -1,0 +1,49 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "expires": {
+      "title": "Expires",
+      "type": "number"
+    },
+    "id": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "model": {
+      "default": "",
+      "pattern": "^[a-zA-Z0-9._:/-]{0,100}$",
+      "title": "Model",
+      "type": "string"
+    },
+    "prompt": {
+      "maxLength": 32768,
+      "title": "Prompt",
+      "type": "string"
+    },
+    "provider": {
+      "enum": [
+        "codex",
+        "claude",
+        "agy",
+        "grok"
+      ],
+      "title": "Provider",
+      "type": "string"
+    },
+    "schema": {
+      "additionalProperties": true,
+      "title": "Schema",
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "provider",
+    "prompt",
+    "schema",
+    "expires"
+  ],
+  "title": "Job",
+  "type": "object"
+}

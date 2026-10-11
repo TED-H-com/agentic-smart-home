@@ -1,0 +1,13 @@
+{
+  "supervisor": "2026.09.3",
+  "app_config_schema": "passed",
+  "actual_backup_filter": "passed",
+  "archive_members": [
+    "data",
+    "data/work",
+    "data/profiles",
+    "data/runner.sqlite3",
+    "data/private"
+  ],
+  "limitations": "Supervisor daemon, role authorization and full restore not exercised"
+}

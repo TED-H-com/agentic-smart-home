@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "linejs": {
+    "repository": "https://github.com/JS-PACKAGE/LINE.js",
+    "commit": "9670589e4df3096a06c812dc4c1298140c736172",
+    "version": "1.5.0",
+    "archive_sha256": "437bc5dfafa038f2c29b3e58898c30dc47a560fef6a90d44c9c5058c2ffdb5d0",
+    "protocol": 2,
+    "bot_api": "/api/ws",
+    "account_verification": "not_run",
+    "local_patch": "host/linejs/patch-local-host.mjs",
+    "container_protocol_probe": "passed_no_network"
+  },
+  "discord": {
+    "api_version": "v10",
+    "transport": "REST polling",
+    "account_verification": "not_run"
+  },
+  "telegram": {
+    "transport": "Bot API long polling",
+    "account_verification": "not_run"
+  }
+}

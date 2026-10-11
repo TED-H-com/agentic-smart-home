@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "platform": "linux/amd64",
+  "providers": {
+    "codex": {
+      "version": "0.157.1",
+      "npm_package": "@openai/codex",
+      "integrity": "sha512-qJ/UZ0bmYP+/Umav1L9WpmtMYeA6q1+4r4qILSYOKQZhP7WRdjyTQWz3O0dTImZ9RT7AazZa85D87xRDHogcHw==",
+      "official_binary_probe": "passed_in_container",
+      "cloud_login": "not_run",
+      "cloud_inference": "not_run",
+      "local_protocol_fixture": "passed"
+    },
+    "claude": {
+      "version": "2.1.296",
+      "npm_package": "@anthropic-ai/claude-code",
+      "integrity": "sha512-OX/k/rpcthMqnFKOWcpNcbiLsMKtAjLOpQNJHlYiDCFUznWCIwdRTyl/p9SdHVrsrzZuPMCNqZjnpakIni6upw==",
+      "official_binary_probe": "passed_in_container",
+      "cloud_login": "not_run",
+      "cloud_inference": "not_run",
+      "local_protocol_fixture": "passed"
+    },
+    "agy": {
+      "version": "1.3.3",
+      "url": "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.3.3-5524738307653632/linux-x64/cli_linux_x64.tar.gz",
+      "sha512": "abe3ddf5cf30d3adaa586acf505221aa19702f5ca71af3c8b1f9b1a5976bd8e5c151c41ea33b39c41675d25843462a3e8c382c054f580e9d7e1688919d3b5110",
+      "official_binary_probe": "passed_in_container",
+      "cloud_login": "not_run",
+      "cloud_inference": "not_run",
+      "auth_methods": [
+        "api_key"
+      ],
+      "subscription_login": "not_integrated",
+      "adapter_protocol_fixture": "passed"
+    },
+    "grok": {
+      "version": "1.0.50",
+      "npm_package": "@xai-official/grok",
+      "integrity": "sha512-eXY/+nWHgRn8ti4DYoW+ICBRwfmTzP68HNiaC+Q+DkybD51/of13Yp7Taef5oeZUZB1D0jP3B5njnsn8tDkveA==",
+      "official_binary_probe": "passed_in_container",
+      "cloud_login": "not_run",
+      "cloud_inference": "not_run",
+      "auth_methods": [
+        "device_code",
+        "api_key"
+      ],
+      "adapter_protocol_fixture": "passed"
+    }
+  },
+  "bases": {
+    "python": "python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd12803a5c4247979ac7655f4d641",
+    "node": "node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20"
+  },
+  "codex_model_catalog": {
+    "upstream_sha256": "0178d235c589a31abd6ed0ea1e870935dc5819240eb0e813e178d3ebedf534f4",
+    "packaged_sha256": "17bbd690183e9267a446d1351ea738d6f38a87310f3530d0ec1e6b273823210f",
+    "changes": {
+      "apply_patch_tool_type": null,
+      "experimental_supported_tools": [],
+      "supports_search_tool": false,
+      "node_repl_disabled": true,
+      "tool_mode": null
+    },
+    "default_model": "gpt-6-astra"
+  }
+}

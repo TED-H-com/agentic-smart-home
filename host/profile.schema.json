@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agentic Home Linux profile 1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]{1,64}$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "base": {
+      "type": "string"
+    },
+    "desktop": {
+      "type": "boolean"
+    },
+    "memory_mib": {
+      "type": "integer",
+      "minimum": 2048,
+      "maximum": 65536
+    },
+    "vcpus": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 32
+    },
+    "disk_gib": {
+      "type": "integer",
+      "minimum": 32,
+      "maximum": 2048
+    },
+    "network": {
+      "const": "nat"
+    },
+    "bridge": {
+      "type": "null"
+    },
+    "appliance_lid": {
+      "type": "boolean"
+    },
+    "minimum_host_memory_mib": {
+      "type": "integer",
+      "minimum": 4096
+    }
+  },
+  "required": [
+    "id",
+    "label",
+    "base",
+    "desktop",
+    "memory_mib",
+    "vcpus",
+    "disk_gib",
+    "network",
+    "bridge",
+    "appliance_lid",
+    "minimum_host_memory_mib"
+  ]
+}

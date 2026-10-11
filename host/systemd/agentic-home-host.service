@@ -1,0 +1,19 @@
+[Unit]
+Description=Agentic Home Linux lifecycle broker
+After=libvirtd.service docker.service network-online.target
+Wants=network-online.target
+Requires=libvirtd.service
+
+[Service]
+Environment=PYTHONPATH=/opt/agentic-home/host
+ExecStart=/usr/bin/python3 -m agentic_host.daemon
+Restart=on-failure
+RuntimeDirectory=agentic-home
+RuntimeDirectoryMode=0755
+UMask=0077
+ProtectHome=true
+PrivateTmp=false
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

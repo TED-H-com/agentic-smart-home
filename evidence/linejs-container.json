@@ -1,0 +1,10 @@
+{
+  "http": "passed",
+  "host_pin": "passed",
+  "admin_cookie_origin": "passed",
+  "bot_bearer_no_origin": "passed",
+  "allowlist_reload": "passed",
+  "cloud_login": "not_run",
+  "external_messages": "not_run",
+  "image": "sha256:37f1ed021f4b98084d70edf7abb7cd2ce69adbb5c12e843e4a10c29c99e97480"
+}

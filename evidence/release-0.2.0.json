@@ -1,0 +1,47 @@
+{
+  "version": "0.2.0",
+  "recorded_at": "2026-10-11T06:51:46.855004+00:00",
+  "artifacts": {
+    "agentic-home-0.2.0-laptop-amd64.iso": {
+      "sha256": "b4bbc4b4cea1e7dc53bdbd6fe73f4be6441b6fe8f06d8720f4650824c8de891d",
+      "bytes": 4980211712
+    },
+    "agentic-home-0.2.0-linux-amd64.tar": {
+      "sha256": "6a04a998b3eddd15485167e96de4f56e7c76749e795556f890a8b479bc45b1af",
+      "bytes": 900741120
+    },
+    "agentic-home-0.2.0-server-amd64.iso": {
+      "sha256": "c20baf05966d0543e34c3814c459c5b9eaf329c8dd033a30aee6965718577bb3",
+      "bytes": 4980211712
+    }
+  },
+  "regression": {
+    "passed": 59,
+    "skipped": 2,
+    "evidence": "pytest.xml",
+    "skipped_cases": "Two VM cases run separately"
+  },
+  "targeted_host_regression": {
+    "passed": 12,
+    "evidence": "tests/test_host.py; includes owner-only desktop key permissions"
+  },
+  "real_haos_backup": "haos-vm.json",
+  "linux_laptop_install": "linux-install.json",
+  "linux_server_install": "linux-install-server.json",
+  "real_host_auth_and_pairing": "installed-auth-server-amd64.json",
+  "final_server_iso_exactly_matches_install_test": true,
+  "laptop_test_image_difference": {
+    "runtime_files": [
+      "host/install.py"
+    ],
+    "description": "Final installer distributes the desktop management key only to UID 1000; targeted multi-account regression passed. GNOME and shared VM lifecycle code are unchanged. Final laptop ISO was rebuilt; its exact hash was not rerun through full installation."
+  },
+  "fixtures": "ISO test copies supply a disposable disk serial, ephemeral SSH identity and test-only sudo access; these are absent from public ISO media.",
+  "not_run": [
+    "physical laptop compatibility",
+    "real cloud provider login/inference",
+    "Alexa/Nest hardware",
+    "72-hour soak",
+    "Ubuntu 26.04 installation"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "$defs": {
+    "EntityPermission": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_id": {
+          "maxLength": 255,
+          "pattern": "^[a-z_]+\\.[a-z0-9_]+$",
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "purpose": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Purpose",
+          "type": "string"
+        },
+        "read": {
+          "title": "Read",
+          "type": "boolean"
+        },
+        "write": {
+          "default": "none",
+          "enum": [
+            "none",
+            "dedicated_helper",
+            "lighting",
+            "low_risk_switch"
+          ],
+          "title": "Write",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity_id",
+        "read"
+      ],
+      "title": "EntityPermission",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "entities": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/EntityPermission"
+      },
+      "maxItems": 2000,
+      "title": "Entities",
+      "type": "array"
+    }
+  },
+  "title": "Policy",
+  "type": "object"
+}

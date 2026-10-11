@@ -1,0 +1,11 @@
+{
+  "kind": "real_haos_kvm",
+  "haos_image": "18.3",
+  "core": "2026.10.1",
+  "supervisor": "2026.09.3",
+  "owner_verified": true,
+  "backup_completed_and_readback": true,
+  "duration_seconds": 303,
+  "cloud_login": "not_run",
+  "laptop_hardware": "not_run"
+}

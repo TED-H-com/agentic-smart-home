@@ -1,0 +1,52 @@
+name: Agentic Smart Home
+'on': [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  verify-and-package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Locked dependencies and UI
+        run: |
+          python -m pip install uv==0.11.20
+          uv sync --frozen
+          npm ci --prefix web
+          npm run build --prefix web
+          uv run playwright install --with-deps chromium
+      - name: Source and contract checks
+        run: |
+          uv run ruff check controller runner host scripts tests
+          uv run python scripts/contracts.py --check
+          uv run python scripts/validate_kit.py
+      - name: Build installable App images
+        run: |
+          uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner; package_runner()"
+          docker build -t agentic-home-controller:0.3.0 controller
+          docker build -t agentic-home-runner:0.3.0 runner
+          docker build -t agentic-home-linejs:0.3.0 host/linejs
+          docker pull ghcr.io/home-assistant/amd64-hassio-supervisor:2026.09.3
+      - name: Real Core, CLI containers and browser tests
+        run: |
+          mkdir -p "$HOME/agent-work/tmp/pytest"
+          agentic_ci_tmp=$(mktemp -d "$HOME/agent-work/tmp/pytest/agentic-home-XXXXXX")
+          trap 'rm -rf -- "$agentic_ci_tmp"' EXIT
+          uv run pytest -q --basetemp "$agentic_ci_tmp" --real-ha --containers --junitxml=evidence/pytest.xml
+      - name: Package
+        run: |
+          python3 scripts/build_host.py
+          uv run python scripts/package.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: agentic-home-0.3.0
+          retention-days: 7
+          path: |
+            dist/agentic-home-0.3.0-source.zip
+            evidence/

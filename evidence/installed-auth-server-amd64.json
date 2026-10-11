@@ -1,0 +1,17 @@
+{
+  "host_login": "passed",
+  "authenticated_host_api": "passed",
+  "automatic_runner_pairing": "passed",
+  "vm_observed": "running",
+  "providers": [
+    {
+      "provider": "codex",
+      "status": "needs_reauth"
+    },
+    {
+      "provider": "claude",
+      "status": "needs_reauth"
+    }
+  ],
+  "cloud_login": "not_run"
+}

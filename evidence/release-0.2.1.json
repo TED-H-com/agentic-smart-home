@@ -1,0 +1,76 @@
+{
+  "version": "0.2.1",
+  "recorded_at": "2026-10-11T08:39:22.597941+00:00",
+  "artifacts": {
+    "agentic-home-0.2.1-laptop-amd64.iso": {
+      "sha256": "cefe553b4fa13f9b12bce0c464ae5f1bff05d4d98c2dda158adbca0796b951dd",
+      "bytes": 4980277248
+    },
+    "agentic-home-0.2.1-linux-amd64.tar": {
+      "sha256": "3860ad98a7b6035927791364d47995b247c6931e2f1f4314ded5ffb8305e7db4",
+      "bytes": 900761600
+    },
+    "agentic-home-0.2.1-server-amd64.iso": {
+      "sha256": "24ab48a803df5dd4f2ff09dc67602c62b87e192be1934f821ee482f2578b969a",
+      "bytes": 4980277248
+    }
+  },
+  "regression": {
+    "passed": 63,
+    "skipped": 2,
+    "evidence": "pytest-0.2.1.xml",
+    "skipped_cases": "Full HAOS and Linux installation VM cases were not rerun for this UX update."
+  },
+  "final_ui_regression": {
+    "passed": 4,
+    "evidence": "ui-0.2.1.xml",
+    "overlaps_with_regression": true,
+    "viewports": [
+      1440,
+      768,
+      390
+    ],
+    "covers": [
+      "owner-connect session renewal",
+      "correct external HA settings links",
+      "pending official login resume",
+      "unsaved inventory edits",
+      "task/page URL persistence",
+      "expired login preserving unsent draft",
+      "stale 401 after re-login",
+      "bootstrap retry",
+      "host actions while HA is offline",
+      "proposal approval"
+    ]
+  },
+  "bundle_manifest_verified": true,
+  "bundled_image_ids_match_build_record": true,
+  "full_installation_evidence": {
+    "version": "0.2.0",
+    "release": "release-0.2.0.json",
+    "this_release_exact_iso_install_test": "not_run"
+  },
+  "runtime_changes_since_0_2_0": [
+    "controller/agentic_controller/__init__.py",
+    "controller/agentic_controller/app.py",
+    "controller/config.yaml",
+    "controller/static/assets/index-CQVcDU0d.css",
+    "controller/static/assets/index-CUU7z5iP.js",
+    "controller/static/assets/index-DkjYvjYO.css",
+    "controller/static/assets/index-H99fNha0.js",
+    "controller/static/index.html",
+    "host/agentic_host/__init__.py",
+    "host/compose.yaml",
+    "host/install.py",
+    "runner/agentic_runner/__init__.py",
+    "runner/config.yaml"
+  ],
+  "not_run": [
+    "physical laptop compatibility",
+    "real cloud provider login/inference",
+    "Alexa/Nest hardware",
+    "72-hour soak",
+    "Ubuntu 26.04 installation"
+  ],
+  "network": "NAT; LAN multicast discovery still requires manual bridge configuration"
+}

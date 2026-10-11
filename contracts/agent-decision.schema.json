@@ -1,0 +1,186 @@
+{
+  "$defs": {
+    "AutomationIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/DeviceAction"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Actions",
+          "type": "array"
+        },
+        "resource_id": {
+          "anyOf": [
+            {
+              "pattern": "^agentic_[a-f0-9]{32}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resource Id"
+        },
+        "time_window": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimeWindow"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "title": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "trigger": {
+          "$ref": "#/$defs/Trigger"
+        }
+      },
+      "required": [
+        "title",
+        "resource_id",
+        "trigger",
+        "time_window",
+        "actions"
+      ],
+      "title": "AutomationIntent",
+      "type": "object"
+    },
+    "DeviceAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "turn_on",
+            "turn_off"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "entity_id": {
+          "maxLength": 255,
+          "pattern": "^[a-z_]+\\.[a-z0-9_]+$",
+          "title": "Entity Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity_id",
+        "action"
+      ],
+      "title": "DeviceAction",
+      "type": "object"
+    },
+    "TimeWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "after": {
+          "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d$",
+          "title": "After",
+          "type": "string"
+        },
+        "before": {
+          "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d$",
+          "title": "Before",
+          "type": "string"
+        }
+      },
+      "required": [
+        "after",
+        "before"
+      ],
+      "title": "TimeWindow",
+      "type": "object"
+    },
+    "Trigger": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_id": {
+          "maxLength": 255,
+          "pattern": "^[a-z_]+\\.[a-z0-9_]+$",
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "from_state": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "From State",
+          "type": "string"
+        },
+        "to_state": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "To State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity_id",
+        "from_state",
+        "to_state"
+      ],
+      "title": "Trigger",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DeviceAction"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "automation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AutomationIntent"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "inspect_entities": {
+      "items": {
+        "maxLength": 255,
+        "pattern": "^[a-z_]+\\.[a-z0-9_]+$",
+        "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Inspect Entities",
+      "type": "array"
+    },
+    "message": {
+      "maxLength": 8000,
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "needs_user": {
+      "title": "Needs User",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "message",
+    "automation",
+    "action",
+    "inspect_entities",
+    "needs_user"
+  ],
+  "title": "Decision",
+  "type": "object"
+}

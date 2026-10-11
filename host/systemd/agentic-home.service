@@ -1,0 +1,17 @@
+[Unit]
+Description=Agentic Home external Controller and Agent Runner
+After=docker.service agentic-home-host.service
+Requires=docker.service
+Wants=agentic-home-host.service agentic-home-proxy.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+WorkingDirectory=/opt/agentic-home
+ExecStart=/usr/bin/docker compose -f host/compose.yaml up -d --wait
+ExecStop=/usr/bin/docker compose -f host/compose.yaml down
+TimeoutStartSec=300
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,17 @@
+{
+  "kind": "real_linux_install_nested_kvm",
+  "profile": "laptop-amd64",
+  "base": "Ubuntu 24.04.5",
+  "iso_sha256": "6acbeec825c5aeb64528618030389b8f7a2c9fd66260616a4aa04f08e6f6f593",
+  "installation": "passed",
+  "firstboot": "passed",
+  "haos_vm_running": true,
+  "outer_ui_with_haos_off": true,
+  "cold_snapshot_restore": "passed",
+  "outer_reboot_haos_autostart": "passed",
+  "duration_seconds": 1704,
+  "installer_inputs": "Disposable disk serial + ephemeral SSH key supplied by fixture",
+  "physical_laptop": "not_run",
+  "cloud_login": "not_run",
+  "ha_readiness_check": "HTTP 200 only; Core onboarding API is separately required by the updated test"
+}

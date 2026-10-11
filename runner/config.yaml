@@ -1,0 +1,28 @@
+name: Agentic Home Runner
+version: "0.3.0"
+slug: agentic_runner
+description: 隔離執行官方 Codex、Claude、Antigravity 與 Grok CLI，透過 Controller 管理
+arch: [amd64]
+startup: application
+boot: auto
+init: false
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:robot-outline
+panel_admin: true
+homeassistant_api: false
+hassio_api: false
+apparmor: true
+backup: cold
+backup_exclude:
+  - profiles/*
+  - work/*
+  - private/*
+stage: experimental
+options: {}
+schema: {}
+watchdog: http://[HOST]:8099/health
+ports:
+  8443/tcp: 8443
+ports_description:
+  8443/tcp: 外層 Linux Controller（TLS 指紋與一次性配對）

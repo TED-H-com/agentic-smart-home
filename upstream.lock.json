@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "resolved_at": "2026-10-11T04:12:40.387822+00:00",
+  "stable_channel": "https://raw.githubusercontent.com/home-assistant/version/master/stable.json",
+  "sources": [
+    {
+      "name": "haos",
+      "repository": "https://github.com/home-assistant/operating-system.git",
+      "ref": "18.3",
+      "commit": "b22f929d3bc8895f5cf84d13d71a24714b59eed4"
+    },
+    {
+      "name": "core",
+      "repository": "https://github.com/home-assistant/core.git",
+      "ref": "2026.10.1",
+      "commit": "abe1fdd7cd6b4de1715c87b6fd87d92699514ef9"
+    },
+    {
+      "name": "supervisor",
+      "repository": "https://github.com/home-assistant/supervisor.git",
+      "ref": "2026.09.3",
+      "commit": "64ea3be4322537fd5dcfbf620c4dc25490c1f56d"
+    },
+    {
+      "name": "codex",
+      "repository": "https://github.com/openai/codex.git",
+      "ref": "rust-v0.157.1",
+      "commit": "36650394c5b38c2990ccf2a3457165ca3e9d9726"
+    }
+  ],
+  "purpose": "reference only; original HAOS remains the appliance OS"
+}
