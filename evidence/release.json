@@ -1,10 +1,18 @@
 {
   "version": "0.3.0",
-  "recorded_at": "2026-10-11T21:13:03.467163+00:00",
+  "recorded_at": "2026-10-11T21:17:44.881511+00:00",
   "artifacts": {
     "agentic-home-0.3.0-linux-amd64.tar": {
       "sha256": "63c061282ec578f1fe953b0c2c5f84e4b12a782dc6720d55976c7a8f0c83908c",
       "bytes": 1148446720
+    },
+    "agentic-home-0.3.0-laptop-amd64.iso": {
+      "sha256": "89b3d52030b8755298373978a5340daff274f39667b6119c2052cbccb24ee80d",
+      "bytes": 5227937792
+    },
+    "agentic-home-0.3.0-server-amd64.iso": {
+      "sha256": "31dc2d02f2316792475289f9e8a1544bb7c5b36d9ae1167a5fc93b357c08e5db",
+      "bytes": 5227937792
     }
   },
   "regression": {
@@ -16,5 +24,7 @@
   "cloud_login": "not_run",
   "external_channel_messages": "not_run",
   "physical_hardware": "not_run",
-  "antigravity_subscription_login": "not_integrated"
+  "antigravity_subscription_login": "not_integrated",
+  "bundle_manifest": "90 files verified against BUNDLE.sha256.json",
+  "clean_frontend_install": "npm ci and production build passed; tinyglobby lock corrected"
 }
