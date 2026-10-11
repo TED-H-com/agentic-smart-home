@@ -39,6 +39,8 @@ class Store:
             CREATE TABLE IF NOT EXISTS events (
                 seq INTEGER PRIMARY KEY AUTOINCREMENT, task_id TEXT NOT NULL,
                 at TEXT NOT NULL, kind TEXT NOT NULL, body TEXT NOT NULL);
+            CREATE INDEX IF NOT EXISTS conversation_scope ON records (
+                json_extract(body, '$.scope'), created DESC) WHERE kind='conversation';
             PRAGMA user_version=1;
         """)
         path.chmod(0o600)
@@ -79,6 +81,16 @@ class Store:
             with self.db:
                 self.db.execute("INSERT INTO requests VALUES (?,?,?,?)", (scope, key, request_digest, result))
         return None
+
+    def conversation(self, *, id=None, scope=None):
+        """Respect context retention even before the periodic cleanup runs."""
+        days = self.setting("retention", {"context_days": 7})["context_days"]
+        cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+        clause, value = ("id=?", id) if id else ("json_extract(body, '$.scope')=?", scope)
+        row = self.db.execute(
+            f"SELECT body FROM records WHERE kind='conversation' AND {clause} AND created>=? "
+            "ORDER BY created DESC LIMIT 1", (value, cutoff)).fetchone()
+        return json.loads(row[0]) if row else None
 
     def event(self, task_id, kind, body):
         with self.db:

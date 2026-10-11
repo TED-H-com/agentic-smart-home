@@ -1,5 +1,5 @@
 name: Agentic Home Runner
-version: "0.3.0"
+version: "0.3.1"
 slug: agentic_runner
 description: 隔離執行官方 Codex、Claude、Antigravity 與 Grok CLI，透過 Controller 管理
 arch: [amd64]

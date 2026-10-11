@@ -59,6 +59,14 @@ class ChatInput(Strict):
     message: Annotated[str, Field(min_length=1, max_length=5000)]
     runtime: Runtime = "host"
     provider: Provider = "codex"
+    reply_to: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None = None
+    new_conversation: bool = False
+
+    @model_validator(mode="after")
+    def one_conversation(self):
+        if self.reply_to and self.new_conversation:
+            raise ValueError("新對話不能同時接續舊訊息")
+        return self
 
 
 class InnerPair(Strict):

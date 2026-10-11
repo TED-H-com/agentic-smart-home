@@ -1,7 +1,7 @@
 name: agentic-home
 services:
   linejs:
-    image: agentic-home-linejs:0.3.0
+    image: agentic-home-linejs:0.3.1
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -11,7 +11,7 @@ services:
     pids_limit: 64
     stop_grace_period: 20s
   runner:
-    image: agentic-home-runner:0.3.0
+    image: agentic-home-runner:0.3.1
     hostname: localhost
     network_mode: host
     restart: unless-stopped
@@ -26,7 +26,7 @@ services:
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8098/health',timeout=3)"]
   controller:
-    image: agentic-home-controller:0.3.0
+    image: agentic-home-controller:0.3.1
     network_mode: host
     restart: unless-stopped
     environment:

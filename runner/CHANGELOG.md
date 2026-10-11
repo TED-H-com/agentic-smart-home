@@ -1,3 +1,7 @@
+# 0.3.1
+
+與 Controller 0.3.1 同版封裝；CLI 版本與憑證隔離維持原設定。
+
 # 0.3.0
 
 外層 Web-first onboarding、統一 LINE／Discord／Telegram 通訊、獨立內外層 Runner 登入。新增 Antigravity 1.3.3 與 Grok Build 1.0.50；保留家庭提案批准與執行證據。

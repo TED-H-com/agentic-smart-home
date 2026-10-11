@@ -1,3 +1,4 @@
+import hashlib
 import json
 import threading
 from functools import partial
@@ -26,6 +27,8 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
     }
     login = {"status": "idle", "channels": []}
     messages = []
+    processed, request_keys = {}, []
+    drop_reply = {'next': False}
     calls = []
     errors = []
 
@@ -44,7 +47,7 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
                 "ha": {"status": "unavailable"},
                 "runner": {"protocol": 1, "providers": []},
                 "gateway": gateway,
-                "version": "0.3.0",
+                "version": "0.3.1",
             }
         elif path == "tasks":
             result = {"tasks": []}
@@ -68,10 +71,16 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
             result = gateway
         elif path == "gateway/messages":
             if body:
+                key = route.request.headers['idempotency-key']
+                request_keys.append(key)
+                if key in processed:
+                    route.fulfill(status=200, content_type='application/json', body=json.dumps(processed[key]))
+                    return
                 messages.insert(
                     0,
                     {
-                        "id": "fixture-chat",
+                        "id": hashlib.sha256(str(len(messages)).encode()).hexdigest(),
+                        "thread_id": messages[0]['thread_id'] if messages and body.get('reply_to') else hashlib.sha256(str(len(messages)).encode()).hexdigest(),
                         "source": "web",
                         **body,
                         "state": "succeeded",
@@ -80,6 +89,11 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
                     },
                 )
                 result = messages[0]
+                processed[key] = result
+                if drop_reply['next']:
+                    drop_reply['next'] = False
+                    route.abort('failed')
+                    return
             else:
                 result = {"messages": messages}
         elif path.startswith("runtimes/") and path.endswith("/auth"):
@@ -156,7 +170,39 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
             page.get_by_label("對話訊息").fill("HA 還沒啟動，也能問你嗎？")
             page.get_by_role("button", name="送出訊息", exact=True).click()
             page.get_by_text("外層 Linux 仍可使用（測試回覆）", exact=True).wait_for()
+            page.get_by_role("heading", name="接續這段對話", exact=True).wait_for()
+            first = messages[0]['id']
+            page.reload()
+            page.get_by_role("heading", name="接續這段對話", exact=True).wait_for()
+            page.get_by_label("對話訊息").fill("那要怎麼查看主機狀態？")
+            page.get_by_role("button", name="送出訊息", exact=True).click()
+            page.get_by_role("heading", name="那要怎麼查看主機狀態？", exact=True).wait_for()
+            assert calls[-1] == ('gateway/messages', {'message': '那要怎麼查看主機狀態？', 'runtime': 'host', 'provider': 'codex', 'reply_to': first})
+            saved = page.evaluate("sessionStorage.getItem('agentic-auth-conversations')")
+            assert json.loads(saved) == {'host-codex': messages[0]['id']}
+            page.get_by_label('執行環境', exact=True).select_option('haos')
+            page.get_by_role('heading', name='向 Agent 提問', exact=True).wait_for()
+            page.get_by_label('執行環境', exact=True).select_option('host')
+            page.get_by_role('heading', name='接續這段對話', exact=True).wait_for()
             screenshots(page, "gateway")
+            page.get_by_role('button', name='開始新對話', exact=True).click()
+            page.get_by_role('heading', name='向 Agent 提問', exact=True).wait_for()
+            page.get_by_label('對話訊息').fill('另一個問題')
+            page.get_by_role('button', name='送出訊息', exact=True).click()
+            page.get_by_role('heading', name='另一個問題', exact=True).wait_for()
+            assert calls[-1][1]['reply_to'] is None
+            page.locator('article.inbox-message').filter(has=page.get_by_role('heading', name='HA 還沒啟動，也能問你嗎？')).get_by_role('button', name='接續這段對話').click()
+            assert page.get_by_label('對話訊息').evaluate('(element) => element === document.activeElement')
+            assert json.loads(page.evaluate("sessionStorage.getItem('agentic-auth-conversations')"))['host-codex'] == first
+            drop_reply['next'] = True
+            count = len(messages)
+            page.get_by_label('對話訊息').fill('連線中斷後重試同一則需求')
+            page.get_by_role('button', name='送出訊息', exact=True).click()
+            page.get_by_role('alert').filter(has_text='尚未收到操作結果').wait_for()
+            assert page.get_by_label('對話訊息').input_value() == '連線中斷後重試同一則需求'
+            page.get_by_role('button', name='送出訊息', exact=True).click()
+            page.wait_for_function("document.getElementById('gateway-message').value === ''")
+            assert request_keys[-1] == request_keys[-2] and len(messages) == count + 1
             page.get_by_role("button", name="Agent 環境", exact=False).click()
             page.get_by_role("button", name="HAOS 內層 已配對").click()
             grok = page.locator("article.provider").filter(

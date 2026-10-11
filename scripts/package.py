@@ -7,7 +7,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 EXCLUDED = {"__pycache__", "node_modules", "test-results", ".pytest_cache", ".ruff_cache"}
 
 
@@ -21,11 +21,18 @@ def files(directory):
 def archive(path, entries):
     manifest = {}
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as output:
+        def write(name, data):
+            # Stable metadata keeps the downloadable Runner identical across image,
+            # bundle and source builds. Payload changes still change the manifest.
+            info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            info.create_system = 3
+            info.external_attr = 0o100644 << 16
+            output.writestr(info, data, compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
         for source, destination in entries:
             data = source.read_bytes()
-            output.writestr(destination, data)
+            write(destination, data)
             manifest[destination] = hashlib.sha256(data).hexdigest()
-        output.writestr("MANIFEST.sha256.json", json.dumps(manifest, sort_keys=True, indent=2) + "\n")
+        write("MANIFEST.sha256.json", json.dumps(manifest, sort_keys=True, indent=2) + "\n")
     print(f"{path.relative_to(ROOT)} · {path.stat().st_size:,} bytes · {len(manifest)} files")
 
 

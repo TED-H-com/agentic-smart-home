@@ -1,0 +1,10 @@
+{
+  "conclusion": "success",
+  "createdAt": "2026-10-11T21:22:03Z",
+  "headSha": "820982736639dcf3784e9fcea389c4c300abd037",
+  "status": "completed",
+  "updatedAt": "2026-10-11T21:26:59Z",
+  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38176067245",
+  "test_result": "80 passed, 2 skipped",
+  "skipped": "Large HAOS VM and Linux installation cases; hardware/cloud accounts not exercised"
+}

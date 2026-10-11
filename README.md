@@ -1,4 +1,4 @@
-# Agentic Smart Home · 0.3.0
+# Agentic Smart Home · 0.3.1
 
 從外層 Linux 開始的家庭 Agent。先啟動 Web onboarding、登入 Agent，再選擇 LINE、Discord 或 Telegram 作為通訊入口。Home Assistant OS 在受管理的 KVM 虛擬機裡執行，內外兩層各自擁有獨立的 Agent 登入。
 
@@ -27,7 +27,7 @@ Web（固定入口）＋ LINE（預設選項）／Discord／Telegram
 4. LINE 掃碼登入後，選擇聊天室並填入允許使用者；也可先只使用 Web。
 5. 內層 Runner 從本 repository 安裝為 HAOS App，與外層 Controller 配對，再獨立登入 CLI。
 
-Web 可選擇執行環境與 CLI；外部通道可用 `/host 需求` 或 `/home 需求` 指定外層／內層。不帶指令時使用 Web 設定的預設環境與 CLI。
+Web 可選擇執行環境與 CLI；外部通道可用 `/host 需求` 或 `/home 需求` 指定外層／內層。不帶指令時使用 Web 設定的預設環境與 CLI。對話可接續前文；Web 按「開始新對話」，外部通道傳 `/new 新需求` 即可重新開始。
 
 ## Agent 與通訊支援
 
@@ -52,14 +52,14 @@ npm ci --prefix web
 npm run build --prefix web
 uv run python scripts/contracts.py --check
 uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner; package_runner()"
-docker build -t agentic-home-controller:0.3.0 controller
-docker build -t agentic-home-runner:0.3.0 runner
-docker build -t agentic-home-linejs:0.3.0 host/linejs
+docker build -t agentic-home-controller:0.3.1 controller
+docker build -t agentic-home-runner:0.3.1 runner
+docker build -t agentic-home-linejs:0.3.1 host/linejs
 python3 scripts/build_host.py
 uv run python scripts/package.py
 ```
 
-`dist/` 產生 `agentic-home-0.3.0-linux-amd64.tar`、source ZIP 與 SHA256SUMS。內部服務名稱保留 `agentic-home`，避免改變既有資料路徑。原始碼公開於本 repo；大型安裝媒體由上述命令建置，不存入 Git。
+`dist/` 產生 `agentic-home-0.3.1-linux-amd64.tar`、source ZIP 與 SHA256SUMS。內部服務名稱保留 `agentic-home`，避免改變既有資料路徑。原始碼公開於本 repo；大型安裝媒體由上述命令建置，不存入 Git。
 
 需要可開機安裝媒體時：
 

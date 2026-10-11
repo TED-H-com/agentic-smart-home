@@ -1,4 +1,4 @@
-# Agentic Smart Home 實作規格 0.3.0
+# Agentic Smart Home 實作規格 0.3.1
 
 ## 0.3 統一通訊
 

@@ -8,8 +8,8 @@ import aiohttp
 import httpx
 import pytest
 from agentic_controller.app import create_app
-from agentic_controller.models import ChannelConfig
-from agentic_controller.runner import Runner
+from agentic_controller.models import ChannelConfig, ChatInput, canonical
+from agentic_controller.runner import Runner, RunnerError
 from conftest import TARGET
 from fastapi import HTTPException
 
@@ -53,6 +53,201 @@ async def system(store, ha, tmp_path, monkeypatch):
 
 async def drain(app):
     await asyncio.gather(*list(app.state.running.values()))
+
+
+def context(job):
+    return json.loads(job['prompt'].rsplit('\n', 1)[1])
+
+
+async def send(client, text, key, **fields):
+    return await client.post('/api/gateway/messages', json={'message': text, **fields},
+                             headers={'Idempotency-Key': key})
+
+
+async def test_followups_wait_for_parent_and_keep_idempotency(system):
+    app, client, outer, _ = system
+    started, release = asyncio.Event(), asyncio.Event()
+    async def run(job):
+        outer.jobs.append(job)
+        if len(outer.jobs) == 1:
+            started.set()
+            await release.wait()
+            return {'message': '你想查看哪個執行環境？', 'needs_user': True}
+        return {'message': '外層 Linux 的說明'}
+    outer.run = run
+    first = (await send(client, '說明一下', 'first')).json()
+    await started.wait()
+    response = await send(client, '外層', 'second', reply_to=first['id'])
+    second = response.json()
+    assert response.status_code == 202 and second['thread_id'] == first['id']
+    await asyncio.sleep(0)
+    assert len(outer.jobs) == 1
+    release.set()
+    await drain(app)
+    assert context(outer.jobs[1])['conversation']['turns'] == [
+        {'request': '說明一下', 'answer': '你想查看哪個執行環境？', 'state': 'awaiting_user'}]
+    assert (await send(client, '外層', 'second', reply_to=first['id'])).json()['id'] == second['id']
+    assert (await send(client, '其他', 'second', reply_to=first['id'])).status_code == 409
+    assert len(outer.jobs) == 2
+    await send(client, '重新開始', 'third')
+    await drain(app)
+    assert context(outer.jobs[-1])['conversation']['turns'] == []
+    items = (await client.get('/api/gateway/messages')).json()['messages']
+    assert all('scope' not in item and 'request_digest' not in item for item in [first, second, *items])
+
+
+@pytest.mark.parametrize('change', [{'provider':'grok'}, {'runtime':'haos'}])
+async def test_web_cannot_attach_another_agent_context(system, change):
+    app, client, _, _ = system
+    first = (await send(client, 'private host question', 'first')).json()
+    await drain(app)
+    assert (await send(client, 'continue', 'second', reply_to=first['id'], **change)).status_code == 409
+    assert (await send(client, 'continue', 'invalid', reply_to='invalid')).status_code == 422
+    assert (await send(client, 'continue', 'both', reply_to=first['id'], new_conversation=True)).status_code == 422
+
+
+async def test_external_context_is_scoped_to_channel_audience_sender_and_agent(system, store):
+    app, client, outer, inner = system
+    gateway = app.state.gateway
+    store.set_setting('owner', 'owner')
+    client.headers['X-Agentic-CSRF'] = (await client.get('/api/session')).json()['csrf']
+    config = ChannelConfig(enabled=True, secret='fixture-private-token', chats=['room', 'other'], senders=['alice', 'bob']).model_dump()
+    for name in ('telegram', 'discord'):
+        store.set_setting('channel_' + name, config)
+    def submit(event, source='telegram', chat='room', sender='alice', **fields):
+        return gateway.submit(ChatInput(message=event, **fields), source, chat, sender, event, config=gateway.config(source))
+    first = submit('private question')
+    await drain(app)
+    second = submit('follow up')
+    await drain(app)
+    assert second['reply_to'] == first['id']
+    assert context(outer.jobs[-1])['conversation']['turns'][0]['request'] == 'private question'
+    for i, fields in enumerate(({'source':'discord'}, {'chat':'other'}, {'sender':'bob'}, {'provider':'grok'}, {'runtime':'haos'})):
+        item = submit('isolated-' + str(i), **fields)
+        await drain(app)
+        assert item['reply_to'] is None
+        assert context((inner.jobs if fields.get('runtime') == 'haos' else outer.jobs)[-1])['conversation']['turns'] == []
+    assert 'fixture-private-token' not in ''.join(job['prompt'] for job in outer.jobs + inner.jobs)
+    reset = submit('fresh question', new_conversation=True)
+    await drain(app)
+    assert reset['thread_id'] == reset['id'] and reset['reply_to'] is None
+    assert submit('fresh question', new_conversation=True)['id'] == reset['id']
+    assert submit('after reset')['reply_to'] == reset['id']
+    await drain(app)
+    store.set_setting('channel_telegram', {**config, 'secret': 'rotated-fixture-token'})
+    rotated = submit('after rotation')
+    await drain(app)
+    assert rotated['reply_to'] is None
+    assert (await send(client, 'Web cannot inherit an external chat', 'web', reply_to=rotated['id'])).status_code == 409
+
+
+async def test_home_followup_uses_fresh_observations_and_still_requires_approval(system, store, ha):
+    app, client, _, inner = system
+    store.set_setting('owner', 'owner')
+    client.headers['X-Agentic-CSRF'] = (await client.get('/api/session')).json()['csrf']
+    inner.answer = {'message': '要操作哪盞燈？', 'needs_user': True}
+    first = (await send(client, '打開燈', 'first', runtime='haos')).json()
+    await drain(app)
+    first_task = store.get('conversation', first['id'])['task_id']
+    ha.states[TARGET] = 'on'
+    inner.answer = {'message':'提出操作', 'action':{'entity_id': TARGET, 'action':'turn_off'}}
+    second = (await send(client, '測試燈，改為關閉', 'second', runtime='haos', reply_to=first['id'])).json()
+    await drain(app)
+    data = context(inner.jobs[-1])
+    assert data['conversation']['turns'][0]['answer'] == '要操作哪盞燈？'
+    assert next(e for e in data['observations'] if e['entity_id'] == TARGET)['state'] == 'on'
+    item = store.get('conversation', second['id'])
+    assert item['state'] == 'awaiting_approval' and not ha.writes and not ha.calls
+    assert store.get('task', first_task)['continued_by'] == item['task_id']
+    await send(client, '好，同意', 'third', runtime='haos', reply_to=second['id'])
+    await drain(app)
+    assert not ha.writes and not ha.calls and not store.list('approval')
+    store.set_setting('policy', {'entities': []})
+    assert (await send(client, '繼續', 'revoked', runtime='haos', reply_to=second['id'])).status_code == 409
+
+
+async def test_queued_message_rechecks_permissions_before_disclosing_context(system, store):
+    app, _, _, inner = system
+    store.set_setting('owner', 'owner')
+    item = app.state.gateway.submit(ChatInput(message='private question', runtime='haos'), 'web', 'owner', 'owner', 'first')
+    store.set_setting('policy', {'entities': []})
+    await drain(app)
+    assert not inner.jobs and store.get('conversation', item['id'])['state'] == 'failed'
+
+
+async def test_history_is_bounded_and_retention_applies_before_cleanup(system, store):
+    app, client, outer, _ = system
+    previous = None
+    for i in range(8):
+        result = (await send(client, f'message {i}', str(i), reply_to=previous)).json()
+        previous = result['id']
+        await drain(app)
+    history = context(outer.jobs[-1])['conversation']
+    assert [turn['request'] for turn in history['turns']] == [f'message {i}' for i in range(1, 7)]
+    assert history['truncated']
+    outer.answer = {'message': '測試' * 2000}
+    result = (await send(client, '測試' * 2000, 'large', reply_to=previous)).json()
+    await drain(app)
+    await send(client, '接續', 'bounded', reply_to=result['id'])
+    await drain(app)
+    history = context(outer.jobs[-1])['conversation']
+    assert len(canonical(history).encode()) <= 8192 and history['truncated']
+    assert all(len(turn[key].encode()) <= 2048 for turn in history['turns'] for key in ('request', 'answer'))
+    assert history['turns'][-1]['request'].endswith('…')
+    with store.db:
+        store.db.execute("UPDATE records SET created='2000-01-01' WHERE kind='conversation'")
+    assert store.get('conversation', previous)  # Periodic pruning has not run yet.
+    assert (await send(client, 'expired', 'expired', reply_to=previous)).status_code == 409
+    store.prune()
+    assert (await send(client, 'message 0', '0', reply_to=None)).status_code == 410
+
+
+async def test_cancelling_a_queued_followup_does_not_cancel_its_parent(system, store):
+    app, client, outer, _ = system
+    started, release = asyncio.Event(), asyncio.Event()
+    async def run(job):
+        outer.jobs.append(job)
+        started.set()
+        await release.wait()
+        return {'message': 'finished'}
+    outer.run = run
+    first = (await send(client, 'parent', 'first')).json()
+    await started.wait()
+    second = (await send(client, 'child', 'second', reply_to=first['id'])).json()
+    await asyncio.sleep(0)
+    pending = app.state.running['chat-' + second['id']]
+    pending.cancel()
+    await asyncio.gather(pending, return_exceptions=True)
+    release.set()
+    await drain(app)
+    assert store.get('conversation', first['id'])['state'] == 'succeeded'
+    assert store.get('conversation', second['id'])['state'] == 'interrupted'
+    assert len(outer.jobs) == 1
+
+
+async def test_failed_parent_stops_followup_and_completed_threads_survive_restart(system, store):
+    app, client, outer, _ = system
+    first = (await send(client, 'keep this context', 'first')).json()
+    await drain(app)
+    await app.state.gateway.start()
+    await send(client, 'after restart', 'second', reply_to=first['id'])
+    await drain(app)
+    assert context(outer.jobs[-1])['conversation']['turns'][0]['request'] == 'keep this context'
+    started, release = asyncio.Event(), asyncio.Event()
+    async def fail(job):
+        outer.jobs.append(job)
+        started.set()
+        await release.wait()
+        raise RunnerError('fixture failure')
+    outer.run = fail
+    third = (await send(client, 'failing parent', 'third')).json()
+    await started.wait()
+    child = (await send(client, 'waiting child', 'child', reply_to=third['id'])).json()
+    release.set()
+    await drain(app)
+    assert len(outer.jobs) == 3
+    assert store.get('conversation', child['id'])['state'] == 'failed'
+    assert '前一則訊息未完成' in store.get('conversation', child['id'])['answer']
 
 
 async def test_web_onboarding_and_chat_are_independent_of_ha(system, ha, store):
@@ -145,10 +340,20 @@ async def test_channel_filters_deduplicates_and_routes_back_to_same_conversation
     assert len(outer.jobs) == 1 and not inner.jobs and sent == [('room','host reply')]
     item=store.list('conversation')[0]
     assert item['source'] == 'telegram' and item['delivery'] == 'sent'
+    await receive_handler('new', 'room', 'owner', '/host /new fresh conversation')
+    await drain(app)
+    reset = store.list('conversation')[0]
+    assert reset['message'] == 'fresh conversation' and reset['reply_to'] is None
+    assert context(outer.jobs[-1])['conversation']['turns'] == []
+    await receive_handler('follow', 'room', 'owner', 'follow up')
+    await drain(app)
+    assert store.list('conversation')[0]['reply_to'] == reset['id']
+    assert context(outer.jobs[-1])['conversation']['turns'][0]['request'] == 'fresh conversation'
+    sent_count = len(sent)
     await receive_handler('4','room','owner','response must not reach changed audience')
     store.set_setting('channel_telegram',{**config,'senders':['someone-else']})
     await drain(app)
-    assert len(sent) == 1 and store.list('conversation')[0]['delivery'] == 'not_sent'
+    assert len(sent) == sent_count and store.list('conversation')[0]['delivery'] == 'not_sent'
 
 
 async def test_restart_marks_incomplete_messages_and_does_not_replay(system, store):

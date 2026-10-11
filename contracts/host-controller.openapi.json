@@ -104,6 +104,11 @@
             "title": "Message",
             "type": "string"
           },
+          "new_conversation": {
+            "default": false,
+            "title": "New Conversation",
+            "type": "boolean"
+          },
           "provider": {
             "default": "codex",
             "enum": [
@@ -114,6 +119,18 @@
             ],
             "title": "Provider",
             "type": "string"
+          },
+          "reply_to": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply To"
           },
           "runtime": {
             "default": "host",

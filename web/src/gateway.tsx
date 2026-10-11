@@ -1,6 +1,6 @@
-import {useCallback,useEffect,useState} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 import QRCode from 'qrcode';
-import {api,haPath,haTarget} from './api';
+import {api,haPath,haTarget,requestKey} from './api';
 import {Button,Notice,Status,Empty,timestamp} from './ui';
 import {Provider} from './providers';
 import {HostPanel} from './host';
@@ -49,15 +49,39 @@ function ChannelSettings({onChange}:{onChange?:()=>void}){
   </section>
 }
 
+const conversationKey='agentic-auth-conversations';
+const continuable=new Set(['queued','planning','awaiting_user','awaiting_approval','succeeded']);
+function savedConversations():Record<string,string>{
+  try{const value=JSON.parse(sessionStorage.getItem(conversationKey)||'{}');return Object.fromEntries(Object.entries(value).filter(([key,id])=>/^(host|haos)-(codex|claude|agy|grok)$/.test(key)&&typeof id==='string'&&/^[a-f0-9]{64}$/.test(id))) as Record<string,string>}catch{return {}}
+}
 export function GatewayPanel(){
   const [data,setData]=useState<any>(null),[messages,setMessages]=useState<any[]>([]),[draft,setDraft]=useState(''),[runtime,setRuntime]=useState<Runtime>('host'),[provider,setProvider]=useState('codex'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[settings,setSettings]=useState(false);
-  const refresh=useCallback(async()=>{const [g,m]=await Promise.all([api('gateway'),api('gateway/messages')]);setData(g);setMessages(m.messages)},[]);
+  const [replies,setReplies]=useState(savedConversations),[loaded,setLoaded]=useState(false);
+  const pending=useRef<{body:string;key:string}|null>(null);
+  const scope=`${runtime}-${provider}`,replyId=replies[scope];
+  const active=messages.find(m=>m.id===replyId&&m.source==='web'&&m.runtime===runtime&&m.provider===provider&&continuable.has(m.state));
+  const refresh=useCallback(async()=>{const [g,m]=await Promise.all([api('gateway'),api('gateway/messages')]);setData(g);setMessages(m.messages);setLoaded(true)},[]);
   useEffect(()=>{api('gateway').then(g=>{setRuntime(g.preferences.runtime);setProvider(g.preferences.provider)}).catch(e=>setError(e.message));refresh().catch(e=>setError(e.message));const timer=setInterval(()=>refresh().catch(e=>setError(e.message)),3000);return()=>clearInterval(timer)},[refresh]);
-  async function submit(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await api('gateway/messages',{message:draft,runtime,provider});setDraft('');await refresh()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+  useEffect(()=>{try{sessionStorage.setItem(conversationKey,JSON.stringify(replies))}catch{/* Conversation works in memory when storage is unavailable. */}},[replies]);
+  function startNew(){setReplies(previous=>{const next={...previous};delete next[scope];return next});setError('');pending.current=null}
+  function continueFrom(message:any){setRuntime(message.runtime);setProvider(message.provider);setReplies(previous=>({...previous,[`${message.runtime}-${message.provider}`]:message.id}));setError('');document.getElementById('gateway-message')?.focus()}
+  async function submit(e:React.FormEvent){
+    e.preventDefault();if(busy||!loaded||(replyId&&!active))return;
+    setBusy(true);setError('');
+    const body={message:draft,runtime,provider,reply_to:active?.id||null},serialized=JSON.stringify(body);
+    if(pending.current?.body!==serialized)pending.current={body:serialized,key:requestKey()};
+    try{const result=await api('gateway/messages',body,false,pending.current!.key);setReplies(previous=>({...previous,[scope]:result.id}));setMessages(previous=>[result,...previous.filter(m=>m.id!==result.id)]);setDraft('');pending.current=null;await refresh()}
+    catch(e){setError((e as Error).message)}finally{setBusy(false)}
+  }
   return <><div className="section-intro"><p>同一個入口，連接外層 Linux 與 HAOS 裡的 Agent。</p><Button secondary aria-expanded={settings} onClick={()=>setSettings(!settings)}>{settings?'收起通訊設定':'管理通訊入口'}</Button></div>{settings&&<ChannelSettings onChange={refresh}/>}{error&&<Notice error>{error}</Notice>}
-    <div className="gateway-layout"><section><form className="composer" onSubmit={submit}><div className="section-heading"><h2>向 Agent 提問</h2><span className="eyebrow">WEB</span></div><label className="sr-only" htmlFor="gateway-message">對話訊息</label><textarea id="gateway-message" required maxLength={5000} rows={4} value={draft} onChange={e=>setDraft(e.target.value)} placeholder="例如：這台主機目前的狀態如何？"/><div className="composer-controls"><label>執行環境<select value={runtime} onChange={e=>setRuntime(e.target.value as Runtime)}><option value="host">外層 Linux</option><option value="haos">HAOS 內層</option></select></label><label>Agent<select value={provider} onChange={e=>setProvider(e.target.value)}>{['codex','claude','agy','grok'].map(id=><option key={id} value={id}>{names[id]}</option>)}</select></label><Button type="submit" disabled={busy||!draft.trim()}>{busy?'送出中…':'送出訊息'}</Button></div></form>
-    <div className="section-heading inbox-heading"><h2>最近對話</h2><span className="subtle">Web 與已連接的通道</span></div>{!messages.length?<Empty title="從 Web 開始第一段對話">外層 Agent 登入後即可使用，Home Assistant 可以稍後連接。</Empty>:<div className="inbox">{messages.map(m=><article key={m.id} className="inbox-message"><div className="section-heading"><span className="eyebrow">{names[m.source]} · {names[m.runtime]} · {names[m.provider]}</span><time>{timestamp(m.created_at)}</time></div><h3>{m.message}</h3><p>{m.answer||'Agent 正在處理…'}</p><div className="row-actions"><Status value={m.state}/>{m.task_id&&<a href={`#home/${m.task_id}`}>查看家庭提案 →</a>}{m.delivery==='unconfirmed'&&<small>通道送達尚未確認；回覆保留於此。</small>}</div></article>)}</div>}</section>
-    <aside className="gateway-summary"><h2>通訊狀態</h2><dl><div><dt>Web</dt><dd>已連線</dd></div>{data?.channels.map((c:any)=><div key={c.id}><dt>{names[c.id]}</dt><dd>{connection[c.status]||c.status}</dd></div>)}</dl><h3>外部訊息的預設 Agent</h3><p className="helper-text">不帶指令的訊息依此設定處理。使用 <code>/host</code> 或 <code>/home</code> 可指定外層或內層。</p>{data&&<form onSubmit={async e=>{e.preventDefault();try{await api('gateway/preferences',{...data.preferences,runtime,provider});await refresh()}catch(e){setError((e as Error).message)}}}><p>{names[runtime]} · {names[provider]}</p><Button secondary type="submit">將上方選擇設為預設</Button></form>}<a className="external-link" href="#agents">管理兩層 Agent 登入 →</a></aside></div></>
+    <div className="gateway-layout"><section><form className="composer" onSubmit={submit}>
+      <div className="section-heading"><h2>{active?'接續這段對話':'向 Agent 提問'}</h2><span className="eyebrow">WEB</span></div>
+      <div className="conversation-context" aria-live="polite"><p>{active?<>接續：<span>{active.message}</span></>:replyId&&loaded?'這段對話已不可用，請開始新對話。':'新對話 · 直接描述你想做的事'}</p>{replyId&&<Button secondary type="button" disabled={busy} onClick={startNew}>開始新對話</Button>}</div>
+      <label className="sr-only" htmlFor="gateway-message">對話訊息</label><textarea id="gateway-message" required disabled={busy} maxLength={5000} rows={4} value={draft} onChange={e=>setDraft(e.target.value)} placeholder={active?'補充細節，或繼續問這件事…':'例如：這台主機目前的狀態如何？'}/>
+      <div className="composer-controls"><label>執行環境<select aria-label="執行環境" disabled={busy} value={runtime} onChange={e=>setRuntime(e.target.value as Runtime)}><option value="host">外層 Linux</option><option value="haos">HAOS 內層</option></select></label><label>Agent<select aria-label="Agent" disabled={busy} value={provider} onChange={e=>setProvider(e.target.value)}>{['codex','claude','agy','grok'].map(id=><option key={id} value={id}>{names[id]}</option>)}</select></label><Button type="submit" disabled={busy||!loaded||!draft.trim()||!!(replyId&&!active)}>{busy?'送出中…':'送出訊息'}</Button></div>
+    </form>
+    <div className="section-heading inbox-heading"><h2>最近對話</h2><span className="subtle">Web 與已連接的通道</span></div>{!messages.length?<Empty title="從 Web 開始第一段對話">外層 Agent 登入後即可使用，Home Assistant 可以稍後連接。</Empty>:<div className="inbox">{messages.map(m=><article key={m.id} className="inbox-message"><div className="section-heading"><span className="eyebrow">{names[m.source]} · {names[m.runtime]} · {names[m.provider]}</span><time>{timestamp(m.created_at)}</time></div><h3>{m.message}</h3><p>{m.answer||'Agent 正在處理…'}</p><div className="row-actions"><Status value={m.state}/>{m.source==='web'&&m.thread_id&&continuable.has(m.state)&&<Button secondary disabled={busy||active?.id===m.id} onClick={()=>continueFrom(m)}>{active?.id===m.id?'目前對話':'接續這段對話'}</Button>}{m.task_id&&<a href={`#home/${m.task_id}`}>查看家庭任務 →</a>}{m.delivery==='unconfirmed'&&<small>通道送達尚未確認；回覆保留於此。</small>}</div>{m.context_truncated&&<p className="helper-text">較早的前文已省略；重要條件請再補充。</p>}</article>)}</div>}</section>
+    <aside className="gateway-summary"><h2>通訊狀態</h2><dl><div><dt>Web</dt><dd>已連線</dd></div>{data?.channels.map((c:any)=><div key={c.id}><dt>{names[c.id]}</dt><dd>{connection[c.status]||c.status}</dd></div>)}</dl><h3>外部訊息的預設 Agent</h3><p className="helper-text">同一聊天室、同一使用者會接續前文。使用 <code>/new 需求</code> 開始新對話，或以 <code>/host</code>、<code>/home</code> 指定外層或內層。</p>{data&&<form onSubmit={async e=>{e.preventDefault();try{await api('gateway/preferences',{...data.preferences,runtime,provider});await refresh()}catch(e){setError((e as Error).message)}}}><p>{names[runtime]} · {names[provider]}</p><Button secondary type="submit">將上方選擇設為預設</Button></form>}<a className="external-link" href="#agents">管理兩層 Agent 登入 →</a></aside></div></>
 }
 
 export function Onboarding({status,onChange,navigate}:{status:any;onChange:()=>void;navigate:(view:View)=>void}){

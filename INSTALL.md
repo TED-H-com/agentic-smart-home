@@ -2,11 +2,11 @@
 
 產品從外層 Linux 開始。你可以使用 Linux 桌面、瀏覽器與終端；Agentic Home 在外層運行，自動建立內層 HAOS，不必先手動安裝 HAOS 或兩個 HA Apps。
 
-本版安裝媒體可依 [README 建置步驟](README.md) 產生；Git repository 不包含大型 TAR／ISO。0.3.0 沒有重跑完整 Linux 重灌驗證，歷史平台證據見 [驗證紀錄](docs/VERIFICATION.md)。
+本版安裝媒體可依 [README 建置步驟](README.md) 產生；Git repository 不包含大型 TAR／ISO。0.3.1 沒有重跑完整 Linux 重灌驗證，歷史平台證據見 [驗證紀錄](docs/VERIFICATION.md)。
 
 ## A. 整台重灌
 
-1. 取得 `agentic-home-0.3.0-laptop-amd64.iso` 與 `SHA256SUMS`，比對 SHA-256。
+1. 取得 `agentic-home-0.3.1-laptop-amd64.iso` 與 `SHA256SUMS`，比對 SHA-256。
 2. 備份筆電資料，用 Rufus／Etcher 將 ISO 寫入 USB。這會清除選中的 USB；後續安裝器選中的系統磁碟也會重新分割。
 3. Intel／AMD x86-64 電腦使用 UEFI，開啟 VT-x／AMD-V，從 USB 開機。建議 16 GB RAM／128 GB SSD；profile 要求約 8 GB RAM，安裝時需要網路。
 4. 選 **Install Agentic Home Linux**，在官方 Ubuntu 安裝器設定網路、目標磁碟與 Linux 帳號。沒有預設密碼；請確認選中要重灌的磁碟。
@@ -30,7 +30,7 @@
 
 ## B. 無桌面主機
 
-使用 `agentic-home-0.3.0-server-amd64.iso`；步驟相同，省略桌面套件。從另一台電腦連線：
+使用 `agentic-home-0.3.1-server-amd64.iso`；步驟相同，省略桌面套件。從另一台電腦連線：
 
 ```bash
 ssh -L 8099:127.0.0.1:8099 -L 8123:127.0.0.1:8123 your-user@your-host
@@ -44,7 +44,7 @@ sudo agentic-home access-key
 保留既有磁碟分割，安裝系統套件、服務、產品資料及 KVM VM。在要部署的主機執行：
 
 ```bash
-tar -xf agentic-home-0.3.0-linux-amd64.tar
+tar -xf agentic-home-0.3.1-linux-amd64.tar
 cd agentic-home
 python3 host/install.py --profile laptop-amd64
 sudo python3 host/install.py --profile laptop-amd64 --apply

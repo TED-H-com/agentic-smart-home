@@ -177,7 +177,7 @@ asyncio.run(main())
     subprocess.run(["docker", "compose", "-f", str(TARGET / "host/compose.yaml"), "exec", "-T", "-u", "1000:1000",
                     "controller", "python", "-c", script], input=json.dumps(payload), text=True, check=True)
     run("/usr/local/bin/agentic-home", "provision")
-    atomic(STATE / "installed.json", {"version": "0.3.0", "profile": profile["id"], "installed_at": time.time()})
+    atomic(STATE / "installed.json", {"version": "0.3.1", "profile": profile["id"], "installed_at": time.time()})
     print("Agentic Home installed. Open http://localhost:8099; view local login key: sudo agentic-home access-key")
     if profile["desktop"]:
         run("systemctl", "start", "gdm3")

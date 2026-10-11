@@ -24,7 +24,7 @@ uv run pytest -q --basetemp "$agentic_test_tmp"
 | Core | `pytest-disktmp uv run pytest -q tests/test_real_ha.py --real-ha` | 真官方 Core；只有 Supervisor backup、Agent intent 使用 fixture |
 | Runner／Supervisor package | `pytest-disktmp uv run pytest -q tests/test_container.py --containers` | 真 CLI、TLS、Unix UID、官方 schema／backup filter；模型回應為本機協定 fixture |
 
-容器測試先建置 `agentic-home-controller:0.3.0`、`agentic-home-runner:0.3.0`、`agentic-home-linejs:0.3.0`；需要官方 `ghcr.io/home-assistant/amd64-hassio-supervisor:2026.09.3` image。Core 測試自行取得 2026.10.1 image。不讀開發機的 provider credentials，不呼叫付費 inference。
+容器測試先建置 `agentic-home-controller:0.3.1`、`agentic-home-runner:0.3.1`、`agentic-home-linejs:0.3.1`；需要官方 `ghcr.io/home-assistant/amd64-hassio-supervisor:2026.09.3` image。Core 測試自行取得 2026.10.1 image。不讀開發機的 provider credentials，不呼叫付費 inference。
 
 `tests/container_probe.py` 僅由測試容器執行，正式映像沒有它。它將官方 CLI 連到本機 fixture，查驗 Codex 工具清單為空、Claude 只提供 StructuredOutput，並檢查真實 normalized output。
 

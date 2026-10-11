@@ -1,3 +1,7 @@
+# 0.3.1
+
+統一窗口接續對話、Web 開始新對話與重試去重、外部 /new 指令。限制前文大小與保存期限，隔離不同聊天室／使用者／Agent／家庭權限；家庭提案仍須批准。
+
 # 0.3.0
 
 外層 Web-first onboarding、統一 LINE／Discord／Telegram 通訊、獨立內外層 Runner 登入。新增 Antigravity 1.3.3 與 Grok Build 1.0.50；保留家庭提案批准與執行證據。
