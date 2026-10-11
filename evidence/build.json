@@ -1,19 +1,21 @@
 {
   "version": "0.3.0",
-  "built_at": "2026-10-11T21:12:14.232053+00:00",
+  "built_at": "2026-10-11T21:24:11.381717+00:00",
   "platform": "linux/amd64",
   "images": {
     "controller": {
       "local_tag": "agentic-home-controller:0.3.0",
-      "id": "sha256:ae6bae5a519370f787d1af3b023bf071efc5ca3ea60a7513e9ecc657c88913ef",
+      "id": "sha256:a3abb6fafcc4a3e38e32d2969cd0aa16aec909e31406d302efa40ce3caf98b36",
       "architecture": "amd64",
-      "size_bytes": 257743395
+      "size_bytes": 258375427,
+      "cryptography": "50.0.2"
     },
     "runner": {
       "local_tag": "agentic-home-runner:0.3.0",
-      "id": "sha256:5b6781f667df5b055e0b0857502f4d1d26c3309d949e9dab35cc70a368625cad",
+      "id": "sha256:b5024de628ee3e0f6bc86f88c4db00450bf06e877fbb7a8d1c509459421db805",
       "architecture": "amd64",
-      "size_bytes": 1986524651
+      "size_bytes": 1987156678,
+      "cryptography": "50.0.2"
     },
     "linejs": {
       "local_tag": "agentic-home-linejs:0.3.0",
@@ -39,11 +41,11 @@
     "controller/agentic_controller/runner.py": "f564cd541ded2ab3ca21fbda8cd64b3c938230a5f690ab2c93d5195128b6b1c8",
     "controller/agentic_controller/store.py": "8f355dc9448aa44d0cfe012e187f1c35c0a005d99b74a2cd7b0151358a923efa",
     "controller/config.yaml": "aca8a5d26d49bd290a88949789b24d1ffe9b14ee28dfa8722bdcc59af63d8aa8",
-    "controller/requirements.txt": "178fd5a21fdb1d65b9d6d04c38457c25e6cf6376302e8304d90d85e62f03c03a",
+    "controller/requirements.txt": "370a4907ffce372d60aebc5bfa83b372fa07a767849c3034e01e5decd9413818",
     "controller/start.py": "06f74433bf07708edd7ee7ca0a1fa8d1cfb481154e6cd6731d82147c52f1add1",
     "controller/static/assets/index-CoApa8Cz.css": "d414ec147fcf1779fe95a94b52c0d657ebbfd2d00a4af5867ab1625bfd2ba1da",
     "controller/static/assets/index-ywoSTszm.js": "e8e070016e0479e2cb1160d14c324b93245bc79f16683a2301c263caf9bfc713",
-    "controller/static/downloads/agentic-runner.zip": "abda8805c12ea733c041557be68054020668e72f770c8aa9d5b507868b2a6cee",
+    "controller/static/downloads/agentic-runner.zip": "91717d19dc310e5fc25ceee8dcbede0ccac4a5235e1d46f6dc51797b3fd9a0bf",
     "controller/static/index.html": "eb8729a5baf2cb25d6aeaef29f01589c31dad5edb6d5989f1a55edbc1907b8c1",
     "runner/.dockerignore": "7a36af6322a4919bb510899b46139218b4cbf5d72e53df8336b7451854c08587",
     "runner/CHANGELOG.md": "e77ea019e625573bfc96449923c1c829ea0d10f1a715ddc9a77094915a1f2ad9",
@@ -60,7 +62,7 @@
     "runner/fetch_agy.py": "88972053a3cc7b0624e1c128660443584d4a517102e4d45cbd376f5d9f5e9a39",
     "runner/package-lock.json": "fe7b8b1d0cca68a0dc9352542d50c82f1b5196029c21044f415f728da65eba0b",
     "runner/package.json": "64aee172d48001c161640e7fc2b7851c146d582a950b3e002681b79d98dc6b94",
-    "runner/requirements.txt": "178fd5a21fdb1d65b9d6d04c38457c25e6cf6376302e8304d90d85e62f03c03a",
+    "runner/requirements.txt": "370a4907ffce372d60aebc5bfa83b372fa07a767849c3034e01e5decd9413818",
     "host/Builder.Dockerfile": "e2a0c8d41323d87d5e57230110361c91133f141ec93c3b08b173b26ba80371a2",
     "host/agentic_host/__init__.py": "77d4cf67908da07066c984b18a5b3c02dcd1be4a761c1cfb031b1d5d688ba356",
     "host/agentic_host/artifacts.py": "62ed70cc0cce036d13e70a7620abf25161340663aeb6eb8b666e7f6f80e58514",

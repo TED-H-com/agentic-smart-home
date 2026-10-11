@@ -1,17 +1,17 @@
 {
   "version": "0.3.0",
-  "recorded_at": "2026-10-11T21:17:44.881511+00:00",
+  "recorded_at": "2026-10-11T21:29:22.456002+00:00",
   "artifacts": {
     "agentic-home-0.3.0-linux-amd64.tar": {
-      "sha256": "63c061282ec578f1fe953b0c2c5f84e4b12a782dc6720d55976c7a8f0c83908c",
-      "bytes": 1148446720
+      "sha256": "fa6a16afdd88cb636784360422f9c56b7957524e1f20ddd01ace885fa464a59f",
+      "bytes": 1148477440
     },
     "agentic-home-0.3.0-laptop-amd64.iso": {
-      "sha256": "89b3d52030b8755298373978a5340daff274f39667b6119c2052cbccb24ee80d",
+      "sha256": "aabe19cfc93afd159a804b5fe7b706cdbf308293cdef196d969d741cf3d624d9",
       "bytes": 5227937792
     },
     "agentic-home-0.3.0-server-amd64.iso": {
-      "sha256": "31dc2d02f2316792475289f9e8a1544bb7c5b36d9ae1167a5fc93b357c08e5db",
+      "sha256": "501fe1af702067053c7a3a4aab676df29ecd779b5af9d93391418122f4fdd767",
       "bytes": 5227937792
     }
   },
@@ -26,5 +26,14 @@
   "physical_hardware": "not_run",
   "antigravity_subscription_login": "not_integrated",
   "bundle_manifest": "90 files verified against BUNDLE.sha256.json",
-  "clean_frontend_install": "npm ci and production build passed; tinyglobby lock corrected"
+  "clean_frontend_install": "npm ci and production build passed; tinyglobby lock corrected",
+  "cryptography": "50.0.2",
+  "github_ci": {
+    "conclusion": "success",
+    "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38176067245",
+    "code_commit": "820982736639dcf3784e9fcea389c4c300abd037",
+    "passed": 80,
+    "skipped": 2
+  },
+  "open_dependabot_alerts_at_verification": 0
 }
