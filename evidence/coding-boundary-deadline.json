@@ -8,15 +8,15 @@
   "timings": [
     {
       "operation": "create",
-      "seconds": 0.61
+      "seconds": 0.038
     },
     {
       "operation": "start",
-      "seconds": 0.118
+      "seconds": 0.079
     },
     {
       "operation": "wait",
-      "seconds": 10.164
+      "seconds": 10.183
     },
     {
       "operation": "inspect",
@@ -35,9 +35,9 @@
       "Pid": 0,
       "ExitCode": 137,
       "Status": "exited",
-      "StartedAt": "2026-10-12T18:11:53.846370532Z",
-      "FinishedAt": "2026-10-12T18:12:03.90620593Z",
-      "runtime_seconds": 10.06
+      "StartedAt": "2026-10-12T18:15:59.366374143Z",
+      "FinishedAt": "2026-10-12T18:16:09.42532958Z",
+      "runtime_seconds": 10.059
     },
     "state_error_signatures": {
       "permission": false,
@@ -45,7 +45,7 @@
       "resource_unavailable": false,
       "timeout": false
     },
-    "inspect_seconds": 0.011,
+    "inspect_seconds": 0.01,
     "fixture_stderr_bytes": 0,
     "fixture_stderr_signatures": {
       "assertion": false,

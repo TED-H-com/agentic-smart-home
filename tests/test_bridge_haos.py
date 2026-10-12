@@ -102,6 +102,37 @@ def setting(path, key):
         return json.loads(row[0]) if row else {}
 
 
+def lifecycle_observation(names, since, *, run=subprocess.run):
+    """Read only exact owned identities before teardown, with independent bounds."""
+    observed = {}
+    for role, name in names.items():
+        value = {}
+        for kind, args in (("state", ["inspect", "--format", "{{json .State}}", name]),
+                ("events", ["events", "--since", str(int(since)), "--until", str(time.time()),
+                            "--filter", "container=" + name, "--format", "{{json .}}"] )):
+            try:
+                result = run(["docker", *args], capture_output=True, text=True, timeout=5)
+                value[kind + "_returncode"] = result.returncode
+                if result.returncode or len(result.stdout) > 16384:
+                    continue
+                if kind == "state":
+                    raw = json.loads(result.stdout)
+                    value[kind] = {key: raw[key] for key in ("Running", "Paused", "Restarting", "OOMKilled", "Dead")
+                                   if type(raw.get(key)) is bool}
+                    value[kind].update({key: raw[key] for key in ("Pid", "ExitCode") if type(raw.get(key)) is int})
+                    if raw.get("Status") in {"created", "running", "paused", "restarting", "removing", "exited", "dead"}:
+                        value[kind]["Status"] = raw["Status"]
+                else:
+                    values = [json.loads(line) for line in result.stdout.splitlines()]
+                    value[kind] = [{"action": item["Action"], "timeNano": item["timeNano"]} for item in values
+                        if item.get("Action") in {"create", "start", "die", "destroy", "kill", "stop"}
+                        and type(item.get("timeNano")) is int]
+            except Exception as error:
+                value[kind + "_error_type"] = type(error).__name__
+        observed[role] = value
+    return observed
+
+
 def initial_app_contract(info, slug):
     # Reuse the production capability contract. Local source delivery is a test
     # fixture; production repository identity is verified by the manager itself.
@@ -162,7 +193,7 @@ async def test_real_haos_sidebar_bridge(tmp_path, request):
     public = os.environ.get("AGENTIC_BRIDGE_PUBLIC") == "1"
     label = uuid.uuid4().hex[:10]
     vm, outer, network = ("agentic-bridge-" + kind + "-" + label for kind in ("vm", "outer", "net"))
-    started = time.monotonic()
+    started, started_wall = time.monotonic(), time.time()
     evidence = {"kind": "real_haos_sidebar_bridge", "haos_image": "18.3", "status": "running",
                 "delivery": "published_release_branch" if public else "local_source_fixture",
                 "observed_from": "haos_app_via_core_ingress_to_outer_pinned_tls",
@@ -452,6 +483,9 @@ async def test_real_haos_sidebar_bridge(tmp_path, request):
             evidence["status"] = "passed"
     except BaseException as exc:
         evidence.update(status="failed", error_type=type(exc).__name__)
+        evidence["lifecycle_before_cleanup"] = lifecycle_observation({"vm": vm, "outer": outer}, started_wall)
+        if isinstance(exc, subprocess.TimeoutExpired):
+            evidence["command_timeout_seconds"] = exc.timeout
         if ha:
             evidence["upstream_error"] = ha.last_error
             for key, endpoint in (("supervisor", "/supervisor/info"),
@@ -551,3 +585,28 @@ def test_public_delivery_evidence_requires_actual_exact_repository(change):
         assert result["commit_digest_pinned_by_supervisor"] is False
         assert set(result) == {"source", "reference", "repository_id", "app_slug", "version", "source_build",
                                "commit_digest_pinned_by_supervisor"}
+
+
+
+@pytest.mark.parametrize("failure", [None, "timeout", "malformed"])
+def test_owned_lifecycle_diagnostics_are_bounded_and_never_export_raw_fields(failure):
+    private = "fixture-private-value"
+    calls = []
+    def run(args, **kwargs):
+        calls.append(args)
+        assert kwargs["timeout"] == 5 and kwargs["capture_output"] is True
+        assert "owned-fixture" in args or "container=owned-fixture" in args
+        if failure == "timeout":
+            raise subprocess.TimeoutExpired(args, 5, stderr=private)
+        if failure == "malformed":
+            return type("Result", (), {"returncode": 0, "stdout": private})()
+        body = {"Running": False, "Pid": 0, "ExitCode": 137, "Error": private} if args[1] == "inspect" else {
+            "Action": "die", "timeNano": 1000000000, "Actor": {"secret": private}}
+        return type("Result", (), {"returncode": 0, "stdout": json.dumps(body)})()
+    observed = lifecycle_observation({"vm": "owned-fixture"}, time.time(), run=run)
+    assert len(calls) == 2 and private not in json.dumps(observed)
+    if failure:
+        assert "state" not in observed["vm"] and "events" not in observed["vm"]
+    else:
+        assert observed["vm"]["state"] == {"Running": False, "Pid": 0, "ExitCode": 137}
+        assert observed["vm"]["events"] == [{"action": "die", "timeNano": 1000000000}]

@@ -15,7 +15,7 @@ Home 隔離基礎已有 [真 HAOS 18.3 App 證據](../../evidence/haos-app-bound
 
 0.6.1 接續原生 HA 日常入口、返回救援／管家、Hermes 私有接點 facade、候選 contract gate 與 Linux 固定動作能力檢查。真 Core 導向與對話接續已在隔離 E2E 通過，最終 CI **598 passed／5 skipped**，同來源 `083b80e` 精確 ISO 完整安裝 **1 passed／1568.186 秒**，包含最新 Hermes、HAOS、Controller 更新／退版及重啟，見 [最新紀錄](../VERIFICATION.md)；這些工程能力不新增真家庭驗收 passed 案例。
 
-0.7.0 本輪進行 HA 智能管家薄 App 整合：官方 Ingress → 專用 TLS pairing → 外層即時 Owner 驗證，重用同一對話／case／成果與精確批准；側欄不呈現外層設定、不建立第二份 Controller DB。Web 協定 fixture 涵蓋相對路徑、草稿／撤權、PNG-only 與錯 digest；真 App／Supervisor 結果另記 [驗證](../VERIFICATION.md)，不能用瀏覽器 fixture 代替。本輪 Hermes 首次準備已改用安裝包受測 digest／bundled commit，加離線 probe，不在家庭端追 HEAD／build；真媒體結果另驗。既有 32 案維持原狀。
+0.7.0 本輪交付 HA 智能管家薄 App 整合：官方 Ingress → 專用 TLS pairing → 外層即時 Owner 驗證，重用同一對話／case／成果與精確批准；側欄不呈現外層設定、不建立第二份 Controller DB。Web 協定 fixture 涵蓋相對路徑、草稿／撤權、PNG-only 與錯 digest；真 App／Supervisor 結果另記 [驗證](../VERIFICATION.md)，不能用瀏覽器 fixture 代替。本機完整回歸814 passed／4 skipped、CI812 passed／6 skipped；真正 HAOS 上公開來源安裝17 passed，原生側欄與同case續聊通過（模型仍fixture）。本輪 Hermes 首次準備已改用安裝包受測 digest／bundled commit，加離線 probe，不在家庭端追 HEAD／build；真媒體結果另驗。既有 32 案維持原狀。
 
 最新 Owner 方向採 **HA 官方自管更新、外層只維護自家 App／adapter**；先前將 HAOS／Core 納入全產品釘版的政策已由 [發行邊界](../RELEASE_POLICY.md) 取代。新 onboarding 告知側欄安裝與有限維護；舊家庭需另行啟用，人工停止／移除／改設定不被自動抵銷。未知 Core 寫入仍拒絕受影響操作，不能宣稱所有最新版皆已支援。
 

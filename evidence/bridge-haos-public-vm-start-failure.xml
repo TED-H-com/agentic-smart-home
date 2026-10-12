@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="14" time="141.066" timestamp="2026-10-12T14:21:52.559590-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_bridge_haos" name="test_real_haos_sidebar_bridge" time="141.018"><failure message="subprocess.TimeoutExpired: Command '['docker', 'run', '-d', '--name', 'agentic-bridge-vm-e45576b56c', '--network', 'agentic-bridge-net-e45576b56c', '--ip', '192.168.177.2', '--device', '/dev/kvm', '--memory', '4096m', '--cpus', '3', '--pids-limit', '256', '-p', '127.0.0.1::8123', '-p', '127.0.0.1::2222', '-v', '/home/ted-h/agent-work/tmp/pytest/20261012-142152-6809HM/bt/test_real_haos_sidebar_bridge0:/lab', 'agentic-home-builder:0.2.0', 'bash', '-ec', 'cp /usr/share/OVMF/OVMF_VARS_4M.fd /lab/nvram.fd\nqemu-img resize /lab/haos.qcow2 64G\nexec qemu-system-x86_64 -enable-kvm -cpu host -machine q35 -m 3072 -smp 2 -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/lab/nvram.fd -drive file=/lab/haos.qcow2,format=qcow2,if=none,id=disk -device virtio-scsi-pci -device scsi-hd,drive=disk -drive file=/lab/config.ext4,format=raw,if=virtio -netdev user,id=net,hostfwd=tcp:0.0.0.0:8123-:80,hostfwd=tcp:0.0.0.0:2222-:22222 -device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log']' timed out after 120 seconds">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-142152-6809HM/bt/test_real_haos_sidebar_bridge0')
+request = &lt;FixtureRequest for &lt;Coroutine test_real_haos_sidebar_bridge&gt;&gt;
+
+    async def test_real_haos_sidebar_bridge(tmp_path, request):
+        if not request.config.getoption("--haos-vm"):
+            pytest.skip("Actual HAOS App/Ingress needs --haos-vm")
+        assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
+        public = os.environ.get("AGENTIC_BRIDGE_PUBLIC") == "1"
+        label = uuid.uuid4().hex[:10]
+        vm, outer, network = ("agentic-bridge-" + kind + "-" + label for kind in ("vm", "outer", "net"))
+        started = time.monotonic()
+        evidence = {"kind": "real_haos_sidebar_bridge", "haos_image": "18.3", "status": "running",
+                    "delivery": "published_release_branch" if public else "local_source_fixture",
+                    "observed_from": "haos_app_via_core_ingress_to_outer_pinned_tls",
+                    "inference": "protocol_fixture_no_cloud_account",
+                    "outer_source": "candidate_source_mounted_readonly", "checks": {}}
+        evidence["outer_source_commit"] = process(["git", "-C", str(ROOT), "rev-parse", "HEAD"]).decode().strip()
+        changes = process(["git", "-C", str(ROOT), "status", "--porcelain", "--",
+                           "controller/agentic_controller", "controller/static", "bridge"])
+        evidence["outer_source_uncommitted"] = bool(changes.strip())
+        report = ROOT / "evidence/bridge-haos.json"
+        progress = ROOT / "evidence/bridge-haos-progress.json"
+        ha = None
+        ssh, slug = None, None
+    
+        def phase(value):
+            evidence["phase"] = value
+            progress.write_text(json.dumps({"phase": value, "elapsed_seconds": round(time.monotonic() - started),
+                                            "delivery": evidence["delivery"]}, indent=2) + "\n")
+    
+        try:
+            phase("prepare_disposable_disks")
+            with lzma.open(ROOT / "build/cache/haos_ova-18.3.qcow2.xz", "rb") as src, (tmp_path / "haos.qcow2").open("wb") as dst:
+                shutil.copyfileobj(src, dst, 1024 * 1024)
+            process(["ssh-keygen", "-t", "ed25519", "-N", "", "-f", str(tmp_path / "key")])
+            (tmp_path / "config").mkdir()
+            shutil.copyfile(tmp_path / "key.pub", tmp_path / "config/authorized_keys")
+            with (tmp_path / "config.ext4").open("wb") as stream:
+                stream.truncate(32 * 1024**2)
+            process(["/usr/sbin/mkfs.ext4", "-q", "-F", "-L", "CONFIG", "-d", str(tmp_path / "config"),
+                     str(tmp_path / "config.ext4")])
+            docker("network", "create", "--subnet", "192.168.177.0/24", "--gateway", "192.168.177.254", network)
+            phase("boot_official_haos")
+&gt;           docker("run", "-d", "--name", vm, "--network", network, "--ip", "192.168.177.2",
+                   "--device", "/dev/kvm", "--memory", "4096m", "--cpus", "3", "--pids-limit", "256",
+                   "-p", "127.0.0.1::8123", "-p", "127.0.0.1::2222", "-v", f"{tmp_path}:/lab",
+                   "agentic-home-builder:0.2.0", "bash", "-ec",
+                   "cp /usr/share/OVMF/OVMF_VARS_4M.fd /lab/nvram.fd\nqemu-img resize /lab/haos.qcow2 64G\n"
+                   "exec qemu-system-x86_64 -enable-kvm -cpu host -machine q35 -m 3072 -smp 2 "
+                   "-drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd "
+                   "-drive if=pflash,format=raw,file=/lab/nvram.fd "
+                   "-drive file=/lab/haos.qcow2,format=qcow2,if=none,id=disk "
+                   "-device virtio-scsi-pci -device scsi-hd,drive=disk "
+                   "-drive file=/lab/config.ext4,format=raw,if=virtio "
+                   "-netdev user,id=net,hostfwd=tcp:0.0.0.0:8123-:80,hostfwd=tcp:0.0.0.0:2222-:22222 "
+                   "-device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log")
+
+tests/test_bridge_haos.py:198: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_bridge_haos.py:96: in docker
+    return process(["docker", *args], timeout=timeout).decode().strip()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_bridge_haos.py:88: in process
+    result = subprocess.run(args, input=input, capture_output=True, timeout=timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:556: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:1222: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:2155: in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;Popen: returncode: -9 args: ['docker', 'run', '-d', '--name', 'agentic-brid...&gt;
+endtime = 807022.279823017, orig_timeout = 120
+stdout_seq = [b'648bb7de3898064ec658548318d74d964542bde801fd8fc27a447c978f817020\n']
+stderr_seq = [], skip_check_and_raise = False
+
+    def _check_timeout(self, endtime, orig_timeout, stdout_seq, stderr_seq,
+                       skip_check_and_raise=False):
+        """Convenience for checking if a timeout has expired."""
+        if endtime is None:
+            return
+        if skip_check_and_raise or _time() &gt; endtime:
+&gt;           raise TimeoutExpired(
+                    self.args, orig_timeout,
+                    output=b''.join(stdout_seq) if stdout_seq else None,
+                    stderr=b''.join(stderr_seq) if stderr_seq else None)
+E           subprocess.TimeoutExpired: Command '['docker', 'run', '-d', '--name', 'agentic-bridge-vm-e45576b56c', '--network', 'agentic-bridge-net-e45576b56c', '--ip', '192.168.177.2', '--device', '/dev/kvm', '--memory', '4096m', '--cpus', '3', '--pids-limit', '256', '-p', '127.0.0.1::8123', '-p', '127.0.0.1::2222', '-v', '/home/ted-h/agent-work/tmp/pytest/20261012-142152-6809HM/bt/test_real_haos_sidebar_bridge0:/lab', 'agentic-home-builder:0.2.0', 'bash', '-ec', 'cp /usr/share/OVMF/OVMF_VARS_4M.fd /lab/nvram.fd\nqemu-img resize /lab/haos.qcow2 64G\nexec qemu-system-x86_64 -enable-kvm -cpu host -machine q35 -m 3072 -smp 2 -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/lab/nvram.fd -drive file=/lab/haos.qcow2,format=qcow2,if=none,id=disk -device virtio-scsi-pci -device scsi-hd,drive=disk -drive file=/lab/config.ext4,format=raw,if=virtio -netdev user,id=net,hostfwd=tcp:0.0.0.0:8123-:80,hostfwd=tcp:0.0.0.0:2222-:22222 -device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log']' timed out after 120 seconds
+
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:1269: TimeoutExpired</failure></testcase><testcase classname="tests.test_bridge_haos" name="test_install_observer_never_confuses_cleaned_job_with_success[completed]" time="0.001" /><testcase classname="tests.test_bridge_haos" name="test_install_observer_never_confuses_cleaned_job_with_success[cleaned]" time="0.000" /><testcase classname="tests.test_bridge_haos" name="test_install_observer_never_confuses_cleaned_job_with_success[missing_app]" time="0.000" /><testcase classname="tests.test_bridge_haos" name="test_install_observer_never_confuses_cleaned_job_with_success[modified]" time="0.000" /><testcase classname="tests.test_bridge_haos" name="test_install_observer_never_confuses_cleaned_job_with_success[failed]" time="0.000" /><testcase classname="tests.test_bridge_haos" name="test_install_observer_never_confuses_cleaned_job_with_success[pending]" time="0.000" /><testcase classname="tests.test_bridge_haos" name="test_public_delivery_evidence_requires_actual_exact_repository[None]" time="0.000" /><testcase classname="tests.test_bridge_haos" name="test_public_delivery_evidence_requires_actual_exact_repository[source]" time="0.000" /><testcase classname="tests.test_bridge_haos" name="test_public_delivery_evidence_requires_actual_exact_repository[repository]" time="0.000" /><testcase classname="tests.test_bridge_haos" name="test_public_delivery_evidence_requires_actual_exact_repository[version]" time="0.000" /><testcase classname="tests.test_bridge_haos" name="test_public_delivery_evidence_requires_actual_exact_repository[slug]" time="0.000" /><testcase classname="tests.test_bridge_haos" name="test_public_delivery_evidence_requires_actual_exact_repository[unmanaged]" time="0.000" /><testcase classname="tests.test_bridge_haos" name="test_public_delivery_evidence_requires_actual_exact_repository[release]" time="0.000" /></testsuite></testsuites>

@@ -1,0 +1,11 @@
+{
+  "observed_at": 1791829863.7253087,
+  "state": "running",
+  "stage": "start",
+  "code": null,
+  "managed": true,
+  "slug": "9b5f5116_agentic_bridge",
+  "version": "0.7.0",
+  "repair_count": 0,
+  "install_confirmation": "app_postcondition_job_unavailable"
+}

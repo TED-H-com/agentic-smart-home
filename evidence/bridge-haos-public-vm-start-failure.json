@@ -1,0 +1,16 @@
+{
+  "kind": "real_haos_sidebar_bridge",
+  "haos_image": "18.3",
+  "status": "failed",
+  "delivery": "published_release_branch",
+  "observed_from": "haos_app_via_core_ingress_to_outer_pinned_tls",
+  "inference": "protocol_fixture_no_cloud_account",
+  "outer_source": "candidate_source_mounted_readonly",
+  "checks": {},
+  "outer_source_commit": "5bf6babab1b9f23923c8352bd3d497288dd5c3fe",
+  "outer_source_uncommitted": false,
+  "phase": "boot_official_haos",
+  "error_type": "TimeoutExpired",
+  "cleanup": true,
+  "duration_seconds": 141
+}

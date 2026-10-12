@@ -8,19 +8,19 @@
   "timings": [
     {
       "operation": "create",
-      "seconds": 0.243
+      "seconds": 0.063
     },
     {
       "operation": "start",
-      "seconds": 0.115
+      "seconds": 0.082
     },
     {
       "operation": "wait",
-      "seconds": 0.011
+      "seconds": 0.01
     },
     {
       "operation": "inspect",
-      "seconds": 0.011
+      "seconds": 0.01
     }
   ],
   "stage": "inspect",
@@ -35,9 +35,9 @@
       "Pid": 0,
       "ExitCode": 137,
       "Status": "exited",
-      "StartedAt": "2026-10-12T18:12:04.454865514Z",
-      "FinishedAt": "2026-10-12T18:12:04.671102292Z",
-      "runtime_seconds": 0.216
+      "StartedAt": "2026-10-12T18:16:09.778017553Z",
+      "FinishedAt": "2026-10-12T18:16:09.975448725Z",
+      "runtime_seconds": 0.197
     },
     "state_error_signatures": {
       "permission": false,
@@ -45,7 +45,7 @@
       "resource_unavailable": false,
       "timeout": false
     },
-    "inspect_seconds": 0.01,
+    "inspect_seconds": 0.011,
     "fixture_stderr_bytes": 0,
     "fixture_stderr_signatures": {
       "assertion": false,

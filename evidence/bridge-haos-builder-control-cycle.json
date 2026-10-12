@@ -1,0 +1,67 @@
+{
+  "kind": "disposable_builder_control_cycle",
+  "status": "passed",
+  "timings": [
+    {
+      "operation": "create",
+      "seconds": 0.054,
+      "returncode": 0
+    },
+    {
+      "operation": "start",
+      "seconds": 0.08,
+      "returncode": 0
+    },
+    {
+      "operation": "wait",
+      "seconds": 0.022,
+      "returncode": 0
+    }
+  ],
+  "timeout_seconds": 120,
+  "lifecycle_before_cleanup": {
+    "builder": {
+      "state_returncode": 0,
+      "state": {
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 0,
+        "Status": "exited"
+      },
+      "events_returncode": 0,
+      "events": [
+        {
+          "action": "create",
+          "timeNano": 1791829654813821474
+        },
+        {
+          "action": "start",
+          "timeNano": 1791829654894504363
+        },
+        {
+          "action": "die",
+          "timeNano": 1791829654917487834
+        }
+      ]
+    }
+  },
+  "cleanup": true,
+  "current_pressure": {
+    "cpu": [
+      "some avg10=0.00 avg60=0.00 avg300=0.00 total=2316955547",
+      "full avg10=0.00 avg60=0.00 avg300=0.00 total=0"
+    ],
+    "io": [
+      "some avg10=0.57 avg60=3.04 avg300=18.49 total=93301403794",
+      "full avg10=0.57 avg60=2.99 avg300=18.27 total=90814939157"
+    ],
+    "memory": [
+      "some avg10=0.00 avg60=0.00 avg300=0.00 total=3146803617",
+      "full avg10=0.00 avg60=0.00 avg300=0.00 total=3090780839"
+    ]
+  }
+}

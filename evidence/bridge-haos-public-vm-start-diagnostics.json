@@ -1,0 +1,83 @@
+{
+  "kind": "public_bridge_vm_start_diagnostics",
+  "container": "648bb7de3898064ec658548318d74d964542bde801fd8fc27a447c978f817020",
+  "current_observation_only": true,
+  "events_returncode": 0,
+  "events": [
+    {
+      "action": "create",
+      "time": 1791829439,
+      "timeNano": 1791829439656192240
+    },
+    {
+      "action": "start",
+      "time": 1791829445,
+      "timeNano": 1791829445174035185
+    },
+    {
+      "action": "kill",
+      "time": 1791829445,
+      "timeNano": 1791829445209546196
+    },
+    {
+      "action": "die",
+      "time": 1791829449,
+      "timeNano": 1791829449336955904
+    },
+    {
+      "action": "destroy",
+      "time": 1791829449,
+      "timeNano": 1791829449441496982
+    }
+  ],
+  "journal_returncode": 0,
+  "matching_daemon_events": 1,
+  "daemon_signatures": {
+    "timeout": false,
+    "shim": false,
+    "start": false,
+    "oom": false,
+    "no_space": false,
+    "permission": false,
+    "notfound": false,
+    "cgroup": false
+  },
+  "disk_free_bytes": 514730344448,
+  "pressure": {
+    "cpu": [
+      "some avg10=0.00 avg60=0.00 avg300=0.01 total=2316819661",
+      "full avg10=0.00 avg60=0.00 avg300=0.00 total=0"
+    ],
+    "io": [
+      "some avg10=7.96 avg60=32.82 avg300=30.81 total=93300134536",
+      "full avg10=7.81 avg60=32.33 avg300=30.46 total=90813678861"
+    ],
+    "memory": [
+      "some avg10=0.00 avg60=0.02 avg300=0.00 total=3146803616",
+      "full avg10=0.00 avg60=0.02 avg300=0.00 total=3090780838"
+    ]
+  },
+  "current_disk_sample": {
+    "nvme0n1": {
+      "busy_ms_in_one_second": 166,
+      "pending": 0,
+      "read_bytes": 24576,
+      "write_bytes": 16846848
+    }
+  },
+  "current_memory_kib": {
+    "MemAvailable": 52521528,
+    "Dirty": 15536,
+    "Writeback": 0
+  },
+  "current_blocked_process_count": 0,
+  "current_blocked_known_counts": {
+    "dockerd": 0,
+    "containerd": 0,
+    "runc": 0,
+    "qemu": 0,
+    "python": 0,
+    "jbd2": 0,
+    "kworker": 0
+  }
+}

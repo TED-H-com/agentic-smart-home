@@ -4,9 +4,19 @@
 
 本輪新增薄 HAOS Ingress App、同一外層對話／case、即時 Owner 驗證、有限維護與配對恢復；首次 Hermes 改用隨附 digest。工程與產品範圍見 [整合審查](reviews/2026-10-12-INGRESS-BRIDGE.md)。HA 保留官方更新，Home coding、原生 Assist、App 跨版本 migration 與真帳號仍需另驗。
 
-完整回歸第一輪為 **802 passed、4 skipped、1 failed／497.01 秒**；唯一失敗是 sandbox deadline 案例等待 Docker 結束逾時，見 [原始結果](../evidence/pytest-0.7.0-deadline-failure.xml)，正在補有界診斷重現。本節不沿用下方 0.6.1 的 passed 或 ISO 證據充當新版結果。已有 [薄 App](../evidence/bridge-app.xml)、[Controller／修復](../evidence/bridge-controller-repair.xml)、[維護](../evidence/bridge-maintenance.xml)、[UI](../evidence/bridge-ui.xml)、[官方 Supervisor schema](../evidence/bridge-supervisor-schema.xml)及 [App 容器生命週期](../evidence/bridge-container.xml)的定向證據。協定 fixture 與真服務分別標記。
+本機最終完整回歸 **814 passed、4 skipped／424.07 秒**，見 [JUnit](../evidence/pytest-0.7.0.xml)。四個 skipped 是需另行啟用的 HAOS App boundary、HAOS 備份、薄 App、Linux ISO VM 案例。協定 fixture 與真服務分別標記；本節不沿用下方 0.6.1 的 passed 或 ISO 證據充當新版結果。
 
-真正 **HAOS 18.3／Core 2026.10.1／Supervisor 2026.09.3** 第三輪本地來源安裝 **7 passed／295.10 秒**，見 [結果](../evidence/bridge-haos-local.json)、[JUnit](../evidence/bridge-haos-local.xml)及 [原生側欄截圖](../evidence/ui/bridge-native-haos-local.png)。包含真 Supervisor 安裝、TLS 指紋錯誤拒絕、偽造身份拒絕、Owner 瀏覽器登入、CSRF、重送去重、同 case 續聊、App 重啟保留與人工停止不復活。模型使用明示協定 fixture，沒有雲端帳號；公開 GitHub source delivery 與新版完整 ISO 安裝接著另驗。
+第一輪為 **802 passed、4 skipped、1 failed／497.01 秒**；sandbox deadline 案例等待 Docker 結束逾時，見 [原始結果](../evidence/pytest-0.7.0-deadline-failure.xml)。原次沒有保存容器停止狀態，原因未確定。新增有界診斷後定向測試 **23 passed**，最終全套也通過；[deadline](../evidence/coding-boundary-deadline.json) 實測約 10 秒退出、所有子程序消失、清理完成，沒有放寬 10 秒 watchdog 或 20 秒控制等待限制。
+
+定向證據另有 [薄 App](../evidence/bridge-app.xml)、[Controller／修復](../evidence/bridge-controller-repair.xml)、[維護](../evidence/bridge-maintenance.xml)、[UI](../evidence/bridge-ui.xml)、[官方 Supervisor schema](../evidence/bridge-supervisor-schema.xml)及 [App 容器生命週期](../evidence/bridge-container.xml)。
+
+GitHub 首次乾淨安裝揭露 setuptools 將 `static` 目錄誤認成 namespace package。已限制為三個真正的 `agentic_*` 模組；兩份獨立 git archive 的 build／frozen sync 均通過，見 [失敗與修正](../evidence/github-ci-0.7.0-packaging-failure.json)。修正版來源為 `5bf6babab1b9f23923c8352bd3d497288dd5c3fe`，GitHub [CI 38289833372](https://github.com/teddashh/agentic-smart-home/actions/runs/38289833372) **812 passed、6 skipped／486.541 秒**，見 [記錄](../evidence/github-ci-0.7.0.json)與 [JUnit](../evidence/pytest-0.7.0-github.xml)。CI 另跳過 UID 1000 專項桌面測試及需本機 builder 的 QEMU 磁碟探針。來源 ZIP 的 918 個 manifest 檔案均核對通過；映像由 CI 獨立建置，不宣稱與本機 digest 相同。
+
+真正 **HAOS 18.3／Core 2026.10.1／Supervisor 2026.09.3** 第三輪本地來源安裝 **7 passed／295.10 秒**，見 [結果](../evidence/bridge-haos-local.json)、[JUnit](../evidence/bridge-haos-local.xml)及 [原生側欄截圖](../evidence/ui/bridge-native-haos-local.png)。包含真 Supervisor 安裝、TLS 指紋錯誤拒絕、偽造身份拒絕、Owner 瀏覽器登入、CSRF、重送去重、同 case 續聊、App 重啟保留與人工停止不復活。模型使用明示協定 fixture，沒有雲端帳號；公開 GitHub source delivery 見下方；新版完整 ISO 安裝接著另驗。
+
+公開 GitHub source delivery 另以全新 HAOS 完成 **17 passed／253.98 秒**，見 [結果](../evidence/bridge-haos-public.json)、[JUnit](../evidence/bridge-haos-public.xml)與 [原生側欄截圖](../evidence/ui/bridge-native-haos-public.png)。正式管理器從 `release/0.7.0` 安裝 `0.7.0` 薄 App，讀回實際 repo／ref／版本及權限；未拷入本機 App source 或預載 App 映像。真 Owner／Ingress／CSRF／對話接續／App 重啟／人工停止通過；模型仍為 fixture，外層使用乾淨 `5bf6bab` 來源及本機候選映像。Supervisor 信任來源分支，不提供原子 commit/digest 安裝保證。
+
+公開模式第一次在 Docker 建立 VM 的 120 秒控制等待逾時，尚未進入 App 安裝；[事件診斷](../evidence/bridge-haos-public-vm-start-diagnostics.json)顯示容器接近期限才建立，逾時後立即被清理。當時 IO pressure 高，沒有證據指出特定來源。I/O 等待回落後 [獨立容器生命週期](../evidence/bridge-haos-builder-control-cycle.json)正常，再以原期限重驗通過；[原始失敗](../evidence/bridge-haos-public-vm-start-failure.xml)保留，沒有修改產品時限或重啟共用 Docker daemon。
 
 前兩輪 HAOS 測試卡在背景 job 讀回：[首次失敗](../evidence/bridge-haos-install-job-failure.json)、[有界診斷](../evidence/bridge-haos-job-readback-failure.json)。第二輪已觀測 App 安裝成功、Supervisor healthy，但 job 被清理；修正改以原安裝意圖與完整 App postcondition 核對，不重送 install。這兩筆失敗原樣保留。
 
