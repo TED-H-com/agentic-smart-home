@@ -1,0 +1,14 @@
+{
+  "tailscale": {
+    "version": "1.104.1",
+    "filename": "tailscale_1.104.1_amd64.deb",
+    "url": "https://pkgs.tailscale.com/stable/ubuntu/pool/tailscale_1.104.1_amd64.deb",
+    "sha256": "509753a4ff223efc70234e7f539afc51f743b3af043d9e55313960bd7327700f",
+    "bytes": 40512672,
+    "provenance": "evidence/network-upstream.json"
+  },
+  "preview": {
+    "base": "mcr.microsoft.com/playwright/python:v1.63.0-noble@sha256:72bd171a9ffc2b4b59532aaa6210e21014d07093120dc25528870c0b840da1f0",
+    "version": "1.63.0"
+  }
+}

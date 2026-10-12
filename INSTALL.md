@@ -1,16 +1,16 @@
-# 安裝 Agentic Smart Home 0.5.1 技術預覽
+# 安裝 Agentic Smart Home 0.6.0 技術預覽
 
 產品從外層 Linux 開始；Web 引導先完成 CLI、Hermes 與通訊，再自動建立／啟動 HAOS。firstboot 只啟動外層服務，因此家庭尚未準備好仍能先登入助手。完整順序見 [自動 onboarding](docs/ONBOARDING.md)。
 
-本版媒體依 [README](README.md) 建置，Git repository 不包含大型 TAR／ISO。候選 hash、一次性 VM 與硬體測試的實際結果以 [驗證紀錄](docs/VERIFICATION.md) 為準；歷史安裝結果不自動算成本候選驗收。這是 v3 技術預覽，兩個 coding worker 仍未啟用。
+本版媒體依 [README](README.md) 建置，Git repository 不包含大型 TAR／ISO。候選 hash、一次性 VM 與硬體測試的實際結果以 [驗證紀錄](docs/VERIFICATION.md) 為準；歷史安裝結果不自動算成本候選驗收。這是 v3 技術預覽，Host Codex coding 已接通；Home coding 須通過真 HAOS App 隔離驗證。
 
 ## A. 整台重灌
 
-1. 取得 `agentic-home-0.5.1-laptop-amd64.iso` 與 `SHA256SUMS`，核對 SHA-256。
+1. 取得 `agentic-home-0.6.0-laptop-amd64.iso` 與 `SHA256SUMS`，核對 SHA-256。
 2. 備份目標電腦資料，用 Rufus／Etcher 將 ISO 寫入 USB。這會清除選中的 USB；後續選中的系統磁碟也會重新分割。
 3. Intel／AMD x86-64 使用 UEFI，開啟 VT-x／AMD-V，從 USB 開機。建議 16 GB RAM／128 GB SSD；laptop profile 檢查約 8 GB RAM、KVM 和可用空間，安裝需要網路。暫不建立 HAOS 不會取消這些主機規格檢查。
 4. 選 **Install Agentic Home Linux**，在官方 Ubuntu 安裝器設定網路、目標磁碟與 Linux 帳號。沒有預設密碼或預選磁碟。
-5. 移除 USB 並重啟。firstboot 安裝套件、載入四個產品 images、啟動外層服務並配對受控 Runner。此時 HAOS 尚未建立。進度可在 local console 查看：
+5. 移除 USB 並重啟。firstboot 安裝套件、載入五個產品 images（含隔離預覽）、啟動外層服務並配對受控 Runner。此時 HAOS 尚未建立。進度可在 local console 查看：
 
    ```bash
    journalctl -fu agentic-home-firstboot
@@ -22,7 +22,7 @@
 9. LINE 是預設入口：掃 QR、選聊天室、從預定操作帳號傳送畫面的短效配對碼。Telegram 使用 BotFather token 加配對碼；Discord 保留頻道／使用者設定；也可選 Web。配對完成後才允許該 sender／聊天室使用助手。
 10. 通道就緒後自動建立／啟動 HAOS，等待真 Core onboarding API。進入 HA 原生設定頁，建立家庭與管理者帳號，再回到引導按 **授權連接家庭**；官方 HA 授權頁同意後自動驗證 active owner 並保存專用授權，不需貼長效權杖。
 
-流程保存進度；關閉頁面不取消工作，重新開啟會接續。需要真人授權時等待，不把僅保存金鑰當作推論成功。等待通道或家庭授權時可以先開外層對話；離開頁面不會停止已開始的自動安裝。固定 IP／Tailscale 尚不自動設定，預設使用自動網路與本機 Web。
+流程保存進度；關閉頁面不取消工作，重新開啟會接續。需要真人授權時等待，不把僅保存金鑰當作推論成功。等待通道或家庭授權時可以先開外層對話；離開頁面不會停止已開始的自動安裝。預設使用 DHCP 與本機 Web；「Linux 主機 → 網路與系統維護」可選路由器 DHCP reservation 偏好或完成 Tailscale 官方登入，詳見 [網路與更新](docs/UPDATES.md)。
 
 ## B. 家庭與內層 Runner
 
@@ -37,7 +37,7 @@
 
 ## C. 無桌面或已有相符 Ubuntu
 
-既有 server profile 可建置 `agentic-home-0.5.1-server-amd64.iso`，省略桌面套件。另一台電腦使用 SSH tunnel：
+既有 server profile 可建置 `agentic-home-0.6.0-server-amd64.iso`，省略桌面套件。另一台電腦使用 SSH tunnel：
 
 ```bash
 ssh -L 8099:127.0.0.1:8099 -L 8123:127.0.0.1:8123 your-user@your-host
@@ -49,15 +49,15 @@ sudo agentic-home access-key
 已有相符的 Ubuntu，可保留分割並安裝產品。在**選定的目標 Linux**執行，不能在開發主機套用：
 
 ```bash
-tar -xf agentic-home-0.5.1-linux-amd64.tar
+tar -xf agentic-home-0.6.0-linux-amd64.tar
 cd agentic-home
 python3 host/install.py --profile laptop-amd64
 sudo python3 host/install.py --profile laptop-amd64 --apply
 ```
 
-不含 `--apply` 的命令只顯示安裝內容。Ubuntu 24.04 可選 laptop-amd64／server-amd64；26.04 的 laptop-new-amd64 仍是擴充 recipe。安裝檢查版本、架構、KVM、RAM、空間與檔案 hash；既有 `/opt/agentic-home` 不會被另一份安裝包直接覆蓋。v3 固定更新／退版是後續交付，這個安裝命令不是原地升級器。
+不含 `--apply` 的命令只顯示安裝內容。Ubuntu 24.04 可選 laptop-amd64／server-amd64；26.04 的 laptop-new-amd64 仍是擴充 recipe。安裝檢查版本、架構、KVM、RAM、空間與檔案 hash；既有 `/opt/agentic-home` 不會被另一份安裝包直接覆蓋。日常相同 schema 的 Controller 更新另走 [固定 updater](docs/UPDATES.md)；這個安裝命令不是原地升級器。
 
-Controller 0.5.1 新建 DB 使用 schema 2。若開啟 0.3.x schema 1 的既有資料，會先建立私有 `.before-v2-<uuid>.sqlite3` 一致快照，再向前遷移；雖保留既有 tables／紀錄，新資料語意仍不相容於舊版，0.3.x binary 會拒絕 schema 2。沒有提供原地降版保證，不能手改版本 marker 或拿遷移前 DB 蓋掉後續家庭操作。部署變更與資料遷移須分開處理，詳見 [OPERATIONS](docs/OPERATIONS.md)。
+Controller 0.6.0 使用 schema 3。開啟 schema 1／2 既有資料時，先建立 mode-0600 `.before-v3-<uuid>.sqlite3` 一致快照，再向前遷移；保留 settings、records、audit、去重紀錄。較舊 binary 拒絕 schema 3；不能手改 marker 或用舊 DB 覆蓋後續家庭操作。詳見 [OPERATIONS](docs/OPERATIONS.md)。
 
 ## 第一條家庭自動化
 
@@ -83,11 +83,11 @@ sudo agentic-home support-bundle --output ./agentic-support.json
 已建立 HAOS 後的固定操作：
 
 ```bash
-sudo agentic-home status
-sudo agentic-home start
-sudo agentic-home shutdown
-sudo agentic-home snapshot
-sudo agentic-home restore --snapshot <完整快照ID>
+agentic-home status
+agentic-home start
+agentic-home shutdown
+agentic-home snapshot
+agentic-home restore --snapshot <完整快照ID>
 ```
 
 冷快照會正常關閉 guest、複製磁碟及 UEFI，完成後恢復原開機狀態；期間家庭規則暫停。restore 只接受已關機的 VM，完成後維持關機。快照含家庭資料，離機保存需要加密；Controller、Hermes、Runner 資料須各自備份。外層 Web 損壞時的固定 console 路徑見 [OPERATIONS](docs/OPERATIONS.md)。

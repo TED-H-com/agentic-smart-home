@@ -24,9 +24,15 @@ def main():
     compose = yaml.safe_load((ROOT / "host/compose.yaml").read_text())
     for service in ("controller", "runner", "linejs", "hermes"):
         expected = f"agentic-home-{service}:{release}"
-        if service == "hermes":
-            expected = "${AGENTIC_HERMES_IMAGE:-" + expected + "}"
+        if service in {"hermes", "controller"}:
+            expected = "${AGENTIC_" + service.upper() + "_IMAGE:-" + expected + "}"
         assert compose["services"][service]["image"] == expected
+    network = json.loads((ROOT / "host/network.lock.json").read_text())
+    assert (ROOT / "host/preview/Dockerfile").read_text().splitlines()[0] == "FROM " + network["preview"]["base"]
+    assert re.fullmatch(r"[a-f0-9]{64}", network["tailscale"]["sha256"])
+    assert network["tailscale"]["url"].startswith("https://pkgs.tailscale.com/stable/ubuntu/pool/")
+    assert "/run/agentic-home:/run/agentic-home" in compose["services"]["runner"]["volumes"]
+    assert not any("docker.sock" in mount for service in compose["services"].values() for mount in service.get("volumes", []))
     lock = json.loads((ROOT / "providers.lock.json").read_text())
     dependencies = json.loads((ROOT / "runner/package.json").read_text())["dependencies"]
     for item in lock["providers"].values():

@@ -13,8 +13,16 @@ from agentic_controller.models import (
     Policy,
     provider_schema,
 )
+from agentic_controller.operations import NetworkPreferences, UpdateStage
 from agentic_controller.store import Store
-from agentic_controller.work import EvidenceQuery, HermesAuth, WorkerQuery, WorkerSubmit
+from agentic_controller.work import (
+    EvidenceQuery,
+    HermesAuth,
+    WorkerPreview,
+    WorkerQuery,
+    WorkerStart,
+    WorkerSubmit,
+)
 from agentic_runner.app import Job, Pair
 from agentic_runner.bootstrap import BootstrapJob, BootstrapResult
 
@@ -36,6 +44,10 @@ def main():
                        "runner-job": Job.model_json_schema(), "runner-pair": Pair.model_json_schema(),
                        "worker-submit-v1": WorkerSubmit.model_json_schema(),
                        "worker-query-v1": WorkerQuery.model_json_schema(),
+                       "worker-start-v1": WorkerStart.model_json_schema(),
+                       "worker-preview-v1": WorkerPreview.model_json_schema(),
+                       "network-preferences-v1": NetworkPreferences.model_json_schema(),
+                       "controller-update-v1": UpdateStage.model_json_schema(),
                        "case-evidence-query-v1": EvidenceQuery.model_json_schema(),
                        "hermes-auth": HermesAuth.model_json_schema(),
                        "bootstrap-start-v1": BootstrapStart.model_json_schema(),

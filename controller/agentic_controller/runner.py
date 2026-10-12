@@ -73,6 +73,6 @@ class Runner:
                     return job["result"]
                 if job["state"] == "stop_unconfirmed":
                     raise RunnerError("stop_unconfirmed", 409)
-                if job["state"] in {"failed", "cancelled"}:
+                if job["state"] in {"failed", "cancelled", "expired"}:
                     raise RunnerError(job.get("error", "任務已取消"))
                 await asyncio.sleep(1)

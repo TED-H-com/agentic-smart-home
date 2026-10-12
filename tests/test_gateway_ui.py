@@ -6,6 +6,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
+from ui_helpers import click_navigation
 
 
 def test_outer_onboarding_line_setup_and_shared_inbox():
@@ -209,7 +210,7 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
             page.get_by_role('button', name='送出訊息', exact=True).click()
             page.wait_for_function("document.getElementById('gateway-message').value === ''")
             assert request_keys[-1] == request_keys[-2] and len(messages) == count + 1
-            page.get_by_role("button", name="Agent 環境", exact=False).click()
+            click_navigation(page, 'Agent 環境')
             page.get_by_role("button", name="HAOS 內層 已配對").click()
             grok = page.locator("article.provider").filter(
                 has=page.get_by_role("heading", name="Grok Build", exact=True)

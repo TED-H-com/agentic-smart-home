@@ -33,7 +33,7 @@ sudo env PYTHONPATH=/opt/agentic-home/host /usr/bin/python3 -m agentic_host.supp
 
 自動化部署使用 Supervisor partial backup：HA data，`addons: []`／`folders: []`，等待完成並讀回 slug；不把正在執行的 Controller 放入該次 cold backup。Controller 另用 SQLite 原生 backup API 留一致快照。
 
-原生 Apps 備份採 cold 模式。Runner 排除 `profiles/*`、`work/*`、`private/*`；已用 Supervisor 2026.09.3 真正的 archive/filter 實作確認巢狀登入資訊不進 archive。完整 HAOS 現場備份／還原仍需在你的 appliance 執行確認。
+原生 Apps 備份採 cold 模式。Runner 排除 `profiles/*`、`coding-auth/*`、`work/*`、`private/*`；已用 Supervisor 2026.09.3 真正的 archive/filter 實作確認巢狀登入資訊不進 archive。完整 HAOS 現場備份／還原仍需在你的 appliance 執行確認。
 
 Controller 的「下載加密備份」只含 Controller DB，含配對資料、policy、任務與 ledger，不含 provider profile。保存到另一台設備；密碼另存。日常也使用 HA 原生加密備份涵蓋 Core 與 Apps，保留 HA emergency kit。
 
@@ -48,8 +48,8 @@ Controller 的「下載加密備份」只含 Controller DB，含配對資料、p
    uv run --no-project --python 3.13 --with cryptography==50.0.2 python scripts/restore_controller.py agentic-home-backup.enc /offline-app-data/controller.sqlite3
    ```
 
-3. 程式互動讀取密碼、驗證 AES-GCM、SQLite integrity 與 schema，再建立不存在的目標檔案。目前接受 Controller schema 1 或 2，保留備份本來的版本，不把 2 轉回 1。目標已存在或解密失敗會拒絕，不覆蓋原 DB。
-4. 將已還原資料放回該 App 的離線 data 目錄，使用相容版本啟動。0.4.0 開啟 schema 1 會依下方流程遷移至 2；0.3.x 不能開啟 schema 2。App 啟動會修正其 DB 的 UID，未完成部署轉入核對，不自動重播。
+3. 程式互動讀取密碼、驗證 AES-GCM、SQLite integrity 與 schema，再建立不存在的目標檔案。目前接受 Controller schema 1／2／3，保留備份本來的版本，不執行降版。目標已存在或解密失敗會拒絕，不覆蓋原 DB。
+4. 將已還原資料放回該 App 的離線 data 目錄，使用相容版本啟動。0.6.0 開啟 schema 1／2 會依下方流程遷移至 3；較舊 binary 不能開啟 schema 3。App 啟動會修正其 DB 的 UID，未完成部署轉入核對，不自動重播。
 
 這個路徑不需要把主機 shell 開給 Agent。只有 Samba 一般分享時，通常無法直接取得 App 私有 `/data`，請採 HA 原生備份還原。不要把加密 Controller 快照當成包含 Core 的全機備份。
 
@@ -61,10 +61,10 @@ Controller 的「下載加密備份」只含 Controller DB，含配對資料、p
 
 ## 更新
 
-- **0.4.0 Controller 資料格式為 schema 2。** 雖沿用現有 SQL tables，Gateway 的 `coordinator` 等新欄位與 v3 records 語意已超出 0.3.x 的讀取契約，不能宣稱同格式相容。新建 DB 直接使用 `PRAGMA user_version=2`。
-- 開啟 schema 1 時，先用 SQLite backup API 在相同私有目錄建立唯一的 `controller.sqlite3.before-v2-<uuid>.sqlite3`，權限 0600，再於交易中將版本 marker 更新為 2；原 settings、records、audit 與去重紀錄保留。舊版 binary 會拒絕 schema 2，不能藉手動修改 `user_version` 繞過。
+- **0.6.0 Controller 使用 schema 3。** 新 worker lease／cancel 語意不能由 schema 2 binary 處理；新 DB 直接使用 `PRAGMA user_version=3`。
+- 開啟 schema 1／2 時，先以 SQLite backup API 留 mode-0600 `.before-v3-<uuid>.sqlite3`，再於交易中更新 marker。原 settings、records、audit 與去重紀錄保留。較舊 binary 拒絕 schema 3，不能手動改 marker 繞過。
 - 遷移前快照含 Controller 私有資料，沒有因 0600 就加密；不可放進一般 support bundle 或公開 evidence，離機保存必須加密。這份快照不含遷移後的新操作，也不是自動退版機制。不要為了換回舊 binary，直接把它覆蓋到已有新家庭操作的 DB。
-- 更新 Apps：先保留原生 App backup／加密 Controller 快照，再由 HA 原生管理頁更新。0.3.x → 0.4.0 的資料遷移與版本部署是不同步驟；目前沒有固定 in-place updater 或可聲稱安全的原地降版／rollback。需要恢復時先停止相關服務、保留現況、核對家庭副作用與 ledger，再採對應版本的離線恢復流程。
+- 外層 Controller image 使用 [固定 updater 與退版](UPDATES.md)，僅接受可信 publisher、精確 digest、同 schema 3 相容候選；保留當前 Live DB。HAOS Apps 仍從 HA 原生管理頁更新，先保留各自加密备份。不同 schema 的遷移不以舊 DB 覆蓋當前資料。
 - 更新 Core／Supervisor／HAOS：使用 HA 原生 UI。App 只允許已通過真實自動測試的 Core 版本使用自動化寫入 adapter；版本未涵蓋時更新 Agentic Home，既有 HA 規則仍由 HA 執行。
 - OS A/B、HA data restore、App DB restore 是不同操作。不要用舊 Core binary 直接開新版本資料來當還原。
 - 移除兩個 Apps 不會刪除其已建立的 HA 自動化。若要完整退出產品，先在 HA 檢查並停用／刪除需要移除的規則。
@@ -73,7 +73,7 @@ Controller 的「下載加密備份」只含 Controller DB，含配對資料、p
 
 預設 audit 30 天、Agent 觀測資料 7 天，可在設定縮短。活躍任務、當前 managed automation 的操作依據與 idempotency tombstones 保留以支援安全恢復。到期 Controller snapshots 清除；HA 原生 backups 的保留／離機同步由 HA 備份管理處理。
 
-外層模式更新 `context_days`（1–7 天）前，Controller 先呼叫 Hermes 私有 `POST /v1/retention` 同步保存上限。縮短期限會讓 runtime 停止進行中的 turn，再清除過期 session／context，避免完成中的舊 turn 重新寫回已刪前文；調長不恢復已刪資料。若同步失敗，API 回 503，Controller 的原設定保留，不會只更新 Web 顯示就宣稱所有上下文已同步清除。恢復 Hermes 服務後可重試；最小去重 tombstones 不含原始對話。
+Controller 將 `context_days` 同步到 Hermes 與所有已配對 Runners。縮短期限先在本機生效，遠端同步失敗回 503 並保留嚴格上限及 barrier，後續重試不復活內容；新工作須等同步完成。各服務 idle maintenance 清理過期內容，只有不含 prompt／artifact 的有界 ID／digest tombstone 保留去重。
 
 Runner job 留經過時間、CPU 與取樣 RSS；超時、記憶體或輸出上限會停止 job。原始 CLI stdout 不保存。雲端用量／金額沒有可信數據時不顯示推算數字。
 
@@ -94,8 +94,8 @@ Do not restore the HAOS disk while it is running. After a whole-guest restore, r
 
 桌面票據失效時重開 Agentic Home 捷徑即可；key 登入仍是備援。HA 官方授權失敗會顯示固定錯誤碼；中斷的 exchanging 不重用 auth code，可重新開啟新的授權流程。tokens 留在私有 storage，不放入支援報告。
 
-## 0.5.1 程序停止與資料保留限制
+## 0.6.0 程序停止與資料保留
 
-Runner 無法證明 CLI 整組程序已停止時持久記錄 `stop_unconfirmed`，拒絕新 job、登入／登出；Controller 應顯示需要核對，不能宣稱已取消。重啟不清除此狀態，目前尚無可信解除工具；不要手動刪 marker 後啟動下一個 writer。一般受限 CLI 的程序組確認也不等於任意 coding sandbox 隔離。
+Runner 無法證明 CLI 整組程序停止時持久記錄 `stop_unconfirmed`，拒絕新 job、登入／登出。0.6.0 加入固定 runtime 身份核對與 coding lease reconciliation，只有證明原 writer／verifier 停止才釋出；不能藉服務重啟、刪 marker 或改狀態繞過。停止後接手只提供不可寫共享的檢查點，詳見 [Workers](WORKERS.md)。
 
-Controller／Hermes 的 context_days 同步不涵蓋 Runner：Runner idle 7 天過期結果尚有清理缺陷。降低 Controller 保存天數不能宣稱所有副本立即清除。完整修正需期限同步、離線重連處理與去重 tombstone；追蹤見 [審查](reviews/2026-10-12-E2E-ARCHITECTURE.md)。
+前輪重現的 Runner idle 期限及未同步問題已加入全鏈期限、背景清除、離線同步 barrier 與 tombstone 回歸。歷史缺陷與證據仍保存在 [0.5.1 審查](reviews/2026-10-12-E2E-ARCHITECTURE.md)；最新驗證另列，不改寫歷史結果。

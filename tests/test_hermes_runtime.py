@@ -628,7 +628,7 @@ def test_real_pinned_hermes_uses_only_controller_mcp(tmp_path, request, monkeypa
             command = [python, "-m", "agentic_hermes.child"]
             env = {"PATH": "/usr/bin:/bin", "HOME": str(home), "HERMES_HOME": str(home / ".hermes"), "TMPDIR": str(home / "tmp"), "PYTHONPATH": str(Path(__file__).parents[1] / "hermes") + ":" + os.environ["AGENTIC_HERMES_TEST_UPSTREAM"], "AGENTIC_MCP_URL": mcp["url"], "AGENTIC_PROVIDER_URL": url + "/v1"}
         else:
-            command = ["docker", "run", "--rm", "--name", name, "-i", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "--network=host", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{home}:/scratch", "-e", "HOME=/scratch", "-e", "HERMES_HOME=/scratch/.hermes", "-e", "TMPDIR=/scratch/tmp", "-e", "PYTHONPATH=/app:/opt/hermes", "-e", "AGENTIC_MCP_URL=" + mcp["url"], "-e", "AGENTIC_PROVIDER_URL=" + url + "/v1", "--entrypoint=python", os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.5.1"), "-m", "agentic_hermes.child"]
+            command = ["docker", "run", "--rm", "--name", name, "-i", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "--network=host", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{home}:/scratch", "-e", "HOME=/scratch", "-e", "HERMES_HOME=/scratch/.hermes", "-e", "TMPDIR=/scratch/tmp", "-e", "PYTHONPATH=/app:/opt/hermes", "-e", "AGENTIC_MCP_URL=" + mcp["url"], "-e", "AGENTIC_PROVIDER_URL=" + url + "/v1", "--entrypoint=python", os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.6.0"), "-m", "agentic_hermes.child"]
             env = None
         if native:
             payload.update(provider="openai-codex", model="gpt-6-astra", api_key="")
@@ -666,7 +666,7 @@ def test_real_pinned_hermes_uses_only_controller_mcp(tmp_path, request, monkeypa
         assert mcp["token"] not in json.dumps(observed["model_calls"])
         assert API_KEY not in json.dumps(body)
         assert CODEX_TOKEN not in json.dumps(body) and "synthetic-native-refresh" not in json.dumps(body)
-        assert set(TOOLS) >= {"host.status", "worker.submit"}
+        assert set(TOOLS) >= {"host.status", "worker.submit", "home.observe", "home.propose", "home.proposal_status"}
 
 
 def test_packaged_runtime_starts_nonroot_without_cloud_credentials(tmp_path, request):
@@ -677,7 +677,7 @@ def test_packaged_runtime_starts_nonroot_without_cloud_credentials(tmp_path, req
     token_path = tmp_path / "service-token"
     token_path.write_text(TOKEN)
     token_path.chmod(0o644)  # Dedicated synthetic credential, mounted as a file.
-    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.5.1")
+    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.6.0")
     probe = (
         "import json,os,urllib.request; "
         "r=urllib.request.Request('http://127.0.0.1:8096/v1/capabilities',"
@@ -766,7 +766,7 @@ def test_offline_candidate_gate_and_real_upstream_device_flow(request):
         pytest.skip("Candidate and native device-flow probes require --containers")
     name = "agentic-hermes-oauth-" + uuid.uuid4().hex[:12]
     volume = name + "-data"
-    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.5.1")
+    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.6.0")
     common = ["docker", "run", "--rm", "--name", name, "--network=none", "--read-only", "--cap-drop=ALL",
               "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "-v", volume + ":/data",
               "-e", "HOME=/data", "-e", "HERMES_HOME=/data", "-e", "TMPDIR=/data",
@@ -821,3 +821,18 @@ print(json.dumps({'oauth':'real_upstream_helpers','transport':'mock_http','accou
     finally:
         subprocess.run(["docker", "rm", "-fv", name], capture_output=True, check=False)
         subprocess.run(["docker", "volume", "rm", volume], capture_output=True, check=False)
+
+
+async def test_idle_runtime_prunes_without_new_request(runtime):
+    old = (datetime.now(UTC) - timedelta(days=8)).isoformat()
+    runtime.put("session", "e" * 32, {"session_id": "e" * 32, "created_at": old, "scope_id": SCOPE})
+    runtime.remember("session", "idle-once", "f" * 64, "e" * 32)
+    maintenance = asyncio.create_task(runtime.maintain(interval=0.01))
+    try:
+        async with asyncio.timeout(2):
+            while runtime.get("session", "e" * 32):
+                await asyncio.sleep(0.01)
+        assert runtime.db.execute("SELECT count(*) FROM requests WHERE id=?", ("e" * 32,)).fetchone()[0] == 1
+    finally:
+        maintenance.cancel()
+        await asyncio.gather(maintenance, return_exceptions=True)

@@ -1,16 +1,22 @@
 """Stateless Streamable HTTP MCP, on a separate loopback listener and identity."""
 import json
-import uuid
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import ValidationError
 
-from .models import canonical, digest, utcnow
+from .engine import Rejected
+from .ha import HAError
+from .household import HomeObserve, HomePropose, HomeStatus
+from .models import canonical
 from .store import Conflict
 from .work import EvidenceQuery, NoArguments, WorkerQuery, WorkerSubmit
+from .workers import WorkerError
 
 TOOLS = {
+    "home.observe": (HomeObserve, "Read fresh policy-authorized HA states; API state is not physical verification."),
+    "home.propose": (HomePropose, "Validate a precise household proposal for Owner review. This never approves or deploys."),
+    "home.proposal_status": (HomeStatus, "Read a household task in this case; cannot approve, apply or control devices."),
     "host.status": (NoArguments, "Read fixed host diagnostics; no HA Core or physical-device claim."),
     "worker.capabilities": (NoArguments, "Read actual readiness and blocking prerequisites; no inference."),
     "worker.submit": (WorkerSubmit, "Request research/development for a fixed worker. Blocked capabilities do not execute."),
@@ -60,7 +66,7 @@ def create_mcp(coordinator):
             result = {}
         elif method == "tools/list":
             result = {"tools": [{"name": name, "description": description, "inputSchema": model.model_json_schema(),
-                "annotations": {"readOnlyHint": name not in {"worker.submit", "worker.cancel"},
+                "annotations": {"readOnlyHint": name not in {"worker.submit", "worker.cancel", "home.propose"},
                                 "openWorldHint": False}}
                 for name, (model, description) in TOOLS.items()]}
         elif method == "tools/call":
@@ -76,48 +82,46 @@ def create_mcp(coordinator):
                     raise ValueError("tool_budget_exhausted")
                 store.put("mcp_grant", {**grant, "calls": count + 1})
                 arguments = TOOLS[name][0].model_validate(params.get("arguments", {}))
-                if name == "host.status":
+                if name.startswith("home."):
+                    household = getattr(coordinator, "household", None)
+                    if not household:
+                        raise ValueError("household_unavailable")
+                    if name == "home.observe":
+                        value = await household.observe(arguments, auth[7:])
+                    elif name == "home.propose":
+                        value = await household.propose(arguments, auth[7:])
+                    else:
+                        value = household.status(arguments.task_id, grant["case_id"])
+                    coordinator.authorize(auth[7:])
+                elif name == "host.status":
                     value = await coordinator.host_evidence(grant)
                     coordinator.authorize(auth[7:])
                 elif name == "worker.capabilities":
-                    value = {"work_contract_major": 1, "workers": coordinator.workers()}
+                    value = await coordinator.worker_manager.capabilities()
+                    coordinator.authorize(auth[7:])
                 elif name == "worker.submit":
-                    payload = arguments.model_dump()
-                    key = arguments.idempotency_key
-                    prior = store.request("worker:" + grant["case_id"], key, digest(payload))
-                    if prior:
-                        value = store.get("work_job", prior)
-                    else:
-                        if sum(j["case_id"] == grant["case_id"] for j in store.list("work_job", 10000)) >= 4:
-                            raise ValueError("case_job_budget_exhausted")
-                        capability = next(c for c in coordinator.workers() if c["worker_id"] == arguments.worker_id)
-                        job_id = uuid.uuid4().hex
-                        value = {"id": job_id, "job_id": job_id, "case_id": grant["case_id"], "data_contract": 1,
-                            "work_contract_major": 1, "worker_id": arguments.worker_id, "mode": arguments.mode,
-                            "state": "blocked", "created_at": utcnow(), "reason": capability["reason"],
-                            "execution_started": False, "artifacts": [], "facts": [], "inferences": [],
-                            "unknowns": ["Worker execution is not enabled."], "experiments": []}
-                        # A single SQLite transaction makes handle and deduplication tombstone inseparable.
-                        with store.db:
-                            now = utcnow()
-                            store.db.execute("INSERT INTO records VALUES (?,?,?,?,?)",
-                                             ("work_job", value["id"], canonical(value), now, now))
-                            store.db.execute("INSERT INTO requests VALUES (?,?,?,?)",
-                                             ("worker:" + grant["case_id"], key, digest(payload), value["id"]))
+                    value = await coordinator.worker_manager.submit(arguments, arguments.idempotency_key, grant=grant,
+                        commit_guard=lambda: coordinator.authorize(auth[7:]))
+                    coordinator.authorize(auth[7:])
                 elif name == "case.evidence.read":
+                    store.prune()
+                    for evidence_id in arguments.evidence_ids:
+                        evidence = store.get("case_evidence", evidence_id)
+                        if evidence and evidence.get("job_id"):
+                            coordinator.worker_manager.get(evidence["job_id"], grant["case_id"])
                     values = [store.get("case_evidence", id) for id in arguments.evidence_ids]
                     if any(not v or v["case_id"] != grant["case_id"] for v in values):
                         raise ValueError("evidence_not_found_in_case")
                     value = {"evidence": values}
                 else:
-                    value = store.get("work_job", arguments.job_id)
-                    if not value or value["case_id"] != grant["case_id"]:
-                        raise ValueError("job_not_found_in_case")
-                    # Currently only blocked jobs exist: nothing was launched, no lease to hand off.
                     if name == "worker.cancel":
-                        value = store.put("work_job", {**value, "state": "cancelled", "execution_started": False})
+                        value = await coordinator.worker_manager.cancel(arguments.job_id, grant["case_id"])
+                    else:
+                        value = coordinator.worker_manager.public(coordinator.worker_manager.get(arguments.job_id, grant["case_id"]))
+                    coordinator.authorize(auth[7:])
+                coordinator.authorize(auth[7:])
                 result = {"content": [{"type": "text", "text": canonical(value)}], "isError": False}
-            except (ValidationError, ValueError, Conflict):
+            except (ValidationError, ValueError, Conflict, WorkerError, Rejected, HAError):
                 # Validation inputs may contain secrets; never echo Pydantic details to a model.
                 result = {"content": [{"type": "text", "text": "invalid_or_out_of_scope_request"}], "isError": True}
         if result is None:

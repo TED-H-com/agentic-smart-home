@@ -33,7 +33,7 @@ def restore(archive: Path, destination: Path, password: str):
         with sqlite3.connect(temporary.resolve().as_uri() + "?mode=ro&immutable=1", uri=True) as db:
             if db.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                 raise ValueError("資料庫完整性檢查失敗")
-            if db.execute("PRAGMA user_version").fetchone()[0] not in (1, 2):
+            if db.execute("PRAGMA user_version").fetchone()[0] not in (1, 2, 3):
                 raise ValueError("不相容的資料庫版本")
         # Atomic and exclusive: a concurrently created destination is never overwritten.
         os.link(temporary, destination)

@@ -29,10 +29,11 @@ from .gateway import Gateway
 from .gateway import routes as gateway_routes
 from .ha import HAError, HomeAssistant
 from .ha_oauth import routes as ha_oauth_routes
-from .hermes import Coordinator, HermesError
+from .hermes import Coordinator
 from .hermes import routes as hermes_routes
 from .host import HostSession, external_ha
 from .host import routes as host_routes
+from .household import Household
 from .mcp import create_mcp
 from .models import (
     Decision,
@@ -44,8 +45,10 @@ from .models import (
     provider_schema,
     utcnow,
 )
+from .operations import routes as operation_routes
 from .runner import Runner, RunnerError, cancel_and_confirm
 from .store import Conflict, Store
+from .workers import routes as worker_routes
 
 
 class TaskInput(Strict):
@@ -147,6 +150,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         watchers = [asyncio.create_task(ha.watch()), asyncio.create_task(engine.observe()), asyncio.create_task(maintain())]
         if gateway:
             await gateway.start()
+        if coordinator:
+            await coordinator.worker_manager.start()
         if bootstrap:
             bootstrap.resume()
         mcp_server = None
@@ -160,6 +165,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         yield
         if bootstrap:
             await bootstrap.close()
+        if coordinator:
+            await coordinator.worker_manager.close()
         if gateway:
             await gateway.close()
         tasks = list(running.values()) + watchers
@@ -207,11 +214,21 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                         return JSONResponse({"detail": "請先登入 Linux 主機管理介面"}, status_code=401)
             elif peer != ingress_ip:
                 return JSONResponse({"detail": "請經由 Home Assistant Ingress 開啟"}, status_code=403)
+            if store.setting("updater_gate") and request.url.path == "/api/host/authorized":
+                # This OAuth GET exchanges and persists credentials. Treat it
+                # as a mutation while keeping its one-use code out of the URL.
+                return RedirectResponse("/#onboarding", status_code=303,
+                    headers={"Referrer-Policy": "no-referrer", "Cache-Control": "no-store"})
+            if (store.setting("updater_gate") and request.url.path.startswith("/api/") and
+                request.method not in {"GET", "HEAD"} and request.url.path not in {
+                    "/api/host/login", "/api/host/desktop-login", "/api/host/logout"} and
+                not request.url.path.startswith("/api/updates/")):
+                return JSONResponse({"detail": "update_in_progress"}, status_code=423)
             if int(request.headers.get("content-length", "0")) > 131072:
                 return JSONResponse({"detail": "請求太大"}, status_code=413)
             if request.url.path.startswith("/api/") and request.url.path not in {"/api/host/login", "/api/host/desktop-login"}:
                 local = host_mode and (request.method in {"GET", "HEAD"} or request.url.path.startswith(
-                    ("/api/host/", "/api/providers/", "/api/gateway/", "/api/runtimes/", "/api/hermes/", "/api/bootstrap/")) or request.url.path in {"/api/pause", "/api/retention", "/api/backups/export"})
+                    ("/api/host/", "/api/providers/", "/api/gateway/", "/api/runtimes/", "/api/hermes/", "/api/bootstrap/", "/api/worker/", "/api/workers/", "/api/network/", "/api/updates/")) or request.url.path in {"/api/pause", "/api/retention", "/api/backups/export"})
                 user_id = (store.setting("owner") or "host-owner") if host_mode else request.headers.get("x-remote-user-id", "")
                 if not user_id or (store.setting("owner") and store.setting("owner") != user_id):
                     return JSONResponse({"detail": "只有綁定的 HA owner 可以操作"}, status_code=403)
@@ -557,10 +574,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         if body.context_days > body.audit_days:
             raise Rejected("觀測資料保存天數不能大於任務紀錄")
         if coordinator:
-            try:
-                await coordinator.client.call("POST", "/v1/retention", {"context_days": body.context_days})
-            except HermesError as exc:
-                raise HTTPException(503, "Hermes 保存設定尚未同步，請恢復服務後重試；本機設定尚未變更。") from exc
+            return await coordinator.worker_manager.update_retention(body.model_dump())
         store.set_setting("retention", body.model_dump())
         store.prune()
         return body.model_dump()
@@ -574,7 +588,11 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     if host_mode:
         gateway = Gateway(store, {"host": runner, "haos": inner_runner}, engine, plan, running, coordinator)
         coordinator.scope_valid = gateway.scope_valid
+        coordinator.household = Household(store, engine, coordinator)
+        coordinator.worker_manager.runners = {"host": runner, "haos": inner_runner}
         hermes_routes(app, coordinator, store)
+        worker_routes(app, coordinator.worker_manager)
+        app.state.operations = operation_routes(app, store, coordinator.worker_manager)
         gateway_routes(app, gateway, store, gateway.runners, controller_id)
         app.state.gateway = gateway
         app.state.coordinator = coordinator

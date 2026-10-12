@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
+import stat
 import time
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -25,14 +27,14 @@ class Store:
         self.db = sqlite3.connect(path)
         self.db.row_factory = sqlite3.Row
         version = self.db.execute("PRAGMA user_version").fetchone()[0]
-        if version not in (0, 1, 2):
+        if version not in (0, 1, 2, 3):
             self.db.close()
             raise RuntimeError("資料庫版本較新，請使用相容 App 或完整還原")
-        if version == 1:
+        if version in (1, 2):
             # V3 records and Gateway preferences have new semantics despite
             # retaining the SQL tables. Old binaries must refuse the new data.
             # Keep a consistent, private pre-migration backup, never overwrite it.
-            backup = path.with_name(path.name + ".before-v2-" + uuid.uuid4().hex + ".sqlite3")
+            backup = path.with_name(path.name + ".before-v3-" + uuid.uuid4().hex + ".sqlite3")
             backup.touch(mode=0o600, exist_ok=False)
             with sqlite3.connect(backup) as target:
                 self.db.backup(target)
@@ -52,7 +54,11 @@ class Store:
                 at TEXT NOT NULL, kind TEXT NOT NULL, body TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS conversation_scope ON records (
                 json_extract(body, '$.scope'), created DESC) WHERE kind='conversation';
-            PRAGMA user_version=2;
+            -- V2 worker records were diagnostic placeholders and launched no writer.
+            UPDATE records SET body=json_set(body,'$.stop_confirmed',json('true'))
+              WHERE kind='work_job' AND json_extract(body,'$.state') IN ('blocked','cancelled')
+              AND json_extract(body,'$.execution_started')=0 AND json_type(body,'$.lease_epoch') IS NULL;
+            PRAGMA user_version=3;
             COMMIT;
         """)
         path.chmod(0o600)
@@ -102,6 +108,9 @@ class Store:
     def conversation(self, *, id=None, scope=None):
         """Respect context retention even before the periodic cleanup runs."""
         days = self.setting("retention", {"context_days": 7})["context_days"]
+        pending = self.setting("retention_pending")
+        if pending:
+            days = min(days, pending["context_days"])
         cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
         clause, value = ("id=?", id) if id else ("json_extract(body, '$.scope')=?", scope)
         row = self.db.execute(
@@ -146,6 +155,9 @@ class Store:
 
     def prune(self):
         days = self.setting("retention", {"audit_days": 30, "context_days": 7})
+        pending = self.setting("retention_pending")
+        if pending:
+            days = {key: min(days[key], pending[key]) for key in ("audit_days", "context_days")}
         cutoff = (datetime.now(UTC) - timedelta(days=days["audit_days"])).isoformat()
         context_cutoff = (datetime.now(UTC) - timedelta(days=days["context_days"])).isoformat()
         with self.db:
@@ -156,7 +168,7 @@ class Store:
                             (time.time(),))
             self.db.execute("DELETE FROM records WHERE kind IN ('hermes_case','case_evidence') AND created < ?",
                             (context_cutoff,))
-            self.db.execute("DELETE FROM records WHERE kind IN ('hermes_run','work_job') AND created < ? "
+            self.db.execute("DELETE FROM records WHERE kind='hermes_run' AND created < ? "
                             "AND json_extract(body,'$.state') IN ('succeeded','failed','cancelled','interrupted','blocked')",
                             (cutoff,))
         for task in self.list("host_task", 10000):
@@ -184,6 +196,19 @@ class Store:
             for path in snapshots.glob("*.sqlite3"):
                 if path.is_file() and not path.is_symlink() and path.stat().st_mtime < time.time() - days["audit_days"] * 86400:
                     path.unlink()
+        # Migration copies contain the same private audit data. Match only
+        # snapshots produced for this exact database; lstat never follows links.
+        migration_name = re.compile(re.escape(self.path.name) + r"\.before-v3-[0-9a-f]{32}\.sqlite3")
+        snapshot_cutoff = time.time() - days["audit_days"] * 86400
+        for path in self.path.parent.iterdir():
+            if not migration_name.fullmatch(path.name):
+                continue
+            try:
+                metadata = path.lstat()
+                if stat.S_ISREG(metadata.st_mode) and metadata.st_mtime < snapshot_cutoff:
+                    path.unlink()
+            except FileNotFoundError:
+                pass  # Another cleanup already removed this exact entry.
 
     def close(self):
         self.db.close()

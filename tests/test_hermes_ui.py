@@ -7,6 +7,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
+from ui_helpers import click_navigation
 
 
 def test_hermes_login_truthful_states_and_gateway_case_continuity():
@@ -190,7 +191,7 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             page.get_by_role("heading", name="另一個 Hermes case", exact=True).wait_for()
             assert calls[-1][1]["reply_to"] is None and messages[0]["case_id"] != first["case_id"]
 
-            page.get_by_role("button", name="Agent 環境", exact=False).click()
+            click_navigation(page, 'Agent 環境')
             expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，待實際回覆驗證")
             panel.get_by_role("button", name="登出 Hermes", exact=True).click()
             expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚待登入")

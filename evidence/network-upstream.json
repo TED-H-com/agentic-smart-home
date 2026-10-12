@@ -1,0 +1,37 @@
+{
+  "source": "official Tailscale stable Ubuntu noble signed apt metadata",
+  "observed_at": "2026-10-12",
+  "version": "1.104.1",
+  "architecture": "amd64",
+  "metadata": {
+    "key": {
+      "url": "https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg",
+      "sha256": "3e03dacf222698c60b8e2f990b809ca1b3e104de127767864284e6c228f1fb39"
+    },
+    "release": {
+      "url": "https://pkgs.tailscale.com/stable/ubuntu/dists/noble/InRelease",
+      "sha256": "187a3dd1bab59ef8f20e6fee40880f8a6f797137d312f18f790531f0d95b69b9"
+    },
+    "packages": {
+      "url": "https://pkgs.tailscale.com/stable/ubuntu/dists/noble/main/binary-amd64/Packages.gz",
+      "sha256": "c3831fec9dbe6513ad45dd64d036280cf5ebb35ccfe7631b460ef4f5b89dfa8b"
+    }
+  },
+  "signing_fingerprint": "2596A99EAAB33821893C0A79458CA832957F5868",
+  "gpgv": "passed",
+  "signed_packages_hash": "passed",
+  "package": {
+    "Version": "1.104.1",
+    "Filename": "pool/tailscale_1.104.1_amd64.deb",
+    "Size": "40512672",
+    "SHA256": "509753a4ff223efc70234e7f539afc51f743b3af043d9e55313960bd7327700f"
+  },
+  "package_url": "https://pkgs.tailscale.com/stable/ubuntu/pool/tailscale_1.104.1_amd64.deb",
+  "installed_on_development_host": false,
+  "real_tailnet_account_test": "not_run",
+  "status_query": "tailscale status --json --peers=false",
+  "source_contract": [
+    "https://github.com/tailscale/tailscale/blob/v1.104.1/ipn/ipnstate/ipnstate.go",
+    "https://github.com/tailscale/tailscale/blob/v1.104.1/cmd/tailscale/cli/status.go"
+  ]
+}

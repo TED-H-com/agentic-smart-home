@@ -1,3 +1,13 @@
+# 0.6.0 isolated coding and delivery
+
+- Add persistent Host coding dispatch, independent role login, bounded provider/source relay, exact source commit and stopped-writer reconciliation; retained household mode stays restricted.
+- Export verified local artifacts, run a separate fixed verifier, produce isolated PNG previews, and export fenced handoff checkpoints.
+- Propagate retention to all paired runtimes, expire idle content, preserve bounded non-replayable tombstones, and gate new work while a shorter limit is pending.
+- Add Hermes household observation/proposal tools through the existing policy and exact Owner approval flow.
+- Add signed same-schema Controller updates/rollback and local trusted-publisher enrollment; introduce schema 3 with private pre-migration snapshots.
+- Improve mobile onboarding, device-code copying, LINE pairing flow and same-case work results. Add network preferences and optional Tailscale login with localhost SSH forwarding.
+- Home coding, real cloud accounts and household acceptance require their own evidence; engineering fixtures do not establish E1/E2 completion.
+
 # 0.5.1 recovery and E2E fixes
 
 - Propagate unconfirmed cancellation through household tasks, host queries and Gateway; never report a lost stop reply as cancelled.

@@ -1,0 +1,18 @@
+{
+  "image_id": "sha256:7cdaa9eba31d2c46d64f3fda86370540f92f6e8e706b1b9651dbeda80a19e903",
+  "network": "none",
+  "uid": 10004,
+  "memory_bytes": 805306368,
+  "pids": 128,
+  "cpu_nano": 1000000000,
+  "screenshots": {
+    "1440": "52f528b505df32e7ccd12c889654853f23ebc00770b021b1b0a440f1cecdcc27",
+    "768": "e1d3e6792b362440e37bf81670feb19a07aa89fbe5225058a27f87530989f392",
+    "390": "2500b3881d7f7ac673cc56460d27c9e2f0a8922ce95915a7c880a7a470a14022"
+  },
+  "loopback_management_requests": 0,
+  "separate_origin_http_test": "passed",
+  "disk_quota": "separate DiskVolume tests; this render test uses disposable host disk directory",
+  "real_cloud": false,
+  "real_household": false
+}

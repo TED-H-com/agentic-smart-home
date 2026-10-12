@@ -1,0 +1,20 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "artifact_ids": {
+      "items": {
+        "pattern": "^[a-f0-9]{32}$",
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Artifact Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "artifact_ids"
+  ],
+  "title": "WorkerPreview",
+  "type": "object"
+}

@@ -1,5 +1,6 @@
 import {useCallback,useEffect,useState} from 'react';
 import {api,haPath,session} from './api';
+import {MaintenanceSettings} from './maintenance';
 
 const actionLabels:Record<string,string>={provision:'建立 HAOS',start:'啟動 HAOS',shutdown:'正常關機',snapshot:'建立快照',restore:'還原快照'};
 const jobLabels:Record<string,string>={running:'處理中',succeeded:'已完成',failed:'未完成',needs_reconcile:'需要核對'};
@@ -56,6 +57,7 @@ export function HostPanel({onConnected,onAgent,appStatus}:{onConnected:()=>void;
     <section className="settings-section"><div className="section-heading"><div><h2>HAOS 快照與復原</h2><p className="helper-text">保留虛擬磁碟與韌體資料，方便回到先前狀態。</p></div><button className="secondary" disabled={!!busy||running||unavailable||!status?.provisioned} onClick={()=>action('snapshot')}>建立快照</button></div><p>建立時會正常關閉 HAOS，完成後恢復原本開機狀態；期間家庭自動化會暫停。快照保存在本機，離機備份需另外匯出。</p>
       {status?.snapshots?.length?<><p className="helper-text">還原前請先正常關閉 HAOS；外層 Agent 的資料不包含在 HAOS 快照中。</p>{status.snapshots.map((s:any)=><div className="service-row snapshot-row" key={s.id}><div className="section-heading"><code>{s.id}</code><button className="secondary" disabled={!!busy||running||unavailable||status.vm!=='shut off'} onClick={()=>setRestore(s.id)}>選擇還原</button></div>{restore===s.id&&<div className="notice"><p>還原會取代目前 HAOS 資料。外層 Agent 的家庭變更紀錄之後需要核對。</p><div className="row-actions"><button className="danger" disabled={!!busy} onClick={()=>action('restore',s.id)}>還原這份快照</button><button className="secondary" onClick={()=>setRestore('')}>取消</button></div></div>}</div>)}</>:<p className="subtle">{status?'尚無快照。完成家庭設定後，可建立第一份復原點。':'正在讀取快照…'}</p>}
     </section>
+    <MaintenanceSettings/>
     <details className="host-history" open={!!activeJob}><summary>主機操作紀錄{status?.jobs?.length?`（${status.jobs.length}）`:''}</summary>{status?.jobs?.length?status.jobs.slice().reverse().map((job:any)=><div className="service-row" key={job.id}><div className="section-heading"><strong>{actionLabels[job.request.action]||job.request.action}</strong><span className={`status s-${job.state}`}>{jobLabels[job.state]||job.state}</span></div>{job.message&&<p>{job.message}</p>}<small>{time(job.at)}</small></div>):<p className="subtle">主機尚無操作紀錄。</p>}</details>
   </div>;
 }

@@ -1,0 +1,313 @@
+{
+  "version": "0.6.0",
+  "renderer": "Chromium, compiled product Web",
+  "api_backend": "explicit synthetic fixtures",
+  "cloud_accounts": "not_used",
+  "reviewed_widths": [
+    1440,
+    768,
+    390
+  ],
+  "images": [
+    {
+      "file": "bootstrap-choose-1440.png",
+      "scene": "選擇 CLI",
+      "viewport_width": 1440,
+      "png_dimensions": [
+        1440,
+        900
+      ],
+      "sha256": "a9327ab6804e51c61cc1c9bbc48882ca95637bf4687783b50e71bdb318d5ad62"
+    },
+    {
+      "file": "bootstrap-choose-768.png",
+      "scene": "選擇 CLI",
+      "viewport_width": 768,
+      "png_dimensions": [
+        768,
+        933
+      ],
+      "sha256": "66e4a7036fd1cd2d409e5ceed1aae15ebc6fa2d476b64efae1de648ef91400fd"
+    },
+    {
+      "file": "bootstrap-choose-390.png",
+      "scene": "選擇 CLI",
+      "viewport_width": 390,
+      "png_dimensions": [
+        390,
+        940
+      ],
+      "sha256": "a7f1b9aefbbd9f3a009f65be118919c6f46793748936a166f42ea535a120c732"
+    },
+    {
+      "file": "bootstrap-cli-auth-1440.png",
+      "scene": "CLI 官方登入",
+      "viewport_width": 1440,
+      "png_dimensions": [
+        1440,
+        1176
+      ],
+      "sha256": "7f0ff46f53e969e9c45991c0111efea8c2b54dcb26d504fd251f09bc6b167704"
+    },
+    {
+      "file": "bootstrap-cli-auth-768.png",
+      "scene": "CLI 官方登入",
+      "viewport_width": 768,
+      "png_dimensions": [
+        768,
+        1213
+      ],
+      "sha256": "00e6d71c1952020ce629e8fd9f742356e0182af5ef98f881111cc3aa819d2fb5"
+    },
+    {
+      "file": "bootstrap-cli-auth-390.png",
+      "scene": "CLI 官方登入",
+      "viewport_width": 390,
+      "png_dimensions": [
+        390,
+        1167
+      ],
+      "sha256": "69e9b0e8518aa07357542456b41c1e9c29531eb91ec42dbaf6e61acab25dcc28"
+    },
+    {
+      "file": "bootstrap-hermes-auth-1440.png",
+      "scene": "Hermes 登入",
+      "viewport_width": 1440,
+      "png_dimensions": [
+        1440,
+        1222
+      ],
+      "sha256": "09f6f945df5461b0aab5f791c94b0ffe002fbad40865f6aa398c71f9930c818f"
+    },
+    {
+      "file": "bootstrap-hermes-auth-768.png",
+      "scene": "Hermes 登入",
+      "viewport_width": 768,
+      "png_dimensions": [
+        768,
+        1259
+      ],
+      "sha256": "8d7165f521009fd1aa78a50a65f3f69294bab4c95a63b07ca6f5cf39b686f2f1"
+    },
+    {
+      "file": "bootstrap-hermes-auth-390.png",
+      "scene": "Hermes 登入",
+      "viewport_width": 390,
+      "png_dimensions": [
+        390,
+        1232
+      ],
+      "sha256": "499f0fc07c9bd916c2671f00c133a3cf25fd9a86caaab07e1513e614192b3af6"
+    },
+    {
+      "file": "bootstrap-line-1440.png",
+      "scene": "LINE 掃碼",
+      "viewport_width": 1440,
+      "png_dimensions": [
+        1440,
+        1351
+      ],
+      "sha256": "04859822acf5b1908428389bc6ba5107ac7a3ef89c0b6d34665120b0e7a59896"
+    },
+    {
+      "file": "bootstrap-line-768.png",
+      "scene": "LINE 掃碼",
+      "viewport_width": 768,
+      "png_dimensions": [
+        768,
+        1351
+      ],
+      "sha256": "43d005472b33347ef89324a8fd79cbd38dcc65fd5756eff2b4df4e73927da06f"
+    },
+    {
+      "file": "bootstrap-line-390.png",
+      "scene": "LINE 掃碼",
+      "viewport_width": 390,
+      "png_dimensions": [
+        390,
+        1432
+      ],
+      "sha256": "1fb977520eb0f46140d56d9037554d80af4503234786f69fa8f487678cda2d3d"
+    },
+    {
+      "file": "bootstrap-line-pairing-1440.png",
+      "scene": "通訊配對",
+      "viewport_width": 1440,
+      "png_dimensions": [
+        1440,
+        1448
+      ],
+      "sha256": "143a8bcb734d22ad8e5feafd30ef784e6417ccfea34738637bc25b44d33456e9"
+    },
+    {
+      "file": "bootstrap-line-pairing-768.png",
+      "scene": "通訊配對",
+      "viewport_width": 768,
+      "png_dimensions": [
+        768,
+        1448
+      ],
+      "sha256": "59702648f04318c34e1b204ba1ea3526d86695b1b015888defe9bff3ebb0c50c"
+    },
+    {
+      "file": "bootstrap-line-pairing-390.png",
+      "scene": "通訊配對",
+      "viewport_width": 390,
+      "png_dimensions": [
+        390,
+        1501
+      ],
+      "sha256": "91e939b6cc3118851aedb8e30bde14d6193d76b49212f311c7382e3719efcc5d"
+    },
+    {
+      "file": "bootstrap-native-home-1440.png",
+      "scene": "接入 HA",
+      "viewport_width": 1440,
+      "png_dimensions": [
+        1440,
+        1054
+      ],
+      "sha256": "0afa7a700ede526a3706c8af12953164cdaa473244e13b524b9a1c7d4d62c55f"
+    },
+    {
+      "file": "bootstrap-native-home-768.png",
+      "scene": "接入 HA",
+      "viewport_width": 768,
+      "png_dimensions": [
+        768,
+        1207
+      ],
+      "sha256": "c6d9e32e56cd3584526194a01bada27cfb5d0de32152ba143ad980be7f306729"
+    },
+    {
+      "file": "bootstrap-native-home-390.png",
+      "scene": "接入 HA",
+      "viewport_width": 390,
+      "png_dimensions": [
+        390,
+        1248
+      ],
+      "sha256": "3b8d7cf74d01afe800e1f3cd6b1599f5fdee8a75af570c33952fbe05df16bca7"
+    },
+    {
+      "file": "bootstrap-complete-1440.png",
+      "scene": "完成設定",
+      "viewport_width": 1440,
+      "png_dimensions": [
+        1440,
+        900
+      ],
+      "sha256": "f9d2fe120d71b4e4ae888b7b8e332412d83dc22cad1476b2b4ddf27a8513ae13"
+    },
+    {
+      "file": "bootstrap-complete-768.png",
+      "scene": "完成設定",
+      "viewport_width": 768,
+      "png_dimensions": [
+        768,
+        844
+      ],
+      "sha256": "f4c75f12ccc0651ced0c017f4c2d528e913ad5f084da7ea45042e05602ebecb8"
+    },
+    {
+      "file": "bootstrap-complete-390.png",
+      "scene": "完成設定",
+      "viewport_width": 390,
+      "png_dimensions": [
+        390,
+        844
+      ],
+      "sha256": "dcc61c1fc0a70e3e37d144e7c457d304539428a16323f36e0206d1ed8c96d897"
+    },
+    {
+      "file": "conversation-work-1440.png",
+      "scene": "對話與工作",
+      "viewport_width": 1440,
+      "png_dimensions": [
+        1440,
+        1124
+      ],
+      "sha256": "ec42c69e965315f97010b642a6fc20904c94743336a48e8c83840ada661f064c"
+    },
+    {
+      "file": "conversation-work-768.png",
+      "scene": "對話與工作",
+      "viewport_width": 768,
+      "png_dimensions": [
+        768,
+        1550
+      ],
+      "sha256": "1e2cff06a6df587d430f2de2571a30d314aed8a160268f72d34ece8c2bd36a35"
+    },
+    {
+      "file": "conversation-work-390.png",
+      "scene": "對話與工作",
+      "viewport_width": 390,
+      "png_dimensions": [
+        390,
+        1606
+      ],
+      "sha256": "09f1c594096369588e13e4b365d531a54be0180b2f4d086a058523b8229e8a22"
+    },
+    {
+      "file": "coding-results-1440.png",
+      "scene": "開發成果",
+      "viewport_width": 1440,
+      "png_dimensions": [
+        1440,
+        1434
+      ],
+      "sha256": "5d40d1620f51f8f87bf8083445c5cb008bacb2f518a12c774a16c06aea2e1782"
+    },
+    {
+      "file": "coding-results-768.png",
+      "scene": "開發成果",
+      "viewport_width": 768,
+      "png_dimensions": [
+        768,
+        1579
+      ],
+      "sha256": "1912dde9ff72d44e49e5508e0e336ada638302a4447aaa50238a689d31b48b52"
+    },
+    {
+      "file": "coding-results-390.png",
+      "scene": "開發成果",
+      "viewport_width": 390,
+      "png_dimensions": [
+        390,
+        1592
+      ],
+      "sha256": "551478841dc15a2249b1745e500c4651878479079c4dc6f5d1244b3b8ed483d5"
+    },
+    {
+      "file": "host-maintenance-1440.png",
+      "scene": "網路與更新",
+      "viewport_width": 1440,
+      "png_dimensions": [
+        1440,
+        2845
+      ],
+      "sha256": "37ac05f973e586ce48e7335a0009f13d31732bd2de9dd9abc2ee3c3b1edd9a8a"
+    },
+    {
+      "file": "host-maintenance-768.png",
+      "scene": "網路與更新",
+      "viewport_width": 768,
+      "png_dimensions": [
+        768,
+        3314
+      ],
+      "sha256": "9d753e1ccf7ffec7e793330fdaee05a865ce768789747c8da170667b88c98dd1"
+    },
+    {
+      "file": "host-maintenance-390.png",
+      "scene": "網路與更新",
+      "viewport_width": 390,
+      "png_dimensions": [
+        390,
+        3730
+      ],
+      "sha256": "748bd110850ae5a1751e2afbe513ce079553ca274eaa695bba48495960b7725e"
+    }
+  ]
+}

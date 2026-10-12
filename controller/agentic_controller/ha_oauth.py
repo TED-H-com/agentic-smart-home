@@ -96,6 +96,7 @@ class HomeAuthorization:
         record = self.store.get("ha_oauth", identifier)
         cookie_digest = hashlib.sha256(request.cookies.get("agentic_host", "").encode()).hexdigest()
         if (not record or self.store.setting("ha_oauth_current") != identifier or
+            self.store.setting("updater_gate") or
             record["state"] != expected_state or record["expires"] <= time.time() or
             not self.auth.verify(request) or
             not hmac.compare_digest(record["cookie_digest"], cookie_digest) or

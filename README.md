@@ -1,8 +1,8 @@
-# Agentic Smart Home · 0.5.1 技術預覽
+# Agentic Smart Home · 0.6.0 技術預覽
 
 從開機一路引導到家庭設定：**Linux／網路 → 選 coding CLI 並登入 → 準備最新版 Hermes → LINE 或其他通道 → 自動啟動 HAOS → HA 原生設定**。程式保存進度並自動執行固定步驟，遇到帳號授權才等待使用者；可選擇先用 Web／外層助手。
 
-本版開始落實 [Plan v3](docs/v3/README.md)：一個外層 Hermes，Host／Home 各一個 coding worker 的方向不變。目前可使用 Hermes 對話與固定工具；兩個 research／development worker **尚未啟用**。Host 隔離原型、工作契約與 blocked handle 是開發基礎，不能當成 E1 真實修正或 E2 HAOS App 研究已完成。
+本版沿用 [Plan v3](docs/v3/README.md) 的一個外層 Hermes、Host／Home 各一個 coding worker。已接通獨立 Codex Host coding、檔案差異、獨立 verifier、隔離 PNG 預覽與停止後的接手檢查點；Hermes 可提出精確家庭提案，批准仍由 Owner 完成。Home coding 依真 HAOS App 隔離證據啟用；真帳號與家庭完整 E1／E2 驗收不由工程 fixtures 代替。
 
 ```text
 Web ＋ 可選 LINE／Discord／Telegram（同一個 Gateway）
@@ -12,17 +12,18 @@ Web ＋ 可選 LINE／Discord／Telegram（同一個 Gateway）
 ├── Hermes：獨立模型登入、真上游 AIAgent、固定 MCP 工具
 ├── Runner：進階受控 Codex／Claude／Antigravity／Grok
 ├── LINE.js：可選的本機 LINE 通訊服務
-├── Host broker：Owner 操作固定 HAOS VM／快照
+├── Host broker：隔離 coding、固定 HAOS VM／快照、預覽與更新
 └── 可稍後建立的 KVM → 官方 HAOS
                          ├── 受控 Runner App（另行配對／登入）
                          └── Supervisor／Core → 原生家庭自動化
 
-待完成：隔離 Host coding CLI → 真 HAOS App Home coding → 更新／退版
+Host coding：私有 Codex → diff → 獨立 verifier → PNG 預覽／停止後檢查點
+Home coding：仍依真 HAOS App 邊界驗證結果啟用
 ```
 
-[安裝](INSTALL.md) · [通訊與登入](docs/GATEWAY.md) · [Linux 架構](docs/LINUX_PRODUCT.md) · [Hermes runtime](hermes/README.md) · [驗證](docs/VERIFICATION.md) · [E2E／架構審查](docs/reviews/2026-10-12-E2E-ARCHITECTURE.md) · [v3 進度](docs/v3/PROGRESS.md)
+[安裝](INSTALL.md) · [通訊與登入](docs/GATEWAY.md) · [Linux 架構](docs/LINUX_PRODUCT.md) · [Hermes runtime](hermes/README.md) · [驗證](docs/VERIFICATION.md) · [本輪畫面／交付審查](docs/reviews/2026-10-12-UI-WORKER-DELIVERY.md) · [v3 進度](docs/v3/PROGRESS.md)
 
-0.5.1 的 Controller 資料格式為 **schema 2**。開啟 0.3.x 的 schema 1 DB 時會先留私有一致快照，再遷移；舊 binary 不能讀取 schema 2。此功能不是原地部署／降版工具，固定 updater 與 rollback 仍待完成；請依 [恢復說明](docs/OPERATIONS.md) 保留現況，不能用舊 DB 覆蓋新家庭操作。
+0.6.0 的 Controller 資料格式為 **schema 3**；從 1／2 開啟時先保存私有一致快照，再向前遷移。固定 updater 僅允許可信簽章、相同 schema 3 的 Controller image 更新／退版，保留現有 Live DB。不能直接退回 schema 2 的 0.5.x；詳見 [更新](docs/UPDATES.md) 與 [恢復](docs/OPERATIONS.md)。
 
 ## 開始使用
 
@@ -40,7 +41,7 @@ Web ＋ 可選 LINE／Discord／Telegram（同一個 Gateway）
 
 安裝包的 Hermes 回復基線使用上游 commit [`835c3dd…`](https://github.com/NousResearch/hermes-agent/tree/835c3dd038d903182a66ecc45e34bf5e0de65f00)，來源 archive hash、Python 3.14 與依賴見 [lock](hermes/hermes.lock.json)。首次設定會解析官方預設分支的最新 commit，以產品鎖定的依賴建置並通過離線相容性檢查後啟用；實際 commit／digest 可追蹤，之後重啟維持同一映像。它在獨立服務中執行真實 `AIAgent`，不啟動第二套 Hermes Gateway。
 
-可見 MCP 工具為 `host.status`、`worker.capabilities`、`worker.submit/status/cancel/result`、`case.evidence.read`。目前 worker 提交持久化為 `blocked`，不執行 code；沒有任意 shell、filesystem、browser、內建 delegate 或家庭批准工具。Host coding 的 provider egress／完整 workspace lifecycle、Home coding 的真 HAOS App 邊界仍需驗證，見 [sandbox foundation](host/worker/README.md)。
+MCP 可查 Host、worker capabilities、派工／取消／讀結果與 case 證據，也可使用 `home.observe`、`home.propose`、`home.proposal_status` 走既有家庭 Engine。沒有任意主機 shell 或 approve/apply 工具。隔離 coding 目前明確支援 Codex；其他 CLI 的家庭模式與初始化支援保持不變。使用與邊界見 [Workers](docs/WORKERS.md)，固定更新與網路見 [Updates](docs/UPDATES.md)。
 
 進階受控 Runner 維持以下鎖定 CLI，各自用私有 profile；這些受限家庭模式不是已完成的通用 coding worker。
 
@@ -63,15 +64,18 @@ npm ci --prefix web
 npm run build --prefix web
 uv run python scripts/contracts.py --check
 uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner; package_runner()"
-docker build -t agentic-home-controller:0.5.1 controller
-docker build -t agentic-home-runner:0.5.1 runner
-docker build -t agentic-home-linejs:0.5.1 host/linejs
-docker build -t agentic-home-hermes:0.5.1 hermes
+docker build -t agentic-home-controller:0.6.0 controller
+docker build -t agentic-home-runner:0.6.0 runner
+docker build -t agentic-home-linejs:0.6.0 host/linejs
+docker build -t agentic-home-hermes:0.6.0 hermes
+docker build -t agentic-home-preview:0.6.0 host/preview
 python3 scripts/build_host.py
 uv run python scripts/package.py
 ```
 
-`dist/` 產生 `agentic-home-0.5.1-linux-amd64.tar`、source ZIP 與 `SHA256SUMS`。內部服務名稱保留 `agentic-home`；大型 TAR／ISO 不存入 Git。產生 laptop 安裝媒體：
+產品來源須先提交到本 public repo；建置會將精確 HEAD 的 Git bundle 放入安裝包，拒絕未提交的產品程式，以免 worker 研究到另一個版本。
+
+`dist/` 產生 `agentic-home-0.6.0-linux-amd64.tar`、source ZIP 與 `SHA256SUMS`。內部服務名稱保留 `agentic-home`；大型 TAR／ISO 不存入 Git。產生 laptop 安裝媒體：
 
 ```bash
 docker build -f host/Builder.Dockerfile -t agentic-home-builder:0.2.0 host

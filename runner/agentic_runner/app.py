@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .bootstrap import BootstrapJob, BootstrapResult
 from .bootstrap import prompt as bootstrap_prompt
 from .providers import ProviderError, Providers, StopUnconfirmed
+from .retention import MAX_IDENTITIES, retained
 
 
 class Input(BaseModel):
@@ -43,6 +44,10 @@ class Pair(Input):
 class Login(Input):
     method: Literal["device_code", "api_key", "oauth_token"]
     secret: Annotated[str, Field(max_length=16384)] = ""
+
+
+class Retention(Input):
+    context_days: Annotated[int, Field(ge=1, le=7)]
 
 
 class Job(Input):
@@ -88,7 +93,7 @@ class Broker:
         (root / "runner.sqlite3").chmod(0o600)
         self.db = sqlite3.connect(root / "runner.sqlite3")
         (root / "runner.sqlite3").chmod(0o600)
-        self.db.executescript("""PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;
+        self.db.executescript("""PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA secure_delete=ON;
             CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, digest TEXT NOT NULL, body TEXT NOT NULL);
         """)
@@ -106,6 +111,7 @@ class Broker:
                 self.save_job({**job, "state": "stop_unconfirmed", "error": "stop_unconfirmed"})
             elif job["state"] == "queued":
                 self.save_job({**job, "state": "failed", "error": "Runner 已重啟，任務未重新執行"})
+        self.prune()
 
     def setting(self, key):
         row = self.db.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
@@ -182,6 +188,16 @@ class Broker:
                 "features": ["structured_intents", "cancel", "codex", "claude", "agy", "grok"]}
 
     def save_job(self, job):
+        old = self.db.execute("SELECT body FROM jobs WHERE id=?", (job["id"],)).fetchone()
+        if old:
+            previous = json.loads(old[0])
+            if "retained_until" in previous:
+                job = {**job, "retained_until": previous["retained_until"]}
+            if previous.get("content_expired"):
+                job = {**job, "content_expired": True}
+        elif self.db.execute("SELECT count(*) FROM jobs").fetchone()[0] >= MAX_IDENTITIES:
+            raise HTTPException(507, "job_identity_ledger_full")
+        job = retained(job, self.setting("context_days") or 7)
         job = {**job, "updated": time.time()}
         with self.db:
             self.db.execute("INSERT OR REPLACE INTO jobs VALUES (?,?,?)",
@@ -189,13 +205,23 @@ class Broker:
         return job
 
     def prune(self):
+        changed = False
         with self.db:
-            self.db.execute("DELETE FROM jobs WHERE json_extract(body,'$.state') IN ('succeeded','failed','cancelled') "
-                            "AND json_extract(body,'$.created') < ?", (time.time() - 7 * 86400,))
+            for identifier, raw in self.db.execute("SELECT id,body FROM jobs").fetchall():
+                previous = json.loads(raw)
+                item = retained(previous, self.setting("context_days") or 7)
+                if item != previous:
+                    self.db.execute("UPDATE jobs SET body=? WHERE id=?", (json.dumps(item), identifier))
+                    changed = True
+                if item.get("content_expired") and item["state"] == "stop_unconfirmed":
+                    self.providers.quarantine("expired_context_requires_stop")
+        if changed:
+            self.db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         self.providers.auth_sessions = {id: state for id, state in self.providers.auth_sessions.items()
                                        if state.get("_expires", 0) + 3600 > time.time()}
 
     def job(self, id):
+        self.prune()
         row = self.db.execute("SELECT body FROM jobs WHERE id=?", (id,)).fetchone()
         return json.loads(row[0]) if row else None
 
@@ -332,6 +358,46 @@ def create_api(broker):
                 "execution_state": "stop_unconfirmed" if broker.providers.unconfirmed else
                     "busy" if any(not t.done() for t in broker.tasks.values()) else "idle"}
 
+    @app.post("/retention")
+    async def retention(body: Retention):
+        broker.settings({"context_days": body.context_days})
+        broker.prune()
+        if os.environ.get("AGENTIC_HOST_MODE") == "1":
+            from .coding import host_request
+            try:
+                status, _ = await host_request("POST", "/retention", body.model_dump())
+                if status != 200:
+                    raise HTTPException(503, "coding_retention_pending")
+            except (OSError, ValueError, TimeoutError):
+                raise HTTPException(503, "coding_retention_pending") from None
+        return {"context_days": body.context_days, "identity_limit": MAX_IDENTITIES}
+
+    @app.get("/retention")
+    async def retention_status():
+        return {"context_days": broker.setting("context_days") or 7, "identity_limit": MAX_IDENTITIES}
+
+    @app.post("/reconcile")
+    async def reconcile():
+        if any(not task.done() for task in broker.tasks.values()):
+            raise HTTPException(409, "runner_busy")
+        async def external(previous):
+            if os.environ.get("AGENTIC_HOST_MODE") != "1" or "container_id" not in previous:
+                return False
+            from .coding import host_request
+            try:
+                code, evidence = await host_request("POST", "/reconcile-runtime", previous)
+                return code == 200 and evidence.get("stop_confirmed") is True
+            except Exception:
+                return False
+        if not await broker.providers.reconcile(external):
+            raise HTTPException(409, "stop_unconfirmed")
+        for row in broker.db.execute("SELECT body FROM jobs").fetchall():
+            job = json.loads(row[0])
+            if job["state"] == "stop_unconfirmed":
+                broker.save_job({**job, "state": "failed", "stop_confirmed": True,
+                                 "error": "interrupted_after_reconciliation"})
+        return {"execution_state": "idle", "stop_confirmed": True, "replayed": False}
+
     @app.post("/providers/{provider}/auth")
     async def auth(provider: Literal["codex", "claude", "agy", "grok"], body: Login):
         require_fenced()
@@ -361,14 +427,14 @@ def create_api(broker):
     async def job(body: Job):
         if len(body.prompt.encode()) > 32768 or len(json.dumps(body.schema_)) > 32768:
             raise HTTPException(413, "任務上下文超過上限")
-        if not time.time() < body.expires <= time.time() + 360:
-            raise HTTPException(422, "任務授權時間無效")
         digest = hashlib.sha256(body.model_dump_json().encode()).hexdigest()
         old = broker.job(body.id)
         if old:
             if old["digest"] != digest:
                 raise HTTPException(409, "任務 ID 已用於其他內容")
             return old
+        if not time.time() < body.expires <= time.time() + 360:
+            raise HTTPException(422, "任務授權時間無效")
         require_fenced()
         if sum(not t.done() for t in broker.tasks.values()) >= 10:
             raise HTTPException(429, "任務佇列已滿")
@@ -443,6 +509,8 @@ def create_api(broker):
             return broker.save_job({**record, "state": "stop_unconfirmed", "error": "stop_unconfirmed"})
         return broker.save_job({**record, "state": "cancelled"})
 
+    from .coding import routes as coding_routes
+    coding_routes(app, broker)
     return app
 
 
@@ -474,6 +542,15 @@ async def serve():
     root = Path(os.environ.get("AGENTIC_DATA", "/data"))
     broker = Broker(root)
     host_mode = os.environ.get("AGENTIC_HOST_MODE") == "1"
+    if host_mode:
+        from .coding import host_request
+        try:
+            status, runtime = await host_request("GET", "/runtime")
+            if status == 200 and runtime.get("pid_namespace") == broker.providers.runtime["pid_namespace"]:
+                broker.providers.runtime.update(runtime)
+                broker.providers.write_runtime()
+        except Exception:
+            pass  # Missing trusted identity never enables reconciliation.
     token = os.environ.pop("SUPERVISOR_TOKEN", "")
     if not broker.setting("token_hash"):
         hostname = os.environ.get("HOSTNAME", "local-agentic-runner").replace("_", "-")
@@ -504,19 +581,30 @@ async def serve():
         while broker.refresh_pairing_file(path):
             await asyncio.sleep(30)
     pairing_task = asyncio.create_task(refresh_pairing()) if host_mode else None
+    async def expire_content():
+        while True:
+            broker.prune()
+            await asyncio.sleep(60)
+    retention_task = asyncio.create_task(expire_content())
     try:
         await asyncio.gather(api.serve(), ingress.serve())
     finally:
+        retention_task.cancel()
+        await asyncio.gather(retention_task, return_exceptions=True)
         if pairing_task:
             pairing_task.cancel()
             await asyncio.gather(pairing_task, return_exceptions=True)
-        tasks = list(broker.tasks.values()) + [s["_task"] for s in broker.providers.auth_sessions.values() if s.get("_task")]
+        coding = broker.coding_credentials
+        tasks = list(broker.tasks.values()) + [s["_task"] for provider in (broker.providers, coding)
+                                              for s in provider.auth_sessions.values() if s.get("_task")]
         for task in tasks:
             if not task.done() and not task.cancelling():
                 task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
         for proc in list(broker.providers.processes.values()):
             await broker.providers.stop(proc)
+        for proc in list(coding.processes.values()):
+            await coding.stop(proc)
         broker.db.close()
 
 

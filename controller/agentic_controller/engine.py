@@ -56,7 +56,7 @@ class Engine:
         return task
 
     async def propose(self, task, intent: AutomationIntent | None = None, action: DeviceAction | None = None,
-                      *, mode="upsert", resource_id=None):
+                      *, mode="upsert", resource_id=None, commit_guard=None):
         prior_intent = None
         if action:
             entities = await self.permitted({action.entity_id}, {action.entity_id})
@@ -82,6 +82,8 @@ class Engine:
                     if owned.get("semantic") == semantic and owned.get("status") == "deployed":
                         live = await self.ha.config(owned["id"])
                         if digest(live) == owned["last_hash"]:
+                            if commit_guard:
+                                await commit_guard()
                             return self.store.transition(task, "succeeded", resource_id=owned["id"],
                                 message="相同規則已存在，未建立重複自動化", verification="existing_config_readback")
             prior = await self.ha.config(resource_id)
@@ -123,11 +125,15 @@ class Engine:
                     "verification_plan": "觀測來源狀態轉換、規則 context 與目標狀態；不以 API 成功代替觸發",
                     "rollback_condition": "live config 必須仍等於本產品最後寫入的 hash"}
         proposal["digest"] = digest(proposal)
+        if commit_guard:
+            await commit_guard()
         self.store.put("proposal", proposal)
         return self.store.transition(task, "awaiting_approval", proposal_id=proposal["id"],
                                      message="請檢查變更內容；批准前不會寫入 Home Assistant")
 
     async def fresh(self, proposal, principal):
+        if self.store.setting("updater_gate"):
+            raise Rejected("update_in_progress")
         approval = self.store.get("approval", proposal["id"])
         if not approval or approval["principal"] != principal or approval["digest"] != proposal["digest"]:
             raise Rejected("缺少與這份提案相符的批准")
@@ -142,6 +148,8 @@ class Engine:
         writes = {proposal["action"]["entity_id"]} if proposal["action"] else {
             a["entity_id"] for a in proposal["intent"]["actions"]}
         current = await self.permitted(set(proposal["inventory"]), writes)
+        if self.store.setting("updater_gate"):
+            raise Rejected("update_in_progress")
         if any(current[id]["metadata_hash"] != h for id, h in proposal["inventory"].items()):
             raise Rejected("設備所屬裝置或房間已變更，請重新產生提案")
 

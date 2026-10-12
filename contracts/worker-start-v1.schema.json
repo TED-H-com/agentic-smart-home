@@ -1,0 +1,88 @@
+{
+  "additionalProperties": false,
+  "description": "Owner request. Transport, authority, limits and leases stay server-owned.",
+  "properties": {
+    "case_id": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{32}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Case Id"
+    },
+    "goal": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Goal",
+      "type": "string"
+    },
+    "mode": {
+      "enum": [
+        "research",
+        "development"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "model": {
+      "default": "",
+      "pattern": "^[a-zA-Z0-9._:/-]{0,100}$",
+      "title": "Model",
+      "type": "string"
+    },
+    "provider": {
+      "anyOf": [
+        {
+          "enum": [
+            "codex",
+            "claude",
+            "agy",
+            "grok"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider"
+    },
+    "questions": {
+      "default": [],
+      "items": {
+        "maxLength": 500,
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Questions",
+      "type": "array"
+    },
+    "repo_id": {
+      "const": "agentic-home",
+      "default": "agentic-home",
+      "title": "Repo Id",
+      "type": "string"
+    },
+    "worker_id": {
+      "enum": [
+        "host-coder",
+        "home-coder"
+      ],
+      "title": "Worker Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "worker_id",
+    "mode",
+    "goal"
+  ],
+  "title": "WorkerStart",
+  "type": "object"
+}

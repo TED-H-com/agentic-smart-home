@@ -1,7 +1,7 @@
-export type View = 'home'|'inventory'|'automations'|'history'|'settings'|'host'|'onboarding'|'gateway'|'agents';
+export type View = 'home'|'inventory'|'automations'|'history'|'settings'|'host'|'onboarding'|'gateway'|'agents'|'workers';
 export function currentRoute(hostMode: boolean): {view:View; task:string|null} {
   const [view, task] = location.hash.slice(1).split('/');
-  const allowed = ['home','inventory','automations','history','settings', ...(hostMode?['host','onboarding','gateway','agents']:[])];
+  const allowed = ['home','inventory','automations','history','settings', ...(hostMode?['host','onboarding','gateway','agents','workers']:[])];
   return {view: allowed.includes(view) ? view as View : hostMode&&!view?'onboarding':'home', task: view==='home' && /^[a-zA-Z0-9_-]{1,100}$/.test(task||'') ? task : null};
 }
 export function SetupGuide({status,hostMode,navigate,view}:{status:any;hostMode:boolean;navigate:(view:View)=>void;view:View}) {

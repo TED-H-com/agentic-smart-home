@@ -1,0 +1,7 @@
+{
+  "root_cli_enrollment": "passed",
+  "root_cli_revocation": "passed",
+  "exact_review_required": true,
+  "trust_file_mode": "0600",
+  "development_host_modified": false
+}

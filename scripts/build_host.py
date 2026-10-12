@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "host"))
 from agentic_host.artifacts import fetch, sha256  # noqa: E402
 from agentic_host.manager import validate_profile  # noqa: E402
 
-VERSION = "0.5.1"
+VERSION = "0.6.0"
 SKIP = {"__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", "test-results"}
 
 
@@ -52,6 +52,21 @@ def boot_config(old, loopback=False):
     return menu + old.replace("set timeout=30", "set timeout=15").replace("\ngrub_platform\n", "\n")
 
 
+def coding_source(assets, root=ROOT):
+    # Include only this public product's committed history, never parent files,
+    # uncommitted work, other branches or installed role credentials.
+    paths = ["controller", "runner", "hermes", "host", "web", "contracts", "scripts", "providers.lock.json", "pyproject.toml", "uv.lock", "AGENTS.md", "DESIGN.md", "README.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md"]
+    changed = subprocess.check_output(["git", "-C", str(root), "status", "--porcelain", "--", *paths], text=True)
+    if changed.strip():
+        raise ValueError("Commit product source before building its coding source bundle")
+    commit = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
+    bundle_path = Path(assets) / "coding-source.bundle"
+    subprocess.run(["git", "-C", str(root), "bundle", "create", str(bundle_path.resolve()), "HEAD"], check=True)
+    lock = {"repo_id": "agentic-home", "commit": commit, "bundle_sha256": sha256(bundle_path)}
+    (Path(assets) / "coding-source.json").write_text(json.dumps(lock, indent=2) + "\n")
+    return lock
+
+
 def bundle(destination):
     from package import package_runner
     package_runner()
@@ -66,10 +81,14 @@ def bundle(destination):
         shutil.copyfile(ROOT / name, stage / name)
     assets = stage / "assets"
     assets.mkdir()
+    coding_source(assets)
     lock = json.loads((ROOT / "host/bases.lock.json").read_text())
     artifact = fetch(lock["haos"], ROOT / "build/cache")
     os.link(artifact, assets / artifact.name)
-    tags = ["agentic-home-" + service + ":" + VERSION for service in ("controller", "runner", "linejs", "hermes")]
+    network = json.loads((ROOT / "host/network.lock.json").read_text())
+    tailscale = fetch(network["tailscale"], ROOT / "build/cache")
+    os.link(tailscale, assets / tailscale.name)
+    tags = ["agentic-home-" + service + ":" + VERSION for service in ("controller", "runner", "linejs", "hermes", "preview")]
     images = {tag: subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", tag], text=True).strip()
               for tag in tags}
     (stage / "images.lock.json").write_text(json.dumps(images, indent=2) + "\n")

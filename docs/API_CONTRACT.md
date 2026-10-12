@@ -93,6 +93,6 @@ Runner 私有 `POST /bootstrap/jobs`（202）、GET／cancel 使用獨立的固�
 
 `GET api/hermes` 顯示獨立 runtime／auth／worker capabilities；`POST api/hermes/auth`、`auth/device`、GET `auth/device/{id}`、POST `auth/device/{id}/cancel` 與 `auth/logout` 使用獨立帳號資料。`GET api/hermes/cases` 和 `POST api/hermes/runs/{run_id}/cancel` 受原 case scope 限制；conversation 經既有 Gateway。官方 MCP client 連接 Controller 私有 `/mcp`，每次工具呼叫檢查短期 grant、scope、期限及撤權，不可代替 Owner 批准。
 
-目前 `worker.submit` 只回持久化 blocked handle、`execution_started=false`；Host／Home coding 尚未啟用。取消 blocked handle 不等於證明 coding workspace 已可交接。Runner `stop_unconfirmed` 同樣不能靠服務重啟自行清除；可信的 reconciliation 尚未提供。
+`worker.submit` 已走持久 Controller→TLS Runner→固定 Host broker；Host Codex `research/development` 依 capability 啟用，Home 依真 App 邊界驗證。`stop_unconfirmed` 保留 lease；`reconcile` 核對固定 runtime 身份，`handoff` 只在停止確認後回檢查點及 `live_session:false`。Owner 工作、獨立 role auth、artifacts／preview／network／updates 的精確 schema 見 [Owner OpenAPI](../contracts/host-controller.openapi.json) 和 [Workers](WORKERS.md)。
 
-資料保留限制：Controller `context_days` 的設定目前尚未同步成 Runner 清理契約；Runner 的 7 天清理只在新工作時觸發，idle GET 可能返回過期結果。這是已重現的未修缺陷，後續需內容清除、期限同步及不重執行的去重 tombstone，見 [Runner 審查](reviews/2026-10-12-runtime.md)。
+保存上限會傳至 Hermes 與所有配對 Runners；idle maintenance 也清理內容。下調立即在本機生效，部分遠端失敗留下 barrier，不接受新工作；延長不復活內容。到期 handle 回過期／tombstone，不重新派工。

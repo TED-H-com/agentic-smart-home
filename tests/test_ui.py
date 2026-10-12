@@ -10,6 +10,7 @@ import pytest
 from agentic_controller.models import compile_automation, digest, utcnow
 from conftest import SOURCE, TARGET
 from playwright.sync_api import sync_playwright
+from ui_helpers import click_navigation
 
 
 def test_browser_approval_and_responsive_layout(intent):
@@ -88,17 +89,17 @@ def test_browser_approval_and_responsive_layout(intent):
             page.get_by_role("button", name="批准並執行").click()
             page.get_by_role("button", name="執行 helper 測試").wait_for()
             assert len([p for p, _, _ in requests if p.endswith("/approve")]) == 1
-            page.get_by_role("button", name="設備與權限").click()
+            click_navigation(page, '設備與權限')
             page.get_by_role("checkbox", name=f"分享 {SOURCE}").check()
             page.get_by_role("combobox", name=f"{SOURCE} 操作權限").select_option("dedicated_helper")
             assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
             page.screenshot(path=str(evidence / "inventory-390.png"), full_page=True)
-            page.get_by_role("button", name="連線與設定").click()
+            click_navigation(page, '連線與設定')
             page.get_by_role("button", name="繼續編輯").wait_for()
             page.get_by_role("button", name="繼續編輯").click()
             page.get_by_role("button", name="儲存修改", exact=True).click()
             page.get_by_role("status").filter(has_text="設備授權已儲存").wait_for()
-            page.get_by_role("button", name="連線與設定").click()
+            click_navigation(page, '連線與設定')
             page.get_by_role("heading", name="登入你的 Agent").wait_for()
             assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
             page.screenshot(path=str(evidence / "settings-390.png"), full_page=True)
@@ -156,7 +157,7 @@ def test_host_login_offline_management_and_responsive_layout():
             page.screenshot(path=str(root / 'evidence/ui/host-login-1440.png'), full_page=True)
             page.get_by_role('button', name='開啟管理中心').click()
             page.get_by_role('region', name='開始使用').wait_for()
-            page.get_by_role('button', name='Linux 主機').click()
+            click_navigation(page, 'Linux 主機')
             page.get_by_role('heading', name='Home Assistant OS', exact=True).wait_for()
             assert page.get_by_role('button', name='正常關機', exact=True).is_disabled()
             for width in (1440, 768, 390):
@@ -249,7 +250,7 @@ def test_setup_links_session_recovery_and_login_resume():
                 page.set_viewport_size({'width':width,'height':900 if width==1440 else 844})
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
                 page.screenshot(path=str(root/f'evidence/ui/setup-{width}.png'), full_page=True)
-            page.get_by_role('button', name='Linux 主機').click()
+            click_navigation(page, 'Linux 主機')
             assert page.get_by_role('link', name='開啟 Home Assistant').get_attribute('href') == 'http://127.0.0.1:8123/'
             assert page.get_by_role('link', name='個人資料 → 安全性').get_attribute('href') == 'http://127.0.0.1:8123/profile/security'
             page.get_by_label('HA owner 權杖').fill('fixture-owner-token')
@@ -259,8 +260,8 @@ def test_setup_links_session_recovery_and_login_resume():
             guide.get_by_role('heading', name='登入外層 Agent').wait_for()
             page.get_by_role('button', name='開始官方登入').first.click()
             page.get_by_text('ABCD-1234', exact=True).wait_for()
-            page.get_by_role('button', name='工作台', exact=False).click()
-            page.get_by_role('button', name='連線與設定').click()
+            click_navigation(page, '工作台')
+            click_navigation(page, '連線與設定')
             page.get_by_text('ABCD-1234', exact=True).wait_for()
             assert auth_starts == 1, 'Returning to the page must resume the same login'
             links = page.get_by_role('link', name='開啟原生設定')
@@ -269,11 +270,11 @@ def test_setup_links_session_recovery_and_login_resume():
                 assert link.get_attribute('href').startswith('http://127.0.0.1:8123/')
                 assert link.get_attribute('target') == '_blank'
             assert page.get_by_role('link', name='HA 備份管理').get_attribute('href') == 'http://127.0.0.1:8123/config/backup/overview'
-            page.get_by_role('button', name='家庭自動化').click()
+            click_navigation(page, '家庭自動化')
             assert page.get_by_role('link', name='開啟 HA 原生自動化').get_attribute('href') == 'http://127.0.0.1:8123/config/automation/dashboard'
             page.reload()
             page.get_by_role('heading', name='家庭自動化', exact=True).wait_for()
-            page.get_by_role('button', name='工作台').click()
+            click_navigation(page, '工作台')
             page.get_by_label('家庭需求').fill('這段尚未送出的需求需要保留')
             expire = True
             hold_old_task = True

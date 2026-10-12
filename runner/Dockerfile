@@ -5,6 +5,7 @@ RUN npm ci --omit=dev --no-audit --no-fund
 
 FROM python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd12803a5c4247979ac7655f4d641
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 COPY --from=agents /usr/local/bin/node /usr/local/bin/node
 COPY --from=agents /opt/agents /opt/agents
 RUN ln -s /opt/agents/node_modules/.bin/codex /usr/local/bin/codex && \
@@ -13,8 +14,9 @@ RUN ln -s /opt/agents/node_modules/.bin/codex /usr/local/bin/codex && \
 WORKDIR /app
 COPY fetch_agy.py agy.lock.json ./
 RUN python fetch_agy.py
-COPY requirements.txt ./
+COPY requirements.txt requirements-coding.txt ./
 RUN pip install --no-cache-dir --require-hashes -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements-coding.txt
 COPY agentic_runner ./agentic_runner
 HEALTHCHECK --interval=30s --timeout=5s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8099/health',timeout=3)"
 CMD ["python", "-m", "agentic_runner.app"]

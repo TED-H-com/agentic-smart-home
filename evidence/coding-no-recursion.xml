@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="25.237" timestamp="2026-10-12T05:55:32.915971-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_worker_execution" name="test_actual_codex_tool_repair_and_test" time="24.586" /></testsuite></testsuites>

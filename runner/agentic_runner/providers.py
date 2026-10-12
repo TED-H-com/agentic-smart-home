@@ -12,6 +12,8 @@ import signal
 import time
 from pathlib import Path
 
+from .reconcile import local_proof, runtime_identity
+
 VERSIONS = {"codex": "0.157.1", "claude": "2.1.296", "agy": "1.3.3", "grok": "1.0.50"}
 DISABLED_CODEX_FEATURES = (
     "shell_tool", "unified_exec", "shell_snapshot", "apps", "plugins", "hooks", "multi_agent",
@@ -95,6 +97,10 @@ class Providers:
         private.mkdir(mode=0o700, exist_ok=True)
         self.quarantine_path = private / "stop-unconfirmed.json"
         self.unconfirmed = json.loads(self.quarantine_path.read_text()) if self.quarantine_path.exists() else {}
+        self.runtime_path = private / "runtime.json"
+        self.previous_runtime = json.loads(self.runtime_path.read_text()) if self.runtime_path.exists() else None
+        self.runtime = runtime_identity()
+        self.write_runtime()
         for provider in VERSIONS:
             profile = self.profile(provider)
             profile.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -136,7 +142,8 @@ class Providers:
             raise StopUnconfirmed()
 
     def quarantine(self, reason, pid=None):
-        self.unconfirmed[str(pid) if pid is not None else "restart"] = {"reason": reason}
+        self.unconfirmed.setdefault(str(pid) if pid is not None else "restart", {
+            "reason": reason, "runtime": self.runtime if pid is not None else self.previous_runtime or self.runtime})
         temporary = self.quarantine_path.with_suffix(".new")
         fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w") as stream:
@@ -149,6 +156,29 @@ class Providers:
             os.fsync(directory)
         finally:
             os.close(directory)
+
+    def write_runtime(self):
+        temporary = self.runtime_path.with_suffix(".new")
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as stream:
+            json.dump(self.runtime, stream)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, self.runtime_path)
+
+    async def reconcile(self, external_proof=None):
+        if self.processes or any(s.get("status") == "pending" for s in self.auth_sessions.values()):
+            return False
+        uids = {self.uid(provider) for provider in VERSIONS} if os.getuid() == 0 else {os.getuid()}
+        for value in self.unconfirmed.values():
+            previous = value.get("runtime")
+            if local_proof(previous, self.runtime, uids):
+                continue
+            if external_proof is None or not isinstance(previous, dict) or not await external_proof(previous):
+                return False
+        self.quarantine_path.unlink(missing_ok=True)
+        self.unconfirmed.clear()
+        return True
 
     def track_process(self, proc, provider):
         if hasattr(proc, "_agentic_fence"):

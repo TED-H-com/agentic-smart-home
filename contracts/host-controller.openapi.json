@@ -807,6 +807,33 @@
         "title": "LoginInput",
         "type": "object"
       },
+      "NetworkPreferences": {
+        "additionalProperties": false,
+        "properties": {
+          "lan": {
+            "enum": [
+              "dhcp",
+              "reservation"
+            ],
+            "title": "Lan",
+            "type": "string"
+          },
+          "remote": {
+            "enum": [
+              "disabled",
+              "tailscale"
+            ],
+            "title": "Remote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lan",
+          "remote"
+        ],
+        "title": "NetworkPreferences",
+        "type": "object"
+      },
       "OnboardingStep": {
         "additionalProperties": false,
         "properties": {
@@ -993,6 +1020,218 @@
         "title": "Unlock",
         "type": "object"
       },
+      "UpdateApply": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_id": {
+            "pattern": "^[A-Za-z0-9_-]{32,100}$",
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "candidate_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Candidate Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_digest",
+          "approval_id"
+        ],
+        "title": "UpdateApply",
+        "type": "object"
+      },
+      "UpdateCompatibility": {
+        "additionalProperties": false,
+        "properties": {
+          "ha_core_versions": {
+            "items": {
+              "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Ha Core Versions",
+            "type": "array"
+          },
+          "runner_protocol": {
+            "const": 1,
+            "title": "Runner Protocol",
+            "type": "integer"
+          },
+          "runtime_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Runtime Digest",
+            "type": "string"
+          },
+          "schema": {
+            "const": 3,
+            "title": "Schema",
+            "type": "integer"
+          },
+          "worker_contract": {
+            "const": 1,
+            "title": "Worker Contract",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schema",
+          "worker_contract",
+          "runner_protocol",
+          "runtime_digest",
+          "ha_core_versions"
+        ],
+        "title": "UpdateCompatibility",
+        "type": "object"
+      },
+      "UpdateManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "compatibility": {
+            "$ref": "#/components/schemas/UpdateCompatibility"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "format": {
+            "const": 1,
+            "title": "Format",
+            "type": "integer"
+          },
+          "image": {
+            "maxLength": 400,
+            "pattern": "^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[a-f0-9]{64}$",
+            "title": "Image",
+            "type": "string"
+          },
+          "image_id": {
+            "pattern": "^sha256:[a-f0-9]{64}$",
+            "title": "Image Id",
+            "type": "string"
+          },
+          "issued_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Issued At"
+          },
+          "publisher": {
+            "pattern": "^[a-z0-9-]{1,64}$",
+            "title": "Publisher",
+            "type": "string"
+          },
+          "source_commit": {
+            "pattern": "^[a-f0-9]{40}$",
+            "title": "Source Commit",
+            "type": "string"
+          },
+          "tests": {
+            "items": {
+              "$ref": "#/components/schemas/UpdateTest"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Tests",
+            "type": "array"
+          },
+          "version": {
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[a-z0-9.]+)?$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "format",
+          "publisher",
+          "version",
+          "source_commit",
+          "image",
+          "image_id",
+          "compatibility",
+          "tests",
+          "issued_at",
+          "expires_at"
+        ],
+        "title": "UpdateManifest",
+        "type": "object"
+      },
+      "UpdateOffer": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Candidate Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_digest"
+        ],
+        "title": "UpdateOffer",
+        "type": "object"
+      },
+      "UpdateStage": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/UpdateManifest"
+          },
+          "signature": {
+            "maxLength": 100,
+            "minLength": 80,
+            "pattern": "^[A-Za-z0-9+/]+=*$",
+            "title": "Signature",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest",
+          "signature"
+        ],
+        "title": "UpdateStage",
+        "type": "object"
+      },
+      "UpdateTest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "pattern": "^[A-Za-z0-9_.-]{1,100}$",
+            "title": "Name",
+            "type": "string"
+          },
+          "result": {
+            "const": "passed",
+            "title": "Result",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "result",
+          "sha256"
+        ],
+        "title": "UpdateTest",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -1031,6 +1270,170 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WorkerAction": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "WorkerAction",
+        "type": "object"
+      },
+      "WorkerAuth": {
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "enum": [
+              "device_code",
+              "api_key"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "secret": {
+            "default": "",
+            "format": "password",
+            "maxLength": 16384,
+            "title": "Secret",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "method"
+        ],
+        "title": "WorkerAuth",
+        "type": "object"
+      },
+      "WorkerPreference": {
+        "additionalProperties": false,
+        "properties": {
+          "model": {
+            "default": "",
+            "pattern": "^[a-zA-Z0-9._:/-]{0,100}$",
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "codex",
+              "claude",
+              "agy",
+              "grok"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider"
+        ],
+        "title": "WorkerPreference",
+        "type": "object"
+      },
+      "WorkerPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_ids": {
+            "items": {
+              "pattern": "^[a-f0-9]{32}$",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "minItems": 1,
+            "title": "Artifact Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "artifact_ids"
+        ],
+        "title": "WorkerPreview",
+        "type": "object"
+      },
+      "WorkerStart": {
+        "additionalProperties": false,
+        "description": "Owner request. Transport, authority, limits and leases stay server-owned.",
+        "properties": {
+          "case_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "goal": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Goal",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "research",
+              "development"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "model": {
+            "default": "",
+            "pattern": "^[a-zA-Z0-9._:/-]{0,100}$",
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "enum": [
+                  "codex",
+                  "claude",
+                  "agy",
+                  "grok"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "questions": {
+            "default": [],
+            "items": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Questions",
+            "type": "array"
+          },
+          "repo_id": {
+            "const": "agentic-home",
+            "default": "agentic-home",
+            "title": "Repo Id",
+            "type": "string"
+          },
+          "worker_id": {
+            "enum": [
+              "host-coder",
+              "home-coder"
+            ],
+            "title": "Worker Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "worker_id",
+          "mode",
+          "goal"
+        ],
+        "title": "WorkerStart",
         "type": "object"
       }
     }
@@ -1906,6 +2309,43 @@
         "summary": "Cases"
       }
     },
+    "/api/hermes/cases/{case_id}": {
+      "get": {
+        "operationId": "case_status_api_hermes_cases__case_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Case Status"
+      }
+    },
     "/api/hermes/runs/{run_id}/cancel": {
       "post": {
         "operationId": "cancel_api_hermes_runs__run_id__cancel_post",
@@ -2343,6 +2783,130 @@
           }
         },
         "summary": "Inventory"
+      }
+    },
+    "/api/network": {
+      "get": {
+        "operationId": "network_api_network_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Network"
+      }
+    },
+    "/api/network/login": {
+      "post": {
+        "operationId": "login_api_network_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login"
+      }
+    },
+    "/api/network/preferences": {
+      "post": {
+        "operationId": "preferences_api_network_preferences_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NetworkPreferences"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preferences"
+      }
+    },
+    "/api/network/revoke": {
+      "post": {
+        "operationId": "revoke_api_network_revoke_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke"
       }
     },
     "/api/pair": {
@@ -2944,6 +3508,57 @@
         "summary": "Logout"
       }
     },
+    "/api/runtimes/{scope}/reconcile": {
+      "post": {
+        "operationId": "reconcile_runtime_api_runtimes__scope__reconcile_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scope",
+            "required": true,
+            "schema": {
+              "enum": [
+                "host",
+                "haos"
+              ],
+              "title": "Scope",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reconcile Runtime"
+      }
+    },
     "/api/services": {
       "get": {
         "operationId": "services_api_services_get",
@@ -3208,6 +3823,938 @@
           }
         },
         "summary": "Reply"
+      }
+    },
+    "/api/updates": {
+      "get": {
+        "operationId": "updates_api_updates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Updates"
+      }
+    },
+    "/api/updates/apply": {
+      "post": {
+        "operationId": "apply_api_updates_apply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateApply"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply"
+      }
+    },
+    "/api/updates/rollback": {
+      "post": {
+        "operationId": "rollback_api_updates_rollback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateApply"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback"
+      }
+    },
+    "/api/updates/rollback-offer": {
+      "post": {
+        "operationId": "rollback_offer_api_updates_rollback_offer_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOffer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback Offer"
+      }
+    },
+    "/api/updates/stage": {
+      "post": {
+        "operationId": "stage_api_updates_stage_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stage"
+      }
+    },
+    "/api/updates/{candidate_digest}": {
+      "get": {
+        "operationId": "update_status_api_updates__candidate_digest__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_digest",
+            "required": true,
+            "schema": {
+              "title": "Candidate Digest",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Status"
+      }
+    },
+    "/api/worker/jobs": {
+      "get": {
+        "operationId": "jobs_api_worker_jobs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Jobs"
+      },
+      "post": {
+        "operationId": "submit_api_worker_jobs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit"
+      }
+    },
+    "/api/worker/jobs/{identifier}": {
+      "get": {
+        "operationId": "status_api_worker_jobs__identifier__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Status"
+      }
+    },
+    "/api/worker/jobs/{identifier}/artifacts/{artifact_id}": {
+      "get": {
+        "operationId": "artifact_api_worker_jobs__identifier__artifacts__artifact_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Artifact"
+      }
+    },
+    "/api/worker/jobs/{identifier}/cancel": {
+      "post": {
+        "operationId": "cancel_api_worker_jobs__identifier__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel"
+      }
+    },
+    "/api/worker/jobs/{identifier}/handoff": {
+      "post": {
+        "operationId": "handoff_api_worker_jobs__identifier__handoff_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Handoff"
+      }
+    },
+    "/api/worker/jobs/{identifier}/previews": {
+      "post": {
+        "operationId": "preview_api_worker_jobs__identifier__previews_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerPreview"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview"
+      }
+    },
+    "/api/worker/jobs/{identifier}/reconcile": {
+      "post": {
+        "operationId": "reconcile_api_worker_jobs__identifier__reconcile_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reconcile"
+      }
+    },
+    "/api/worker/previews/{identifier}": {
+      "get": {
+        "operationId": "preview_status_api_worker_previews__identifier__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Status"
+      }
+    },
+    "/api/worker/previews/{identifier}/revoke": {
+      "post": {
+        "operationId": "revoke_preview_api_worker_previews__identifier__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Preview"
+      }
+    },
+    "/api/workers": {
+      "get": {
+        "operationId": "capabilities_api_workers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Capabilities"
+      }
+    },
+    "/api/workers/{worker}/auth/{identifier}": {
+      "get": {
+        "operationId": "auth_status_api_workers__worker__auth__identifier__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "worker",
+            "required": true,
+            "schema": {
+              "enum": [
+                "host-coder",
+                "home-coder"
+              ],
+              "title": "Worker",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Auth Status"
+      }
+    },
+    "/api/workers/{worker}/auth/{identifier}/cancel": {
+      "post": {
+        "operationId": "auth_cancel_api_workers__worker__auth__identifier__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "worker",
+            "required": true,
+            "schema": {
+              "enum": [
+                "host-coder",
+                "home-coder"
+              ],
+              "title": "Worker",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Auth Cancel"
+      }
+    },
+    "/api/workers/{worker}/preferences": {
+      "post": {
+        "operationId": "preferences_api_workers__worker__preferences_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "worker",
+            "required": true,
+            "schema": {
+              "enum": [
+                "host-coder",
+                "home-coder"
+              ],
+              "title": "Worker",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerPreference"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preferences"
+      }
+    },
+    "/api/workers/{worker}/providers/codex/auth": {
+      "post": {
+        "operationId": "authenticate_api_workers__worker__providers_codex_auth_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "worker",
+            "required": true,
+            "schema": {
+              "enum": [
+                "host-coder",
+                "home-coder"
+              ],
+              "title": "Worker",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerAuth"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Authenticate"
+      }
+    },
+    "/api/workers/{worker}/providers/codex/logout": {
+      "post": {
+        "operationId": "logout_api_workers__worker__providers_codex_logout_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "worker",
+            "required": true,
+            "schema": {
+              "enum": [
+                "host-coder",
+                "home-coder"
+              ],
+              "title": "Worker",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Logout"
+      }
+    },
+    "/api/workers/{worker}/reconcile": {
+      "post": {
+        "operationId": "reconcile_coding_api_workers__worker__reconcile_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "worker",
+            "required": true,
+            "schema": {
+              "enum": [
+                "host-coder",
+                "home-coder"
+              ],
+              "title": "Worker",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reconcile Coding"
       }
     }
   }

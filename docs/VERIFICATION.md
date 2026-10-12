@@ -1,4 +1,14 @@
-# Agentic Smart Home 0.5.1 E2E 與恢復驗證
+# Agentic Smart Home 0.6.0 驗證
+
+本輪將 0.5.1 審查的工程缺口接入產品，並依實際 Chromium 截圖改善 onboarding 與開發成果畫面。完整服務、精確安裝媒體與 CI 的結果會各自記錄，不把模型 transport fixtures 說成真帳號驗收。
+
+已完成的分項：Controller／Engine／Hermes 管理層 **106 passed、1 skipped**（另待 real Core）；真 pinned Hermes 容器 **22 passed**；Web 三尺寸瀏覽器回歸 **11 passed**。對應 [Controller](../evidence/worker-controller.xml)、[Hermes runtime](../evidence/worker-hermes-runtime.xml)。本機完整 `--real-ha --containers` 已為 **385 passed、3 skipped／378.44 秒**，見 [完整 JUnit](../evidence/pytest-0.6.0.xml)；另補遷移快照、updater 快照與 verifier shadowing 的定向回歸，分別 35、34、35 項通過。三個跳過項為兩個 HAOS VM 案例與 Linux 安裝案例，另行執行；真帳號不在上述數字內。
+
+[30 張三尺寸截圖](../evidence/ui/0.6.0/README.md) 已逐類檢視；調整見 [本輪審查](reviews/2026-10-12-UI-WORKER-DELIVERY.md)。
+
+能力與限制見 [Worker 說明](WORKERS.md)、[更新／網路說明](UPDATES.md)、[v3 帳本](v3/PROGRESS.md)。歷史紀錄保留如下，不能用於宣稱新版 ISO 已通過。
+
+# 0.5.1 E2E 與恢復驗證（歷史）
 
 2026-10-12，本機完整 `pytest-disktmp uv run pytest -q --real-ha --containers` 回歸 **271 passed、2 skipped，194.16 秒**，見 [JUnit](../evidence/pytest-0.5.1.xml)。兩個獨立大型案例另外執行：真 HAOS **1 passed／84.78 秒**；修正版 0.5.1 精確 ISO 安裝 **1 passed／1493.94 秒**。首輪媒體版本標記失敗保留於本頁末；修正後使用新 digest 完整重驗。
 

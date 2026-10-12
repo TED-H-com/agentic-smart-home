@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, SecretStr
 
-from .models import Strict
+from .models import Provider, Strict
 
 WorkerId = Literal["host-coder", "home-coder"]
 Identifier = Annotated[str, Field(pattern=r"^[a-f0-9]{32}$")]
@@ -36,3 +36,50 @@ class EvidenceQuery(Strict):
 
 class NoArguments(Strict):
     pass
+
+
+class WorkerStart(Strict):
+    """Owner request. Transport, authority, limits and leases stay server-owned."""
+    worker_id: WorkerId
+    mode: Literal["research", "development"]
+    goal: Annotated[str, Field(min_length=1, max_length=4000)]
+    questions: Annotated[list[Annotated[str, Field(max_length=500)]], Field(max_length=8)] = []
+    repo_id: Literal["agentic-home"] = "agentic-home"
+    case_id: Identifier | None = None
+    provider: Provider | None = None
+    model: Annotated[str, Field(pattern=r"^[a-zA-Z0-9._:/-]{0,100}$")] = ""
+
+
+class WorkerAuth(Strict):
+    method: Literal["device_code", "api_key"]
+    secret: SecretStr = Field(default=SecretStr(""), max_length=16384)
+
+
+class WorkerAction(Strict):
+    pass
+
+
+class WorkerPreview(Strict):
+    artifact_ids: Annotated[list[Identifier], Field(min_length=1, max_length=16)]
+
+
+class WorkerWireJob(Strict):
+    work_contract_major: Literal[1] = 1
+    id: Identifier
+    case_id: Identifier
+    worker_id: WorkerId
+    mode: Literal["research", "development"]
+    provider: Provider
+    model: Annotated[str, Field(pattern=r"^[a-zA-Z0-9._:/-]{0,100}$")] = ""
+    repo_id: Literal["agentic-home"] = "agentic-home"
+    goal: Annotated[str, Field(min_length=1, max_length=4000)]
+    questions: Annotated[list[Annotated[str, Field(max_length=500)]], Field(max_length=8)] = []
+    base_commit: Annotated[str, Field(pattern=r"^[a-f0-9]{40}$")] | None = None
+    expires: float
+    lease_epoch: Annotated[int, Field(ge=1)]
+    context_days: Annotated[int, Field(ge=1, le=7)]
+
+
+class WorkerPreference(Strict):
+    provider: Provider
+    model: Annotated[str, Field(pattern=r"^[a-zA-Z0-9._:/-]{0,100}$")] = ""

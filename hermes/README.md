@@ -114,7 +114,7 @@ the same limit. Reducing the limit stops active inference before removing expire
 context, so a finishing turn cannot restore erased history. Increasing it never
 restores deleted content. The setting persists across runtime restarts and is
 included as `context_days` in capabilities. Expired content is removed on startup
-and API activity. Minimal idempotency tombstones remain, preventing an expired
+and API activity, plus an idle maintenance pass every 60 seconds. Minimal idempotency tombstones remain, preventing an expired
 request from being replayed. At most 1,000 sessions and 10,000 run payloads are
 retained. A restarted adapter marks unfinished runs `interrupted` and does not
 automatically replay them. Cancellation checks all non-zombie processes in the
@@ -140,7 +140,10 @@ is disabled. Hermes owns the reasoning loop through `codex_responses`, not the
 optional Codex app-server runtime with its separate native tool authority.
 
 Allowed tools are exactly `host.status`, `worker.capabilities`, `worker.submit`,
-`worker.status`, `worker.cancel`, `worker.result`, and `case.evidence.read`.
+`worker.status`, `worker.cancel`, `worker.result`, `case.evidence.read`,
+`home.observe`, `home.propose`, and `home.proposal_status`. Household observations
+are policy filtered; proposals reuse the Controller compiler and exact Owner
+approval flow. These tools cannot approve, apply, or call general HA services.
 Discovery is filtered, `enabled_toolsets` is only `mcp-agentic`, the upstream
 tool-search wrapper is disabled, and dispatch has an additional exact allowlist.
 Built-in terminal, filesystem, browser, coding, delegate, memory, skills,

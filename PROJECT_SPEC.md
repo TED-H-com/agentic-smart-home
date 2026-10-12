@@ -4,7 +4,7 @@ Steering v3.0；匯入基準是應用 `0.3.1`、commit `3ad476a712009469521c3f98
 
 首次使用順序依 Owner 2026-10-12 指示改為 CLI 先行，見 [自動 onboarding](docs/ONBOARDING.md)。0.5.0 新增持久 `bootstrap_v1` 流程、短效本機桌面登入、首次 Hermes 最新來源相容性檢查、LINE／Telegram 配對碼與 HA 官方瀏覽器授權。仍使用 Controller schema 2；新增記錄與既有家庭 journal 分開，不宣稱能原地退回 0.4.0。
 
-0.5.1 補強取消停止確認、原期限內配對回應恢復、onboarding 的 pause／owner 競爭與等待期限、HA callback 及通道首次配對。尚未完成的 Runner retention 同步與可信 quarantine reconciliation 見 [架構審查](docs/reviews/2026-10-12-E2E-ARCHITECTURE.md)，不以重啟或新 job 覆蓋不確定狀態。
+0.6.0 將前輪 [審查](docs/reviews/2026-10-12-E2E-ARCHITECTURE.md) 的 retention、停止核對、Host coding、成果／预览、家庭提案 adapter 與 updater 逐項落地。真實能力依 `/api/workers` 回報，不因 CLI 安裝或登入即宣稱完成研究；見 [Workers](docs/WORKERS.md) 與 [Updates](docs/UPDATES.md)。
 
 ## 路徑與權威
 
@@ -56,8 +56,8 @@ Artifact 經 broker 檢查大小、路徑、symlink、特殊檔案及 secrets；
 
 固定 updater 只接受可信 publisher、固定配置和版本 manifest；hash 不是發布身份。第一版只做相容 schema/protocol 的應用更新，保留舊 artifact、一致資料快照及不靠 Web 的退版工具。新增 case/job schema 必須明示 migration；不能盲目恢復舊 DB 蓋過新操作。不在同次混升 OS、Core、CLI 或網路。
 
-**0.4.0 實作註記：Controller 使用 schema 2。** SQL tables 沿用，但新增 Gateway `coordinator` 與 v3 records 的資料語意不相容於 0.3.x。開啟 schema 1 時，先產生 mode-0600、SQLite 一致性的 `.before-v2-<uuid>.sqlite3` 私有快照，再於交易中更新版本 marker；settings、audit、records 和去重紀錄保留。新 DB 為 2，舊 binary 拒絕 2。這是明確的向前資料遷移，不代表已提供同格式 updater／原地降版；restore 工具接受 1 或 2，保留原格式，不把 2 降為 1。
+**0.6.0 Controller 資料格式為 schema 3。** 舊 schema 2 的 cancel／worker 語意不再適用新 coding lease。開啟 1／2 先建立 mode-0600 `.before-v3-<uuid>.sqlite3` SQLite 一致快照，再交易更新 marker；settings、audit、records 和去重資料保留。舊 binary 拒絕 3；restore 接受 1／2／3 並保持原格式，不執行降版。固定 updater 僅處理相同 schema 3 的 Controller image。
 
-外層 Controller 的 context 保存設定同步至 Hermes 私有 `/v1/retention`，範圍 1–7 天。同步失敗回 503 並保留 Controller 原設定，不能只清一份 DB 就宣稱收回所有前文；Hermes 縮短期限時先停止 turn，再清除逾期資料。具體操作和敏感遷移快照處理見 [OPERATIONS](docs/OPERATIONS.md)。固定 updater／rollback 和完整現場恢復仍待另行交付與驗收。
+Controller 將 context 保存上限傳至 Hermes 和全部已配對 Runners；縮短期限先套用本機並留待同步 barrier，失敗回 503、保留更嚴上限且不派新工作，不能延長而復活內容。背景 idle 清理和最小 ID／digest tombstone 分離。敏感遷移快照及操作方式見 [OPERATIONS](docs/OPERATIONS.md)。
 
 每個能力按 [Pilot Acceptance](docs/v3/PILOT_ACCEPTANCE.md) 分階段啟用。硬體／帳號／內層執行的未測項保持 `not_run` 或具體 `blocked`；不得用既有測試、模型自己的 passed 或三個 Agent 意見一致取代驗收。

@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from agentic_host import VERSION  # noqa: E402
 from agentic_host.artifacts import sha256  # noqa: E402
 from agentic_host.manager import HostError, atomic, validate_profile  # noqa: E402
+from agentic_host.source import provision_source  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGET = Path("/opt/agentic-home")
@@ -108,6 +109,12 @@ def install(profile, bases):
     run("apt-get", "update")
     packages = PACKAGES + (["ubuntu-desktop-minimal", "firefox", "language-pack-zh-hant", "dconf-cli"] if profile["desktop"] else [])
     run("apt-get", "install", "-y", *packages)
+    network = json.loads((TARGET / "host/network.lock.json").read_text())["tailscale"]
+    deb = TARGET / "assets" / network["filename"]
+    if Path(network["filename"]).name != network["filename"] or deb.is_symlink() or sha256(deb) != network["sha256"]:
+        raise HostError("Network package checksum mismatch")
+    run("apt-get", "install", "-y", str(deb))
+    provision_source(TARGET, STATE)
     for directory, mode, uid, gid in (("controller", 0o700, 1000, 1000), ("runner", 0o700, 0, 0),
                                       ("pairing", 0o750, 0, 1000), ("host", 0o700, 0, 0),
                                       ("hermes", 0o700, 10003, 10003), ("hermes-link", 0o750, 0, 1000),
@@ -158,7 +165,7 @@ def install(profile, bases):
         run("systemctl", "set-default", "graphical.target")
         desktop_login_note(access)
     # Only product images are loaded; manifests pin image IDs separately from version tags.
-    run("systemctl", "enable", "--now", "docker", "libvirtd", "ssh")
+    run("systemctl", "enable", "--now", "docker", "libvirtd", "ssh", "tailscaled")
     run("docker", "load", "-i", str(TARGET / "assets/agentic-images.tar"))
     images = json.loads((TARGET / "images.lock.json").read_text())
     for tag, expected in images.items():

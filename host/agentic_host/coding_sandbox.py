@@ -90,8 +90,11 @@ class Limits:
     cpus: int = 1
     artifact_bytes: int = 8 * 1024 * 1024
     artifact_files: int = 64
+    web_artifacts: bool = False
 
     def __post_init__(self):
+        if type(self.web_artifacts) is not bool:
+            raise SandboxError("Invalid web artifact mode")
         for field, low, high in (("disk_mib", 64, 2048), ("memory_mib", 128, 1024),
                                  ("pids", 16, 128), ("wall_seconds", 1, 900), ("cpus", 1, 2),
                                  ("artifact_bytes", 1, 16 * 1024 * 1024), ("artifact_files", 1, 100)):
@@ -119,7 +122,7 @@ def command(*args, check=True, timeout=30):
     return result
 
 
-def container_command(name: str, image: str, workspace: Path, limits: Limits):
+def container_command(name: str, image: str, workspace: Path, limits: Limits, *, relay: Path | None = None):
     """Fixed launch shape. Only the trusted timeout watchdog is root; job code is not."""
     if not ID.fullmatch(name.removeprefix("agentic-coding-")) or not re.fullmatch(r"sha256:[0-9a-f]{64}", image):
         raise SandboxError("Invalid fixed container identity")
@@ -129,7 +132,7 @@ def container_command(name: str, image: str, workspace: Path, limits: Limits):
                "/usr/bin/setpriv --reuid=10000 --regid=10000 --clear-groups "
                "--inh-caps=-all --ambient-caps=-all --bounding-set=-all "
                "/usr/local/bin/python -I /work/task.py > /work/stdout.txt 2> /work/stderr.txt")
-    return ["docker", "create", "--name", name, "--label", f"agentic.coding={name}",
+    args = ["docker", "create", "--name", name, "--label", f"agentic.coding={name}",
             "--network", "none", "--read-only", "--cap-drop", "ALL", "--cap-add", "SETUID",
             "--cap-add", "SETGID", "--cap-add", "SETPCAP", "--cap-add", "KILL", "--security-opt", "no-new-privileges",
             "--memory", f"{limits.memory_mib}m", "--memory-swap", f"{limits.memory_mib}m",
@@ -141,7 +144,13 @@ def container_command(name: str, image: str, workspace: Path, limits: Limits):
             "--env", "GIT_CONFIG_NOSYSTEM=1", "--env", "GIT_CONFIG_GLOBAL=/dev/null",
             "--mount", f"type=bind,src={workspace},dst=/work,bind-propagation=rprivate",
             "--mount", f"type=bind,src={workspace / 'scratch'},dst=/tmp,bind-propagation=rprivate",
-            "--entrypoint", "/bin/sh", image, "-c", execute]
+            ]
+    if relay is not None:
+        if not relay.is_absolute() or relay.is_symlink() or any(c in str(relay) for c in ",\n\r"):
+            raise SandboxError("Invalid fixed relay socket")
+        args += ["--mount", f"type=bind,src={relay},dst=/relay.sock,readonly",
+                 "--mount", f"type=bind,src={workspace / 'source' / '.git'},dst=/work/source/.git,readonly"]
+    return [*args, "--entrypoint", "/bin/sh", image, "-c", execute]
 
 
 def read_artifacts(root: Path, limits: Limits):
@@ -161,7 +170,8 @@ def read_artifacts(root: Path, limits: Limits):
         for name in sorted(files):
             path = Path(directory) / name
             relative = path.relative_to(root).as_posix()
-            if len(relative) > 240 or path.suffix not in SUFFIXES or any(ord(c) < 32 for c in relative):
+            suffixes = SUFFIXES | ({".html", ".css", ".js", ".svg"} if limits.web_artifacts else set())
+            if len(relative) > 240 or path.suffix not in suffixes or any(ord(c) < 32 for c in relative):
                 raise SandboxError("Unsupported artifact path or type")
             try:
                 descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
@@ -200,11 +210,17 @@ class CodingSandbox:
     No HTTP route exposes this class yet. A future adapter must authorize the program
     and source scope before calling launch. Existing capabilities remain fail-closed.
     """
-    def __init__(self, root: Path, image: str, repos: dict[str, Path], *, limits=None, execute=command):
+    def __init__(self, root: Path, image: str, repos: dict[str, Path], *, limits=None, execute=command, relay=None,
+                 inputs=None):
         if not re.fullmatch(r"sha256:[0-9a-f]{64}", image):
             raise SandboxError("Worker image must be pinned by local image digest")
         self.root, self.image, self.repos = Path(root).absolute(), image, repos.copy()
         self.limits, self.execute = limits or Limits(), execute
+        self.relay = relay
+        self.inputs = inputs or {}
+        if set(self.inputs) - {"candidate.patch"} or any(not isinstance(v, bytes) or len(v) > 180 * 1024
+                                                        for v in self.inputs.values()):
+            raise SandboxError("Invalid trusted verifier input")
         if any(c in str(self.root) for c in ",\n\r"):
             raise SandboxError("Invalid state root")
         if self.root.exists() and (self.root.is_symlink() or self.root.resolve() != self.root):
@@ -305,6 +321,20 @@ class CodingSandbox:
                 os.chown(Path(path) / name, UID, UID, follow_symlinks=False)
         (mount / "task.py").write_text(program)
         (mount / "task.py").chmod(0o444)
+        for name, data in self.inputs.items():
+            (mount / name).write_bytes(data)
+            (mount / name).chmod(0o444)
+        if "candidate.patch" in self.inputs:
+            tests = mount / "trusted-tests"
+            tests.mkdir(mode=0o755)
+            for name in ("test_engine.py", "test_api.py", "conftest.py"):
+                source_test = source / "tests" / name
+                if source_test.is_symlink() or not source_test.is_file() or source_test.stat().st_size > 512 * 1024:
+                    raise SandboxError("Trusted baseline verification test missing")
+                (tests / name).write_bytes(source_test.read_bytes())
+                (tests / name).chmod(0o444)
+            (mount / "verification.ini").write_text("[pytest]\nasyncio_mode=auto\n")
+            (mount / "verification.ini").chmod(0o444)
         return mount
 
     def launch(self, job_id, lease_epoch, repo_id, base_commit, program):
@@ -314,8 +344,10 @@ class CodingSandbox:
             raise SandboxError("Repository and fixed commit are required")
         if not isinstance(program, str) or not 0 < len(program.encode()) <= 65536:
             raise SandboxError("Program exceeds limit")
-        request_digest = hashlib.sha256(json.dumps([job_id, lease_epoch, repo_id, base_commit, program],
-                                                  separators=(",", ":")).encode()).hexdigest()
+        identity = [job_id, lease_epoch, repo_id, base_commit, program]
+        if self.inputs:
+            identity.append({k: hashlib.sha256(v).hexdigest() for k, v in self.inputs.items()})
+        request_digest = hashlib.sha256(json.dumps(identity, separators=(",", ":")).encode()).hexdigest()
         self.preflight()
         with self.lock():
             if (self.root / f"{job_id}.json").exists():
@@ -335,7 +367,8 @@ class CodingSandbox:
             self.save(job)
             try:
                 workspace = self.prepare(job, program)
-                created = self.execute(*container_command(job["container"], self.image, workspace, self.limits))
+                created = self.execute(*container_command(job["container"], self.image, workspace, self.limits,
+                                                         relay=self.relay))
                 job["container_id"] = created.stdout.strip()
                 self.save(job)  # Persist exact identity before starting the writer.
                 self.execute("docker", "start", job["container"])

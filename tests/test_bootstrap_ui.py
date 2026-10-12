@@ -172,6 +172,10 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             expect(page.get_by_text('Google 訂閱登入尚未整合。', exact=False)).to_be_visible()
             page.get_by_label('初始化使用的 CLI').select_option('grok')
             shots(page, 'choose')
+            start = page.get_by_role('button', name='使用 Grok Build 開始設定', exact=True)
+            assert start.bounding_box()['y'] + start.bounding_box()['height'] <= page.viewport_size['height']
+            expect(page.get_by_role('list', name='自動設定進度')).to_contain_text('網路與主機')
+            expect(page.get_by_role('button', name='選單', exact=True)).to_have_attribute('aria-expanded', 'false')
             page.get_by_role('button', name='使用 Grok Build 開始設定', exact=True).click()
             # Server accepted the start but the response was lost: GET resumes the persisted flow.
             page.get_by_role('button', name='開始官方登入', exact=True).wait_for()
@@ -180,6 +184,10 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             expect(page.locator('article.provider').get_by_role('heading')).to_have_text('Grok Build')
             page.get_by_role('button', name='開始官方登入', exact=True).click()
             page.get_by_text('CLI-FIXTURE', exact=True).wait_for()
+            page.context.grant_permissions(['clipboard-read', 'clipboard-write'])
+            page.get_by_role('button', name='複製授權碼', exact=True).click()
+            assert page.evaluate('navigator.clipboard.readText()') == 'CLI-FIXTURE'
+            expect(page.get_by_label('登入方式', exact=True)).not_to_be_visible()
             expect(page.get_by_role('link', name='開啟官方授權頁')).to_have_attribute('href', 'https://accounts.x.ai/device')
             page.reload()
             page.get_by_text('CLI-FIXTURE', exact=True).wait_for()
@@ -239,6 +247,8 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             page.get_by_role('button', name='產生通訊配對碼', exact=True).click()
             page.get_by_label('通訊配對指令').wait_for()
             expect(page.get_by_label('通訊配對指令')).to_have_text('/pair PAIR-FIXTURE')
+            page.get_by_role('button', name='複製配對指令', exact=True).click()
+            assert page.evaluate('navigator.clipboard.readText()') == '/pair PAIR-FIXTURE'
             assert 'PAIR-FIXTURE' not in stored(page)
             page.reload()
             page.get_by_label('通訊配對指令').wait_for()

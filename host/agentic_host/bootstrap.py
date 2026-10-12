@@ -136,14 +136,25 @@ def initial_state(directory):
                 raise SetupError("existing_hermes_sessions")
 
 
-def write_environment(path, image):
+def write_environment(path, image, variable="AGENTIC_HERMES_IMAGE"):
     if not re.fullmatch(r"sha256:[a-f0-9]{64}", image):
         raise SetupError("candidate_image_invalid")
     path = Path(path)
+    allowed = {"AGENTIC_HERMES_IMAGE", "AGENTIC_CONTROLLER_IMAGE"}
+    if variable not in allowed:
+        raise SetupError("candidate_environment_invalid")
+    values = {}
+    if path.exists():
+        for line in path.read_text().splitlines():
+            key, separator, value = line.partition("=")
+            if not separator or key not in allowed or not re.fullmatch(r"sha256:[a-f0-9]{64}", value):
+                raise SetupError("candidate_environment_invalid")
+            values[key] = value
+    values[variable] = image
     temporary = path.with_suffix(".new")
     with temporary.open("w") as stream:
         os.chmod(temporary, 0o600)
-        stream.write("AGENTIC_HERMES_IMAGE=" + image + "\n")
+        stream.write("".join(key + "=" + values[key] + "\n" for key in sorted(values)))
         stream.flush()
         os.fsync(stream.fileno())
     os.replace(temporary, path)

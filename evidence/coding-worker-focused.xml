@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="54" time="20.679" timestamp="2026-10-12T05:47:21.119658-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_worker_execution" name="test_request_refuses_model_chosen_authority" time="0.000" /><testcase classname="tests.test_worker_execution" name="test_prerequisite_refusal_is_durable_exact_receipt" time="0.031" /><testcase classname="tests.test_worker_execution" name="test_relay_refuses_network_authority_and_credentials_in_request" time="0.000" /><testcase classname="tests.test_worker_execution" name="test_coding_endpoints_paired_and_role_separate" time="0.033" /><testcase classname="tests.test_worker_execution" name="test_coding_auth_lost_reply_recovers_receipt_without_reusing_operator_profile" time="0.032" /><testcase classname="tests.test_worker_execution" name="test_launcher_keeps_tools_inside_container_and_no_bearer" time="0.001" /><testcase classname="tests.test_worker_execution" name="test_actual_codex_tool_repair_and_test" time="7.081" /><testcase classname="tests.test_runner_lifecycle" name="test_reconciliation_requires_kernel_proof_not_different_container" time="0.000" /><testcase classname="tests.test_runner_lifecycle" name="test_quarantine_reconciliation_never_reruns_job" time="0.026" /><testcase classname="tests.test_runner_lifecycle" name="test_idle_get_expires_context_and_keeps_identity_without_new_job" time="0.290" /><testcase classname="tests.test_runner_lifecycle" name="test_lowering_retention_is_immediate_and_increasing_cannot_resurrect" time="0.035" /><testcase classname="tests.test_runner_lifecycle" name="test_retention_deadline_and_tombstone_survive_runner_restart" time="0.018" /><testcase classname="tests.test_runner_lifecycle" name="test_retention_requires_paired_authority_and_valid_range" time="0.020" /><testcase classname="tests.test_review_runtime" name="test_runner_cancel_fences_term_ignoring_descendant_before_acknowledgement" time="0.125" /><testcase classname="tests.test_review_runtime" name="test_duplicate_cancel_and_request_disconnect_do_not_interrupt_shared_fence[False]" time="2.117" /><testcase classname="tests.test_review_runtime" name="test_duplicate_cancel_and_request_disconnect_do_not_interrupt_shared_fence[True]" time="2.107" /><testcase classname="tests.test_review_runtime" name="test_unconfirmed_stop_blocks_queued_and_future_writers_and_survives_restart" time="0.133" /><testcase classname="tests.test_review_runtime" name="test_recycled_process_identity_is_never_signalled" time="0.004" /><testcase classname="tests.test_review_runtime" name="test_pair_recovery_survives_restart_and_pair_file_refresh_without_rotating_bearer" time="0.040" /><testcase classname="tests.test_review_runtime" name="test_pair_file_recovery_rejects_mismatched_handoff[fingerprint]" time="0.038" /><testcase classname="tests.test_review_runtime" name="test_pair_file_recovery_rejects_mismatched_handoff[code]" time="0.025" /><testcase classname="tests.test_review_runtime" name="test_imported_pair_recovery_seed_fails_closed[permissions]" time="0.021" /><testcase classname="tests.test_review_runtime" name="test_imported_pair_recovery_seed_fails_closed[symlink]" time="0.020" /><testcase classname="tests.test_review_runtime" name="test_imported_pair_recovery_seed_fails_closed[length]" time="0.020" /><testcase classname="tests.test_review_runtime" name="test_imported_fifo_pair_seed_is_rejected_without_blocking_api" time="0.281" /><testcase classname="tests.test_review_runtime" name="test_actual_packaged_runner_status_all_four_providers" time="1.319" /><testcase classname="tests.test_runner" name="test_child_environment_is_an_allowlist" time="0.002" /><testcase classname="tests.test_runner" name="test_provider_tools_are_disabled_and_no_bypass_flag" time="0.003" /><testcase classname="tests.test_runner" name="test_pairing_is_one_time_and_bearer_protected" time="0.026" /><testcase classname="tests.test_runner" name="test_job_is_idempotent_and_single_worker" time="0.027" /><testcase classname="tests.test_bootstrap_runner" name="test_bootstrap_invokes_subprocess_and_persists_safe_result" time="0.128" /><testcase classname="tests.test_bootstrap_runner" name="test_bootstrap_rejects_untrusted_fields_and_inner_runner" time="0.027" /><testcase classname="tests.test_bootstrap_runner" name="test_bootstrap_auth_and_output_fail_closed[False-False]" time="0.027" /><testcase classname="tests.test_bootstrap_runner" name="test_bootstrap_auth_and_output_fail_closed[True-True]" time="0.026" /><testcase classname="tests.test_bootstrap_runner" name="test_bootstrap_uses_real_packaged_codex_with_offline_model" time="6.255" /><testcase classname="tests.test_coding_sandbox" name="test_profiles_are_not_advertised_as_cloud_or_inner_coding" time="0.001" /><testcase classname="tests.test_coding_sandbox" name="test_launch_refuses_unsupported_broker_before_docker_or_storage" time="0.001" /><testcase classname="tests.test_coding_sandbox" name="test_container_profile_has_no_network_or_secret_mounts" time="0.000" /><testcase classname="tests.test_coding_sandbox" name="test_artifacts_reject_traversal_links_specials_secrets_and_quota" time="0.001" /><testcase classname="tests.test_coding_sandbox" name="test_unconfirmed_stop_never_releases_writer_or_exports" time="0.016" /><testcase classname="tests.test_coding_sandbox" name="test_restart_kills_owned_process_before_releasing_writer" time="0.008" /><testcase classname="tests.test_coding_sandbox" name="test_replaced_container_cannot_be_killed_or_exported" time="0.006" /><testcase classname="tests.test_coding_sandbox" name="test_real_docker_offline_negative_boundaries_and_process_tree[deadline]" time="0.011"><failure message="subprocess.CalledProcessError: Command '['docker', 'image', 'inspect', 'agentic-home-runner:0.6.0', '--format', '{{.Id}}']' returned non-zero exit status 1.">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-054720-8Cc3zf/bt/test_real_docker_offline_negat0')
+request = &lt;FixtureRequest for &lt;Function test_real_docker_offline_negative_boundaries_and_process_tree[deadline]&gt;&gt;
+stop_method = 'deadline'
+
+    @pytest.mark.parametrize("stop_method", ["deadline", "cancel"])
+    def test_real_docker_offline_negative_boundaries_and_process_tree(tmp_path, request, stop_method):
+        if not request.config.getoption("--containers"):
+            pytest.skip("requires local packaged Runner image and Docker; foundation only")
+        # This smoke deliberately does not claim the root-only bounded filesystem was exercised.
+        # It uses disk-backed pytest scratch and verifies the remaining real Docker boundaries.
+&gt;       image = subprocess.check_output(["docker", "image", "inspect", f"agentic-home-runner:{VERSION}",
+                                         "--format", "{{.Id}}"], text=True).strip()
+
+tests/test_coding_sandbox.py:151: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:472: in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['docker', 'image', 'inspect', 'agentic-home-runner:0.6.0', '--format', '{{.Id}}'],)
+kwargs = {'stdout': -1, 'text': True}
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output &amp; stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+&gt;               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['docker', 'image', 'inspect', 'agentic-home-runner:0.6.0', '--format', '{{.Id}}']' returned non-zero exit status 1.
+
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:577: CalledProcessError</failure></testcase><testcase classname="tests.test_coding_sandbox" name="test_real_docker_offline_negative_boundaries_and_process_tree[cancel]" time="0.011"><failure message="subprocess.CalledProcessError: Command '['docker', 'image', 'inspect', 'agentic-home-runner:0.6.0', '--format', '{{.Id}}']' returned non-zero exit status 1.">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-054720-8Cc3zf/bt/test_real_docker_offline_negat1')
+request = &lt;FixtureRequest for &lt;Function test_real_docker_offline_negative_boundaries_and_process_tree[cancel]&gt;&gt;
+stop_method = 'cancel'
+
+    @pytest.mark.parametrize("stop_method", ["deadline", "cancel"])
+    def test_real_docker_offline_negative_boundaries_and_process_tree(tmp_path, request, stop_method):
+        if not request.config.getoption("--containers"):
+            pytest.skip("requires local packaged Runner image and Docker; foundation only")
+        # This smoke deliberately does not claim the root-only bounded filesystem was exercised.
+        # It uses disk-backed pytest scratch and verifies the remaining real Docker boundaries.
+&gt;       image = subprocess.check_output(["docker", "image", "inspect", f"agentic-home-runner:{VERSION}",
+                                         "--format", "{{.Id}}"], text=True).strip()
+
+tests/test_coding_sandbox.py:151: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:472: in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['docker', 'image', 'inspect', 'agentic-home-runner:0.6.0', '--format', '{{.Id}}'],)
+kwargs = {'stdout': -1, 'text': True}
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output &amp; stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+&gt;               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['docker', 'image', 'inspect', 'agentic-home-runner:0.6.0', '--format', '{{.Id}}']' returned non-zero exit status 1.
+
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:577: CalledProcessError</failure></testcase><testcase classname="tests.test_coding_sandbox" name="test_artifact_directory_budget" time="0.010" /><testcase classname="tests.test_coding_sandbox" name="test_idempotency_and_active_writer_fencing" time="0.018" /><testcase classname="tests.test_coding_sandbox" name="test_real_docker_memory_limit_stops_excess_allocation" time="0.012"><failure message="subprocess.CalledProcessError: Command '['docker', 'image', 'inspect', 'agentic-home-runner:0.6.0', '--format', '{{.Id}}']' returned non-zero exit status 1.">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-054720-8Cc3zf/bt/test_real_docker_memory_limit_0')
+request = &lt;FixtureRequest for &lt;Function test_real_docker_memory_limit_stops_excess_allocation&gt;&gt;
+
+    def test_real_docker_memory_limit_stops_excess_allocation(tmp_path, request):
+        if not request.config.getoption("--containers"):
+            pytest.skip("requires local packaged Runner image and Docker; foundation only")
+&gt;       image = subprocess.check_output(["docker", "image", "inspect", f"agentic-home-runner:{VERSION}",
+                                         "--format", "{{.Id}}"], text=True).strip()
+
+tests/test_coding_sandbox.py:259: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:472: in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['docker', 'image', 'inspect', 'agentic-home-runner:0.6.0', '--format', '{{.Id}}'],)
+kwargs = {'stdout': -1, 'text': True}
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output &amp; stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+&gt;               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['docker', 'image', 'inspect', 'agentic-home-runner:0.6.0', '--format', '{{.Id}}']' returned non-zero exit status 1.
+
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:577: CalledProcessError</failure></testcase><testcase classname="tests.test_coding_sandbox" name="test_retained_workspace_budget_prevents_unbounded_disk_growth" time="0.001" /><testcase classname="tests.test_coding_sandbox" name="test_disk_format_preserves_reserved_blocks_without_mounting" time="0.006" /><testcase classname="tests.test_coding_sandbox" name="test_installed_probe_is_guarded_and_embedded_programs_compile" time="0.001" /><testcase classname="tests.test_coding_sandbox" name="test_docker_info_uses_json_wire_names_and_still_requires_every_boundary" time="0.000" /><testcase classname="tests.test_coding_sandbox" name="test_real_docker_info_passes_resource_handshake" time="0.027" /><testcase classname="tests.test_coding_sandbox" name="test_command_failure_has_safe_machine_readable_diagnostics" time="0.000" /><testcase classname="tests.test_coding_sandbox" name="test_cancel_timeout_records_safe_operation_and_keeps_writer_fenced" time="0.011" /></testsuite></testsuites>

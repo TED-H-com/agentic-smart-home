@@ -1,0 +1,178 @@
+{
+  "$defs": {
+    "UpdateCompatibility": {
+      "additionalProperties": false,
+      "properties": {
+        "ha_core_versions": {
+          "items": {
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Ha Core Versions",
+          "type": "array"
+        },
+        "runner_protocol": {
+          "const": 1,
+          "title": "Runner Protocol",
+          "type": "integer"
+        },
+        "runtime_digest": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Runtime Digest",
+          "type": "string"
+        },
+        "schema": {
+          "const": 3,
+          "title": "Schema",
+          "type": "integer"
+        },
+        "worker_contract": {
+          "const": 1,
+          "title": "Worker Contract",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "worker_contract",
+        "runner_protocol",
+        "runtime_digest",
+        "ha_core_versions"
+      ],
+      "title": "UpdateCompatibility",
+      "type": "object"
+    },
+    "UpdateManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "compatibility": {
+          "$ref": "#/$defs/UpdateCompatibility"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Expires At"
+        },
+        "format": {
+          "const": 1,
+          "title": "Format",
+          "type": "integer"
+        },
+        "image": {
+          "maxLength": 400,
+          "pattern": "^[a-z0-9.-]+/[a-z0-9_./-]+@sha256:[a-f0-9]{64}$",
+          "title": "Image",
+          "type": "string"
+        },
+        "image_id": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Image Id",
+          "type": "string"
+        },
+        "issued_at": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Issued At"
+        },
+        "publisher": {
+          "pattern": "^[a-z0-9-]{1,64}$",
+          "title": "Publisher",
+          "type": "string"
+        },
+        "source_commit": {
+          "pattern": "^[a-f0-9]{40}$",
+          "title": "Source Commit",
+          "type": "string"
+        },
+        "tests": {
+          "items": {
+            "$ref": "#/$defs/UpdateTest"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Tests",
+          "type": "array"
+        },
+        "version": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[a-z0-9.]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "format",
+        "publisher",
+        "version",
+        "source_commit",
+        "image",
+        "image_id",
+        "compatibility",
+        "tests",
+        "issued_at",
+        "expires_at"
+      ],
+      "title": "UpdateManifest",
+      "type": "object"
+    },
+    "UpdateTest": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[A-Za-z0-9_.-]{1,100}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "result": {
+          "const": "passed",
+          "title": "Result",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "result",
+        "sha256"
+      ],
+      "title": "UpdateTest",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "manifest": {
+      "$ref": "#/$defs/UpdateManifest"
+    },
+    "signature": {
+      "maxLength": 100,
+      "minLength": 80,
+      "pattern": "^[A-Za-z0-9+/]+=*$",
+      "title": "Signature",
+      "type": "string"
+    }
+  },
+  "required": [
+    "manifest",
+    "signature"
+  ],
+  "title": "UpdateStage",
+  "type": "object"
+}

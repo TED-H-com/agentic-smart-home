@@ -48,7 +48,7 @@ uv run pytest -q --basetemp "$agentic_test_tmp"
 
 完整候選回歸用 `pytest-disktmp uv run pytest -q --real-ha --containers`。真 Core 測試使用 2026.10.1；測試容器用唯一名稱和磁碟 temp，必須在 finally 停止／移除。不得讀開發機 credentials 或偷偷呼叫付費 inference。
 
-[Worker sandbox 說明](../host/worker/README.md) 列出仍未驗證的 root-only bounded disk／mount lifecycle、provider egress 和 HAOS App 隔離。兩個 coding capabilities 保持 blocked；不要把 container probe 接進 Hermes submit 來假裝 E1 已可用。實際 quota／安裝生命週期放一次性 VM 驗證，不在開發 host 掛載測試 ext4 或執行 installer。
+[Worker 說明](WORKERS.md) 列出 Host 實際 CLI、role credentials、egress、固定 verifier、預覽與 HAOS App gate。真 ext4 quota／完整安裝生命週期只在一次性 VM 驗證，不在開發 host 掛載測試 ext4 或執行 installer。
 
 ## 契約、來源與包裝
 
@@ -62,7 +62,7 @@ python3 scripts/build_host.py
 uv run python scripts/package.py
 ```
 
-先改 Pydantic models 再產生 contracts。Runner `protocol=1` 與 `work_contract_major=1` 分開，不能因版本數相同而混用。Controller 的 case/run/grant/work/evidence 使用既有 records table、`data_contract=1`，但整體持久資料格式已升為 **schema 2**：0.3.x 的嚴格 Gateway model 不接受新增 `coordinator` 欄位。從 1 開啟時先留 mode-0600 的 SQLite 一致快照，再交易更新 `user_version=2`；新 DB 直接為 2，舊 binary 必須拒絕。資料遷移保留 settings、audit 與去重資料；同 tables 不代表向後相容。restore 工具接受 1／2 並保留格式，固定 updater／跨版本退版仍未完成，不能直接回寫舊 DB。
+先改 Pydantic models 再產生 contracts。Runner `protocol=1` 與 `work_contract_major=1` 分開。0.6.0 的 Controller 使用 schema 3，因舊 worker cancel 語意不兼容新 lease；從 1／2 開啟先留 0600 SQLite 一致快照，交易更新 marker，保留 audit／去重。restore 接受 1／2／3 並保持格式。固定 updater 只允許同 schema 3 Controller image；不盲目回復舊 Live DB。
 
 Hermes 工具 allowlist 由 runtime 和 Controller 同時限制，沒有 Live approval、arbitrary shell 或原生 delegate；新的 research/development launcher 不可修改受控 `home_operator` 的工具限制。模型回傳 passed／approved 沒有測試或人類批准效力。
 

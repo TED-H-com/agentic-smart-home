@@ -1,7 +1,7 @@
 """Private Hermes adapter, durable cases, and narrowly scoped MCP capabilities.
 
 No CLI execution or household write authority lives in this module. New record
-kinds use data_contract=1 in existing tables; database user_version=2 protects
+kinds use data_contract=1 in existing tables; database user_version=3 protects
 old binaries from interpreting the new settings and record semantics.
 """
 from __future__ import annotations
@@ -23,8 +23,10 @@ from fastapi import HTTPException, Request
 
 from . import VERSION
 from .host import host_call
-from .models import BootstrapRetry, BootstrapStepId, HermesDeviceAuth, digest, utcnow
+from .models import BootstrapRetry, BootstrapStepId, HermesDeviceAuth, canonical, digest, utcnow
+from .runner import Runner
 from .work import HermesAuth
+from .workers import Workers
 
 TERMINAL = {"succeeded", "failed", "cancelled", "interrupted", "needs_auth", "needs_reauth"}
 
@@ -68,22 +70,18 @@ class Coordinator:
     def __init__(self, store, client=None):
         self.store, self.client = store, client or HermesClient()
         self.scope_valid = lambda item: False
+        self.worker_manager = Workers(store, {"host": Runner(store), "haos": Runner(store, "haos")}, self)
 
     async def capabilities(self):
         try:
             runtime = await self.client.call("GET", "/v1/capabilities")
         except HermesError:
             runtime = {"state": "unavailable", "runtime": "hermes", "auth_verified_at": None}
-        return {"runtime": runtime, "workers": self.workers(), "work_contract_major": 1}
+        capabilities = await self.worker_manager.capabilities()
+        return {"runtime": runtime, **capabilities}
 
-    @staticmethod
-    def workers():
-        return [{"worker_id": name, "work_contract_major": 1, "available": False,
-                 "modes": ["research", "development"], "state": "blocked",
-                 "observed_from": location, "reason": reason}
-                for name, location, reason in (
-                    ("host-coder", "host", "Coding sandbox foundation only; provider egress and bounded workspace must pass before dispatch."),
-                    ("home-coder", "haos_app", "Requires a real HAOS App coding sandbox and independent containment verification."))]
+    def workers(self):
+        return self.worker_manager.public_capabilities()["workers"]
 
     def revoke(self, run_id):
         for grant in self.store.list("mcp_grant", 10000):
@@ -155,9 +153,13 @@ class Coordinator:
         try:
             authorized()
             try:
+                jobs = self.worker_manager.case_jobs(case["case_id"])
+                message = item["message"]
+                if jobs:
+                    message += "\n\nController same-case work handles (status only; inspect worker.result for evidence; this is not approval):\n" + canonical(jobs)
                 result = await self.client.call("POST", f'/v1/sessions/{case["session_id"]}/runs', {
                     "scope_id": item["scope"], "case_id": case["case_id"], "run_id": run_id,
-                    "message": item["message"], "mcp_token": token}, run_id)
+                    "message": message, "mcp_token": token}, run_id)
             except HermesError as exc:
                 if exc.code in {"needs_auth", "needs_reauth", "session_busy", "scope_mismatch", "stop_unconfirmed",
                                 "session_expired", "expired"}:
@@ -173,9 +175,16 @@ class Coordinator:
             authorized()
             state = result["state"]
             self.store.put("hermes_run", {**run, "state": state, "updated_at": utcnow()})
-            return {"state": "succeeded" if state == "succeeded" else "failed",
+            response = {"state": "succeeded" if state == "succeeded" else "failed",
                     "answer": str(result.get("answer") or "Hermes 未完成回覆，請檢查登入與服務狀態。")[:16000],
                     "case_id": case["case_id"], "hermes_run_id": run_id}
+            linked = self.store.get("conversation", item["id"]) or {}
+            if linked.get("task_id"):
+                response["task_id"] = linked["task_id"]
+                task = self.store.get("task", linked["task_id"]) or {}
+                if task.get("state") == "awaiting_approval":
+                    response.update(state="awaiting_approval", answer="已準備家庭操作提案。請開啟 Web 工作台檢查內容並批准；目前尚未執行。")
+            return response
         except (asyncio.CancelledError, HermesError, TimeoutError, KeyError, TypeError):
             self.revoke(run_id)
             # Stop acknowledgement is deliberately distinct from cancellation intent.
@@ -282,12 +291,26 @@ def routes(app, coordinator, store):
         except HermesError as exc:
             raise HTTPException(503, "已撤銷工具權限；請恢復 Hermes 服務後再次登出以清除其憑證") from exc
 
+    def case_view(item):
+        return {**{k: v for k, v in item.items() if k not in {"scope", "session_id", "id"}},
+                "jobs": coordinator.worker_manager.case_jobs(item["case_id"])}
+
     @app.get("/api/hermes/cases")
     async def cases():
-        return {"cases": [{k: v for k, v in item.items() if k not in {"scope", "session_id", "id"}}
-                          for item in store.list("hermes_case", 100)],
+        store.prune()
+        return {"cases": [case_view(item) for item in store.list("hermes_case", 100)],
                 "runs": [{k: v for k, v in item.items() if k not in {"scope", "session_id"}}
                          for item in store.list("hermes_run", 100)]}
+
+    @app.get("/api/hermes/cases/{case_id}")
+    async def case_status(case_id: str):
+        if not re.fullmatch(r"[a-f0-9]{32}", case_id):
+            raise HTTPException(422, "invalid_case_id")
+        store.prune()
+        item = next((value for value in store.list("hermes_case", 10000) if value["case_id"] == case_id), None)
+        if not item:
+            raise HTTPException(404, "case_not_found_or_expired")
+        return case_view(item)
 
     @app.post("/api/hermes/runs/{run_id}/cancel")
     async def cancel(run_id: str, request: Request):

@@ -1,0 +1,27 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "lan": {
+      "enum": [
+        "dhcp",
+        "reservation"
+      ],
+      "title": "Lan",
+      "type": "string"
+    },
+    "remote": {
+      "enum": [
+        "disabled",
+        "tailscale"
+      ],
+      "title": "Remote",
+      "type": "string"
+    }
+  },
+  "required": [
+    "lan",
+    "remote"
+  ],
+  "title": "NetworkPreferences",
+  "type": "object"
+}

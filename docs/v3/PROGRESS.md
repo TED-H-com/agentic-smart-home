@@ -5,7 +5,9 @@
 
 0.5.0 開發新增 CLI 先行的自動 onboarding：持久九步流程、桌面單次登入、官方最新 Hermes 相容性檢查、Hermes 原生 Codex OAuth、LINE／Telegram 配對碼、自動 HAOS 啟動及 HA 官方瀏覽器授權。這是 Owner 的新流程，不改六份原稿。當版CI為210 passed／3 skipped；精確0.5.0 ISO在一次性VM為1 passed／1310.79秒。T3-01與T3-05的E0工程範圍已重驗，其他30項不批次升級，詳見 [版本驗證](../VERIFICATION.md)。通用 Host／Home coding、真雲端家庭與固定產品更新／退版仍未完成。
 
-0.5.1 本輪補上跨服務 E2E 與恢復修正，本機完整回歸 **271 passed／2 skipped**；真 HAOS 另為 **1 passed**。測試含實際服務／CLI／MCP／Core 瀏覽器授權，但模型及 Host 副作用為 fixture，見 [審查](../reviews/2026-10-12-E2E-ARCHITECTURE.md)。最終 CI **271 passed／3 skipped**；修正版精確 ISO **1 passed／1493.94 秒**，完成最新版 Hermes、HAOS 冷還原與重啟。下列兩案僅更新 E0 工程證據；其餘 30 案不批次升級。下一輪先補 Runner retention／停止恢復與真正 Host coding 修正交付。
+0.5.1 本輪補上跨服務 E2E 與恢復修正，本機完整回歸 **271 passed／2 skipped**；真 HAOS 另為 **1 passed**。測試含實際服務／CLI／MCP／Core 瀏覽器授權，但模型及 Host 副作用為 fixture，見 [審查](../reviews/2026-10-12-E2E-ARCHITECTURE.md)。最終 CI **271 passed／3 skipped**；修正版精確 ISO **1 passed／1493.94 秒**，完成最新版 Hermes、HAOS 冷還原與重啟。下列兩案僅更新 E0 工程證據；其餘 30 案不批次升級。該版缺口由下列 0.6.0 工程交付接續。
+
+0.6.0 本輪新增真正 tools-enabled Codex Host coding、獨立角色登入／受控出站、可信停止恢復、全鏈保存期限、成果與隔離截圖預覽、同 case 工作追蹤、家庭精確提案橋接、簽名候選 Controller 更新／退版，以及 Tailscale 選項。UI 已按 1440／768／390 px 截圖調整。這是程式交付；真帳號、Owner laptop、Home App coding 與完整 E1／E2 仍需要各自驗收。技術邊界見 [Workers](../WORKERS.md) 與 [Updates](../UPDATES.md)，本輪結果見 [驗證](../VERIFICATION.md)。
 
 ## 記錄規則
 
@@ -22,16 +24,16 @@
 | V3-01 | P0 / E0 / 整合 | implemented | 六原稿 hash 核對、history 與根文件同步；見 IMPORT.json |
 | V3-02 | P0 / E0 / A | in_progress | 真 pinned AIAgent／官方 MCP 及獨立 bridge 已實作、真容器 needs_auth 啟動已測；模型端點 fixture，Owner 真帳號未驗 |
 | V3-03 | P0 / E0→E1 / A | in_progress | Hermes Gateway→case/session/run、scope續接、撤權及UI已實作／測試；真 bot／現場身份重送未驗 |
-| V3-04 | P0 / E0 / B | implemented | E0工程救援範圍：精確ISO安裝後停止Controller，非sudo diagnostics/support可用、每筆版本0.5.1；E2 updater擴充未做。見[rescue](../../evidence/installed-rescue-laptop-amd64-0.5.1.json) |
-| V3-05 | P0 / E0 / C | implemented | E0工程媒體範圍：c6735fe精確ISO完整VM安裝／外層firstboot／四image IDs／救援／最新Hermes啟用與重啟通過；Owner實體laptop未驗。見[安裝](../../evidence/linux-install-0.5.1.json) |
-| V3-06 | P0 / E1 / A | in_progress | 固定MCP七tools、case ACL、短期能力、blocked job handle／去重已實作；沒有接上可執行cloud worker |
-| V3-07 | P0 / E1 / B | in_progress | 19項sandbox回歸與真安裝VM的ext4 quota／獨立clone／patch-test／取消清理通過；仍為離線Python，provider egress／真cloud CLI未交付，能力blocked |
-| V3-08 | P0 / E1 / A+B | in_progress | bridge真程序停止、stop_unconfirmed、重啟／dispatch撤權、sandbox writer fencing及去重有測試；Owner/BAT真接手未做 |
-| V3-09 | P0 / E1 / C | not_run | Hermes設定／對話UI已測，但問題回報／隔離candidate preview／Host Worker真bug修正尚未交付 |
-| V3-10 | P1 / E2 / B | not_run | Home coding能力blocked；尚無真HAOS App隔離、認證、研究或程式執行證據 |
-| V3-11 | P1 / E2 / A+B | in_progress | host.status已產出有位置／時間／版本的case evidence並驗ACL；Home callbacks／跨層事件與互補研究未做 |
-| V3-12 | P1 / E2 / A+C | not_run | 保留既有家庭Engine回歸；未完成Hermes research→精確提案修訂／真模型helpers流程 |
-| V3-13 | P1 / E2 / C | in_progress | 已明確schema2向前遷移與私有一致快照，2項migration tests；固定可信updater／相容候選rollback仍未實作 |
+| V3-04 | P0 / E0 / B | implemented | E0 獨立診斷／support；0.6.0 增加 root console publisher 登錄及固定 updater。新版實際 VM 結果另記，不沿用舊 ISO 證據 |
+| V3-05 | P0 / E0 / C | implemented | 0.6.0 媒體包含五個映像、固定 Tailscale 套件、只含 public repo HEAD 的來源 bundle；精確新 ISO 與實體 laptop 分開驗證 |
+| V3-06 | P0 / E1 / A | implemented | MCP → Controller → TLS Runner → broker 持久派工、同 case handles／ACL／去重；Codex tools 真程序＋模型 transport fixture，真模型帳號未驗 |
+| V3-07 | P0 / E1 / B | implemented | 真 Codex 工具執行、私有 clone、patch、獨立 verifier；bearer 留 relay、封鎖管理／私網出站、ext4／cgroup／watchdog。僅 Host Codex coding enabled |
+| V3-08 | P0 / E1 / A+B | in_progress | lease／實際 writer 停止與重啟 reconcile 已交付；可匯出停止後 checkpoint。live_session:false，尚非直接加入同一 BAT／CLI session |
+| V3-09 | P0 / E1 / C | implemented | Web 問題派工、差異／SHA-256 成果、network-none renderer 三尺寸 PNG、獨立短效 origin／撤銷；真 Owner UI 問題與雲端整案未驗 |
+| V3-10 | P1 / E2 / B | in_progress | 在真正 HAOS App 探測硬邊界；未滿足隔離時仍 blocked，不以第二個外層容器代替。平台證據與執行能力分開記錄 |
+| V3-11 | P1 / E2 / A+B | in_progress | 同 case 工作者狀態、下一輪 Hermes 證據 handle、觀測位置與 ACL 已接通；雙層互補研究與 bot 主動完成通知未驗／未交付 |
+| V3-12 | P1 / E2 / A+C | implemented | home.observe／propose／proposal_status 接回既有 Engine，精確 Owner 批准、撤權／暫停競態保護；真模型 helpers 整案待驗 |
+| V3-13 | P1 / E2 / C | implemented | schema 3 私有遷移 snapshot；Ed25519 publisher／digest、獨立 probe、精確批准、quiesce／backup／health／保留新 DB 退版。僅同 schema 外層 Controller，不是全產品／HAOS 更新器 |
 | V3-14 | P1 / E2 / 全組 | not_run | 尚無Owner laptop研究→修正→preview→批准更新→現場驗證→退版或雙worker真執行 |
 | V3-15 | P2 / E3 / B+C | not_run | 未接入新的真實設備；LAN／USB及integration依現場授權逐項驗證 |
 | V3-16 | P2 / E3 / 全組 | not_run | 72h、相鄰Core、離機恢復與三個單／雙worker對照均未執行 |

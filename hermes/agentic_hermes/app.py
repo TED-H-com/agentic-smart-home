@@ -520,6 +520,12 @@ class Runtime:
         if require_confirmed and self.unconfirmed:
             fail(409, "stop_unconfirmed", "A prior process group has not been confirmed stopped")
 
+    async def maintain(self, interval=60):
+        """Remove expired content during idle service time, without inference."""
+        while True:
+            await asyncio.sleep(interval)
+            self.prune()
+
     async def close(self):
         self._closing = True
         await self.stop_all(require_confirmed=False)
@@ -529,8 +535,13 @@ class Runtime:
 def create_app(runtime):
     @asynccontextmanager
     async def lifespan(app):
-        yield
-        await runtime.close()
+        maintenance = asyncio.create_task(runtime.maintain())
+        try:
+            yield
+        finally:
+            maintenance.cancel()
+            await asyncio.gather(maintenance, return_exceptions=True)
+            await runtime.close()
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.runtime = runtime

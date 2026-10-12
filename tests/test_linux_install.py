@@ -25,7 +25,7 @@ def test_full_linux_install_with_nested_haos(tmp_path, request):
     assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
     profile = os.environ.get("AGENTIC_INSTALL_TEST_PROFILE", "laptop-amd64")
     assert profile in {"laptop-amd64", "server-amd64"}
-    iso = ROOT / "dist" / ("agentic-home-0.5.1-" + profile + ".iso")
+    iso = ROOT / "dist" / ("agentic-home-0.6.0-" + profile + ".iso")
     assert iso.exists()
     with iso.open("rb") as stream:
         iso_hash = hashlib.file_digest(stream, "sha256").hexdigest()
@@ -102,12 +102,17 @@ while data:=s.recv(65536):
         host = json.loads(command(*ssh, "agentic-home status"))
         assert not host["provisioned"] and host["kvm"]
         installed = json.loads(command(*ssh, "sudo cat /var/lib/agentic-home/installed.json"))
-        assert installed["version"] == "0.5.1" and installed["profile"] == profile
+        assert installed["version"] == "0.6.0" and installed["profile"] == profile
         image_lock = json.loads(command(*ssh, "cat /opt/agentic-home/images.lock.json"))
-        expected_tags = {f"agentic-home-{service}:0.5.1" for service in ("controller", "runner", "linejs", "hermes")}
+        expected_tags = {f"agentic-home-{service}:0.6.0" for service in ("controller", "runner", "linejs", "hermes", "preview")}
         assert set(image_lock) == expected_tags
         for tag, digest in image_lock.items():
             assert command(*ssh, "sudo docker image inspect --format '{{.Id}}' " + tag) == digest
+        source_lock = json.loads(command(*ssh, "sudo cat /var/lib/agentic-home/coding/source.json"))
+        assert source_lock == json.loads(command(*ssh, "cat /opt/agentic-home/assets/coding-source.json"))
+        assert command(*ssh, "sudo git -C /var/lib/agentic-home/coding/source rev-parse HEAD") == source_lock["commit"]
+        assert command(*ssh, "tailscale version").splitlines()[0] == "1.104.1"
+        assert json.loads(command(*ssh, "sudo tailscale status --json"))["BackendState"] == "NeedsLogin"
         assert command(*ssh, "systemctl is-active agentic-home agentic-home-host agentic-home-proxy") == "active\nactive\nactive"
         assert command(*ssh, "curl -fsS http://localhost:8099/api/deployment")
         auth_result = subprocess.run([*ssh, "python3 -"], capture_output=True, text=True, timeout=120,
@@ -149,6 +154,12 @@ while data:=s.recv(65536):
         (ROOT / "evidence" / ("installed-sandbox-" + profile + ".json")).write_text(
             json.dumps(sandbox_probe, indent=2) + "\n")
         assert sandbox_result.returncode == 0 and sandbox_probe["result"] == "passed", sandbox_probe
+        coding_result = subprocess.run([*ssh, "sudo python3 -"], capture_output=True, text=True,
+                                      input=(ROOT / "tests/installed_coding_probe.py").read_text(), timeout=150)
+        coding_probe = json.loads(coding_result.stdout)
+        coding_probe["installed_source"] = source_lock["commit"]
+        (ROOT / "evidence" / ("installed-coding-" + profile + ".json")).write_text(json.dumps(coding_probe, indent=2) + "\n")
+        assert coding_result.returncode == 0 and coding_probe["status"] == "passed", coding_probe
         # Exercise the real first-install latest-source build/probe/activation
         # on this disposable OS, without logging into any model account.
         latest_result = subprocess.run([*ssh, "agentic-home bootstrap_hermes"], capture_output=True,
@@ -211,10 +222,18 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
         assert json.loads(command(*ssh, "agentic-home status"))["vm"] == "running"
         assert hermes_image() == candidate_id
         wait_ha()
+        update_result = subprocess.run([*ssh, "sudo env AGENTIC_DISPOSABLE_VM=1 python3 -"], capture_output=True, text=True,
+                                      input=(ROOT / "tests/installed_update_probe.py").read_text(), timeout=600)
+        update_probe = json.loads(update_result.stdout)
+        (ROOT / "evidence" / ("installed-update-" + profile + ".json")).write_text(json.dumps(update_probe, indent=2) + "\n")
+        assert update_result.returncode == 0 and update_probe["state"] == "passed", update_probe
         evidence = {"kind": "real_linux_install_nested_kvm", "profile": profile, "base": "Ubuntu 24.04.5",
                     "iso_sha256": iso_hash,
                     "installed_version": installed["version"], "images": image_lock,
-                    "runtime_location": "disposable_outer_linux_vm", "model_backend": "none",
+                    "source_commit": source_lock["commit"],
+                    "host_coding": coding_probe["status"], "controller_update_rollback": update_probe["state"],
+                    "tailscale_installed_without_account": "1.104.1",
+                    "runtime_location": "disposable_outer_linux_vm", "model_backend": "coding_transport_fixture",
                     "ha_backend": "nested_official_haos", "device_kind": "none",
                     "installation": "passed", "firstboot": "passed", "haos_vm_running": True,
                     "outer_ui_with_haos_off": True, "cold_snapshot_restore": "passed",

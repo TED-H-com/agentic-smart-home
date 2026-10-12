@@ -6,7 +6,7 @@ Owner：Ted Huang。方向版本：Steering v3.0，2026-10-11。匯入時應用�
 
 2026-10-12 Owner 補充的首次使用順序優先於原稿的 Hermes-first 登入安排：Linux／網路 → 選一個 coding CLI 並官方登入 → CLI 協助準備最新版 Hermes → Hermes 驗證 → LINE／可選 Telegram 等通訊 → 自動建立或啟動 HA → 原生家庭設定及助手引導。後端保存工作進度，僅在必要的帳號、掃碼及家庭授權等待使用者；詳見 [自動 onboarding](docs/ONBOARDING.md)。這是新增產品流程，不代表兩個 coding worker 或 E1／E2 已完成。
 
-本輪 0.5.1 E2E 與架構審查見 [報告](docs/reviews/2026-10-12-E2E-ARCHITECTURE.md)。下一個切片仍是能交付 diff／獨立測試／隔離預覽的真 Host coding；取消恢復與全鏈 retention 是前置工程缺口。既有 restricted CLI onboarding 不替代 E1。
+0.5.1 的 [E2E／架構審查](docs/reviews/2026-10-12-E2E-ARCHITECTURE.md) 是本輪基準。0.6.0 補上 Host 實際 coding 派工／role auth／egress、獨立測試、PNG 預覽、可信停止核對、全鏈 retention、Hermes 家庭提案 adapter 和固定同 schema Controller updater；使用及精確限制見 [Workers](docs/WORKERS.md)、[Updates](docs/UPDATES.md)。真帳號、Home App research 與家庭產品驗收仍分開記錄。
 
 ## 固定角色
 
