@@ -1,0 +1,540 @@
+{
+  "source_commit": "ae9818559bd6cb8b09575b38717f4948fcd536e7",
+  "media_source_commit": "a67fab69c3ca4462a20b760b8ba1f3175659cb4a",
+  "source_files_verified": 131,
+  "ci_archive_files_verified": 638,
+  "all_runtime_media_source_hashes_match_ci_archive": true,
+  "documentation_differences": [
+    "docs/VERIFICATION.md"
+  ],
+  "documentation_difference_reason": "CI source includes later validation history and harness diagnostics; product code and compiled assets are unchanged",
+  "runtime_files": [
+    {
+      "path": "channels.lock.json",
+      "sha256": "ff3ad98442d9b97e5ffdf50b8d199da1932156ed52d35c413366d29f27b6ae35"
+    },
+    {
+      "path": "contracts/agent-decision.schema.json",
+      "sha256": "73a36baf4551de9a99c44542ede8aec003dc85e717d5be4bc672ce5a162f267f"
+    },
+    {
+      "path": "contracts/automation-intent.schema.json",
+      "sha256": "b51c759dde0c5a955acf0e541d6ac6cedc6fef5ea55b3d6dbeded479a4142df8"
+    },
+    {
+      "path": "contracts/bootstrap-start-v1.schema.json",
+      "sha256": "bf80b1c4a9beae3202b85f4ea46353d5ebfe083775c3449d7cdd628cc9e39bd4"
+    },
+    {
+      "path": "contracts/bootstrap-status-v1.schema.json",
+      "sha256": "e3487f398887a2e8da63c7be1f37cbe7a8042f8eac2581e868b5aabf174dcf9e"
+    },
+    {
+      "path": "contracts/case-evidence-query-v1.schema.json",
+      "sha256": "e45277ff468c3a04a05073706bfc48b5609f333f4103794dca03865e6fa05631"
+    },
+    {
+      "path": "contracts/controller-update-v1.schema.json",
+      "sha256": "13d3ca087eff5a5a85e0cc46739c809ee2cf6d13e281e2847e22343ff3e596a5"
+    },
+    {
+      "path": "contracts/controller.openapi.json",
+      "sha256": "72442ea6bfcc96cd715f3285a338395394f50a2961f9b539dee2f5100a5f19e1"
+    },
+    {
+      "path": "contracts/hermes-auth.schema.json",
+      "sha256": "6864adff1126f4c74c1ec542d5ed81ff89cc68e285cc62abbc57ba14e28c5762"
+    },
+    {
+      "path": "contracts/host-controller.openapi.json",
+      "sha256": "3a5ea51bdc73b453f4fa8a80a40c2e2218f113181fec5427897f91145500e560"
+    },
+    {
+      "path": "contracts/network-preferences-v1.schema.json",
+      "sha256": "c59011fe2ebd901aee25801f37a9cfde412943730d3ad475cac19ec4e30fb8e3"
+    },
+    {
+      "path": "contracts/policy.schema.json",
+      "sha256": "9c0651880af1d383bdb62bacca1bab4c4d279b41ee474db19100317a866df275"
+    },
+    {
+      "path": "contracts/runner-bootstrap-job-v1.schema.json",
+      "sha256": "3cd79734e8c656b6a99b8cb846f07708265a5b1db9771f6860c2ed2d108e5a99"
+    },
+    {
+      "path": "contracts/runner-bootstrap-result-v1.schema.json",
+      "sha256": "71f6cbf3a7e0abc792ca836a6058b53cf7e4a16abb2b30c1fb84bc0aaecb186c"
+    },
+    {
+      "path": "contracts/runner-job.schema.json",
+      "sha256": "574dd9ceb6563651448c1d227b6da3b39bbc6dd3f5090def97685988fa849f99"
+    },
+    {
+      "path": "contracts/runner-pair.schema.json",
+      "sha256": "917de79f4e3516796443e50394da06169fc9656e0ccc8e3b4d240f93aff3883a"
+    },
+    {
+      "path": "contracts/worker-preview-v1.schema.json",
+      "sha256": "b24678ac99948f2c0a2f901a2dba3eb606427fd6c4b34099a4c99ab581d65524"
+    },
+    {
+      "path": "contracts/worker-query-v1.schema.json",
+      "sha256": "2a77c9e1acfeec93fd44318cbe40e0e59eef0d32e3e829f5cf01bc103339f181"
+    },
+    {
+      "path": "contracts/worker-start-v1.schema.json",
+      "sha256": "a4be13f1afc3d3b318ffe5a788ff7e6800831b05e1f676ec92251bed4ddec572"
+    },
+    {
+      "path": "contracts/worker-submit-v1.schema.json",
+      "sha256": "2ba113de74c15825527d0629a662b59106838817881c4b8124ad16f609684ccd"
+    },
+    {
+      "path": "controller/.dockerignore",
+      "sha256": "aa30caa271ff708927889cad93f91a629ab3f730b813da8a540e35394b5aedd9"
+    },
+    {
+      "path": "controller/Dockerfile",
+      "sha256": "582784eff1704c0979f1ae3195078ccfd6566bab7440d1228841a5ec766f08fe"
+    },
+    {
+      "path": "controller/agentic_controller/__init__.py",
+      "sha256": "9fe814fec19e7d15215908a7a4024b388e48dc01b7d09a640934811114911ff1"
+    },
+    {
+      "path": "controller/agentic_controller/app.py",
+      "sha256": "336f6beaf76e84c904ec0b92cbf49abf548986f34bf88acab9d0501f106bab52"
+    },
+    {
+      "path": "controller/agentic_controller/bootstrap.py",
+      "sha256": "8e8954fb02288b9d1b8c8e7101e90fd9bab02adf13dd3ef702a185d2c7240e31"
+    },
+    {
+      "path": "controller/agentic_controller/channels.py",
+      "sha256": "d2869655c2f96cbe73374300de6ec4ce64507981cfb6d88d318baebc8bbfab75"
+    },
+    {
+      "path": "controller/agentic_controller/engine.py",
+      "sha256": "b160eaf3026c7a2d06a0d38a1862fe565bbc5ce4b87d7d9d4d46a11f64719e18"
+    },
+    {
+      "path": "controller/agentic_controller/gateway.py",
+      "sha256": "9ec7bb9419ba148f739c86d5641124e594eeb3e28ac60a68842697a8af0c00e4"
+    },
+    {
+      "path": "controller/agentic_controller/ha.py",
+      "sha256": "a4fa1a9a49a865104d17b641e57649063a42ea0dffc2aff61f5151a5623a93aa"
+    },
+    {
+      "path": "controller/agentic_controller/ha_oauth.py",
+      "sha256": "dd269d26c00361b0c98c8fdf2ef47497196f176684f16de7a9810351eb52d7d1"
+    },
+    {
+      "path": "controller/agentic_controller/hermes.py",
+      "sha256": "67aba4b233e7d2b00553d9ff1aab758ddeb6c8ebd214072418c8c533e950640a"
+    },
+    {
+      "path": "controller/agentic_controller/host.py",
+      "sha256": "c165901a366589a0d0c81c21b9ed7ff692278efa6698b186092dc1efc1a8bedb"
+    },
+    {
+      "path": "controller/agentic_controller/household.py",
+      "sha256": "312803306ff7e0888a6478c6a6241c151ca628973174e29491508142679a79c3"
+    },
+    {
+      "path": "controller/agentic_controller/mcp.py",
+      "sha256": "8d6f78fa4bcf3b52f248525972f1ea92dfaa04395b1205eff8714cc54f4df040"
+    },
+    {
+      "path": "controller/agentic_controller/models.py",
+      "sha256": "4a677ff28a5c3c849185aa977ab4311307906baeff3e04bf444335e5878b9483"
+    },
+    {
+      "path": "controller/agentic_controller/operations.py",
+      "sha256": "aba5146f3e3529f852c257af1378303a3c692e932212004359cf6d8e638dff94"
+    },
+    {
+      "path": "controller/agentic_controller/runner.py",
+      "sha256": "022c4be9fadad3a18cb1288492d497987c9d57490d5a67e16d6e7fee5778c829"
+    },
+    {
+      "path": "controller/agentic_controller/store.py",
+      "sha256": "75f8bca5e29f3cb92ff5c908616c6db65748e108dc5e64010a92d4cc55f69e6c"
+    },
+    {
+      "path": "controller/agentic_controller/work.py",
+      "sha256": "a8b9a080e1643a382b7714e6e191864f391d93e5f34485628ddca000c2f178a6"
+    },
+    {
+      "path": "controller/agentic_controller/workers.py",
+      "sha256": "632654d5f5cbcc9d2674d3c55b50267d6022a9bba01d2105ddefadaa4e52153f"
+    },
+    {
+      "path": "controller/config.yaml",
+      "sha256": "99b33863ec6c7c98aaa0c4f040143336c7e4f8773b33395c0492ac80a28ebb27"
+    },
+    {
+      "path": "controller/requirements.txt",
+      "sha256": "370a4907ffce372d60aebc5bfa83b372fa07a767849c3034e01e5decd9413818"
+    },
+    {
+      "path": "controller/start.py",
+      "sha256": "06f74433bf07708edd7ee7ca0a1fa8d1cfb481154e6cd6731d82147c52f1add1"
+    },
+    {
+      "path": "controller/static/assets/index-Gj0Io2Id.js",
+      "sha256": "ef2f36e88dc42a852f8004caead7a718d8aff8262e15f7c4f9369ae86355369b"
+    },
+    {
+      "path": "controller/static/assets/index-KaGyIs1v.css",
+      "sha256": "7d5efebd30184f455eaabc214c32dce1c935bbd9a4ceb70c334f7a43076e92db"
+    },
+    {
+      "path": "controller/static/downloads/agentic-runner.zip",
+      "sha256": "88ffd9564114aa8924814084d8c1a0946f834b761049dbd16d98fc45b7fc0c5f"
+    },
+    {
+      "path": "controller/static/index.html",
+      "sha256": "68e898126eb813611c5b3aa073cc3d6f4880f597000585c267adad80a550a514"
+    },
+    {
+      "path": "docs/v3/IMPORT.json",
+      "sha256": "4de8ed383d01e02ee310a4ecf9c9d2b8a4392cadaee1b331febe060834093cf7"
+    },
+    {
+      "path": "hermes/.dockerignore",
+      "sha256": "87ff6b6bd915e44c20b674ff1b478b0637ad02ba5135da1a9d27dae99c85c791"
+    },
+    {
+      "path": "hermes/Dockerfile",
+      "sha256": "229e7cc0a1d811116b3ff297cdbd370e2a6b7ff80a8bdafbd9713689bae6c2c7"
+    },
+    {
+      "path": "hermes/HERMES-LICENSE",
+      "sha256": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6"
+    },
+    {
+      "path": "hermes/agentic_hermes/__init__.py",
+      "sha256": "a1e6e77ff2aacf71e428db739e81a78f5b0095086a8e49d4d8d21ee6c5265fcb"
+    },
+    {
+      "path": "hermes/agentic_hermes/app.py",
+      "sha256": "54d8a7b8f2d608ef6f8c20ca44fe58ffb01349d99584576f069960c82623b04d"
+    },
+    {
+      "path": "hermes/agentic_hermes/child.py",
+      "sha256": "c845d1745894dbe8ab10c7fc7fd1712b9b30fadd32872eabce4ed6fb0ff9284d"
+    },
+    {
+      "path": "hermes/agentic_hermes/models.py",
+      "sha256": "dc97e56333ef7e86d409027dd0a86513d0be0e09b563672e04e4d8c021229947"
+    },
+    {
+      "path": "hermes/agentic_hermes/oauth.py",
+      "sha256": "a7cf74501dd1535d5cc5fc9ccbbaee7858a6b700962d0781d797f7fdedf2edb2"
+    },
+    {
+      "path": "hermes/agentic_hermes/oauth_child.py",
+      "sha256": "1190fedce3a16ad7b4c28d0712cc02ebe05ac965514a654fdac5a75c3819dca3"
+    },
+    {
+      "path": "hermes/compatibility_probe.py",
+      "sha256": "54f4b91120d9fe18e4e02d25079730d3dbfbf31a76f29d089a289bc19b6dd53e"
+    },
+    {
+      "path": "hermes/fetch_upstream.py",
+      "sha256": "5ca58043b59dad0589d2e89c7c3269ecd659955ba1bcbd3294b24c140b66f8cb"
+    },
+    {
+      "path": "hermes/hermes.lock.json",
+      "sha256": "d2db4cf2b4984ca3a1418d59113fcd827336009cfc998ed23ff1638158d8c4fa"
+    },
+    {
+      "path": "hermes/requirements.in",
+      "sha256": "4cf7915c1a2b150f85186668aa3bbb585e273e251a10b2590605563d86791a39"
+    },
+    {
+      "path": "hermes/requirements.txt",
+      "sha256": "e3a114f9181cc94128f4ed29b8cd405b8d0c5ce477d1d3c6c050180da27240d6"
+    },
+    {
+      "path": "host/Builder.Dockerfile",
+      "sha256": "e2a0c8d41323d87d5e57230110361c91133f141ec93c3b08b173b26ba80371a2"
+    },
+    {
+      "path": "host/agentic_host/__init__.py",
+      "sha256": "cd7bc1317b2e038f5b4e5c64d97016775abbfcaaab0b6ac6dae725d9898af406"
+    },
+    {
+      "path": "host/agentic_host/artifacts.py",
+      "sha256": "62ed70cc0cce036d13e70a7620abf25161340663aeb6eb8b666e7f6f80e58514"
+    },
+    {
+      "path": "host/agentic_host/bootstrap.py",
+      "sha256": "7fc20b2f06175257187895bd9cd817ef415dc23f73cdbd9e0b773bb6d3e71070"
+    },
+    {
+      "path": "host/agentic_host/cli.py",
+      "sha256": "e8371445fa10c830129df339083948ae1f5c17fdd47ec0427e14071b6024d2a4"
+    },
+    {
+      "path": "host/agentic_host/coding_program.py",
+      "sha256": "d22775a825af62d08ae74aa9a13a249cb876c6efbaf9217efef2da9c82624031"
+    },
+    {
+      "path": "host/agentic_host/coding_relay.py",
+      "sha256": "ad5f095de358199e2a12da512eb68ae3f092f8ba4c4ed8387837fa63ed989412"
+    },
+    {
+      "path": "host/agentic_host/coding_sandbox.py",
+      "sha256": "bc3f2ccbd293f61273d0e6d304164e55653dab5fcd339380bfbb80ccd894080d"
+    },
+    {
+      "path": "host/agentic_host/coding_service.py",
+      "sha256": "81849aa39ecfc6dc6cebd1f09cfe417036c7555f8c10d943b965bb470f03f7dc"
+    },
+    {
+      "path": "host/agentic_host/coding_volume.py",
+      "sha256": "74df243725bc57df3a88f29915a1f2b76170aea8cf6dc373859112013a543701"
+    },
+    {
+      "path": "host/agentic_host/daemon.py",
+      "sha256": "3e69bc21955df193ce96f8a17b120c41f60148c0ed0c4026dc4f0ce246f0471c"
+    },
+    {
+      "path": "host/agentic_host/desktop.py",
+      "sha256": "4da4ea5fdb13057356ddf1157ef0c162f74bed473539f49716591c47d96627e4"
+    },
+    {
+      "path": "host/agentic_host/fence.py",
+      "sha256": "2828f677c5b6ef768726d6a4827ad1bab842367e03c0df526375ec0f1d4d2ce7"
+    },
+    {
+      "path": "host/agentic_host/manager.py",
+      "sha256": "7c150fd524f55db5173a0d980c1ab3e3328729251d98bd250b67b7b04442ed4c"
+    },
+    {
+      "path": "host/agentic_host/network.py",
+      "sha256": "92cb4cef24f2248af6b6199d0498adfbc035d6497d2dfa0df0fd7853b8ffd91e"
+    },
+    {
+      "path": "host/agentic_host/preview.py",
+      "sha256": "c06327373bc0bcd0590c868ed83860f884968eb6968440ad75cbd65251c1089b"
+    },
+    {
+      "path": "host/agentic_host/proxy.py",
+      "sha256": "d307b950017e3daa2d041cbce3369133a90cd65f0580eba92db9b166f5b16c8d"
+    },
+    {
+      "path": "host/agentic_host/publisher.py",
+      "sha256": "f7bb178d18104f8fb7c6c12be07f127b8d236a12d231b0505e04945d412a2df4"
+    },
+    {
+      "path": "host/agentic_host/resources.py",
+      "sha256": "e75637f41d19c9613b05c1bcef947b664a3e7789c7bad85b2645e5912619e42d"
+    },
+    {
+      "path": "host/agentic_host/source.py",
+      "sha256": "6096b05bc09dca912f68ff8c6f8550573e6c0e64ae2f509502d47806f24bcf6a"
+    },
+    {
+      "path": "host/agentic_host/support.py",
+      "sha256": "d292fff3a7fd7d5ecc64c942e359866738f8152527739d5a466660a6dfc14376"
+    },
+    {
+      "path": "host/agentic_host/update_probe.py",
+      "sha256": "de57e7991c5e0bc463d613224782f06064c08f96f191b285090a8e29a1966f10"
+    },
+    {
+      "path": "host/agentic_host/updater.py",
+      "sha256": "df789d4a23b444eb7bed04f3113c9e75599b72a58c5a74eda779754497180897"
+    },
+    {
+      "path": "host/bases.lock.json",
+      "sha256": "e6a7cc057bb57889f9a2aedd82efc3478ad682ed7cf7c1e57fef56b546b0871a"
+    },
+    {
+      "path": "host/compose.yaml",
+      "sha256": "ec95b33104ebb65b00ee9ba550669e44849d62381980f43546ddd5d7816e8701"
+    },
+    {
+      "path": "host/desktop/agentic-home.desktop",
+      "sha256": "b6fa976dcbf1aeeed9cbc0546187e45f554d011c144610dcaa8212e7c5d2b124"
+    },
+    {
+      "path": "host/install.py",
+      "sha256": "5503a1d6ffc11b534b489a6caa77fc3b8870e05626f44903e357b0022a850728"
+    },
+    {
+      "path": "host/linejs/Dockerfile",
+      "sha256": "8806bb6e040521cc44df25968a66b229484f10497c9e1e56350a0ef1f2510249"
+    },
+    {
+      "path": "host/linejs/patch-local-host.mjs",
+      "sha256": "bd200c9594f1eab75ea796b683141336eabc35dbaf24ddfd4616594f9c79d5c7"
+    },
+    {
+      "path": "host/linejs/start.mjs",
+      "sha256": "7eb62553aea0c98b6fc43ca210c84173a1ae9aa6a1bcc120b78218119db48c40"
+    },
+    {
+      "path": "host/network.lock.json",
+      "sha256": "a40bd26bee9aebcd52e0afd51623eb770be0771884755f6dd57d565272ed2b6c"
+    },
+    {
+      "path": "host/preview/Dockerfile",
+      "sha256": "f850242ccca8511add03241df456c334ab512671d11a828e622a1aa426fdfc30"
+    },
+    {
+      "path": "host/preview/render.py",
+      "sha256": "2b6f4f8f9989729c7a584c8ba44853dfef7052229a2c1abb270189cdbe40d6f3"
+    },
+    {
+      "path": "host/preview/requirements.lock",
+      "sha256": "404290984e7d077051148b03a6313974b4994aecd19c0238821181982478948c"
+    },
+    {
+      "path": "host/profile.schema.json",
+      "sha256": "a9f09d26fd0a6cd4e6a28aaed0d5f60d94159c40d078d961c67f5ee706c30a40"
+    },
+    {
+      "path": "host/profiles/laptop-amd64.json",
+      "sha256": "04bc59d9c1519eae063176a179e45f73203e3a5f7d1754fab74b58cea31627e9"
+    },
+    {
+      "path": "host/profiles/laptop-new-amd64.json",
+      "sha256": "4e2041ff6d3ed97dce1c8e39da998989f5076936e89ce4bff162a2e571062e82"
+    },
+    {
+      "path": "host/profiles/server-amd64.json",
+      "sha256": "28e4e0890779b504a80d2cbbc0a16bebb3dd8ce42ab00fd8fb261e13dbb8995e"
+    },
+    {
+      "path": "host/systemd/agentic-home-firstboot.service",
+      "sha256": "f3d5e72d28e8197dcbfe15abfe9dfba3c4a185b43c03187ee36dbc0970919073"
+    },
+    {
+      "path": "host/systemd/agentic-home-host.service",
+      "sha256": "243e3ad7685abb0d59388c5016bba8d03a8d935530dd9f2a055b3b2b48b3693b"
+    },
+    {
+      "path": "host/systemd/agentic-home-proxy.service",
+      "sha256": "84f87cdfaddf052ff0ca192e2cd5f1f4e9daabf192b694030a1780ecc6c7745f"
+    },
+    {
+      "path": "host/systemd/agentic-home.service",
+      "sha256": "197a77ba41cec5972970c457409804f0e27e5e55ba579cd6eb03defece72209d"
+    },
+    {
+      "path": "host/update-publishers.json",
+      "sha256": "94ad03d81da042ce75d66775e379a02ea3433768d87a2a5f53f375e424920a27"
+    },
+    {
+      "path": "providers.lock.json",
+      "sha256": "a8a65a6d7de2512010683c5c68ab17735af7ff56c1d177d4c961d292d620f171"
+    },
+    {
+      "path": "runner/.dockerignore",
+      "sha256": "7a36af6322a4919bb510899b46139218b4cbf5d72e53df8336b7451854c08587"
+    },
+    {
+      "path": "runner/Dockerfile",
+      "sha256": "811cb86785f8b6def21ccf93a62645a42a401f86a75f6642d155172c14e10bf4"
+    },
+    {
+      "path": "runner/agentic_runner/CODEX-LICENSE",
+      "sha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc"
+    },
+    {
+      "path": "runner/agentic_runner/__init__.py",
+      "sha256": "0aa676ff2daeb935385d522ec1192ca4c600063320dc03468e3082dfc13cf058"
+    },
+    {
+      "path": "runner/agentic_runner/app.py",
+      "sha256": "a6c73e15db4e63f2b54519968aaab71125e930102bd07070b18ff7c2fb328d59"
+    },
+    {
+      "path": "runner/agentic_runner/bootstrap.py",
+      "sha256": "d53b9d4cc15ac6ac1b4675924291e5edd0ec2a4733c75d925fb7d6c0e7f2b50f"
+    },
+    {
+      "path": "runner/agentic_runner/codex-models.json",
+      "sha256": "17bbd690183e9267a446d1351ea738d6f38a87310f3530d0ec1e6b273823210f"
+    },
+    {
+      "path": "runner/agentic_runner/coding.py",
+      "sha256": "b14d0901c4d737a3652d827421e7b916b12be1287bd59f0642218d35e128d025"
+    },
+    {
+      "path": "runner/agentic_runner/providers.py",
+      "sha256": "9fe8e6fa013c876bde7fe124d6e41374469934d06fefa5a2fe7ee6fa730bbf4a"
+    },
+    {
+      "path": "runner/agentic_runner/reconcile.py",
+      "sha256": "4e59aeff06ea1a945a624d90ac71929eec72244b35f237f5460764d2290331f6"
+    },
+    {
+      "path": "runner/agentic_runner/retention.py",
+      "sha256": "60154a31c2988fc21280cc09dac3012c985e6a23248dbd48303acaa92b8965a9"
+    },
+    {
+      "path": "runner/agy.lock.json",
+      "sha256": "d7e73799f7c5e4cc53dc3c75ba58eb5e68b5ae51ab2734f32005dec9f62cf2f4"
+    },
+    {
+      "path": "runner/config.yaml",
+      "sha256": "208e1da714296668d44b8c6af7a934f232ee09d2c80fe50da9761d37bdda2e3c"
+    },
+    {
+      "path": "runner/fetch_agy.py",
+      "sha256": "88972053a3cc7b0624e1c128660443584d4a517102e4d45cbd376f5d9f5e9a39"
+    },
+    {
+      "path": "runner/package-lock.json",
+      "sha256": "fe7b8b1d0cca68a0dc9352542d50c82f1b5196029c21044f415f728da65eba0b"
+    },
+    {
+      "path": "runner/package.json",
+      "sha256": "64aee172d48001c161640e7fc2b7851c146d582a950b3e002681b79d98dc6b94"
+    },
+    {
+      "path": "runner/requirements-coding.txt",
+      "sha256": "588fb12922dd9fbdde81912268394612e3a88292db95232fa00e6553cf221852"
+    },
+    {
+      "path": "runner/requirements.txt",
+      "sha256": "370a4907ffce372d60aebc5bfa83b372fa07a767849c3034e01e5decd9413818"
+    },
+    {
+      "path": "scripts/build_host.py",
+      "sha256": "727e6f3e772a5c05a192885c8190e05cb1a8db3f3a6e4e114e4c2c568d94e58d"
+    },
+    {
+      "path": "scripts/contracts.py",
+      "sha256": "b149fc69867b57c7009d8b88ed601bc6230fc18053722fb28aa918bfd39b82f9"
+    },
+    {
+      "path": "scripts/package.py",
+      "sha256": "17bb253cd6bbddd0a3363f043265ef9d15a310edf64b0b2bd0283be06239ce07"
+    },
+    {
+      "path": "scripts/restore_controller.py",
+      "sha256": "d6d2f4d9ff96c2af964635690a1bc44b311fe038730163fe01fa205c0ba35da8"
+    },
+    {
+      "path": "scripts/upstreams.py",
+      "sha256": "a7faffd23dee055677f8a1a10c169355e132d8ceed5f97336e4f3bf828450919"
+    },
+    {
+      "path": "scripts/validate_kit.py",
+      "sha256": "01c73c81f07e68c1b8d6253463e8237f2746f50506b1389d34e583b84366b92d"
+    },
+    {
+      "path": "upstream.lock.json",
+      "sha256": "d518c523695514a122d7428b66b40d6c8204dff2d0ba8523e60ef4960130a7b8"
+    }
+  ],
+  "runtime_artifacts_compared_by_source": "CI and local images are independent builds; image IDs remain separate evidence",
+  "run_url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38254856774",
+  "source_delta_scope": "tests, docs and evidence only"
+}

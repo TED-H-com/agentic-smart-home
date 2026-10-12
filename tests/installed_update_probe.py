@@ -19,6 +19,7 @@ from pathlib import Path
 
 STAGE = "disposable_vm_guard"
 FAILED_STAGE = None
+PRIMARY_FAILURE = None
 DIAGNOSTICS = {"cleanup_started": False, "cleanup_completed": False}
 SAFE_ERRORS = {
     "disposable_installed_vm_required", "installed_update_failed", "installed_update_deadline",
@@ -50,6 +51,21 @@ STAGES = {
 ERROR_TYPES = {"RuntimeError", "AssertionError", "HostError", "UpdateError", "OSError", "FileNotFoundError",
                "PermissionError", "ImportError", "ModuleNotFoundError", "TimeoutExpired", "CalledProcessError",
                "ValueError", "KeyError", "TypeError", "JSONDecodeError", "OperationalError"}
+LIFECYCLE_ACTIONS = {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes"}
+LIFECYCLE_ERRORS = {
+    "Another host operation is running": "host_operation_busy",
+    "HAOS has not been provisioned by this product": "haos_not_provisioned",
+    "Existing VM is not owned by Agentic Home": "haos_ownership_mismatch",
+    "VM disk was changed outside Agentic Home": "haos_disk_changed",
+    "HAOS has not shut down; no forced power-off was performed": "haos_shutdown_unconfirmed",
+    "Shut down HAOS before restoring": "restore_requires_shutdown",
+    "Invalid snapshot id": "snapshot_id_invalid",
+    "Snapshot ownership mismatch": "snapshot_ownership_mismatch",
+    "Snapshot checksum mismatch": "snapshot_checksum_mismatch",
+    "A different restore must be completed first": "restore_conflict",
+    "host_service_unavailable": "host_service_unavailable",
+    "broker_role_forbidden": "broker_role_forbidden",
+}
 
 
 def validate_guard(uid, marker, hostname, serials, virtualization, installed):
@@ -86,6 +102,20 @@ def checkpoint(stage):
     persist("checkpoint.json", {"state": "running", "stage": stage})
 
 
+def safe_error(exc, stage):
+    return {"error_code": str(exc) if str(exc) in SAFE_ERRORS else "unclassified_update_error",
+            "error_type": type(exc).__name__ if type(exc).__name__ in ERROR_TYPES else "OtherError", "stage": stage}
+
+
+def begin_cleanup():
+    DIAGNOSTICS["cleanup_started"] = True
+    try:
+        checkpoint("restore_original_image_and_cleanup")
+    except Exception:
+        # ENOSPC or diagnostic I/O must never prevent real cleanup.
+        DIAGNOSTICS["cleanup_checkpoint_failed"] = True
+
+
 def process_diagnostics(result):
     """No subprocess text leaves the disposable VM/test process."""
     stdout = result.stdout or ""
@@ -104,7 +134,81 @@ def process_diagnostics(result):
                 "syntax_error": ("syntaxerror",), "permission_denied": ("permission denied",),
                 "ssh_transport": ("connection reset", "connection closed", "connection refused", "broken pipe", "connection timed out"),
                 "process_killed": ("killed", "terminated"), "sudo_error": ("sudo:",),
+                "timeout": ("timed out", "timeoutexpired", "timeout error"),
+                "disk_full": ("no space left on device",), "read_only_filesystem": ("read-only file system",),
+                "io_error": ("input/output error",), "oom": ("out of memory", "oom-kill", "killed process"),
             }.items()}}
+
+
+def lifecycle_receipt(value):
+    if not isinstance(value, dict):
+        return None
+    identifier = value.get("id")
+    request = value.get("request", {})
+    action = request.get("action") if isinstance(request, dict) else None
+    if action is None and isinstance(value.get("action"), str) and value["action"] in LIFECYCLE_ACTIONS:
+        action = value["action"]
+    state = value.get("state")
+    if not isinstance(identifier, str) or not re.fullmatch(r"[a-f0-9]{32}", identifier):
+        return None
+    result = {"id": identifier, "action": action if isinstance(action, str) and action in LIFECYCLE_ACTIONS else "unknown",
+              "state": state if isinstance(state, str) and state in {"running", "succeeded", "failed", "needs_reconcile"} else "unknown"}
+    message = value.get("message", "")
+    if not isinstance(message, str):
+        message = ""
+    known = LIFECYCLE_ERRORS.get(message)
+    supplied = value.get("error_code")
+    if not isinstance(supplied, str):
+        supplied = None
+    result["error_code"] = (known or supplied) if (known or supplied) in set(LIFECYCLE_ERRORS.values()) | SAFE_ERRORS else "unclassified_host_error"
+    if result["state"] == "succeeded":
+        result["error_code"] = None
+    result["operation"] = next((name for name in ("cp", "virsh", "qemu-img", "chmod", "chown") if message.startswith(name + ":")), None)
+    if result["operation"] is None and value.get("operation") in ("cp", "virsh", "qemu-img", "chmod", "chown"):
+        result["operation"] = value["operation"]
+    result["message_signatures"] = process_diagnostics(subprocess.CompletedProcess([], None, "", message))["stderr_signatures"]
+    if isinstance(value.get("message_signatures"), dict):
+        result["message_signatures"] = {key: value["message_signatures"].get(key) is True for key in result["message_signatures"]}
+    return result
+
+
+def failure_observation(identifier=None, action=None):
+    """Read only reviewed files and fixed diagnostics before VM teardown."""
+    guard()
+    sys.path.insert(0, "/opt/agentic-home/host")
+    from agentic_host.support import _capture, _read
+
+    result = {"jobs": [], "selection": "exact_id" if identifier else "recent_action_unbound"}
+    raw = _read(Path("/var/lib/agentic-home/host/jobs.json"), limit=65536)
+    try:
+        jobs = json.loads(raw) if raw else {}
+        for value in list(jobs.values())[-20:]:
+            receipt = lifecycle_receipt(value)
+            if receipt and ((identifier and receipt["id"] == identifier) or (not identifier and receipt["action"] == action)):
+                result["jobs"].append(receipt)
+        result["jobs"] = result["jobs"][-5:]
+    except (ValueError, AttributeError):
+        result["job_read_failed"] = True
+    capacity = shutil.disk_usage("/var/lib/agentic-home")
+    result["filesystem"] = {"total_bytes": capacity.total, "used_bytes": capacity.used, "free_bytes": capacity.free}
+    fixed = {
+        "broker_unit": ["/usr/bin/systemctl", "show", "agentic-home-host.service", "--property=ActiveState,Result"],
+        "vm": ["/usr/bin/virsh", "--readonly", "--connect", "qemu:///system", "domstate", "agentic-home-haos"],
+        "journal": ["/usr/bin/journalctl", "--no-pager", "--lines=100", "--unit=agentic-home-host.service",
+                    "--unit=agentic-home-firstboot.service", "--unit=docker.service", "--unit=libvirtd.service"],
+        "kernel": ["/usr/bin/journalctl", "--no-pager", "--dmesg", "--lines=100"],
+    }
+    for name, args in fixed.items():
+        status, text = _capture(args)
+        result[name] = {"observation": status,
+                        "signatures": process_diagnostics(subprocess.CompletedProcess([], None, "", text))["stderr_signatures"]}
+        if name == "vm":
+            result[name]["state"] = text.strip() if text.strip() in {"running", "paused", "shut off", "in shutdown", "crashed"} else "unknown"
+        if name == "broker_unit":
+            fields = dict(line.split("=", 1) for line in text.splitlines() if "=" in line)
+            result[name]["active"] = fields.get("ActiveState") if fields.get("ActiveState") in {"active", "inactive", "failed", "activating", "deactivating"} else "unknown"
+            result[name]["oom_killed"] = fields.get("Result") == "oom-kill"
+    return result
 
 
 def launch(source):
@@ -161,7 +265,7 @@ def observe():
 
 
 def main():
-    global STAGE, FAILED_STAGE
+    global STAGE, FAILED_STAGE, PRIMARY_FAILURE
     guard()
     checkpoint("installed_module_imports")
     sys.path.insert(0, "/opt/agentic-home/host")
@@ -281,14 +385,14 @@ def main():
                   "fixtures": ["ephemeral_publisher", "preloaded_registry_delivery", "candidate_changes_only_image_label", "synthetic_post_deployment_record"],
                   "real_cloud": False, "real_publisher_release": False, "original_image": original, "candidate_image": candidate,
                   "registry_delivery_calls": len(deliveries), "final_schema": schema, "rollback_restored_backup": False}
-    except Exception:
+    except Exception as exc:
         FAILED_STAGE = STAGE
+        PRIMARY_FAILURE = safe_error(exc, STAGE)
         raise
     finally:
         # Exact original artifact and owner pause setting are restored; never
         # restore a stale DB. The surrounding disposable VM is deleted by pytest.
-        checkpoint("restore_original_image_and_cleanup")
-        DIAGNOSTICS["cleanup_started"] = True
+        begin_cleanup()
         service.stop()
         with sqlite3.connect(service.database) as db:
             db.execute("DELETE FROM records WHERE kind='update_vm_fixture'")
@@ -324,12 +428,17 @@ def execute():
         guarded = True
         result = main()
     except Exception as exc:
-        code = str(exc) if str(exc) in SAFE_ERRORS else "unclassified_update_error"
-        result = {"state": "failed", "error_code": code,
-                  "error_type": type(exc).__name__ if type(exc).__name__ in ERROR_TYPES else "OtherError",
-                  "stage": FAILED_STAGE or STAGE, "diagnostics": DIAGNOSTICS}
+        if PRIMARY_FAILURE and DIAGNOSTICS["cleanup_started"] and not DIAGNOSTICS["cleanup_completed"]:
+            cleanup = safe_error(exc, STAGE)
+            DIAGNOSTICS.update(cleanup_error_code=cleanup["error_code"], cleanup_error_type=cleanup["error_type"])
+        result = {"state": "failed", **(PRIMARY_FAILURE or safe_error(exc, FAILED_STAGE or STAGE)), "diagnostics": DIAGNOSTICS}
     if guarded:
-        persist("result.json", result)
+        try:
+            persist("result.json", result)
+        except Exception:
+            result["diagnostics"]["result_persist_failed"] = True
+            # Without a durable receipt the caller cannot confirm completion.
+            result["state"] = "failed"
     print(json.dumps(result, sort_keys=True), flush=True)
     return 0 if result["state"] == "passed" else 1
 

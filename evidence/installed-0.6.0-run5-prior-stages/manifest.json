@@ -1,0 +1,13 @@
+{
+  "source_commit": "a67fab69c3ca4462a20b760b8ba1f3175659cb4a",
+  "harness_commit": "ae9818559bd6cb8b09575b38717f4948fcd536e7",
+  "iso_sha256": "9e4b48243963f065d48a281a6c77d6744c27860d65def328198c0aa574eea1cf",
+  "scope": "Run5 passed intermediate stages; snapshot command failed before updater probe",
+  "files": {
+    "installed-auth-laptop-amd64.json": "9803e70c185bb776fd6befb1a71925138ed4b67446c6fa3919d6e29731ea13d5",
+    "installed-rescue-laptop-amd64.json": "009836e611587b26e75ae40446ce159d8b2eb4b1b6ff8ea97e0e284cad803bb7",
+    "installed-sandbox-laptop-amd64.json": "21ed7b95060c3c41f3e9368008f8cf7e6cd93eb24347b2edd550eabcd0407fc2",
+    "installed-coding-laptop-amd64.json": "6b2cb244e467b3cf77f5afc34d6e2f4d42a9567600127f2c96abf74dca671980",
+    "installed-hermes-laptop-amd64.json": "c4c5ecf186fc88df642520a6e318472badec08bda2eb247533d6b7f43f0b2ef9"
+  }
+}

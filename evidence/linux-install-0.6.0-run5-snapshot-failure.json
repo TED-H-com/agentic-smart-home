@@ -1,0 +1,42 @@
+{
+  "version": "0.6.0",
+  "source_commit": "a67fab69c3ca4462a20b760b8ba1f3175659cb4a",
+  "harness_commit": "ae9818559bd6cb8b09575b38717f4948fcd536e7",
+  "iso_sha256": "9e4b48243963f065d48a281a6c77d6744c27860d65def328198c0aa574eea1cf",
+  "result": "failed",
+  "pytest": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "1",
+    "skipped": "0",
+    "tests": "1",
+    "time": "1620.743",
+    "timestamp": "2026-10-12T09:19:40.516027-04:00",
+    "hostname": "castleridge-ai1"
+  },
+  "failed_stage": "nested_haos_shutdown_snapshot_restore",
+  "failure": "agentic-home snapshot returned exit code 1 before the installed updater probe was reached",
+  "cause": "unclassified: captured command output and broker job receipt were not serialized before VM teardown; no product cause established",
+  "completed": [
+    "Ubuntu installation/firstboot and exact images/source",
+    "Owner login and role-auth boundaries",
+    "Controller-stopped console rescue",
+    "real ext4 quota and sandbox fencing",
+    "real Codex tools and independent verifier (2 completed tests)",
+    "latest Hermes build/activation and runtime revision readback",
+    "real HAOS native API",
+    "HAOS shutdown and continued outer Controller HTTP availability"
+  ],
+  "latest_hermes_commit": "eefdfe0692207a7520b3a8c764fe510024f552a1",
+  "passed_stage_evidence": "evidence/installed-0.6.0-run5-prior-stages/",
+  "remaining": [
+    "snapshot/restore and restored native API",
+    "outer reboot, HAOS autostart and Hermes image persistence",
+    "verified Controller candidate activation and same-database rollback",
+    "complete full-run success"
+  ],
+  "comparison": "Run4 passed snapshot/restore/reboot on the same ISO; this does not classify the run5 failure or justify a retry of an uncertain effect.",
+  "next_step": "harness-only bounded typed diagnostics before teardown for every failure; exercise updater after first native HA readiness and before lifecycle tests; preserve all existing success assertions",
+  "cloud_accounts": "not_run",
+  "cleanup": "exact VM/container/test disk basetemp removed"
+}

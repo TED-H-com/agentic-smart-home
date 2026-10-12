@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="1620.743" timestamp="2026-10-12T09:19:40.516027-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_linux_install" name="test_full_linux_install_with_nested_haos" time="1620.334"><failure message="subprocess.CalledProcessError: Command '('ssh', '-i', '/home/ted-h/agent-work/tmp/pytest/20261012-091940-xTfczN/bt/test_full_linux_install_with_n0/test-key', '-o', 'BatchMode=yes', '-o', 'ProxyCommand=docker exec -i agentic-linux-install-test-6aa5a9436c python3 /lab/ssh-proxy.py', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', '-o', 'ConnectTimeout=5', 'tester@127.0.0.1', 'agentic-home snapshot')' returned non-zero exit status 1.">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-091940-xTfczN/bt/test_full_linux_install_with_n0')
+request = &lt;FixtureRequest for &lt;Function test_full_linux_install_with_nested_haos&gt;&gt;
+
+    def test_full_linux_install_with_nested_haos(tmp_path, request):
+        if not request.config.getoption("--linux-install"):
+            pytest.skip("Use --linux-install to install onto a disposable virtual disk")
+        assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
+        profile = os.environ.get("AGENTIC_INSTALL_TEST_PROFILE", "laptop-amd64")
+        assert profile in {"laptop-amd64", "server-amd64"}
+        iso = ROOT / "dist" / ("agentic-home-0.6.0-" + profile + ".iso")
+        assert iso.exists()
+        with iso.open("rb") as stream:
+            iso_hash = hashlib.file_digest(stream, "sha256").hexdigest()
+        spec = importlib.util.spec_from_file_location("builder", ROOT / "scripts/build_host.py")
+        build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build)
+        command("ssh-keygen", "-t", "ed25519", "-N", "", "-f", str(tmp_path / "test-key"))
+        config = build.autoinstall({"id": profile})
+        autoinstall = config["autoinstall"]
+        autoinstall.pop("interactive-sections")
+        autoinstall["identity"] = {"hostname": "agentic-disposable", "username": "tester", "password": "!"}
+        autoinstall["ssh"] = {"install-server": True, "allow-pw": False,
+                              "authorized-keys": [(tmp_path / "test-key.pub").read_text().strip()]}
+        autoinstall["storage"] = {"layout": {"name": "direct", "match": {"serial": "AGENTIC_TEST_ONLY"}}}
+        autoinstall["shutdown"] = "poweroff"
+        autoinstall["late-commands"] += [
+            "printf 'tester ALL=(root) NOPASSWD: ALL\\n' &gt; /target/etc/sudoers.d/90-agentic-test",
+            "chmod 440 /target/etc/sudoers.d/90-agentic-test"]
+        (tmp_path / "user-data").write_text("#cloud-config\n" + json.dumps(config, indent=2))
+        # Connect from QEMU's loopback: Docker's outer 172.17/16 otherwise overlaps
+        # Docker inside the guest after firstboot and breaks the return route.
+        (tmp_path / "ssh-proxy.py").write_text('''import socket,sys,threading
+    s=socket.create_connection(('127.0.0.1',2222))
+    def forward():
+     while data:=sys.stdin.buffer.read1(65536): s.sendall(data)
+     s.shutdown(socket.SHUT_WR)
+    threading.Thread(target=forward,daemon=True).start()
+    while data:=s.recv(65536):
+     sys.stdout.buffer.write(data);sys.stdout.buffer.flush()
+    ''')
+        name = "agentic-linux-install-test-" + uuid.uuid4().hex[:10]
+        started = time.time()
+        progress = {"runtime_location": "disposable_outer_linux_vm", "iso_sha256": iso_hash,
+                    "result": "running", "cloud_login": "not_run"}
+        progress_path = ROOT / "evidence" / ("installed-progress-" + profile + ".json")
+
+        def phase(name):
+            progress.update(phase=name, duration_seconds=round(time.time() - started))
+            progress_path.write_text(json.dumps(progress, indent=2) + "\n")
+
+        try:
+            phase("prepare_disposable_media")
+            command("docker", "run", "--rm", "-u", f"{os.getuid()}:{os.getgid()}", "-v", f"{tmp_path}:/lab",
+                    "-v", f"{iso}:/source.iso:ro", "agentic-home-builder:0.2.0", "xorriso",
+                    "-indev", "/source.iso", "-outdev", "/lab/test.iso", "-boot_image", "any", "replay",
+                    "-map", "/lab/user-data", "/agentic-seed/user-data", "-commit")
+            command("docker", "run", "--rm", "-u", f"{os.getuid()}:{os.getgid()}", "-v", f"{tmp_path}:/lab",
+                    "agentic-home-builder:0.2.0", "qemu-img", "create", "-f", "qcow2", "/lab/linux.qcow2", "120G")
+            qemu = ["qemu-system-x86_64", "-enable-kvm", "-cpu", "host", "-machine", "q35", "-m", "10240", "-smp", "4",
+                    "-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd",
+                    "-drive", "if=pflash,format=raw,file=/lab/nvram.fd",
+                    "-drive", "file=/lab/linux.qcow2,format=qcow2,if=none,id=disk",
+                    "-device", "virtio-blk-pci,drive=disk,serial=AGENTIC_TEST_ONLY",
+                    "-netdev", "user,id=net,hostfwd=tcp:0.0.0.0:2222-:22", "-device", "virtio-net-pci,netdev=net",
+                    "-display", "none", "-serial", "file:/lab/serial.log", "-monitor", "unix:/lab/monitor.sock,server,nowait"]
+            command("docker", "run", "--rm", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0",
+                    "cp", "/usr/share/OVMF/OVMF_VARS_4M.fd", "/lab/nvram.fd")
+            common = ["docker", "run", "-d", "--name", name, "--device", "/dev/kvm", "--memory", "12g", "--cpus", "4",
+                      "-p", "127.0.0.1::2222", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0"]
+            phase("ubuntu_installation")
+            command(*common, *qemu, "-cdrom", "/lab/test.iso", "-boot", "d")
+            for _ in range(180):
+                state = json.loads(command("docker", "inspect", name))[0]["State"]
+                if not state["Running"]:
+                    assert state["ExitCode"] == 0 and not state["OOMKilled"]
+                    break
+                time.sleep(5)
+            else:
+                raise AssertionError("Linux installer did not power off within 15 minutes")
+            command("docker", "rm", "-fv", name)
+            phase("installed_firstboot")
+            command(*common, *qemu)
+            ssh = ["ssh", "-i", str(tmp_path / "test-key"), "-o", "BatchMode=yes",
+                   "-o", f"ProxyCommand=docker exec -i {name} python3 /lab/ssh-proxy.py",
+                   "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5",
+                   "tester@127.0.0.1"]
+            for _ in range(240):
+                result = subprocess.run([*ssh, "test -f /var/lib/agentic-home/installed.json"], capture_output=True)
+                if result.returncode == 0:
+                    break
+                time.sleep(5)
+            else:
+                logs = subprocess.run([*ssh, "journalctl -u agentic-home-firstboot --no-pager -n 50"], capture_output=True, text=True)
+                raise AssertionError("Firstboot did not complete: " + logs.stdout[-4000:])
+            phase("installed_identity_and_images")
+            host = json.loads(command(*ssh, "agentic-home status"))
+            assert not host["provisioned"] and host["kvm"]
+            installed = json.loads(command(*ssh, "sudo cat /var/lib/agentic-home/installed.json"))
+            assert installed["version"] == "0.6.0" and installed["profile"] == profile
+            image_lock = json.loads(command(*ssh, "cat /opt/agentic-home/images.lock.json"))
+            expected_tags = {f"agentic-home-{service}:0.6.0" for service in ("controller", "runner", "linejs", "hermes", "preview")}
+            assert set(image_lock) == expected_tags
+            for tag, digest in image_lock.items():
+                assert command(*ssh, "sudo docker image inspect --format '{{.Id}}' " + tag) == digest
+            source_lock = json.loads(command(*ssh, "sudo cat /var/lib/agentic-home/coding/source.json"))
+            assert source_lock == json.loads(command(*ssh, "cat /opt/agentic-home/assets/coding-source.json"))
+            assert command(*ssh, "sudo git -C /var/lib/agentic-home/coding/source rev-parse HEAD") == source_lock["commit"]
+            assert command(*ssh, "tailscale version").splitlines()[0] == "1.104.1"
+            assert json.loads(command(*ssh, "sudo tailscale status --json"))["BackendState"] == "NeedsLogin"
+            assert command(*ssh, "systemctl is-active agentic-home agentic-home-host agentic-home-proxy") == "active\nactive\nactive"
+            assert command(*ssh, "curl -fsS http://localhost:8099/api/deployment")
+            phase("installed_owner_and_role_auth")
+            auth_result = subprocess.run([*ssh, "python3 -"], capture_output=True, text=True, timeout=120,
+                                         input=(ROOT / "tests/installed_probe.py").read_text())
+            auth_probe = json.loads(auth_result.stdout)
+            (ROOT / "evidence" / ("installed-auth-" + profile + ".json")).write_text(
+                json.dumps(auth_probe, indent=2) + "\n")
+            assert auth_result.returncode == 0 and auth_probe.get("result") != "failed", auth_probe
+            # Exercise independent console recovery before adding any household VM.
+            phase("controller_stopped_console_recovery")
+            diagnostics = json.loads(command(*ssh, "agentic-home diagnostics"))
+            assert diagnostics["observations"]
+            assert all(item["version_refs"]["installed_application"] == installed["version"]
+                       for item in diagnostics["observations"])
+            installation = next(item for item in diagnostics["observations"] if item["target_component"] == "installation")
+            assert installation["status"] == "collected" and installation["data"]["profile"] == profile
+            compose = ("sudo docker compose --env-file /var/lib/agentic-home/host/runtime.env "
+                       "-f /opt/agentic-home/host/compose.yaml")
+            command(*ssh, compose + " stop controller")
+            try:
+                unavailable = subprocess.run([*ssh, "curl --max-time 3 -fsS http://localhost:8099/health"], capture_output=True)
+                assert unavailable.returncode != 0
+                rescue = json.loads(command(*ssh, "agentic-home diagnostics"))
+                assert rescue["observations"]
+                assert all(item["version_refs"]["installed_application"] == installed["version"]
+                           for item in rescue["observations"])
+                command(*ssh, "agentic-home support-bundle --output /home/tester/support-probe.json")
+                support = json.loads(command(*ssh, "cat /home/tester/support-probe.json"))
+                assert support["format"] == "agentic-support-bundle-v1"
+                (ROOT / "evidence" / ("installed-rescue-" + profile + ".json")).write_text(json.dumps({
+                    "runtime_location": "disposable_outer_linux_vm", "controller_stopped": True,
+                    "diagnostics": rescue, "support_bundle": "created", "cloud_login": "not_run"}, indent=2) + "\n")
+            finally:
+                command(*ssh, compose + " up -d --wait controller")
+            phase("installed_sandbox_quota_and_fencing")
+            sandbox_result = subprocess.run([*ssh, "sudo python3 -"], capture_output=True, text=True,
+                                           input=(ROOT / "tests/installed_sandbox_probe.py").read_text(), timeout=120)
+            # Preserve the probe's allowlisted diagnostics before asserting a failure;
+            # never publish arbitrary SSH stderr or workspace contents.
+            sandbox_probe = json.loads(sandbox_result.stdout)
+            (ROOT / "evidence" / ("installed-sandbox-" + profile + ".json")).write_text(
+                json.dumps(sandbox_probe, indent=2) + "\n")
+            assert sandbox_result.returncode == 0 and sandbox_probe["result"] == "passed", sandbox_probe
+            phase("installed_coding_and_independent_verifier")
+            coding_result = subprocess.run([*ssh, "sudo python3 -"], capture_output=True, text=True,
+                                          input=(ROOT / "tests/installed_coding_probe.py").read_text(), timeout=150)
+            coding_probe = json.loads(coding_result.stdout)
+            coding_probe["installed_source"] = source_lock["commit"]
+            (ROOT / "evidence" / ("installed-coding-" + profile + ".json")).write_text(json.dumps(coding_probe, indent=2) + "\n")
+            assert coding_result.returncode == 0 and coding_probe["status"] == "passed", coding_probe
+            # Exercise the real first-install latest-source build/probe/activation
+            # on this disposable OS, without logging into any model account.
+            phase("latest_hermes_build_and_activation")
+            latest_result = subprocess.run([*ssh, "agentic-home bootstrap_hermes"], capture_output=True,
+                                           text=True, timeout=1500)
+            bootstrap_hermes = json.loads(command(*ssh, "agentic-home status"))["bootstrap"]["hermes"]
+            (ROOT / "evidence" / ("installed-hermes-" + profile + ".json")).write_text(json.dumps({
+                "runtime_location": "disposable_outer_linux_vm", "iso_sha256": iso_hash,
+                "cli_exit": latest_result.returncode, "job": bootstrap_job_diagnostics(latest_result.stdout),
+                "observed": bootstrap_hermes,
+                "cloud_login": "not_run"}, indent=2) + "\n")
+            assert latest_result.returncode == 0 and bootstrap_hermes["state"] == "ready", bootstrap_hermes
+            assert bootstrap_hermes["source"] == "latest"
+            phase("latest_hermes_runtime_revision_readback")
+            def hermes_image():
+                identifier = command(*ssh, compose + " images -q hermes")
+                assert re.fullmatch(r"(?:sha256:)?[a-f0-9]{12,64}", identifier)
+                return command(*ssh, "sudo docker image inspect --format '{{.Id}}' " + identifier)
+            candidate_id = hermes_image()
+            runtime_revision = json.loads(command(*ssh, "python3 -", input='''
+    import http.cookiejar,json,urllib.request
+    from pathlib import Path
+    base='http://localhost:8099'
+    o=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+    r=urllib.request.Request(base+'/api/host/login',data=json.dumps({'key':Path('/var/lib/agentic-home/controller/access-key').read_text().strip()}).encode(),headers={'Origin':base,'Content-Type':'application/json'})
+    o.open(r).close()
+    print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_commit']))
+    '''))
+            assert runtime_revision == bootstrap_hermes["commit"]
+            phase("nested_haos_provision")
+            command(*ssh, "agentic-home provision")
+            host = json.loads(command(*ssh, "agentic-home status"))
+            assert host["vm"] == "running" and host["provisioned"]
+            def wait_ha(stage):
+                phase(stage)
+                for _ in range(180):
+                    response = subprocess.run([*ssh, "curl --max-time 3 -fsS http://localhost:8123/api/onboarding"],
+                                              capture_output=True)
+                    try:
+                        if response.returncode == 0 and isinstance(json.loads(response.stdout), list):
+                            return
+                    except ValueError:
+                        pass
+                    time.sleep(5)
+                raise AssertionError("Nested HAOS HTTP did not become ready")
+
+            wait_ha("nested_haos_first_boot")
+            phase("nested_haos_shutdown_snapshot_restore")
+            command(*ssh, "agentic-home shutdown")
+            assert json.loads(command(*ssh, "agentic-home status"))["vm"] == "shut off"
+            assert command(*ssh, "curl -fsS http://localhost:8099/api/deployment")
+&gt;           command(*ssh, "agentic-home snapshot")
+
+tests/test_linux_install.py:386:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests/test_linux_install.py:46: in command
+    return subprocess.run(args, check=True, capture_output=True, text=True, **kwargs).stdout.strip()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = None, capture_output = True, timeout = None, check = True
+popenargs = (('ssh', '-i', '/home/ted-h/agent-work/tmp/pytest/20261012-091940-xTfczN/bt/test_full_linux_install_with_n0/test-key', '-o', 'BatchMode=yes', '-o', ...),)
+kwargs = {'text': True, 'stdout': -1, 'stderr': -1}
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output &amp; stderr attributes if those streams
+        were captured.
+
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+&gt;               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '('ssh', '-i', '/home/ted-h/agent-work/tmp/pytest/20261012-091940-xTfczN/bt/test_full_linux_install_with_n0/test-key', '-o', 'BatchMode=yes', '-o', 'ProxyCommand=docker exec -i agentic-linux-install-test-6aa5a9436c python3 /lab/ssh-proxy.py', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', '-o', 'ConnectTimeout=5', 'tester@127.0.0.1', 'agentic-home snapshot')' returned non-zero exit status 1.
+
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:577: CalledProcessError</failure></testcase></testsuite></testsuites>

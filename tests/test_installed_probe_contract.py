@@ -316,3 +316,195 @@ def test_update_probe_running_result_is_bounded_and_never_success(tmp_path):
     result = installed_update(["ssh", "fixture"], "# fixture", tmp_path / "evidence.json", run=run, clock=clock, pause=lambda _: None)
     assert result["state"] == "failed" and result["error_code"] == "probe_observation_deadline"
     assert sum("input" in kwargs for _, kwargs in calls) == 1
+
+
+@pytest.mark.parametrize("message,signature", [
+    ("cp: error writing private/path: No space left on device", "disk_full"),
+    ("cp: cannot read private/path: Permission denied", "permission_denied"),
+    ("Command with private arguments timed out after 30 seconds", "timeout"),
+    ("cp: private/path: Input/output error", "io_error"),
+])
+def test_snapshot_failure_retains_exit_and_exact_job_without_private_output(tmp_path, message, signature):
+    from test_linux_install import record_install_failure
+
+    job = {"id": "f" * 32, "request": {"action": "snapshot", "private": "not-exported"}, "state": "failed", "message": message}
+    exc = subprocess.CalledProcessError(1, ["ssh", "fixture", "agentic-home snapshot"],
+                                       output="Operation " + job["id"] + "\n" + json.dumps(job), stderr="private stderr")
+    report = tmp_path / "failure.json"
+    def run(args, **kwargs):
+        prior = json.loads(report.read_text())
+        assert prior["process"]["returncode"] == 1
+        assert prior["lifecycle_receipt"]["id"] == job["id"]
+        assert "failure_observation" in kwargs["input"] and job["id"] in kwargs["input"]
+        # This is a read-only diagnostic request, never a CLI lifecycle rerun.
+        assert args[-1] == "sudo env AGENTIC_DISPOSABLE_VM=1 python3 -"
+        return subprocess.CompletedProcess(args, 0, json.dumps({"jobs": [job], "selection": "exact_id",
+            "filesystem": {"total_bytes": 120, "used_bytes": 119, "free_bytes": 1, "private": "excluded"}}), "")
+    result = record_install_failure(exc, "nested_haos_shutdown_snapshot_restore", report, ["ssh", "fixture"], run=run)
+    assert result["error_type"] == "CalledProcessError" and result["lifecycle_action"] == "snapshot"
+    assert result["lifecycle_receipt"]["state"] == "failed"
+    assert result["lifecycle_receipt"]["message_signatures"][signature]
+    assert result["remote"]["jobs"][0]["message_signatures"][signature]
+    assert "private" not in report.read_text() and "not-exported" not in report.read_text()
+
+
+def test_timeout_diagnostics_keep_partial_operation_id_and_failed_probe(tmp_path):
+    from test_linux_install import record_install_failure
+
+    exc = subprocess.TimeoutExpired(["ssh", "fixture", "agentic-home snapshot"], 30,
+                                    output=("Operation " + "a" * 32 + "\n").encode(), stderr=b"private timeout details")
+    def run(*args, **kwargs):
+        raise subprocess.TimeoutExpired("private command", 20, stderr=b"private diagnostic output")
+    result = record_install_failure(exc, "nested_haos_shutdown_snapshot_restore", tmp_path / "failure.json", ["ssh"], run=run)
+    assert result["error_type"] == "TimeoutExpired" and result["timeout_seconds"] == 30
+    assert result["process"]["returncode"] is None
+    assert result["lifecycle_receipt"]["id"] == "a" * 32
+    assert result["remote"] == "unavailable" and result["diagnostic_error_type"] == "TimeoutExpired"
+    assert "private" not in json.dumps(result)
+
+
+def test_remote_failure_observation_is_readonly_bounded_and_redacted(update_probe, monkeypatch):
+    import sys
+
+    monkeypatch.setattr(update_probe, "guard", lambda: None)
+    jobs = {"f" * 32: {"id": "f" * 32, "request": {"action": "snapshot"}, "state": "failed",
+                       "message": "cp: private file: No space left on device"}}
+    calls = []
+    def capture(args):
+        calls.append(args)
+        if "systemctl" in args[0]:
+            return "ok", "ActiveState=failed\nResult=oom-kill\n"
+        if "virsh" in args[0]:
+            return "ok", "shut off\n"
+        return "ok", "kernel: Out of memory: Killed process private process details"
+    monkeypatch.setitem(sys.modules, "agentic_host.support", SimpleNamespace(
+        _capture=capture, _read=lambda path, limit: json.dumps(jobs)))
+    monkeypatch.setattr(update_probe.shutil, "disk_usage", lambda _: SimpleNamespace(total=120, used=119, free=1))
+    value = update_probe.failure_observation("f" * 32, "snapshot")
+    assert len(calls) == 4
+    assert all(any(command in args[0] for command in ("systemctl", "virsh", "journalctl")) for args in calls)
+    assert "--readonly" in calls[1]
+    assert all("--lines=100" in args for args in calls[2:])
+    assert value["broker_unit"]["oom_killed"] and value["kernel"]["signatures"]["oom"]
+    assert value["jobs"][0]["operation"] == "cp" and value["jobs"][0]["message_signatures"]["disk_full"]
+    assert "private" not in json.dumps(value)
+
+
+@pytest.mark.parametrize("progress_write_fails", [False, True])
+@pytest.mark.parametrize("error", [subprocess.CalledProcessError(1, ["ssh", "agentic-home snapshot"]),
+                                  subprocess.TimeoutExpired(["ssh", "agentic-home snapshot"], 30),
+                                  AssertionError("private assertion")])
+def test_actual_installer_failure_still_cleans_up_when_diagnostics_break(tmp_path, monkeypatch, error, progress_write_fails):
+    import test_linux_install as module
+
+    # Drive the actual installer harness to its first disposable command; every
+    # external operation is substituted, so this regression never runs Docker.
+    monkeypatch.setattr(module, "ROOT", tmp_path)
+    for name in ("dist", "scripts", "evidence", "build"):
+        (tmp_path / name).mkdir()
+    (tmp_path / "dist/agentic-home-0.6.0-laptop-amd64.iso").write_bytes(b"fixture")
+    (tmp_path / "scripts/build_host.py").write_text("def autoinstall(profile): return {'autoinstall': {'late-commands': [], 'interactive-sections': []}}\n")
+    def command(*args, **kwargs):
+        if args[0] == "ssh-keygen":
+            (tmp_path / "test-key.pub").write_text("fixture-public-key")
+            return ""
+        raise error
+    monkeypatch.setattr(module, "command", command)
+    order = []
+    def diagnostics(*args, **kwargs):
+        order.append("diagnostics")
+        raise OSError("private diagnostic failure")
+    def run(args, **kwargs):
+        order.append(tuple(args[:3]))
+        return subprocess.CompletedProcess(args, 0, b"", b"")
+    monkeypatch.setattr(module, "record_install_failure", diagnostics)
+    monkeypatch.setattr(module.subprocess, "run", run)
+    original_write = Path.write_text
+    progress_writes = [0]
+    def writing(path, *args, **kwargs):
+        if path.name == "installed-progress-laptop-amd64.json":
+            progress_writes[0] += 1
+            if progress_write_fails and progress_writes[0] > 1:
+                raise OSError("private progress failure")
+        return original_write(path, *args, **kwargs)
+    monkeypatch.setattr(Path, "write_text", writing)
+    request = SimpleNamespace(config=SimpleNamespace(getoption=lambda _: True))
+    with pytest.raises(type(error)) as observed:
+        module.test_full_linux_install_with_nested_haos(tmp_path, request)
+    assert observed.value is error
+    assert order == ["diagnostics", ("docker", "stop", "-t"), ("docker", "run", "--rm"), ("docker", "rm", "-fv")]
+
+
+@pytest.mark.parametrize("stdout,returncode", [("", 255), ("private malformed output", 0), ('{"state":"failed"}', 1)])
+def test_probe_process_diagnostics_are_saved_before_json_parse(tmp_path, stdout, returncode):
+    from test_linux_install import probe_json, record_install_failure
+
+    process = subprocess.CompletedProcess(["ssh", "fixture"], returncode, stdout, "Connection closed private details")
+    report = tmp_path / "process.json"
+    if stdout.startswith("{"):
+        assert probe_json(process, report) == {"state": "failed"}
+    else:
+        with pytest.raises(json.JSONDecodeError) as captured:
+            probe_json(process, report)
+        result = record_install_failure(captured.value, "installed_owner_and_role_auth", tmp_path / "failure.json", None)
+        assert result["error_type"] == "JSONDecodeError"
+        assert result["process"]["returncode"] == returncode
+    observed = json.loads(report.read_text())
+    assert observed["returncode"] == returncode and observed["stderr_signatures"]["ssh_transport"]
+    assert "private" not in report.read_text()
+
+
+@pytest.mark.parametrize("cleanup_fails", [False, True])
+def test_actual_update_cleanup_survives_checkpoint_failure_and_preserves_primary(update_probe, monkeypatch, tmp_path, cleanup_fails, capsys):
+    import sqlite3
+
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[1] / "host"))
+    import agentic_host.manager as manager_module
+    import agentic_host.updater as updater_module
+
+    monkeypatch.setattr(update_probe, "guard", lambda: None)
+    state = tmp_path / "probe"
+    state.mkdir()
+    monkeypatch.setattr(update_probe, "STATE_ROOT", state)
+    root = tmp_path / "host"
+    root.mkdir()
+    environment, records, database = root / "runtime.env", root / "updates.json", root / "controller.sqlite3"
+    environment.write_text("# fixture\n")
+    records.write_text("{}")
+    with sqlite3.connect(database) as db:
+        db.executescript("PRAGMA user_version=3; CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT); CREATE TABLE records(kind TEXT);")
+    stopped = []
+    def stop():
+        stopped.append(True)
+        if cleanup_fails:
+            raise PermissionError("private cleanup failure")
+    service = SimpleNamespace(environment=environment, path=records, database=database,
+                              image=lambda: "sha256:" + "a" * 64, health=lambda: {"version": "0.6.0", "ha_version": None},
+                              stop=stop, compose=lambda *args, **kwargs: None)
+    monkeypatch.setattr(manager_module, "Manager", lambda: SimpleNamespace(root=root))
+    monkeypatch.setattr(updater_module, "Updater", lambda manager: service)
+    def run(*args, **kwargs):
+        if args[:2] == ("docker", "tag"):
+            raise RuntimeError("installed_update_failed")
+        return subprocess.CompletedProcess(args, 0, "", "")
+    monkeypatch.setattr(manager_module, "run", run)
+    original = update_probe.persist
+    def persist(name, value):
+        if name == "checkpoint.json" and value.get("stage") == "restore_original_image_and_cleanup":
+            raise OSError(28, "No space left on private filesystem")
+        return original(name, value)
+    monkeypatch.setattr(update_probe, "persist", persist)
+    prior_umask = update_probe.os.umask(0o077)
+    try:
+        assert update_probe.execute() == 1
+    finally:
+        update_probe.os.umask(prior_umask)
+    result = json.loads(capsys.readouterr().out)
+    assert stopped == [True]
+    assert result["error_code"] == "installed_update_failed" and result["error_type"] == "RuntimeError"
+    assert result["stage"] == "build_fixed_label_candidate"
+    assert result["diagnostics"]["cleanup_started"] and result["diagnostics"]["cleanup_checkpoint_failed"]
+    assert result["diagnostics"]["cleanup_completed"] is not cleanup_fails
+    if cleanup_fails:
+        assert result["diagnostics"]["cleanup_error_type"] == "PermissionError"
+    assert "private" not in json.dumps(result)

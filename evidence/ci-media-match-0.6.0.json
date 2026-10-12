@@ -1,10 +1,13 @@
 {
-  "source_commit": "a67fab69c3ca4462a20b760b8ba1f3175659cb4a",
+  "source_commit": "ae9818559bd6cb8b09575b38717f4948fcd536e7",
   "media_source_commit": "a67fab69c3ca4462a20b760b8ba1f3175659cb4a",
   "source_files_verified": 131,
-  "ci_archive_files_verified": 619,
+  "ci_archive_files_verified": 638,
   "all_runtime_media_source_hashes_match_ci_archive": true,
-  "documentation_differences": [],
+  "documentation_differences": [
+    "docs/VERIFICATION.md"
+  ],
+  "documentation_difference_reason": "CI source includes later validation history and harness diagnostics; product code and compiled assets are unchanged",
   "runtime_files": [
     {
       "path": "channels.lock.json",
@@ -532,5 +535,6 @@
     }
   ],
   "runtime_artifacts_compared_by_source": "CI and local images are independent builds; image IDs remain separate evidence",
-  "run_url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38249860342"
+  "run_url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38254856774",
+  "source_delta_scope": "tests, docs and evidence only"
 }

@@ -46,6 +46,100 @@ def command(*args, **kwargs):
     return subprocess.run(args, check=True, capture_output=True, text=True, **kwargs).stdout.strip()
 
 
+def probe_json(result, diagnostic_path):
+    from installed_update_probe import process_diagnostics
+
+    diagnostic_path.write_text(json.dumps(process_diagnostics(result), indent=2) + "\n")
+    try:
+        return json.loads(result.stdout)
+    except (ValueError, TypeError) as exc:
+        # Preserve the original parser error while allowing the outer failure
+        # collector to retain the actual process/transport evidence.
+        exc.stdout, exc.stderr, exc.returncode, exc.cmd = result.stdout, result.stderr, result.returncode, result.args
+        raise
+
+
+def failure_observation_public(value):
+    from installed_update_probe import lifecycle_receipt, process_diagnostics
+
+    if not isinstance(value, dict):
+        raise ValueError("invalid_failure_observation")
+    flags = process_diagnostics(subprocess.CompletedProcess([], None, "", ""))["stderr_signatures"]
+    result = {"selection": value.get("selection") if value.get("selection") in {"exact_id", "recent_action_unbound"} else "unknown",
+              "jobs": []}
+    if isinstance(value.get("jobs"), list):
+        result["jobs"] = [receipt for item in value["jobs"][:5] if (receipt := lifecycle_receipt(item)) is not None]
+    if isinstance(value.get("filesystem"), dict):
+        result["filesystem"] = {key: number for key in ("total_bytes", "used_bytes", "free_bytes")
+                                if type(number := value["filesystem"].get(key)) is int and 0 <= number <= 2**63}
+    for name in ("broker_unit", "vm", "journal", "kernel"):
+        item = value.get(name, {})
+        if not isinstance(item, dict):
+            continue
+        signatures = item.get("signatures", {})
+        if not isinstance(signatures, dict):
+            signatures = {}
+        result[name] = {"observation": item.get("observation") if item.get("observation") in {
+            "ok", "timeout", "output_limit", "probe_failed", "command_missing", "permission_denied"} else "unknown",
+            "signatures": {key: signatures.get(key) is True for key in flags}}
+        if name == "vm":
+            result[name]["state"] = item.get("state") if item.get("state") in {"running", "paused", "shut off", "in shutdown", "crashed"} else "unknown"
+        if name == "broker_unit":
+            result[name]["active"] = item.get("active") if item.get("active") in {"active", "inactive", "failed", "activating", "deactivating"} else "unknown"
+            result[name]["oom_killed"] = item.get("oom_killed") is True
+    return result
+
+
+def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run):
+    """Never retry effects; retain safe original diagnostics before VM teardown."""
+    from installed_update_probe import LIFECYCLE_ACTIONS, lifecycle_receipt, process_diagnostics
+
+    stdout, stderr = getattr(exc, "stdout", "") or "", getattr(exc, "stderr", "") or ""
+    process = subprocess.CompletedProcess([], getattr(exc, "returncode", None), stdout, stderr)
+    result = {"phase": phase, "error_type": type(exc).__name__ if type(exc).__name__ in {
+        "CalledProcessError", "TimeoutExpired", "AssertionError", "JSONDecodeError", "TypeError"} else "OtherError",
+        "process": process_diagnostics(process), "remote": "not_attempted"}
+    if isinstance(exc, subprocess.TimeoutExpired) and type(exc.timeout) in {int, float} and 0 <= exc.timeout <= 3600:
+        result["timeout_seconds"] = exc.timeout
+    args = getattr(exc, "cmd", ())
+    remote_command = args[-1] if isinstance(args, (tuple, list)) and args and isinstance(args[-1], str) else ""
+    action = next((item for item in LIFECYCLE_ACTIONS if remote_command == "agentic-home " + item or
+                   (item == "restore" and remote_command.startswith("agentic-home restore --snapshot "))), None)
+    result["lifecycle_action"] = action
+    output = stdout.decode(errors="replace") if isinstance(stdout, bytes) else stdout
+    receipt = None
+    if isinstance(output, str) and len(output.encode()) <= 65536:
+        try:
+            receipt = lifecycle_receipt(json.loads(output[output.index("{"):]))
+        except (ValueError, TypeError, AttributeError):
+            pass
+        if receipt is None and (match := re.search(r"(?m)^Operation ([a-f0-9]{32})$", output)):
+            receipt = lifecycle_receipt({"id": match[1], "action": action, "state": "unknown"})
+    result["lifecycle_receipt"] = receipt
+    report.write_text(json.dumps(result, indent=2) + "\n")
+    if ssh is None:
+        return result
+    identifier = receipt["id"] if receipt else None
+    source = (ROOT / "tests/installed_update_probe.py").read_text()
+    encoded = base64.b64encode(source.encode()).decode()
+    script = ("import base64,json\ns=base64.b64decode('" + encoded + "').decode()\n"
+              "ns={'__name__':'installed_failure_diagnostics'}\nexec(compile(s,'installed_failure_diagnostics','exec'),ns)\n"
+              f"print(json.dumps(ns['failure_observation']({identifier!r},{action!r})),flush=True)\n")
+    try:
+        observed = run([*ssh, "sudo env AGENTIC_DISPOSABLE_VM=1 python3 -"], capture_output=True,
+                       text=True, input=script, timeout=20)
+        result["diagnostic_process"] = process_diagnostics(observed)
+        if observed.returncode != 0 or len(observed.stdout.encode()) > 65536:
+            raise ValueError("diagnostic_unavailable")
+        result["remote"] = failure_observation_public(json.loads(observed.stdout))
+    except Exception as diagnostic_error:
+        result["remote"] = "unavailable"
+        result["diagnostic_error_type"] = type(diagnostic_error).__name__ if isinstance(diagnostic_error, (
+            subprocess.TimeoutExpired, ValueError, OSError)) else "OtherError"
+    report.write_text(json.dumps(result, indent=2) + "\n")
+    return result
+
+
 def decode_update_observation(output):
     """Validate/project private probe receipts; never publish arbitrary remote text."""
     from installed_update_probe import ERROR_TYPES, SAFE_ERRORS, STAGES
@@ -88,6 +182,13 @@ def decode_update_observation(output):
         raise ValueError("probe_diagnostics_invalid")
     projected = {"state": result["state"], "diagnostics": {
         k: diagnostic.get(k) is True for k in ("cleanup_started", "cleanup_completed")}}
+    for key in ("cleanup_checkpoint_failed", "result_persist_failed"):
+        if key in diagnostic:
+            projected["diagnostics"][key] = diagnostic[key] is True
+    if "cleanup_error_type" in diagnostic:
+        projected["diagnostics"]["cleanup_error_type"] = diagnostic["cleanup_error_type"] if diagnostic["cleanup_error_type"] in ERROR_TYPES else "OtherError"
+        error = diagnostic.get("cleanup_error_code")
+        projected["diagnostics"]["cleanup_error_code"] = error if error in SAFE_ERRORS else "unclassified_update_error"
     if diagnostic.get("updater_state") in {"failed", "needs_reconcile", "rolled_back"}:
         projected["diagnostics"]["updater_state"] = diagnostic["updater_state"]
         error = diagnostic.get("updater_error_code")
@@ -286,7 +387,7 @@ while data:=s.recv(65536):
         phase("installed_owner_and_role_auth")
         auth_result = subprocess.run([*ssh, "python3 -"], capture_output=True, text=True, timeout=120,
                                      input=(ROOT / "tests/installed_probe.py").read_text())
-        auth_probe = json.loads(auth_result.stdout)
+        auth_probe = probe_json(auth_result, ROOT / "evidence" / ("installed-process-auth-" + profile + ".json"))
         (ROOT / "evidence" / ("installed-auth-" + profile + ".json")).write_text(
             json.dumps(auth_probe, indent=2) + "\n")
         assert auth_result.returncode == 0 and auth_probe.get("result") != "failed", auth_probe
@@ -321,14 +422,14 @@ while data:=s.recv(65536):
                                        input=(ROOT / "tests/installed_sandbox_probe.py").read_text(), timeout=120)
         # Preserve the probe's allowlisted diagnostics before asserting a failure;
         # never publish arbitrary SSH stderr or workspace contents.
-        sandbox_probe = json.loads(sandbox_result.stdout)
+        sandbox_probe = probe_json(sandbox_result, ROOT / "evidence" / ("installed-process-sandbox-" + profile + ".json"))
         (ROOT / "evidence" / ("installed-sandbox-" + profile + ".json")).write_text(
             json.dumps(sandbox_probe, indent=2) + "\n")
         assert sandbox_result.returncode == 0 and sandbox_probe["result"] == "passed", sandbox_probe
         phase("installed_coding_and_independent_verifier")
         coding_result = subprocess.run([*ssh, "sudo python3 -"], capture_output=True, text=True,
                                       input=(ROOT / "tests/installed_coding_probe.py").read_text(), timeout=150)
-        coding_probe = json.loads(coding_result.stdout)
+        coding_probe = probe_json(coding_result, ROOT / "evidence" / ("installed-process-coding-" + profile + ".json"))
         coding_probe["installed_source"] = source_lock["commit"]
         (ROOT / "evidence" / ("installed-coding-" + profile + ".json")).write_text(json.dumps(coding_probe, indent=2) + "\n")
         assert coding_result.returncode == 0 and coding_probe["status"] == "passed", coding_probe
@@ -379,6 +480,10 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
             raise AssertionError("Nested HAOS HTTP did not become ready")
 
         wait_ha("nested_haos_first_boot")
+        phase("installed_controller_update_rollback")
+        update_probe = installed_update(ssh, (ROOT / "tests/installed_update_probe.py").read_text(),
+                                        ROOT / "evidence" / ("installed-update-" + profile + ".json"))
+        assert update_probe["state"] == "passed", update_probe
         phase("nested_haos_shutdown_snapshot_restore")
         command(*ssh, "agentic-home shutdown")
         assert json.loads(command(*ssh, "agentic-home status"))["vm"] == "shut off"
@@ -401,10 +506,6 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
         assert json.loads(command(*ssh, "agentic-home status"))["vm"] == "running"
         assert hermes_image() == candidate_id
         wait_ha("nested_haos_after_outer_reboot")
-        phase("installed_controller_update_rollback")
-        update_probe = installed_update(ssh, (ROOT / "tests/installed_update_probe.py").read_text(),
-                                        ROOT / "evidence" / ("installed-update-" + profile + ".json"))
-        assert update_probe["state"] == "passed", update_probe
         evidence = {"kind": "real_linux_install_nested_kvm", "profile": profile, "base": "Ubuntu 24.04.5",
                     "iso_sha256": iso_hash,
                     "installed_version": installed["version"], "images": image_lock,
@@ -431,7 +532,16 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
         phase("completed")
     except Exception as exc:
         progress.update(result="failed", error_type=type(exc).__name__)
-        phase(progress["phase"])
+        try:
+            phase(progress["phase"])
+        except Exception:
+            pass
+        try:
+            record_install_failure(exc, progress["phase"],
+                                   ROOT / "evidence" / ("installed-failure-" + profile + ".json"), locals().get("ssh"))
+        except Exception:
+            # Diagnostic failure cannot replace the original exception or bypass cleanup.
+            progress["failure_diagnostics"] = "unavailable"
         raise
     finally:
         subprocess.run(["docker", "stop", "-t", "10", name], capture_output=True)
