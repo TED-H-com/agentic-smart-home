@@ -1,27 +1,94 @@
 {
   "version": "0.6.1",
   "date": "2026-10-12",
-  "started_at": "2026-10-12T16:06:49.759541+00:00",
-  "completed_at": "2026-10-12T16:06:50.340458+00:00",
-  "source_head": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+  "started_at": "2026-10-12T16:39:22.798194+00:00",
+  "completed_at": "2026-10-12T16:39:23.727126+00:00",
+  "source_head": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+  "source_snapshot_kind": "working_tree_snapshot",
   "scope": "Copied snapshot of git tracked + untracked nonignored public product files; excludes private parent, ignored build/runtime data and this generated report.",
   "scanner": "Gitleaks 8.30.1",
   "status": "passed",
-  "files": 799,
-  "raw_findings": 120,
-  "verified_public_source_digest_false_positives": 86,
+  "files": 822,
+  "raw_findings": 127,
+  "verified_public_source_digest_false_positives": 93,
   "verified_public_evidence_digest_false_positives": 34,
   "unreviewed_findings": 0,
   "credential_findings": 0,
   "review_method": "Each finding independently matches an evidence source-hash field, archived-file manifest or prior public snapshot manifest and the SHA-256 of the exact recorded Git blob, copied current public file, or individually identified historical public Git blob. No blanket suppression.",
   "scope_limitations": [
     "A clean scanner result does not prove absence of all secrets.",
-    "This pre-publication frozen snapshot includes current native-entry/adapter sources, regression evidence, initial failure records and documentation. New 0.6.1 CI, installer VM, release/media records and subsequent final documentation are pending and require a final rescan before publication.",
+    "This final frozen 0.6.1 delivery snapshot includes completed installer VM and installed-stage evidence, GitHub CI/E2E/candidate records, release/build records, native-entry/adapter sources, preserved initial failure evidence and finalized documentation. Any later public-file change requires comparison with scanned_files_sha256 and rescanning before publication.",
     "Private household/runtime files and ignored build/media data were not collected."
   ],
-  "tracked_deletions_excluded": [
-    "controller/static/assets/index-Gj0Io2Id.js"
+  "additional_candidate_provenance_checks": [
+    {
+      "record": "evidence/upstream-candidate-0.6.1.json",
+      "record_sha256": "c58f73a147eb5adde22f6ab0cc06960295f995d89dcefaf0708c867f86972033",
+      "selection": "latest",
+      "upstream_commit": "7cc3fb8cb55898747dd1dfa56fda3e16ebba028e",
+      "official_archive_url": "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/7cc3fb8cb55898747dd1dfa56fda3e16ebba028e",
+      "official_archive_sha256": "2c6d1220bc77ac790d59fb760058e7fa58deef455f29007740409e46f374eeb3",
+      "official_archive_verified_at": "2026-10-12T16:37:18.051481+00:00",
+      "official_archive_bytes": 81211473,
+      "source_lock_verified": true,
+      "source_tree_commit": null,
+      "source_files_verified_at_exact_git_commit": [],
+      "candidate_lock_verified": "reconstructed_only_copied_lock_rewrite",
+      "changed_context_files": [
+        "hermes/hermes.lock.json"
+      ]
+    },
+    {
+      "record": "evidence/upstream-locked-0.6.1.json",
+      "record_sha256": "de6e3d4f4bdebdaf306c7263812eb9045f79c438eadc21fe1dbff685da29f27b",
+      "selection": "locked",
+      "upstream_commit": "835c3dd038d903182a66ecc45e34bf5e0de65f00",
+      "official_archive_url": "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/835c3dd038d903182a66ecc45e34bf5e0de65f00",
+      "official_archive_sha256": "580004a258de05e135266f73faa7522aa840ebfaff888b29506ae5b30e27c1e5",
+      "official_archive_verified_at": "2026-10-12T16:37:26.326409+00:00",
+      "official_archive_bytes": 81179655,
+      "source_lock_verified": true,
+      "source_tree_commit": null,
+      "source_files_verified_at_exact_git_commit": [],
+      "candidate_lock_verified": "unchanged_checked_out_lock",
+      "changed_context_files": []
+    },
+    {
+      "record": "evidence/upstream-candidate-0.6.1-github.json",
+      "record_sha256": "de4e38d63bab146507e80111337c2bbf7eb23d58285c0a6cba42773f572118e0",
+      "selection": "latest",
+      "upstream_commit": "7cc3fb8cb55898747dd1dfa56fda3e16ebba028e",
+      "official_archive_url": "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/7cc3fb8cb55898747dd1dfa56fda3e16ebba028e",
+      "official_archive_sha256": "2c6d1220bc77ac790d59fb760058e7fa58deef455f29007740409e46f374eeb3",
+      "official_archive_verified_at": "2026-10-12T16:37:18.051481+00:00",
+      "official_archive_bytes": 81211473,
+      "source_lock_verified": true,
+      "source_tree_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+      "source_files_verified_at_exact_git_commit": [
+        "hermes/.dockerignore",
+        "hermes/Dockerfile",
+        "hermes/HERMES-LICENSE",
+        "hermes/README.md",
+        "hermes/agentic_hermes/__init__.py",
+        "hermes/agentic_hermes/app.py",
+        "hermes/agentic_hermes/child.py",
+        "hermes/agentic_hermes/models.py",
+        "hermes/agentic_hermes/oauth.py",
+        "hermes/agentic_hermes/oauth_child.py",
+        "hermes/agentic_hermes/upstream.py",
+        "hermes/compatibility_probe.py",
+        "hermes/fetch_upstream.py",
+        "hermes/hermes.lock.json",
+        "hermes/requirements.in",
+        "hermes/requirements.txt"
+      ],
+      "candidate_lock_verified": "reconstructed_only_copied_lock_rewrite",
+      "changed_context_files": [
+        "hermes/hermes.lock.json"
+      ]
+    }
   ],
+  "tracked_deletions_excluded": [],
   "files_changed_after_copy": [],
   "reviewed": [
     {
@@ -32,7 +99,7 @@
       "artifact_matches": [
         {
           "file": "evidence/installed-0.6.0-run5-prior-stages/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "independently_hashed_copied_archive_bytes"
         }
       ]
@@ -45,7 +112,7 @@
       "artifact_matches": [
         {
           "file": "evidence/installed-0.6.0-run4-prior-stages/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "independently_hashed_copied_archive_bytes"
         }
       ]
@@ -58,7 +125,7 @@
       "artifact_matches": [
         {
           "file": "evidence/installed-0.6.0-run6-prior-stages/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "independently_hashed_copied_archive_bytes"
         }
       ]
@@ -71,47 +138,99 @@
       "artifact_matches": [
         {
           "file": "evidence/installed-0.6.0-run6-prior-stages/installed-process-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "independently_hashed_copied_archive_bytes"
         }
       ]
     },
     {
-      "file": "evidence/onboarding-e2e-0.5.1-github-initial.json",
-      "line": 140,
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 25,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/controller.openapi.json",
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 26,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/hermes-auth.schema.json",
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 27,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/host-controller.openapi.json",
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 47,
       "rule": "generic-api-key",
       "classification": "verified_public_source_sha256",
       "source_matches": [
         {
           "source_file": "controller/agentic_controller/ha_oauth.py",
           "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
-          "verification": "historical_git_blob"
+          "verification": "recorded_git_blob"
         }
       ]
     },
     {
-      "file": "evidence/onboarding-e2e-0.5.1-github-initial.json",
-      "line": 156,
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 62,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "docs/API_CONTRACT.md",
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 96,
       "rule": "generic-api-key",
       "classification": "verified_public_source_sha256",
       "source_matches": [
         {
           "source_file": "hermes/agentic_hermes/oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "recorded_git_blob"
         }
       ]
     },
     {
-      "file": "evidence/onboarding-e2e-0.5.1-github-initial.json",
-      "line": 157,
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 97,
       "rule": "generic-api-key",
       "classification": "verified_public_source_sha256",
       "source_matches": [
         {
           "source_file": "hermes/agentic_hermes/oauth_child.py",
-          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-          "verification": "historical_git_blob"
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "recorded_git_blob"
         }
       ]
     },
@@ -207,45 +326,6 @@
       ]
     },
     {
-      "file": "evidence/onboarding-e2e-0.6.0-github.json",
-      "line": 140,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "controller/agentic_controller/ha_oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.6.0-github.json",
-      "line": 162,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.6.0-github.json",
-      "line": 163,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth_child.py",
-          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-          "verification": "historical_git_blob"
-        }
-      ]
-    },
-    {
       "file": "evidence/build.json",
       "line": 45,
       "rule": "generic-api-key",
@@ -333,6 +413,201 @@
           "source_file": "hermes/agentic_hermes/oauth_child.py",
           "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
           "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github.json",
+      "line": 140,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github.json",
+      "line": 162,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github.json",
+      "line": 163,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.5.1-github.json",
+      "line": 140,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.5.1-github.json",
+      "line": 156,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.5.1-github.json",
+      "line": 157,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-lifecycle-diagnostics.json",
+      "line": 140,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-lifecycle-diagnostics.json",
+      "line": 162,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-lifecycle-diagnostics.json",
+      "line": 163,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-updater-probe.json",
+      "line": 140,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-updater-probe.json",
+      "line": 162,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-updater-probe.json",
+      "line": 163,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.5.1-github-initial.json",
+      "line": 140,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.5.1-github-initial.json",
+      "line": 156,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.5.1-github-initial.json",
+      "line": 157,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
         }
       ]
     },
@@ -363,6 +638,84 @@
       ]
     },
     {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-bootstrap-env.json",
+      "line": 140,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-bootstrap-env.json",
+      "line": 162,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-bootstrap-env.json",
+      "line": 163,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-update-harness.json",
+      "line": 140,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-update-harness.json",
+      "line": 162,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-update-harness.json",
+      "line": 163,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
       "file": "evidence/linux-tested-build.json",
       "line": 45,
       "rule": "generic-api-key",
@@ -454,6 +807,45 @@
       ]
     },
     {
+      "file": "evidence/onboarding-e2e-0.6.1-github.json",
+      "line": 143,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.1-github.json",
+      "line": 166,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.1-github.json",
+      "line": 167,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
       "file": "evidence/linux-tested-build-0.5.0.json",
       "line": 45,
       "rule": "generic-api-key",
@@ -545,171 +937,93 @@
       ]
     },
     {
-      "file": "evidence/build-0.5.1-before-version-fix.json",
-      "line": 25,
+      "file": "evidence/build-0.5.0.json",
+      "line": 45,
       "rule": "generic-api-key",
       "classification": "verified_public_source_sha256",
       "source_matches": [
         {
           "source_file": "contracts/controller.openapi.json",
-          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
           "verification": "recorded_git_blob"
         }
       ]
     },
     {
-      "file": "evidence/build-0.5.1-before-version-fix.json",
-      "line": 26,
+      "file": "evidence/build-0.5.0.json",
+      "line": 46,
       "rule": "generic-api-key",
       "classification": "verified_public_source_sha256",
       "source_matches": [
         {
           "source_file": "contracts/hermes-auth.schema.json",
-          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
           "verification": "recorded_git_blob"
         }
       ]
     },
     {
-      "file": "evidence/build-0.5.1-before-version-fix.json",
-      "line": 27,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "contracts/host-controller.openapi.json",
-          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
-          "verification": "recorded_git_blob"
-        }
-      ]
-    },
-    {
-      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "file": "evidence/build-0.5.0.json",
       "line": 47,
       "rule": "generic-api-key",
       "classification": "verified_public_source_sha256",
       "source_matches": [
         {
-          "source_file": "controller/agentic_controller/ha_oauth.py",
-          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "source_file": "contracts/host-controller.openapi.json",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
           "verification": "recorded_git_blob"
         }
       ]
     },
     {
-      "file": "evidence/build-0.5.1-before-version-fix.json",
-      "line": 62,
+      "file": "evidence/build-0.5.0.json",
+      "line": 67,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.0.json",
+      "line": 82,
       "rule": "generic-api-key",
       "classification": "verified_public_source_sha256",
       "source_matches": [
         {
           "source_file": "docs/API_CONTRACT.md",
-          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
           "verification": "recorded_git_blob"
         }
       ]
     },
     {
-      "file": "evidence/build-0.5.1-before-version-fix.json",
-      "line": 96,
+      "file": "evidence/build-0.5.0.json",
+      "line": 112,
       "rule": "generic-api-key",
       "classification": "verified_public_source_sha256",
       "source_matches": [
         {
           "source_file": "hermes/agentic_hermes/oauth.py",
-          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
           "verification": "recorded_git_blob"
         }
       ]
     },
     {
-      "file": "evidence/build-0.5.1-before-version-fix.json",
-      "line": 97,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth_child.py",
-          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
-          "verification": "recorded_git_blob"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.6.0-github-before-update-harness.json",
-      "line": 140,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "controller/agentic_controller/ha_oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.6.0-github-before-update-harness.json",
-      "line": 162,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.6.0-github-before-update-harness.json",
-      "line": 163,
+      "file": "evidence/build-0.5.0.json",
+      "line": 113,
       "rule": "generic-api-key",
       "classification": "verified_public_source_sha256",
       "source_matches": [
         {
           "source_file": "hermes/agentic_hermes/oauth_child.py",
           "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-          "verification": "historical_git_blob"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.6.0-github-before-updater-probe.json",
-      "line": 140,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "controller/agentic_controller/ha_oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.6.0-github-before-updater-probe.json",
-      "line": 162,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.6.0-github-before-updater-probe.json",
-      "line": 163,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth_child.py",
-          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-          "verification": "historical_git_blob"
+          "verification": "recorded_git_blob"
         }
       ]
     },
@@ -721,7 +1035,7 @@
       "source_matches": [
         {
           "source_file": "controller/agentic_controller/ha_oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -734,7 +1048,7 @@
       "source_matches": [
         {
           "source_file": "hermes/agentic_hermes/oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -747,267 +1061,7 @@
       "source_matches": [
         {
           "source_file": "hermes/agentic_hermes/oauth_child.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.6.0-github-before-lifecycle-diagnostics.json",
-      "line": 140,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "controller/agentic_controller/ha_oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.6.0-github-before-lifecycle-diagnostics.json",
-      "line": 162,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.6.0-github-before-lifecycle-diagnostics.json",
-      "line": 163,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth_child.py",
-          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-          "verification": "historical_git_blob"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.5.1-github.json",
-      "line": 140,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "controller/agentic_controller/ha_oauth.py",
-          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
-          "verification": "historical_git_blob"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.5.1-github.json",
-      "line": 156,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.5.1-github.json",
-      "line": 157,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth_child.py",
-          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-          "verification": "historical_git_blob"
-        }
-      ]
-    },
-    {
-      "file": "evidence/build-0.5.0.json",
-      "line": 45,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "contracts/controller.openapi.json",
-          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-          "verification": "recorded_git_blob"
-        }
-      ]
-    },
-    {
-      "file": "evidence/build-0.5.0.json",
-      "line": 46,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "contracts/hermes-auth.schema.json",
-          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-          "verification": "recorded_git_blob"
-        }
-      ]
-    },
-    {
-      "file": "evidence/build-0.5.0.json",
-      "line": 47,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "contracts/host-controller.openapi.json",
-          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-          "verification": "recorded_git_blob"
-        }
-      ]
-    },
-    {
-      "file": "evidence/build-0.5.0.json",
-      "line": 67,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "controller/agentic_controller/ha_oauth.py",
-          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-          "verification": "recorded_git_blob"
-        }
-      ]
-    },
-    {
-      "file": "evidence/build-0.5.0.json",
-      "line": 82,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "docs/API_CONTRACT.md",
-          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-          "verification": "recorded_git_blob"
-        }
-      ]
-    },
-    {
-      "file": "evidence/build-0.5.0.json",
-      "line": 112,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth.py",
-          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-          "verification": "recorded_git_blob"
-        }
-      ]
-    },
-    {
-      "file": "evidence/build-0.5.0.json",
-      "line": 113,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth_child.py",
-          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-          "verification": "recorded_git_blob"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.6.0-github-before-bootstrap-env.json",
-      "line": 140,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "controller/agentic_controller/ha_oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.6.0-github-before-bootstrap-env.json",
-      "line": 162,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
-        }
-      ]
-    },
-    {
-      "file": "evidence/onboarding-e2e-0.6.0-github-before-bootstrap-env.json",
-      "line": 163,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth_child.py",
-          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-          "verification": "historical_git_blob"
-        }
-      ]
-    },
-    {
-      "file": "evidence/upstream-candidate-0.6.1.json",
-      "line": 24,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
-        }
-      ]
-    },
-    {
-      "file": "evidence/upstream-candidate-0.6.1.json",
-      "line": 25,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth_child.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
-        }
-      ]
-    },
-    {
-      "file": "evidence/upstream-candidate-0.6.1.json",
-      "line": 42,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
-          "verification": "current_copied_source"
-        }
-      ]
-    },
-    {
-      "file": "evidence/upstream-candidate-0.6.1.json",
-      "line": 43,
-      "rule": "generic-api-key",
-      "classification": "verified_public_source_sha256",
-      "source_matches": [
-        {
-          "source_file": "hermes/agentic_hermes/oauth_child.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1020,7 +1074,7 @@
       "source_matches": [
         {
           "source_file": "hermes/agentic_hermes/oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1033,7 +1087,7 @@
       "source_matches": [
         {
           "source_file": "hermes/agentic_hermes/oauth_child.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1046,7 +1100,7 @@
       "source_matches": [
         {
           "source_file": "hermes/agentic_hermes/oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1059,7 +1113,111 @@
       "source_matches": [
         {
           "source_file": "hermes/agentic_hermes/oauth_child.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-candidate-0.6.1-github.json",
+      "line": 24,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-candidate-0.6.1-github.json",
+      "line": 25,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-candidate-0.6.1-github.json",
+      "line": 42,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-candidate-0.6.1-github.json",
+      "line": 43,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-candidate-0.6.1.json",
+      "line": 24,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-candidate-0.6.1.json",
+      "line": 25,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-candidate-0.6.1.json",
+      "line": 42,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-candidate-0.6.1.json",
+      "line": 43,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1072,7 +1230,7 @@
       "source_matches": [
         {
           "source_file": "contracts/controller.openapi.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1085,7 +1243,7 @@
       "source_matches": [
         {
           "source_file": "contracts/hermes-auth.schema.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1111,7 +1269,7 @@
       "source_matches": [
         {
           "source_file": "controller/agentic_controller/ha_oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1124,7 +1282,7 @@
       "source_matches": [
         {
           "source_file": "docs/API_CONTRACT.md",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1137,7 +1295,7 @@
       "artifact_matches": [
         {
           "file": "evidence/bootstrap-host-oauth.xml",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1150,7 +1308,7 @@
       "artifact_matches": [
         {
           "file": "evidence/ha-onboarding-oauth.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1163,7 +1321,7 @@
       "artifact_matches": [
         {
           "file": "evidence/ha-onboarding-oauth.xml",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1176,27 +1334,27 @@
       "artifact_matches": [
         {
           "file": "evidence/installed-0.6.0-run4-prior-stages/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-0.6.0-run5-prior-stages/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-0.6.0-run6-prior-stages/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-auth-laptop-amd64-0.6.0.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1209,27 +1367,27 @@
       "artifact_matches": [
         {
           "file": "evidence/installed-0.6.0-run4-prior-stages/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-0.6.0-run5-prior-stages/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-0.6.0-run6-prior-stages/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-auth-laptop-amd64-0.6.0.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1242,27 +1400,27 @@
       "artifact_matches": [
         {
           "file": "evidence/installed-0.6.0-run4-prior-stages/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-0.6.0-run5-prior-stages/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-0.6.0-run6-prior-stages/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-auth-laptop-amd64-0.6.0.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1275,17 +1433,17 @@
       "artifact_matches": [
         {
           "file": "evidence/installed-0.6.0-run6-prior-stages/installed-process-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-process-auth-laptop-amd64-0.6.0.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-process-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1298,27 +1456,27 @@
       "artifact_matches": [
         {
           "file": "evidence/installed-0.6.0-run4-prior-stages/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-0.6.0-run5-prior-stages/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-0.6.0-run6-prior-stages/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-auth-laptop-amd64-0.6.0.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1331,7 +1489,7 @@
       "artifact_matches": [
         {
           "file": "evidence/installed-auth-server-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1344,17 +1502,17 @@
       "artifact_matches": [
         {
           "file": "evidence/installed-0.6.0-run6-prior-stages/installed-process-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-process-auth-laptop-amd64-0.6.0.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/installed-process-auth-laptop-amd64.json",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1367,7 +1525,7 @@
       "artifact_matches": [
         {
           "file": "evidence/linux-install-0.5.0-auth-fixture-failure.xml",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1380,7 +1538,7 @@
       "artifact_matches": [
         {
           "file": "evidence/linux-install-0.6.0-initial-auth-failure.xml",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1393,12 +1551,12 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/0.6.0/bootstrap-cli-auth-1440.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/ui/bootstrap-cli-auth-1440.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1411,12 +1569,12 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/0.6.0/bootstrap-cli-auth-390.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/ui/bootstrap-cli-auth-390.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1429,12 +1587,12 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/0.6.0/bootstrap-cli-auth-768.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/ui/bootstrap-cli-auth-768.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1447,12 +1605,12 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/0.6.0/bootstrap-hermes-auth-1440.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/ui/bootstrap-hermes-auth-1440.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1465,12 +1623,12 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/0.6.0/bootstrap-hermes-auth-390.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/ui/bootstrap-hermes-auth-390.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1483,12 +1641,12 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/0.6.0/bootstrap-hermes-auth-768.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/ui/bootstrap-hermes-auth-768.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1501,12 +1659,12 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/0.6.0/bootstrap-cli-auth-1440.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/ui/bootstrap-cli-auth-1440.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1519,12 +1677,12 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/0.6.0/bootstrap-cli-auth-390.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/ui/bootstrap-cli-auth-390.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1537,12 +1695,12 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/0.6.0/bootstrap-cli-auth-768.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/ui/bootstrap-cli-auth-768.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1555,12 +1713,12 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/0.6.0/bootstrap-hermes-auth-1440.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/ui/bootstrap-hermes-auth-1440.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1573,12 +1731,12 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/0.6.0/bootstrap-hermes-auth-390.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/ui/bootstrap-hermes-auth-390.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1591,12 +1749,12 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/0.6.0/bootstrap-hermes-auth-768.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         },
         {
           "file": "evidence/ui/bootstrap-hermes-auth-768.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1609,7 +1767,7 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/chat-first/bootstrap-cli-auth-1440.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1622,7 +1780,7 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/chat-first/bootstrap-cli-auth-390.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1635,7 +1793,7 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/chat-first/bootstrap-cli-auth-768.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1648,7 +1806,7 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/hermes-needs-auth-1440.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1661,7 +1819,7 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/hermes-needs-auth-390.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1674,7 +1832,7 @@
       "artifact_matches": [
         {
           "file": "evidence/ui/hermes-needs-auth-768.png",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1687,7 +1845,7 @@
       "source_matches": [
         {
           "source_file": "hermes/agentic_hermes/oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1713,7 +1871,7 @@
       "source_matches": [
         {
           "source_file": "tests/test_api.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1726,7 +1884,7 @@
       "source_matches": [
         {
           "source_file": "tests/test_ha_oauth.py",
-          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
           "verification": "current_copied_source"
         }
       ]
@@ -1755,7 +1913,7 @@
     "INSTALL.md": "4a9e2b40bc269685e54b009224fe7b40e26467f60b1ced1609a28f366295cadb",
     "PROJECT_PLAN.md": "cc018eed720b667e5ef9428f318ac4a5e9f2bd3beff0dca8caa3841b6dcaa39c",
     "PROJECT_SPEC.md": "c53de7cd40301de37d79e498029122b2ae0a0646688f0283f88dadc053a0afde",
-    "README.md": "05e209231e65d29e3befd484b5042d71e9eb3d1650a4ceb5787488454f22e922",
+    "README.md": "bcc8ea200208021d339be9c60a381a485686d2072412a4393a2c77d2c21aae0d",
     "channels.lock.json": "ff3ad98442d9b97e5ffdf50b8d199da1932156ed52d35c413366d29f27b6ae35",
     "contracts/agent-decision.schema.json": "73a36baf4551de9a99c44542ede8aec003dc85e717d5be4bc672ce5a162f267f",
     "contracts/automation-intent.schema.json": "b51c759dde0c5a955acf0e541d6ac6cedc6fef5ea55b3d6dbeded479a4142df8",
@@ -1817,7 +1975,7 @@
     "docs/OPERATIONS.md": "8536c8f5afe72df2b576593e69ad10eb0403c77f604a213e4826d56d353674aa",
     "docs/SOURCES.md": "2787ced5c5d8f39b97f9792b30bd88c8ef7d83d2be554eab5a28407b241333f4",
     "docs/UPDATES.md": "b6f0e3c395859992d93b71a1f854c6b6f89e4a437f4bebcbe8799c6e3a8596bb",
-    "docs/VERIFICATION.md": "8baf0cae6d1e952f6bc9a490ced6fbcbc328bda85c886b7d6a5dfee23e83c5b7",
+    "docs/VERIFICATION.md": "92112f71f8682dd29453bec762fcb2d1ace9051f3b8afd646d891cd398eb6ca4",
     "docs/WORKERS.md": "87dd0dea9585d313ceb97d5924189b3489376839af7e467972cc0543a69310d3",
     "docs/history/pre-v3-0.3.1/AGENTS.md": "20b1f25d248db6233ed9331f31bf80b83bff6cf38abf8dd2f8ce17925aa55f2d",
     "docs/history/pre-v3-0.3.1/PROJECT_PLAN.md": "0e0519be684da4b069c54ce6a065963356b19cd397a39345ff4077e90acdd034",
@@ -1833,7 +1991,7 @@
     "docs/v3/DEV_TEAM_BRIEF.md": "86450e716261a331618386e17f01b55f153078cc06f865c83abb1e5271ff52b9",
     "docs/v3/IMPORT.json": "4de8ed383d01e02ee310a4ecf9c9d2b8a4392cadaee1b331febe060834093cf7",
     "docs/v3/PILOT_ACCEPTANCE.md": "9e3266b9e68b363cb41b6d155c77d0d375b49db14a36874fb01c56d5dff715f5",
-    "docs/v3/PROGRESS.md": "8deec0f1246c61ceeefa9d8cad26338f67d49af22afc3b029297d6133532297f",
+    "docs/v3/PROGRESS.md": "804db635d07f85d835b65ecf6510464a4ec3ef79b7d21724f6d9398c5abc7f89",
     "docs/v3/PROJECT_PLAN_V3.md": "1ccdb41280306386664e4312bacd680bde386b27a1c8fa2b462b29dc12f16a1c",
     "docs/v3/PROJECT_SPEC_V3.md": "16bd5177eb6b0bb009271c1f6ae8a4216f5bb2500dc6e32526c616635a3c3259",
     "docs/v3/README.md": "b85a609da1eb324a3ccda1be574efe9e8984defb1021e58ef66a1db692c86614",
@@ -1868,6 +2026,7 @@
     "evidence/build-0.6.0-before-updater-probe.json": "6169a9ac1eb527ac5f165f87099de11a6ad5995f94e41d7bc9b48dfdb6aa093a",
     "evidence/build-0.6.0-before-verifier-completion-fix.json": "1315c4059ee623d7ebd8d77509ed1402927c8869b546643df7f38a00e9f60226",
     "evidence/build-0.6.0.json": "96f979596f85938f8ac58b8aca6da763175bfb0f4bfa37afeb7d04fe36a4ca71",
+    "evidence/build-0.6.1.json": "a78814fe07e0871da7e3eccc6f9b79bd1ed9b0f622ad3f89994980936800b242",
     "evidence/build.json": "a0fcefac4bea1002ec5c806792fb72c5811728d584300691bc3a75eca7010798",
     "evidence/ci-media-match-0.5.0-final.json": "6dbe758113de014065721a400a71ead2a6c6af926b0d8c0e2a440f1cc6edbe81",
     "evidence/ci-media-match-0.5.0.json": "0342558b2215a1e2084606f1cc9f7cf630a36945aa3875ac689fd01162edfc04",
@@ -1879,6 +2038,7 @@
     "evidence/ci-media-match-0.6.0-before-update-harness.json": "6bb5c162604ced3898b5dd5585d51bce26448e80fff24274c499397154b8d747",
     "evidence/ci-media-match-0.6.0-before-updater-probe.json": "0d0d959a69d7fc9f8dbe5926d1bd20927373483190fda590bf0d3d8eef022511",
     "evidence/ci-media-match-0.6.0.json": "4aa4582712f4771a985eef38e2bb8e00ba2f46b423a1e46f1939f7902659e694",
+    "evidence/ci-media-match-0.6.1.json": "8b2c85864eb522545dc33379f4b342b9dcea04406357a7fdea4b6d4e62a6a535",
     "evidence/coding-completion-hook-order-failure.xml": "bbcf13936ca40a0d623f1aa9fb3cdf7802aaad5aca8e2b3804273abb291c31b9",
     "evidence/coding-no-recursion.xml": "4d5878ab5b05bc6b463816a0413882ce02b564fc387f7b87135d8fdff9629d7d",
     "evidence/coding-prepare-permissions.json": "aa04d402cb0353e7ba8af3c2c469d374462252e9f0b3ac1f55b78a51cc973dec",
@@ -1912,6 +2072,7 @@
     "evidence/github-ci-0.6.0-before-updater-probe.json": "f034735f68c84638b539dc2ca56217142060c8972feca1dfcd85264a3a999441",
     "evidence/github-ci-0.6.0-probe-fixture-failure.json": "b82ce3937cbd2c87dc40b05093c717b5e9ef02bb7d4e9883b401fc4155a222d7",
     "evidence/github-ci-0.6.0.json": "58802bc2da8513172d34a06f3fedfb4b3a251736670b4f07e2e58997dfe14567",
+    "evidence/github-ci-0.6.1.json": "fc5dedbf13b0c45d03ae95aac90c805ed9f5a232519e0ea7a47dbd1ce55a7eb8",
     "evidence/github-ci.json": "a541a18b95a7062d8d4a2d4e7905143fd69ada232ac97fd8a072cb50e2cc6b77",
     "evidence/ha-onboarding-oauth.json": "fee97eff417120d99a6fea39a57254ffea657af536fdb407db470578363df4e5",
     "evidence/ha-onboarding-oauth.xml": "9f1f35addcf0d2f961e682ef1629a6f4ecde48059db80a9e9a29caede8b4554e",
@@ -1962,49 +2123,61 @@
     "evidence/installed-auth-laptop-amd64-0.5.0.json": "5db94e53209502d4d7627838f94d5e27ac448c8eaafa3002a93bf10d5dea0d0d",
     "evidence/installed-auth-laptop-amd64-0.5.1.json": "5db94e53209502d4d7627838f94d5e27ac448c8eaafa3002a93bf10d5dea0d0d",
     "evidence/installed-auth-laptop-amd64-0.6.0.json": "9803e70c185bb776fd6befb1a71925138ed4b67446c6fa3919d6e29731ea13d5",
+    "evidence/installed-auth-laptop-amd64-0.6.1.json": "9803e70c185bb776fd6befb1a71925138ed4b67446c6fa3919d6e29731ea13d5",
     "evidence/installed-auth-laptop-amd64-first-attempt.json": "8f893cf3d33e5d4fd5d5aded01a4b0cacec6588f428242c880d256860bc8ce4a",
     "evidence/installed-auth-laptop-amd64.json": "9803e70c185bb776fd6befb1a71925138ed4b67446c6fa3919d6e29731ea13d5",
     "evidence/installed-auth-server-amd64.json": "d6782fd7e15514a0d8bba6daf7f98cf162c9442865097e92347d20470e1c4724",
     "evidence/installed-coding-0.6.0-before-bootstrap-env.json": "8b87c93b4fd0720c9b7bdd720cb08a789c85344893e0eb05884b225f69ca860e",
     "evidence/installed-coding-0.6.0-initial-verifier-failure.json": "ddd5bffb2f5dd2b9c8565498be6b4abe4fea733c3e6dd6cb47ac85b0035c7f8a",
     "evidence/installed-coding-laptop-amd64-0.6.0.json": "504ee02d22909712f79382a53e6e65200d866235416d4f111868effbd73fa017",
-    "evidence/installed-coding-laptop-amd64.json": "504ee02d22909712f79382a53e6e65200d866235416d4f111868effbd73fa017",
+    "evidence/installed-coding-laptop-amd64-0.6.1.json": "ef4e262d5a95033925e515f3d4b1d48120e88814559e66494d2e17c510bb9ba8",
+    "evidence/installed-coding-laptop-amd64.json": "ef4e262d5a95033925e515f3d4b1d48120e88814559e66494d2e17c510bb9ba8",
     "evidence/installed-failure-0.6.0-run6.json": "d51162e340d6e6267ac03fa88662e66c485d2218ba2c9f32c7eb3027f5059061",
     "evidence/installed-global-diagnostics.xml": "9c2c08c0bffc2b344f141925347ecac2cd4a097550917a585d574782240bf2d2",
     "evidence/installed-hermes-0.6.0-initial-failure.json": "fd405b4d22b22897dff8cde488c7bd24f2c1e0cac3270238a52408917d3c60fe",
     "evidence/installed-hermes-laptop-amd64-0.5.0.json": "db1eee6ebad0ea73a50a6c1c70dce62835faae1322612614c1d1c416fd621733",
     "evidence/installed-hermes-laptop-amd64-0.5.1.json": "79a68c1c2791087925bf0908d05efdc82843d259fde84bc88a332e6768d36c9b",
     "evidence/installed-hermes-laptop-amd64-0.6.0.json": "cd08f4f5aa6ed46361723e4cf4d2461bda9dbc8549707c30de20ba31fe525639",
-    "evidence/installed-hermes-laptop-amd64.json": "cd08f4f5aa6ed46361723e4cf4d2461bda9dbc8549707c30de20ba31fe525639",
+    "evidence/installed-hermes-laptop-amd64-0.6.1.json": "3f77d7d15428e233397aa2ad794ba00894f7eb662aff18511e69e93a04260e69",
+    "evidence/installed-hermes-laptop-amd64.json": "3f77d7d15428e233397aa2ad794ba00894f7eb662aff18511e69e93a04260e69",
+    "evidence/installed-host-compatibility-laptop-amd64-0.6.1.json": "69876c4938419d174f02b1f3261856fa6fba201f6d318f77c6d80d2b4849a075",
+    "evidence/installed-host-compatibility-laptop-amd64.json": "69876c4938419d174f02b1f3261856fa6fba201f6d318f77c6d80d2b4849a075",
     "evidence/installed-metadata-regression.xml": "1030926f3b0f2e6123f3794d9e7b854a949967698c39994158af30bbafd95893",
     "evidence/installed-probe-contract-0.6.0.xml": "6f94f557f89f8d330ab0774cfb3dcf79b22f4da017ebc925c9f82a823a426d98",
     "evidence/installed-process-auth-laptop-amd64-0.6.0.json": "1095168247730926de2f984e1a37044105d31316096864e9c2c90cdc7375b5dc",
+    "evidence/installed-process-auth-laptop-amd64-0.6.1.json": "1095168247730926de2f984e1a37044105d31316096864e9c2c90cdc7375b5dc",
     "evidence/installed-process-auth-laptop-amd64.json": "1095168247730926de2f984e1a37044105d31316096864e9c2c90cdc7375b5dc",
     "evidence/installed-process-coding-laptop-amd64-0.6.0.json": "847afaf2bf8cc81afe3ea532cde49de4e59f0288a0ccd867d5b40df5d090df33",
+    "evidence/installed-process-coding-laptop-amd64-0.6.1.json": "847afaf2bf8cc81afe3ea532cde49de4e59f0288a0ccd867d5b40df5d090df33",
     "evidence/installed-process-coding-laptop-amd64.json": "847afaf2bf8cc81afe3ea532cde49de4e59f0288a0ccd867d5b40df5d090df33",
     "evidence/installed-process-sandbox-laptop-amd64-0.6.0.json": "f981c8ce04698ab326802bc759ec72e2f53a037841dab8e177cbec3f081a9392",
+    "evidence/installed-process-sandbox-laptop-amd64-0.6.1.json": "f981c8ce04698ab326802bc759ec72e2f53a037841dab8e177cbec3f081a9392",
     "evidence/installed-process-sandbox-laptop-amd64.json": "f981c8ce04698ab326802bc759ec72e2f53a037841dab8e177cbec3f081a9392",
     "evidence/installed-progress-0.6.0-run5-snapshot-failure.json": "25a6f0687ace491a45671e59473ea6f5d4ea04502288191132a3aee3c6a8c002",
     "evidence/installed-progress-0.6.0-run6-update-activation-failure.json": "a98ba99eec172cbd4706eb40412a50872af94a856b9502aadf912e536bba8b34",
     "evidence/installed-progress-0.6.0-update-probe-failure.json": "4d974c88a7e48f9894db315d610aaeff27d6b4860794e9acd4ed9c580400aea0",
     "evidence/installed-progress-laptop-amd64-0.6.0.json": "15aebc6190225afad90b3e67f2c95a83e0e3909b3df7847a3b12f807b04f939a",
-    "evidence/installed-progress-laptop-amd64.json": "15aebc6190225afad90b3e67f2c95a83e0e3909b3df7847a3b12f807b04f939a",
+    "evidence/installed-progress-laptop-amd64-0.6.1.json": "3239d49dbf3952a75833e5be41a55c4d9d13a6605c2766962b47456a6172ab33",
+    "evidence/installed-progress-laptop-amd64.json": "3239d49dbf3952a75833e5be41a55c4d9d13a6605c2766962b47456a6172ab33",
     "evidence/installed-rescue-before-metadata-fix.json": "c57a89a8b5a9192ca859f230138b3fd31a2d6f8e3fb4c5ec690c22d6b0a4a6b9",
     "evidence/installed-rescue-laptop-amd64-0.4.0.json": "5af311c498e3f2b8bc431efb18cd5d8c469da0cea6050a36b4e108712b34792b",
     "evidence/installed-rescue-laptop-amd64-0.5.0.json": "dec3366dbb64136c8945af5a6dbb55bc355b13f0a1e8f022847f7e793daf423e",
     "evidence/installed-rescue-laptop-amd64-0.5.1.json": "e222a73068b3283d0eaa01d6bfdb10f22663fb37d4ef51349c6d227032d5b9c6",
     "evidence/installed-rescue-laptop-amd64-0.6.0.json": "13dd9ebfc01e9bcffff9ad169a704c420b1f80405572d8662c97a02e6ff71b6a",
-    "evidence/installed-rescue-laptop-amd64.json": "13dd9ebfc01e9bcffff9ad169a704c420b1f80405572d8662c97a02e6ff71b6a",
+    "evidence/installed-rescue-laptop-amd64-0.6.1.json": "0bf09e0854be851fa8a993bfea6113f4a161512047d21bd090311a1309409df5",
+    "evidence/installed-rescue-laptop-amd64.json": "0bf09e0854be851fa8a993bfea6113f4a161512047d21bd090311a1309409df5",
     "evidence/installed-sandbox-laptop-amd64-0.4.0.json": "10832d01b961503716808604e289cbd36eb514898c3f58fb2c23f24d6ce1f6ad",
     "evidence/installed-sandbox-laptop-amd64-0.5.0.json": "a1fc2084fd24107b07ee137cf205a4835aa6ba14bdf87c61e0778c0a900d04b8",
     "evidence/installed-sandbox-laptop-amd64-0.5.1.json": "6f3638ac81da7b61b559df2e1dbd7edd1f4bd40a713ccd4da5da80797f98cbd5",
     "evidence/installed-sandbox-laptop-amd64-0.6.0.json": "36196d3bfa53e50df2ddb6ab04b89c2523a2918b269c63d5e49f0602dc45289f",
-    "evidence/installed-sandbox-laptop-amd64.json": "36196d3bfa53e50df2ddb6ab04b89c2523a2918b269c63d5e49f0602dc45289f",
+    "evidence/installed-sandbox-laptop-amd64-0.6.1.json": "62083b2e7139d9eae9449ac4da0fa3beba270080098bfdac8d9024bb6f230e6c",
+    "evidence/installed-sandbox-laptop-amd64.json": "62083b2e7139d9eae9449ac4da0fa3beba270080098bfdac8d9024bb6f230e6c",
     "evidence/installed-sandbox-preflight-failure.json": "5c3c61ced77ccf2a3fef3bf5e13bc92fc269f014628d0b3d98094ca9eafa8531",
     "evidence/installed-update-0.6.0-run6-failure.json": "a7981dc9308d097d8ba3042b9c552ca6dd1340965d2a636a9edc9ae72510bada",
     "evidence/installed-update-harness.xml": "b6a6b251e0162c94774607dd4d0a8349a930a205419cb25b92017cfe5f6065eb",
     "evidence/installed-update-laptop-amd64-0.6.0.json": "f60597e042c359d78dce61d7d35776dbd504926c12e187c913264084aa5fa59f",
-    "evidence/installed-update-laptop-amd64.json": "f60597e042c359d78dce61d7d35776dbd504926c12e187c913264084aa5fa59f",
+    "evidence/installed-update-laptop-amd64-0.6.1.json": "8805e7f242fc4e6008b127e38b767343a6acaedf8a46eeb152392cfaa03d195d",
+    "evidence/installed-update-laptop-amd64.json": "8805e7f242fc4e6008b127e38b767343a6acaedf8a46eeb152392cfaa03d195d",
     "evidence/latest-hermes-3569-port-fixture-failure.xml": "8f7389dd8f1175586670954c37685e99296ce0752a5edad58e6de5955b72ff78",
     "evidence/latest-hermes-3569.json": "afd656f68c7a7df710db99ffb959b303e75af215ed3f015232a2f098c9681ce0",
     "evidence/latest-hermes-3569.xml": "b8303dd789c5f1cd277ae4c4eef7de47a73d324fdbe353f4c6374c95169da367",
@@ -2043,10 +2216,12 @@
     "evidence/linux-install-0.6.0-update-probe-failure.xml": "9dac7e0f84f12c00f81983841bc227db402321f9f2e1050884083e2290da8872",
     "evidence/linux-install-0.6.0.json": "8e7395d12236598a8f4e6e478abf934399eaf72d0f2c341cdf122aaf652c94a9",
     "evidence/linux-install-0.6.0.xml": "4d9acd0cc90b55a421ad78daa2a52694cdf8f22607c245fd89c3ca20b64731a0",
+    "evidence/linux-install-0.6.1.json": "0329a2ddf3d6355b06ccdf88b17446c932968a588f123b95ff73d712ad41eac8",
+    "evidence/linux-install-0.6.1.xml": "1a565ada2d31a9708c2dd5cc4900c516e0ad2d738eac75107b3b33242b1f9c8e",
     "evidence/linux-install-pytest.xml": "48c74a4e50236ad1d979d3ed7eaa928e1d4d95bd711217444676cf201dfe6ac2",
     "evidence/linux-install-server-pytest.xml": "105099f99ff960b452a37b114bd28fd02ceb27da1a90c216b2edb6cdbf2aa843",
     "evidence/linux-install-server.json": "34f2438b5df849a4c98ee6615975aad2e1f05cc2032063ba48916eb36367d996",
-    "evidence/linux-install.json": "8e7395d12236598a8f4e6e478abf934399eaf72d0f2c341cdf122aaf652c94a9",
+    "evidence/linux-install.json": "0329a2ddf3d6355b06ccdf88b17446c932968a588f123b95ff73d712ad41eac8",
     "evidence/linux-platform.json": "4576acaa91c26a0be1c3aee8275ec8cceabf3221dd971714aed248734aa6403c",
     "evidence/linux-tested-build-0.2.0.json": "432a785f86e63e9653361e26213e7252187aa1ec9e70a39dece49f72a23442c3",
     "evidence/linux-tested-build-0.4.0-final.json": "569999a72d35c42a0215b87a89c5154264d24aae83a7e7330a310e187aa67e8a",
@@ -2062,6 +2237,7 @@
     "evidence/onboarding-e2e-0.6.0-github-before-update-harness.json": "41fd4895ab45773355eaa099a08a255dadd87e7af31fd84b4ea7017da83a8423",
     "evidence/onboarding-e2e-0.6.0-github-before-updater-probe.json": "0cf769fea9b5a6cc0a5845e27723c6cb027c3a66456e4fec27874217bfe42cf0",
     "evidence/onboarding-e2e-0.6.0-github.json": "7d85315c0d91ad1596b8d65ca739cd6116d6453cbf9454f807f2ee0e91e2b12d",
+    "evidence/onboarding-e2e-0.6.1-github.json": "1ce26e8af6c439134fc01952c5698343f15d7482b65de5391f6873858033c561",
     "evidence/onboarding-e2e-native-0.6.1.xml": "783b7eaa6ef94336e369abb160112aa94277ed4aa5d02f37ff6944a831048553",
     "evidence/onboarding-e2e-native-incomplete-fixture.xml": "251d3305800d4a44809c36d9b5e68f41f4b47c1ea376a276262a524cb1960f70",
     "evidence/onboarding-e2e-selector-failure.xml": "8ebbfe87aeb4c747b2e31819e159a59ff2ed7a18cdd67fd1d6032d0646a24366",
@@ -2075,6 +2251,7 @@
     "evidence/public-seed-0.6.0-before-bootstrap-env.json": "5b8200fed82f468a84d4c2cb26e6a446c1c4d018920421aff08d6857f5951de4",
     "evidence/public-seed-0.6.0-before-updater-probe.json": "886d3dbf9e1dc2602e0c91879f65ddfc4349de8efe582fc7cb12fe1682bf0010",
     "evidence/public-seed-0.6.0.json": "46209beeb649c0e5a781e370dfcc8b20247cad038e6be8ceb0bbb94d56bc65ba",
+    "evidence/public-seed-0.6.1.json": "22c1bd46c54cecad924ebce7863922dc061f63d667ba66ebd0de42b9b41ee29e",
     "evidence/publisher-enrollment.json": "9f1f9927bc8e89160da6a743bc2ead0718d7cb31e5e97b13ae754dfd868124fb",
     "evidence/publisher-tests.xml": "f73184e0ef5bce00ce80d3f85caf14f21295579d0178d1732c14222921947987",
     "evidence/pytest-0.2.1.xml": "d2fcc35b448c8dfc9ff3fcff9967d8321db7d6d4c5ea640ca1be2d38062b9423",
@@ -2098,6 +2275,7 @@
     "evidence/pytest-0.6.0-github-before-updater-probe.xml": "1b9b50ed47f847217f6942285311c12cbefed286c0a0d1a7705d781ee4f76bc9",
     "evidence/pytest-0.6.0-github.xml": "7947ee8d55008fb12d507f1d55cf9ee77f0aeee2ea32385e95fb86b0dc95061d",
     "evidence/pytest-0.6.0.xml": "6eb9677040d12491fa8c2f3ad05c39aeeaa4f6f9b577da2cc85c1f737ce3beb4",
+    "evidence/pytest-0.6.1-github.xml": "d2b9bf48daab5abcefb1b447e6f4561526a212278fbbe1e5cd7cf656cc6cfe37",
     "evidence/pytest-0.6.1-native-login-initial.xml": "7014c45b9f5e4d263a14838cb246b894a437cb2964358b1ce2956057202d919b",
     "evidence/pytest-chat-first-build-contention.xml": "7e3ede79e26a1a8c6d19e670481073782c6c64d3328658b62e5e1d49391b7ad3",
     "evidence/pytest-chat-first-final.xml": "799262b771043665873401cd7e4b3ff7c91c0ae07220a29143f21421c1d7a948",
@@ -2114,6 +2292,7 @@
     "evidence/release-0.5.0.json": "886b5dd98df323f324066cdc5938060764f995a60cc1fee79164ebf5e06923e8",
     "evidence/release-0.5.1.json": "07683594f0bddc06fb280a7821f702884bea516bd35b274115b28b9a2ae153aa",
     "evidence/release-0.6.0.json": "6b38deaf647c8aebac67da8ce86cdee890e53367b1552b24f5fc4f69455bc162",
+    "evidence/release-0.6.1.json": "d3183eba6003fee6be755ecf99dabb45ba8b4b95df0dca0bbaeee81b50210953",
     "evidence/release.json": "886b5dd98df323f324066cdc5938060764f995a60cc1fee79164ebf5e06923e8",
     "evidence/review-bootstrap-controller-fixes.xml": "898c072f082c7fa43752017f01ef32d11fcf3ddb2a2da45563e3b65b6be285e3",
     "evidence/review-bootstrap-form-before.xml": "2289bea79261275d311274741495cff2fa13544200fe0588f2636bedb516f1e3",
@@ -2237,6 +2416,7 @@
     "evidence/ui/chat-first/settings-host-390.png": "9800ac32f26904a85ca12f49632958d2a5211976c3ee4219e00168729093569c",
     "evidence/ui/chat-first/settings-host-768.png": "a2638d03a5b45b2cc21d845f119eb7baaf4cc4ba47b1e5232b6cca7e1f8aadfa",
     "evidence/ui/e2e-complete.png": "e4f03642c690352638eb27165a005ef00f28d9ce52fae1f855017abbc7468a16",
+    "evidence/ui/e2e-native-dashboard-github.png": "ebeb8a9118afb74ea96dab7a8b77ec346ad6b4577190e9b901cbe928525cdd9f",
     "evidence/ui/e2e-native-dashboard.png": "ebeb8a9118afb74ea96dab7a8b77ec346ad6b4577190e9b901cbe928525cdd9f",
     "evidence/ui/e2e-native-home.png": "10790714c90ad2014f40ec32ff9fa83e7c998d1e39a0757da93d75f679f4d19a",
     "evidence/ui/e2e-native-initial-loading.png": "254b023c2dee7a178e443f734db53bcda678dcb6195411940e5f993c9261de67",
@@ -2368,6 +2548,7 @@
     "evidence/updater-probe-regression.xml": "d0d892c286f5bf0ed1ef442f3e66b9721c327f4fd560cdce6ed05a4fd724eca8",
     "evidence/updater-probe-reproduction.json": "bdfb22b4a31995b4f6b9d9a84d7665442d79cb9915b6ff37fefdbc6673355e55",
     "evidence/updater-retention-tests.xml": "d208680c69c269337f6d3370b4a2928d9c1bf8a9de5e6740218ffb2592a56881",
+    "evidence/upstream-candidate-0.6.1-github.json": "de4e38d63bab146507e80111337c2bbf7eb23d58285c0a6cba42773f572118e0",
     "evidence/upstream-candidate-0.6.1.json": "c58f73a147eb5adde22f6ab0cc06960295f995d89dcefaf0708c867f86972033",
     "evidence/upstream-check-contract.xml": "39edc28ce754949f00b7d8c83dc9743ffb66d6bbd7261fb347d78d0e7cb40e97",
     "evidence/upstream-locked-0.6.1.json": "de6e3d4f4bdebdaf306c7263812eb9045f79c438eadc21fe1dbff685da29f27b",

@@ -1,0 +1,37 @@
+{
+  "version": "0.6.1",
+  "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+  "installed_test_harness_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+  "coding_source": {
+    "repo_id": "agentic-home",
+    "commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+    "bundle_sha256": "c41313813b7062b3ea4177e928aab8574c209b01dd14bbcaa151f38d49b5fd1a"
+  },
+  "images": {
+    "agentic-home-controller:0.6.1": "sha256:6ff6cad9730eea9b9172fa173f0d8a8ae7c36954839486048f48f478fd47e456",
+    "agentic-home-runner:0.6.1": "sha256:1d45b6f570e70bb977792e8ab44de3888f414beaf665bc9d5e46637ab235fbc8",
+    "agentic-home-linejs:0.6.1": "sha256:4ff137d5a95055b1350ccf793ea541857238360344c7149d84877ff878fb6f83",
+    "agentic-home-hermes:0.6.1": "sha256:1aa24f3d0a31c04ebdc78d32ad5b4612e2d1d33b84c0c76edf891fa6e65dcc9d",
+    "agentic-home-preview:0.6.1": "sha256:2c3378d529cd46e74416164053742234f1b36d0fb32aa8f990a2544424445ec6"
+  },
+  "media": {
+    "agentic-home-0.6.1-laptop-amd64.iso": {
+      "bytes": 6561529856,
+      "sha256": "ac434f55bfa66be57fd86dbd52772894189b0e0a2778dd93e5ec8c9d461e6a60"
+    },
+    "agentic-home-0.6.1-linux-amd64.tar": {
+      "bytes": 2482012160,
+      "sha256": "da0a76ef596f239bcdfb6c98bb8f927880a2c01e3ad86a9f1a05f461ca514ab8"
+    }
+  },
+  "bundle_manifest_verified_files": 185,
+  "installed_media": "passed",
+  "cloud_accounts": "not_run",
+  "source_exclusions": "Public product allowlist; no private parent, runtime credentials, live workspaces or build cache",
+  "composed_e2e": "evidence/onboarding-e2e-native-0.6.1.xml",
+  "candidate_checks": [
+    "evidence/upstream-locked-0.6.1.json",
+    "evidence/upstream-candidate-0.6.1.json"
+  ],
+  "ci": "598 passed, 5 skipped; evidence/github-ci-0.6.1.json"
+}

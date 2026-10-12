@@ -1,0 +1,83 @@
+{
+  "version": "0.6.1",
+  "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+  "installed_test_harness_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+  "profile": "laptop-amd64",
+  "artifacts": {
+    "agentic-home-0.6.1-laptop-amd64.iso": {
+      "bytes": 6561529856,
+      "sha256": "ac434f55bfa66be57fd86dbd52772894189b0e0a2778dd93e5ec8c9d461e6a60"
+    },
+    "agentic-home-0.6.1-linux-amd64.tar": {
+      "bytes": 2482012160,
+      "sha256": "da0a76ef596f239bcdfb6c98bb8f927880a2c01e3ad86a9f1a05f461ca514ab8"
+    }
+  },
+  "images": {
+    "agentic-home-controller:0.6.1": "sha256:6ff6cad9730eea9b9172fa173f0d8a8ae7c36954839486048f48f478fd47e456",
+    "agentic-home-runner:0.6.1": "sha256:1d45b6f570e70bb977792e8ab44de3888f414beaf665bc9d5e46637ab235fbc8",
+    "agentic-home-linejs:0.6.1": "sha256:4ff137d5a95055b1350ccf793ea541857238360344c7149d84877ff878fb6f83",
+    "agentic-home-hermes:0.6.1": "sha256:1aa24f3d0a31c04ebdc78d32ad5b4612e2d1d33b84c0c76edf891fa6e65dcc9d",
+    "agentic-home-preview:0.6.1": "sha256:2c3378d529cd46e74416164053742234f1b36d0fb32aa8f990a2544424445ec6"
+  },
+  "installed_validation": "passed",
+  "installed_evidence": "evidence/linux-install-0.6.1.json",
+  "junit": "evidence/linux-install-0.6.1.xml",
+  "junit_result": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "1",
+    "time": "1568.186",
+    "timestamp": "2026-10-12T12:12:05.804423-04:00",
+    "hostname": "castleridge-ai1"
+  },
+  "latest_hermes": {
+    "state": "ready",
+    "commit": "7cc3fb8cb55898747dd1dfa56fda3e16ebba028e",
+    "source": "latest",
+    "image_id": "sha256:6f2ea896f6535102a5fbeaa533429d81709787efdb822dd65665fe19af37ff52",
+    "runtime_revision_readback": "passed",
+    "persists_after_reboot": true
+  },
+  "ci": "evidence/github-ci-0.6.1.json",
+  "ci_media_match": "evidence/ci-media-match-0.6.1.json",
+  "upstream_candidate_ci": "evidence/upstream-candidate-0.6.1-github.json",
+  "composed_e2e": "evidence/onboarding-e2e-0.6.1-github.json",
+  "screenshots": "evidence/ui/native-home/README.md",
+  "native_dashboard_screenshot": "evidence/ui/e2e-native-dashboard-github.png",
+  "architecture_review": "docs/reviews/2026-10-12-NATIVE-HOME-ADAPTERS.md",
+  "installed_coding": "evidence/installed-coding-laptop-amd64-0.6.1.json",
+  "installed_updater": "evidence/installed-update-laptop-amd64-0.6.1.json",
+  "accepted_product_cases": {
+    "T3-01": "engineering disposable VM media only",
+    "T3-05": "E0 console rescue; installed Controller updater mechanics verified separately, not complete E2 pilot"
+  },
+  "remaining_product_cases": 30,
+  "not_run": [
+    "physical laptop",
+    "real cloud OAuth",
+    "real LINE/Telegram/Discord accounts",
+    "real Tailscale account",
+    "Home HAOS App coding launcher",
+    "Host autonomous real cloud case",
+    "Claude/Antigravity/Grok tools-enabled coding",
+    "native HA setup wizard clicks",
+    "physical devices",
+    "interactive candidate website",
+    "same live BAT/CLI session handoff",
+    "public publisher release",
+    "full product or cross-schema update/rollback",
+    "72h observation",
+    "single-versus-dual-worker comparison",
+    "HA sidebar identity bridge to the same outer Hermes case store"
+  ],
+  "fixture_scope": [
+    "UI screenshot matrix uses compiled UI with synthetic API states; separate native dashboard screenshots use isolated real Core",
+    "Model/OAuth transport is synthetic; native HA browser login, routing and official MCP are real",
+    "Installed updater uses ephemeral publisher and a preloaded image-label-only candidate; post-deployment row is synthetic"
+  ],
+  "source_audit": "evidence/source-audit-0.6.1.json",
+  "installed_host_compatibility": "evidence/installed-host-compatibility-laptop-amd64-0.6.1.json"
+}

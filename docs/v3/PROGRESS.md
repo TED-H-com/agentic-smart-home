@@ -13,7 +13,7 @@
 
 Home 隔離基礎已有 [真 HAOS 18.3 App 證據](../../evidence/haos-app-boundary.json)：預設設定無法建立 mount namespace；增加 `SYS_ADMIN` 與限定 cgroup2 掛載位置的 AppArmor 診斷設定後，可在獨立 App cgroup namespace 委派資源限制並實際觸發記憶體 OOM kill。這修正了「平台無可行隔離路徑」的假設，尚未交付 Home coding launcher、模型憑證／出站／工作區完整隔離或真雲端執行。32 個案例的狀態不變。
 
-0.6.1 接續原生 HA 日常入口、返回救援／管家、Hermes 私有接點 facade、候選 contract gate 與 Linux 固定動作能力檢查。真 Core 導向與對話接續已在隔離 E2E 通過，完整媒體驗證另見 [最新紀錄](../VERIFICATION.md)；這些工程能力不新增真家庭驗收 passed 案例。
+0.6.1 接續原生 HA 日常入口、返回救援／管家、Hermes 私有接點 facade、候選 contract gate 與 Linux 固定動作能力檢查。真 Core 導向與對話接續已在隔離 E2E 通過，最終 CI **598 passed／5 skipped**，同來源 `083b80e` 精確 ISO 完整安裝 **1 passed／1568.186 秒**，包含最新 Hermes、HAOS、Controller 更新／退版及重啟，見 [最新紀錄](../VERIFICATION.md)；這些工程能力不新增真家庭驗收 passed 案例。
 
 ## 記錄規則
 
@@ -31,7 +31,7 @@ Home 隔離基礎已有 [真 HAOS 18.3 App 證據](../../evidence/haos-app-bound
 | V3-02 | P0 / E0 / A | in_progress | 真 pinned AIAgent／官方 MCP 及獨立 bridge 已實作、真容器 needs_auth 啟動已測；模型端點 fixture，Owner 真帳號未驗 |
 | V3-03 | P0 / E0→E1 / A | in_progress | Hermes Gateway→case/session/run、scope續接、撤權及UI已實作／測試；真 bot／現場身份重送未驗 |
 | V3-04 | P0 / E0 / B | implemented | E0 獨立診斷／support；0.6.0 增加 root console publisher 登錄及固定 updater。新版精確 ISO 的 Controller 停止救援及固定 updater 已實際通過；真家庭試跑另驗 |
-| V3-05 | P0 / E0 / C | implemented | 0.6.0 媒體包含五個映像、固定 Tailscale 套件、只含 public repo HEAD 的來源 bundle；精確新 ISO 完整安裝 1 passed／1789.412s；實體 laptop 尚未執行 |
+| V3-05 | P0 / E0 / C | implemented | 0.6.1 媒體包含五個映像、固定 Tailscale 套件、只含 public repo HEAD 的來源 bundle；精確新 ISO 完整安裝 1 passed／1568.186s；實體 laptop 尚未執行 |
 | V3-06 | P0 / E1 / A | implemented | MCP → Controller → TLS Runner → broker 持久派工、同 case handles／ACL／去重；Codex tools 真程序＋模型 transport fixture，真模型帳號未驗 |
 | V3-07 | P0 / E1 / B | implemented | 真 Codex 工具執行、私有 clone、patch、獨立 verifier；bearer 留 relay、封鎖管理／私網出站、ext4／cgroup／watchdog。僅 Host Codex coding enabled |
 | V3-08 | P0 / E1 / A+B | in_progress | lease／實際 writer 停止與重啟 reconcile 已交付；可匯出停止後 checkpoint。live_session:false，尚非直接加入同一 BAT／CLI session |
@@ -50,11 +50,11 @@ Home 隔離基礎已有 [真 HAOS 18.3 App 證據](../../evidence/haos-app-bound
 
 | ID | 案例 | 階段 | 結果 | 驗收證據 |
 |---|---|---|---|---|
-| T3-01 | 一次性 VM 安裝待交付媒體 | E0 交付前 | passed | 0.6.0 source/harness 6847a03／ISO ed0686da…完整 VM 1 passed／1789.412s，版本／五 images／outer-only firstboot／單次登入／Web／診斷核對；一次性磁碟與 key，已清理。見 [結果](../../evidence/linux-install-0.6.0.json)及 [JUnit](../../evidence/linux-install-0.6.0.xml)，真帳號與 laptop 未驗 |
+| T3-01 | 一次性 VM 安裝待交付媒體 | E0 交付前 | passed | 0.6.1 source/harness 083b80e／ISO ac434f55…完整 VM 1 passed／1568.186s，版本／五 images／outer-only firstboot／單次登入／Web／診斷核對；一次性磁碟與 key，已清理。見 [結果](../../evidence/linux-install-0.6.1.json)及 [JUnit](../../evidence/linux-install-0.6.1.xml)，真帳號與 laptop 未驗 |
 | T3-02 | Owner laptop 真安裝與只選外層 | E0 現場 | not_run | — |
 | T3-03 | Hermes 真實登入並回答一個工具查詢 | E1 | not_run | — |
 | T3-04 | 保持 HAOS 未啟動，問主機狀態 | E1 | not_run | — |
-| T3-05 | 關閉或故障 Controller 的測試實例 | E0 救援，E2 擴充 | passed | 0.6.0 E0 獨立救援：Controller 停止時非 sudo diagnostics／support 可用，見 [rescue](../../evidence/installed-rescue-laptop-amd64-0.6.0.json)。另完成合成候選的安裝後 Controller 更新／保留新資料退版；不代表 E2 真家庭整案 |
+| T3-05 | 關閉或故障 Controller 的測試實例 | E0 救援，E2 擴充 | passed | 0.6.1 E0 獨立救援：Controller 停止時非 sudo diagnostics／support 可用，見 [rescue](../../evidence/installed-rescue-laptop-amd64-0.6.1.json)。另完成合成候選的安裝後 Controller 更新／保留新資料退版；不代表 E2 真家庭整案 |
 | T3-06 | 同一 Web／bot 的身份與訊息重送 | E1 | not_run | — |
 | T3-07 | Hermes 派 Host Worker 研究 | E1 | not_run | — |
 | T3-08 | Host Worker 修實際 UI 問題 | E1 | not_run | — |

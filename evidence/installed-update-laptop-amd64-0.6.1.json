@@ -1,0 +1,142 @@
+{
+  "state": "passed",
+  "transport": {
+    "launch": {
+      "returncode": 0,
+      "stdout_bytes": 386,
+      "stderr_bytes": 77,
+      "stderr_truncated": false,
+      "stderr_signatures": {
+        "traceback": false,
+        "import_error": false,
+        "syntax_error": false,
+        "permission_denied": false,
+        "ssh_transport": false,
+        "process_killed": false,
+        "sudo_error": false,
+        "timeout": false,
+        "disk_full": false,
+        "read_only_filesystem": false,
+        "io_error": false,
+        "oom": false
+      }
+    },
+    "observation_attempts": 10,
+    "observation": {
+      "returncode": 0,
+      "stdout_bytes": 1545,
+      "stderr_bytes": 77,
+      "stderr_truncated": false,
+      "stderr_signatures": {
+        "traceback": false,
+        "import_error": false,
+        "syntax_error": false,
+        "permission_denied": false,
+        "ssh_transport": false,
+        "process_killed": false,
+        "sudo_error": false,
+        "timeout": false,
+        "disk_full": false,
+        "read_only_filesystem": false,
+        "io_error": false,
+        "oom": false
+      }
+    }
+  },
+  "observation": {
+    "checkpoint": {
+      "state": "running",
+      "stage": "restore_original_image_and_cleanup"
+    },
+    "unit": {
+      "ActiveState": "active",
+      "SubState": "exited",
+      "Result": "success",
+      "ExecMainCode": "1",
+      "ExecMainStatus": "0"
+    },
+    "process": {
+      "stdout_bytes": 939,
+      "stderr_bytes": 0,
+      "stderr_truncated": false,
+      "stderr_signatures": {
+        "traceback": false,
+        "import_error": false,
+        "syntax_error": false,
+        "permission_denied": false,
+        "ssh_transport": false,
+        "process_killed": false,
+        "sudo_error": false
+      }
+    },
+    "result": {
+      "state": "passed",
+      "diagnostics": {
+        "cleanup_started": true,
+        "cleanup_completed": true,
+        "probe_resources": {
+          "free_disk_bytes": 90726772736,
+          "available_memory_bytes": 4778573824
+        }
+      },
+      "observed_from": "disposable_installed_linux_vm_root",
+      "actual": [
+        "ed25519_signature_verification",
+        "bounded_candidate_probe",
+        "compose_activation",
+        "authenticated_owner_smoke",
+        "consistent_snapshot",
+        "schema3",
+        "maintenance_gate",
+        "same_database_rollback",
+        "post_deployment_row_preserved"
+      ],
+      "fixtures": [
+        "ephemeral_publisher",
+        "preloaded_registry_delivery",
+        "candidate_changes_only_image_label",
+        "synthetic_post_deployment_record"
+      ],
+      "final_schema": 3,
+      "real_cloud": false,
+      "real_publisher_release": false,
+      "rollback_restored_backup": false,
+      "registry_delivery_calls": 1,
+      "original_image": "sha256:6ff6cad9730eea9b9172fa173f0d8a8ae7c36954839486048f48f478fd47e456",
+      "candidate_image": "sha256:c1c7280f6ccb282c5b15cf6f4bf212c8eb7d7b3302490c91b74b9140cc5d0a4a"
+    }
+  },
+  "diagnostics": {
+    "cleanup_started": true,
+    "cleanup_completed": true,
+    "probe_resources": {
+      "free_disk_bytes": 90726772736,
+      "available_memory_bytes": 4778573824
+    }
+  },
+  "observed_from": "disposable_installed_linux_vm_root",
+  "actual": [
+    "ed25519_signature_verification",
+    "bounded_candidate_probe",
+    "compose_activation",
+    "authenticated_owner_smoke",
+    "consistent_snapshot",
+    "schema3",
+    "maintenance_gate",
+    "same_database_rollback",
+    "post_deployment_row_preserved"
+  ],
+  "fixtures": [
+    "ephemeral_publisher",
+    "preloaded_registry_delivery",
+    "candidate_changes_only_image_label",
+    "synthetic_post_deployment_record"
+  ],
+  "final_schema": 3,
+  "real_cloud": false,
+  "real_publisher_release": false,
+  "rollback_restored_backup": false,
+  "registry_delivery_calls": 1,
+  "original_image": "sha256:6ff6cad9730eea9b9172fa173f0d8a8ae7c36954839486048f48f478fd47e456",
+  "candidate_image": "sha256:c1c7280f6ccb282c5b15cf6f4bf212c8eb7d7b3302490c91b74b9140cc5d0a4a"
+}

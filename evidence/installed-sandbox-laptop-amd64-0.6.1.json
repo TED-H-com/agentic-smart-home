@@ -1,0 +1,65 @@
+{
+  "kind": "installed_offline_coding_sandbox",
+  "runtime_location": "disposable_outer_linux_vm",
+  "observed_from": "host_container_in_disposable_outer_vm",
+  "model_backend": "none",
+  "ha_backend": "none",
+  "device_kind": "none",
+  "cloud_login": "not_run",
+  "home_worker": "not_run",
+  "E1": "not_run",
+  "E2": "not_run",
+  "result": "passed",
+  "installed_release": "0.6.1",
+  "runner_image_id": "sha256:1d45b6f570e70bb977792e8ab44de3888f414beaf665bc9d5e46637ab235fbc8",
+  "quota_job": {
+    "state": "succeeded",
+    "exit_code": 0,
+    "oom_killed": false
+  },
+  "independent_clone": "passed",
+  "original_checkout_unchanged": true,
+  "original_git_metadata_unchanged": true,
+  "idempotency": "passed",
+  "fixed_ext4_quota": {
+    "test_exit_code": 0,
+    "errno": 28,
+    "filesystem_capacity_bytes": 62869504,
+    "written_bytes": 60248064,
+    "largest_file_bytes": 1048576,
+    "individual_file_limit_bytes": 16777216,
+    "observed_from": "host_container_in_disposable_outer_vm",
+    "model_backend": "none"
+  },
+  "artifacts": [
+    {
+      "name": "change.patch",
+      "sha256": "2d610e70fc347efe2af6c1bf3634bf0da28ed5dcba595fca24b9e3bad54b05e0",
+      "size": 90
+    },
+    {
+      "name": "experiment.py",
+      "sha256": "20d95e7170b99f611827e54a3487e771adcc2d6f5cc6f783ca6f5bd6f1146a94",
+      "size": 78
+    },
+    {
+      "name": "result.json",
+      "sha256": "b3cf1a81c617453c34af36b7666e92da22f95ad94669185fa6f5e14c58bf771d",
+      "size": 255
+    }
+  ],
+  "cancel_job": {
+    "state": "cancelled",
+    "exit_code": 137,
+    "oom_killed": false
+  },
+  "cancellation": "passed",
+  "process_tree_stopped": true,
+  "writer_fencing": "passed",
+  "limitations": [
+    "Offline Python fixture; no coding CLI or model account.",
+    "Outer disposable VM only; no HAOS App, hardware or household validation."
+  ],
+  "cleanup": "passed",
+  "duration_seconds": 2.65
+}

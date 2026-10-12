@@ -21,7 +21,7 @@
         "oom": false
       }
     },
-    "observation_attempts": 12,
+    "observation_attempts": 10,
     "observation": {
       "returncode": 0,
       "stdout_bytes": 1545,
@@ -75,8 +75,8 @@
         "cleanup_started": true,
         "cleanup_completed": true,
         "probe_resources": {
-          "free_disk_bytes": 90757636096,
-          "available_memory_bytes": 4758863872
+          "free_disk_bytes": 90726772736,
+          "available_memory_bytes": 4778573824
         }
       },
       "observed_from": "disposable_installed_linux_vm_root",
@@ -102,16 +102,16 @@
       "real_publisher_release": false,
       "rollback_restored_backup": false,
       "registry_delivery_calls": 1,
-      "original_image": "sha256:4146cd79e045e5fdcd360a89af8800f916c3ffcb58ea4ac412cc993f02391a04",
-      "candidate_image": "sha256:0f84c255ba04cd57f1d4e7d317bd7760e528f55a5b0218d2e26294893d70ad5f"
+      "original_image": "sha256:6ff6cad9730eea9b9172fa173f0d8a8ae7c36954839486048f48f478fd47e456",
+      "candidate_image": "sha256:c1c7280f6ccb282c5b15cf6f4bf212c8eb7d7b3302490c91b74b9140cc5d0a4a"
     }
   },
   "diagnostics": {
     "cleanup_started": true,
     "cleanup_completed": true,
     "probe_resources": {
-      "free_disk_bytes": 90757636096,
-      "available_memory_bytes": 4758863872
+      "free_disk_bytes": 90726772736,
+      "available_memory_bytes": 4778573824
     }
   },
   "observed_from": "disposable_installed_linux_vm_root",
@@ -137,6 +137,6 @@
   "real_publisher_release": false,
   "rollback_restored_backup": false,
   "registry_delivery_calls": 1,
-  "original_image": "sha256:4146cd79e045e5fdcd360a89af8800f916c3ffcb58ea4ac412cc993f02391a04",
-  "candidate_image": "sha256:0f84c255ba04cd57f1d4e7d317bd7760e528f55a5b0218d2e26294893d70ad5f"
+  "original_image": "sha256:6ff6cad9730eea9b9172fa173f0d8a8ae7c36954839486048f48f478fd47e456",
+  "candidate_image": "sha256:c1c7280f6ccb282c5b15cf6f4bf212c8eb7d7b3302490c91b74b9140cc5d0a4a"
 }

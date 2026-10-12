@@ -1,0 +1,42 @@
+{
+  "ssh_exit": 0,
+  "observation": {
+    "jobs": [
+      {
+        "action": "shutdown",
+        "state": "succeeded"
+      },
+      {
+        "action": "snapshot",
+        "state": "succeeded"
+      },
+      {
+        "action": "restore",
+        "state": "running"
+      }
+    ],
+    "compatibility": {
+      "state": "supported",
+      "action": "restore",
+      "checks": [
+        {
+          "id": "linux_runtime",
+          "state": "supported"
+        },
+        {
+          "id": "libvirt_connection",
+          "state": "supported"
+        },
+        {
+          "id": "sparse_copy",
+          "state": "supported"
+        }
+      ],
+      "reuse_for_mutations": false
+    }
+  },
+  "observed_from": "disposable_installed_linux_vm_root",
+  "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+  "iso_sha256": "ac434f55bfa66be57fd86dbd52772894189b0e0a2778dd93e5ec8c9d461e6a60",
+  "observed_at_epoch": 1791823015.1126184
+}

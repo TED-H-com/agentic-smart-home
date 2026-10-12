@@ -1,0 +1,17 @@
+{
+  "version": "0.6.1",
+  "iso_sha256": "ac434f55bfa66be57fd86dbd52772894189b0e0a2778dd93e5ec8c9d461e6a60",
+  "seed_sha256": "7465beff2e5599ae28cefeab8862625a2dc63f3c62de1a962bfc4621c425bf48",
+  "interactive_sections": [
+    "network",
+    "storage",
+    "identity"
+  ],
+  "preselected_disk": false,
+  "embedded_password": false,
+  "embedded_ssh_key": false,
+  "embedded_product_checksum_matches": true,
+  "result": "passed",
+  "method": "Extract seed and product checksum from exact ISO with xorriso; parse installation choices and compare TAR digest",
+  "extracted_from": "build/public-seed-061/user-data"
+}

@@ -1,0 +1,79 @@
+{
+  "adapter_contract": 1,
+  "component": "hermes",
+  "selection": "latest",
+  "state": "passed",
+  "activation": "never",
+  "cloud_account": "not_used",
+  "model_transport": "loopback_fixture",
+  "observed_from": "isolated_candidate_container",
+  "limitations": [
+    "Not a Linux or HAOS upgrade test",
+    "No real OAuth consent or cloud inference",
+    "Compatibility evidence covers tested adapter surfaces, not arbitrary future upstream changes"
+  ],
+  "source_hashes": {
+    "hermes/.dockerignore": "87ff6b6bd915e44c20b674ff1b478b0637ad02ba5135da1a9d27dae99c85c791",
+    "hermes/Dockerfile": "229e7cc0a1d811116b3ff297cdbd370e2a6b7ff80a8bdafbd9713689bae6c2c7",
+    "hermes/HERMES-LICENSE": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6",
+    "hermes/README.md": "00d1b5b35a8ead8d165f00a589ff209774bc26bfab0858418d3ba311c1449603",
+    "hermes/agentic_hermes/__init__.py": "a1e6e77ff2aacf71e428db739e81a78f5b0095086a8e49d4d8d21ee6c5265fcb",
+    "hermes/agentic_hermes/app.py": "54d8a7b8f2d608ef6f8c20ca44fe58ffb01349d99584576f069960c82623b04d",
+    "hermes/agentic_hermes/child.py": "57516c7a4461b189b4647ff53f41a357320044ea350393560f59abb3eb039958",
+    "hermes/agentic_hermes/models.py": "dc97e56333ef7e86d409027dd0a86513d0be0e09b563672e04e4d8c021229947",
+    "hermes/agentic_hermes/oauth.py": "a7cf74501dd1535d5cc5fc9ccbbaee7858a6b700962d0781d797f7fdedf2edb2",
+    "hermes/agentic_hermes/oauth_child.py": "4a05588fb3a97e20bf2644c9d8484138cc0aa565a36bddc9a531c587cc375d7b",
+    "hermes/agentic_hermes/upstream.py": "167ec907193b979146787f9b37c6313706665cfac8a5022afa7a42cbc31d24cb",
+    "hermes/compatibility_probe.py": "c8af82ac0744e2e606f68fdd7e28485ce5ee7fed06a8a2b9d3926b9d63da466b",
+    "hermes/fetch_upstream.py": "5ca58043b59dad0589d2e89c7c3269ecd659955ba1bcbd3294b24c140b66f8cb",
+    "hermes/hermes.lock.json": "d2db4cf2b4984ca3a1418d59113fcd827336009cfc998ed23ff1638158d8c4fa",
+    "hermes/requirements.in": "4cf7915c1a2b150f85186668aa3bbb585e273e251a10b2590605563d86791a39",
+    "hermes/requirements.txt": "e3a114f9181cc94128f4ed29b8cd405b8d0c5ce477d1d3c6c050180da27240d6"
+  },
+  "candidate_context_hashes": {
+    "hermes/.dockerignore": "87ff6b6bd915e44c20b674ff1b478b0637ad02ba5135da1a9d27dae99c85c791",
+    "hermes/Dockerfile": "229e7cc0a1d811116b3ff297cdbd370e2a6b7ff80a8bdafbd9713689bae6c2c7",
+    "hermes/HERMES-LICENSE": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6",
+    "hermes/README.md": "00d1b5b35a8ead8d165f00a589ff209774bc26bfab0858418d3ba311c1449603",
+    "hermes/agentic_hermes/__init__.py": "a1e6e77ff2aacf71e428db739e81a78f5b0095086a8e49d4d8d21ee6c5265fcb",
+    "hermes/agentic_hermes/app.py": "54d8a7b8f2d608ef6f8c20ca44fe58ffb01349d99584576f069960c82623b04d",
+    "hermes/agentic_hermes/child.py": "57516c7a4461b189b4647ff53f41a357320044ea350393560f59abb3eb039958",
+    "hermes/agentic_hermes/models.py": "dc97e56333ef7e86d409027dd0a86513d0be0e09b563672e04e4d8c021229947",
+    "hermes/agentic_hermes/oauth.py": "a7cf74501dd1535d5cc5fc9ccbbaee7858a6b700962d0781d797f7fdedf2edb2",
+    "hermes/agentic_hermes/oauth_child.py": "4a05588fb3a97e20bf2644c9d8484138cc0aa565a36bddc9a531c587cc375d7b",
+    "hermes/agentic_hermes/upstream.py": "167ec907193b979146787f9b37c6313706665cfac8a5022afa7a42cbc31d24cb",
+    "hermes/compatibility_probe.py": "c8af82ac0744e2e606f68fdd7e28485ce5ee7fed06a8a2b9d3926b9d63da466b",
+    "hermes/fetch_upstream.py": "5ca58043b59dad0589d2e89c7c3269ecd659955ba1bcbd3294b24c140b66f8cb",
+    "hermes/hermes.lock.json": "19918fcaeb015e40dccfb4ef7e653a9b636e119a63daec532179321117905058",
+    "hermes/requirements.in": "4cf7915c1a2b150f85186668aa3bbb585e273e251a10b2590605563d86791a39",
+    "hermes/requirements.txt": "e3a114f9181cc94128f4ed29b8cd405b8d0c5ce477d1d3c6c050180da27240d6"
+  },
+  "upstream": {
+    "repository": "https://github.com/NousResearch/hermes-agent",
+    "commit": "7cc3fb8cb55898747dd1dfa56fda3e16ebba028e",
+    "sha256": "2c6d1220bc77ac790d59fb760058e7fa58deef455f29007740409e46f374eeb3"
+  },
+  "candidate_image": "sha256:e7703d596590fb1ade559d5ebfe07ac100e91c9ccc73a1453dfad6338b674248",
+  "probe": {
+    "returncode": 0,
+    "stdout_bytes": 425,
+    "stderr_bytes": 0,
+    "import_error": false,
+    "timeout": false,
+    "assertion_failed": false
+  },
+  "gate": {
+    "compatible": true,
+    "adapter_contract": 1,
+    "observed_from": "runtime_container",
+    "cloud_account_verified": false
+  },
+  "cleanup_completed": true,
+  "github_run": {
+    "conclusion": "success",
+    "createdAt": "2026-10-12T16:08:01Z",
+    "headSha": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+    "updatedAt": "2026-10-12T16:09:33Z",
+    "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38275258431"
+  }
+}

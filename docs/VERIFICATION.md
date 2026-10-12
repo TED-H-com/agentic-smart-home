@@ -2,13 +2,26 @@
 
 本輪交付原生 HA 日常入口與上游 adapter 邊界，詳細見 [整合審查](reviews/2026-10-12-NATIVE-HOME-ADAPTERS.md)。資料格式仍為 schema 3；HA 側欄外層 bridge、Home coding、真帳號與完整 OS 更新／退版未由本輪測試建立。
 
+**GitHub [CI 38275228393](https://github.com/teddashh/agentic-smart-home/actions/runs/38275228393)：598 passed、5 skipped／446.91 秒**，來源 `083b80eaa64510a6882b6c33096b0efcb852ba65`，見 [CI 記錄](../evidence/github-ci-0.6.1.json)及 [JUnit](../evidence/pytest-0.6.1-github.xml)。五項跳過為 UID 1000 專項桌面單元、兩個獨立 HAOS VM 案例、需 builder image 的 QEMU 磁碟探針，以及完整安裝 VM；本機 QEMU 探針已通過，完整媒體另驗。CI ZIP 的 800 檔 manifest 與 ISO 內 135 份執行來源已逐檔比對，全數相符，操作文件也一致，見 [CI／媒體核對](../evidence/ci-media-match-0.6.1.json)。
+
 本機全套首次為 **599 passed、1 failed、3 skipped／297.07 秒**；失敗為新增原生頁面測試漏走 HA 自己的瀏覽器登入。補上登入後另發現最小 Core fixture 未啟用 Lovelace，且有 loopback HTTP 設定待確認；測試現依原生畫面完成確認並等待真正 dashboard。修正僅在 harness，未搬移 token 或修改 HA 前端。保留 [初次結果](../evidence/pytest-0.6.1-native-login-initial.xml)及 [迭代範圍](../evidence/native-entry-initial-checks.json)。
 
 修正後真服務 composed E2E **1 passed／43.05 秒**，完成原生登入、真 Core dashboard、裸入口導向、Back／reload 外層返回、明確管家入口及同 case MCP 對話接續，見 [JUnit](../evidence/onboarding-e2e-native-0.6.1.xml)、[服務證據](../evidence/onboarding-e2e.json)及 [真 Core 截圖](../evidence/ui/e2e-native-dashboard.png)。模型與 Host 副作用仍為合成 fixture；不是實體家庭或雲端帳號驗收。
 
 Hermes 的封裝基準 `835c3dd…` 和當時官方最新 `7cc3fb8…` 均完成獨立候選建置與 contract 1 測試，沒有啟用候選，清理已確認。見 [locked](../evidence/upstream-locked-0.6.1.json)、[latest](../evidence/upstream-candidate-0.6.1.json)。負向測試涵蓋上游符號缺失、必要參數改變、壞回應、契約版本不合與下載失敗。UI 的 [三尺寸截圖](../evidence/ui/native-home/README.md) 使用 Chromium／合成 API 狀態，與真 Core 截圖分開標示。
 
-0.6.1 的 GitHub 完整 CI 及精確 ISO 安裝尚在本輪交付流程中；下列 0.6.0 成果保留為歷史，不算新版媒體通過。
+[獨立上游候選 CI](https://github.com/teddashh/agentic-smart-home/actions/runs/38275258431) 也已通過，精確來源與清理結果見 [報告](../evidence/upstream-candidate-0.6.1-github.json)。**精確 0.6.1 ISO 完整安裝：1 passed／1568.186 秒**，媒體、installer harness 與 CI 執行來源均為 `083b80eaa64510a6882b6c33096b0efcb852ba65`。一次性 VM 完成 Ubuntu 安裝、outer-only firstboot、五映像／來源核對、一次性桌面登入／重播拒絕、角色權限、Controller 停止救援、sandbox、真 Codex 工具／獨立 verifier、最新 Hermes、HAOS 啟動、Controller 更新／同 DB 退版、冷快照還原及整機重啟。見 [安裝結果](../evidence/linux-install-0.6.1.json)、[JUnit](../evidence/linux-install-0.6.1.xml)與 [交付記錄](../evidence/release-0.6.1.json)。測試容器、VM 及磁碟 basetemp 已清理，未在開發 host 安裝產品。
+
+| 媒體 | Bytes | SHA-256 |
+|---|---|---|
+| `agentic-home-0.6.1-laptop-amd64.iso` | 6561529856 | `ac434f55bfa66be57fd86dbd52772894189b0e0a2778dd93e5ec8c9d461e6a60` |
+| `agentic-home-0.6.1-linux-amd64.tar` | 2482012160 | `da0a76ef596f239bcdfb6c98bb8f927880a2c01e3ad86a9f1a05f461ca514ab8` |
+
+安裝內的最新 Hermes 為 `7cc3fb8cb55898747dd1dfa56fda3e16ebba028e`，實際通過 adapter contract 1 gate、啟用、版本讀回與重啟持續性，見 [Hermes 記錄](../evidence/installed-hermes-laptop-amd64-0.6.1.json)。[Linux 能力觀測](../evidence/installed-host-compatibility-laptop-amd64-0.6.1.json)另外保存還原執行期間的唯讀 preflight 結果；該筆觀測的 restore 仍為 running，最終成功由完整安裝結果證明。
+
+[Controller 更新／退版](../evidence/installed-update-laptop-amd64-0.6.1.json)實際驗證簽章、受限 probe、Compose 切換、Owner smoke、schema 3 snapshot 及保留新資料退版。發行者、registry delivery、只改 image label 的候選與新增資料是合成 fixture；不是全產品或 OS 升級驗收。Codex 使用真 CLI／工具與固定模型 transport，沒有真雲端帳號。
+
+[公共 ISO seed](../evidence/public-seed-0.6.1.json)保留網路、磁碟與 Linux 身份選擇，沒有預選清除磁碟或內嵌密碼／SSH key。TAR 未另測既有主機就地安裝；大型媒體留在本機 `dist/`。T3-01／T3-05 僅更新 E0 工程證據，另外 30 案維持 `not_run`。公開檔案與候選來源核對見 [source audit](../evidence/source-audit-0.6.1.json)。下列 0.6.0 成果保留為歷史。
 
 ## 0.6.0 歷史驗證
 

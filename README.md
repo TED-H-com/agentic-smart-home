@@ -23,7 +23,7 @@ Host coding：私有 Codex → diff → 獨立 verifier → PNG 預覽／停止�
 Home coding：App 資源隔離已探測，完整 coding 執行器尚未啟用
 ```
 
-[安裝](INSTALL.md) · [通訊與登入](docs/GATEWAY.md) · [Linux 架構](docs/LINUX_PRODUCT.md) · [Hermes runtime](hermes/README.md) · [驗證](docs/VERIFICATION.md) · [本輪畫面／交付審查](docs/reviews/2026-10-12-UI-WORKER-DELIVERY.md) · [v3 進度](docs/v3/PROGRESS.md)
+[安裝](INSTALL.md) · [通訊與登入](docs/GATEWAY.md) · [Linux 架構](docs/LINUX_PRODUCT.md) · [Hermes runtime](hermes/README.md) · [驗證](docs/VERIFICATION.md) · [原生入口／相容審查](docs/reviews/2026-10-12-NATIVE-HOME-ADAPTERS.md) · [v3 進度](docs/v3/PROGRESS.md)
 
 0.6.1 的 Controller 資料格式為 **schema 3**；從 1／2 開啟時先保存私有一致快照，再向前遷移。固定 updater 僅允許可信簽章、相同 schema 3 的 Controller image 更新／退版，保留現有 Live DB。不能直接退回 schema 2 的 0.5.x；詳見 [更新](docs/UPDATES.md) 與 [恢復](docs/OPERATIONS.md)。
 
