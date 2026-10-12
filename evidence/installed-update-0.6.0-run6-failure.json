@@ -1,0 +1,94 @@
+{
+  "state": "failed",
+  "error_code": "installed_update_failed",
+  "transport": {
+    "launch": {
+      "returncode": 0,
+      "stdout_bytes": 386,
+      "stderr_bytes": 77,
+      "stderr_truncated": false,
+      "stderr_signatures": {
+        "traceback": false,
+        "import_error": false,
+        "syntax_error": false,
+        "permission_denied": false,
+        "ssh_transport": false,
+        "process_killed": false,
+        "sudo_error": false,
+        "timeout": false,
+        "disk_full": false,
+        "read_only_filesystem": false,
+        "io_error": false,
+        "oom": false
+      }
+    },
+    "observation_attempts": 9,
+    "observation": {
+      "returncode": 0,
+      "stdout_bytes": 888,
+      "stderr_bytes": 77,
+      "stderr_truncated": false,
+      "stderr_signatures": {
+        "traceback": false,
+        "import_error": false,
+        "syntax_error": false,
+        "permission_denied": false,
+        "ssh_transport": false,
+        "process_killed": false,
+        "sudo_error": false,
+        "timeout": false,
+        "disk_full": false,
+        "read_only_filesystem": false,
+        "io_error": false,
+        "oom": false
+      }
+    }
+  },
+  "observation": {
+    "checkpoint": {
+      "state": "running",
+      "stage": "restore_original_image_and_cleanup"
+    },
+    "unit": {
+      "ActiveState": "failed",
+      "SubState": "failed",
+      "Result": "exit-code",
+      "ExecMainCode": "1",
+      "ExecMainStatus": "1"
+    },
+    "process": {
+      "stdout_bytes": 280,
+      "stderr_bytes": 0,
+      "stderr_truncated": false,
+      "stderr_signatures": {
+        "traceback": false,
+        "import_error": false,
+        "syntax_error": false,
+        "permission_denied": false,
+        "ssh_transport": false,
+        "process_killed": false,
+        "sudo_error": false
+      }
+    },
+    "result": {
+      "state": "failed",
+      "diagnostics": {
+        "cleanup_started": true,
+        "cleanup_completed": true,
+        "updater_state": "failed",
+        "updater_error_code": "unclassified_update_error"
+      },
+      "error_code": "installed_update_failed",
+      "error_type": "RuntimeError",
+      "stage": "approved_candidate_activation"
+    }
+  },
+  "diagnostics": {
+    "cleanup_started": true,
+    "cleanup_completed": true,
+    "updater_state": "failed",
+    "updater_error_code": "unclassified_update_error"
+  },
+  "error_type": "RuntimeError",
+  "stage": "approved_candidate_activation"
+}

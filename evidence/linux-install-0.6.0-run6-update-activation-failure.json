@@ -1,0 +1,61 @@
+{
+  "version": "0.6.0",
+  "source_commit": "a67fab69c3ca4462a20b760b8ba1f3175659cb4a",
+  "harness_commit": "53260e1cfe2c5233200f2305678ae667cb8c2644",
+  "iso_sha256": "9e4b48243963f065d48a281a6c77d6744c27860d65def328198c0aa574eea1cf",
+  "result": "failed",
+  "pytest": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "1",
+    "skipped": "0",
+    "tests": "1",
+    "time": "1466.267",
+    "timestamp": "2026-10-12T10:01:46.677052-04:00",
+    "hostname": "castleridge-ai1"
+  },
+  "failed_stage": "installed_controller_update_rollback",
+  "probe_stage": "approved_candidate_activation",
+  "failure": "Persistent updater probe returned failed; systemd exit 1; cleanup confirmed",
+  "underlying_updater_state": "failed",
+  "underlying_error_code": "unclassified_update_error",
+  "classification_limit": "Harness allowlist omitted generic updater codes and did not retain its internal phase; original exception was caught by product updater. Probe-stage name does not prove candidate image was activated.",
+  "completed": [
+    "Ubuntu installation/firstboot and exact version/five images/source",
+    "Owner login and role-auth boundaries",
+    "Controller-stopped console rescue",
+    "real ext4 quota and sandbox fencing",
+    "real Codex tools and independent verifier (2 completed tests)",
+    "latest Hermes build/activation and runtime revision readback",
+    "real HAOS native API",
+    "candidate signature verification and staging"
+  ],
+  "latest_hermes_commit": "f5a6651231cf67031d9e458e45328efe239c628b",
+  "passed_stage_evidence": "evidence/installed-0.6.0-run6-prior-stages/",
+  "updater_evidence": "evidence/installed-update-0.6.0-run6-failure.json",
+  "global_failure_evidence": "evidence/installed-failure-0.6.0-run6.json",
+  "remaining": [
+    "candidate deployment and same-database rollback",
+    "snapshot/restore and restored native API",
+    "outer reboot, HAOS autostart and Hermes image persistence",
+    "complete full-run success"
+  ],
+  "next_step": "minimal Host probe fix, new source/media, complete isolated install validation",
+  "cloud_accounts": "not_run",
+  "cleanup": "probe cleanup completed; exact VM/container/test disk basetemp removed",
+  "independent_reproduction": {
+    "before": "evidence/updater-probe-prefixed-failure.xml",
+    "after": "evidence/updater-probe-fixed.xml",
+    "actual": [
+      "same Controller image and fixed product Docker command",
+      "ModuleNotFoundError for Controller package",
+      "source and target SQLite descriptors open at volume.close before fix",
+      "fixed import and committed settings verification",
+      "descriptors closed at volume.close after fix"
+    ],
+    "substituted": [
+      "root disk allocation and mount plumbing"
+    ],
+    "limits": "Original run6 exception/phase was not preserved; independent defects, not recovered original stack trace or direct ext4 EBUSY observation"
+  }
+}

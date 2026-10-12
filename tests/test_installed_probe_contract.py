@@ -127,6 +127,84 @@ def update_observation():
     }
 
 
+def test_probe_diagnostics_keep_command_import_cause_before_generic_update_error(update_probe, monkeypatch, tmp_path):
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[1] / "host"))
+    from agentic_host.manager import HostError
+    from test_linux_install import decode_update_observation
+
+    def run(*args, **kwargs):
+        assert kwargs["check"] is False
+        return subprocess.CompletedProcess(args, 1, "", "ModuleNotFoundError: No module named 'agentic_controller'; private text")
+    with pytest.raises(HostError):
+        update_probe.observed_probe(lambda: update_probe.observed_run(run, "docker", "run", "fixed"), tmp_path)
+    observation = update_observation()
+    observation["result"] = {"state": "failed", "stage": "approved_candidate_activation", "error_code": "installed_update_failed",
+                             "error_type": "RuntimeError", "diagnostics": {**update_probe.DIAGNOSTICS,
+                             "updater_state": "failed", "updater_phase": "probing", "updater_error_code": "update_deployment_failed"}}
+    result = decode_update_observation(json.dumps(observation))["result"]
+    diagnostic = result["diagnostics"]
+    assert diagnostic["command_failure"]["returncode"] == 1
+    assert diagnostic["command_failure"]["stderr_signatures"]["import_error"]
+    assert diagnostic["probe_failure"]["error_type"] == "HostError"
+    assert diagnostic["updater_phase"] == "probing" and diagnostic["updater_error_code"] == "update_deployment_failed"
+    assert diagnostic["probe_resources"]["free_disk_bytes"] > 0 and diagnostic["probe_resources"]["available_memory_bytes"] > 0
+    assert "private" not in json.dumps(result) and "agentic_controller" not in json.dumps(result)
+
+
+def test_probe_diagnostics_keep_volume_command_code_and_primary_identity(update_probe, monkeypatch, tmp_path):
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[1] / "host"))
+    from agentic_host.coding_sandbox import SandboxError
+    from test_linux_install import decode_update_observation
+
+    failure = SandboxError("private mount text", code="command_failed", operation="umount", exit_code=32)
+    def probe():
+        raise failure
+    with pytest.raises(SandboxError) as observed:
+        update_probe.observed_probe(probe, tmp_path)
+    assert observed.value is failure
+    observation = update_observation()
+    observation["result"]["diagnostics"].update(update_probe.DIAGNOSTICS)
+    observation["result"]["diagnostics"].update(cleanup_started=True, cleanup_completed=True)
+    result = decode_update_observation(json.dumps(observation))["result"]
+    assert result["diagnostics"]["probe_failure"]["operation"] == "umount"
+    assert result["diagnostics"]["probe_failure"]["command_exit_code"] == 32
+    assert result["diagnostics"]["probe_failure"]["error_code"] == "command_failed"
+    assert "private" not in json.dumps(result)
+
+
+def test_probe_command_timeout_never_retries_and_keeps_bounded_signatures(update_probe, monkeypatch):
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[1] / "host"))
+    calls = []
+    failure = subprocess.TimeoutExpired(["docker", "run", "private"], 45, stderr=b"Permission denied private")
+    def run(*args, **kwargs):
+        calls.append(args)
+        raise failure
+    with pytest.raises(subprocess.TimeoutExpired) as observed:
+        update_probe.observed_run(run, "docker", "run", "fixed", timeout=45)
+    assert observed.value is failure and len(calls) == 1
+    diagnostic = update_probe.DIAGNOSTICS["command_failure"]
+    assert diagnostic["returncode"] is None and diagnostic["stderr_signatures"]["permission_denied"]
+    assert "private" not in json.dumps(diagnostic)
+
+
+def test_update_probe_new_diagnostics_discard_untrusted_fields():
+    from test_linux_install import decode_update_observation
+
+    observation = update_observation()
+    observation["result"]["diagnostics"].update({
+        "updater_state": "needs_reconcile", "updater_phase": "private", "updater_error_code": "update_fallback_unconfirmed",
+        "probe_failure": {"error_code": "private", "error_type": "private", "operation": "private", "raw": "private",
+                          "signatures": {"import_error": True, "raw": "private"}},
+        "command_failure": {"returncode": "private", "stdout_bytes": "private", "stderr": "private", "stderr_signatures": {}},
+        "probe_resources": {"free_disk_bytes": -1, "available_memory_bytes": "private", "raw": "private"},
+    })
+    result = decode_update_observation(json.dumps(observation))["result"]
+    assert result["diagnostics"]["updater_phase"] == "unknown"
+    assert result["diagnostics"]["updater_error_code"] == "update_fallback_unconfirmed"
+    assert result["diagnostics"]["probe_failure"]["error_code"] == "unclassified_update_error"
+    assert "private" not in json.dumps(result)
+
+
 @pytest.mark.parametrize("index,replacement", [(0, 1000), (1, None), (2, "real-laptop"), (3, []), (4, "docker"), (5, False)])
 def test_update_probe_guard_rejects_each_missing_disposable_proof(update_probe, index, replacement):
     proof = [0, "1", "agentic-disposable", ["AGENTIC_TEST_ONLY"], "kvm", True]

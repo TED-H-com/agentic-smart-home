@@ -37,7 +37,13 @@ SAFE_ERRORS = {
     "update_base_revision_changed", "update_rollback_baseline_unavailable", "update_ha_version_incompatible",
     "update_rollback_revision_changed", "update_smoke_mismatch", "update_activation_mismatch",
     "update_final_smoke_mismatch", "update_staging_interrupted", "update_interrupted",
+    "update_deployment_failed", "update_fallback_unconfirmed",
+    "host_memory_reserve_required", "host_resource_limits_unavailable", "container_identity_invalid",
+    "container_stop_unconfirmed", "container_ownership_unconfirmed", "root_broker_required",
+    "disk_backing_required", "host_reserve_insufficient", "workspace_mount_unverified",
+    "command_timeout", "command_failed", "sandbox_rejected",
 }
+UPDATE_PHASES = {"stopping", "probing", "activating", "complete"}
 
 STATE_ROOT = Path("/var/lib/agentic-home/installed-update-probe")
 UNIT = "agentic-installed-update-probe.service"
@@ -50,7 +56,7 @@ STAGES = {
 }
 ERROR_TYPES = {"RuntimeError", "AssertionError", "HostError", "UpdateError", "OSError", "FileNotFoundError",
                "PermissionError", "ImportError", "ModuleNotFoundError", "TimeoutExpired", "CalledProcessError",
-               "ValueError", "KeyError", "TypeError", "JSONDecodeError", "OperationalError"}
+               "ValueError", "KeyError", "TypeError", "JSONDecodeError", "OperationalError", "SandboxError"}
 LIFECYCLE_ACTIONS = {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes"}
 LIFECYCLE_ERRORS = {
     "Another host operation is running": "host_operation_busy",
@@ -103,8 +109,49 @@ def checkpoint(stage):
 
 
 def safe_error(exc, stage):
-    return {"error_code": str(exc) if str(exc) in SAFE_ERRORS else "unclassified_update_error",
+    code = getattr(exc, "code", None) or str(exc)
+    return {"error_code": code if isinstance(code, str) and code in SAFE_ERRORS else "unclassified_update_error",
             "error_type": type(exc).__name__ if type(exc).__name__ in ERROR_TYPES else "OtherError", "stage": stage}
+
+
+def probe_failure(exc):
+    """Retain only typed mechanism before Updater converts it to a generic code."""
+    result = safe_error(exc, "approved_candidate_activation")
+    raw = getattr(exc, "diagnostics", {})
+    if isinstance(raw, dict):
+        if raw.get("operation") in {"umount", "mount", "mkfs.ext4", "findmnt", "docker.run", "docker.inspect", "docker.info", "docker.rm", "docker.kill"}:
+            result["operation"] = raw["operation"]
+        if type(raw.get("command_exit_code")) is int and -128 <= raw["command_exit_code"] <= 255:
+            result["command_exit_code"] = raw["command_exit_code"]
+    result["signatures"] = process_diagnostics(subprocess.CompletedProcess([], None, "", str(exc)))["stderr_signatures"]
+    return result
+
+
+def observed_probe(probe, root, *args):
+    capacity = shutil.disk_usage(root)
+    DIAGNOSTICS["probe_resources"] = {"free_disk_bytes": capacity.free}
+    entries = dict(line.split(":", 1) for line in Path("/proc/meminfo").read_text().splitlines())
+    DIAGNOSTICS["probe_resources"]["available_memory_bytes"] = int(entries["MemAvailable"].split()[0]) * 1024
+    try:
+        return probe(*args)
+    except Exception as exc:
+        DIAGNOSTICS["probe_failure"] = probe_failure(exc)
+        raise
+
+
+def observed_run(run, *args, **kwargs):
+    from agentic_host.manager import HostError
+
+    try:
+        result = run(*args, **{**kwargs, "check": False})
+    except subprocess.TimeoutExpired as exc:
+        DIAGNOSTICS.setdefault("command_failure", process_diagnostics(subprocess.CompletedProcess([], None, exc.stdout, exc.stderr)))
+        raise
+    if kwargs.get("check", True) and result.returncode:
+        DIAGNOSTICS.setdefault("command_failure", process_diagnostics(result))
+        # Preserve manager.run's existing checked-command semantics exactly.
+        raise HostError(f"{args[0]}: {result.stderr.strip()[:500]}")
+    return result
 
 
 def begin_cleanup():
@@ -334,8 +381,10 @@ def main():
                 return run("docker", "image", "inspect", "--format", "{{.Id}}", candidate, **kwargs)
             if args == ("docker", "image", "inspect", manifest["image"]):
                 return run("docker", "image", "inspect", candidate, **kwargs)
-            return run(*args, **kwargs)
+            return observed_run(run, *args, **kwargs)
         service.run = execute
+        original_probe = service.probe
+        service.probe = lambda *args: observed_probe(original_probe, manager.root, *args)
         checkpoint("verify_signature_and_stage_candidate")
         status, record = service.handle("POST", "/updates/stage", {"manifest": manifest, "signature": signature})
         assert status == 202
@@ -345,6 +394,7 @@ def main():
             while record["state"] not in states:
                 if record["state"] in {"failed", "needs_reconcile", "rolled_back"}:
                     DIAGNOSTICS["updater_state"] = record["state"]
+                    DIAGNOSTICS["updater_phase"] = record.get("phase") if record.get("phase") in UPDATE_PHASES else "unknown"
                     error = record.get("error_code")
                     DIAGNOSTICS["updater_error_code"] = error if error in SAFE_ERRORS else "unclassified_update_error"
                     raise RuntimeError("installed_update_failed")

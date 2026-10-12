@@ -1,0 +1,15 @@
+{
+  "version": "0.6.0",
+  "iso_sha256": "9e4b48243963f065d48a281a6c77d6744c27860d65def328198c0aa574eea1cf",
+  "seed_sha256": "7465beff2e5599ae28cefeab8862625a2dc63f3c62de1a962bfc4621c425bf48",
+  "interactive_sections": [
+    "network",
+    "storage",
+    "identity"
+  ],
+  "preselected_disk": false,
+  "embedded_password": false,
+  "embedded_ssh_key": false,
+  "result": "passed",
+  "method": "Extract /agentic-seed/user-data from final ISO with xorriso; parse and assert network/storage/identity choices and absence of embedded identity or SSH authorization"
+}

@@ -4,12 +4,17 @@ The only writable input is a scrubbed structural copy of the stopped database.
 No access key, conversation, provider, household or Runner bearer is copied.
 """
 import sqlite3
+import sys
+from contextlib import closing
 from pathlib import Path
 
+# This trusted script is mounted at /fixed-probe.py. The candidate package is
+# copied to /app, not pip-installed; script execution does not add WORKDIR.
+sys.path.insert(0, "/app")
 from agentic_controller.store import Store
 
 path = Path("/probe/controller.sqlite3")
-with sqlite3.connect(path) as db:
+with closing(sqlite3.connect(path)) as db:
     expected = db.execute("PRAGMA user_version").fetchone()[0]
 store = Store(path)
 assert store.db.execute("PRAGMA user_version").fetchone()[0] == expected

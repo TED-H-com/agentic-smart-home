@@ -45,6 +45,8 @@
 
 重新安裝後，真 Codex 與兩項獨立測試已通過；接著發現安裝器的初始環境檔含註解，而 Hermes／updater 共用 writer 原本拒絕註解。修正只接受空白與獨立註解，保持固定欄位和 digest 驗證並拒絕重複欄位。直接取安裝器 literal 的契約回歸與 bootstrap／updater suite 共 56 項通過；最新媒體仍須完整安裝。
 
+更新器的實際映像回歸又重現固定 probe 的兩個問題：腳本掛載在根目錄，沒有將 `/app` 套件加入匯入路徑；SQLite 交易 context 不會關閉連線，描述符仍存活到測試磁碟釋放。修正固定匯入位置、保留交易提交並明確關閉連線，同兩項回歸由失敗變為通過。磁碟配置／掛載在局部重現中是替代實作，完整 ext4 和更新／退版仍以新 ISO 安裝結果為準；各轮失败记录未移除。
+
 ## 仍需獨立完成
 
 - 真 HAOS App 診斷已證明受限 SYS_ADMIN 與自訂 AppArmor 設定可建立 App 專屬 cgroup，並實際觸發記憶體限制；完整 Home launcher、出站／憑證／磁碟界線與真 Codex tools 流程仍未交付，維持 blocked。App、Core 容器和整個 HAOS 的觀測不可混稱。

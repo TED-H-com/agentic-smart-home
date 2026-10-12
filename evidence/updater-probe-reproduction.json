@@ -1,0 +1,104 @@
+{
+  "format": 1,
+  "scope": "focused_actual_updater_probe",
+  "original_installed_failure": "internal phase and original stacktrace unavailable; these defects were independently reproduced",
+  "runtime_media_before": "a67fab69c3ca4462a20b760b8ba1f3175659cb4a",
+  "image": "sha256:4146cd79e045e5fdcd360a89af8800f916c3ffcb58ea4ac412cc993f02391a04",
+  "uid": 1000,
+  "umask": "0077",
+  "network": "none",
+  "root_filesystem": "read-only",
+  "limits": {
+    "memory_mib": 256,
+    "pids": 32,
+    "cpus": 1,
+    "wall_seconds": 40
+  },
+  "disk_allocation": "substituted disk directory; no developer-host mounts and no quota claim",
+  "cleanup": "fixed container fence plus exact-owned final cleanup; disk basetemp removed by pytest-disktmp",
+  "real_cloud": false,
+  "observations": {
+    "before": {
+      "report": "updater-probe-prefixed-failure.xml",
+      "cases": [
+        {
+          "test": "test_fixed_probe_launch_and_database_handles_close_before_volume_release[database_handles]",
+          "state": "failed",
+          "diagnostics": {
+            "command": [],
+            "database_handles_at_volume_close": [
+              "live_database",
+              "probe_database"
+            ],
+            "disk_allocation": "substituted_without_host_mount",
+            "failure_type": null,
+            "image": "agentic-home-controller:0.6.0",
+            "umask": "0077",
+            "volume_cleanup_called": true
+          }
+        },
+        {
+          "test": "test_fixed_probe_launch_and_database_handles_close_before_volume_release[packaged_controller]",
+          "state": "failed",
+          "diagnostics": {
+            "command": [
+              {
+                "controller_import_error": true,
+                "returncode": 1,
+                "stderr_bytes": 186,
+                "stdout_bytes": 0
+              }
+            ],
+            "database_handles_at_volume_close": [
+              "live_database",
+              "probe_database"
+            ],
+            "disk_allocation": "substituted_without_host_mount",
+            "failure_type": "CalledProcessError",
+            "image": "sha256:4146cd79e045e5fdcd360a89af8800f916c3ffcb58ea4ac412cc993f02391a04",
+            "umask": "0077",
+            "volume_cleanup_called": true
+          }
+        }
+      ]
+    },
+    "after": {
+      "report": "updater-probe-fixed.xml",
+      "cases": [
+        {
+          "test": "test_fixed_probe_launch_and_database_handles_close_before_volume_release[database_handles]",
+          "state": "passed",
+          "diagnostics": {
+            "command": [],
+            "database_handles_at_volume_close": [],
+            "disk_allocation": "substituted_without_host_mount",
+            "failure_type": null,
+            "image": "agentic-home-controller:0.6.0",
+            "umask": "0077",
+            "volume_cleanup_called": true
+          }
+        },
+        {
+          "test": "test_fixed_probe_launch_and_database_handles_close_before_volume_release[packaged_controller]",
+          "state": "passed",
+          "diagnostics": {
+            "command": [
+              {
+                "controller_import_error": false,
+                "returncode": 0,
+                "stderr_bytes": 0,
+                "stdout_bytes": 0
+              }
+            ],
+            "database_handles_at_volume_close": [],
+            "disk_allocation": "substituted_without_host_mount",
+            "failure_type": null,
+            "image": "sha256:4146cd79e045e5fdcd360a89af8800f916c3ffcb58ea4ac412cc993f02391a04",
+            "umask": "0077",
+            "volume_cleanup_called": true
+          }
+        }
+      ]
+    }
+  }
+}

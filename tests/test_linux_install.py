@@ -142,7 +142,7 @@ def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run):
 
 def decode_update_observation(output):
     """Validate/project private probe receipts; never publish arbitrary remote text."""
-    from installed_update_probe import ERROR_TYPES, SAFE_ERRORS, STAGES
+    from installed_update_probe import ERROR_TYPES, SAFE_ERRORS, STAGES, UPDATE_PHASES, process_diagnostics
 
     if not output or len(output.encode()) > 65536:
         raise ValueError("probe_output_missing_or_oversized")
@@ -191,8 +191,33 @@ def decode_update_observation(output):
         projected["diagnostics"]["cleanup_error_code"] = error if error in SAFE_ERRORS else "unclassified_update_error"
     if diagnostic.get("updater_state") in {"failed", "needs_reconcile", "rolled_back"}:
         projected["diagnostics"]["updater_state"] = diagnostic["updater_state"]
+        projected["diagnostics"]["updater_phase"] = diagnostic.get("updater_phase") if diagnostic.get("updater_phase") in UPDATE_PHASES else "unknown"
         error = diagnostic.get("updater_error_code")
         projected["diagnostics"]["updater_error_code"] = error if error in SAFE_ERRORS else "unclassified_update_error"
+    signatures = process_diagnostics(subprocess.CompletedProcess([], None, "", ""))["stderr_signatures"]
+    probe_error = diagnostic.get("probe_failure")
+    if isinstance(probe_error, dict):
+        projected["diagnostics"]["probe_failure"] = {
+            "error_code": probe_error.get("error_code") if probe_error.get("error_code") in SAFE_ERRORS else "unclassified_update_error",
+            "error_type": probe_error.get("error_type") if probe_error.get("error_type") in ERROR_TYPES else "OtherError",
+            "signatures": {key: probe_error.get("signatures", {}).get(key) is True for key in signatures},
+        }
+        if probe_error.get("operation") in {"umount", "mount", "mkfs.ext4", "findmnt", "docker.run", "docker.inspect", "docker.info", "docker.rm", "docker.kill"}:
+            projected["diagnostics"]["probe_failure"]["operation"] = probe_error["operation"]
+        if type(probe_error.get("command_exit_code")) is int and -128 <= probe_error["command_exit_code"] <= 255:
+            projected["diagnostics"]["probe_failure"]["command_exit_code"] = probe_error["command_exit_code"]
+    command = diagnostic.get("command_failure")
+    if isinstance(command, dict):
+        projected["diagnostics"]["command_failure"] = {
+            "returncode": command.get("returncode") if type(command.get("returncode")) is int and -255 <= command["returncode"] <= 255 else None,
+            "stderr_signatures": {key: command.get("stderr_signatures", {}).get(key) is True for key in signatures},
+            **{key: command[key] for key in ("stdout_bytes", "stderr_bytes") if type(command.get(key)) is int and command[key] >= 0},
+            "stderr_truncated": command.get("stderr_truncated") is True,
+        }
+    resources = diagnostic.get("probe_resources")
+    if isinstance(resources, dict):
+        projected["diagnostics"]["probe_resources"] = {key: resources[key] for key in ("free_disk_bytes", "available_memory_bytes")
+                                                      if type(resources.get(key)) is int and resources[key] >= 0}
     if result["state"] == "failed":
         projected.update(error_code=result.get("error_code") if result.get("error_code") in SAFE_ERRORS else "unclassified_update_error",
                          error_type=result.get("error_type") if result.get("error_type") in ERROR_TYPES else "OtherError",

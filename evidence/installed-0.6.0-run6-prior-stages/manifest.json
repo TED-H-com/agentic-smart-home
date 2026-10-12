@@ -1,0 +1,16 @@
+{
+  "source_commit": "a67fab69c3ca4462a20b760b8ba1f3175659cb4a",
+  "harness_commit": "53260e1cfe2c5233200f2305678ae667cb8c2644",
+  "iso_sha256": "9e4b48243963f065d48a281a6c77d6744c27860d65def328198c0aa574eea1cf",
+  "scope": "Run6 passed intermediate stages; updater failed during approved candidate activation; cleanup confirmed",
+  "files": {
+    "installed-auth-laptop-amd64.json": "9803e70c185bb776fd6befb1a71925138ed4b67446c6fa3919d6e29731ea13d5",
+    "installed-rescue-laptop-amd64.json": "adfa3f7551c6bd7240c4781daad382bbe77242b2ccfc3cee973577cbbe21ee46",
+    "installed-sandbox-laptop-amd64.json": "882646be63733b6cd6abb064a7d8b8f488c1dbf95ee740d1bf6e72be09cbc2a3",
+    "installed-coding-laptop-amd64.json": "e0a517c6cbf479626510d509951f4bb3400d459c7cf4652c87a91e98af01b041",
+    "installed-hermes-laptop-amd64.json": "169d2a12753e3b1b7415f9f08cc61751229181659685b5c9128d1b05378cb84c",
+    "installed-process-auth-laptop-amd64.json": "1095168247730926de2f984e1a37044105d31316096864e9c2c90cdc7375b5dc",
+    "installed-process-sandbox-laptop-amd64.json": "d61db2bb5ec3b83aac920fb046c1c362c0bfdd78e4ba05001b1e7485647e912f",
+    "installed-process-coding-laptop-amd64.json": "af8ccc9524b6b997a91170b0cced0618de626117ced84e4f507f29dac18e0a44"
+  }
+}

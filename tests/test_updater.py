@@ -170,6 +170,99 @@ def test_environment_overrides_preserve_both_pinned_components(tmp_path):
     assert path.read_text().splitlines() == ["AGENTIC_CONTROLLER_IMAGE=sha256:" + "2" * 64, "AGENTIC_HERMES_IMAGE=sha256:" + "3" * 64]
 
 
+@pytest.mark.parametrize("actual_container", [False, True], ids=["database_handles", "packaged_controller"])
+def test_fixed_probe_launch_and_database_handles_close_before_volume_release(
+        updater, tmp_path, monkeypatch, request, record_property, actual_container):
+    """Exercise the actual probe; only root-only disk allocation is substituted.
+
+    No developer-host mount is created. Installed-VM coverage separately proves
+    the ext4 quota/mount implementation. The Docker variant retains the product
+    command, image, UID and limits and tests its actual mounted Python entrypoint.
+    """
+    if actual_container and not request.config.getoption("--containers"):
+        pytest.skip("requires --containers and the packaged Controller image")
+    import agentic_host.updater as module
+    from agentic_controller.store import Store
+
+    service, _ = updater
+    service.database.unlink()
+    database = Store(service.database)
+    database.close()
+    service.manager.product = Path(__file__).resolve().parents[1]
+    directory = tmp_path / "probe-volume"
+    released, handles, containers = [], [], []
+    command_diagnostics = []
+
+    class DiskFixture:
+        def __init__(self, root, identity, size):
+            assert root == service.root / "probes" and len(identity) == 32 and size == 64
+
+        def create(self):
+            directory.mkdir(mode=0o755)
+            return directory
+
+        def close(self):
+            for fd in Path("/proc/self/fd").iterdir():
+                try:
+                    target = Path(os.readlink(fd))
+                except FileNotFoundError:
+                    continue
+                if target == service.database or target.is_relative_to(directory):
+                    handles.append("live_database" if target == service.database else "probe_database")
+            released.append(True)
+
+    def test_chown(path, uid, gid):
+        assert (uid, gid) == (1000, 1000)
+        if os.getuid() == 1000:
+            os.chown(path, uid, gid)
+        else:
+            # Non-root CI has UID 1001. This disk-plumbing fixture grants only
+            # its synthetic data access; the real container still runs UID 1000.
+            Path(path).chmod(0o777 if Path(path).is_dir() else 0o666)
+
+    monkeypatch.setattr(module, "DiskVolume", DiskFixture)
+    monkeypatch.setattr(module, "os", SimpleNamespace(chown=test_chown))
+    image = "agentic-home-controller:0.6.0"
+
+    def execute(*args, **kwargs):
+        if args[:2] == ("docker", "run"):
+            containers.append(args[args.index("--name") + 1])
+        result = subprocess.run(args, capture_output=True, text=True, **{**kwargs, "check": False})
+        if args[:2] == ("docker", "run"):
+            command_diagnostics.append({"returncode": result.returncode,
+                                        "controller_import_error": "No module named 'agentic_controller'" in result.stderr,
+                                        "stdout_bytes": len(result.stdout.encode()), "stderr_bytes": len(result.stderr.encode())})
+        if kwargs.get("check", True) and result.returncode:
+            raise subprocess.CalledProcessError(result.returncode, args)
+        return result
+
+    if actual_container:
+        service.run = execute
+        image = execute("docker", "image", "inspect", "--format", "{{.Id}}", image, timeout=10).stdout.strip()
+    else:
+        monkeypatch.setattr(module, "ready", lambda *args: None)
+        monkeypatch.setattr(module, "fence", lambda *args: None)
+        service.run = lambda *args, **kwargs: subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+    old_umask = os.umask(0o077)
+    failure = None
+    try:
+        try:
+            service.probe(image, 3)
+        except Exception as exc:
+            failure = type(exc).__name__
+    finally:
+        os.umask(old_umask)
+        for name in containers:
+            subprocess.run(["docker", "rm", "-fv", name], capture_output=True, timeout=20, check=False)
+    diagnostics = {"failure_type": failure, "database_handles_at_volume_close": handles,
+                   "volume_cleanup_called": released == [True], "command": command_diagnostics,
+                   "image": image, "disk_allocation": "substituted_without_host_mount", "umask": "0077"}
+    record_property("probe_diagnostics", json.dumps(diagnostics, sort_keys=True))
+    assert failure is None, diagnostics
+    assert released == [True] and handles == [], diagnostics
+    assert not service.probe_path.exists()
+
+
 def test_restart_fences_deployment_and_requires_new_explicit_rollback_offer(updater):
     service, record = updater
     record.update(state="deploying", previous_image="sha256:" + "1" * 64)

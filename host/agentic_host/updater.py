@@ -345,11 +345,14 @@ class Updater:
         try:
             directory = volume.create()
             path = directory / "controller.sqlite3"
-            with sqlite3.connect(self.database.as_uri() + "?mode=ro", uri=True) as source, sqlite3.connect(path) as target:
-                for row in source.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name IN ('settings','records','requests','events')"):
-                    target.execute(row[0])
-                target.execute(f"PRAGMA user_version={int(schema)}")
-                target.executemany("INSERT INTO settings VALUES (?,?)", [("paused", "true"), ("retention", '{"context_days":7}')])
+            with closing(sqlite3.connect(self.database.as_uri() + "?mode=ro", uri=True)) as source, closing(sqlite3.connect(path)) as target:
+                # sqlite's transaction context commits but does not close its
+                # descriptor. Close both before the quota volume is unmounted.
+                with target:
+                    for row in source.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name IN ('settings','records','requests','events')"):
+                        target.execute(row[0])
+                    target.execute(f"PRAGMA user_version={int(schema)}")
+                    target.executemany("INSERT INTO settings VALUES (?,?)", [("paused", "true"), ("retention", '{"context_days":7}')])
             os.chown(directory, 1000, 1000)
             os.chown(path, 1000, 1000)
             self.run("docker", "run", "--name", name, "--label", "agentic.update-probe=" + name, "--no-healthcheck", "--network", "none", "--read-only", "--cap-drop", "ALL",
