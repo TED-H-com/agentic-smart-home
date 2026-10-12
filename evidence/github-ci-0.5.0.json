@@ -1,0 +1,18 @@
+{
+  "conclusion": "success",
+  "createdAt": "2026-10-12T05:45:44Z",
+  "headSha": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+  "status": "completed",
+  "updatedAt": "2026-10-12T05:52:23Z",
+  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38209360594",
+  "version": "0.5.0",
+  "junit": "pytest-0.5.0-github.xml",
+  "tests": {
+    "tests": "212",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "3",
+    "time": "222.678"
+  },
+  "scope": "Full Linux/Core/container/browser regression; large independent HAOS and ISO installation run separately. UID1000 desktop unit is skipped on GitHub runner UID, verified locally; installed-system result is recorded separately."
+}

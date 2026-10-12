@@ -13,6 +13,11 @@
 | 桌面／Web | 一次性本機票據、私有launcher不洩漏程序參數，真Chromium+APIfixtures測引導、刷新、斷線、三種螢幕及既有操作；[画面](../evidence/ui/bootstrap-choose-1440.png) |
 
 
+
+0.5.0 初次 [GitHub CI](https://github.com/teddashh/agentic-smart-home/actions/runs/38209360594) **209 passed／3 skipped／222.678秒**，見 [CI記錄](../evidence/github-ci-0.5.0.json)。CI的UID不同，另略過只供安裝後UID1000的桌面單元測試；本機已驗。新增跨程序的真Host writer→封裝Controller票據測試另通過，見 [desktop handoff](../evidence/desktop-handoff-0.5.0.xml)。
+
+新版 ISO 第一輪完成 Linux／outer firstboot／四個映像核對，但安裝後驗證腳本錯把重播票據的403預期為401而停止。原harness未保存HTTP狀態，因此完整失敗點依 [紀錄](../evidence/linux-install-0.5.0-auth-fixture-failure.json)保留，不宣稱整機通過。已修正預期並加入只有固定路徑／狀態碼的失敗觀測；使用相同ISO重跑，不改產品拒絕重播的行為。
+
 ## 0.4.0 技術預覽驗證（歷史）
 
 2026-10-12，修正 sandbox／manifest 權限後的 [GitHub CI](https://github.com/teddashh/agentic-smart-home/actions/runs/38202961564) 通過 **145 passed、2 skipped，152.424 秒**；受測與媒體 source commit 均為 `cb11ffd8c0d3eb48a9854fd51add030a1df936e9`，見 [CI 記錄](../evidence/github-ci-0.4.0-final.json)及 [JUnit](../evidence/pytest-0.4.0-github.xml)。CI 包含 `--real-ha --containers`，跳過獨立大型 HAOS KVM 與完整 Linux ISO 安裝；後者已另行通過 **1 passed，1566.81 秒**，見 [ISO JUnit](../evidence/linux-install-0.4.0.xml)。本輪完成 E0 工程媒體及獨立救援範圍；Owner laptop／真帳號與 E1、E2 尚未完成。

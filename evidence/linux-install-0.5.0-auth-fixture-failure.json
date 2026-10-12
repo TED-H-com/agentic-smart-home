@@ -1,0 +1,17 @@
+{
+  "result": "failed",
+  "seconds": 714.41,
+  "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+  "iso_sha256": "5d79886885253a0799d2d21a244ba79648e4c4a570fe2b7e701c2a07057d6430",
+  "completed": [
+    "Linux install",
+    "outer-only firstboot",
+    "version and four image digests",
+    "services active",
+    "public deployment endpoint"
+  ],
+  "failed_at": "installed auth probe",
+  "finding": "Probe incorrectly expects replay401; HostSession contract rejects invalid/replayed tickets with403. Failure did not retain HTTP status; harness now records only safe path/status observations before asserting.",
+  "remaining": "rescue,latest activation,nested HAOS lifecycle not run",
+  "cleanup": "disposable VM,container,disk and ephemeralSSH key removed"
+}

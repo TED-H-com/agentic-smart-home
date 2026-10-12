@@ -6,6 +6,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+OBSERVATIONS = []
+
 
 def probe():
     base = "http://localhost:8099"
@@ -15,8 +17,13 @@ def probe():
         body = json.dumps(data).encode() if data is not None else None
         req = urllib.request.Request(base + path, data=body,
                                      headers={"Origin": base, "Content-Type": "application/json"})
-        with opener.open(req, timeout=90) as response:
-            return json.load(response)
+        try:
+            with opener.open(req, timeout=90) as response:
+                OBSERVATIONS.append({"path": path, "status": response.status})
+                return json.load(response)
+        except urllib.error.HTTPError as exc:
+            OBSERVATIONS.append({"path": path, "status": exc.code})
+            raise
 
     sys.path.insert(0, "/opt/agentic-home/host")
     from agentic_host.desktop import issue_ticket
@@ -26,7 +33,7 @@ def probe():
     try:
         request("/api/host/desktop-login", {"ticket": ticket})
     except urllib.error.HTTPError as exc:
-        assert exc.code == 401
+        assert exc.code == 403
     else:
         raise AssertionError("Consumed desktop ticket was reused")
     key = Path("/var/lib/agentic-home/controller/access-key").read_text().strip()
@@ -52,4 +59,10 @@ def probe():
 
 
 if __name__ == "__main__":
-    print(json.dumps(probe(), indent=2))
+    try:
+        print(json.dumps({**probe(), "http_observations": OBSERVATIONS}, indent=2))
+    except Exception as exc:
+        # Never print request bodies, access keys, cookies or raw exception text.
+        print(json.dumps({"result": "failed", "error_type": type(exc).__name__,
+                          "http_observations": OBSERVATIONS}, indent=2))
+        raise SystemExit(1) from None

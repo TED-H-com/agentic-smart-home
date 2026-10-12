@@ -3,6 +3,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -109,8 +110,12 @@ while data:=s.recv(65536):
             assert command(*ssh, "sudo docker image inspect --format '{{.Id}}' " + tag) == digest
         assert command(*ssh, "systemctl is-active agentic-home agentic-home-host agentic-home-proxy") == "active\nactive\nactive"
         assert command(*ssh, "curl -fsS http://localhost:8099/api/deployment")
-        auth_probe = command(*ssh, "python3 -", input=(ROOT / "tests/installed_probe.py").read_text())
-        (ROOT / "evidence" / ("installed-auth-" + profile + ".json")).write_text(auth_probe + "\n")
+        auth_result = subprocess.run([*ssh, "python3 -"], capture_output=True, text=True, timeout=120,
+                                     input=(ROOT / "tests/installed_probe.py").read_text())
+        auth_probe = json.loads(auth_result.stdout)
+        (ROOT / "evidence" / ("installed-auth-" + profile + ".json")).write_text(
+            json.dumps(auth_probe, indent=2) + "\n")
+        assert auth_result.returncode == 0 and auth_probe.get("result") != "failed", auth_probe
         # Exercise independent console recovery before adding any household VM.
         diagnostics = json.loads(command(*ssh, "agentic-home diagnostics"))
         assert diagnostics["observations"]
@@ -146,11 +151,20 @@ while data:=s.recv(65536):
         assert sandbox_result.returncode == 0 and sandbox_probe["result"] == "passed", sandbox_probe
         # Exercise the real first-install latest-source build/probe/activation
         # on this disposable OS, without logging into any model account.
-        command(*ssh, "agentic-home bootstrap_hermes", timeout=1500)
+        latest_result = subprocess.run([*ssh, "agentic-home bootstrap_hermes"], capture_output=True,
+                                       text=True, timeout=1500)
         bootstrap_hermes = json.loads(command(*ssh, "agentic-home status"))["bootstrap"]["hermes"]
-        assert bootstrap_hermes["state"] == "ready" and bootstrap_hermes["source"] == "latest"
-        candidate_id = command(*ssh, compose + " images -q hermes")
-        assert candidate_id.startswith("sha256:")
+        (ROOT / "evidence" / ("installed-hermes-" + profile + ".json")).write_text(json.dumps({
+            "runtime_location": "disposable_outer_linux_vm", "iso_sha256": iso_hash,
+            "cli_exit": latest_result.returncode, "observed": bootstrap_hermes,
+            "cloud_login": "not_run"}, indent=2) + "\n")
+        assert latest_result.returncode == 0 and bootstrap_hermes["state"] == "ready", bootstrap_hermes
+        assert bootstrap_hermes["source"] == "latest"
+        def hermes_image():
+            identifier = command(*ssh, compose + " images -q hermes")
+            assert re.fullmatch(r"(?:sha256:)?[a-f0-9]{12,64}", identifier)
+            return command(*ssh, "sudo docker image inspect --format '{{.Id}}' " + identifier)
+        candidate_id = hermes_image()
         runtime_revision = json.loads(command(*ssh, "python3 -", input='''
 import http.cookiejar,json,urllib.request
 from pathlib import Path
@@ -195,7 +209,7 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
         else:
             raise AssertionError("Outer product did not restart")
         assert json.loads(command(*ssh, "agentic-home status"))["vm"] == "running"
-        assert command(*ssh, compose + " images -q hermes") == candidate_id
+        assert hermes_image() == candidate_id
         wait_ha()
         evidence = {"kind": "real_linux_install_nested_kvm", "profile": profile, "base": "Ubuntu 24.04.5",
                     "iso_sha256": iso_hash,

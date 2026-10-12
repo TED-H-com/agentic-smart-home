@@ -1,0 +1,13 @@
+{
+  "result": "passed",
+  "iso_sha256": "5d79886885253a0799d2d21a244ba79648e4c4a570fe2b7e701c2a07057d6430",
+  "interactive_sections": [
+    "network",
+    "storage",
+    "identity"
+  ],
+  "embedded_identity": false,
+  "authorized_ssh_keys": false,
+  "test_disk_serial": false,
+  "test_sudoers": false
+}
