@@ -1,0 +1,40 @@
+{
+  "source_commit": "acc44fc78b51c01416e83f40163a415ffae3ef19",
+  "iso_sha256": "3b6872c2816a42cbdc19c23133be2b44a42ea911fcf99bb3fe4bc4d31a67bd69",
+  "phase": "installed_auth_probe",
+  "result": "failed",
+  "exception": "AssertionError",
+  "duration_seconds": 1152.82,
+  "last_http_observation": {
+    "path": "/api/hermes",
+    "status": 200
+  },
+  "known_passed": [
+    "ubuntu_installation",
+    "firstboot",
+    "installed_version",
+    "all_five_image_ids",
+    "pinned_source_clone",
+    "tailscale_needs_login",
+    "host_services",
+    "desktop_ticket_and_replay_rejection",
+    "owner_login",
+    "host_session",
+    "automatic_runner_pairing",
+    "four_provider_catalog"
+  ],
+  "not_reached": [
+    "coding_probe",
+    "latest_hermes_bootstrap",
+    "nested_haos",
+    "update_rollback"
+  ],
+  "cleanup": {
+    "owned_vm_removed": true,
+    "disk_basetemp_removed": true
+  },
+  "root_cause": "confirmed_stale_probe_asserted_all_workers_unavailable_while_host_boundary_readiness_is_independent_of_role_auth",
+  "diagnostic_limitation": "original_probe_did_not_record_exact_assertion_or_Hermes_state; cannot_retroactively_exclude_transient_runtime_state",
+  "harness_fix": "exact_host_boundary_and_Codex_needs_auth_contract; unpaired_Home; valid_owner_work_request_blocked_without_execution; safe_stage_diagnostics",
+  "focused_verification": "6 passed; evidence/installed-probe-contract-0.6.0.xml"
+}

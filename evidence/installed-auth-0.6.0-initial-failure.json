@@ -1,0 +1,34 @@
+{
+  "result": "failed",
+  "error_type": "AssertionError",
+  "http_observations": [
+    {
+      "path": "/api/host/desktop-login",
+      "status": 200
+    },
+    {
+      "path": "/api/host/desktop-login",
+      "status": 403
+    },
+    {
+      "path": "/api/host/login",
+      "status": 200
+    },
+    {
+      "path": "/api/session",
+      "status": 200
+    },
+    {
+      "path": "/api/host/status",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/hermes",
+      "status": 200
+    }
+  ]
+}
