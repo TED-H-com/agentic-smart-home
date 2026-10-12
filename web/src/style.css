@@ -121,3 +121,72 @@
 .conversation-work .service-row {padding:8px 0; border-bottom:0}
 
 .worker-results > button.secondary {margin-top:16px}
+
+/* The assistant is the everyday entry; engineering controls stay on demand. */
+.assistant-page{max-width:880px;margin:0 auto;display:flex;flex-direction:column;min-height:calc(100dvh - 220px);gap:var(--s4)}
+.assistant-toolbar{display:flex;align-items:center;gap:var(--s2);padding-bottom:var(--s2)}
+.assistant-toolbar>a{margin-left:auto;font-size:var(--sm);padding:var(--s2)}
+.assistant-conversation{flex:1;min-height:240px}
+.assistant-welcome{padding:var(--s8) 0;display:flex;flex-direction:column;justify-content:center;min-height:320px;gap:var(--s3)}
+.assistant-welcome h2{font-size:var(--h1);letter-spacing:-.04em}
+.assistant-welcome>p{color:var(--muted)}
+.assistant-suggestions{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s4)}
+.assistant-suggestions button{font-weight:400;background:var(--surface)}
+.assistant-composer{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:var(--s4);z-index:2}
+.assistant-composer textarea{margin:0;padding:0;min-height:72px;max-height:240px;border:0;border-radius:0;resize:vertical;background:transparent}
+.assistant-composer textarea:focus-visible{outline:2px solid var(--accent);outline-offset:var(--s1)}
+.assistant-composer-actions{display:flex;align-items:center;justify-content:space-between;gap:var(--s4);margin-top:var(--s3)}
+.assistant-composer-actions>span{font-size:var(--sm)}
+.assistant-options{font-size:var(--sm);margin:0}
+.assistant-options>summary{color:var(--muted)}
+.assistant-options .composer-controls{margin:var(--s4) 0;align-items:end}
+.assistant-options .row-actions{margin-top:var(--s4)}
+.assistant-history{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);padding:var(--s4);max-height:360px;overflow:auto}
+.assistant-history h2{font-size:var(--body);margin-bottom:var(--s3)}
+.assistant-history-item{display:flex;flex-direction:column;align-items:flex-start;gap:var(--s1);width:100%;border:0;border-radius:0;border-top:1px solid var(--line);padding:var(--s3) 0;text-align:left;font-weight:400}
+.assistant-history-item>span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.assistant-history-item small{font-size:var(--xs);font-weight:400}
+.assistant-messages{gap:var(--s8)}
+.assistant-message.inbox-message{padding:0;border:0;background:none;box-shadow:none}
+.assistant-question{display:flex;justify-content:flex-end;margin-bottom:var(--s6)}
+.assistant-question h3{padding:var(--s3) var(--s4);background:var(--accent-soft);border-radius:var(--radius);max-width:85%;font-size:var(--body);font-weight:400;white-space:pre-wrap;overflow-wrap:anywhere}
+.assistant-answer{max-width:760px}
+.assistant-speaker{display:block;font-size:var(--sm);font-weight:650;margin-bottom:var(--s2);color:var(--accent)}
+.assistant-answer>p{white-space:pre-wrap;line-height:1.8}
+.assistant-answer>.row-actions:empty{display:none}
+.assistant-work{padding:var(--s4) 0;border-top:1px solid var(--line)}
+.assistant-work>.section-heading{margin-bottom:var(--s2)}
+.assistant-work .helper-text{font-size:var(--sm)}
+.assistant-work button{font-weight:500}
+.assistant-answer .conversation-work{padding:0;background:none;border:0;margin-top:var(--s4)}
+.assistant-result{padding:var(--s4);margin-top:var(--s3);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+.assistant-result>.helper-text{display:none}
+.assistant-result>.worker-findings{margin-top:var(--s4)}
+.assistant-result pre{font-size:var(--sm)}
+.assistant-result .worker-findings li pre{padding:0;background:none;white-space:pre-wrap;font-family:inherit}
+.assistant-result>details{margin-top:var(--s4)}
+.assistant-readonly{display:flex;gap:var(--s4);align-items:center;justify-content:space-between}
+.assistant-channel-settings{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:var(--s6)}
+@media(max-width:800px){
+  .assistant-page{min-height:calc(100dvh - 200px)}
+  .assistant-welcome{min-height:260px;padding:var(--s6) 0}
+  .assistant-toolbar{flex-wrap:wrap}
+  .assistant-toolbar button{font-size:var(--sm);padding:var(--s2) var(--s3)}
+  .assistant-suggestions{flex-direction:column;align-items:flex-start}
+  .assistant-suggestions button{max-width:100%}
+  .assistant-composer{bottom:var(--s2);padding:var(--s3)}
+  .assistant-composer textarea{font-size:16px;min-height:72px}
+  .assistant-question h3{max-width:94%}
+  .assistant-result{padding:var(--s3)}
+  .assistant-channel-settings{padding:var(--s4)}
+  .assistant-options .composer-controls{flex-wrap:wrap}
+}
+
+.settings-simple{max-width:880px;margin:0 auto;gap:0}
+.settings-hub.row-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3);margin-bottom:var(--s6)}
+.settings-hub a{justify-content:space-between;background:var(--surface);padding:var(--s4);font-weight:500}
+.settings-hub a::after{content:'→';color:var(--muted)}
+.settings-fold{border-top:1px solid var(--line);margin:0;padding:var(--s4) 0}
+.settings-fold>summary{font-size:var(--body);min-height:44px;align-content:center}
+.settings-fold>form,.settings-fold>p,.settings-fold>.retention-fields{margin-top:var(--s4)}
+@media(max-width:480px){.settings-hub.row-actions{grid-template-columns:1fr}}

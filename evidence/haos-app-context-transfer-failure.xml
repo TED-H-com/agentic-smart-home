@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="281.728" timestamp="2026-10-12T06:16:18.590751-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_haos_boundary" name="test_actual_haos_app_boundary" time="281.710"><failure message="AssertionError: Error: An unknown error occurred while trying to build the image for app local_agentic_boundary_protected_baseline. Check Supervisor logs for details&#10;  #4 ERROR: failed to calculate checksum of ref ilphhj2m6d2su8gn8xyzjttpf::fut1ny694ragzfvf73wrpe8po: &quot;/probe.py&quot;: not found&#10;  &#10;  #5 [1/2] ADD rootfs.tar /&#10;  #5 ERROR: failed to calculate checksum of ref ilphhj2m6d2su8gn8xyzjttpf::fut1ny694ragzfvf73wrpe8po: &quot;/rootfs.tar&quot;: not found&#10;  ------&#10;   &gt; [1/2] ADD rootfs.tar /:&#10;  ------&#10;  ------&#10;   &gt; [2/2] COPY probe.py /probe.py:&#10;  ------&#10;  Dockerfile:3&#10;  --------------------&#10;     1 |     FROM scratch&#10;     2 |     ADD rootfs.tar /&#10;     3 | &gt;&gt;&gt; COPY probe.py /probe.py&#10;     4 |     ENV PATH=/usr/local/bin:/usr/bin:/bin&#10;     5 |     CMD [&quot;python&quot;,&quot;/probe.py&quot;]&#10;  --------------------&#10;  ERROR: failed to build: failed to solve: failed to compute cache key: failed to calculate checksum of ref ilphhj2m6d2su8gn8xyzjttpf::fut1ny694ragzfvf73wrpe8po: &quot;/probe.py&quot;: not found&#10;  #x1B[0m&#10;  &#10;assert ('Error:' not in 'Error: An u...or details\n'&#10;  &#10;  'Error:' is contained here:&#10;    Error: An unknown error occurred while trying to build the image for app local_agentic_boundary_protected_baseline. Check Supervisor logs for details&#10;  ? ++++++)">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-061618-pFwbeb/bt/test_actual_haos_app_boundary0')
+request = &lt;FixtureRequest for &lt;Function test_actual_haos_app_boundary&gt;&gt;
+
+    def test_actual_haos_app_boundary(tmp_path, request):
+        if not request.config.getoption("--haos-vm"):
+            pytest.skip("Actual HAOS App probe requires --haos-vm")
+        assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
+        name = "agentic-haos-boundary-" + uuid.uuid4().hex[:10]
+        with lzma.open(ROOT / "build/cache/haos_ova-18.3.qcow2.xz", "rb") as source, (tmp_path / "haos.qcow2").open("wb") as target:
+            shutil.copyfileobj(source, target, 1024 * 1024)
+        image_container = name + "-image"
+        try:
+            docker("create", "--name", image_container, "agentic-home-runner:0.6.0")
+            subprocess.run(["docker", "export", "-o", str(tmp_path / "rootfs.tar"), image_container], check=True, timeout=120)
+        finally:
+            subprocess.run(["docker", "rm", "-fv", image_container], capture_output=True)
+        shutil.copyfile(ROOT / "tests/haos_boundary_probe.py", tmp_path / "probe.py")
+        subprocess.run(["ssh-keygen", "-t", "ed25519", "-N", "", "-f", str(tmp_path / "key")], check=True, capture_output=True)
+        (tmp_path / "config").mkdir()
+        shutil.copyfile(tmp_path / "key.pub", tmp_path / "config/authorized_keys")
+        with (tmp_path / "config.ext4").open("wb") as stream:
+            stream.truncate(32 * 1024**2)
+        subprocess.run(["/usr/sbin/mkfs.ext4", "-q", "-F", "-L", "CONFIG", "-d", str(tmp_path / "config"),
+                        str(tmp_path / "config.ext4")], check=True, capture_output=True)
+        try:
+            docker("run", "-d", "--name", name, "--device", "/dev/kvm", "--memory", "4096m", "--cpus", "3",
+                   "-p", "127.0.0.1::2222", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0", "bash", "-ec",
+                   "python3 -m http.server 8081 --directory /lab &gt;/lab/http.log 2&gt;&amp;1 &amp;\n"
+                   "cp /usr/share/OVMF/OVMF_VARS_4M.fd /lab/nvram.fd\nqemu-img resize /lab/haos.qcow2 64G\n"
+                   "exec qemu-system-x86_64 -enable-kvm -cpu host -machine q35 -m 3072 -smp 2 "
+                   "-drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd "
+                   "-drive if=pflash,format=raw,file=/lab/nvram.fd "
+                   "-drive file=/lab/haos.qcow2,format=qcow2,if=none,id=disk "
+                   "-device virtio-scsi-pci -device scsi-hd,drive=disk "
+                   "-drive file=/lab/config.ext4,format=raw,if=virtio "
+                   "-netdev user,id=net,hostfwd=tcp:0.0.0.0:2222-:22222 -device virtio-net-pci,netdev=net -display none "
+                   "-serial file:/lab/serial.log")
+            port = json.loads(docker("inspect", name))[0]["NetworkSettings"]["Ports"]["2222/tcp"][0]["HostPort"]
+            ssh = ["ssh", "-i", str(tmp_path / "key"), "-p", port, "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes",
+                   "-o", "StrictHostKeyChecking=no", "-o", f"UserKnownHostsFile={tmp_path / 'known_hosts'}",
+                   "-o", "ConnectTimeout=5", "root@127.0.0.1"]
+            for _ in range(120):
+                ready = subprocess.run([*ssh, "true"], capture_output=True, timeout=8)
+                if ready.returncode == 0:
+                    break
+                time.sleep(3)
+            else:
+                raise AssertionError("HAOS official CONFIG-key SSH import did not become ready")
+    
+            def shell(command, timeout=90):
+                result = subprocess.run([*ssh, "sh"], input=command, capture_output=True, text=True, timeout=timeout)
+                return result.stdout + result.stderr
+    
+            shell("wget -q http://10.0.2.2:8081/rootfs.tar -O /mnt/data/boundary-rootfs.tar", 180)
+            evidence = {"observed_from": "real_haos_app", "haos_image": "18.3", "cloud_account": "not_used", "runner_image": docker("image", "inspect", "agentic-home-runner:0.6.0", "--format", "{{.Id}}"), "profiles": {}}
+            for label, capabilities in (("protected_baseline", []), ("narrow_sys_admin", ["SYS_ADMIN"])):
+                slug = "agentic_boundary_" + label
+                config = {"name": "Disposable boundary probe", "version": "1.0.0", "slug": slug,
+                          "description": "Isolated test only", "arch": ["amd64"], "startup": "application",
+                          "boot": "manual", "init": False, "apparmor": True, "hassio_api": False,
+                          "homeassistant_api": False, "docker_api": False, "full_access": False,
+                          "host_pid": False, "host_network": False, "privileged": capabilities,
+                          "options": {}, "schema": {}}
+                directory = "/mnt/data/supervisor/apps/local/" + slug
+                apparmor = """#include &lt;tunables/global&gt;
+    profile agentic-boundary flags=(attach_disconnected,mediate_deleted) {
+      #include &lt;abstractions/base&gt;
+      file,
+      network,
+      capability,
+      signal,
+      mount fstype=cgroup2 -&gt; /data/boundary-probe/cgroup/,
+      umount /data/boundary-probe/cgroup/,
+    }
+    """
+                commands = ["mkdir -p " + directory,
+                            "wget -q http://10.0.2.2:8081/probe.py -O " + directory + "/probe.py",
+                            "ln /mnt/data/boundary-rootfs.tar " + directory + "/rootfs.tar"]
+                files = {"config.json": json.dumps(config), "Dockerfile":
+                         'FROM scratch\nADD rootfs.tar /\nCOPY probe.py /probe.py\nENV PATH=/usr/local/bin:/usr/bin:/bin\nCMD ["python","/probe.py"]\n'}
+                if capabilities:
+                    files["apparmor.txt"] = apparmor.replace("profile agentic-boundary ", "profile " + slug + " ")
+                for filename, content in files.items():
+                    commands.append("echo " + base64.b64encode(content.encode()).decode() + " | base64 -d &gt; " + directory + "/" + filename)
+                shell("\n".join(commands))
+                # Wait for Supervisor readiness, then use its real local-App install/start APIs.
+                for _ in range(90):
+                    output = shell("ha apps reload &amp;&amp; ha apps info local_" + slug, 30)
+                    if "version:" in output or '"version"' in output:
+                        break
+                    time.sleep(3)
+                update_requested = False
+                install_deadline = time.monotonic() + 360
+                installed = "not attempted"
+                while time.monotonic() &lt; install_deadline:
+                    observed = shell("ha apps info local_" + slug + " --raw-json", 30)
+                    try:
+                        if json.loads(observed).get("data", {}).get("installed") is True:
+                            installed = "already installed after retry"
+                            break
+                    except ValueError:
+                        pass
+                    installed = shell("ha apps install local_" + slug, 240)
+                    if "Error:" not in installed and '"result":"error"' not in installed:
+                        break
+                    if "supervisor needs to be updated first" in installed and not update_requested:
+                        shell("ha supervisor update", 240)
+                        update_requested = True
+                    elif not any(message in installed.lower() for message in
+                                 ("updated first", "in progress", "connection refused", "not ready", "starting", "already installed")):
+                        break
+                    time.sleep(3)
+&gt;               assert "Error:" not in installed and '"result":"error"' not in installed, installed[-1000:] + shell("ha supervisor logs | tail -20")[-3000:]
+E               AssertionError: Error: An unknown error occurred while trying to build the image for app local_agentic_boundary_protected_baseline. Check Supervisor logs for details
+E                 #4 ERROR: failed to calculate checksum of ref ilphhj2m6d2su8gn8xyzjttpf::fut1ny694ragzfvf73wrpe8po: "/probe.py": not found
+E                 
+E                 #5 [1/2] ADD rootfs.tar /
+E                 #5 ERROR: failed to calculate checksum of ref ilphhj2m6d2su8gn8xyzjttpf::fut1ny694ragzfvf73wrpe8po: "/rootfs.tar": not found
+E                 ------
+E                  &gt; [1/2] ADD rootfs.tar /:
+E                 ------
+E                 ------
+E                  &gt; [2/2] COPY probe.py /probe.py:
+E                 ------
+E                 Dockerfile:3
+E                 --------------------
+E                    1 |     FROM scratch
+E                    2 |     ADD rootfs.tar /
+E                    3 | &gt;&gt;&gt; COPY probe.py /probe.py
+E                    4 |     ENV PATH=/usr/local/bin:/usr/bin:/bin
+E                    5 |     CMD ["python","/probe.py"]
+E                 --------------------
+E                 ERROR: failed to build: failed to solve: failed to compute cache key: failed to calculate checksum of ref ilphhj2m6d2su8gn8xyzjttpf::fut1ny694ragzfvf73wrpe8po: "/probe.py": not found
+E                 #x1B[0m
+E                 
+E               assert ('Error:' not in 'Error: An u...or details\n'
+E                 
+E                 'Error:' is contained here:
+E                   Error: An unknown error occurred while trying to build the image for app local_agentic_boundary_protected_baseline. Check Supervisor logs for details
+E                 ? ++++++)
+
+tests/test_haos_boundary.py:130: AssertionError</failure></testcase></testsuite></testsuites>

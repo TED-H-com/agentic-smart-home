@@ -1,0 +1,477 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="5" time="87.568" timestamp="2026-10-12T06:45:47.939886-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_worker_ui" name="test_coding_role_login_lost_reply_stop_fence_and_artifact_preview" time="3.441" /><testcase classname="tests.test_worker_ui" name="test_network_and_digest_bound_update_review" time="14.243" /><testcase classname="tests.test_worker_ui" name="test_same_case_results_open_inline_without_dispatch" time="2.227" /><testcase classname="tests.test_gateway_ui" name="test_outer_onboarding_line_setup_and_shared_inbox" time="34.437"><failure message="playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms exceeded.&#10;Call log:&#10;  - waiting for get_by_role(&quot;navigation&quot;, name=&quot;設定入口&quot;).get_by_role(&quot;link&quot;, name=&quot;助手帳號&quot;, exact=True)">def test_outer_onboarding_line_setup_and_shared_inbox():
+        root = Path(__file__).parents[1]
+        server = ThreadingHTTPServer(
+            ("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory=str(root / "controller/static"))
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        gateway = {
+            "step": 0,
+            "web": {"status": "connected"},
+            "selected": False,
+            "preferences": {"primary": "line", "runtime": "host", "provider": "codex"},
+            "channels": [
+                {"id": c, "status": "disabled", "enabled": False, "chats": [], "senders": [], "has_secret": False}
+                for c in ["line", "discord", "telegram"]
+            ],
+        }
+        login = {"status": "idle", "channels": []}
+        messages = []
+        processed, request_keys = {}, []
+        drop_reply = {'next': False}
+        calls = []
+        errors = []
+    
+        def route(route):
+            path = route.request.url.split("/api/")[1]
+            body = route.request.post_data_json if route.request.method == "POST" else None
+            if body is not None:
+                calls.append((path, body))
+                assert path == "host/login" or route.request.headers.get("x-agentic-csrf") == "fixture-csrf"
+            if path == "bootstrap":
+                result = {"contract": 1, "id": None, "state": "idle", "provider": None,
+                          "channel": "line", "current_step": None, "steps": [], "human_action": None, "updated_at": None}
+            elif path == "deployment":
+                result = {"mode": "host", "authenticated": True}
+            elif path == "session":
+                result = {"principal": "host-owner", "csrf": "fixture-csrf"}
+            elif path == "status":
+                result = {
+                    "ha": {"status": "unavailable"},
+                    "runner": {"protocol": 1, "providers": []},
+                    "gateway": gateway,
+                    "version": "0.5.1",
+                }
+            elif path == "services":
+                result = {"services": []}
+            elif path == "retention":
+                result = {"audit_days": 30, "context_days": 7}
+            elif path == "tasks":
+                result = {"tasks": []}
+            elif path == "gateway":
+                result = gateway
+            elif path == "gateway/onboarding":
+                gateway["step"] = body["step"]
+                result = body
+            elif path == "gateway/preferences":
+                gateway.update(preferences=body, selected=True)
+                result = gateway
+            elif path == "runtimes":
+                result = {"host": {"protocol": 1, "providers": []}, "haos": {"protocol": 1, "providers": []}}
+            elif path == "gateway/line/login":
+                if body is not None:
+                    login.update(status="authenticating", qr="https://fixture.example/qr", pin="123456")
+                result = login
+            elif path.startswith("gateway/channels/"):
+                channel = next(c for c in gateway["channels"] if c["id"] == path.rsplit("/", 1)[1])
+                channel.update({k: v for k, v in body.items() if k != "secret"}, status="connecting")
+                result = gateway
+            elif path == "gateway/messages":
+                if body:
+                    key = route.request.headers['idempotency-key']
+                    request_keys.append(key)
+                    if key in processed:
+                        route.fulfill(status=200, content_type='application/json', body=json.dumps(processed[key]))
+                        return
+                    messages.insert(
+                        0,
+                        {
+                            "id": hashlib.sha256(str(len(messages)).encode()).hexdigest(),
+                            "thread_id": next(m['thread_id'] for m in messages if m['id'] == body['reply_to']) if messages and body.get('reply_to') else hashlib.sha256(str(len(messages)).encode()).hexdigest(),
+                            "source": "web",
+                            **body,
+                            "state": "succeeded",
+                            "answer": "外層 Linux 仍可使用（測試回覆）",
+                            "created_at": "2026-10-11T12:00:00Z",
+                        },
+                    )
+                    result = messages[0]
+                    processed[key] = result
+                    if drop_reply['next']:
+                        drop_reply['next'] = False
+                        route.abort('failed')
+                        return
+                else:
+                    result = {"messages": messages}
+            elif path.startswith("runtimes/") and path.endswith("/auth"):
+                result = {
+                    "id": "fixtureauth",
+                    "status": "pending",
+                    "url": "https://accounts.x.ai/device",
+                    "code": "ABCD-EFGH",
+                }
+            elif "/auth/fixtureauth" in path:
+                result = {
+                    "id": "fixtureauth",
+                    "status": "pending",
+                    "url": "https://accounts.x.ai/device",
+                    "code": "ABCD-EFGH",
+                }
+            else:
+                result = {}
+            route.fulfill(status=200, content_type="application/json", body=json.dumps(result))
+    
+        def screenshots(page, name):
+            for width in (1440, 768, 390):
+                page.set_viewport_size({"width": width, "height": 900 if width == 1440 else 844})
+                page.wait_for_timeout(100)
+                assert page.evaluate("document.documentElement.scrollWidth &lt;= innerWidth")
+                page.screenshot(path=str(root / f"evidence/ui/{name}-{width}.png"), full_page=True)
+    
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page(viewport={"width": 1440, "height": 900})
+                page.on("pageerror", lambda e: errors.append(str(e)))
+                page.route("**/api/**", route)
+                page.goto(f"http://127.0.0.1:{server.server_port}/")
+                page.get_by_text("其他設定方式", exact=True).click()
+                page.get_by_role("heading", name="你的家庭管理入口已經就緒").wait_for()
+                screenshots(page, "onboarding-web")
+                page.get_by_role("button", name="下一步", exact=True).click()
+                page.get_by_text("進階：受控 CLI 登入", exact=True).click()
+                page.get_by_role("heading", name="登入外層 Agent", exact=True).wait_for()
+                grok = page.locator("article.provider").filter(
+                    has=page.get_by_role("heading", name="Grok Build", exact=True)
+                )
+                grok.get_by_role("button", name="開始官方登入").click()
+                grok.get_by_text("ABCD-EFGH", exact=True).wait_for()
+                assert any(path == "runtimes/host/providers/grok/auth" for path, _ in calls)
+                page.get_by_role("button", name="下一步", exact=True).click()
+                page.get_by_role("heading", name="選擇你的通訊入口").wait_for()
+                assert page.get_by_role("button", name="LINE 預設推薦").get_attribute("aria-pressed") == "true"
+                page.get_by_role("button", name="開始 LINE 掃碼登入").click()
+                page.get_by_alt_text("用 LINE 掃描此登入 QR code").wait_for()
+                page.get_by_text("123456", exact=True).wait_for()
+                screenshots(page, "onboarding-line")
+                login.update(
+                    status="ready",
+                    qr=None,
+                    pin=None,
+                    profile="測試 LINE",
+                    channels=[{"channelId": "c" + "1" * 32, "name": "家庭（測試）", "kind": "group"}],
+                )
+                page.get_by_label("加入家庭聊天室").wait_for()
+                page.get_by_label("加入家庭聊天室").select_option("c" + "1" * 32)
+                page.get_by_label("允許的使用者 ID").fill("u" + "2" * 32)
+                page.get_by_role("button", name="儲存並啟用通訊").click()
+                page.get_by_text("設定已儲存，正在連接通訊服務。", exact=True).wait_for()
+                assert gateway["channels"][0]["enabled"] and gateway["preferences"]["primary"] == "line"
+                page.get_by_role("button", name="Web 瀏覽器直接對話").click()
+                page.get_by_role("button", name="使用 Web 作為主要入口").click()
+                page.get_by_text("Web 已設為主要入口。", exact=True).wait_for()
+                page.reload()
+                page.get_by_text("其他設定方式", exact=True).click()
+                page.get_by_role("heading", name="選擇你的通訊入口").wait_for()
+                assert (
+                    page.get_by_role("button", name="Web 瀏覽器直接對話").get_attribute("aria-pressed") == "true"
+                )
+                page.get_by_role("button", name="保留進度，先開啟 Web 對話").click()
+                page.get_by_label("對話訊息").fill("HA 還沒啟動，也能問你嗎？")
+                page.get_by_role("button", name="送出訊息", exact=True).click()
+                page.get_by_text("外層 Linux 仍可使用（測試回覆）", exact=True).wait_for()
+                page.get_by_text("接續這段對話", exact=True).wait_for()
+                first = messages[0]['id']
+                page.reload()
+                page.get_by_text("接續這段對話", exact=True).wait_for()
+                page.get_by_label("對話訊息").fill("那要怎麼查看主機狀態？")
+                page.get_by_role("button", name="送出訊息", exact=True).click()
+                page.get_by_role("heading", name="那要怎麼查看主機狀態？", exact=True).wait_for()
+                assert calls[-1] == ('gateway/messages', {'message': '那要怎麼查看主機狀態？', 'runtime': 'host', 'provider': 'codex', 'reply_to': first})
+                saved = page.evaluate("sessionStorage.getItem('agentic-auth-conversations')")
+                assert json.loads(saved) == {'host-codex': messages[0]['id']}
+                page.get_by_text('進階對話設定', exact=True).click()
+                page.get_by_label('執行環境', exact=True).select_option('haos')
+                page.get_by_role('heading', name='今天想處理什麼？', exact=True).wait_for()
+                page.get_by_label('執行環境', exact=True).select_option('host')
+                page.get_by_text('接續這段對話', exact=True).wait_for()
+                page.get_by_text('進階對話設定', exact=True).click()
+                screenshots(page, "gateway")
+                page.get_by_role('button', name='開始新對話', exact=True).click()
+                page.get_by_role('heading', name='今天想處理什麼？', exact=True).wait_for()
+                page.get_by_label('對話訊息').fill('另一個問題')
+                page.get_by_role('button', name='送出訊息', exact=True).click()
+                page.get_by_role('heading', name='另一個問題', exact=True).wait_for()
+                assert calls[-1][1]['reply_to'] is None
+                page.get_by_role('button', name='對話紀錄', exact=False).click()
+                page.get_by_role('region', name='對話紀錄').get_by_role('button').filter(has_text='那要怎麼查看主機狀態？').click()
+                assert page.get_by_label('對話訊息').evaluate('(element) =&gt; element === document.activeElement')
+                assert json.loads(page.evaluate("sessionStorage.getItem('agentic-auth-conversations')"))['host-codex'] == messages[1]['id']
+                drop_reply['next'] = True
+                count = len(messages)
+                page.get_by_label('對話訊息').fill('連線中斷後重試同一則需求')
+                page.get_by_role('button', name='送出訊息', exact=True).click()
+                page.get_by_role('alert').filter(has_text='尚未收到操作結果').wait_for()
+                assert page.get_by_label('對話訊息').input_value() == '連線中斷後重試同一則需求'
+                page.get_by_role('button', name='送出訊息', exact=True).click()
+                page.wait_for_function("document.getElementById('gateway-message').value === ''")
+                assert request_keys[-1] == request_keys[-2] and len(messages) == count + 1
+&gt;               click_navigation(page, 'Agent 環境')
+
+tests/test_gateway_ui.py:220: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/ui_helpers.py:18: in click_navigation
+    page.get_by_role('navigation', name='設定入口').get_by_role('link', name=advanced[name]).click()
+.venv/lib/python3.13/site-packages/playwright/sync_api/_generated.py:18032: in click
+    self._sync(
+.venv/lib/python3.13/site-packages/playwright/_impl/_locator.py:165: in click
+    return await self._frame._click(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/playwright/_impl/_frame.py:594: in _click
+    await self._channel.send("click", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.13/site-packages/playwright/_impl/_connection.py:76: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x772fa15b1480&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x772fa016f240&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms exceeded.
+E           Call log:
+E             - waiting for get_by_role("navigation", name="設定入口").get_by_role("link", name="助手帳號", exact=True)
+
+.venv/lib/python3.13/site-packages/playwright/_impl/_connection.py:632: TimeoutError</failure></testcase><testcase classname="tests.test_hermes_ui" name="test_hermes_login_truthful_states_and_gateway_case_continuity" time="33.037"><failure message="playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms exceeded.&#10;Call log:&#10;  - waiting for get_by_role(&quot;navigation&quot;, name=&quot;設定入口&quot;).get_by_role(&quot;link&quot;, name=&quot;助手帳號&quot;, exact=True)">def test_hermes_login_truthful_states_and_gateway_case_continuity():
+        root = Path(__file__).parents[1]
+        server = ThreadingHTTPServer(
+            ("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory=str(root / "controller/static")))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        gateway = {"step": 1, "web": {"status": "connected"}, "selected": True,
+                   "preferences": {"primary": "web", "runtime": "host", "provider": "codex", "coordinator": "hermes"},
+                   "channels": [{"id": channel, "status": "disabled", "enabled": False,
+                                 "chats": [], "senders": [], "has_secret": False}
+                                for channel in ("line", "discord", "telegram")]}
+        runtime = {"state": "needs_auth", "provider": "openrouter", "model": "", "version": "fixture"}
+        messages, calls, errors, urls = [], [], [], []
+        secret = "fixture-only-secret-for-browser-test"
+    
+        def route(route):
+            request = route.request
+            path = request.url.split("/api/")[1]
+            urls.append(request.url)
+            body = request.post_data_json if request.method == "POST" else None
+            if body is not None:
+                assert request.headers.get("x-agentic-csrf") == "fixture-csrf"
+                assert request.headers.get("idempotency-key")
+                calls.append((path, body))
+            if path == "bootstrap":
+                result = {"contract": 1, "id": None, "state": "idle", "provider": None,
+                          "channel": "line", "current_step": None, "steps": [], "human_action": None, "updated_at": None}
+            elif path == "deployment":
+                result = {"mode": "host", "authenticated": True}
+            elif path == "session":
+                result = {"principal": "host-owner", "csrf": "fixture-csrf"}
+            elif path == "status":
+                result = {"ha": {"status": "unavailable"}, "runner": {"protocol": 1, "providers": []},
+                          "gateway": gateway, "version": "0.5.1", "paused": False}
+            elif path == "services":
+                result = {"services": []}
+            elif path == "retention":
+                result = {"audit_days": 30, "context_days": 7}
+            elif path == "tasks":
+                result = {"tasks": []}
+            elif path == "gateway":
+                result = gateway
+            elif path == "gateway/onboarding":
+                gateway["step"] = body["step"]
+                result = body
+            elif path == "runtimes":
+                result = {name: {"protocol": 1, "providers": []} for name in ("host", "haos")}
+            elif path == "hermes":
+                result = {"runtime": runtime, "workers": [{"worker_id": "host-coder", "available": False},
+                                                          {"worker_id": "home-coder", "available": False}]}
+            elif path == "hermes/auth":
+                assert body == {"provider": "openrouter", "model": "fixture/model", "api_key": secret}
+                runtime.update(state="configured", model=body["model"])
+                result = {"state": "configured"}
+            elif path == "hermes/auth/logout":
+                runtime.update(state="needs_auth", model="")
+                result = {"state": "needs_auth"}
+            elif path == "gateway/messages":
+                if body is None:
+                    result = {"messages": messages}
+                else:
+                    coordinator = body.get("coordinator", "direct")
+                    parent = next((m for m in messages if m["id"] == body.get("reply_to")), None)
+                    if body.get("reply_to"):
+                        assert parent is not None
+                        assert (parent["coordinator"], parent["runtime"], parent["provider"]) == (
+                            coordinator, body["runtime"], body["provider"])
+                    id = hashlib.sha256(str(len(messages)).encode()).hexdigest()
+                    result = {"id": id, "thread_id": parent["thread_id"] if parent else id,
+                              "case_id": parent["case_id"] if parent else "fixture-case-" + id[:12],
+                              "source": "web", **body, "coordinator": coordinator, "state": "succeeded",
+                              "answer": "已取得主機觀測（UI 協定 fixture，非家庭實測）。",
+                              "created_at": "2026-10-11T21:00:00Z"}
+                    messages.insert(0, result)
+            else:
+                raise AssertionError("Unexpected API route: " + path)
+            route.fulfill(status=200, content_type="application/json", body=json.dumps(result))
+    
+        def screenshots(page, name):
+            for width in (1440, 768, 390):
+                page.set_viewport_size({"width": width, "height": 900 if width == 1440 else 844})
+                page.wait_for_timeout(100)
+                assert page.evaluate("document.documentElement.scrollWidth &lt;= innerWidth")
+                page.screenshot(path=str(root / f"evidence/ui/hermes-{name}-{width}.png"), full_page=True)
+    
+        def stored(page):
+            return page.evaluate("JSON.stringify({session: {...sessionStorage}, local: {...localStorage}})")
+    
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page(viewport={"width": 1440, "height": 900})
+                page.on("pageerror", lambda error: errors.append(str(error)))
+                page.route("**/api/**", route)
+                page.goto(f"http://127.0.0.1:{server.server_port}/#onboarding")
+                page.get_by_text("其他設定方式", exact=True).click()
+                panel = page.get_by_role("region", name="Hermes 協調服務")
+                panel.get_by_role("heading", name="登入你的協調助手", exact=True).wait_for()
+                expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚待登入")
+                expect(panel.get_by_role("button", name="儲存 Hermes 登入")).to_be_disabled()
+                screenshots(page, "needs-auth")
+    
+                page.get_by_label("OpenRouter 模型 ID", exact=True).fill("fixture/model")
+                key = page.get_by_label("OpenRouter API key", exact=True)
+                assert key.get_attribute("type") == "password" and key.get_attribute("autocomplete") == "off"
+                key.fill(secret)
+                assert secret not in stored(page)
+                key.press("Enter")
+                expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，待實際回覆驗證")
+                expect(key).to_have_value("")
+                assert panel.get_by_text("已完成推論驗證", exact=True).count() == 0
+                assert secret not in stored(page) and secret not in page.content()
+                assert all(secret not in url for url in urls)
+                assert [path for path, _ in calls] == ["hermes/auth"]  # storing credentials must not start a turn
+                screenshots(page, "configured")
+                page.reload()
+                page.get_by_text("其他設定方式", exact=True).click()
+                expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，待實際回覆驗證")
+                expect(page.get_by_label("OpenRouter API key", exact=True)).to_have_value("")
+                assert secret not in stored(page)
+    
+                # The authoritative backend, not the save operation, supplies verified/reauth states.
+                runtime["state"] = "ready"
+                panel.get_by_role("button", name="重新檢查", exact=True).click()
+                expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已完成推論驗證")
+                runtime["state"] = "needs_reauth"
+                panel.get_by_role("button", name="重新檢查", exact=True).click()
+                expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("需要重新登入")
+                runtime["state"] = "unavailable"
+                panel.get_by_role("button", name="重新檢查", exact=True).click()
+                expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("服務尚未連線")
+                runtime["state"] = "configured"
+    
+                page.get_by_role("button", name="保留進度，先開啟 Web 對話", exact=True).click()
+                mode = page.get_by_label("對話方式", exact=True)
+                expect(mode).to_have_value("hermes")
+                assert page.get_by_label("Agent", exact=True).count() == 0
+                assert page.get_by_label("執行環境", exact=True).count() == 0
+                question = "請讀取主機狀態（UI fixture）"
+                page.get_by_label("對話訊息", exact=True).fill(question)
+                page.get_by_role("button", name="送出訊息", exact=True).click()
+                page.get_by_role("heading", name=question, exact=True).wait_for()
+                first = messages[0]
+                assert calls[-1][1]["coordinator"] == "hermes" and calls[-1][1]["reply_to"] is None
+                page.get_by_label("對話訊息", exact=True).fill("接續說明還缺少什麼觀測")
+                page.get_by_role("button", name="送出訊息", exact=True).click()
+                page.get_by_role("heading", name="接續說明還缺少什麼觀測", exact=True).wait_for()
+                second = messages[0]
+                assert calls[-1][1]["reply_to"] == first["id"]
+                assert second["case_id"] == first["case_id"] and second["thread_id"] == first["thread_id"]
+                page.reload()
+                page.get_by_text("接續這段對話", exact=True).wait_for()
+                assert json.loads(page.evaluate("sessionStorage.getItem('agentic-auth-conversations')")) == {
+                    "hermes-host-codex": second["id"]}
+                assert secret not in stored(page) and question not in stored(page)
+                screenshots(page, "gateway")
+    
+                page.get_by_text("進階對話設定", exact=True).click()
+                mode.select_option("direct")
+                page.get_by_role("heading", name="今天想處理什麼？", exact=True).wait_for()
+                expect(page.get_by_label("Agent", exact=True)).to_have_value("codex")
+                page.get_by_label("Agent", exact=True).select_option("grok")
+                expect(page.get_by_label("Agent", exact=True)).to_have_value("grok")
+                page.get_by_label("執行環境", exact=True).select_option("haos")
+                page.get_by_label("對話訊息", exact=True).fill("受控 Grok 的獨立需求")
+                page.get_by_role("button", name="送出訊息", exact=True).click()
+                page.get_by_role("heading", name="受控 Grok 的獨立需求", exact=True).wait_for()
+                direct = messages[0]
+                assert calls[-1][1] == {"message": "受控 Grok 的獨立需求", "runtime": "haos", "provider": "grok", "reply_to": None}
+                assert direct["case_id"] != first["case_id"] and direct["coordinator"] == "direct"
+    
+                mode.select_option("hermes")
+                page.get_by_text("接續這段對話", exact=True).wait_for()
+                page.get_by_label("對話訊息", exact=True).fill("回到原本的 Hermes case")
+                page.get_by_role("button", name="送出訊息", exact=True).click()
+                page.get_by_role("heading", name="回到原本的 Hermes case", exact=True).wait_for()
+                assert calls[-1][1]["reply_to"] == second["id"]
+                assert calls[-1][1]["runtime"] == "host" and calls[-1][1]["provider"] == "codex"
+                assert messages[0]["case_id"] == first["case_id"]
+                page.get_by_role("button", name="開始新對話", exact=True).click()
+                page.get_by_role("heading", name="今天想處理什麼？", exact=True).wait_for()
+                page.get_by_label("對話訊息", exact=True).fill("另一個 Hermes case")
+                page.get_by_role("button", name="送出訊息", exact=True).click()
+                page.get_by_role("heading", name="另一個 Hermes case", exact=True).wait_for()
+                assert calls[-1][1]["reply_to"] is None and messages[0]["case_id"] != first["case_id"]
+    
+&gt;               click_navigation(page, 'Agent 環境')
+
+tests/test_hermes_ui.py:199: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/ui_helpers.py:18: in click_navigation
+    page.get_by_role('navigation', name='設定入口').get_by_role('link', name=advanced[name]).click()
+.venv/lib/python3.13/site-packages/playwright/sync_api/_generated.py:18032: in click
+    self._sync(
+.venv/lib/python3.13/site-packages/playwright/_impl/_locator.py:165: in click
+    return await self._frame._click(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/playwright/_impl/_frame.py:594: in _click
+    await self._channel.send("click", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.13/site-packages/playwright/_impl/_connection.py:76: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x772fa1498d60&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x772f9af2dda0&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms exceeded.
+E           Call log:
+E             - waiting for get_by_role("navigation", name="設定入口").get_by_role("link", name="助手帳號", exact=True)
+
+.venv/lib/python3.13/site-packages/playwright/_impl/_connection.py:632: TimeoutError</failure></testcase></testsuite></testsuites>

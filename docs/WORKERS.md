@@ -6,7 +6,7 @@
 
 在「開發工作」選外層助手，完成獨立 Codex device code 或 API key 登入，描述問題。Host 工作者只讀封裝內的產品來源，在私有 clone 調查、修改和跑測試。CLI 登入資料不複製到 Hermes 或模型的工作區。尚未登入時不送出工作；`configured` 表示資料保存，成功模型工作才記為 `inference_verified`。
 
-目前 enabled provider 為 **Codex 0.157.1**；Claude、Antigravity、Grok 的家庭模式／初始化能力繼續保留，但不冒充已完成的 coding adapter。Home worker 只有在真正 HAOS App 的硬邊界可用時才可啟用；外層容器不能充當 Home 證據。
+目前 enabled provider 為 **Codex 0.157.1**；Claude、Antigravity、Grok 的家庭模式／初始化能力繼續保留，但不冒充已完成的 coding adapter。Home coding launcher 尚未交付，不能派內層 coding 工作；HAOS App 的隔離基礎已有實測可行路徑，並非平台一概不支援。
 
 Web 會保留調查、差異、檔案指紋與實際程序觀測。worker 自己的結論仍是不可信內容。修改成功後，另一份無帳號、無網路的乾淨 clone 套用同一 patch，執行封裝基準提供的固定測試；原 worker 不能修改 verifier 的測試／設定。驗證器先載入封裝內的 pytest，再加入候選程式的 import 路徑；除了退出碼，還要求測試有收集、有執行且完整結束，避免尚未測試就退出的假成功。候選 Python 仍在白箱測試程序內執行，因此這是有限的測試完成紀錄，不是抵抗任意惡意候選的密碼學證明。這個有限測試集合不代表任意修改已通過完整 CI，也不形成部署批准。
 
@@ -18,6 +18,12 @@ Web 會保留調查、差異、檔案指紋與實際程序觀測。worker 自己
 - provider／公開文件出站經受控 Unix relay。上游 HTTPS 主機、IP、方法與路徑受限；拒私網 DNS 與任意 redirect／遠端 MCP，provider bearer 在 broker 加入。模型與公開來源的請求數、內容大小與期限受限。
 - 任務初期最多 300 秒、同時一個 coding job。writer 和 verifier 都必須證明停止，才釋出全域 lease。關頁或 HTTP 回覆遺失不表示取消。
 - 成果在確認停止後匯出，拒 symlink／hardlink／特殊檔案、越界、超量、非允許類型及可辨識的憑證格式。去密模式不能證明所有內容都適合公開；成果留在本機。
+
+### Home App 的實測範圍
+
+一次性 **HAOS 18.3** 的真正診斷 App 已比較兩種設定。預設 protected App 無法建立新的 mount namespace；增加 `SYS_ADMIN`，並啟用限定 cgroup2 掛載位置的 AppArmor 診斷設定後，可在自己的 cgroup namespace 建立子群組、設定 CPU／PID／記憶體限制，且實際觸發記憶體 OOM kill。兩種設定都沒有 Docker socket；這是 App 內的觀測，不能推論 Core 或整台 HAOS 的狀態。見 [實測資料](../evidence/haos-app-boundary.json)與 [JUnit](../evidence/haos-app-boundary.xml)。
+
+這份證據沒有執行 Home coding CLI 或真雲端帳號，也未完成 CPU／PID 耗盡、工作區 quota、出站／憑證隔離與取消接手整合。診斷 App 的可信程序仍有 Supervisor token，正式 launcher 必須確保模型程序拿不到它；AppArmor 的禁止路徑負向測試也需補齊。Home coding 保持未啟用，T3-13／T3-15 與 E2 不因此視為通過。
 
 ## 重送、取消與接手
 

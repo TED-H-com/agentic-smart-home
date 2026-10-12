@@ -2,7 +2,7 @@ export type View = 'home'|'inventory'|'automations'|'history'|'settings'|'host'|
 export function currentRoute(hostMode: boolean): {view:View; task:string|null} {
   const [view, task] = location.hash.slice(1).split('/');
   const allowed = ['home','inventory','automations','history','settings', ...(hostMode?['host','onboarding','gateway','agents','workers']:[])];
-  return {view: allowed.includes(view) ? view as View : hostMode&&!view?'onboarding':'home', task: view==='home' && /^[a-zA-Z0-9_-]{1,100}$/.test(task||'') ? task : null};
+  return {view: allowed.includes(view) ? view as View : hostMode?(view?'gateway':'onboarding'):'home', task: view==='home' && /^[a-zA-Z0-9_-]{1,100}$/.test(task||'') ? task : null};
 }
 export function SetupGuide({status,hostMode,navigate,view}:{status:any;hostMode:boolean;navigate:(view:View)=>void;view:View}) {
   if (!status) return <div className="setup-loading" role="status">正在讀取家庭與 Agent 的連線狀態…</div>;
@@ -19,5 +19,6 @@ export function SetupGuide({status,hostMode,navigate,view}:{status:any;hostMode:
   ];
   const next = steps.find(step=>!step.done);
   if (!next) return null;
+  if(hostMode)return <section className="section-intro" aria-label="開始使用"><p>設定尚未完成</p><button className="secondary" onClick={()=>navigate('onboarding')}>繼續設定</button></section>;
   return <section className="setup-guide" aria-label="開始使用"><div className="setup-copy"><span className="eyebrow">開始使用 · {steps.filter(s=>s.done).length} / 3</span><h2>{next.title}</h2><p>{next.detail}</p>{next.view!==view?<button onClick={()=>navigate(next.view as View)}>繼續設定 <span aria-hidden>→</span></button>:<p className="helper-text">在下方完成設定，進度會自動更新。</p>}</div><ol className="setup-steps">{steps.map((step,index)=><li key={step.title}><button className={`setup-step ${step.done?'complete':''}`} onClick={()=>navigate(step.view as View)}><span className="step-number" aria-hidden>{step.done?'✓':index+1}</span><span><strong>{step.title}</strong><small>{step.done?'已完成':step===next?'下一步':'可隨時設定'}</small></span></button></li>)}</ol></section>;
 }

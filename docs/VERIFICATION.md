@@ -1,10 +1,17 @@
 # Agentic Smart Home 0.6.0 驗證
 
+使用者要求對話優先後，主選單已改為五项，進度與成果留在智能管家同一段對話，技術設定收起。[新版24張截圖](../evidence/ui/chat-first/README.md) 已檢视桌面／平板／手機。
+最新瀏覽器與 composed E2E 回歸 **13 passed／134.90 秒**，見 [JUnit](../evidence/assistant-browser-final.xml)。保留登入、精確家庭批准、草稿與重試、provider／runtime／Hermes scope，另覆蓋無 thread 舊紀錄唯讀、送出中禁止切換，以及成果 exact case 核對。前一輪完整 suite 為407 passed、3 skipped、1項 Chromium capture失敗（[原始紀錄](../evidence/pytest-chat-first.xml)）；已加入 resize後 layout frame等待，功能與截圖皆重新通過，完整最終回歸另記錄。
+
 本輪將 0.5.1 審查的工程缺口接入產品，並依實際 Chromium 截圖改善 onboarding 與開發成果畫面。完整服務、精確安裝媒體與 CI 的結果會各自記錄，不把模型 transport fixtures 說成真帳號驗收。
 
 已完成的分項：Controller／Engine／Hermes 管理層 **106 passed、1 skipped**（另待 real Core）；真 pinned Hermes 容器 **22 passed**；Web 三尺寸瀏覽器回歸 **11 passed**。對應 [Controller](../evidence/worker-controller.xml)、[Hermes runtime](../evidence/worker-hermes-runtime.xml)。本機完整 `--real-ha --containers` 已為 **385 passed、3 skipped／378.44 秒**，見 [完整 JUnit](../evidence/pytest-0.6.0.xml)；另補遷移快照、updater 快照與 verifier shadowing 的定向回歸，分別 35、34、35 項通過。三個跳過項為兩個 HAOS VM 案例與 Linux 安裝案例，另行執行；真帳號不在上述數字內。
 
 [30 張三尺寸截圖](../evidence/ui/0.6.0/README.md) 已逐類檢視；調整見 [本輪審查](reviews/2026-10-12-UI-WORKER-DELIVERY.md)。
+
+另已在一次性 **HAOS 18.3 的真正 App** 執行隔離邊界探測，見 [JSON](../evidence/haos-app-boundary.json)與 [JUnit](../evidence/haos-app-boundary.xml)。預設 protected App 建立 mount namespace 被拒；增加 `SYS_ADMIN`，配合啟用且限定 cgroup2 掛載位置的 AppArmor 診斷設定後，可在與 HAOS host 不同的 cgroup namespace 設定子群組 CPU／PID／記憶體限制，並真實觸發記憶體 OOM kill。沒有 Docker socket，沒有真雲端帳號，也沒有 coding CLI 執行。
+
+這是 Home launcher 的平台可行性證據，不能稱為完整 sandbox 或 E2 驗收。CPU／PID 耗盡、AppArmor 禁止路徑、工作區 quota、出站／憑證隔離和取消接手仍待整合驗證；可信 App 程序可見 Supervisor token，模型子程序的去憑證邊界尚未交付。Home coding 仍未啟用，T3-13／T3-15 維持 `not_run`。
 
 能力與限制見 [Worker 說明](WORKERS.md)、[更新／網路說明](UPDATES.md)、[v3 帳本](v3/PROGRESS.md)。歷史紀錄保留如下，不能用於宣稱新版 ISO 已通過。
 

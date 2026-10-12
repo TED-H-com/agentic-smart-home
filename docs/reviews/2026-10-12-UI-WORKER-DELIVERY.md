@@ -17,6 +17,12 @@
 
 截圖是編譯後產品介面，頁面狀態使用明示 API fixtures。QR、登入碼、案例與家庭名稱不是可用的真帳號資料。這些截圖證明介面呈現與瀏覽器操作，不證明雲端同意或家庭連線。
 
+## 使用者回饋：改以智能管家對話為主
+
+使用者指出「開發工作」不易理解，且整體說明過多。後續版已將 Host 主選單縮為五項，智能管家直接呈現對話框；Worker 手動表單移至設定的進階工具。對話記錄可接續，成果在原 case 展開，技術識別與 checkpoint 預設收起。已完成設定的主入口直接回到智能管家。
+
+初次設定刪去重複文案，仍保留官方登入、授權期限與撤銷、斷線和重試。設定改為簡短入口與折疊項目。截圖檢視另修正長篇成果被底部輸入框遮住的情形。前一版30張截圖仍留在 `evidence/ui/0.6.0/` 供比較，最新版另存 `evidence/ui/chat-first/`。
+
 ## 工程缺口的處理
 
 | 0.5.1 缺口 | 0.6.0 交付與邊界 |
@@ -37,7 +43,7 @@
 
 ## 仍需獨立完成
 
-- Home Worker 必須通過真正 HAOS App 的能力與隔離測試；未就緒時顯示 blocked。保護模式 App、Core 容器和整個 HAOS 的觀測不可混稱。
+- 真 HAOS App 診斷已證明受限 SYS_ADMIN 與自訂 AppArmor 設定可建立 App 專屬 cgroup，並實際觸發記憶體限制；完整 Home launcher、出站／憑證／磁碟界線與真 Codex tools 流程仍未交付，維持 blocked。App、Core 容器和整個 HAOS 的觀測不可混稱。
 - Claude／Antigravity／Grok 的既有家庭與初始化 adapter 保留；各自 tools-enabled coding 邊界尚未交付。不能因 CLI 存在就顯示 coding ready。
 - 目前預覽是 PNG；互動候選站台、同一 BAT live session 接手、bot 主動完成推送未交付。
 - updater 首版只處理相同 schema 的外層 Controller。跨 schema／OS／HAOS／Core／Runner／Hermes 全套升級，需要各自相容與恢復契約。

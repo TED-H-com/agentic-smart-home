@@ -9,6 +9,8 @@
 
 0.6.0 本輪新增真正 tools-enabled Codex Host coding、獨立角色登入／受控出站、可信停止恢復、全鏈保存期限、成果與隔離截圖預覽、同 case 工作追蹤、家庭精確提案橋接、簽名候選 Controller 更新／退版，以及 Tailscale 選項。UI 已按 1440／768／390 px 截圖調整。這是程式交付；真帳號、Owner laptop、Home App coding 與完整 E1／E2 仍需要各自驗收。技術邊界見 [Workers](../WORKERS.md) 與 [Updates](../UPDATES.md)，本輪結果見 [驗證](../VERIFICATION.md)。
 
+Home 隔離基礎已有 [真 HAOS 18.3 App 證據](../../evidence/haos-app-boundary.json)：預設設定無法建立 mount namespace；增加 `SYS_ADMIN` 與限定 cgroup2 掛載位置的 AppArmor 診斷設定後，可在獨立 App cgroup namespace 委派資源限制並實際觸發記憶體 OOM kill。這修正了「平台無可行隔離路徑」的假設，尚未交付 Home coding launcher、模型憑證／出站／工作區完整隔離或真雲端執行。32 個案例的狀態不變。
+
 ## 記錄規則
 
 開發狀態 `not_run / in_progress / implemented` 只描述程式交付；案例結果使用 `not_run / blocked / passed / failed`。新增案例預設 `not_run`，不得因舊測試或相關 unit test 通過而批次改為 passed。具體功能因隔離不足 disabled，可在開發備註記錄原因；未實際執行整個案例仍保留 not_run。
@@ -30,7 +32,7 @@
 | V3-07 | P0 / E1 / B | implemented | 真 Codex 工具執行、私有 clone、patch、獨立 verifier；bearer 留 relay、封鎖管理／私網出站、ext4／cgroup／watchdog。僅 Host Codex coding enabled |
 | V3-08 | P0 / E1 / A+B | in_progress | lease／實際 writer 停止與重啟 reconcile 已交付；可匯出停止後 checkpoint。live_session:false，尚非直接加入同一 BAT／CLI session |
 | V3-09 | P0 / E1 / C | implemented | Web 問題派工、差異／SHA-256 成果、network-none renderer 三尺寸 PNG、獨立短效 origin／撤銷；真 Owner UI 問題與雲端整案未驗 |
-| V3-10 | P1 / E2 / B | in_progress | 在真正 HAOS App 探測硬邊界；未滿足隔離時仍 blocked，不以第二個外層容器代替。平台證據與執行能力分開記錄 |
+| V3-10 | P1 / E2 / B | in_progress | 真 HAOS 18.3 App 已證明 SYS_ADMIN＋AppArmor 診斷設定可委派 App 內 cgroup 限制及 memory OOM kill；[證據](../../evidence/haos-app-boundary.json)。Home launcher／雲端 coding／完整 secret、network、quota、fencing 尚未交付，保持未啟用 |
 | V3-11 | P1 / E2 / A+B | in_progress | 同 case 工作者狀態、下一輪 Hermes 證據 handle、觀測位置與 ACL 已接通；雙層互補研究與 bot 主動完成通知未驗／未交付 |
 | V3-12 | P1 / E2 / A+C | implemented | home.observe／propose／proposal_status 接回既有 Engine，精確 Owner 批准、撤權／暫停競態保護；真模型 helpers 整案待驗 |
 | V3-13 | P1 / E2 / C | implemented | schema 3 私有遷移 snapshot；Ed25519 publisher／digest、獨立 probe、精確批准、quiesce／backup／health／保留新 DB 退版。僅同 schema 外層 Controller，不是全產品／HAOS 更新器 |

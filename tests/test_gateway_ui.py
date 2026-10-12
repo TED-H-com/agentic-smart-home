@@ -53,6 +53,10 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
                 "gateway": gateway,
                 "version": "0.5.1",
             }
+        elif path == "services":
+            result = {"services": []}
+        elif path == "retention":
+            result = {"audit_days": 30, "context_days": 7}
         elif path == "tasks":
             result = {"tasks": []}
         elif path == "gateway":
@@ -84,7 +88,7 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
                     0,
                     {
                         "id": hashlib.sha256(str(len(messages)).encode()).hexdigest(),
-                        "thread_id": messages[0]['thread_id'] if messages and body.get('reply_to') else hashlib.sha256(str(len(messages)).encode()).hexdigest(),
+                        "thread_id": next(m['thread_id'] for m in messages if m['id'] == body['reply_to']) if messages and body.get('reply_to') else hashlib.sha256(str(len(messages)).encode()).hexdigest(),
                         "source": "web",
                         **body,
                         "state": "succeeded",
@@ -132,7 +136,7 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.route("**/api/**", route)
             page.goto(f"http://127.0.0.1:{server.server_port}/")
-            page.get_by_text("進階：手動設定與其他登入方式", exact=True).click()
+            page.get_by_text("其他設定方式", exact=True).click()
             page.get_by_role("heading", name="你的家庭管理入口已經就緒").wait_for()
             screenshots(page, "onboarding-web")
             page.get_by_role("button", name="下一步", exact=True).click()
@@ -168,7 +172,7 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
             page.get_by_role("button", name="使用 Web 作為主要入口").click()
             page.get_by_text("Web 已設為主要入口。", exact=True).wait_for()
             page.reload()
-            page.get_by_text("進階：手動設定與其他登入方式", exact=True).click()
+            page.get_by_text("其他設定方式", exact=True).click()
             page.get_by_role("heading", name="選擇你的通訊入口").wait_for()
             assert (
                 page.get_by_role("button", name="Web 瀏覽器直接對話").get_attribute("aria-pressed") == "true"
@@ -177,30 +181,33 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
             page.get_by_label("對話訊息").fill("HA 還沒啟動，也能問你嗎？")
             page.get_by_role("button", name="送出訊息", exact=True).click()
             page.get_by_text("外層 Linux 仍可使用（測試回覆）", exact=True).wait_for()
-            page.get_by_role("heading", name="接續這段對話", exact=True).wait_for()
+            page.get_by_text("接續這段對話", exact=True).wait_for()
             first = messages[0]['id']
             page.reload()
-            page.get_by_role("heading", name="接續這段對話", exact=True).wait_for()
+            page.get_by_text("接續這段對話", exact=True).wait_for()
             page.get_by_label("對話訊息").fill("那要怎麼查看主機狀態？")
             page.get_by_role("button", name="送出訊息", exact=True).click()
             page.get_by_role("heading", name="那要怎麼查看主機狀態？", exact=True).wait_for()
             assert calls[-1] == ('gateway/messages', {'message': '那要怎麼查看主機狀態？', 'runtime': 'host', 'provider': 'codex', 'reply_to': first})
             saved = page.evaluate("sessionStorage.getItem('agentic-auth-conversations')")
             assert json.loads(saved) == {'host-codex': messages[0]['id']}
+            page.get_by_text('進階對話設定', exact=True).click()
             page.get_by_label('執行環境', exact=True).select_option('haos')
-            page.get_by_role('heading', name='向 Agent 提問', exact=True).wait_for()
+            page.get_by_role('heading', name='今天想處理什麼？', exact=True).wait_for()
             page.get_by_label('執行環境', exact=True).select_option('host')
-            page.get_by_role('heading', name='接續這段對話', exact=True).wait_for()
+            page.get_by_text('接續這段對話', exact=True).wait_for()
+            page.get_by_text('進階對話設定', exact=True).click()
             screenshots(page, "gateway")
             page.get_by_role('button', name='開始新對話', exact=True).click()
-            page.get_by_role('heading', name='向 Agent 提問', exact=True).wait_for()
+            page.get_by_role('heading', name='今天想處理什麼？', exact=True).wait_for()
             page.get_by_label('對話訊息').fill('另一個問題')
             page.get_by_role('button', name='送出訊息', exact=True).click()
             page.get_by_role('heading', name='另一個問題', exact=True).wait_for()
             assert calls[-1][1]['reply_to'] is None
-            page.locator('article.inbox-message').filter(has=page.get_by_role('heading', name='HA 還沒啟動，也能問你嗎？')).get_by_role('button', name='接續這段對話').click()
+            page.get_by_role('button', name='對話紀錄', exact=False).click()
+            page.get_by_role('region', name='對話紀錄').get_by_role('button').filter(has_text='那要怎麼查看主機狀態？').click()
             assert page.get_by_label('對話訊息').evaluate('(element) => element === document.activeElement')
-            assert json.loads(page.evaluate("sessionStorage.getItem('agentic-auth-conversations')"))['host-codex'] == first
+            assert json.loads(page.evaluate("sessionStorage.getItem('agentic-auth-conversations')"))['host-codex'] == messages[1]['id']
             drop_reply['next'] = True
             count = len(messages)
             page.get_by_label('對話訊息').fill('連線中斷後重試同一則需求')

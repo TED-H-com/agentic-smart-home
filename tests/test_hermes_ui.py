@@ -44,6 +44,10 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
         elif path == "status":
             result = {"ha": {"status": "unavailable"}, "runner": {"protocol": 1, "providers": []},
                       "gateway": gateway, "version": "0.5.1", "paused": False}
+        elif path == "services":
+            result = {"services": []}
+        elif path == "retention":
+            result = {"audit_days": 30, "context_days": 7}
         elif path == "tasks":
             result = {"tasks": []}
         elif path == "gateway":
@@ -101,7 +105,7 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             page.on("pageerror", lambda error: errors.append(str(error)))
             page.route("**/api/**", route)
             page.goto(f"http://127.0.0.1:{server.server_port}/#onboarding")
-            page.get_by_text("進階：手動設定與其他登入方式", exact=True).click()
+            page.get_by_text("其他設定方式", exact=True).click()
             panel = page.get_by_role("region", name="Hermes 協調服務")
             panel.get_by_role("heading", name="登入你的協調助手", exact=True).wait_for()
             expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚待登入")
@@ -122,7 +126,7 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             assert [path for path, _ in calls] == ["hermes/auth"]  # storing credentials must not start a turn
             screenshots(page, "configured")
             page.reload()
-            page.get_by_text("進階：手動設定與其他登入方式", exact=True).click()
+            page.get_by_text("其他設定方式", exact=True).click()
             expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，待實際回覆驗證")
             expect(page.get_by_label("OpenRouter API key", exact=True)).to_have_value("")
             assert secret not in stored(page)
@@ -157,14 +161,15 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             assert calls[-1][1]["reply_to"] == first["id"]
             assert second["case_id"] == first["case_id"] and second["thread_id"] == first["thread_id"]
             page.reload()
-            page.get_by_role("heading", name="接續這段對話", exact=True).wait_for()
+            page.get_by_text("接續這段對話", exact=True).wait_for()
             assert json.loads(page.evaluate("sessionStorage.getItem('agentic-auth-conversations')")) == {
                 "hermes-host-codex": second["id"]}
             assert secret not in stored(page) and question not in stored(page)
             screenshots(page, "gateway")
 
+            page.get_by_text("進階對話設定", exact=True).click()
             mode.select_option("direct")
-            page.get_by_role("heading", name="向 Agent 提問", exact=True).wait_for()
+            page.get_by_role("heading", name="今天想處理什麼？", exact=True).wait_for()
             expect(page.get_by_label("Agent", exact=True)).to_have_value("codex")
             page.get_by_label("Agent", exact=True).select_option("grok")
             expect(page.get_by_label("Agent", exact=True)).to_have_value("grok")
@@ -177,7 +182,7 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             assert direct["case_id"] != first["case_id"] and direct["coordinator"] == "direct"
 
             mode.select_option("hermes")
-            page.get_by_role("heading", name="接續這段對話", exact=True).wait_for()
+            page.get_by_text("接續這段對話", exact=True).wait_for()
             page.get_by_label("對話訊息", exact=True).fill("回到原本的 Hermes case")
             page.get_by_role("button", name="送出訊息", exact=True).click()
             page.get_by_role("heading", name="回到原本的 Hermes case", exact=True).wait_for()
@@ -185,7 +190,7 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             assert calls[-1][1]["runtime"] == "host" and calls[-1][1]["provider"] == "codex"
             assert messages[0]["case_id"] == first["case_id"]
             page.get_by_role("button", name="開始新對話", exact=True).click()
-            page.get_by_role("heading", name="向 Agent 提問", exact=True).wait_for()
+            page.get_by_role("heading", name="今天想處理什麼？", exact=True).wait_for()
             page.get_by_label("對話訊息", exact=True).fill("另一個 Hermes case")
             page.get_by_role("button", name="送出訊息", exact=True).click()
             page.get_by_role("heading", name="另一個 Hermes case", exact=True).wait_for()

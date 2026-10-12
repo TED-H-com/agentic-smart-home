@@ -279,7 +279,7 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
             await page.goto(BASE + "/#onboarding")
             await page.get_by_label("主機登入金鑰", exact=True).fill(key)
             await page.get_by_role("button", name="開啟管理中心").click()
-            await page.get_by_role("button", name="使用 Codex 開始設定", exact=True).click()
+            await page.locator(".onboarding-body").get_by_role("button", name="開始設定", exact=True).click()
             await page.locator(".bootstrap-auth").wait_for()
             # A wrapping label includes the nested select option text. Scope to
             # this selected CLI instead of requiring an incorrect exact name.
@@ -294,14 +294,14 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
             await page.get_by_label("OpenRouter API key", exact=True).fill("e2e-synthetic-hermes-key-no-cloud")
             await page.get_by_role("button", name="儲存 Hermes 登入").click()
             await page.get_by_role("button", name="Web 先用 Web，稍後連接通訊", exact=True).click()
-            await page.get_by_role("heading", name="最後，把你的家庭接進來").wait_for()
+            await page.get_by_role("heading", name="設定你的家庭").wait_for()
             assert fixtures.calls == ["bootstrap_hermes", "provision"]
             # A real Controller restart resumes the same persisted operation IDs.
             await docker("restart", controller)
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as http:
                 await eventually(lambda: get(BASE + "/health"), lambda r: r[0] == 200)
             await page.reload()
-            await page.get_by_role("heading", name="最後，把你的家庭接進來").wait_for()
+            await page.get_by_role("heading", name="設定你的家庭").wait_for()
             assert fixtures.calls == ["bootstrap_hermes", "provision"] and len(fixtures.cli_requests) == 1
             await page.screenshot(path=str(ROOT / "evidence/ui/e2e-native-home.png"), full_page=True)
             # Complete native setup through real Core endpoints in this isolated
@@ -328,10 +328,10 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
             await page.wait_for_url(BASE + "/#onboarding", timeout=60000)
             authorization = await page.request.get(BASE + "/api/host/authorization")
             assert authorization.status == 200 and (await authorization.json())["state"] == "connected"
-            await page.get_by_role("heading", name="家庭入口已完成設定").wait_for()
+            await page.get_by_role("heading", name="設定完成").wait_for()
             assert "code=" not in page.url and "state=" not in page.url
             await page.screenshot(path=str(ROOT / "evidence/ui/e2e-complete.png"), full_page=True)
-            await page.get_by_role("button", name="開啟統一對話窗口 →").click()
+            await page.get_by_role("button", name="和智能管家聊天").click()
             await page.get_by_label("對話訊息").fill("請使用工具查主機狀態。")
             await page.get_by_role("button", name="送出訊息", exact=True).click()
             await page.get_by_text("E2E 主機證據已取得；此為隔離測試。", exact=True).wait_for()

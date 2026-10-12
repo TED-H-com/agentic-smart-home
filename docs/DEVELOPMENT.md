@@ -12,10 +12,10 @@ npm ci --prefix web
 npm run build --prefix web
 uv run playwright install --with-deps chromium
 uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner; package_runner()"
-docker build -t agentic-home-controller:0.5.1 controller
-docker build -t agentic-home-runner:0.5.1 runner
-docker build -t agentic-home-linejs:0.5.1 host/linejs
-docker build -t agentic-home-hermes:0.5.1 hermes
+docker build -t agentic-home-controller:0.6.0 controller
+docker build -t agentic-home-runner:0.6.0 runner
+docker build -t agentic-home-linejs:0.6.0 host/linejs
+docker build -t agentic-home-hermes:0.6.0 hermes
 docker pull ghcr.io/home-assistant/amd64-hassio-supervisor:2026.09.3
 ```
 

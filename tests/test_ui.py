@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from agentic_controller.models import compile_automation, digest, utcnow
 from conftest import SOURCE, TARGET
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 from ui_helpers import click_navigation
 
 
@@ -134,6 +134,10 @@ def test_host_login_offline_management_and_responsive_layout():
             result = {'version': '0.5.1', 'ha': {'status': 'unavailable'}, 'runner': {'status': 'unpaired'}}
         elif path == 'tasks':
             result = {'tasks': []}
+        elif path == 'services':
+            result = {'services': []}
+        elif path == 'retention':
+            result = {'audit_days': 30, 'context_days': 7}
         elif path == 'host/status':
             result = {'vm': 'shut off', 'provisioned': True, 'kvm': True, 'ha_connected': False,
                       'profile': {'label': '筆電（介面 fixture）', 'memory_mib': 4096, 'vcpus': 2},
@@ -162,6 +166,7 @@ def test_host_login_offline_management_and_responsive_layout():
             assert page.get_by_role('button', name='正常關機', exact=True).is_disabled()
             for width in (1440, 768, 390):
                 page.set_viewport_size({'width': width, 'height': 900 if width == 1440 else 844})
+                page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
                 assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
                 page.screenshot(path=str(root / f'evidence/ui/host-{width}.png'), full_page=True)
             page.get_by_role('button', name='啟動 HAOS', exact=True).click()
@@ -227,11 +232,17 @@ def test_setup_links_session_recovery_and_login_resume():
             result = {'automations':[]}
         elif path == 'retention':
             result = {'audit_days':30,'context_days':7}
-        elif path == 'providers/codex/auth':
+        elif path == 'runtimes':
+            result = {'host': {'protocol':1, 'providers':[{'provider':'codex',
+                'status':'connected' if agent_connected else 'needs_reauth'}]}, 'haos': {'status':'unpaired'}}
+        elif path == 'hermes':
+            result = {'runtime': {'state':'needs_auth', 'execution_state':'idle'}, 'workers': []}
+        elif path == 'runtimes/host/providers/codex/auth':
             assert route.request.headers['x-agentic-csrf'] == 'connected-csrf'
+            assert route.request.post_data_json == {'method':'device_code', 'secret':''}
             auth_starts += 1
             result = {'id':'fixtureauth','status':'pending','url':'https://auth.openai.com/codex/device','code':'ABCD-1234'}
-        elif path == 'auth/fixtureauth':
+        elif path == 'runtimes/host/auth/fixtureauth':
             result = {'id':'fixtureauth','status':'connected' if agent_connected else 'pending','url':'https://auth.openai.com/codex/device','code':'ABCD-1234'}
         else:
             result = {}
@@ -245,9 +256,16 @@ def test_setup_links_session_recovery_and_login_resume():
             page.route('**/api/**', route)
             page.goto(f'http://127.0.0.1:{server.server_port}/#home')
             guide = page.get_by_role('region', name='開始使用')
-            guide.get_by_role('heading', name='登入外層 Agent').wait_for()
+            guide.get_by_text('設定尚未完成', exact=True).wait_for()
+            expect(guide.get_by_role('button', name='繼續設定', exact=True)).to_be_visible()
+            navigation = page.get_by_role('navigation', name='主選單')
+            expect(navigation.get_by_role('button')).to_have_count(5)
+            for label in ('智能管家', '設備', '自動化', '紀錄', '設定'):
+                expect(navigation.get_by_role('button', name=label)).to_have_count(1)
+            assert page.locator('.brand').get_attribute('href') == '#gateway'
             for width in (1440,768,390):
                 page.set_viewport_size({'width':width,'height':900 if width==1440 else 844})
+                page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
                 page.screenshot(path=str(root/f'evidence/ui/setup-{width}.png'), full_page=True)
             click_navigation(page, 'Linux 主機')
@@ -257,23 +275,41 @@ def test_setup_links_session_recovery_and_login_resume():
             page.get_by_role('button', name='驗證並連接').click()
             page.get_by_role('button', name='設定 Agent →', exact=True).wait_for()
             page.get_by_role('button', name='設定 Agent →', exact=True).click()
-            guide.get_by_role('heading', name='登入外層 Agent').wait_for()
-            page.get_by_role('button', name='開始官方登入').first.click()
+            hub = page.get_by_role('navigation', name='設定入口')
+            expect(hub.get_by_role('link')).to_have_count(6)
+            assert hub.get_by_role('link', name='通訊入口').get_attribute('href') == '#gateway/channels'
+            for width in (1440,768,390):
+                page.set_viewport_size({'width':width,'height':900 if width==1440 else 844})
+                page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+                page.screenshot(path=str(root/f'evidence/ui/settings-host-{width}.png'), full_page=True)
+            hub.get_by_role('link', name='助手帳號').click()
+            runtime = page.get_by_role('region', name='Agent 執行環境', exact=True)
+            runtime.get_by_role('heading', name='登入外層 Agent', exact=True).wait_for()
+            codex = runtime.locator('article').filter(has=page.get_by_role('heading', name='Codex', exact=True))
+            codex.get_by_role('button', name='開始官方登入', exact=True).click()
             page.get_by_text('ABCD-1234', exact=True).wait_for()
             click_navigation(page, '工作台')
-            click_navigation(page, '連線與設定')
+            click_navigation(page, 'Agent 環境')
             page.get_by_text('ABCD-1234', exact=True).wait_for()
             assert auth_starts == 1, 'Returning to the page must resume the same login'
-            links = page.get_by_role('link', name='開啟原生設定')
+            assert page.evaluate("sessionStorage.getItem('agentic-auth-host-codex')") == 'fixtureauth'
+            click_navigation(page, '連線與設定')
+            page.get_by_text('家庭服務', exact=True).click()
+            links = page.get_by_role('link', name='開啟設定')
             assert links.count() == 3
             for link in links.all():
+                expect(link).to_be_visible()
                 assert link.get_attribute('href').startswith('http://127.0.0.1:8123/')
                 assert link.get_attribute('target') == '_blank'
-            assert page.get_by_role('link', name='HA 備份管理').get_attribute('href') == 'http://127.0.0.1:8123/config/backup/overview'
+            page.get_by_text('備份與復原', exact=True).click()
+            backup = page.get_by_role('link', name='HA 備份')
+            expect(backup).to_be_visible()
+            assert backup.get_attribute('href') == 'http://127.0.0.1:8123/config/backup/overview'
             click_navigation(page, '家庭自動化')
             assert page.get_by_role('link', name='開啟 HA 原生自動化').get_attribute('href') == 'http://127.0.0.1:8123/config/automation/dashboard'
             page.reload()
-            page.get_by_role('heading', name='家庭自動化', exact=True).wait_for()
+            page.get_by_role('heading', name='自動化', exact=True).wait_for()
             click_navigation(page, '工作台')
             page.get_by_label('家庭需求').fill('這段尚未送出的需求需要保留')
             expire = True

@@ -1,0 +1,179 @@
+{
+  "kind": "compiled_web_with_protocol_fixtures",
+  "cloud_account": "not_used",
+  "household": "synthetic_only",
+  "assets": {
+    "controller/static/assets/index-Gj0Io2Id.js": "ef2f36e88dc42a852f8004caead7a718d8aff8262e15f7c4f9369ae86355369b",
+    "controller/static/assets/index-KaGyIs1v.css": "7d5efebd30184f455eaabc214c32dce1c935bbd9a4ceb70c334f7a43076e92db"
+  },
+  "screenshots": [
+    {
+      "name": "assistant-welcome",
+      "title": "智能管家：直接開始對話",
+      "width": 1440,
+      "file": "assistant-welcome-1440.png",
+      "sha256": "732c5993143ca3b5200bd5c59d4401ea8a7d7ecd47b5ee48d0993e541dfb0ddf"
+    },
+    {
+      "name": "assistant-welcome",
+      "title": "智能管家：直接開始對話",
+      "width": 768,
+      "file": "assistant-welcome-768.png",
+      "sha256": "a1fafca75b1fdcada9bfda394da9b9ebe24da0e9e184ce27c547687cd16cc135"
+    },
+    {
+      "name": "assistant-welcome",
+      "title": "智能管家：直接開始對話",
+      "width": 390,
+      "file": "assistant-welcome-390.png",
+      "sha256": "c722ba51bf1000e3dfee5eac7e78c7d6d5f39d0f336f0ca40986e8be2a1ef6b5"
+    },
+    {
+      "name": "conversation-work",
+      "title": "對話中的處理進度",
+      "width": 1440,
+      "file": "conversation-work-1440.png",
+      "sha256": "a6ccb589d94e7bf39434043d7585ba1ae457ef576e3f1f820521fa1d01ba56f3"
+    },
+    {
+      "name": "conversation-work",
+      "title": "對話中的處理進度",
+      "width": 768,
+      "file": "conversation-work-768.png",
+      "sha256": "208131a171de1bfa9666bae9a143b7947d7fc823eec9600ab392d82c5bbcf061"
+    },
+    {
+      "name": "conversation-work",
+      "title": "對話中的處理進度",
+      "width": 390,
+      "file": "conversation-work-390.png",
+      "sha256": "3020ffaee0f239f7ab2757257c5aab57fb0178746550df449e0223e165df1143"
+    },
+    {
+      "name": "assistant-results",
+      "title": "在同一段對話展開成果",
+      "width": 1440,
+      "file": "assistant-results-1440.png",
+      "sha256": "9809b1daf2920d92634165b8e1cec57dd39d84fd1272d0a3b86a27c89b8fd84c"
+    },
+    {
+      "name": "assistant-results",
+      "title": "在同一段對話展開成果",
+      "width": 768,
+      "file": "assistant-results-768.png",
+      "sha256": "081c092bd411ca2494ff4d3184b1952dc4f5763d4816b7e571385a814208f44d"
+    },
+    {
+      "name": "assistant-results",
+      "title": "在同一段對話展開成果",
+      "width": 390,
+      "file": "assistant-results-390.png",
+      "sha256": "167c8a2b532eb20ecaaa9c0ca5ada648ec1c7418d674ba2a0d936bff2a77e8b9"
+    },
+    {
+      "name": "settings-host",
+      "title": "簡化設定入口",
+      "width": 1440,
+      "file": "settings-host-1440.png",
+      "sha256": "86c118442880a7025df764de07553705035daa8743247162c97a01fef790f770"
+    },
+    {
+      "name": "settings-host",
+      "title": "簡化設定入口",
+      "width": 768,
+      "file": "settings-host-768.png",
+      "sha256": "a2638d03a5b45b2cc21d845f119eb7baaf4cc4ba47b1e5232b6cca7e1f8aadfa"
+    },
+    {
+      "name": "settings-host",
+      "title": "簡化設定入口",
+      "width": 390,
+      "file": "settings-host-390.png",
+      "sha256": "9800ac32f26904a85ca12f49632958d2a5211976c3ee4219e00168729093569c"
+    },
+    {
+      "name": "bootstrap-choose",
+      "title": "初次設定：選擇助手",
+      "width": 1440,
+      "file": "bootstrap-choose-1440.png",
+      "sha256": "89ea92e0658e1e9075256feb3484933c44b71da236be698af8b261db5f70aa90"
+    },
+    {
+      "name": "bootstrap-choose",
+      "title": "初次設定：選擇助手",
+      "width": 768,
+      "file": "bootstrap-choose-768.png",
+      "sha256": "0d7449919e0d5c459e697b7693b1ec4c3fa94bf63e923d959678afae977c0b5d"
+    },
+    {
+      "name": "bootstrap-choose",
+      "title": "初次設定：選擇助手",
+      "width": 390,
+      "file": "bootstrap-choose-390.png",
+      "sha256": "2817672ac54b90ebc517c4ae1aa585b26dae097374ebc00553d7389e1fc1346c"
+    },
+    {
+      "name": "bootstrap-cli-auth",
+      "title": "官方登入",
+      "width": 1440,
+      "file": "bootstrap-cli-auth-1440.png",
+      "sha256": "e7b70e241bd57da4460cf8100310e74fe40ab518f571d1d5c3cbaff16e7ca2c6"
+    },
+    {
+      "name": "bootstrap-cli-auth",
+      "title": "官方登入",
+      "width": 768,
+      "file": "bootstrap-cli-auth-768.png",
+      "sha256": "b23797c230b466bcfd775e031f74eed9f42e63808ec323cca5031e0a41bc188e"
+    },
+    {
+      "name": "bootstrap-cli-auth",
+      "title": "官方登入",
+      "width": 390,
+      "file": "bootstrap-cli-auth-390.png",
+      "sha256": "59165ca0b56b0dba2a17b2c42968f45526e80dfc280059d7f01a9a37fe7b1aa7"
+    },
+    {
+      "name": "bootstrap-native-home",
+      "title": "連接 Home Assistant",
+      "width": 1440,
+      "file": "bootstrap-native-home-1440.png",
+      "sha256": "7d2f8b2f7fa2c7790e25094b0abc0c3b764000d475433657791fa00fc0e95102"
+    },
+    {
+      "name": "bootstrap-native-home",
+      "title": "連接 Home Assistant",
+      "width": 768,
+      "file": "bootstrap-native-home-768.png",
+      "sha256": "bc9b1ec44e6104339f8163cb809f611ee47b14f5a434bb5c636256c1aec86704"
+    },
+    {
+      "name": "bootstrap-native-home",
+      "title": "連接 Home Assistant",
+      "width": 390,
+      "file": "bootstrap-native-home-390.png",
+      "sha256": "a991e4aa0d887889333eb8088dfeac4763d9374b8ec4f16d45d98a0d9e79b85a"
+    },
+    {
+      "name": "bootstrap-complete",
+      "title": "設定完成",
+      "width": 1440,
+      "file": "bootstrap-complete-1440.png",
+      "sha256": "a0a899e8839263b97d19fab14e4f15c0d1cc2c73707edb397a7d9366475920f5"
+    },
+    {
+      "name": "bootstrap-complete",
+      "title": "設定完成",
+      "width": 768,
+      "file": "bootstrap-complete-768.png",
+      "sha256": "fc20ad6353f116babd073e18b09a92e99e5b0840bd2cfa6c5c034f376951d37d"
+    },
+    {
+      "name": "bootstrap-complete",
+      "title": "設定完成",
+      "width": 390,
+      "file": "bootstrap-complete-390.png",
+      "sha256": "5ab811d042d251fcbcbf10506040f9b823ee8503fab33af5fc764e9aad0e6899"
+    }
+  ]
+}

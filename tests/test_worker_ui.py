@@ -256,12 +256,12 @@ def test_network_and_digest_bound_update_review(ui_page):
     assert not errors
 
 
-def test_same_case_completion_is_visible_and_links_exact_worker(ui_page):
+def test_same_case_results_open_inline_without_dispatch(ui_page):
     page, origin = ui_page
     case_id, job_id = 'e' * 32, 'd' * 32
     posts = []
-    job = {'id': job_id, 'case_id': case_id, 'worker_id': 'host-coder', 'mode': 'development', 'provider': 'codex', 'goal': '改善 onboarding 手機操作', 'state': 'succeeded', 'execution_started': True, 'stop_confirmed': True, 'facts': ['按鈕已調整，差異與測試證據已保存。'], 'artifacts': []}
-    message = {'id': 'a' * 64, 'source': 'web', 'runtime': 'host', 'provider': 'codex', 'coordinator': 'hermes', 'thread_id': 'b' * 32, 'case_id': case_id, 'state': 'succeeded', 'message': '幫我檢查手機的設定流程。', 'answer': '已交給外層開發助手；可以從這段對話查看工作進度與成果。', 'created_at': '2026-10-12T09:00:00Z'}
+    job = {'id': job_id, 'case_id': case_id, 'worker_id': 'host-coder', 'mode': 'development', 'provider': 'codex', 'goal': '改善手機設定流程', 'state': 'succeeded', 'execution_started': True, 'stop_confirmed': True, 'facts': ['按鈕已調整，差異與測試證據已保存。'], 'artifacts': []}
+    message = {'id': 'a' * 64, 'source': 'web', 'runtime': 'host', 'provider': 'codex', 'coordinator': 'hermes', 'thread_id': 'b' * 32, 'case_id': case_id, 'state': 'succeeded', 'message': '幫我檢查手機的設定流程。', 'answer': '手機設定流程已檢查完成。成果整理在下方，可以直接展開查看。', 'created_at': '2026-10-12T09:00:00Z'}
     def route(route):
         req = route.request
         path = req.url.split('/api/')[1]
@@ -270,6 +270,8 @@ def test_same_case_completion_is_visible_and_links_exact_worker(ui_page):
         value = common(path)
         if value is not None:
             pass
+        elif path == 'bootstrap':
+            value = {'state': 'completed', 'id': 'c' * 32, 'steps': [], 'provider': 'codex', 'channel': 'web'}
         elif path == 'gateway':
             value = {'preferences': {'runtime': 'host', 'provider': 'codex', 'coordinator': 'hermes'}, 'channels': []}
         elif path == 'gateway/messages':
@@ -278,17 +280,85 @@ def test_same_case_completion_is_visible_and_links_exact_worker(ui_page):
             value = {'id': case_id, 'jobs': [{'id': job_id, 'state': 'succeeded', 'worker_id': 'host-coder', 'artifact_count': 3, 'evidence_count': 2, 'content_expired': False}]}
         elif path == 'workers':
             value = {'workers': [], 'active_job_id': None}
-        elif path == 'worker/jobs':
-            value = {'jobs': [job], 'active_job_id': None}
+        elif path == 'worker/jobs/' + job_id:
+            value = job
         else:
             raise AssertionError(path)
         route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
     page.route('**/api/**', route)
-    page.goto(origin + '/#gateway')
+    page.goto(origin + '/')
+    page.get_by_role('heading', name='今天想處理什麼？').wait_for()
+    assert page.url.endswith('#gateway')
+    screenshot(page, 'assistant-welcome')
+    page.get_by_role('button', name='看看家裡目前的狀態').click()
+    expect(page.get_by_label('對話訊息')).to_have_value('看看家裡目前的狀態')
+    assert not posts
+    page.get_by_label('對話訊息').fill('')
+    page.get_by_role('button', name='對話紀錄', exact=False).click()
+    page.get_by_role('region', name='對話紀錄').get_by_role('button').filter(has_text=message['message']).click()
     page.get_by_text('3 份成果 · 2 份證據', exact=True).wait_for()
-    expect(page.get_by_role('link', name='查看這份工作')).to_have_attribute('href', '#workers/' + job_id)
     screenshot(page, 'conversation-work')
-    page.get_by_role('link', name='查看這份工作').click()
+    page.get_by_role('button', name='查看成果', exact=True).click()
     page.get_by_role('heading', name=job['goal'], exact=True).wait_for()
     expect(page.get_by_text(job['facts'][0], exact=True)).to_be_visible()
+    assert page.url.endswith('#gateway')
+    screenshot(page, 'assistant-results')
+    job['case_id'] = 'f' * 32
+    page.get_by_role('button', name='收起成果', exact=True).click()
+    page.get_by_role('button', name='查看成果', exact=True).click()
+    expect(page.get_by_role('alert')).to_contain_text('成果不屬於這段對話')
+    expect(page.get_by_text(job['facts'][0], exact=True)).to_have_count(0)
     assert not posts
+
+
+def test_chat_history_is_readonly_without_thread_and_locked_during_send(ui_page):
+    page, origin = ui_page
+    web = {'id': 'a' * 64, 'source': 'web', 'runtime': 'host', 'provider': 'codex', 'coordinator': 'hermes', 'thread_id': 'b' * 32, 'state': 'succeeded', 'message': '原本的家庭問題', 'answer': '請繼續補充。', 'created_at': '2026-10-12T09:00:00Z'}
+    legacy = {**web, 'id': 'c' * 64, 'thread_id': None, 'message': '舊版沒有對話識別的訊息'}
+    external = {**web, 'id': 'd' * 64, 'source': 'line', 'message': 'LINE 的對話', 'thread_id': 'e' * 32}
+    messages, pending, posts = [external, legacy, web], [], []
+
+    def route(route):
+        req = route.request
+        path = req.url.split('/api/')[1]
+        value = common(path)
+        if req.method == 'POST':
+            assert path == 'gateway/messages'
+            posts.append(req.post_data_json)
+            pending.append(route)
+            return
+        if value is not None:
+            pass
+        elif path == 'gateway':
+            value = {'preferences': {'runtime': 'host', 'provider': 'codex', 'coordinator': 'hermes'}, 'channels': []}
+        elif path == 'gateway/messages':
+            value = {'messages': messages}
+        else:
+            raise AssertionError(path)
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
+
+    page.add_init_script("sessionStorage.setItem('agentic-auth-conversations', JSON.stringify({'hermes-host-codex': '" + web['id'] + "'}))")
+    page.route('**/api/**', route)
+    page.goto(origin + '/#gateway')
+    page.get_by_role('heading', name=web['message'], exact=True).wait_for()
+    for message in (legacy, external):
+        page.get_by_role('button', name='對話紀錄', exact=False).click()
+        page.get_by_role('region', name='對話紀錄').get_by_role('button').filter(has_text=message['message']).click()
+        expect(page.get_by_label('對話訊息')).to_have_count(0)
+        assert json.loads(page.evaluate("sessionStorage.getItem('agentic-auth-conversations')")) == {'hermes-host-codex': web['id']}
+        assert not posts
+    page.get_by_role('button', name='對話紀錄', exact=False).click()
+    page.get_by_role('region', name='對話紀錄').get_by_role('button').filter(has_text=web['message']).click()
+    page.get_by_label('對話訊息').fill('補充現在的狀況')
+    page.get_by_role('button', name='對話紀錄', exact=False).click()
+    page.get_by_role('button', name='送出訊息', exact=True).click()
+    expect(page.get_by_role('button', name='對話紀錄', exact=False)).to_be_disabled()
+    for item in page.get_by_role('region', name='對話紀錄').get_by_role('button').all():
+        expect(item).to_be_disabled()
+    assert len(posts) == 1 and posts[0]['reply_to'] == web['id']
+    result = {**web, **posts[0], 'id': 'f' * 64, 'answer': '收到補充。', 'created_at': '2026-10-12T09:01:00Z'}
+    messages.insert(0, result)
+    pending[0].fulfill(status=200, content_type='application/json', body=json.dumps(result))
+    expect(page.get_by_role('heading', name=result['message'], exact=True)).to_be_visible()
+    expect(page.get_by_label('對話訊息')).to_have_value('')
+    assert len(posts) == 1

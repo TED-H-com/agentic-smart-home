@@ -2,7 +2,9 @@
 
 從開機一路引導到家庭設定：**Linux／網路 → 選 coding CLI 並登入 → 準備最新版 Hermes → LINE 或其他通道 → 自動啟動 HAOS → HA 原生設定**。程式保存進度並自動執行固定步驟，遇到帳號授權才等待使用者；可選擇先用 Web／外層助手。
 
-本版沿用 [Plan v3](docs/v3/README.md) 的一個外層 Hermes、Host／Home 各一個 coding worker。已接通獨立 Codex Host coding、檔案差異、獨立 verifier、隔離 PNG 預覽與停止後的接手檢查點；Hermes 可提出精確家庭提案，批准仍由 Owner 完成。Home coding 依真 HAOS App 隔離證據啟用；真帳號與家庭完整 E1／E2 驗收不由工程 fixtures 代替。
+本版沿用 [Plan v3](docs/v3/README.md) 的一個外層 Hermes、Host／Home 各一個 coding worker。已接通獨立 Codex Host coding、檔案差異、獨立 verifier、隔離 PNG 預覽與停止後的接手檢查點；Hermes 可提出精確家庭提案，批准仍由 Owner 完成。Home coding 尚未啟用，真 HAOS App 資源隔離已有平台證據，完整執行器仍待整合；真帳號與家庭完整 E1／E2 驗收不由工程 fixtures 代替。
+
+日常使用以 **智能管家** 對話為入口，進度與成果直接在對話裡查看；帳號、通訊與進階工具集中到設定。[查看新版桌面／手機畫面](evidence/ui/chat-first/README.md)。
 
 ```text
 Web ＋ 可選 LINE／Discord／Telegram（同一個 Gateway）
@@ -18,7 +20,7 @@ Web ＋ 可選 LINE／Discord／Telegram（同一個 Gateway）
                          └── Supervisor／Core → 原生家庭自動化
 
 Host coding：私有 Codex → diff → 獨立 verifier → PNG 預覽／停止後檢查點
-Home coding：仍依真 HAOS App 邊界驗證結果啟用
+Home coding：App 資源隔離已探測，完整 coding 執行器尚未啟用
 ```
 
 [安裝](INSTALL.md) · [通訊與登入](docs/GATEWAY.md) · [Linux 架構](docs/LINUX_PRODUCT.md) · [Hermes runtime](hermes/README.md) · [驗證](docs/VERIFICATION.md) · [本輪畫面／交付審查](docs/reviews/2026-10-12-UI-WORKER-DELIVERY.md) · [v3 進度](docs/v3/PROGRESS.md)

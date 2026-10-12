@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="163.135" timestamp="2026-10-12T06:33:07.913878-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_haos_boundary" name="test_actual_haos_app_boundary" time="163.117"><failure message="AssertionError: Error: App local_agentic_boundary_narrow_sys_admin does not exist in the store&#10;  -10-12 06:34:19.800 INFO (MainThread) [supervisor.resolution.fixup] System autofix complete#x1B[0m&#10;  #x1B[32m2026-10-12 06:34:19.951 INFO (MainThread) [supervisor.docker.interface] Downloading docker image ghcr.io/home-assistant/qemux86-64-homeassistant with tag 2026.10.1.#x1B[0m&#10;  #x1B[32m2026-10-12 06:34:19.965 INFO (SyncWorker_3) [supervisor.apps.app] Creating Home Assistant app data folder /data/apps/data/local_agentic_boundary_protected_baseline#x1B[0m&#10;  #x1B[32m2026-10-12 06:34:19.966 INFO (MainThread) [supervisor.docker.app] Starting build for local/amd64-addon-agentic_boundary_protected_baseline:1.0.0#x1B[0m&#10;  #x1B[32m2026-10-12 06:34:19.966 INFO (MainThread) [supervisor.docker.manager] Running command '['docker', 'buildx', 'build', '.', '--tag', 'local/amd64-addon-agentic_boundary_protected_baseline:1.0.0', '--file', 'Dockerfile', '--platform', 'linux/amd64', '--pull', '--label', 'io.hass.version=1.0.0', '--label', 'io.hass.arch=amd64', '--label', 'io.hass.type=app', '--label', 'io.hass.name=Disposable boundary probe', '--label', 'io.hass.description=Isolated test only', '--build-arg', 'BUILD_VERSION=1.0.0', '--build-arg', 'BUILD_ARCH=amd64']' on docker:29.7.2-cli#x1B[0m&#10;  #x1B[32m2026-10-12 06:34:34.744 INFO (MainThread) [supervisor.homeassistant.core] Downloading Home Assistant Core image, 68%#x1B[0m&#10;  #x1B[32m2026-10-12 06:34:49.751 INFO (MainThread) [supervisor.homeassistant.core] Downloading Home Assistant Core image, 69%#x1B[0m&#10;  #x1B[32m2026-10-12 06:35:04.752 INFO (MainThread) [supervisor.homeassistant.core] Downloading Home Assistant Core image, 69%#x1B[0m&#10;  #x1B[32m2026-10-12 06:35:09.266 INFO (MainThread) [supervisor.docker.app] Build local/amd64-addon-agentic_boundary_protected_baseline:1.0.0 done#x1B[0m&#10;  #x1B[32m2026-10-12 06:35:09.287 INFO (MainThread) [supervisor.docker.interface] Attaching to local/amd64-addon-agentic_boundary_protected_baseline with version 1.0.0#x1B[0m&#10;  #x1B[32m2026-10-12 06:35:09.770 INFO (MainThread) [supervisor.apps.manager] App 'local_agentic_boundary_protected_baseline' successfully installed#x1B[0m&#10;  #x1B[32m2026-10-12 06:35:10.022 INFO (MainThread) [supervisor.docker.manager] Stopping app_local_agentic_boundary_protected_baseline application#x1B[0m&#10;  #x1B[32m2026-10-12 06:35:11.469 INFO (MainThread) [supervisor.docker.app] Starting Docker app local/amd64-addon-agentic_boundary_protected_baseline with version 1.0.0#x1B[0m&#10;  #x1B[32m2026-10-12 06:35:19.753 INFO (MainThread) [supervisor.homeassistant.core] Downloading Home Assistant Core image, 72%#x1B[0m&#10;  #x1B[32m2026-10-12 06:35:34.755 INFO (MainThread) [supervisor.homeassistant.core] Downloading Home Assistant Core image, 78%#x1B[0m&#10;  #x1B[32m2026-10-12 06:35:37.562 INFO (MainThread) [supervisor.docker.manager] Stopping app_local_agentic_boundary_protected_baseline application#x1B[0m&#10;  #x1B[31m2026-10-12 06:35:48.851 ERROR (MainThread) [supervisor.apps.app] App Disposable boundary probe exited with non-zero exit code 137#x1B[0m&#10;  #x1B[32m2026-10-12 06:35:48.852 INFO (MainThread) [supervisor.docker.manager] Cleaning app_local_agentic_boundary_protected_baseline application#x1B[0m&#10;  &#10;assert ('Error:' not in 'Error: App ... the store\n'&#10;  &#10;  'Error:' is contained here:&#10;    Error: App local_agentic_boundary_narrow_sys_admin does not exist in the store&#10;  ? ++++++)">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-063307-HMhxGM/bt/test_actual_haos_app_boundary0')
+request = &lt;FixtureRequest for &lt;Function test_actual_haos_app_boundary&gt;&gt;
+
+    def test_actual_haos_app_boundary(tmp_path, request):
+        if not request.config.getoption("--haos-vm"):
+            pytest.skip("Actual HAOS App probe requires --haos-vm")
+        assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
+        name = "agentic-haos-boundary-" + uuid.uuid4().hex[:10]
+        with lzma.open(ROOT / "build/cache/haos_ova-18.3.qcow2.xz", "rb") as source, (tmp_path / "haos.qcow2").open("wb") as target:
+            shutil.copyfileobj(source, target, 1024 * 1024)
+        for reference in (PYTHON, BUILDER):
+            docker("pull", reference, timeout=180)
+        # Preload exact public images, avoiding slow repeated downloads through QEMU user networking.
+        subprocess.run(["docker", "save", "-o", str(tmp_path / "images.tar"), "docker:29.7.2-cli", PYTHON],
+                       check=True, timeout=120)
+        shutil.copyfile(ROOT / "tests/haos_boundary_probe.py", tmp_path / "probe.py")
+        subprocess.run(["ssh-keygen", "-t", "ed25519", "-N", "", "-f", str(tmp_path / "key")], check=True, capture_output=True)
+        (tmp_path / "config").mkdir()
+        shutil.copyfile(tmp_path / "key.pub", tmp_path / "config/authorized_keys")
+        with (tmp_path / "config.ext4").open("wb") as stream:
+            stream.truncate(32 * 1024**2)
+        subprocess.run(["/usr/sbin/mkfs.ext4", "-q", "-F", "-L", "CONFIG", "-d", str(tmp_path / "config"),
+                        str(tmp_path / "config.ext4")], check=True, capture_output=True)
+        try:
+            docker("run", "-d", "--name", name, "--device", "/dev/kvm", "--memory", "4096m", "--cpus", "3",
+                   "-p", "127.0.0.1::2222", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0", "bash", "-ec",
+                   "cp /usr/share/OVMF/OVMF_VARS_4M.fd /lab/nvram.fd\nqemu-img resize /lab/haos.qcow2 64G\n"
+                   "exec qemu-system-x86_64 -enable-kvm -cpu host -machine q35 -m 3072 -smp 2 "
+                   "-drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd "
+                   "-drive if=pflash,format=raw,file=/lab/nvram.fd "
+                   "-drive file=/lab/haos.qcow2,format=qcow2,if=none,id=disk "
+                   "-device virtio-scsi-pci -device scsi-hd,drive=disk "
+                   "-drive file=/lab/config.ext4,format=raw,if=virtio "
+                   "-netdev user,id=net,hostfwd=tcp:0.0.0.0:2222-:22222 -device virtio-net-pci,netdev=net -display none "
+                   "-serial file:/lab/serial.log")
+            port = json.loads(docker("inspect", name))[0]["NetworkSettings"]["Ports"]["2222/tcp"][0]["HostPort"]
+            ssh = ["ssh", "-i", str(tmp_path / "key"), "-p", port, "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes",
+                   "-o", "StrictHostKeyChecking=no", "-o", f"UserKnownHostsFile={tmp_path / 'known_hosts'}",
+                   "-o", "ConnectTimeout=5", "root@127.0.0.1"]
+            for _ in range(120):
+                ready = subprocess.run([*ssh, "true"], capture_output=True, timeout=8)
+                if ready.returncode == 0:
+                    break
+                time.sleep(3)
+            else:
+                raise AssertionError("HAOS official CONFIG-key SSH import did not become ready")
+    
+            def shell(command, timeout=90):
+                result = subprocess.run([*ssh, "sh"], input=command, capture_output=True, text=True, timeout=timeout)
+                return result.stdout + result.stderr
+    
+            with (tmp_path / "images.tar").open("rb") as images:
+                loaded = subprocess.run([*ssh, "docker load"], stdin=images, capture_output=True, timeout=180)
+            assert loaded.returncode == 0, "Pinned diagnostic image preload failed"
+            evidence = {"observed_from": "real_haos_app", "haos_image": "18.3", "cloud_account": "not_used",
+                        "diagnostic_base": PYTHON, "supervisor_builder": BUILDER,
+                        "runner_coding_executed": False, "profiles": {}}
+            for label, capabilities in (("protected_baseline", []), ("narrow_sys_admin", ["SYS_ADMIN"])):
+                slug = "agentic_boundary_" + label
+                config = {"name": "Disposable boundary probe", "version": "1.0.0", "slug": slug,
+                          "description": "Isolated test only", "arch": ["amd64"], "startup": "application",
+                          "boot": "manual", "init": False, "apparmor": True, "hassio_api": False,
+                          "homeassistant_api": False, "docker_api": False, "full_access": False,
+                          "host_pid": False, "host_network": False, "privileged": capabilities,
+                          "options": {}, "schema": {}}
+                directory = "/mnt/data/supervisor/apps/local/" + slug
+                apparmor = """#include &lt;tunables/global&gt;
+    profile agentic-boundary flags=(attach_disconnected,mediate_deleted) {
+      #include &lt;abstractions/base&gt;
+      file,
+      network,
+      capability,
+      signal,
+      mount fstype=cgroup2 -&gt; /data/boundary-probe/cgroup/,
+      umount /data/boundary-probe/cgroup/,
+    }
+    """
+                commands = ["mkdir -p " + directory]
+                files = {"probe.py": (tmp_path / "probe.py").read_text(), "config.json": json.dumps(config), "Dockerfile":
+                         'FROM '+evidence['diagnostic_base']+'\nCOPY probe.py /probe.py\nCMD ["python","/probe.py"]\n'}
+                if capabilities:
+                    files["apparmor.txt"] = apparmor.replace("profile agentic-boundary ", "profile " + slug + " ")
+                for filename, content in files.items():
+                    commands.append("echo " + base64.b64encode(content.encode()).decode() + " | base64 -d &gt; " + directory + "/" + filename)
+                shell("\n".join(commands))
+                # Wait for Supervisor readiness, then use its real local-App install/start APIs.
+                for _ in range(90):
+                    output = shell("ha apps reload &amp;&amp; ha apps info local_" + slug, 30)
+                    if "version:" in output or '"version"' in output:
+                        break
+                    time.sleep(3)
+                update_requested = False
+                install_deadline = time.monotonic() + 600
+                installed = "not attempted"
+                while time.monotonic() &lt; install_deadline:
+                    observed = shell("ha apps info local_" + slug + " --raw-json", 30)
+                    try:
+                        if json.loads(observed).get("data", {}).get("installed") is True:
+                            installed = "already installed after retry"
+                            break
+                    except ValueError:
+                        pass
+                    try:
+                        installed = shell("ha apps install local_" + slug, 90)
+                    except subprocess.TimeoutExpired:
+                        installed = "Error: install in progress; awaiting real Supervisor readback"
+                    if "Error:" not in installed and '"result":"error"' not in installed:
+                        break
+                    if "supervisor needs to be updated first" in installed and not update_requested:
+                        shell("ha supervisor update", 240)
+                        update_requested = True
+                    elif not any(message in installed.lower() for message in
+                                 ("updated first", "in progress", "connection refused", "not ready", "starting", "already installed")):
+                        break
+                    time.sleep(3)
+&gt;               assert "Error:" not in installed and '"result":"error"' not in installed, installed[-1000:] + shell("ha supervisor logs | tail -20")[-3000:]
+E               AssertionError: Error: App local_agentic_boundary_narrow_sys_admin does not exist in the store
+E                 -10-12 06:34:19.800 INFO (MainThread) [supervisor.resolution.fixup] System autofix complete#x1B[0m
+E                 #x1B[32m2026-10-12 06:34:19.951 INFO (MainThread) [supervisor.docker.interface] Downloading docker image ghcr.io/home-assistant/qemux86-64-homeassistant with tag 2026.10.1.#x1B[0m
+E                 #x1B[32m2026-10-12 06:34:19.965 INFO (SyncWorker_3) [supervisor.apps.app] Creating Home Assistant app data folder /data/apps/data/local_agentic_boundary_protected_baseline#x1B[0m
+E                 #x1B[32m2026-10-12 06:34:19.966 INFO (MainThread) [supervisor.docker.app] Starting build for local/amd64-addon-agentic_boundary_protected_baseline:1.0.0#x1B[0m
+E                 #x1B[32m2026-10-12 06:34:19.966 INFO (MainThread) [supervisor.docker.manager] Running command '['docker', 'buildx', 'build', '.', '--tag', 'local/amd64-addon-agentic_boundary_protected_baseline:1.0.0', '--file', 'Dockerfile', '--platform', 'linux/amd64', '--pull', '--label', 'io.hass.version=1.0.0', '--label', 'io.hass.arch=amd64', '--label', 'io.hass.type=app', '--label', 'io.hass.name=Disposable boundary probe', '--label', 'io.hass.description=Isolated test only', '--build-arg', 'BUILD_VERSION=1.0.0', '--build-arg', 'BUILD_ARCH=amd64']' on docker:29.7.2-cli#x1B[0m
+E                 #x1B[32m2026-10-12 06:34:34.744 INFO (MainThread) [supervisor.homeassistant.core] Downloading Home Assistant Core image, 68%#x1B[0m
+E                 #x1B[32m2026-10-12 06:34:49.751 INFO (MainThread) [supervisor.homeassistant.core] Downloading Home Assistant Core image, 69%#x1B[0m
+E                 #x1B[32m2026-10-12 06:35:04.752 INFO (MainThread) [supervisor.homeassistant.core] Downloading Home Assistant Core image, 69%#x1B[0m
+E                 #x1B[32m2026-10-12 06:35:09.266 INFO (MainThread) [supervisor.docker.app] Build local/amd64-addon-agentic_boundary_protected_baseline:1.0.0 done#x1B[0m
+E                 #x1B[32m2026-10-12 06:35:09.287 INFO (MainThread) [supervisor.docker.interface] Attaching to local/amd64-addon-agentic_boundary_protected_baseline with version 1.0.0#x1B[0m
+E                 #x1B[32m2026-10-12 06:35:09.770 INFO (MainThread) [supervisor.apps.manager] App 'local_agentic_boundary_protected_baseline' successfully installed#x1B[0m
+E                 #x1B[32m2026-10-12 06:35:10.022 INFO (MainThread) [supervisor.docker.manager] Stopping app_local_agentic_boundary_protected_baseline application#x1B[0m
+E                 #x1B[32m2026-10-12 06:35:11.469 INFO (MainThread) [supervisor.docker.app] Starting Docker app local/amd64-addon-agentic_boundary_protected_baseline with version 1.0.0#x1B[0m
+E                 #x1B[32m2026-10-12 06:35:19.753 INFO (MainThread) [supervisor.homeassistant.core] Downloading Home Assistant Core image, 72%#x1B[0m
+E                 #x1B[32m2026-10-12 06:35:34.755 INFO (MainThread) [supervisor.homeassistant.core] Downloading Home Assistant Core image, 78%#x1B[0m
+E                 #x1B[32m2026-10-12 06:35:37.562 INFO (MainThread) [supervisor.docker.manager] Stopping app_local_agentic_boundary_protected_baseline application#x1B[0m
+E                 #x1B[31m2026-10-12 06:35:48.851 ERROR (MainThread) [supervisor.apps.app] App Disposable boundary probe exited with non-zero exit code 137#x1B[0m
+E                 #x1B[32m2026-10-12 06:35:48.852 INFO (MainThread) [supervisor.docker.manager] Cleaning app_local_agentic_boundary_protected_baseline application#x1B[0m
+E                 
+E               assert ('Error:' not in 'Error: App ... the store\n'
+E                 
+E                 'Error:' is contained here:
+E                   Error: App local_agentic_boundary_narrow_sys_admin does not exist in the store
+E                 ? ++++++)
+
+tests/test_haos_boundary.py:135: AssertionError</failure></testcase></testsuite></testsuites>

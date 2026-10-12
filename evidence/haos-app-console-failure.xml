@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="757.760" timestamp="2026-10-12T05:43:47.004325-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_haos_boundary" name="test_actual_haos_app_boundary" time="757.744"><failure message="AssertionError: HAOS serial stage missing: ha &gt;&#10;assert b'ha &gt;' in b''">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-054346-9U6pNY/bt/test_actual_haos_app_boundary0')
+request = &lt;FixtureRequest for &lt;Function test_actual_haos_app_boundary&gt;&gt;
+
+    def test_actual_haos_app_boundary(tmp_path, request):
+        if not request.config.getoption("--haos-vm"):
+            pytest.skip("Actual HAOS App probe requires --haos-vm")
+        assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
+        name = "agentic-haos-boundary-" + uuid.uuid4().hex[:10]
+        with lzma.open(ROOT / "build/cache/haos_ova-18.3.qcow2.xz", "rb") as source, (tmp_path / "haos.qcow2").open("wb") as target:
+            shutil.copyfileobj(source, target, 1024 * 1024)
+        subprocess.run(["docker", "save", "-o", str(tmp_path / "runner.tar"), "agentic-home-runner:0.5.1"], check=True, timeout=120)
+        shutil.copyfile(ROOT / "tests/haos_boundary_probe.py", tmp_path / "probe.py")
+        try:
+            docker("run", "-d", "--name", name, "--device", "/dev/kvm", "--memory", "4096m", "--cpus", "3",
+                   "-p", "127.0.0.1::4444", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0", "bash", "-ec",
+                   "python3 -m http.server 8081 --directory /lab &gt;/lab/http.log 2&gt;&amp;1 &amp;\n"
+                   "cp /usr/share/OVMF/OVMF_VARS_4M.fd /lab/nvram.fd\nqemu-img resize /lab/haos.qcow2 64G\n"
+                   "exec qemu-system-x86_64 -enable-kvm -cpu host -machine q35 -m 3072 -smp 2 "
+                   "-drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd "
+                   "-drive if=pflash,format=raw,file=/lab/nvram.fd "
+                   "-drive file=/lab/haos.qcow2,format=qcow2,if=none,id=disk "
+                   "-device virtio-scsi-pci -device scsi-hd,drive=disk "
+                   "-netdev user,id=net -device virtio-net-pci,netdev=net -display none "
+                   "-serial tcp:0.0.0.0:4444,server=on,wait=off")
+            port = json.loads(docker("inspect", name))[0]["NetworkSettings"]["Ports"]["4444/tcp"][0]["HostPort"]
+            connection = socket.create_connection(("127.0.0.1", int(port)), timeout=10)
+            connection.settimeout(1)
+            buffer = b""
+    
+            def until(marker, timeout=120):
+                nonlocal buffer
+                deadline = time.monotonic() + timeout
+                while marker not in buffer and time.monotonic() &lt; deadline:
+                    try:
+                        buffer += connection.recv(65536)
+                    except TimeoutError:
+                        pass
+                assert marker in buffer, "HAOS serial stage missing: " + marker.decode()
+                value, buffer = buffer.split(marker, 1)
+                return value.decode(errors="replace")
+    
+&gt;           until(b"ha &gt;", 720)
+
+tests/test_haos_boundary.py:60: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+marker = b'ha &gt;', timeout = 720
+
+    def until(marker, timeout=120):
+        nonlocal buffer
+        deadline = time.monotonic() + timeout
+        while marker not in buffer and time.monotonic() &lt; deadline:
+            try:
+                buffer += connection.recv(65536)
+            except TimeoutError:
+                pass
+&gt;       assert marker in buffer, "HAOS serial stage missing: " + marker.decode()
+E       AssertionError: HAOS serial stage missing: ha &gt;
+E       assert b'ha &gt;' in b''
+
+tests/test_haos_boundary.py:56: AssertionError</failure></testcase></testsuite></testsuites>

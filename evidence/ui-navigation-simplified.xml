@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="4" time="64.108" timestamp="2026-10-12T06:45:42.998484-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_ui" name="test_browser_approval_and_responsive_layout" time="1.724" /><testcase classname="tests.test_ui" name="test_host_login_offline_management_and_responsive_layout" time="30.742"><failure message="playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms exceeded.&#10;Call log:&#10;  - waiting for get_by_role(&quot;navigation&quot;, name=&quot;設定入口&quot;).get_by_role(&quot;link&quot;, name=&quot;主機維護&quot;, exact=True)">def test_host_login_offline_management_and_responsive_layout():
+        root = Path(__file__).parents[1]
+        handler = partial(SimpleHTTPRequestHandler, directory=str(root / 'controller/static'))
+        server = ThreadingHTTPServer(('127.0.0.1', 0), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        authenticated = False
+        actions, errors = [], []
+    
+        def route(route):
+            nonlocal authenticated
+            path = route.request.url.split('/api/')[1]
+            if path == 'deployment':
+                result = {'mode': 'host', 'authenticated': authenticated}
+            elif path == 'host/login':
+                authenticated = True
+                result = {'authenticated': True}
+            elif path == 'session':
+                result = {'principal': 'host-owner', 'csrf': 'fixture-host-csrf', 'mode': 'host'}
+            elif path == 'status':
+                result = {'version': '0.5.1', 'ha': {'status': 'unavailable'}, 'runner': {'status': 'unpaired'}}
+            elif path == 'tasks':
+                result = {'tasks': []}
+            elif path == 'services':
+                result = {'services': []}
+            elif path == 'retention':
+                result = {'audit_days': 30, 'context_days': 7}
+            elif path == 'host/status':
+                result = {'vm': 'shut off', 'provisioned': True, 'kvm': True, 'ha_connected': False,
+                          'profile': {'label': '筆電（介面 fixture）', 'memory_mib': 4096, 'vcpus': 2},
+                          'snapshots': [], 'jobs': []}
+            elif path == 'host/actions':
+                assert route.request.headers.get('x-agentic-csrf') == 'fixture-host-csrf'
+                actions.append(route.request.post_data_json)
+                result = {'state': 'running'}
+            else:
+                result = {}
+            route.fulfill(status=200, content_type='application/json', body=json.dumps(result))
+    
+        try:
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch(headless=True)
+                page = browser.new_page(viewport={'width': 1440, 'height': 900})
+                page.on('pageerror', lambda error: errors.append(str(error)))
+                page.route('**/api/**', route)
+                page.goto(f'http://127.0.0.1:{server.server_port}/#home')
+                page.get_by_label('主機登入金鑰').fill('fixture-local-machine-key')
+                page.screenshot(path=str(root / 'evidence/ui/host-login-1440.png'), full_page=True)
+                page.get_by_role('button', name='開啟管理中心').click()
+                page.get_by_role('region', name='開始使用').wait_for()
+&gt;               click_navigation(page, 'Linux 主機')
+
+tests/test_ui.py:164: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/ui_helpers.py:18: in click_navigation
+    page.get_by_role('navigation', name='設定入口').get_by_role('link', name=advanced[name], exact=True).click()
+.venv/lib/python3.13/site-packages/playwright/sync_api/_generated.py:18032: in click
+    self._sync(
+.venv/lib/python3.13/site-packages/playwright/_impl/_locator.py:165: in click
+    return await self._frame._click(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/playwright/_impl/_frame.py:594: in _click
+    await self._channel.send("click", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.13/site-packages/playwright/_impl/_connection.py:76: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x74189016fc50&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x741890ed7e20&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms exceeded.
+E           Call log:
+E             - waiting for get_by_role("navigation", name="設定入口").get_by_role("link", name="主機維護", exact=True)
+
+.venv/lib/python3.13/site-packages/playwright/_impl/_connection.py:632: TimeoutError</failure></testcase><testcase classname="tests.test_ui" name="test_setup_links_session_recovery_and_login_resume" time="30.761"><failure message="playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms exceeded.&#10;Call log:&#10;  - waiting for get_by_role(&quot;navigation&quot;, name=&quot;設定入口&quot;).get_by_role(&quot;link&quot;, name=&quot;主機維護&quot;, exact=True)">def test_setup_links_session_recovery_and_login_resume():
+        """Exercise the actual UI transitions; HA/provider responses are protocol fixtures."""
+        root = Path(__file__).parents[1]
+        server = ThreadingHTTPServer(('127.0.0.1', 0), partial(SimpleHTTPRequestHandler, directory=str(root / 'controller/static')))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        authenticated, connected, agent_connected = True, False, False
+        expire = False
+        hold_old_task = False
+        pending = []
+        auth_starts = 0
+        errors = []
+    
+        def route(route):
+            nonlocal authenticated, connected, agent_connected, expire, auth_starts, hold_old_task
+            path = route.request.url.split('/api/')[1]
+            if hold_old_task and path == 'tasks':
+                hold_old_task = False
+                pending.append(route)
+                return
+            if expire and path == 'status':
+                expire = False
+                authenticated = False
+                route.fulfill(status=401, content_type='application/json', body='{"detail":"登入已過期"}')
+                return
+            if path == 'deployment':
+                result = {'mode':'host', 'authenticated':authenticated}
+            elif path == 'session':
+                result = {'principal':'owner' if connected else 'host-owner', 'csrf':'connected-csrf' if connected else 'initial-csrf'}
+            elif path == 'host/login':
+                authenticated = True
+                result = {'authenticated':True}
+            elif path == 'status':
+                result = {'version':'0.5.1','ha':{'status':'connected' if connected else 'unavailable', 'location_name':'介面測試家庭'},
+                          'runner':{'protocol':1,'providers':[{'provider':'codex','status':'connected' if agent_connected else 'needs_reauth'}]},
+                          'onboarding':{'policy_confirmed':False},'policy_entities':0}
+            elif path == 'tasks':
+                result = {'tasks':[]}
+            elif path == 'host/status':
+                result = {'vm':'running','provisioned':True,'ha_connected':connected,'snapshots':[],'jobs':[],
+                          'storage_free_bytes':120*1024**3,'profile':{'label':'Ubuntu 家庭主機（介面 fixture）','memory_mib':4096,'vcpus':2}}
+            elif path == 'host/connect':
+                assert route.request.headers['x-agentic-csrf'] == 'initial-csrf'
+                connected = True
+                result = {'connected':True}
+            elif path == 'services':
+                from agentic_controller.app import SERVICES
+                result = {'services':[{'id':id, **item, 'state':'not_started'} for id,item in SERVICES.items()]}
+            elif path == 'automations':
+                result = {'automations':[]}
+            elif path == 'retention':
+                result = {'audit_days':30,'context_days':7}
+            elif path == 'runtimes':
+                result = {'host': {'protocol':1, 'providers':[{'provider':'codex',
+                    'status':'connected' if agent_connected else 'needs_reauth'}]}, 'haos': {'status':'unpaired'}}
+            elif path == 'hermes':
+                result = {'runtime': {'state':'needs_auth', 'execution_state':'idle'}, 'workers': []}
+            elif path == 'runtimes/host/providers/codex/auth':
+                assert route.request.headers['x-agentic-csrf'] == 'connected-csrf'
+                assert route.request.post_data_json == {'method':'device_code', 'secret':''}
+                auth_starts += 1
+                result = {'id':'fixtureauth','status':'pending','url':'https://auth.openai.com/codex/device','code':'ABCD-1234'}
+            elif path == 'runtimes/host/auth/fixtureauth':
+                result = {'id':'fixtureauth','status':'connected' if agent_connected else 'pending','url':'https://auth.openai.com/codex/device','code':'ABCD-1234'}
+            else:
+                result = {}
+            route.fulfill(status=200, content_type='application/json', body=json.dumps(result))
+    
+        try:
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch(headless=True)
+                page = browser.new_page(viewport={'width':1440,'height':900})
+                page.on('pageerror', lambda error: errors.append(str(error)))
+                page.route('**/api/**', route)
+                page.goto(f'http://127.0.0.1:{server.server_port}/#home')
+                guide = page.get_by_role('region', name='開始使用')
+                guide.get_by_text('設定尚未完成', exact=True).wait_for()
+                expect(guide.get_by_role('button', name='繼續設定', exact=True)).to_be_visible()
+                navigation = page.get_by_role('navigation', name='主選單')
+                expect(navigation.get_by_role('button')).to_have_count(5)
+                for label in ('智能管家', '設備', '自動化', '紀錄', '設定'):
+                    expect(navigation.get_by_role('button', name=label)).to_have_count(1)
+                assert page.locator('.brand').get_attribute('href') == '#gateway'
+                for width in (1440,768,390):
+                    page.set_viewport_size({'width':width,'height':900 if width==1440 else 844})
+                    assert page.evaluate('document.documentElement.scrollWidth &lt;= innerWidth')
+                    page.screenshot(path=str(root/f'evidence/ui/setup-{width}.png'), full_page=True)
+&gt;               click_navigation(page, 'Linux 主機')
+
+tests/test_ui.py:269: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/ui_helpers.py:18: in click_navigation
+    page.get_by_role('navigation', name='設定入口').get_by_role('link', name=advanced[name]).click()
+.venv/lib/python3.13/site-packages/playwright/sync_api/_generated.py:18032: in click
+    self._sync(
+.venv/lib/python3.13/site-packages/playwright/_impl/_locator.py:165: in click
+    return await self._frame._click(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/playwright/_impl/_frame.py:594: in _click
+    await self._channel.send("click", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.13/site-packages/playwright/_impl/_connection.py:76: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x74189011fed0&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x741882827380&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms exceeded.
+E           Call log:
+E             - waiting for get_by_role("navigation", name="設定入口").get_by_role("link", name="主機維護", exact=True)
+
+.venv/lib/python3.13/site-packages/playwright/_impl/_connection.py:632: TimeoutError</failure></testcase><testcase classname="tests.test_ui" name="test_bootstrap_failure_shows_retry_without_guessing_deployment" time="0.719" /></testsuite></testsuites>

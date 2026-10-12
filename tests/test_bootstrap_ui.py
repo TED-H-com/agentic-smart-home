@@ -163,20 +163,22 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             page.on('pageerror', lambda error, errors=errors: errors.append(str(error)))
             page.route('**/api/**', route)
             page.goto(f'http://127.0.0.1:{server.server_port}/#onboarding')
-            page.get_by_role('heading', name='先登入一個你正在使用的助手', exact=True).wait_for()
+            page.get_by_role('heading', name='先選一個 AI 助手', exact=True).wait_for()
             assert page.locator('article.provider').count() == 0
-            expect(page.get_by_label('初始化使用的 CLI')).to_have_value('codex')
-            page.get_by_label('初始化使用的 CLI').select_option('claude')
+            expect(page.locator('.onboarding-body').get_by_role('heading')).to_have_count(1)
+            expect(page.get_by_role('list', name='自動設定進度').locator('li')).to_have_count(5)
+            expect(page.get_by_label('使用的助手')).to_have_value('codex')
+            page.get_by_label('使用的助手').select_option('claude')
             expect(page.get_by_text('Claude Code 目前使用官方 setup-token', exact=False)).to_be_visible()
-            page.get_by_label('初始化使用的 CLI').select_option('agy')
+            page.get_by_label('使用的助手').select_option('agy')
             expect(page.get_by_text('Google 訂閱登入尚未整合。', exact=False)).to_be_visible()
-            page.get_by_label('初始化使用的 CLI').select_option('grok')
+            page.get_by_label('使用的助手').select_option('grok')
             shots(page, 'choose')
-            start = page.get_by_role('button', name='使用 Grok Build 開始設定', exact=True)
+            start = page.locator('.onboarding-body').get_by_role('button', name='開始設定', exact=True)
             assert start.bounding_box()['y'] + start.bounding_box()['height'] <= page.viewport_size['height']
             expect(page.get_by_role('list', name='自動設定進度')).to_contain_text('網路與主機')
             expect(page.get_by_role('button', name='選單', exact=True)).to_have_attribute('aria-expanded', 'false')
-            page.get_by_role('button', name='使用 Grok Build 開始設定', exact=True).click()
+            page.locator('.onboarding-body').get_by_role('button', name='開始設定', exact=True).click()
             # Server accepted the start but the response was lost: GET resumes the persisted flow.
             page.get_by_role('button', name='開始官方登入', exact=True).wait_for()
             assert len([call for call in calls if call[0] == 'bootstrap/start']) == 1
@@ -192,19 +194,19 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             page.reload()
             page.get_by_text('CLI-FIXTURE', exact=True).wait_for()
             assert 'CLI-FIXTURE' not in stored(page) and 'https://accounts.x.ai' not in stored(page)
-            assert page.get_by_role('heading', name='家庭入口已完成設定').count() == 0
+            assert page.get_by_role('heading', name='設定完成').count() == 0
             shots(page, 'cli-auth')
             cli_auth['status'] = 'connected'
             stage('cli_assist')
-            page.get_by_text('已登入的助手正在確認初始化需求。', exact=True).wait_for()
+            page.get_by_text('助手正在確認設定…', exact=True).wait_for()
             stage('hermes_install')
-            page.get_by_text('正在從官方來源準備 Hermes', exact=False).wait_for()
+            page.get_by_text('正從官方來源安裝 Hermes', exact=False).wait_for()
             shots(page, 'install')
             stage('hermes_install', 'blocked', {'kind': 'retry', 'message': '官方候選相容性檢查未通過。'})
-            page.get_by_role('button', name='重新檢查並繼續', exact=True).wait_for()
+            page.get_by_role('button', name='重試這一步', exact=True).wait_for()
             expect(page.get_by_text('官方候選相容性檢查未通過。', exact=True)).to_be_visible()
-            page.get_by_role('button', name='重新檢查並繼續', exact=True).click()
-            page.get_by_text('正在從官方來源準備 Hermes', exact=False).wait_for()
+            page.get_by_role('button', name='重試這一步', exact=True).click()
+            page.get_by_text('正從官方來源安裝 Hermes', exact=False).wait_for()
             stage('hermes_auth', 'waiting_input', {'kind': 'hermes_login'})
             oauth = page.get_by_role('region', name='Hermes 協調服務')
             oauth.get_by_role('button', name='開始 Hermes 官方登入', exact=True).wait_for()
@@ -282,14 +284,14 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             assert calls[-1][0:2] == ('bootstrap/preferences', {'channel': 'web'})
             failure['read'] = True
             page.get_by_role('alert').filter(has_text='fixture disconnected').wait_for()
-            assert page.get_by_role('heading', name='家庭入口已完成設定').count() == 0
+            assert page.get_by_role('heading', name='設定完成').count() == 0
             shots(page, 'disconnected')
             failure['read'] = False
             stage('ha_native', 'waiting_input', {'kind': 'ha_native_onboarding'})
             page.get_by_role('button', name='重試連線', exact=True).click()
-            page.get_by_role('heading', name='最後，把你的家庭接進來', exact=True).wait_for()
+            page.get_by_role('heading', name='設定你的家庭', exact=True).wait_for()
             expect(page.get_by_role('link', name='開啟 Home Assistant 設定')).to_have_attribute('href', 'http://127.0.0.1:8123/')
-            expect(page.get_by_text('可在 HA 撤銷的一年存取授權。', exact=False)).to_be_visible()
+            expect(page.get_by_text('授權有效一年，可隨時在 Home Assistant 撤銷。', exact=False)).to_be_visible()
             shots(page, 'native-home')
             page.get_by_role('button', name='授權連接家庭', exact=True).click()
             page.get_by_role('alert').filter(has_text='家庭授權位置不正確').wait_for()
@@ -300,26 +302,27 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             page.wait_for_url('http://127.0.0.1:8123/auth/authorize?state=fixture-state')
             authorization.update(state='failed', error_code='ha_owner_required')
             page.go_back()
-            page.get_by_role('heading', name='最後，把你的家庭接進來', exact=True).wait_for()
+            page.get_by_role('heading', name='設定你的家庭', exact=True).wait_for()
             page.get_by_role('alert').filter(has_text='家庭授權尚未完成').wait_for()
             authorization.update(state='expired', error_code=None)
             page.get_by_role('alert').filter(has_text='家庭授權已過期').wait_for()
             authorization.update(state='connected', error_code=None)
-            page.get_by_text('家庭授權已連接，正在等待初始化服務確認。', exact=True).wait_for()
+            page.get_by_text('已授權，正在確認連線…', exact=True).wait_for()
             flow['human_action']['code'] = 'ha_owner_required'
-            page.get_by_role('heading', name='授權助手連接你的家庭', exact=True).wait_for()
+            page.get_by_role('heading', name='連接你的家庭', exact=True).wait_for()
             shots(page, 'native-owner')
             page.get_by_text('進階：使用 HA owner 權杖', exact=True).click()
             page.get_by_label('HA owner 權杖').fill('fixture-private-home-token')
             page.get_by_label('HA owner 權杖').press('Enter')
             expect(page.get_by_label('HA owner 權杖')).to_have_value('')
             assert 'fixture-private-home-token' not in stored(page)
-            assert page.get_by_role('heading', name='家庭入口已完成設定').count() == 0
+            assert page.get_by_role('heading', name='設定完成').count() == 0
             flow.update(state='completed', current_step=None, human_action=None)
             for step in flow['steps']:
                 step['state'] = 'skipped' if step['id'] == 'channel' else 'completed'
-            page.get_by_role('heading', name='家庭入口已完成設定', exact=True).wait_for()
+            page.get_by_role('heading', name='設定完成', exact=True).wait_for()
             shots(page, 'complete')
+            expect(page.get_by_role('button', name='和智能管家聊天', exact=True)).to_be_visible()
             expect(page.get_by_role('list', name='自動設定進度').get_by_text('已略過', exact=True)).to_be_visible()
             assert all('fixture-private-' not in url for url in urls)
             assert all(not any(key in body for key in ['step', 'completed', 'succeeded']) for _, body, _ in calls)
@@ -386,7 +389,7 @@ def test_desktop_ticket_is_consumed_once_and_never_persisted():
                 page.route('**/api/**', route)
                 page.goto(f'http://127.0.0.1:{server.server_port}/#desktop-login={fragment}')
                 if scenario == 'valid':
-                    page.get_by_role('heading', name='先登入一個你正在使用的助手', exact=True).wait_for()
+                    page.get_by_role('heading', name='先選一個 AI 助手', exact=True).wait_for()
                     assert calls[0] == 'host/desktop-login'
                     expect(page.get_by_label('主機登入金鑰')).to_have_count(0)
                 else:
@@ -406,7 +409,7 @@ def test_desktop_ticket_is_consumed_once_and_never_persisted():
                 assert first_count == (0 if scenario == 'malformed' else 1)
                 page.reload()
                 if scenario == 'valid':
-                    page.get_by_role('heading', name='先登入一個你正在使用的助手', exact=True).wait_for()
+                    page.get_by_role('heading', name='先選一個 AI 助手', exact=True).wait_for()
                 else:
                     page.get_by_label('主機登入金鑰').wait_for()
                 assert calls.count('host/desktop-login') == first_count
