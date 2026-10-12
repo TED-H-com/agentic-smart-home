@@ -105,10 +105,12 @@ class Coordinator:
             raise HTTPException(403, "capability_expired_or_revoked")
         return grant
 
-    async def recover(self, source=None):
+    async def recover(self, source=None, *, message_ids=None):
         # Invalidate tools first. Query/cancel the exact accepted run; never replay inference.
         pending = []
         for run in self.store.list("hermes_run", 10000):
+            if message_ids is not None and run.get("message_id") not in message_ids:
+                continue
             if source:
                 item = self.store.get("conversation", run.get("message_id", ""))
                 if not item or item["source"] != source:

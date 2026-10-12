@@ -209,13 +209,13 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             stage('cli_assist')
             page.get_by_text('助手正在確認設定…', exact=True).wait_for()
             stage('hermes_install')
-            page.get_by_text('正從官方來源安裝 Hermes', exact=False).wait_for()
+            page.get_by_text('正在準備 Hermes，請稍候。', exact=True).wait_for()
             shots(page, 'install')
             stage('hermes_install', 'blocked', {'kind': 'retry', 'message': '官方候選相容性檢查未通過。'})
             page.get_by_role('button', name='重試這一步', exact=True).wait_for()
             expect(page.get_by_text('官方候選相容性檢查未通過。', exact=True)).to_be_visible()
             page.get_by_role('button', name='重試這一步', exact=True).click()
-            page.get_by_text('正從官方來源安裝 Hermes', exact=False).wait_for()
+            page.get_by_text('正在準備 Hermes，請稍候。', exact=True).wait_for()
             stage('hermes_auth', 'waiting_input', {'kind': 'hermes_login'})
             oauth = page.get_by_role('region', name='Hermes 協調服務')
             oauth.get_by_role('button', name='開始 Hermes 官方登入', exact=True).wait_for()
@@ -370,7 +370,8 @@ def test_desktop_ticket_is_consumed_once_and_never_persisted():
                     assert ticket not in route.request.url
                     assert ticket not in page.url
                     if path == 'host/desktop-login':
-                        assert calls == ['host/desktop-login']
+                        assert calls[-1] == 'host/desktop-login'
+                        assert calls[:-1] and all(path == 'deployment' for path in calls[:-1])
                         assert route.request.post_data_json == {'ticket': ticket}
                         assert scenario != 'malformed'
                         if scenario == 'rejected':
@@ -402,7 +403,8 @@ def test_desktop_ticket_is_consumed_once_and_never_persisted():
                 page.goto(f'http://127.0.0.1:{server.server_port}/#desktop-login={fragment}')
                 if scenario == 'valid':
                     page.get_by_role('heading', name='先選一個 AI 助手', exact=True).wait_for()
-                    assert calls[0] == 'host/desktop-login'
+                    assert calls[0] == 'deployment'
+                    assert calls.count('host/desktop-login') == 1
                     expect(page.get_by_label('主機登入金鑰')).to_have_count(0)
                 else:
                     page.get_by_role('alert').filter(has_text='桌面登入已過期或未完成').wait_for()

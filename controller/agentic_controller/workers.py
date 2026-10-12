@@ -120,11 +120,13 @@ class Workers:
                     "auth_epoch": self.store.setting("worker_auth_epoch")}
         if request is None:
             raise WorkerError("owner_authority_required", 403)
+        identity = getattr(getattr(request, "state", None), "bridge_identity", None)
         try:
-            expires = int(request.cookies.get("agentic_host", "").split(".")[0])
+            expires = identity.expires if identity else int(request.cookies.get("agentic_host", "").split(".")[0])
         except (ValueError, TypeError):
             raise WorkerError("owner_authority_required", 403) from None
         return {"kind": "owner", "owner": self.store.setting("owner"),
+                **({"bridge_pairing_id": identity.pairing_id} if identity else {}),
                 "web_epoch": self.store.setting("hermes_web_epoch"),
                 "policy": digest(self.store.setting("policy", {})), "expires": expires,
                 "auth_epoch": self.store.setting("worker_auth_epoch")}
@@ -137,7 +139,9 @@ class Workers:
             item = self.store.conversation(id=authority["message_id"])
             return bool(item and item.get("scope") == authority.get("scope") and
                         self.current_provider() == authority.get("provider") and self.coordinator.scope_valid(item))
-        return (authority.get("kind") == "owner" and authority.get("owner") == self.store.setting("owner") and
+        return (authority.get("kind") == "owner" and
+                (not authority.get("bridge_pairing_id") or getattr(self, "bridge_valid", lambda _: False)(authority)) and
+                authority.get("owner") == self.store.setting("owner") and
                 authority.get("web_epoch") == self.store.setting("hermes_web_epoch") and
                 authority.get("policy") == digest(self.store.setting("policy", {})))
 

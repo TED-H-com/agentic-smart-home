@@ -38,7 +38,9 @@ def test_browser_approval_and_responsive_layout(intent):
         if request.method == "POST":
             data = request.post_data_json
             requests.append((path, data, request.headers))
-        if path == "session":
+        if path == "deployment":
+            result = {"mode": "ingress", "authenticated": True}
+        elif path == "session":
             result = {"csrf": "fixture-csrf", "principal": "fixture-owner"}
         elif path == "status":
             result = {"version": "0.1.0", "ha": {"location_name": "介面測試資料", "status": "connected", "version": "fixture"},

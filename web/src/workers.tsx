@@ -1,4 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
+import {sha256} from '@noble/hashes/sha2.js';
 import {api,download,requestKey} from './api';
 import {Button,CopyButton,Empty,Notice,Status,timestamp} from './ui';
 
@@ -30,22 +31,22 @@ function CodingLogin({worker,provider,locked,onChange}:{worker:WorkerId;provider
 
 function ArtifactView({job,artifact}:{job:Job;artifact:Artifact}) {
   const [text,setText]=useState<string|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  async function read(){setBusy(true);setError('');try{if(artifact.size>2*1024*1024)throw new Error('此檔案超過瀏覽器預覽大小，請使用受控的工作區接手流程查看。');const result=await api(`worker/jobs/${job.id}/artifacts/${artifact.id}`);const bytes=Uint8Array.from(atob(result.content_base64),c=>c.charCodeAt(0));if(bytes.length!==artifact.size||bytes.length>2*1024*1024)throw new Error('檔案大小與工作證據不符。');const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join('');if(hash!==artifact.sha256||result.sha256!==artifact.sha256)throw new Error('檔案指紋與工作證據不符。');setText(new TextDecoder('utf-8',{fatal:true}).decode(bytes))}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+  async function read(){setBusy(true);setError('');try{if(artifact.size>2*1024*1024)throw new Error('此檔案超過瀏覽器預覽大小，請使用受控的工作區接手流程查看。');const result=await api(`worker/jobs/${job.id}/artifacts/${artifact.id}`);const bytes=Uint8Array.from(atob(result.content_base64),c=>c.charCodeAt(0));if(bytes.length!==artifact.size||bytes.length>2*1024*1024)throw new Error('檔案大小與工作證據不符。');const hash=Array.from(crypto.subtle?new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)):sha256(bytes),v=>v.toString(16).padStart(2,'0')).join('');if(hash!==artifact.sha256||result.sha256!==artifact.sha256)throw new Error('檔案指紋與工作證據不符。');setText(new TextDecoder('utf-8',{fatal:true}).decode(bytes))}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
   return <div className="worker-artifact"><div className="section-heading"><div><h4>{artifact.name}</h4><small>{artifact.kind} · {Math.ceil(artifact.size/1024)} KB</small></div><Button secondary disabled={busy} onClick={()=>text===null?read():setText(null)}>{busy?'讀取中…':text===null?'查看內容':'收起內容'}</Button></div>{error&&<Notice error>{error}</Notice>}{text!==null&&<><pre tabIndex={0}>{text}</pre><Button secondary onClick={()=>download(new Blob([text],{type:'text/plain;charset=utf-8'}),artifact.name.split('/').pop()||'artifact.txt')}>下載檔案</Button></>}</div>
 }
 
-function ScreenshotPreview({job}:{job:Job}) {
+function ScreenshotPreview({job,bridge=false,storageScope}:{job:Job;bridge?:boolean;storageScope?:string}) {
   const [preview,setPreview]=useState<{id:string;state:string;preview_urls?:Record<string,string>}|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const key=useRef(requestKey()),storage=`agentic-preview-${job.id}`;
+  const key=useRef(requestKey()),storage=`agentic-preview-${storageScope?`${storageScope}-`:''}${job.id}`;
   const files=job.artifacts?.filter(item=>/\.(html|css|js|json|svg|png|jpg|jpeg|webp|woff2|txt)$/.test(item.name))||[];
   useEffect(()=>{const id=sessionStorage.getItem(storage);if(id&&/^[a-f0-9]{32}$/.test(id))api(`worker/previews/${id}`).then(setPreview).catch(()=>sessionStorage.removeItem(storage))},[storage]);
   useEffect(()=>{if(!preview||!['queued','running'].includes(preview.state))return;let active=true;let timer:ReturnType<typeof setTimeout>;async function poll(){try{const next=await api(`worker/previews/${preview!.id}`);if(active)setPreview(next)}catch(e){if(active)setError((e as Error).message)}if(active)timer=setTimeout(poll,2000)}timer=setTimeout(poll,1000);return()=>{active=false;clearTimeout(timer)}},[preview?.id,preview?.state]);
   async function start(){setBusy(true);setError('');try{const next=await api(`worker/jobs/${job.id}/previews`,{artifact_ids:files.map(item=>item.id)},false,key.current);setPreview(next);sessionStorage.setItem(storage,next.id)}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
   if(!files.some(item=>item.name==='index.html'))return null;
-  return <section className="worker-findings"><h3>畫面預覽</h3><p className="helper-text">從這份成果產生桌面、平板與手機截圖。連結於 30 分鐘後失效。</p>{error&&<Notice error>{error}</Notice>}{preview?.state==='ready'?<div className="row-actions">{['1440','768','390'].map((width,i)=>{const url=preview.preview_urls?.[width];return url&&new RegExp(`^http://127\\.0\\.0\\.2:8100/p/[A-Za-z0-9_-]{43}/${width}\\.png$`).test(url)?<a key={width} className="button secondary" href={url} target="_blank" rel="noreferrer">{['桌面','平板','手機'][i]}預覽 ↗</a>:null})}<Button secondary disabled={busy} onClick={async()=>{setBusy(true);try{setPreview(await api(`worker/previews/${preview.id}/revoke`,{}));sessionStorage.removeItem(storage)}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>關閉這份預覽</Button></div>:preview&&['queued','running'].includes(preview.state)?<p role="status">正在產生三種尺寸的畫面…</p>:<><Button secondary disabled={busy||!job.stop_confirmed||!!preview} onClick={start}>{busy?'準備預覽…':'產生畫面預覽'}</Button>{preview&&<p role="status">{preview.state==='expired'?'預覽已到期。':'這次預覽未完成，請查看工作證據。'}</p>}</>}</section>
+  return <section className="worker-findings"><h3>畫面預覽</h3><p className="helper-text">從這份成果產生桌面、平板與手機截圖。連結於 30 分鐘後失效。</p>{error&&<Notice error>{error}</Notice>}{preview?.state==='ready'?<div className="row-actions">{['1440','768','390'].map((width,i)=>{const url=bridge&&/^[a-f0-9]{32}$/.test(preview.id)?`api/bridge/previews/${preview.id}/${width}.png`:preview.preview_urls?.[width];return url&&(bridge||new RegExp(`^http://127\\.0\\.0\\.2:8100/p/[A-Za-z0-9_-]{43}/${width}\\.png$`).test(url))?<a key={width} className="button secondary" href={url} target="_blank" rel="noreferrer">{['桌面','平板','手機'][i]}預覽 ↗</a>:null})}<Button secondary disabled={busy} onClick={async()=>{setBusy(true);try{setPreview(await api(`worker/previews/${preview.id}/revoke`,{}));sessionStorage.removeItem(storage)}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>關閉這份預覽</Button></div>:preview&&['queued','running'].includes(preview.state)?<p role="status">正在產生三種尺寸的畫面…</p>:<><Button secondary disabled={busy||!job.stop_confirmed||!!preview} onClick={start}>{busy?'準備預覽…':'產生畫面預覽'}</Button>{preview&&<p role="status">{preview.state==='expired'?'預覽已到期。':'這次預覽未完成，請查看工作證據。'}</p>}</>}</section>
 }
 
-function JobResult({job,onChange}:{job:Job;onChange:()=>Promise<void>}) {
+function JobResult({job,onChange,bridge=false,storageScope}:{job:Job;onChange:()=>Promise<void>;bridge?:boolean;storageScope?:string}) {
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
   async function operate(action:'cancel'|'reconcile'){setBusy(true);setError('');try{await api(`worker/jobs/${job.id}/${action}`,{});await onChange()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
   return <>{error&&<Notice error>{error}</Notice>}
@@ -54,17 +55,17 @@ function JobResult({job,onChange}:{job:Job;onChange:()=>Promise<void>}) {
       {(['facts','inferences','unknowns','experiments','next_steps'] as const).map((key,index)=>!!job[key]?.length&&<section className="worker-findings" key={key}><h3>{['取得的證據','推論','尚未確認','測試與重現','建議下一步'][index]}</h3><ul>{job[key]!.map((value,i)=><li key={i}><pre>{describe(value)}</pre></li>)}</ul></section>)}
       {job.verification?.observed_from==='independent_host_verifier'&&<section className="worker-findings"><div className="section-heading"><h3>獨立驗證</h3><Status value={job.verification.state}/></div><p className="helper-text">另開一份乾淨工作區，套用這份差異後執行固定測試。</p><details><summary>查看驗證證據</summary><pre>{describe(job.verification)}</pre></details></section>}
       {!!job.artifacts?.length&&<section className="worker-findings"><h3>程式差異與檔案</h3>{job.artifacts.map(artifact=><ArtifactView key={`${job.id}:${artifact.id}`} job={job} artifact={artifact}/>)}</section>}
-      <ScreenshotPreview key={job.id} job={job}/>
+      <ScreenshotPreview key={job.id} job={job} bridge={bridge} storageScope={storageScope}/>
 
-      <details><summary>技術資料</summary>      {job.stop_confirmed&&<Button secondary disabled={busy} onClick={async()=>{setBusy(true);setError('');try{const checkpoint=await api(`worker/jobs/${job.id}/handoff`,{});download(new Blob([JSON.stringify(checkpoint,null,2)],{type:'application/json'}),`coding-checkpoint-${job.id}.json`)}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>下載接手檢查點</Button>}<dl className="setup-facts"><div><dt>Case</dt><dd><code>{job.case_id}</code></dd></div><div><dt>工作</dt><dd><code>{job.id}</code></dd></div><div><dt>觀測位置</dt><dd>{job.runtime_location||'尚未回報'}</dd></div><div><dt>來源版本</dt><dd><code>{job.base_commit||'尚未回報'}</code></dd></div><div><dt>證據</dt><dd>{job.evidence_ids?.join(', ')||'尚無證據'}</dd></div></dl></details>
+      <details><summary>技術資料</summary>      {!bridge&&job.stop_confirmed&&<Button secondary disabled={busy} onClick={async()=>{setBusy(true);setError('');try{const checkpoint=await api(`worker/jobs/${job.id}/handoff`,{});download(new Blob([JSON.stringify(checkpoint,null,2)],{type:'application/json'}),`coding-checkpoint-${job.id}.json`)}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>下載接手檢查點</Button>}<dl className="setup-facts"><div><dt>Case</dt><dd><code>{job.case_id}</code></dd></div><div><dt>工作</dt><dd><code>{job.id}</code></dd></div><div><dt>觀測位置</dt><dd>{job.runtime_location||'尚未回報'}</dd></div><div><dt>來源版本</dt><dd><code>{job.base_commit||'尚未回報'}</code></dd></div><div><dt>證據</dt><dd>{job.evidence_ids?.join(', ')||'尚無證據'}</dd></div></dl></details>
   </>
 }
 
-export function WorkerResult({id,caseId}:{id:string;caseId:string}) {
+export function WorkerResult({id,caseId,bridge=false,storageScope}:{id:string;caseId:string;bridge?:boolean;storageScope?:string}) {
   const [job,setJob]=useState<Job|null>(null),[error,setError]=useState('');
   const refresh=useCallback(async()=>{const value=await api(`worker/jobs/${id}`);if(value.id!==id||value.case_id!==caseId)throw new Error('成果不屬於這段對話，請重新讀取。');setJob(value);setError('')},[id,caseId]);
   useEffect(()=>{let active=true;let timer:ReturnType<typeof setTimeout>;async function poll(){try{await refresh()}catch(e){if(active)setError((e as Error).message)}if(active)timer=setTimeout(poll,4000)}poll();return()=>{active=false;clearTimeout(timer)}},[refresh]);
-  return <div className="assistant-result">{error&&<Notice error>{error}<Button secondary onClick={()=>refresh().catch(e=>setError(e.message))}>重試</Button></Notice>}{job?<><h3>{job.goal}</h3><JobResult job={job} onChange={refresh}/></>:!error&&<p role="status">正在讀取成果…</p>}</div>
+  return <div className="assistant-result">{error&&<Notice error>{error}<Button secondary onClick={()=>refresh().catch(e=>setError(e.message))}>重試</Button></Notice>}{job?<><h3>{job.goal}</h3><JobResult job={job} onChange={refresh} bridge={bridge} storageScope={storageScope}/></>:!error&&<p role="status">正在讀取成果…</p>}</div>
 }
 
 export function WorkerPanel() {

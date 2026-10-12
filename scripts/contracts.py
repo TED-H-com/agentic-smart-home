@@ -5,7 +5,9 @@ import json
 import tempfile
 from pathlib import Path
 
+from agentic_bridge.app import Options as BridgeOptions
 from agentic_controller.app import create_app
+from agentic_controller.bridge import BridgeRequest
 from agentic_controller.models import (
     AutomationIntent,
     BootstrapStart,
@@ -54,6 +56,8 @@ def main():
                        "bootstrap-start-v1": BootstrapStart.model_json_schema(),
                        "bootstrap-status-v1": BootstrapStatus.model_json_schema(),
                        "home-entry-v1": HomeEntry.model_json_schema(),
+                       "ingress-bridge-request-v1": BridgeRequest.model_json_schema(),
+                       "ingress-bridge-options-v1": BridgeOptions.model_json_schema(),
                        "runner-bootstrap-job-v1": BootstrapJob.model_json_schema(),
                        "runner-bootstrap-result-v1": BootstrapResult.model_json_schema(),
                        "controller.openapi": app.openapi(),

@@ -1,10 +1,10 @@
-# 統一通訊、Hermes 與受控 Agent · 0.6.1 技術預覽
+# 統一通訊、Hermes 與受控 Agent · 0.7.0 技術預覽
 
 外層 Controller/Gateway 維持唯一通訊 receiver。Web 一直可用，onboarding 預設 LINE，亦可選 Discord／Telegram／Web；Hermes 不啟動自己的 bot Gateway，也不取得通道 token。首次開機不建立 HAOS，不影響外層 Web、Hermes 登入或固定主機查詢。
 
 ## Hermes 是一般對話的協調助手
 
-新的一般 Web／通道對話預設交給 Hermes。它執行真上游 AIAgent：安裝包有 [鎖定回復基線](../hermes/hermes.lock.json)，首次設定可準備並驗證官方最新 commit，啟用後固定 digest，透過私有 adapter 的 session/run/cancel 介面與 Controller 整合，詳見 [runtime 契約](../hermes/README.md)。沒有用自製推理 loop 假稱 Hermes，也沒有把上游 `delegate_task` 當作已完成的 HAOS worker。
+新的一般 Web／通道對話預設交給 Hermes。它執行真上游 AIAgent：首次設定使用安裝包的 [受測版本](../hermes/hermes.lock.json)，驗證隨附 digest 與離線相容性，不在家庭主機追 HEAD 或重新建置。它透過私有 adapter 的 session/run/cancel 介面與 Controller 整合，詳見 [runtime 契約](../hermes/README.md)。沒有用自製推理 loop 假稱 Hermes，也沒有把上游 `delegate_task` 當作已完成的 HAOS worker。
 
 自動 onboarding 先登入選定的 CLI，再準備 Hermes。Hermes 提供 **原生 Codex device OAuth** 或 **OpenRouter API key＋模型 ID**；模型預設值來自 runtime。它與 Host／HAOS CLI 各自保存認證，不複製 refresh token。儲存狀態為 configured，引導隨後自動執行一個不操作家庭的驗證提問，只有推論成功才為 ready。
 

@@ -83,6 +83,9 @@ def offline_check(path, schema, *, pause=False, gate=None):
         row = db.execute("SELECT value FROM settings WHERE key='worker_lease'").fetchone()
         if row and json.loads(row[0]) is not None:
             raise UpdateError("update_worker_lease_active")
+        row = db.execute("SELECT value FROM settings WHERE key='bridge_maintenance'").fetchone()
+        if row and json.loads(row[0]).get("operation") is not None:
+            raise UpdateError("update_active_or_uncertain_work")
         for kind, body in db.execute("SELECT kind,body FROM records WHERE kind IN ('task','work_job','hermes_run')"):
             state = json.loads(body).get("state")
             if ((kind == "task" and state in {"executing", "verifying", "needs_reconcile"}) or
@@ -353,6 +356,12 @@ class Updater:
                         target.execute(row[0])
                     target.execute(f"PRAGMA user_version={int(schema)}")
                     target.executemany("INSERT INTO settings VALUES (?,?)", [("paused", "true"), ("retention", '{"context_days":7}')])
+                    # A revoked bridge still leaves authority markers in case/job
+                    # history. Same SQLite schema does not imply an older binary
+                    # understands those semantics. Copy only the required major,
+                    # never pairing credentials, Owner identity or maintenance data.
+                    if source.execute("SELECT 1 FROM settings WHERE key='ingress_bridge'").fetchone():
+                        target.execute("INSERT INTO settings VALUES ('required_ingress_bridge_contract','1')")
             os.chown(directory, 1000, 1000)
             os.chown(path, 1000, 1000)
             self.run("docker", "run", "--name", name, "--label", "agentic.update-probe=" + name, "--no-healthcheck", "--network", "none", "--read-only", "--cap-drop", "ALL",

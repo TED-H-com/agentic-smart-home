@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="34" time="179.144" timestamp="2026-10-12T13:35:35.074706-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_bridge_ui" name="test_bridge_resumes_outer_case_results_png_and_exact_approval" time="3.719" /><testcase classname="tests.test_bridge_ui" name="test_bridge_expiry_reconnect_identity_and_readonly_artifact_failures" time="11.722" /><testcase classname="tests.test_bridge_ui" name="test_bridge_blocked_states_never_open_outer_controls[unpaired]" time="1.211" /><testcase classname="tests.test_bridge_ui" name="test_bridge_blocked_states_never_open_outer_controls[owner_required]" time="1.225" /><testcase classname="tests.test_bridge_ui" name="test_bridge_blocked_states_never_open_outer_controls[unavailable]" time="1.348" /><testcase classname="tests.test_bridge_ui" name="test_bridge_http_hash_fallback_known_vectors[empty]" time="0.719" /><testcase classname="tests.test_bridge_ui" name="test_bridge_http_hash_fallback_known_vectors[abc]" time="0.715" /><testcase classname="tests.test_bridge_ui" name="test_bridge_http_hash_fallback_known_vectors[million-a]" time="0.727" /><testcase classname="tests.test_bridge_ui" name="test_bridge_expired_proposal_deeplink_never_approves" time="0.716" /><testcase classname="tests.test_bridge_ui" name="test_outer_sidebar_maintenance_explicit_authority_and_revocation" time="6.218" /><testcase classname="tests.test_ui" name="test_browser_approval_and_responsive_layout" time="30.739"><failure message="playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms exceeded.&#10;Call log:&#10;  - waiting for get_by_role(&quot;button&quot;, name=&quot;填入 test helpers 範例&quot;)">intent = AutomationIntent(title='動作開燈', resource_id=None, trigger=Trigger(entity_id='input_boolean.agentic_motion_test', from_s...o_state='on'), time_window=None, actions=[DeviceAction(entity_id='input_boolean.agentic_lamp_test', action='turn_on')])
+
+    def test_browser_approval_and_responsive_layout(intent):
+        root = Path(__file__).parents[1]
+        if not (root / "controller/static/index.html").exists():
+            pytest.skip("Build the web UI before the browser test")
+        handler = partial(SimpleHTTPRequestHandler, directory=str(root / "controller/static"))
+        server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        resource = "agentic_" + "f" * 32
+        final = compile_automation(intent, resource)
+        proposal = {"id": "fixture-proposal", "intent": intent.model_dump(), "mode": "upsert", "prior": None,
+            "final": final, "digest": digest(final), "expires": time.time() + 600, "action": None}
+        task = {"id": "fixture-task", "provider": "codex", "request": "當測試動作感應器啟動，就打開測試燈",
+            "state": "awaiting_approval", "message": "請檢查變更內容；批准前不會寫入 Home Assistant",
+            "created_at": utcnow(), "proposal_id": proposal["id"], "proposal": proposal, "events": []}
+        requests = []
+        errors = []
+    
+        def route(route):
+            request = route.request
+            path = request.url.split("/api/")[1]
+            data = None
+            if request.method == "POST":
+                data = request.post_data_json
+                requests.append((path, data, request.headers))
+            if path == "session":
+                result = {"csrf": "fixture-csrf", "principal": "fixture-owner"}
+            elif path == "status":
+                result = {"version": "0.1.0", "ha": {"location_name": "介面測試資料", "status": "connected", "version": "fixture"},
+                          "runner": {"protocol": 1, "providers": [{"provider": "codex", "status": "connected", "version": "0.157.1"},
+                          {"provider": "claude", "status": "needs_reauth", "version": "2.1.296"}]}, "events_connected": True}
+            elif path == "tasks":
+                result = task if request.method == "POST" else {"tasks": [task]}
+            elif path.startswith("tasks/"):
+                result = task
+            elif path.endswith("/approve"):
+                assert data["digest"] == proposal["digest"]
+                assert request.headers.get("x-agentic-csrf") == "fixture-csrf"
+                assert request.headers.get("idempotency-key")
+                task["state"], task["message"] = "verifying", "已部署並啟用，正在等待真實狀態觸發"
+                proposal["deployed_at"] = utcnow()
+                result = task
+            elif path == "inventory":
+                result = {"entities": [{"entity_id": id, "name": name, "area": "專用測試區", "domain": "input_boolean",
+                           "state": "off", "availability": "available", "actions": ["turn_on", "turn_off"], "observed_at": utcnow()}
+                           for id, name in [(SOURCE, "測試動作感應器"), (TARGET, "測試燈")]], "policy": {"entities": []}}
+            elif path == "services":
+                from agentic_controller.app import SERVICES
+                result = {"services": [{"id": id, **s, "state": "not_started"} for id, s in SERVICES.items()]}
+            elif path == "retention":
+                result = {"audit_days": 30, "context_days": 7}
+            else:
+                result = {}
+            route.fulfill(status=200, content_type="application/json", body=json.dumps(result))
+    
+        evidence = root / "evidence/ui"
+        evidence.mkdir(parents=True, exist_ok=True)
+        try:
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch(headless=True)
+                page = browser.new_page(viewport={"width": 1440, "height": 900})
+                page.add_init_script("Object.defineProperty(crypto, 'randomUUID', {value: undefined});")
+                page.on("pageerror", lambda error: errors.append(str(error)))
+                page.route("**/api/**", route)
+                page.goto(f"http://127.0.0.1:{server.server_port}/")
+&gt;               page.get_by_role("button", name="填入 test helpers 範例").click()
+
+tests/test_ui.py:81: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.13/site-packages/playwright/sync_api/_generated.py:18032: in click
+    self._sync(
+.venv/lib/python3.13/site-packages/playwright/_impl/_locator.py:165: in click
+    return await self._frame._click(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/playwright/_impl/_frame.py:594: in _click
+    await self._channel.send("click", self._timeout, locals_to_params(locals()))
+.venv/lib/python3.13/site-packages/playwright/_impl/_connection.py:76: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x7ea2978eae50&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x7ea294f53240&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.click: Timeout 30000ms exceeded.
+E           Call log:
+E             - waiting for get_by_role("button", name="填入 test helpers 範例")
+
+.venv/lib/python3.13/site-packages/playwright/_impl/_connection.py:632: TimeoutError</failure></testcase><testcase classname="tests.test_ui" name="test_host_login_offline_management_and_responsive_layout" time="1.219" /><testcase classname="tests.test_ui" name="test_setup_links_session_recovery_and_login_resume" time="12.771" /><testcase classname="tests.test_ui" name="test_bootstrap_failure_shows_retry_without_guessing_deployment" time="0.706" /><testcase classname="tests.test_gateway_ui" name="test_outer_onboarding_line_setup_and_shared_inbox" time="4.909" /><testcase classname="tests.test_hermes_ui" name="test_hermes_login_truthful_states_and_gateway_case_continuity" time="3.479" /><testcase classname="tests.test_worker_ui" name="test_coding_role_login_lost_reply_stop_fence_and_artifact_preview" time="3.443" /><testcase classname="tests.test_worker_ui" name="test_network_and_digest_bound_update_review" time="14.230" /><testcase classname="tests.test_worker_ui" name="test_same_case_results_open_inline_without_dispatch" time="2.207" /><testcase classname="tests.test_worker_ui" name="test_chat_history_is_readonly_without_thread_and_locked_during_send" time="0.711" /><testcase classname="tests.test_bootstrap_ui" name="test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states" time="35.852" /><testcase classname="tests.test_bootstrap_ui" name="test_desktop_ticket_is_consumed_once_and_never_persisted" time="30.751"><failure message="playwright._impl._errors.TimeoutError: Locator.wait_for: Timeout 30000ms exceeded.&#10;Call log:&#10;  - waiting for get_by_role(&quot;heading&quot;, name=&quot;先選一個 AI 助手&quot;, exact=True) to be visible">def test_desktop_ticket_is_consumed_once_and_never_persisted():
+        """Protocol fixture: desktop unlock succeeds or offers a safe manual fallback."""
+        root = Path(__file__).parents[1]
+        server = ThreadingHTTPServer(('127.0.0.1', 0),
+            partial(SimpleHTTPRequestHandler, directory=str(root / 'controller/static')))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch(headless=True)
+                for scenario in ['valid', 'rejected', 'malformed']:
+                    page = browser.new_page(viewport={'width': 390, 'height': 844})
+                    ticket = 'FixtureDesktopTicket' + 'A' * 23
+                    assert len(ticket) == 43
+                    fragment = ticket if scenario != 'malformed' else ticket + '-invalid'
+                    calls, errors = [], []
+                    authenticated = False
+                    page.on('pageerror', lambda error, errors=errors: errors.append(str(error)))
+    
+                    def route(route, _request, *, calls=calls, ticket=ticket, page=page, scenario=scenario):
+                        nonlocal authenticated
+                        path = route.request.url.split('/api/')[1]
+                        calls.append(path)
+                        assert ticket not in route.request.url
+                        assert ticket not in page.url
+                        if path == 'host/desktop-login':
+                            assert calls == ['host/desktop-login']
+                            assert route.request.post_data_json == {'ticket': ticket}
+                            assert scenario != 'malformed'
+                            if scenario == 'rejected':
+                                route.fulfill(status=401, content_type='application/json',
+                                              body='{"detail":"桌面登入無效或已過期"}')
+                                return
+                            authenticated = True
+                            result = {'authenticated': True}
+                        elif path == 'deployment':
+                            result = {'mode': 'host', 'authenticated': authenticated}
+                        elif path == 'host/home-entry':
+                            result = {'contract_version': 1, 'state': 'setup', 'native_path': '/', 'reason_code': 'bootstrap_incomplete'}
+                        elif path == 'session':
+                            assert authenticated
+                            result = {'principal': 'host-owner', 'csrf': 'fixture-csrf'}
+                        elif path == 'status':
+                            result = {'ha': {'status': 'unavailable'}, 'version': 'fixture', 'paused': False}
+                        elif path == 'tasks':
+                            result = {'tasks': []}
+                        elif path == 'bootstrap':
+                            result = {'contract': 1, 'id': None, 'state': 'idle', 'provider': None,
+                                      'channel': 'line', 'current_step': None, 'human_action': None,
+                                      'steps': [{'id': step, 'state': 'pending'} for step in STEPS]}
+                        else:
+                            raise AssertionError('Unexpected desktop startup API: ' + path)
+                        route.fulfill(status=200, content_type='application/json', body=json.dumps(result))
+    
+                    page.route('**/api/**', route)
+                    page.goto(f'http://127.0.0.1:{server.server_port}/#desktop-login={fragment}')
+                    if scenario == 'valid':
+&gt;                       page.get_by_role('heading', name='先選一個 AI 助手', exact=True).wait_for()
+
+tests/test_bootstrap_ui.py:404: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.13/site-packages/playwright/sync_api/_generated.py:20696: in wait_for
+    self._sync(
+.venv/lib/python3.13/site-packages/playwright/_impl/_locator.py:752: in wait_for
+    await self._frame.wait_for_selector(
+.venv/lib/python3.13/site-packages/playwright/_impl/_frame.py:395: in wait_for_selector
+    await self._channel.send(
+.venv/lib/python3.13/site-packages/playwright/_impl/_connection.py:76: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x7ea2978ebb50&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x7ea2961f5b20&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.wait_for: Timeout 30000ms exceeded.
+E           Call log:
+E             - waiting for get_by_role("heading", name="先選一個 AI 助手", exact=True) to be visible
+
+.venv/lib/python3.13/site-packages/playwright/_impl/_connection.py:632: TimeoutError</failure></testcase><testcase classname="tests.test_bootstrap_ui" name="test_bare_login_enters_native_home_once_and_back_reload_stay_outer" time="1.003" /><testcase classname="tests.test_bootstrap_ui" name="test_native_entry_failures_keep_rescue_and_never_restart_setup[unavailable]" time="0.725" /><testcase classname="tests.test_bootstrap_ui" name="test_native_entry_failures_keep_rescue_and_never_restart_setup[unsupported]" time="0.735" /><testcase classname="tests.test_bootstrap_ui" name="test_native_entry_failures_keep_rescue_and_never_restart_setup[invalid_path]" time="0.725" /><testcase classname="tests.test_bootstrap_ui" name="test_native_entry_failures_keep_rescue_and_never_restart_setup[invalid_contract]" time="0.720" /><testcase classname="tests.test_bootstrap_ui" name="test_native_entry_failures_keep_rescue_and_never_restart_setup[http_error]" time="0.731" /><testcase classname="tests.test_bootstrap_ui" name="test_explicit_links_and_pending_approval_never_redirect[#gateway-\u667a\u80fd\u7ba1\u5bb6]" time="0.722" /><testcase classname="tests.test_bootstrap_ui" name="test_explicit_links_and_pending_approval_never_redirect[#host-\u4e3b\u6a5f\u7dad\u8b77]" time="0.725" /><testcase classname="tests.test_bootstrap_ui" name="test_explicit_links_and_pending_approval_never_redirect[#home/pending-approval-\u5bb6\u5ead\u63d0\u6848]" time="0.721" /><testcase classname="tests.test_bootstrap_ui" name="test_late_entry_probe_cannot_replace_explicit_chat_and_draft_survives" time="0.724" /><testcase classname="tests.test_bootstrap_ui" name="test_desktop_daily_entry_is_not_inherited_after_logout" time="1.305" /><testcase classname="tests.test_bootstrap_ui" name="test_expired_outer_session_cancels_pending_automatic_entry" time="0.730" /></testsuite></testsuites>

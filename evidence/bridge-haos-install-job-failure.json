@@ -1,0 +1,16 @@
+{
+  "kind": "real_haos_sidebar_bridge",
+  "haos_image": "18.3",
+  "status": "failed",
+  "delivery": "local_source_fixture",
+  "observed_from": "haos_app_via_core_ingress_to_outer_pinned_tls",
+  "inference": "protocol_fixture_no_cloud_account",
+  "checks": {},
+  "phase": "supervisor_app_install",
+  "core": "2026.10.1",
+  "supervisor": "2026.09.3",
+  "outer_dependency_image": "sha256:6ff6cad9730eea9b9172fa173f0d8a8ae7c36954839486048f48f478fd47e456",
+  "error_type": "AssertionError",
+  "cleanup": true,
+  "duration_seconds": 130
+}

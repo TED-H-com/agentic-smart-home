@@ -174,7 +174,7 @@ def test_network_and_digest_bound_update_review(ui_page):
     network = {'lan': 'dhcp', 'remote': 'disabled', 'managed': False, 'tailscale': {'state': 'NeedsLogin'}}
     releases = {'trusted_publisher_configured': False, 'records': []}
     calls, errors = [], []
-    manifest = {'version': '0.6.1', 'source_commit': 'b' * 40, 'tests': [{'name': 'browser-and-regression', 'result': 'passed'}]}
+    manifest = {'version': '0.7.0', 'source_commit': 'b' * 40, 'tests': [{'name': 'browser-and-regression', 'result': 'passed'}]}
     release = {'candidate_digest': 'a' * 64, 'manifest': manifest, 'state': 'staged', 'approval_id': 'apply-fixture', 'approval_expires_at': time.time() + 600}
 
     def route(route):

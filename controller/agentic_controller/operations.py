@@ -98,7 +98,8 @@ class Operations:
 
     def guard(self, authority):
         if (authority['expires'] <= time.time() or authority['owner'] != self.store.setting('owner') or
-            authority['web_epoch'] != self.store.setting('hermes_web_epoch')):
+            authority['web_epoch'] != self.store.setting('hermes_web_epoch') or
+            (authority.get('bridge_pairing_id') and not getattr(self.workers, 'bridge_valid', lambda _: False)(authority))):
             raise HTTPException(403, 'owner_authority_revoked')
 
     async def preview(self, identifier, body, request):

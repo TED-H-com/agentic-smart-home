@@ -8,7 +8,7 @@ Steering v3.0；匯入基準是應用 `0.3.1`、commit `3ad476a712009469521c3f98
 
 ## 路徑與權威
 
-日常入口使用原生 HA；外層 Web 保留智能管家、設定與救援。新增 `home-entry` contract 1 只允許固定原生路徑，需重新驗有效 Owner 與必要 HA 能力；明確對話、提案或救援連結不得被自動跳轉。Hermes 上游私有接點集中在 adapter facade，Linux 固定操作執行前重驗必要能力。HA 側欄到外層 Hermes 的身份 bridge 尚未交付，不共用管理 cookie 或新增另一個協調者。詳見 [adapter 邊界與候選策略](docs/ADAPTERS.md)。
+日常入口使用原生 HA；外層 Web 保留智能管家、設定與救援。新增 `home-entry` contract 1 只允許固定原生路徑，需重新驗有效 Owner 與必要 HA 能力；明確對話、提案或救援連結不得被自動跳轉。Hermes 上游私有接點集中在 adapter facade，Linux 固定操作執行前重驗必要能力。0.7.0 新增薄 Ingress App：由 Supervisor 傳遞 HA user ID，經固定 TLS 指紋與專用配對 bearer 回到外層，再即時驗證綁定 Owner；不共用管理 cookie 或新增另一個協調者。撤銷配對後失效，斷線不清除對話。詳見 [adapter 邊界與候選策略](docs/ADAPTERS.md)。
 
 ```text
 Owner → 既有 Web/Gateway → conversation adapter → 外層 Hermes
@@ -52,7 +52,9 @@ Ingress／host 管理身份、Controller／Runner 私有 bearer 及 credentials 
 
 ## 證據、preview、更新
 
-後續更新採 [統一發行策略](docs/RELEASE_POLICY.md)：發行 manifest 約束受測組合，首次安裝使用已驗證的 Hermes artifact，追上游留在維護者候選環境。各組件升級／恢復分層、持久記錄中斷與版本偏移；Supervisor 支援及外部雲端不能當成可永久釘住的相依。此目標尚未取代下述 0.6.1 Controller-only updater，也不代表已釘住 Linux 全套件。
+更新依 [發行策略](docs/RELEASE_POLICY.md)：HA 使用官方更新；外層 manager 只管理已授權的本產品 App，核對固定來源、版本、權限與連線。新 onboarding 完成後自動加入維護，既有安裝需在外層設定啟用；未知操作結果只讀回核對，不盲目重送，重啟有持久次數上限。手動停止、移除、改設定或撤銷都會停止自動修復。Supervisor source-build API 無原子 digest 安裝保證，固定 release branch 由本產品維護；不把它描述為不可變映像驗證。
+
+外層首次安裝使用隨版本交付的 Hermes digest，追上游留在維護者候選環境。固定 updater 仍限 Controller，Linux／CLI／Hermes 的整套在線更新與回復尚未交付；本版也不代表已釘住 Linux 全套件。
 
 每份 observation 帶 `observed_from`、`target_component`、`observed_at`、`version_refs`、`collection_method`、`evidence_id`、digest、redaction 及 limitations。App probe 與透過 Controller 的 Core API 是不同來源，不能由 App 連線正常推論整個 Core／HAOS 正常。Fixture、真 CLI、real cloud、Core、HAOS、helper 和 physical device 分開記。
 

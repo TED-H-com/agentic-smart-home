@@ -1,0 +1,27 @@
+name: 智能管家
+version: "0.7.0"
+slug: agentic_bridge
+description: 在 Home Assistant 接續外層智能管家的對話、成果與家庭提案
+arch: [amd64]
+startup: application
+boot: auto
+init: false
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:message-text-outline
+panel_title: 智能管家
+panel_admin: true
+homeassistant_api: false
+hassio_api: false
+apparmor: true
+backup: cold
+stage: experimental
+watchdog: http://[HOST]:8099/health
+options: {}
+schema:
+  protocol: int(1,1)?
+  host: match(^192\.168\.177\.1$)?
+  port: int(8444,8444)?
+  fingerprint: match(^[a-f0-9]{64}$)?
+  token: password?
+  pairing_id: match(^[a-f0-9]{32}$)?

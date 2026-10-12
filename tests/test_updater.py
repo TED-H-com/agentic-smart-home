@@ -41,7 +41,7 @@ def updater(tmp_path):
     private = Ed25519PrivateKey.generate()
     public = private.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()
     service.publishers = lambda: {"fixture": {"public_key_pem": public, "image_repository": "ghcr.io/fixture/controller"}}
-    manifest = {"format": 1, "publisher": "fixture", "version": "0.6.1", "source_commit": "b" * 40,
+    manifest = {"format": 1, "publisher": "fixture", "version": "0.7.0", "source_commit": "b" * 40,
                 "image": "ghcr.io/fixture/controller@sha256:" + "c" * 64, "image_id": "sha256:" + "d" * 64,
                 "compatibility": {"schema": 3, "worker_contract": 1, "runner_protocol": 1, "runtime_digest": service.runtime_digest(), "ha_core_versions": ["2026.10.1"]},
                 "tests": [{"name": "regression", "result": "passed", "sha256": "e" * 64}], "issued_at": time.time() - 1, "expires_at": time.time() + 1000}
@@ -95,6 +95,29 @@ def test_worker_lease_blocks_even_without_job_and_approval_is_bound(updater):
     for digest, approval in (("0" * 64, record["approval_id"]), (record["candidate_digest"], "wrong")):
         with pytest.raises(UpdateError, match="approval_invalid"):
             service.apply({"candidate_digest": digest, "approval_id": approval})
+
+
+@pytest.mark.parametrize("state", ["sent", "acknowledged", "unknown"])
+def test_unconfirmed_app_operation_blocks_controller_switch_even_if_bridge_disabled(updater, state):
+    service, _ = updater
+    with sqlite3.connect(service.database) as db:
+        db.execute("INSERT INTO settings VALUES ('bridge_maintenance',?)", (json.dumps({
+            "enabled": False, "state": "disabled", "operation": {"kind": "restart", "state": state}}),))
+    with pytest.raises(UpdateError, match="active_or_uncertain_work"):
+        offline_check(service.database, 3, pause=True)
+
+
+def test_candidate_contract_gate_rejects_old_or_wrong_bridge_semantics(monkeypatch):
+    from agentic_host.update_probe import require_contracts
+    required = SimpleNamespace(setting=lambda key: 1)
+    require_contracts(required)
+    for value in (None, SimpleNamespace(), SimpleNamespace(BRIDGE_CONTRACT=True),
+                  SimpleNamespace(BRIDGE_CONTRACT=2)):
+        monkeypatch.setitem(sys.modules, "agentic_controller.bridge", value)
+        with pytest.raises((ImportError, AssertionError)):
+            require_contracts(required)
+    # Installations with no bridge history retain the existing schema-only gate.
+    require_contracts(SimpleNamespace(setting=lambda key: None))
 
 
 def prepare_deployment(service, record):
@@ -220,6 +243,7 @@ def test_fixed_probe_launch_and_database_handles_close_before_volume_release(
     service, _ = updater
     service.database.unlink()
     database = Store(service.database)
+    database.set_setting("ingress_bridge", {"state": "revoked", "token_hash": "private-placeholder"})
     database.close()
     service.manager.product = Path(__file__).resolve().parents[1]
     directory = tmp_path / "probe-volume"
@@ -258,7 +282,7 @@ def test_fixed_probe_launch_and_database_handles_close_before_volume_release(
 
     monkeypatch.setattr(module, "DiskVolume", DiskFixture)
     monkeypatch.setattr(module, "os", SimpleNamespace(chown=test_chown))
-    image = "agentic-home-controller:0.6.1"
+    image = "agentic-home-controller:0.7.0"
 
     def execute(*args, **kwargs):
         if args[:2] == ("docker", "run"):

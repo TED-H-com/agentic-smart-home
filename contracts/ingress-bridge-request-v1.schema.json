@@ -1,0 +1,90 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "body": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Body"
+    },
+    "csrf": {
+      "default": "",
+      "maxLength": 2048,
+      "pattern": "^[^\\r\\n]*$",
+      "title": "Csrf",
+      "type": "string"
+    },
+    "fetch_site": {
+      "default": "",
+      "maxLength": 2048,
+      "pattern": "^[^\\r\\n]*$",
+      "title": "Fetch Site",
+      "type": "string"
+    },
+    "host": {
+      "default": "",
+      "maxLength": 2048,
+      "pattern": "^[^\\r\\n]*$",
+      "title": "Host",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "default": "",
+      "maxLength": 200,
+      "pattern": "^[^\\r\\n]*$",
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "method": {
+      "enum": [
+        "GET",
+        "POST"
+      ],
+      "title": "Method",
+      "type": "string"
+    },
+    "origin": {
+      "default": "",
+      "maxLength": 2048,
+      "pattern": "^[^\\r\\n]*$",
+      "title": "Origin",
+      "type": "string"
+    },
+    "pairing_id": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Pairing Id",
+      "type": "string"
+    },
+    "path": {
+      "maxLength": 256,
+      "title": "Path",
+      "type": "string"
+    },
+    "protocol": {
+      "const": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "user_id": {
+      "pattern": "^([a-f0-9]{32})?$",
+      "title": "User Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "protocol",
+    "pairing_id",
+    "user_id",
+    "method",
+    "path"
+  ],
+  "title": "BridgeRequest",
+  "type": "object"
+}

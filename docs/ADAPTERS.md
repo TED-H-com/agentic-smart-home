@@ -24,11 +24,19 @@ Home Assistant 是家庭日常介面；智能管家提供研究、對話、提�
 
 `#gateway`、`#host`、提案等明確連結不自動跳走。離開外層前把原本入口記成 `#entry`，瀏覽器返回與重新整理不會形成跳轉迴圈。HA 登入維持原生流程；不把 Host cookie 或 HA bearer 搬進另一個 origin。只使用同一 loopback hostname 的既有 8099／8123 路徑；遠端仍需既有 SSH forwarding，同時連通兩個端口。
 
-HA 側欄的完整外層 Hermes bridge 尚未交付。目前 Controller Ingress App 有另一份 DB／Engine，不能把它當成已連通的單一管家。下一個整合需使用薄型 Ingress adapter、經驗證的 Owner 身份及同一外層 case／proposal store；身份、撤權、斷線恢復與家庭批准需完整測試。HA Assist／語音接入也另行驗收。
+## HA 側欄橋接（0.7.0 本輪）
+
+獨立薄 App 經官方 Ingress 收取身分，再以專用 TLS／配對憑證連外層 Controller。外層重新驗證綁定的 active HA Owner；沿用 `source=web / chat=owner / sender=HA Owner`、同一 case／proposal／worker store。舊 Controller Ingress App 的第二份 DB 不能替代這個橋接。HA Assist／語音仍是不同接點。
+
+Web 新增 `mode=bridge`，先確認橋接與 Owner，再掛載聊天；不顯示主機、provider、通道或更新設定。session 的 opaque `storage_scope` 隔離瀏覽器中的訊息 ID，server `resume` 提供同一外層對話。草稿留在記憶體；斷線先隱藏內容並停止操作，同一身份重新驗證後可續用，身份世代改變則不重用舊內容。提案深連結仍按原 digest／到期／Owner 取得精確批准；失去回應後使用同一請求識別，不建立第二份批准。
+
+所有 API 與靜態資產保留 Ingress 相對路徑。成果文字按大小及 SHA-256 驗證，只作文字顯示；普通 LAN HTTP 缺少 SubtleCrypto 時使用鎖定的 `@noble/hashes` SHA-256。畫面只能由固定 preview ID 與 390／768／1440 尺寸取得 PNG，不能把任意 URL 或 HTML 代理到 HA origin。外層設定的固定維護操作不在橋接 allowlist。
+
+[瀏覽器測試](../tests/test_bridge_ui.py) 使用協定 fixture，涵蓋相對路徑、同 case、精確批准、撤權、斷線、錯 digest 與三尺寸；它不是實際 Supervisor 或真雲端帳號證據。實际 App／Controller／HAOS 結果分別記在 [驗證](VERIFICATION.md)。
 
 ## 候選與發行
 
-維護者追上游、使用者跟隨受測產品版本的後續規格見 [統一發行策略](RELEASE_POLICY.md)。首次安裝將改用發行已驗證的 Hermes digest；目前 0.6.1 首次準備 latest 的路徑仍是待修改項。Supervisor 最新版支援、安全修補與雲端服務是釘版的明示邊界。
+最新 [發行策略](RELEASE_POLICY.md) 明確讓 HA 走官方自管更新；維護者追上游並修補自家 App／adapter。Hermes 與外層封裝採受測產品版本；0.6.1 首次準備 latest 是歷史行為，新路徑另列驗證。未知 Core 家庭寫入仍 fail closed，原生瀏覽不因版本字串被阻止。
 
 1. 保留產品及各上游鎖定來源。新候選解析一次 revision／digest，測試過程不修改正式 lock、帳號或已安裝版本。
 2. 先驗產品 protocol/schema 與實際使用的能力，再跑隔離行為測試；不以版本字串或 import 成功取代完整握手。
@@ -45,4 +53,4 @@ python3 scripts/check_upstream.py --hermes latest --report evidence/upstream-can
 
 `Upstream compatibility candidate` GitHub workflow 提供相同的手動入口。它使用固定 repo、產品 adapter 與鎖定 dependencies，在獨立無網路容器驗證，限制時間／記憶體／程序與輸出，最後移除測試容器、volume、tag 及 scratch；不部署。結果分別保存輸入 source hashes 與實際候選 context hashes，另含候選 commit／image ID、契約版本及清理狀態；失敗和相容性未知都不當成 passed。
 
-現有固定 updater 仍只處理 **同 schema 3 的 Controller image**。Hermes 首次最新來源準備有自己的候選 gate 與初次安裝 fallback；不是使用中 Hermes 通用更新器。Linux、HAOS、Core 的完整升級／退版還需要各自的機制及驗證；目前不能宣稱任意 OS 更新失敗都會自動退回。外層救援不依賴 HA 可用，HA 原生規則也不依賴 Hermes 持續運作。
+現有固定 updater 仍只處理 **同 schema 3 的 Controller image**；SQL schema 相同只是必要條件。任何 `ingress_bridge` 設定歷史，即使已 revoked，都要求候選固定 probe 證明 `BRIDGE_CONTRACT=1`，因此 0.6.1 不能直接按同 schema 退回。尚有 pending／未確認的 Supervisor operation 時阻止 Controller 切版，先核對持久狀態；不盲目回復舊 DB。Hermes 的上游候選 gate 不是使用中 Hermes 通用更新器。Linux 完整產品升級／退版尚需機制及驗證；HAOS／Core 沿用官方更新恢復流程，我們不接管。不能宣稱任意 OS 更新失敗都會自動退回。外層救援不依賴 HA 可用，HA 原生規則也不依賴 Hermes 持續運作。

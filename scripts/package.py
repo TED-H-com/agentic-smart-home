@@ -3,11 +3,12 @@
 import hashlib
 import json
 import re
+import shutil
 import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.6.1"
+VERSION = "0.7.0"
 EXCLUDED = {"__pycache__", "node_modules", "test-results", ".pytest_cache", ".ruff_cache"}
 
 
@@ -38,6 +39,7 @@ def archive(path, entries):
 
 def main():
     package_runner()
+    package_bridge()
     static = ROOT / "controller/static"
     html = (static / "index.html").read_text()
     for asset in re.findall(r'(?:src|href)="\./([^\"]+)"', html):
@@ -46,7 +48,7 @@ def main():
     distribution = ROOT / "dist"
     distribution.mkdir(exist_ok=True)
     source = []
-    for directory in ("controller", "runner", "hermes", "web", "scripts", "contracts", "tests", "docs", "evidence", "host", ".github"):
+    for directory in ("controller", "runner", "hermes", "bridge", "web", "scripts", "contracts", "tests", "docs", "evidence", "host", ".github"):
         source += [(path, "agentic-home/" + str(path.relative_to(ROOT))) for path in files(ROOT / directory)]
     for path in sorted(ROOT.iterdir()):
         if path.is_file() and path.suffix in {".md", ".json", ".toml", ".lock", ".yaml"}:
@@ -66,6 +68,18 @@ def package_runner():
     destination.parent.mkdir(parents=True, exist_ok=True)
     archive(destination, [(path, "agentic_runner/" + str(path.relative_to(ROOT / "runner")))
                           for path in files(ROOT / "runner")])
+
+
+def package_bridge():
+    """The HA App serves the exact compiled product UI, without a second build."""
+    source, target = ROOT / "controller/static", ROOT / "bridge/static"
+    target.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source / "index.html", target / "index.html")
+    assets = target / "assets"
+    if assets.exists():
+        shutil.rmtree(assets)
+    shutil.copytree(source / "assets", assets)
+    shutil.copyfile(ROOT / "controller/requirements.txt", ROOT / "bridge/requirements.txt")
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ MCP adapter; Home coding remains unavailable pending its separate App launcher.
 Build from the product root:
 
 ```sh
-docker build -t agentic-home-hermes:0.6.1 hermes
+docker build -t agentic-home-hermes:0.7.0 hermes
 pytest-disktmp uv run pytest -q tests/test_hermes_runtime.py --containers
 ```
 

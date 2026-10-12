@@ -142,7 +142,7 @@ def installer(tmp_path, monkeypatch):
         if args == ("docker", "compose", "up", "--help"):
             return SimpleNamespace(stdout="--wait --no-deps", returncode=0)
         if args[:3] == ("docker", "image", "inspect"):
-            return SimpleNamespace(stdout=CANDIDATE, returncode=0)
+            return SimpleNamespace(stdout=flags.get("inspected_image", CANDIDATE), returncode=0)
         if args[:2] == ("docker", "run"):
             if flags["probe_fails"]:
                 raise RuntimeError("sensitive build detail must never escape")
@@ -178,6 +178,33 @@ def test_candidate_is_probed_without_credentials_and_activated_once(installer):
     assert setup.install() == result and calls == before
     assert not list(setup.root.glob("hermes-install-*"))
     assert setup.environment.stat().st_mode & 0o777 == 0o600
+
+
+def test_production_onboarding_uses_shipped_digest_without_upstream_discovery(installer, monkeypatch):
+    setup, calls, flags = installer
+    flags["inspected_image"] = ORIGINAL
+    def forbidden(*args, **kwargs):
+        raise AssertionError("installed onboarding must not fetch upstream HEAD")
+    monkeypatch.setattr("agentic_host.bootstrap.latest_source", forbidden)
+    monkeypatch.setattr("agentic_host.bootstrap.open_public", forbidden)
+    release = InitialSetup(setup.manager)
+    result = release.install()
+    assert result == {"state": "ready", "commit": "b" * 40, "source": "release"}
+    assert ORIGINAL in release.environment.read_text()
+    assert not any(c[:2] == ("docker", "build") for c in calls)
+    assert not any(c[:3] == ("docker", "image", "rm") for c in calls)
+    probe = next(c for c in calls if c[:2] == ("docker", "run"))
+    assert ORIGINAL in probe and "--read-only" in probe and "none" in probe
+    before = list(calls)
+    assert release.install() == result and calls == before
+
+
+def test_production_rejects_missing_or_mismatched_release_image_before_stop(installer):
+    setup, calls, flags = installer
+    with pytest.raises(SetupError, match="bundled_image_invalid"):
+        InitialSetup(setup.manager).install()
+    assert not any("stop" in c or c[:2] == ("docker", "build") for c in calls)
+    assert setup.state()["state"] == "failed"
 
 
 @pytest.mark.parametrize("failure", ["probe_fails", "activation_fails", "race_account"])

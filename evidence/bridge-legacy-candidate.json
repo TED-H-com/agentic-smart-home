@@ -1,0 +1,21 @@
+{
+  "kind": "actual_controller_candidate_bridge_contract",
+  "required_contract": 1,
+  "live_data": "none",
+  "checks": [
+    {
+      "version": "0.6.1",
+      "image_id": "sha256:6ff6cad9730eea9b9172fa173f0d8a8ae7c36954839486048f48f478fd47e456",
+      "exit_code": 1,
+      "bridge_import_missing": true
+    },
+    {
+      "version": "0.7.0",
+      "image_id": "sha256:c977e691d06ab5763f498f8cfb5d24c200306fefc9306df0e9c32269cdb03011",
+      "exit_code": 0,
+      "bridge_import_missing": false
+    }
+  ],
+  "status": "passed",
+  "cleanup": true
+}

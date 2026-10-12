@@ -15,7 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     release = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
     for name in ("host/agentic_host/__init__.py", "controller/agentic_controller/__init__.py",
-                 "runner/agentic_runner/__init__.py", "scripts/build_host.py", "scripts/package.py"):
+                 "runner/agentic_runner/__init__.py", "bridge/agentic_bridge/__init__.py",
+                 "scripts/build_host.py", "scripts/package.py"):
         assignments = {target.id: ast.literal_eval(node.value) for node in ast.parse((ROOT / name).read_text()).body
                        if isinstance(node, ast.Assign) for target in node.targets
                        if isinstance(target, ast.Name) and target.id == "VERSION"}
@@ -44,7 +45,7 @@ def main():
     assert hashlib.sha256(catalog.read_bytes()).hexdigest() == lock["codex_model_catalog"]["packaged_sha256"]
     for model in json.loads(catalog.read_text())["models"]:
         assert model["apply_patch_tool_type"] is None and not model["experimental_supported_tools"]
-    for app in ("controller", "runner"):
+    for app in ("controller", "runner", "bridge"):
         config = yaml.safe_load((ROOT / app / "config.yaml").read_text())
         assert config["version"] == release, "App release version drift: " + app
         assert config["arch"] == ["amd64"] and config["ingress"] and config["apparmor"]
@@ -56,9 +57,12 @@ def main():
         for line in (ROOT / app / "Dockerfile").read_text().splitlines():
             if line.startswith("FROM "):
                 assert "@sha256:" in line
+    assert (ROOT / "bridge/requirements.txt").read_bytes() == (ROOT / "controller/requirements.txt").read_bytes()
+    for asset in [ROOT / "controller/static/index.html", *(ROOT / "controller/static/assets").glob("*")]:
+        assert (ROOT / "bridge/static" / asset.relative_to(ROOT / "controller/static")).read_bytes() == asset.read_bytes(), "Bridge UI differs from compiled product UI"
     assert (ROOT / "controller/static/index.html").is_file(), "Build the UI first"
     markdown = [*ROOT.glob("*.md"), *ROOT.glob("docs/*.md"), *ROOT.glob("docs/v3/*.md"),
-                *ROOT.glob("controller/*.md"), *ROOT.glob("runner/*.md"), *ROOT.glob("hermes/*.md")]
+                *ROOT.glob("controller/*.md"), *ROOT.glob("runner/*.md"), *ROOT.glob("hermes/*.md"), *ROOT.glob("bridge/*.md")]
     for path in markdown:
         for target in re.findall(r"\]\(([^\s)]+)\)", path.read_text()):
             if "://" not in target and not target.startswith("#"):

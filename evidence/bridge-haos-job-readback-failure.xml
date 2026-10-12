@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="208.704" timestamp="2026-10-12T13:44:38.271760-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_bridge_haos" name="test_real_haos_sidebar_bridge" time="208.682"><failure message="agentic_controller.ha.HAError: supervisor_job_missing">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-134438-3rqGm1/bt/test_real_haos_sidebar_bridge0')
+request = &lt;FixtureRequest for &lt;Coroutine test_real_haos_sidebar_bridge&gt;&gt;
+
+    async def test_real_haos_sidebar_bridge(tmp_path, request):
+        if not request.config.getoption("--haos-vm"):
+            pytest.skip("Actual HAOS App/Ingress needs --haos-vm")
+        assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
+        public = os.environ.get("AGENTIC_BRIDGE_PUBLIC") == "1"
+        label = uuid.uuid4().hex[:10]
+        vm, outer, network = ("agentic-bridge-" + kind + "-" + label for kind in ("vm", "outer", "net"))
+        started = time.monotonic()
+        evidence = {"kind": "real_haos_sidebar_bridge", "haos_image": "18.3", "status": "running",
+                    "delivery": "published_release_branch" if public else "local_source_fixture",
+                    "observed_from": "haos_app_via_core_ingress_to_outer_pinned_tls",
+                    "inference": "protocol_fixture_no_cloud_account", "checks": {}}
+        report = ROOT / "evidence/bridge-haos.json"
+        progress = ROOT / "evidence/bridge-haos-progress.json"
+        ha = None
+        ssh, slug = None, None
+    
+        def phase(value):
+            evidence["phase"] = value
+            progress.write_text(json.dumps({"phase": value, "elapsed_seconds": round(time.monotonic() - started),
+                                            "delivery": evidence["delivery"]}, indent=2) + "\n")
+    
+        try:
+            phase("prepare_disposable_disks")
+            with lzma.open(ROOT / "build/cache/haos_ova-18.3.qcow2.xz", "rb") as src, (tmp_path / "haos.qcow2").open("wb") as dst:
+                shutil.copyfileobj(src, dst, 1024 * 1024)
+            process(["ssh-keygen", "-t", "ed25519", "-N", "", "-f", str(tmp_path / "key")])
+            (tmp_path / "config").mkdir()
+            shutil.copyfile(tmp_path / "key.pub", tmp_path / "config/authorized_keys")
+            with (tmp_path / "config.ext4").open("wb") as stream:
+                stream.truncate(32 * 1024**2)
+            process(["/usr/sbin/mkfs.ext4", "-q", "-F", "-L", "CONFIG", "-d", str(tmp_path / "config"),
+                     str(tmp_path / "config.ext4")])
+            docker("network", "create", "--subnet", "192.168.177.0/24", "--gateway", "192.168.177.254", network)
+            phase("boot_official_haos")
+            docker("run", "-d", "--name", vm, "--network", network, "--ip", "192.168.177.2",
+                   "--device", "/dev/kvm", "--memory", "4096m", "--cpus", "3", "--pids-limit", "256",
+                   "-p", "127.0.0.1::8123", "-p", "127.0.0.1::2222", "-v", f"{tmp_path}:/lab",
+                   "agentic-home-builder:0.2.0", "bash", "-ec",
+                   "cp /usr/share/OVMF/OVMF_VARS_4M.fd /lab/nvram.fd\nqemu-img resize /lab/haos.qcow2 64G\n"
+                   "exec qemu-system-x86_64 -enable-kvm -cpu host -machine q35 -m 3072 -smp 2 "
+                   "-drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd "
+                   "-drive if=pflash,format=raw,file=/lab/nvram.fd "
+                   "-drive file=/lab/haos.qcow2,format=qcow2,if=none,id=disk "
+                   "-device virtio-scsi-pci -device scsi-hd,drive=disk "
+                   "-drive file=/lab/config.ext4,format=raw,if=virtio "
+                   "-netdev user,id=net,hostfwd=tcp:0.0.0.0:8123-:80,hostfwd=tcp:0.0.0.0:2222-:22222 "
+                   "-device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log")
+            ports = json.loads(docker("inspect", vm))[0]["NetworkSettings"]["Ports"]
+            base = "http://127.0.0.1:" + ports["8123/tcp"][0]["HostPort"]
+            ssh = ["ssh", "-i", str(tmp_path / "key"), "-p", ports["2222/tcp"][0]["HostPort"],
+                   "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-o", "StrictHostKeyChecking=no",
+                   "-o", f"UserKnownHostsFile={tmp_path / 'known_hosts'}", "-o", "ConnectTimeout=5", "root@127.0.0.1"]
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8),
+                                             cookie_jar=aiohttp.CookieJar(unsafe=True)) as client:
+                for _ in range(240):
+                    try:
+                        async with client.get(base + "/api/onboarding") as response:
+                            if response.status == 200 and isinstance(await response.json(), list):
+                                break
+                    except (aiohttp.ClientError, TimeoutError, ValueError):
+                        pass
+                    await asyncio.sleep(3)
+                else:
+                    raise AssertionError("haos_core_readiness_timeout")
+                phase("native_disposable_owner")
+                async with client.post(base + "/api/onboarding/users", json={"client_id": base + "/",
+                        "name": "Disposable Bridge Owner", "username": "bridge-owner",
+                        "password": secrets.token_urlsafe(32), "language": "en"}) as response:
+                    assert response.status == 200, "native_owner_creation_failed"
+                    onboarding = await response.json()
+                async with client.post(base + "/auth/token", data={"grant_type": "authorization_code",
+                        "code": onboarding["auth_code"], "client_id": base + "/"}) as response:
+                    assert response.status == 200, "native_token_exchange_failed"
+                    credentials = await response.json()
+                ha = ProbeHA(credentials["access_token"], base + "/api",
+                                  base.replace("http:", "ws:") + "/api/websocket", external=True)
+                await ha.start()
+                owner = await ha.ws("auth/current_user")
+                assert await ha.owner(owner["id"])
+                phase("supervisor_readiness")
+                for _ in range(120):
+                    supervisor = await ha.request("GET", "/supervisor/info", supervisor=True)
+                    if supervisor.get("healthy") is True:
+                        break
+                    await asyncio.sleep(3)
+                else:
+                    raise AssertionError("supervisor_not_healthy_no_automatic_update")
+                evidence.update(core=(await ha.request("GET", "/config"))["version"], supervisor=supervisor["version"])
+                phase("outer_candidate_controller")
+                identity = tmp_path / "identity.json"
+                identity.write_text(json.dumps({"owner": owner["id"], "token": credentials["access_token"],
+                                               "access_key": secrets.token_urlsafe(32), "public": public}))
+                identity.chmod(0o600)
+                (tmp_path / "outer.py").write_text(OUTER)
+                evidence["outer_dependency_image"] = docker("image", "inspect", CONTROLLER, "--format", "{{.Id}}")
+                docker("run", "-d", "--name", outer, "--network", network, "--ip", "192.168.177.1",
+                       "--memory", "768m", "--cpus", "1", "--pids-limit", "128", "--user", f"{os.getuid()}:{os.getgid()}",
+                       "-p", "127.0.0.1::8099", "-e", "PYTHONPATH=/app",
+                       "-e", "AGENTIC_DATA=/lab/outer-data", "-e", "AGENTIC_HOST_MODE=1",
+                       "-v", f"{tmp_path}:/lab", "-v", f"{ROOT / 'controller/agentic_controller'}:/app/agentic_controller:ro",
+                       "-v", f"{ROOT / 'controller/static'}:/app/static:ro", CONTROLLER,
+                       "python", "/lab/outer.py")
+                database = tmp_path / "outer-data/controller.sqlite3"
+                for _ in range(60):
+                    if (tmp_path / "pairing.json").exists():
+                        break
+                    await asyncio.sleep(1)
+                else:
+                    raise AssertionError("outer_fixture_start_failed")
+                options = json.loads((tmp_path / "pairing.json").read_text())
+                if public:
+                    phase("published_repository_install")
+                    for _ in range(120):
+                        current = setting(database, "bridge_maintenance")
+                        if current.get("stage") == "monitor":
+                            slug = current["slug"]
+                            break
+                        assert current.get("state") not in {"blocked", "needs_reconcile"}, "published_install_blocked"
+                        await asyncio.sleep(10)
+                    else:
+                        raise AssertionError("published_install_timeout")
+                else:
+                    phase("local_source_fixture_delivery")
+                    process([*ssh, "true"], timeout=10)
+                    staging = tmp_path / "bridge-source"
+                    shutil.copytree(ROOT / "bridge", staging, ignore=shutil.ignore_patterns("__pycache__", "static"))
+                    shutil.copytree(ROOT / "controller/static", staging / "static")
+                    with tarfile.open(tmp_path / "bridge.tar.gz", "w:gz") as archive:
+                        archive.add(staging, arcname="agentic_bridge")
+                    for reference in (PYTHON, BUILDER):
+                        docker("image", "inspect", reference)
+                    docker("save", "-o", str(tmp_path / "bases.tar"), PYTHON, "docker:29.7.2-cli", timeout=120)
+                    with (tmp_path / "bases.tar").open("rb") as stream:
+                        loaded = subprocess.run([*ssh, "docker load"], stdin=stream, capture_output=True, timeout=180)
+                    assert loaded.returncode == 0, "haos_base_preload_failed"
+                    with (tmp_path / "bridge.tar.gz").open("rb") as stream:
+                        delivered = subprocess.run([*ssh, "mkdir -p /mnt/data/supervisor/apps/local &amp;&amp; tar xzf - -C /mnt/data/supervisor/apps/local"],
+                                                   stdin=stream, capture_output=True, timeout=60)
+                    assert delivered.returncode == 0, "local_source_delivery_failed"
+                    await ha.request("POST", "/store/reload", supervisor=True, timeout=60)
+                    slug = "local_agentic_bridge"
+                    catalog = await ha.request("GET", f"/store/addons/{slug}/info", supervisor=True)
+                    assert catalog["version_latest"] == "0.7.0" and catalog["build"] is True
+                    phase("supervisor_app_install")
+                    receipt = await ha.request("POST", f"/store/addons/{slug}/install", {"background": True}, supervisor=True)
+                    if isinstance(receipt, dict) and receipt.get("job_id"):
+                        missing = 0
+                        for _ in range(120):
+                            try:
+&gt;                               job = await ha.request("GET", "/jobs/" + receipt["job_id"], supervisor=True)
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_bridge_haos.py:253: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+controller/agentic_controller/ha.py:43: in request
+    return await self.ws("supervisor/api", endpoint=path, method=method.lower(), data=data or {},
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_bridge_haos.ProbeHA object at 0x7171cd4e0ec0&gt;
+command = 'supervisor/api', _receive_timeout = 40
+kwargs = {'endpoint': '/jobs/3d80558fd64f4e53a4109a6ba9b5a688', 'method': 'get', 'data': {}, 'timeout': 30}
+
+    async def ws(self, command, *, _receive_timeout=20, **kwargs):
+        async with await self.ws_connect() as stream:
+            await stream.send_json({"id": 1, "type": command, **kwargs})
+            result = await stream.receive_json(timeout=_receive_timeout)
+            if not result.get("success"):
+                error = result.get("error", {})
+                text = str(error.get("message", "")).lower()
+                self.last_error = {"job_missing": "job does not exist" in text,
+                    "update_required": "needs to be updated" in text,
+                    "message_bytes": len(text.encode()), "upstream_unknown_error": error.get("code") == "unknown_error"}
+&gt;               raise HAError("supervisor_job_missing" if self.last_error["job_missing"] else "upstream_request_failed")
+E               agentic_controller.ha.HAError: supervisor_job_missing
+
+tests/test_bridge_haos.py:46: HAError</failure></testcase></testsuite></testsuites>

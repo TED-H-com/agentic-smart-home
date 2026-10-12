@@ -1,4 +1,4 @@
-# Linux 產品架構 · 0.6.1 技術預覽
+# Linux 產品架構 · 0.7.0 技術預覽
 
 外層 Linux 先啟動 Web／Hermes／固定診斷，HAOS VM 由持久 onboarding 在 CLI／Hermes／通道就緒後自動建立。Host Codex coding 已接通；Home coding launcher 尚未交付，真帳號及完整 E1／E2 仍待驗收。本頁描述當前部署，完整設計與缺口見 [v3 文件](v3/README.md) 和 [進度](v3/PROGRESS.md)。
 
@@ -24,7 +24,7 @@ firstboot 安裝套件、載入已驗 hash 的 images、啟動外層服務、產
 | Preview renderer | 按需 Docker UID 10004，network none、read-only root、有界 ext4／cgroups | 不可信 HTML 轉三尺寸 PNG；獨立 `127.0.0.2:8100` 短效連結，不在管理 origin 執行候選 |
 | Local support CLI | Owner console 執行，無需 Web／模型 | 固定狀態與去密 bundle，無模型任意程式 |
 
-Hermes 安裝包回復基線使用 [commit 835c3dd…](https://github.com/NousResearch/hermes-agent/tree/835c3dd038d903182a66ecc45e34bf5e0de65f00)，版本／來源／Python 3.14／依賴各自 lock，見 [Hermes README](../hermes/README.md)。首次引導解析官方最新來源，通過建置與相容性 probe 後才按 digest 啟動；結果寫入 host/runtime.env，重啟不自行追更新。它不啟動第二個 bot Gateway，也不開內建 terminal、filesystem、browser、delegate 或 Live approve/apply。Host coding 派至獨立 sandbox，不能把 coordinator 容器當成執行候選程式的環境；真雲端帳號仍須另驗。
+Hermes 安裝包回復基線使用 [commit 835c3dd…](https://github.com/NousResearch/hermes-agent/tree/835c3dd038d903182a66ecc45e34bf5e0de65f00)，版本／來源／Python 3.14／依賴各自 lock，見 [Hermes README](../hermes/README.md)。首次引導使用隨附 Hermes 映像，通過離線相容性 probe 後按 digest 啟動；結果寫入 host/runtime.env，重啟不自行追更新。它不啟動第二個 bot Gateway，也不開內建 terminal、filesystem、browser、delegate 或 Live approve/apply。Host coding 派至獨立 sandbox，不能把 coordinator 容器當成執行候選程式的環境；真雲端帳號仍須另驗。
 
 MCP 使用專用短期 case/run capability。固定工具為 `host.status`、`worker.capabilities`、`worker.submit/status/cancel/result`、`case.evidence.read`、`home.observe`、`home.propose`、`home.proposal_status`；家庭工具受既有 policy／精確 Owner 批准控制，沒有 approve／apply 工具。worker submit 依實際能力與獨立登入派至 Host coding；Home 尚未啟用。Controller 不執行 CLI／shell，产品服務容器不掛 Docker socket；root Host broker 持有 launcher，見 [Workers](WORKERS.md)。Unix peer 身份將 UID 0 Runner 限於 coding 接點，UID 1000 Owner／Controller 使用管理接點。
 

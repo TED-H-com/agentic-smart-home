@@ -4,13 +4,15 @@ Owner：Ted Huang。方向版本：Steering v3.0，2026-10-11。匯入時應用�
 
 完整權威文件為 [Owner 的 Project Plan v3](docs/v3/PROJECT_PLAN_V3.md)，先讀 [Dev Team Brief](docs/v3/DEV_TEAM_BRIEF.md)。本頁是 repo 的現行入口；舊根目錄文件保存在 [history](docs/history/pre-v3-0.3.1/README.md)，其角色安排與執行模式已由 v3 取代。
 
-2026-10-12 Owner 補充的首次使用順序優先於原稿的 Hermes-first 登入安排：Linux／網路 → 選一個 coding CLI 並官方登入 → CLI 協助準備最新版 Hermes → Hermes 驗證 → LINE／可選 Telegram 等通訊 → 自動建立或啟動 HA → 原生家庭設定及助手引導。後端保存工作進度，僅在必要的帳號、掃碼及家庭授權等待使用者；詳見 [自動 onboarding](docs/ONBOARDING.md)。這是新增產品流程，不代表兩個 coding worker 或 E1／E2 已完成。
+2026-10-12 Owner 補充的首次使用順序優先於原稿的 Hermes-first 登入安排：Linux／網路 → 選一個 coding CLI 並官方登入 → CLI 協助準備隨產品交付的受測 Hermes → Hermes 驗證 → LINE／可選 Telegram 等通訊 → 自動建立或啟動 HA → 原生家庭設定及助手引導。後端保存工作進度，僅在必要的帳號、掃碼及家庭授權等待使用者；詳見 [自動 onboarding](docs/ONBOARDING.md)。這是新增產品流程，不代表兩個 coding worker 或 E1／E2 已完成。
 
 0.5.1 的 [E2E／架構審查](docs/reviews/2026-10-12-E2E-ARCHITECTURE.md) 是本輪基準。0.6.0 補上 Host 實際 coding 派工／role auth／egress、獨立測試、PNG 預覽、可信停止核對、全鏈 retention、Hermes 家庭提案 adapter 和固定同 schema Controller updater；使用及精確限制見 [Workers](docs/WORKERS.md)、[Updates](docs/UPDATES.md)。真帳號、Home App research 與家庭產品驗收仍分開記錄。
 
 ## 固定角色
 
-後續發行方向改為使用者跟隨我們驗證的產品版本組合；團隊追上游並產生候選。首次安裝的 Hermes 將改用發行已驗證的 digest，取代在使用者機器追 HEAD。Supervisor 最新版支援例外、安全修補責任及分層更新交付順序見 [統一發行策略](docs/RELEASE_POLICY.md)。這是後續規格；0.6.1 的 runtime／媒體尚未改動。
+最新方向採原生 HA 日常介面＋「智能管家」Ingress App，連回同一外層 Hermes／Controller／case。HA 保留官方 Core／Supervisor／HAOS 更新路徑；外層只核對並有限次修復本產品 App，不復原使用者手動停止、移除或改動的設定。原生 Assist／語音的 Conversation adapter 另行開發，不能把 MCP 工具接點當作已完成的對話整合。
+
+0.7.0 首次設定使用發行隨附的 Hermes image digest，保留離線相容性檢查；追上游由開發端產生候選。外層 CLI／Hermes 相依維持釘版，不以完成全 Linux 更新平台為本輪前置條件。HA 更新後未知 Core 的家庭寫入仍可能暫停，須另取得相容證據。具體範圍見 [發行策略](docs/RELEASE_POLICY.md)。
 
 2026-10-12 後續介面方向：完成家庭建置後以原生 Home Assistant 作為日常首頁，智能管家作為協助入口，外層保留初始化與救援。Hermes／HAOS／Linux 的相依集中在獨立 adapter，以固定契約、能力探針及候選驗證處理上游變動；不保證任意未來版本相容。實作與限制見 [adapter 邊界](docs/ADAPTERS.md)。
 

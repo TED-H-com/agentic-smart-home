@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="35.910" timestamp="2026-10-12T14:11:24.568337-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_bootstrap_ui" name="test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states" time="35.812"><failure message="playwright._impl._errors.TimeoutError: Locator.wait_for: Timeout 30000ms exceeded.&#10;Call log:&#10;  - waiting for get_by_text(&quot;正從官方來源安裝 Hermes&quot;) to be visible">def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
+        root = Path(__file__).parents[1]
+        server = ThreadingHTTPServer(('127.0.0.1', 0),
+            partial(SimpleHTTPRequestHandler, directory=str(root / 'controller/static')))
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        flow = {'contract': 1, 'id': None, 'state': 'idle', 'provider': None, 'channel': 'line',
+                'current_step': None, 'steps': [{'id': step, 'state': 'pending', 'code': None,
+                                              'verified_at': None} for step in STEPS],
+                'human_action': None, 'updated_at': None}
+        gateway = {'step': 0, 'selected': False, 'web': {'status': 'connected'},
+                   'preferences': {'primary': 'line', 'runtime': 'host', 'provider': 'codex', 'coordinator': 'hermes'},
+                   'channels': [{'id': name, 'status': 'disabled', 'enabled': False, 'chats': [],
+                                 'senders': [], 'has_secret': False} for name in ['line', 'telegram', 'discord']]}
+        runtime = {'state': 'needs_auth', 'provider': 'openai-codex', 'model': '', 'auth_verified_at': None,
+                   'default_models': {'openai-codex': 'gpt-6-astra'}}
+        cli_auth = {'id': 'cli-fixture-login', 'status': 'pending',
+                    'url': 'https://accounts.x.ai/device', 'code': 'CLI-FIXTURE'}
+        device = {'auth_id': 'hermes-fixture-login', 'provider': 'openai-codex', 'model': 'gpt-6-astra',
+                  'state': 'pending', 'verification_uri': 'https://auth.openai.com/codex/device',
+                  'user_code': 'HERMES-FIXTURE', 'expires_at': '2026-10-12T09:00:00Z', 'error': None}
+        line = {'status': 'idle', 'channels': []}
+        pairing = {channel: {'state': 'idle', 'code': None, 'expires_at': None, 'chat': None, 'sender': None}
+                   for channel in ['line', 'telegram']}
+        authorization = {'state': 'idle', 'error_code': None}
+        failure = {'read': False, 'start_reply': True, 'authorize_url': True}
+        calls, errors, urls = [], [], []
+    
+        def stage(step, state='running', action=None):
+            index = STEPS.index(step)
+            flow.update(id='bootstrap-fixture', state=state, current_step=step, human_action=action,
+                        updated_at='2026-10-12T08:00:00Z')
+            for number, item in enumerate(flow['steps']):
+                item.update(state='completed' if number &lt; index else state if number == index else 'pending',
+                            verified_at='2026-10-12T08:00:00Z' if number &lt; index else None)
+                if item['id'] == 'channel' and flow['channel'] == 'web' and number &lt; index:
+                    item['state'] = 'skipped'
+    
+        def route(route):
+            request = route.request
+            path = request.url.split('/api/')[1]
+            urls.append(request.url)
+            body = request.post_data_json if request.method == 'POST' else None
+            if body is not None:
+                assert request.headers.get('x-agentic-csrf') == 'fixture-csrf'
+                assert request.headers.get('idempotency-key')
+                calls.append((path, body, request.headers['idempotency-key']))
+            if path == 'deployment':
+                result = {'mode': 'host', 'authenticated': True}
+            elif path == 'host/home-entry':
+                result = {'contract_version': 1, 'state': 'ready' if flow['state'] == 'completed' else 'setup', 'native_path': '/', 'reason_code': None}
+            elif path == 'session':
+                result = {'principal': 'host-owner', 'csrf': 'fixture-csrf'}
+            elif path == 'status':
+                result = {'ha': {'status': 'unavailable'}, 'runner': {'protocol': 1, 'providers': []},
+                          'gateway': gateway, 'version': 'fixture', 'paused': False}
+            elif path == 'tasks':
+                result = {'tasks': []}
+            elif path == 'bootstrap':
+                if failure['read']:
+                    route.fulfill(status=503, content_type='application/json', body='{"detail":"fixture disconnected"}')
+                    return
+                result = flow
+            elif path == 'bootstrap/start':
+                assert body == {'provider': 'grok', 'channel': 'line'}
+                flow['provider'] = body['provider']
+                stage('cli_auth', 'waiting_input', {'kind': 'cli_login', 'provider': 'grok',
+                                                   'message': '請完成選定 CLI 的官方授權。'})
+                if failure['start_reply']:
+                    failure['start_reply'] = False
+                    route.abort('failed')
+                    return
+                result = flow
+            elif path == 'bootstrap/retry':
+                assert body == {}
+                stage('hermes_install')
+                result = flow
+            elif path == 'bootstrap/preferences':
+                assert set(body) == {'channel'}
+                if flow['channel'] in pairing and pairing[flow['channel']]['state'] == 'pending':
+                    pairing[flow['channel']].update(state='cancelled', code=None)
+                flow['channel'] = body['channel']
+                if body['channel'] == 'web':
+                    stage('ha_provision')
+                    flow['steps'][6]['state'] = 'skipped'
+                result = flow
+            elif path == 'runtimes':
+                result = {'host': {'protocol': 1, 'providers': [{'provider': 'grok', 'status': cli_auth['status']}]}}
+            elif path == 'runtimes/host/providers/grok/auth':
+                assert body == {'method': 'device_code', 'secret': ''}
+                result = cli_auth
+            elif path == 'runtimes/host/auth/cli-fixture-login':
+                result = cli_auth
+            elif path == 'hermes':
+                result = {'runtime': runtime, 'workers': [{'worker_id': 'host-coder', 'available': False},
+                                                         {'worker_id': 'home-coder', 'available': False}]}
+            elif path == 'hermes/auth/device':
+                assert body == {'provider': 'openai-codex', 'model': 'gpt-6-astra'}
+                result = device
+            elif path == 'hermes/auth/device/hermes-fixture-login':
+                result = device
+            elif path == 'gateway':
+                result = gateway
+            elif path == 'gateway/line/login':
+                if body is not None:
+                    line.update(status='authenticating', qr='https://fixture.example/qr', pin='123456')
+                result = line
+            elif path == 'gateway/preferences':
+                gateway.update(preferences=body, selected=True)
+                result = gateway
+            elif path.startswith('gateway/channels/') and '/pairing' in path:
+                channel = path.split('/')[2]
+                if body is not None:
+                    if path.endswith('/cancel'):
+                        assert body == {}
+                        pairing[channel].update(state='cancelled', code=None)
+                    else:
+                        config = next(item for item in gateway['channels'] if item['id'] == channel)
+                        assert body == ({'chat': 'c11111111111111111111111111111111'} if channel == 'line' else
+                                        {'secret': '' if config['has_secret'] else '123456:fixture-private-telegram-token'})
+                        config['has_secret'] = True
+                        pairing[channel].update(state='pending', code='PAIR-FIXTURE', expires_at=1791806580,
+                                                chat=body.get('chat'))
+                result = pairing[channel]
+            elif path == 'host/authorize':
+                result = {'url': 'https://unexpected.example/auth/authorize' if failure['authorize_url'] else
+                          'http://127.0.0.1:8123/auth/authorize?state=fixture-state'}
+            elif path == 'host/authorization':
+                result = authorization
+            elif path == 'host/connect':
+                assert body == {'token': 'fixture-private-home-token'}
+                result = {'connected': True}
+            else:
+                raise AssertionError('Unexpected API: ' + path)
+            route.fulfill(status=200, content_type='application/json', body=json.dumps(result))
+    
+        def shots(page, name):
+            if name == 'complete':
+                primary = page.get_by_role('region', name='家庭入口').get_by_role('link', name='進入家庭')
+                expect(primary).to_have_css('background-color', 'rgb(33, 100, 83)')
+                expect(primary).to_have_css('color', 'rgb(255, 254, 250)')
+                expect(primary).to_have_css('opacity', '1')
+            for width in [1440, 768, 390]:
+                page.set_viewport_size({'width': width, 'height': 900 if width == 1440 else 844})
+                page.evaluate('window.scrollTo(0,0)')
+                page.wait_for_timeout(100)
+                assert page.evaluate('document.documentElement.scrollWidth &lt;= innerWidth')
+                page.screenshot(path=str(root / f'evidence/ui/native-home/bootstrap-{name}-{width}.png'), full_page=True)
+    
+        def stored(page):
+            return page.evaluate('JSON.stringify({session:{...sessionStorage},local:{...localStorage}})')
+    
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page(viewport={'width': 1440, 'height': 900})
+                page.on('pageerror', lambda error, errors=errors: errors.append(str(error)))
+                page.route('**/api/**', route)
+                page.goto(f'http://127.0.0.1:{server.server_port}/#onboarding')
+                page.get_by_role('heading', name='先選一個 AI 助手', exact=True).wait_for()
+                assert page.locator('article.provider').count() == 0
+                expect(page.locator('.onboarding-body').get_by_role('heading')).to_have_count(1)
+                expect(page.locator('.topbar .ha-status')).to_have_count(0)
+                expect(page.get_by_role('list', name='自動設定進度').locator('li')).to_have_count(5)
+                expect(page.get_by_label('使用的助手')).to_have_value('codex')
+                page.get_by_label('使用的助手').select_option('claude')
+                expect(page.get_by_text('Claude Code 目前使用官方 setup-token', exact=False)).to_be_visible()
+                page.get_by_label('使用的助手').select_option('agy')
+                expect(page.get_by_text('Google 訂閱登入尚未整合。', exact=False)).to_be_visible()
+                page.get_by_label('使用的助手').select_option('grok')
+                shots(page, 'choose')
+                start = page.locator('.onboarding-body').get_by_role('button', name='開始設定', exact=True)
+                assert start.bounding_box()['y'] + start.bounding_box()['height'] &lt;= page.viewport_size['height']
+                expect(page.get_by_role('list', name='自動設定進度')).to_contain_text('網路與主機')
+                expect(page.get_by_role('button', name='選單', exact=True)).to_have_attribute('aria-expanded', 'false')
+                page.locator('.onboarding-body').get_by_role('button', name='開始設定', exact=True).click()
+                # Server accepted the start but the response was lost: GET resumes the persisted flow.
+                page.get_by_role('button', name='開始官方登入', exact=True).wait_for()
+                assert len([call for call in calls if call[0] == 'bootstrap/start']) == 1
+                assert page.locator('article.provider').count() == 1
+                expect(page.locator('article.provider').get_by_role('heading')).to_have_text('Grok Build')
+                page.get_by_role('button', name='開始官方登入', exact=True).click()
+                page.get_by_text('CLI-FIXTURE', exact=True).wait_for()
+                page.context.grant_permissions(['clipboard-read', 'clipboard-write'])
+                page.get_by_role('button', name='複製授權碼', exact=True).click()
+                assert page.evaluate('navigator.clipboard.readText()') == 'CLI-FIXTURE'
+                expect(page.get_by_label('登入方式', exact=True)).not_to_be_visible()
+                expect(page.get_by_role('link', name='開啟官方授權頁')).to_have_attribute('href', 'https://accounts.x.ai/device')
+                page.reload()
+                page.get_by_text('CLI-FIXTURE', exact=True).wait_for()
+                assert 'CLI-FIXTURE' not in stored(page) and 'https://accounts.x.ai' not in stored(page)
+                assert page.get_by_role('heading', name='設定完成').count() == 0
+                shots(page, 'cli-auth')
+                cli_auth['status'] = 'connected'
+                stage('cli_assist')
+                page.get_by_text('助手正在確認設定…', exact=True).wait_for()
+                stage('hermes_install')
+&gt;               page.get_by_text('正從官方來源安裝 Hermes', exact=False).wait_for()
+
+tests/test_bootstrap_ui.py:212: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.13/site-packages/playwright/sync_api/_generated.py:20696: in wait_for
+    self._sync(
+.venv/lib/python3.13/site-packages/playwright/_impl/_locator.py:752: in wait_for
+    await self._frame.wait_for_selector(
+.venv/lib/python3.13/site-packages/playwright/_impl/_frame.py:395: in wait_for_selector
+    await self._channel.send(
+.venv/lib/python3.13/site-packages/playwright/_impl/_connection.py:76: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;playwright._impl._connection.Connection object at 0x7fe0745cb230&gt;
+cb = &lt;function Channel.send.&lt;locals&gt;.&lt;lambda&gt; at 0x7fe0731a3c40&gt;
+is_internal = False, title = None
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False, title: str = None
+    ) -&gt; Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        parsed_st = _attach_api_call_information(
+            getattr(task, "__pw_stack__", None) or _capture_stack_trace(),
+            is_internal,
+            title,
+        )
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+&gt;           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.wait_for: Timeout 30000ms exceeded.
+E           Call log:
+E             - waiting for get_by_text("正從官方來源安裝 Hermes") to be visible
+
+.venv/lib/python3.13/site-packages/playwright/_impl/_connection.py:632: TimeoutError</failure></testcase></testsuite></testsuites>

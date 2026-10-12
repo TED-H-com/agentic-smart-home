@@ -1,4 +1,18 @@
-# Agentic Smart Home 0.6.1 驗證
+# Agentic Smart Home 驗證
+
+## 0.7.0 側欄整合候選
+
+本輪新增薄 HAOS Ingress App、同一外層對話／case、即時 Owner 驗證、有限維護與配對恢復；首次 Hermes 改用隨附 digest。工程與產品範圍見 [整合審查](reviews/2026-10-12-INGRESS-BRIDGE.md)。HA 保留官方更新，Home coding、原生 Assist、App 跨版本 migration 與真帳號仍需另驗。
+
+完整回歸第一輪為 **802 passed、4 skipped、1 failed／497.01 秒**；唯一失敗是 sandbox deadline 案例等待 Docker 結束逾時，見 [原始結果](../evidence/pytest-0.7.0-deadline-failure.xml)，正在補有界診斷重現。本節不沿用下方 0.6.1 的 passed 或 ISO 證據充當新版結果。已有 [薄 App](../evidence/bridge-app.xml)、[Controller／修復](../evidence/bridge-controller-repair.xml)、[維護](../evidence/bridge-maintenance.xml)、[UI](../evidence/bridge-ui.xml)、[官方 Supervisor schema](../evidence/bridge-supervisor-schema.xml)及 [App 容器生命週期](../evidence/bridge-container.xml)的定向證據。協定 fixture 與真服務分別標記。
+
+真正 **HAOS 18.3／Core 2026.10.1／Supervisor 2026.09.3** 第三輪本地來源安裝 **7 passed／295.10 秒**，見 [結果](../evidence/bridge-haos-local.json)、[JUnit](../evidence/bridge-haos-local.xml)及 [原生側欄截圖](../evidence/ui/bridge-native-haos-local.png)。包含真 Supervisor 安裝、TLS 指紋錯誤拒絕、偽造身份拒絕、Owner 瀏覽器登入、CSRF、重送去重、同 case 續聊、App 重啟保留與人工停止不復活。模型使用明示協定 fixture，沒有雲端帳號；公開 GitHub source delivery 與新版完整 ISO 安裝接著另驗。
+
+前兩輪 HAOS 測試卡在背景 job 讀回：[首次失敗](../evidence/bridge-haos-install-job-failure.json)、[有界診斷](../evidence/bridge-haos-job-readback-failure.json)。第二輪已觀測 App 安裝成功、Supervisor healthy，但 job 被清理；修正改以原安裝意圖與完整 App postcondition 核對，不重送 install。這兩筆失敗原樣保留。
+
+同 schema 的舊 Controller 不理解新配對授權，因此固定 probe 另驗 bridge contract 1。[真映像測試](../evidence/bridge-legacy-candidate.json)確認 0.6.1 被拒絕，新候選通過；只使用去密結構 DB，未改家庭資料。
+
+## 0.6.1 歷史驗證
 
 本輪交付原生 HA 日常入口與上游 adapter 邊界，詳細見 [整合審查](reviews/2026-10-12-NATIVE-HOME-ADAPTERS.md)。資料格式仍為 schema 3；HA 側欄外層 bridge、Home coding、真帳號與完整 OS 更新／退版未由本輪測試建立。
 

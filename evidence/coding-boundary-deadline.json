@@ -1,0 +1,60 @@
+{
+  "kind": "real_docker_offline_boundary",
+  "method": "deadline",
+  "image": "sha256:9a64fef60148e840b884aee668dd5c08b769177f4fc54558037cd39fef109535",
+  "wall_seconds": 10,
+  "control_wait_timeout_seconds": 20,
+  "status": "passed",
+  "timings": [
+    {
+      "operation": "create",
+      "seconds": 0.61
+    },
+    {
+      "operation": "start",
+      "seconds": 0.118
+    },
+    {
+      "operation": "wait",
+      "seconds": 10.164
+    },
+    {
+      "operation": "inspect",
+      "seconds": 0.011
+    }
+  ],
+  "stage": "inspect",
+  "before_cleanup": {
+    "inspect_returncode": 0,
+    "state": {
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 137,
+      "Status": "exited",
+      "StartedAt": "2026-10-12T18:11:53.846370532Z",
+      "FinishedAt": "2026-10-12T18:12:03.90620593Z",
+      "runtime_seconds": 10.06
+    },
+    "state_error_signatures": {
+      "permission": false,
+      "no_space": false,
+      "resource_unavailable": false,
+      "timeout": false
+    },
+    "inspect_seconds": 0.011,
+    "fixture_stderr_bytes": 0,
+    "fixture_stderr_signatures": {
+      "assertion": false,
+      "permission": false,
+      "resource_unavailable": false,
+      "timeout": false
+    },
+    "negative_checks_completed": true,
+    "children_started": 62
+  },
+  "cleanup": true
+}

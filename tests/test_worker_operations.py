@@ -84,7 +84,7 @@ async def test_owner_broker_rejects_arbitrary_destinations_without_socket(path):
 
 
 def manifest():
-    return {'format':1,'publisher':'trusted-publisher','version':'0.6.1','source_commit':'a'*40,
+    return {'format':1,'publisher':'trusted-publisher','version':'0.7.0','source_commit':'a'*40,
             'image':'ghcr.io/trusted/controller@sha256:'+'a'*64,'image_id':'sha256:'+'b'*64,
             'compatibility':{'schema':3,'worker_contract':1,'runner_protocol':1,'runtime_digest':'c'*64,'ha_core_versions':['2026.10.1']},
             'tests':[{'name':'real-engine','result':'passed','sha256':'d'*64}],

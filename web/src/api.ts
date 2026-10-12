@@ -1,5 +1,7 @@
 let csrf = '';
 let hostMode = false;
+let bridgeMode = false;
+export type ConversationSession={mode?:string;storage_scope?:string;resume?:{message_id:string;thread_id:string;case_id:string}|null};
 let loginGeneration = 0;
 // Consume the desktop handoff before React mounts or any API reads begin.
 let desktopTicket = /^#desktop-login=([A-Za-z0-9_-]{43})$/.exec(location.hash)?.[1] || '';
@@ -24,7 +26,7 @@ export function desktopLogin() {
   }
   return desktopResult;
 }
-export function configureDeployment(mode: string) { hostMode = mode === 'host'; }
+export function configureDeployment(mode: string) { hostMode = mode === 'host'; bridgeMode = mode === 'bridge'; if(bridgeMode)desktopTicket=''; }
 export function haPath(path = '/') {
   const hostname = ['localhost', '127.0.0.1'].includes(location.hostname) ? location.hostname : 'localhost';
   return hostMode ? `http://${hostname}:8123${path}` : path;
@@ -55,12 +57,15 @@ export async function api(path: string, data?: unknown, raw = false, key = reque
     if (!response.ok) {
       const error = await response.json().catch(() => ({detail:'服務暫時無法回應'}));
       if (response.status === 401 && hostMode && !['host/login','host/desktop-login'].includes(path) && generation === loginGeneration) window.dispatchEvent(new Event('agentic-session-expired'));
+      if ([401,403].includes(response.status) && bridgeMode && generation === loginGeneration) window.dispatchEvent(new Event('agentic-bridge-expired'));
+      if (response.status >= 500 && bridgeMode) window.dispatchEvent(new Event('agentic-bridge-unavailable'));
       throw new ApiError(typeof error.detail === 'string' ? error.detail : '操作未完成，請檢查填寫內容後再試。', response.status);
     }
     if (['host/login','host/desktop-login'].includes(path)) loginGeneration++;
     return raw ? response.blob() : response.json();
   } catch (error) {
     if (error instanceof ApiError) throw error;
+    if (bridgeMode) window.dispatchEvent(new Event('agentic-bridge-unavailable'));
     throw new ApiError(data === undefined ? '暫時連不上管理服務，請確認主機運作後重試。' : '尚未收到操作結果。請先查看任務或主機紀錄，確認狀態後再試。', 0);
   } finally { clearTimeout(timer); }
 }

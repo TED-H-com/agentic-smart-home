@@ -3,7 +3,9 @@ import json
 import os
 import subprocess
 import sys
+import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -142,6 +144,56 @@ def test_replaced_container_cannot_be_killed_or_exported(tmp_path):
     assert not any(args[1] == "kill" for args in calls)
 
 
+def boundary_observation(name, workspace, *, run=subprocess.run):
+    """Bounded, read-only diagnostics before fixture teardown; never raw errors."""
+    result = {}
+    started = time.monotonic()
+    try:
+        inspect = run(["docker", "inspect", "--format", "{{json .State}}", name],
+                      capture_output=True, text=True, timeout=5)
+        result["inspect_returncode"] = inspect.returncode
+        if inspect.returncode == 0 and len(inspect.stdout) <= 16384:
+            raw = json.loads(inspect.stdout)
+            state = {key: raw[key] for key in ("Running", "Paused", "Restarting", "OOMKilled", "Dead")
+                     if type(raw.get(key)) is bool}
+            state.update({key: raw[key] for key in ("Pid", "ExitCode") if type(raw.get(key)) is int})
+            if raw.get("Status") in {"created", "running", "paused", "restarting", "removing", "exited", "dead"}:
+                state["Status"] = raw["Status"]
+            for key in ("StartedAt", "FinishedAt"):
+                if isinstance(raw.get(key), str) and len(raw[key]) <= 40:
+                    datetime.fromisoformat(raw[key].replace("Z", "+00:00"))
+                    state[key] = raw[key]
+            if state.get("StartedAt") and state.get("FinishedAt") and not state["FinishedAt"].startswith("0001"):
+                state["runtime_seconds"] = round((datetime.fromisoformat(state["FinishedAt"].replace("Z", "+00:00")) -
+                    datetime.fromisoformat(state["StartedAt"].replace("Z", "+00:00"))).total_seconds(), 3)
+            result["state"] = state
+            message = str(raw.get("Error", "")).lower()
+            result["state_error_signatures"] = {key: text in message for key, text in {
+                "permission": "permission denied", "no_space": "no space left",
+                "resource_unavailable": "resource temporarily unavailable", "timeout": "timeout"}.items()}
+    except Exception as error:
+        result["inspect_error_type"] = type(error).__name__
+    result["inspect_seconds"] = round(time.monotonic() - started, 3)
+    try:
+        path = workspace / "stderr.txt"
+        with path.open("rb") as stream:
+            stderr = stream.read(8192).decode(errors="replace").lower()
+        result["fixture_stderr_bytes"] = path.stat().st_size
+        result["fixture_stderr_signatures"] = {key: text in stderr for key, text in {
+            "assertion": "assertionerror", "permission": "permission denied",
+            "resource_unavailable": "resource temporarily unavailable", "timeout": "timeout"}.items()}
+    except OSError:
+        result["fixture_stderr_unavailable"] = True
+    try:
+        with (workspace / "artifacts/result.json").open() as stream:
+            proof = json.loads(stream.read(1024))
+        result["negative_checks_completed"] = proof.get("checks") == "passed"
+        result["children_started"] = proof.get("children") if type(proof.get("children")) is int else None
+    except (OSError, ValueError, AttributeError):
+        result["negative_checks_completed"] = False
+    return result
+
+
 @pytest.mark.parametrize("stop_method", ["deadline", "cancel"])
 def test_real_docker_offline_negative_boundaries_and_process_tree(tmp_path, request, stop_method):
     if not request.config.getoption("--containers"):
@@ -198,11 +250,20 @@ time.sleep(60)
     (workspace / "task.py").write_text(program)
     name = "agentic-coding-" + uuid.uuid4().hex
     args = container_command(name, image, workspace, Limits(wall_seconds=10))
+    evidence = {"kind": "real_docker_offline_boundary", "method": stop_method, "image": image,
+                "wall_seconds": 10, "control_wait_timeout_seconds": 20, "status": "running", "timings": []}
+    report = Path(__file__).parents[1] / f"evidence/coding-boundary-{stop_method}.json"
+    def observed(args):
+        evidence["stage"] = args[1]
+        started = time.monotonic()
+        try:
+            return subprocess.run(args, check=True, capture_output=True, text=True, timeout=20)
+        finally:
+            evidence["timings"].append({"operation": args[1], "seconds": round(time.monotonic() - started, 3)})
     try:
-        subprocess.run(args, check=True, capture_output=True, text=True, timeout=20)
-        subprocess.run(["docker", "start", name], check=True, capture_output=True, timeout=20)
+        observed(args)
+        observed(["docker", "start", name])
         if stop_method == "cancel":
-            import time
             for _ in range(80):
                 if (workspace / "artifacts/result.json").exists():
                     break
@@ -219,15 +280,35 @@ time.sleep(60)
             sandbox.save({"job_id": name.removeprefix("agentic-coding-"), "container": name, "state": "running"})
             cancelled = sandbox.cancel(name.removeprefix("agentic-coding-"))
             assert cancelled["state"] == "cancelled", {"job": cancelled, "commands": timings}
-        code = subprocess.check_output(["docker", "wait", name], text=True, timeout=20).strip()
-        state = json.loads(subprocess.check_output(["docker", "inspect", name], text=True))[0]["State"]
+        code = observed(["docker", "wait", name]).stdout.strip()
+        state = json.loads(observed(["docker", "inspect", name]).stdout)[0]["State"]
         result = workspace / "artifacts/result.json"
         errors = (workspace / "stderr.txt").read_text() if (workspace / "stderr.txt").exists() else ""
         assert result.exists(), {"stderr": errors, "state": state, "files": [str(p.relative_to(workspace)) for p in workspace.rglob("*")]}
         assert json.loads(result.read_text())["checks"] == "passed"
         assert code == "137" and state["Running"] is False and state["Pid"] == 0
+        evidence["status"] = "passed"
+    except BaseException as error:
+        evidence.update(status="failed", error_type=type(error).__name__)
+        raise
     finally:
-        subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=20)
+        try:
+            evidence["before_cleanup"] = boundary_observation(name, workspace)
+            report.write_text(json.dumps(evidence, indent=2) + "\n")
+        except Exception:
+            pass  # Diagnostics must never suppress the original failure or cleanup.
+        try:
+            removed = subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=20)
+            evidence["cleanup"] = removed.returncode == 0
+        except Exception as error:
+            evidence.update(cleanup=False, cleanup_error_type=type(error).__name__)
+        finally:
+            try:
+                report.write_text(json.dumps(evidence, indent=2) + "\n")
+            except OSError:
+                pass
+        if evidence["status"] == "passed" and not evidence.get("cleanup"):
+            raise AssertionError("fixture_cleanup_unconfirmed")
 
 
 def test_artifact_directory_budget(tmp_path):
@@ -409,3 +490,35 @@ def test_cancel_timeout_records_safe_operation_and_keeps_writer_fenced(tmp_path,
     with pytest.raises(SandboxError, match="Writer must stop"):
         sandbox.artifacts(JOB)
     assert not any(args[:2] == ("docker", "rm") or args[0] == "umount" for args in calls)
+
+
+
+def test_boundary_diagnostics_are_allowlisted_and_bound_before_cleanup(tmp_path):
+    secret = "fixture-private-value"
+    (tmp_path / "artifacts").mkdir()
+    (tmp_path / "artifacts/result.json").write_text(json.dumps({"checks": "passed", "children": 62, "token": secret}))
+    (tmp_path / "stderr.txt").write_text("Permission denied " + secret)
+    def inspect(args, **kwargs):
+        assert args == ["docker", "inspect", "--format", "{{json .State}}", "fixture"]
+        assert kwargs["timeout"] == 5 and kwargs["capture_output"] is True
+        return SimpleNamespace(returncode=0, stdout=json.dumps({"Running": False, "Pid": 0, "ExitCode": 137,
+            "Status": "exited", "Error": "no space left " + secret, "Private": secret,
+            "StartedAt": "2026-10-12T00:00:00Z", "FinishedAt": "2026-10-12T00:00:10Z"}))
+    value = boundary_observation("fixture", tmp_path, run=inspect)
+    assert value["state"]["runtime_seconds"] == 10 and value["negative_checks_completed"]
+    assert value["fixture_stderr_signatures"]["permission"] and value["state_error_signatures"]["no_space"]
+    assert secret not in json.dumps(value) and "Private" not in json.dumps(value)
+
+
+@pytest.mark.parametrize("failure", ["timeout", "malformed", "missing"])
+def test_boundary_diagnostic_failure_returns_typed_evidence_without_raising(tmp_path, failure):
+    def inspect(args, **kwargs):
+        if failure == "timeout":
+            raise subprocess.TimeoutExpired(args, 5, stderr=b"fixture-private-value")
+        return SimpleNamespace(returncode=1 if failure == "missing" else 0, stdout="fixture-private-value")
+    value = boundary_observation("fixture", tmp_path, run=inspect)
+    assert "state" not in value
+    assert value["negative_checks_completed"] is False
+    assert "fixture-private-value" not in json.dumps(value)
+    if failure != "missing":
+        assert value["inspect_error_type"] == ("TimeoutExpired" if failure == "timeout" else "JSONDecodeError")

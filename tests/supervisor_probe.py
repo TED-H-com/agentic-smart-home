@@ -12,7 +12,7 @@ from supervisor.apps.validate import SCHEMA_APP_CONFIG
 
 root = Path("/probe-data")
 root.mkdir()
-for name in ("controller", "runner"):
+for name in ("controller", "runner", "bridge"):
     config = yaml.safe_load(Path(f"/source/{name}/config.yaml").read_text())
     SCHEMA_APP_CONFIG(config)
 config = yaml.safe_load(Path("/source/runner/config.yaml").read_text())

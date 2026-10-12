@@ -190,3 +190,14 @@
 .settings-fold>summary{font-size:var(--body);min-height:44px;align-content:center}
 .settings-fold>form,.settings-fold>p,.settings-fold>.retention-fields{margin-top:var(--s4)}
 @media(max-width:480px){.settings-hub.row-actions{grid-template-columns:1fr}}
+
+/* HA supplies the surrounding navigation; the bridge keeps only the conversation. */
+.bridge-shell{max-width:944px;margin:0 auto;padding:var(--s6) var(--s8);min-height:100dvh}
+.bridge-heading{display:flex;align-items:center;justify-content:space-between;gap:var(--s4);margin-bottom:var(--s6);padding-bottom:var(--s4);border-bottom:1px solid var(--line)}
+.bridge-heading h1{font-size:var(--h2)}.bridge-heading>a{min-height:44px;display:inline-flex;align-items:center;font-size:var(--sm)}
+.bridge-shell .assistant-page{min-height:calc(100dvh - 140px)}
+.bridge-back{margin-bottom:var(--s4)}.bridge-unavailable{max-width:560px;padding-block:var(--s8)}
+.bridge-unavailable>p,.bridge-unavailable>.notice{margin-block:var(--s4)}
+.bridge-preview{margin-top:var(--s4)}.bridge-preview img{display:block;max-width:100%;height:auto;border:1px solid var(--line);margin-block:var(--s3)}
+@media(max-width:800px){.bridge-shell{padding:var(--s4)}.bridge-heading{margin-bottom:var(--s4)}.bridge-shell .assistant-page{min-height:calc(100dvh - 120px)}}
+.bridge-maintenance>p,.bridge-maintenance>.row-actions,.bridge-maintenance>.notice,.bridge-maintenance>details{margin-block:var(--s4)}

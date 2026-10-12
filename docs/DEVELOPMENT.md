@@ -1,4 +1,4 @@
-# 開發與自動化測試 · 0.6.1 技術預覽
+# 開發與自動化測試 · 0.7.0 技術預覽
 
 先讀根 [AGENTS](../AGENTS.md)、[Plan](../PROJECT_PLAN.md) 和 [v3 原稿／進度](v3/README.md)。A Hermes/Controller、B worker isolation、C Web/preview/delivery 三線可並行，共用契約由整合者維護，同一檔案／workspace 維持一個 writer。工程測試和 32 個產品驗收分開記。
 
@@ -11,12 +11,13 @@ uv sync --frozen
 npm ci --prefix web
 npm run build --prefix web
 uv run playwright install --with-deps chromium
-uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner; package_runner()"
-docker build -t agentic-home-controller:0.6.1 controller
-docker build -t agentic-home-runner:0.6.1 runner
-docker build -t agentic-home-linejs:0.6.1 host/linejs
-docker build -t agentic-home-hermes:0.6.1 hermes
-docker build -t agentic-home-preview:0.6.1 host/preview
+uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner, package_bridge; package_runner(); package_bridge()"
+docker build -t agentic-home-controller:0.7.0 controller
+docker build -t agentic-home-runner:0.7.0 runner
+docker build -t agentic-home-linejs:0.7.0 host/linejs
+docker build -t agentic-home-hermes:0.7.0 hermes
+docker build -t agentic-home-preview:0.7.0 host/preview
+docker build -t agentic-home-bridge:0.7.0 bridge
 docker pull ghcr.io/home-assistant/amd64-hassio-supervisor:2026.09.3
 ```
 
@@ -44,6 +45,7 @@ uv run pytest -q --basetemp "$agentic_test_tmp"
 | 競爭與恢復回歸 | `tests/test_review_bootstrap.py tests/test_review_runtime.py tests/test_review_ui.py` | 真程序樹取消、配對回覆遺失、授權／pause race、登入表單狀態、Telegram 首次配對；外部帳號端點 fixture |
 | 固定救援 | `tests/test_support.py tests/test_host.py` | 去密／固定 probe fixtures、真子程序 timeout/output bounds，無家庭寫入 |
 | Coding 隔離基礎 | `tests/test_coding_sandbox.py --containers` | 真 Docker 的 network／process／resource negatives；不等於真 cloud CLI、完整 ext4 lifecycle 或 HAOS App |
+| 智能管家 App | `tests/test_bridge_app.py tests/test_bridge_controller.py tests/test_bridge_maintenance.py tests/test_bridge_ui.py` | transport／Owner／CSRF／同 case 與復原，API／模型 fixtures；真 HAOS 另跑 `tests/test_bridge_haos.py --haos-vm` |
 | Core | `tests/test_real_ha.py --real-ha` | 真官方 Core；Supervisor backup 與 Agent intent 仍有 fixture |
 | 受控 Runner／Supervisor | `tests/test_container.py --containers` | 真 CLI、TLS、UID、schema／backup filter；模型為本機 fixture |
 
@@ -58,20 +60,20 @@ uv run pytest -q --basetemp "$agentic_test_tmp"
 ```bash
 uv run python scripts/contracts.py
 uv run python scripts/contracts.py --check
-uv run ruff check controller runner hermes host scripts tests
+uv run ruff check controller runner hermes bridge host scripts tests
 uv run python scripts/validate_kit.py
 npm run build --prefix web
 python3 scripts/build_host.py
 uv run python scripts/package.py
 ```
 
-先改 Pydantic models 再產生 contracts。Runner `protocol=1` 與 `work_contract_major=1` 分開。0.6.1 的 Controller 使用 schema 3，因舊 worker cancel 語意不兼容新 lease；從 1／2 開啟先留 0600 SQLite 一致快照，交易更新 marker，保留 audit／去重。restore 接受 1／2／3 並保持格式。固定 updater 只允許同 schema 3 Controller image；不盲目回復舊 Live DB。
+先改 Pydantic models 再產生 contracts。Runner `protocol=1` 與 `work_contract_major=1` 分開。0.7.0 的 Controller 使用 schema 3，因舊 worker cancel 語意不兼容新 lease；從 1／2 開啟先留 0600 SQLite 一致快照，交易更新 marker，保留 audit／去重。restore 接受 1／2／3 並保持格式。固定 updater 只允許同 schema 3 Controller image；不盲目回復舊 Live DB。
 
 Hermes 工具 allowlist 由 runtime 和 Controller 同時限制，沒有 Live approval、arbitrary shell 或原生 delegate；新的 research/development launcher 不可修改受控 `home_operator` 的工具限制。模型回傳 passed／approved 沒有測試或人類批准效力。
 
 更新 provider 須同步 locks、runtime versions、probe；更新 Hermes 須同步 commit、archive hash、依賴 lock、真 AIAgent/MCP 協定測試及權限負向測試。不要使用未審核的 provider fallback 或未知工具集合。
 
-source ZIP 明列允许目錄；不含 `_upstream`、`.venv`、node_modules、credentials、私人家庭資料或 live workspaces。每 ZIP 有 `MANIFEST.sha256.json`，外部有 `dist/SHA256SUMS`；編譯 static 刻意隨產品打包。Linux bundle 含四 images 及 `images.lock.json`／`BUNDLE.sha256.json`。六份 v3 steering 原稿保持 byte-for-byte，工程進度写到 companion 文件。
+source ZIP 明列允许目錄；不含 `_upstream`、`.venv`、node_modules、credentials、私人家庭資料或 live workspaces。每 ZIP 有 `MANIFEST.sha256.json`，外部有 `dist/SHA256SUMS`；編譯 static 刻意隨產品打包。Linux bundle 含五 images 及 `images.lock.json`／`BUNDLE.sha256.json`。六份 v3 steering 原稿保持 byte-for-byte，工程進度写到 companion 文件。
 
 ## 媒體、相容與真實驗收
 

@@ -122,7 +122,7 @@ class Bootstrap:
                 record = {**BootstrapStatus(provider=body.provider, channel=body.channel,
                     steps=[BootstrapStep(id=step) for step in STEPS]).model_dump(),
                     "id": "setup", "data_contract": 1, "run_id": uuid.uuid4().hex, "state": "running",
-                    "current_step": "network", "jobs": {}, "attempts": {}}
+                    "current_step": "network", "jobs": {}, "attempts": {}, "bridge_auto_enroll": True}
                 self.save(record)
                 # Selecting the external audience is still a separate authenticated action.
                 self.store.set_setting("gateway", {**self.gateway.preferences().model_dump(),
@@ -355,7 +355,7 @@ class Bootstrap:
                     elif step == "hermes_install":
                         installed = platform.get("hermes", {})
                         revision = installed.get("commit")
-                        if installed.get("state") == "ready" and installed.get("source") == "latest" and isinstance(revision, str) and re.fullmatch(r"[0-9a-f]{40}", revision):
+                        if installed.get("state") == "ready" and installed.get("source") in {"release", "latest"} and isinstance(revision, str) and re.fullmatch(r"[0-9a-f]{40}", revision):
                             runtime = (await self.coordinator.capabilities())["runtime"]
                             self.require_active()
                             if runtime.get("upstream_commit") != revision:

@@ -480,7 +480,7 @@ def test_actual_installer_failure_still_cleans_up_when_diagnostics_break(tmp_pat
     monkeypatch.setattr(module, "ROOT", tmp_path)
     for name in ("dist", "scripts", "evidence", "build"):
         (tmp_path / name).mkdir()
-    (tmp_path / "dist/agentic-home-0.6.1-laptop-amd64.iso").write_bytes(b"fixture")
+    (tmp_path / "dist/agentic-home-0.7.0-laptop-amd64.iso").write_bytes(b"fixture")
     (tmp_path / "scripts/build_host.py").write_text("def autoinstall(profile): return {'autoinstall': {'late-commands': [], 'interactive-sections': []}}\n")
     def command(*args, **kwargs):
         if args[0] == "ssh-keygen":
@@ -557,7 +557,7 @@ def test_actual_update_cleanup_survives_checkpoint_failure_and_preserves_primary
         if cleanup_fails:
             raise PermissionError("private cleanup failure")
     service = SimpleNamespace(environment=environment, path=records, database=database,
-                              image=lambda: "sha256:" + "a" * 64, health=lambda: {"version": "0.6.1", "ha_version": None},
+                              image=lambda: "sha256:" + "a" * 64, health=lambda: {"version": "0.7.0", "ha_version": None},
                               stop=stop, compose=lambda *args, **kwargs: None)
     monkeypatch.setattr(manager_module, "Manager", lambda: SimpleNamespace(root=root))
     monkeypatch.setattr(updater_module, "Updater", lambda manager: service)

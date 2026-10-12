@@ -1,8 +1,8 @@
 """First-install Hermes preparation, owned by the fixed host broker.
 
 No model output, URL, command, image name or filesystem path is accepted here.
-The upstream revision is resolved once and the candidate retains the product's
-locked dependencies and adapter. Incompatible upstream code fails before use.
+Production activates the digest shipped with the release, after an offline
+adapter check. Upstream discovery is reserved for maintainer candidate tooling.
 This is deliberately not a general installed-system updater.
 """
 
@@ -174,7 +174,7 @@ def write_environment(path, image, variable="AGENTIC_HERMES_IMAGE"):
 
 
 class InitialSetup:
-    def __init__(self, manager, resolver=latest_source):
+    def __init__(self, manager, resolver=None):
         self.manager = manager
         self.root, self.product, self.run = manager.root, manager.product, manager.run
         self.path = self.root / "bootstrap-hermes.json"
@@ -216,7 +216,11 @@ class InitialSetup:
         original = originals[0]
         # Pin the fallback by digest too. Never trust mutable tags after failure.
         write_environment(self.environment, original)
-        record = {"state": "installing", "source": "latest", "commit": None, "started_at": time.time()}
+        bundled = json.loads((self.product / "hermes/hermes.lock.json").read_text())
+        if not re.fullmatch(r"[a-f0-9]{40}", str(bundled.get("commit", ""))):
+            raise SetupError("bundled_image_invalid")
+        selection = "latest" if self.resolver else "release"
+        record = {"state": "installing", "source": selection, "commit": bundled["commit"], "started_at": time.time()}
         atomic(self.path, record)
         stopped, activated = False, False
         container = "agentic-hermes-bootstrap-" + uuid.uuid4().hex
@@ -224,20 +228,26 @@ class InitialSetup:
         try:
             with tempfile.TemporaryDirectory(prefix="hermes-install-", dir=self.root) as temporary:
                 work = Path(temporary)
-                source = self.resolver(work)
-                record.update(source, source="latest")
-                atomic(self.path, record)
-                context = work / "context"
-                shutil.copytree(self.product / "hermes", context,
-                                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-                lock_path = context / "hermes.lock.json"
-                lock = json.loads(lock_path.read_text())
-                lock.update(source)
-                lock_path.write_text(json.dumps(lock, indent=2) + "\n")
-                # Use the trusted bundled Dockerfile, adapter and hash-locked
-                # requirements. Only the immutable upstream source changes.
-                self.run("docker", "build", "--tag", tag, str(context), timeout=1200)
-                image = self.run("docker", "image", "inspect", "--format", "{{.Id}}", tag).stdout.strip()
+                image = original
+                if self.resolver:
+                    # Explicit test/maintainer injection only; installed broker
+                    # has no request field or switch to enable source discovery.
+                    source = self.resolver(work)
+                    record.update(source, source="latest")
+                    atomic(self.path, record)
+                    context = work / "context"
+                    shutil.copytree(self.product / "hermes", context,
+                                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+                    lock_path = context / "hermes.lock.json"
+                    lock = json.loads(lock_path.read_text())
+                    lock.update(source)
+                    lock_path.write_text(json.dumps(lock, indent=2) + "\n")
+                    self.run("docker", "build", "--tag", tag, str(context), timeout=1200)
+                    image = self.run("docker", "image", "inspect", "--format", "{{.Id}}", tag).stdout.strip()
+                else:
+                    inspected = self.run("docker", "image", "inspect", "--format", "{{.Id}}", original).stdout.strip()
+                    if inspected != original:
+                        raise SetupError("bundled_image_invalid")
                 if not re.fullmatch(r"sha256:[a-f0-9]{64}", image):
                     raise SetupError("candidate_image_invalid")
                 scratch = work / "probe"
@@ -265,7 +275,7 @@ class InitialSetup:
                 if not valid:
                     raise SetupError("hermes_adapter_contract_unavailable")
                 # Stop then re-check: a second browser might have begun auth
-                # during the build. Never replace an authenticated runtime.
+                # during the probe. Never replace an authenticated runtime.
                 self.compose("stop", "hermes", timeout=60)
                 stopped = True
                 initial_state(self.data)
@@ -290,4 +300,5 @@ class InitialSetup:
         finally:
             # Names belong to this attempt. No wildcard/container-wide cleanup.
             self.run("docker", "rm", "-f", container, timeout=30, check=False)
-            self.run("docker", "image", "rm", tag, timeout=30, check=False)
+            if self.resolver:
+                self.run("docker", "image", "rm", tag, timeout=30, check=False)

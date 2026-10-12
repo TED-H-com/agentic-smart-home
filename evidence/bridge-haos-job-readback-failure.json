@@ -1,0 +1,45 @@
+{
+  "kind": "real_haos_sidebar_bridge",
+  "haos_image": "18.3",
+  "status": "failed",
+  "delivery": "local_source_fixture",
+  "observed_from": "haos_app_via_core_ingress_to_outer_pinned_tls",
+  "inference": "protocol_fixture_no_cloud_account",
+  "checks": {},
+  "phase": "supervisor_app_install",
+  "core": "2026.10.1",
+  "supervisor": "2026.09.3",
+  "outer_dependency_image": "sha256:6ff6cad9730eea9b9172fa173f0d8a8ae7c36954839486048f48f478fd47e456",
+  "error_type": "HAError",
+  "upstream_error": {
+    "job_missing": true,
+    "update_required": false,
+    "message_bytes": 18,
+    "upstream_unknown_error": true
+  },
+  "supervisor_failure_observation": {
+    "version": "2026.09.3",
+    "version_latest": "2026.09.3",
+    "healthy": true
+  },
+  "app_failure_observation": {
+    "version": "0.7.0",
+    "version_latest": "0.7.0",
+    "installed": true,
+    "available": true,
+    "build": true
+  },
+  "supervisor_log_signatures": {
+    "update_required": false,
+    "job_missing": false,
+    "build_failure": false,
+    "registry_failure": false,
+    "no_space": false,
+    "permission": false,
+    "network_failure": false,
+    "not_installed": false,
+    "bytes_observed": 10623
+  },
+  "cleanup": true,
+  "duration_seconds": 209
+}

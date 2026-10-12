@@ -83,7 +83,7 @@ def test_packaged_controller_accepts_real_host_ticket_once(request):
     try:
         subprocess.run(["docker", "run", "-d", "--name", name, "--network", "none", "--memory", "256m",
                         "--pids-limit", "64", "-e", "AGENTIC_HOST_MODE=1", "-v", str(host) + ":/host:ro",
-                        "agentic-home-controller:0.6.1"], check=True, capture_output=True)
+                        "agentic-home-controller:0.7.0"], check=True, capture_output=True)
         for _ in range(40):
             result = subprocess.run(["docker", "exec", name, "python", "-c",
                 "import urllib.request; urllib.request.urlopen('http://localhost:8099/health',timeout=1)"],

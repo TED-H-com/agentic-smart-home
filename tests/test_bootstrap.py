@@ -43,7 +43,7 @@ class HostFixture:
         job = next(job for job in reversed(self.value["jobs"]) if job["request"]["action"] == action)
         job["state"] = "succeeded"
         if action == "bootstrap_hermes":
-            self.value["bootstrap"]["hermes"] = {"state": "ready", "source": "latest", "commit": REVISION}
+            self.value["bootstrap"]["hermes"] = {"state": "ready", "source": "release", "commit": REVISION}
         elif action == "provision":
             self.value.update(provisioned=True, vm="shut off")
         elif action == "start":
@@ -132,6 +132,7 @@ async def test_start_pairs_automatically_waits_for_actual_auth_and_resumes(setup
     bootstrap, backend, runner, _, _ = setup
     first = await bootstrap.start(BootstrapStart(provider="codex"), "same-key")
     assert first["state"] == "running"
+    assert bootstrap.record()["bridge_auto_enroll"] is True
     await bootstrap.advance()
     waiting = bootstrap.public()
     assert waiting["current_step"] == "cli_auth"

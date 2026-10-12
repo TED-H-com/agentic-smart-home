@@ -180,7 +180,7 @@ def test_real_candidate_gate_refuses_changed_upstream(request, fault):
         pytest.skip("Actual candidate gate requires --containers")
     name = "agentic-hermes-incompatible-" + uuid.uuid4().hex[:12]
     volume = name + "-data"
-    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.6.1")
+    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.7.0")
     root = Path(__file__).parents[1] / "hermes"
     mounts = []
     if os.environ.get("AGENTIC_HERMES_TEST_SOURCE") == "1":

@@ -1,5 +1,5 @@
 name: Agentic Home Controller
-version: "0.6.1"
+version: "0.7.0"
 slug: agentic_controller
 description: 家庭 Agent 工作台、設備授權、原生 HA 自動化與執行證據
 arch: [amd64]

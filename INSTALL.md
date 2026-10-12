@@ -1,4 +1,4 @@
-# 安裝 Agentic Smart Home 0.6.1 技術預覽
+# 安裝 Agentic Smart Home 0.7.0 技術預覽
 
 產品從外層 Linux 開始；Web 引導先完成 CLI、Hermes 與通訊，再自動建立／啟動 HAOS。firstboot 只啟動外層服務，因此家庭尚未準備好仍能先登入助手。完整順序見 [自動 onboarding](docs/ONBOARDING.md)。
 
@@ -6,7 +6,7 @@
 
 ## A. 整台重灌
 
-1. 取得 `agentic-home-0.6.1-laptop-amd64.iso` 與 `SHA256SUMS`，核對 SHA-256。
+1. 取得 `agentic-home-0.7.0-laptop-amd64.iso` 與 `SHA256SUMS`，核對 SHA-256。
 2. 備份目標電腦資料，用 Rufus／Etcher 將 ISO 寫入 USB。這會清除選中的 USB；後續選中的系統磁碟也會重新分割。
 3. Intel／AMD x86-64 使用 UEFI，開啟 VT-x／AMD-V，從 USB 開機。建議 16 GB RAM／128 GB SSD；laptop profile 檢查約 8 GB RAM、KVM 和可用空間，安裝需要網路。暫不建立 HAOS 不會取消這些主機規格檢查。
 4. 選 **Install Agentic Home Linux**，在官方 Ubuntu 安裝器設定網路、目標磁碟與 Linux 帳號。沒有預設密碼或預選磁碟。
@@ -18,7 +18,7 @@
 
 6. 登入安裝器建立的主要 Linux 帳號（UID 1000），桌面自動開啟 **Agentic Home**。程式使用有效 120 秒、僅能兌換一次的本機票據登入；票據不存於瀏覽器 storage，網址 fragment 立即清除。若開啟失敗，可再次點桌面捷徑。手動金鑰只作備援：`sudo agentic-home access-key`，家目錄的 `Agentic-Home.txt` 亦有此主機金鑰。
 7. 選一個 coding CLI，完成它支援的官方登入。Codex／Grok 提供 device code；Claude 支援 API key／setup token，Antigravity 目前支援 Gemini API key。沒有把未支援的 OAuth 顯示成可用。
-8. 開始後 CLI 執行固定設定 prompt，程式自動解析、下載並建置最新版 Hermes，檢查相容性再啟動。完成 Hermes 自己的 Codex OAuth 或 OpenRouter 設定；此認證與 CLI 各自保存，不共用 refresh token。流程自動做一次實際推論驗證，可能使用供應商額度。
+8. 開始後 CLI 執行固定設定 prompt，程式檢查隨產品版本交付的 Hermes 相容性，再按固定映像 digest 啟動。完成 Hermes 自己的 Codex OAuth 或 OpenRouter 設定；此認證與 CLI 各自保存，不共用 refresh token。流程自動做一次實際推論驗證，可能使用供應商額度。
 9. LINE 是預設入口：掃 QR、選聊天室、從預定操作帳號傳送畫面的短效配對碼。Telegram 使用 BotFather token 加配對碼；Discord 保留頻道／使用者設定；也可選 Web。配對完成後才允許該 sender／聊天室使用助手。
 10. 通道就緒後自動建立／啟動 HAOS，等待真 Core onboarding API。進入 HA 原生設定頁，建立家庭與管理者帳號，再回到引導按 **授權連接家庭**；官方 HA 授權頁同意後自動驗證 active owner 並保存專用授權，不需貼長效權杖。
 
@@ -37,7 +37,7 @@
 
 ## C. 無桌面或已有相符 Ubuntu
 
-既有 server profile 可建置 `agentic-home-0.6.1-server-amd64.iso`，省略桌面套件。另一台電腦使用 SSH tunnel：
+既有 server profile 可建置 `agentic-home-0.7.0-server-amd64.iso`，省略桌面套件。另一台電腦使用 SSH tunnel：
 
 ```bash
 ssh -L 8099:127.0.0.1:8099 -L 8123:127.0.0.1:8123 your-user@your-host
@@ -49,7 +49,7 @@ sudo agentic-home access-key
 已有相符的 Ubuntu，可保留分割並安裝產品。在**選定的目標 Linux**執行，不能在開發主機套用：
 
 ```bash
-tar -xf agentic-home-0.6.1-linux-amd64.tar
+tar -xf agentic-home-0.7.0-linux-amd64.tar
 cd agentic-home
 python3 host/install.py --profile laptop-amd64
 sudo python3 host/install.py --profile laptop-amd64 --apply
@@ -57,7 +57,7 @@ sudo python3 host/install.py --profile laptop-amd64 --apply
 
 不含 `--apply` 的命令只顯示安裝內容。Ubuntu 24.04 可選 laptop-amd64／server-amd64；26.04 的 laptop-new-amd64 仍是擴充 recipe。安裝檢查版本、架構、KVM、RAM、空間與檔案 hash；既有 `/opt/agentic-home` 不會被另一份安裝包直接覆蓋。日常相同 schema 的 Controller 更新另走 [固定 updater](docs/UPDATES.md)；這個安裝命令不是原地升級器。
 
-Controller 0.6.1 使用 schema 3。開啟 schema 1／2 既有資料時，先建立 mode-0600 `.before-v3-<uuid>.sqlite3` 一致快照，再向前遷移；保留 settings、records、audit、去重紀錄。較舊 binary 拒絕 schema 3；不能手改 marker 或用舊 DB 覆蓋後續家庭操作。詳見 [OPERATIONS](docs/OPERATIONS.md)。
+Controller 0.7.0 使用 schema 3。開啟 schema 1／2 既有資料時，先建立 mode-0600 `.before-v3-<uuid>.sqlite3` 一致快照，再向前遷移；保留 settings、records、audit、去重紀錄。較舊 binary 拒絕 schema 3；不能手改 marker 或用舊 DB 覆蓋後續家庭操作。詳見 [OPERATIONS](docs/OPERATIONS.md)。
 
 ## 第一條家庭自動化
 

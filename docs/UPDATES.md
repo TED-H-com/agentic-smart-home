@@ -1,10 +1,10 @@
 # 管理中心更新、退版與遠端連線
 
-後續目標是一般使用者跟隨我們的受測發行，由團隊追蹤上游；完整設計及交付順序見 [統一發行策略](RELEASE_POLICY.md)。建議不要自行混升受管理元件。下文仍描述 **0.6.1 已實作能力**，不是全系統釘版／更新聲明；本次政策文件沒有停用 Linux 安全更新或改動任何已安裝系統。
+HA 保留官方更新；外層負責本產品的受測發行與已授權智能管家 App 的有限維護，見 [發行策略](RELEASE_POLICY.md)。不攔截 HA 更新，也不停止 Linux 安全更新。下文描述 **0.7.0 固定 Controller updater**，不是全系統更新／退版聲明。
 
 上游 adapter 與產品 image 更新分開處理，見 [相容邊界與候選測試](ADAPTERS.md)。候選測試不會自動部署；目前也沒有 Linux／HAOS／Core／Hermes 全套自動退版承諾。
 
-0.6.1 的固定 updater 只更新 **外層 Controller image**，相同 Controller schema 3、Runner protocol 1、worker contract 1。manifest 另綁目前 CLI／Hermes／Core／網路 runtime 指紋；不在同次升級 OS、HAOS、Core、Runner、Hermes 或網路。較舊 schema 的向前遷移與同 schema 的 image 退版分開處理。
+0.7.0 的固定 updater 只更新 **外層 Controller image**，相同 Controller schema 3、Runner protocol 1、worker contract 1。manifest 另綁目前 CLI／Hermes／Core／網路 runtime 指紋；不在同次升級 OS、HAOS、Core、Runner、Hermes 或網路。較舊 schema 的向前遷移與同 schema 的 image 退版分開處理。有智能管家 bridge 歷史時（即使已撤銷），候選仍必須支援 bridge contract 1；0.6.1 缺少此契約，不能僅憑 schema 3 就直接退回。
 
 ## 發行者與候選
 
@@ -23,7 +23,7 @@ sudo agentic-home update-publisher-add --publisher example --repository ghcr.io/
 
 ## 部署與退版
 
-固定 updater 停止 Controller，核對沒有活動／未確認的 household、Hermes、worker 工作或 lease，保存 SQLite 一致快照。候選在無家庭資料的結構性 DB 與隔離 probe 中檢查；正式切換受 updater gate 保護，不能在健康檢查途中透過 Web 恢復 AI 或派新工作。
+固定 updater 停止 Controller，核對沒有活動／未確認的 household、Hermes、worker 工作、lease 或尚未核對的 Supervisor App 操作，保存 SQLite 一致快照。候選在無家庭資料的結構性 DB 與隔離 probe 中檢查；正式切換受 updater gate 保護，不能在健康檢查途中透過 Web 恢復 AI 或派新工作。
 
 啟動後實際驗證 HTTP、Owner session、版本、HA／Runner 與 pause 狀態。失敗時切回前 image；較晚發現問題時，「選擇退回前一版本」產生新的精確批准。退版保留目前 Live DB，不能拿部署前備份蓋掉新家庭操作。schema 或其他 runtime 已改變時拒絕同格式退版；狀態不確定時保留 `needs_reconcile`。
 

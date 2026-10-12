@@ -56,6 +56,7 @@ class Gateway:
         self.line_login = None
         self.line_task = None
         self.coordinator = coordinator
+        self.bridge_valid = lambda item: True
         self.pairing_lock, self.pairing_timers = asyncio.Lock(), {}
 
     def preferences(self):
@@ -282,12 +283,26 @@ class Gateway:
     def scope_valid(self, item):
         body = ChatInput.model_validate({k: item[k] for k in ("message", "provider", "runtime", "coordinator") if k in item})
         config = self.config(item["source"]) if item["source"] != "web" else None
-        return not self.store.setting("paused", False) and self.scope(
+        return not self.store.setting("paused", False) and self.bridge_valid(item) and self.scope(
             body, item["source"], item["chat"], item["sender"], config) == item["scope"]
 
     @staticmethod
     def public_message(item):
-        return {k: v for k, v in item.items() if k not in {"scope", "request_digest"}}
+        return {k: v for k, v in item.items() if k not in {"scope", "request_digest", "bridge_pairing_id"}}
+
+    def owner_messages(self, owner):
+        return [item for item in self.store.list("conversation", 10000) if item.get("source") == "web"
+                and item.get("chat") == "owner" and item.get("sender") == owner and item.get("coordinator") == "hermes"
+                and self.store.conversation(id=item["id"]) is not None]
+
+    def resume(self, owner):
+        for item in self.owner_messages(owner):
+            if item.get("state") not in CONTINUABLE:
+                continue
+            body = ChatInput(message="resume", coordinator="hermes")
+            if self.scope(body, "web", "owner", owner, None) == item.get("scope"):
+                return {"message_id": item["id"], "thread_id": item["thread_id"], "case_id": item.get("case_id")}
+        return None
 
     def history(self, item):
         turns, truncated, seen = [], False, set()
@@ -312,7 +327,7 @@ class Gateway:
             previous = parent.get("reply_to")
         return {"turns": turns, "truncated": truncated or bool(previous)}
 
-    def submit(self, body, source, chat, sender, event, config=None):
+    def submit(self, body, source, chat, sender, event, config=None, *, bridge_pairing_id=None):
         if body.coordinator == "hermes":
             body = body.model_copy(update={"runtime": "host", "provider": "codex"})
         if not body.message.strip():
@@ -329,7 +344,7 @@ class Gateway:
         request_digest = digest(request_body)
         prior = self.store.get("conversation", id)
         if prior:
-            if prior["request_digest"] != request_digest:
+            if prior["request_digest"] != request_digest or prior.get("sender") != sender or prior.get("source") != source:
                 raise HTTPException(409, "此訊息 ID 已用於不同內容")
             return prior
         if self.store.request("gateway", id, request_digest):
@@ -357,6 +372,8 @@ class Gateway:
         item = {"id": id, "source": source, "chat": chat, "sender": sender, **body.model_dump(),
                 "reply_to": parent["id"] if parent else None, "thread_id": parent["thread_id"] if parent else id,
                 "scope": scope, "request_digest": request_digest, "state": "queued", "created_at": utcnow(), "answer": ""}
+        if bridge_pairing_id:
+            item["bridge_pairing_id"] = bridge_pairing_id
         self.store.put("conversation", item)
         self.store.request("gateway", id, item["request_digest"], id)
         task = asyncio.create_task(self.execute(item, config))
@@ -622,7 +639,16 @@ def routes(app, gateway, store, runners, controller_id):
         return gateway.line_login or {"status": "idle", "channels": []}
 
     @app.get("/api/gateway/messages")
-    async def messages():
+    async def messages(request: Request):
+        if getattr(request.state, "bridge_identity", None):
+            values, size = [], 0
+            for item in gateway.owner_messages(request.state.principal)[:30]:
+                public = gateway.public_message(item)
+                size += len(canonical(public).encode())
+                if size > 700000:
+                    break
+                values.append(public)
+            return {"messages": values}
         return {"messages": [gateway.public_message(item) for item in store.list("conversation", 100)]}
 
     @app.post("/api/gateway/messages", status_code=202)
@@ -630,7 +656,9 @@ def routes(app, gateway, store, runners, controller_id):
         key = request.headers.get("idempotency-key", "")
         if not key or len(key) > 200:
             raise HTTPException(400, "缺少 Idempotency-Key")
-        return gateway.public_message(gateway.submit(body, "web", "owner", request.state.principal, key))
+        bridge = getattr(request.state, "bridge_identity", None)
+        return gateway.public_message(gateway.submit(body, "web", "owner", request.state.principal, key,
+            bridge_pairing_id=bridge.pairing_id if bridge else None))
 
     @app.get("/api/runtimes")
     async def runtimes():

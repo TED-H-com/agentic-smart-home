@@ -1,6 +1,6 @@
 {
   "name": "agentic-home-web",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@noble/hashes": "2.4.0",
     "qrcode": "1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

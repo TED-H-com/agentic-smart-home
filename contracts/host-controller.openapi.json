@@ -378,6 +378,18 @@
         "title": "BootstrapStep",
         "type": "object"
       },
+      "BridgePolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_repair": {
+            "default": false,
+            "title": "Auto Repair",
+            "type": "boolean"
+          }
+        },
+        "title": "BridgePolicy",
+        "type": "object"
+      },
       "ChannelConfig": {
         "additionalProperties": false,
         "properties": {
@@ -2573,6 +2585,126 @@
           }
         },
         "summary": "Authorized"
+      }
+    },
+    "/api/host/bridge/maintenance": {
+      "get": {
+        "operationId": "bridge_maintenance_status_api_host_bridge_maintenance_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Bridge Maintenance Status"
+      }
+    },
+    "/api/host/bridge/maintenance/authorize": {
+      "post": {
+        "operationId": "bridge_authorize_api_host_bridge_maintenance_authorize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BridgePolicy"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bridge Authorize"
+      }
+    },
+    "/api/host/bridge/maintenance/disable": {
+      "post": {
+        "operationId": "bridge_disable_api_host_bridge_maintenance_disable_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Bridge Disable"
+      }
+    },
+    "/api/host/bridge/maintenance/policy": {
+      "post": {
+        "operationId": "bridge_policy_api_host_bridge_maintenance_policy_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BridgePolicy"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bridge Policy"
+      }
+    },
+    "/api/host/bridge/maintenance/repair": {
+      "post": {
+        "operationId": "bridge_repair_api_host_bridge_maintenance_repair_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Bridge Repair"
       }
     },
     "/api/host/connect": {

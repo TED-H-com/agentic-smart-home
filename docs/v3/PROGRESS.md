@@ -9,15 +9,19 @@
 
 0.6.0 本輪新增真正 tools-enabled Codex Host coding、獨立角色登入／受控出站、可信停止恢復、全鏈保存期限、成果與隔離截圖預覽、同 case 工作追蹤、家庭精確提案橋接、簽名候選 Controller 更新／退版，以及 Tailscale 選項。UI 已按 1440／768／390 px 截圖調整。這是程式交付；真帳號、Owner laptop、Home App coding 與完整 E1／E2 仍需要各自驗收。技術邊界見 [Workers](../WORKERS.md) 與 [Updates](../UPDATES.md)，本輪結果見 [驗證](../VERIFICATION.md)。
 
-0.6.0 最終 CI **469 passed／4 skipped**；精確 ISO／harness `6847a03` 完整安裝 **1 passed／1789.412 秒**，含真 Codex 工具／固定模型 transport、最新版 Hermes、官方 HAOS、同 schema Controller 更新／退版、快照恢復與外層重啟。只更新 T3-01／T3-05 的 E0 工程證據，其餘 30 案仍為 `not_run`；真家庭與雲端整案不得以 fixture 代替。後續原生首頁與上游 adapter 整合見 [入口流程](../ONBOARDING.md#原生家庭首頁與智能管家)及 [相容邊界](../ADAPTERS.md)；HA 側欄外層 bridge 仍待整合。
+0.6.0 最終 CI **469 passed／4 skipped**；精確 ISO／harness `6847a03` 完整安裝 **1 passed／1789.412 秒**，含真 Codex 工具／固定模型 transport、最新版 Hermes、官方 HAOS、同 schema Controller 更新／退版、快照恢復與外層重啟。只更新 T3-01／T3-05 的 E0 工程證據，其餘 30 案仍為 `not_run`；真家庭與雲端整案不得以 fixture 代替。後續原生首頁與上游 adapter 整合見 [入口流程](../ONBOARDING.md#原生家庭首頁與智能管家)及 [相容邊界](../ADAPTERS.md)；當時 HA 側欄外層 bridge 尚未整合，本輪接續見下方 0.7.0。
 
 Home 隔離基礎已有 [真 HAOS 18.3 App 證據](../../evidence/haos-app-boundary.json)：預設設定無法建立 mount namespace；增加 `SYS_ADMIN` 與限定 cgroup2 掛載位置的 AppArmor 診斷設定後，可在獨立 App cgroup namespace 委派資源限制並實際觸發記憶體 OOM kill。這修正了「平台無可行隔離路徑」的假設，尚未交付 Home coding launcher、模型憑證／出站／工作區完整隔離或真雲端執行。32 個案例的狀態不變。
 
 0.6.1 接續原生 HA 日常入口、返回救援／管家、Hermes 私有接點 facade、候選 contract gate 與 Linux 固定動作能力檢查。真 Core 導向與對話接續已在隔離 E2E 通過，最終 CI **598 passed／5 skipped**，同來源 `083b80e` 精確 ISO 完整安裝 **1 passed／1568.186 秒**，包含最新 Hermes、HAOS、Controller 更新／退版及重啟，見 [最新紀錄](../VERIFICATION.md)；這些工程能力不新增真家庭驗收 passed 案例。
 
+0.7.0 本輪進行 HA 智能管家薄 App 整合：官方 Ingress → 專用 TLS pairing → 外層即時 Owner 驗證，重用同一對話／case／成果與精確批准；側欄不呈現外層設定、不建立第二份 Controller DB。Web 協定 fixture 涵蓋相對路徑、草稿／撤權、PNG-only 與錯 digest；真 App／Supervisor 結果另記 [驗證](../VERIFICATION.md)，不能用瀏覽器 fixture 代替。本輪 Hermes 首次準備已改用安裝包受測 digest／bundled commit，加離線 probe，不在家庭端追 HEAD／build；真媒體結果另驗。既有 32 案維持原狀。
+
+最新 Owner 方向採 **HA 官方自管更新、外層只維護自家 App／adapter**；先前將 HAOS／Core 納入全產品釘版的政策已由 [發行邊界](../RELEASE_POLICY.md) 取代。新 onboarding 告知側欄安裝與有限維護；舊家庭需另行啟用，人工停止／移除／改設定不被自動抵銷。未知 Core 寫入仍拒絕受影響操作，不能宣稱所有最新版皆已支援。
+
 ## 記錄規則
 
-2026-10-12 後續新增 [統一發行規格](../RELEASE_POLICY.md)：產品版本矩陣、改用受測 Hermes 初始化、版本偏移偵測、維護者候選流程及 HA／Linux 分層更新。此次僅同步方向文件；runtime、0.6.1 ISO／TAR 與 32 案狀態未變。現有首次 latest／未完全鎖定 apt／Supervisor 支援例外均列為缺口，不因已有 lock 檔而當成完成。
+2026-10-12 較早一輪新增 [統一發行規格](../RELEASE_POLICY.md)：產品版本矩陣、改用受測 Hermes 初始化、版本偏移偵測、維護者候選流程及 HA／Linux 分層更新。該次僅同步方向文件；runtime、0.6.1 ISO／TAR 與 32 案狀態未變。其 HA 更新安排後由上方最新政策取代。當時的首次 latest／未完全鎖定 apt／Supervisor 支援例外均列為缺口；0.7.0 已改用隨附 Hermes digest，其餘限制仍按最新發行邊界記錄。
 
 開發狀態 `not_run / in_progress / implemented` 只描述程式交付；案例結果使用 `not_run / blocked / passed / failed`。新增案例預設 `not_run`，不得因舊測試或相關 unit test 通過而批次改為 passed。具體功能因隔離不足 disabled，可在開發備註記錄原因；未實際執行整個案例仍保留 not_run。
 

@@ -1,0 +1,53 @@
+{
+  "kind": "real_haos_sidebar_bridge",
+  "haos_image": "18.3",
+  "status": "passed",
+  "delivery": "local_source_fixture",
+  "observed_from": "haos_app_via_core_ingress_to_outer_pinned_tls",
+  "inference": "protocol_fixture_no_cloud_account",
+  "outer_source": "uncommitted_0.7.0_candidate_mounted_readonly",
+  "checks": {
+    "supervisor_app_contract": true,
+    "service_heartbeat_without_owner_capability": true,
+    "ingress_native_identity_overrides_forged_header": true,
+    "direct_app_forged_header_denied": true,
+    "wrong_tls_pin_denied_and_recovered": true,
+    "same_outer_case_and_deduplicated_conversation": true,
+    "host_management_and_cross_origin_denied": true,
+    "app_restart_preserves_options_and_outer_case": true,
+    "manual_stop_remains_stopped": true
+  },
+  "phase": "native_stop_respected",
+  "core": "2026.10.1",
+  "supervisor": "2026.09.3",
+  "outer_dependency_image": "sha256:af5198734dde368e93f9494de888b53e0b48dec3172ee1c052a25ecc71d5a0d9",
+  "install_confirmation": "app_postcondition_job_unavailable",
+  "native_browser": {
+    "kind": "native_ha_ingress_browser",
+    "status": "passed",
+    "observed_from": "chromium_native_ha_to_actual_ingress_app",
+    "no_api_or_header_mocking": true,
+    "checks": {
+      "native_login_form_used": true,
+      "native_owner_login": true,
+      "native_http_confirmation_needed": false,
+      "compiled_bridge_ui": true,
+      "existing_case_resumed": true,
+      "actual_ingress_post_csrf_and_origin": true,
+      "reload_and_same_case_continuation": true,
+      "native_fullframe_screenshot": true
+    },
+    "entry_method": "native_sidebar_link",
+    "compiled_js_sha256": "f0ac87626972947301957c557097b721a19d9e5b6b49deb1f2ad479d4b91da81",
+    "case_id": "3039a57b1e3e4ca19dc4ba885edcf777",
+    "thread_id": "c41c6d9acca9d67bdaa12f81830ed1a7ebca448a89ed63b462cb1013d96ea6bb",
+    "message_ids": [
+      "03ceb8239009ebff1df956eea2301b12683a9bf2e59b6ca8ad401075a59adc16",
+      "0622f622622f80a20fed662692334d4b40a4fdf4ac45d5b76fdc39d93cd17a3a"
+    ],
+    "browser_error_types": [],
+    "duration_seconds": 12.546
+  },
+  "cleanup": true,
+  "duration_seconds": 295
+}

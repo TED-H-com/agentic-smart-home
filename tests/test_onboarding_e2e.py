@@ -74,7 +74,7 @@ class BoundaryFixtures:
             "jobs": list(self.jobs.values()), "snapshots": [],
             "bootstrap": {"network": {"ready": True, "internet_verified": False},
                 "hermes": {"state": "ready" if self.installed else "bundled",
-                           "source": "latest" if self.installed else "bundled", "commit": REVISION},
+                           "source": "release" if self.installed else "bundled", "commit": REVISION},
                 "ha": native}})
 
     async def host_action(self, request):
@@ -220,7 +220,7 @@ for path,uid,gid,mode in items:
  assert (stat.st_uid,stat.st_gid,stat.st_mode&0o777)==(uid,gid,mode)
 """
         await docker("run", "--rm", "--network=none", *mounted, "--entrypoint", "python",
-                     "agentic-home-runner:0.6.1", "-c", preparation, str(os.getuid()))
+                     "agentic-home-runner:0.7.0", "-c", preparation, str(os.getuid()))
         controller_access = """import asyncio,os,pathlib,aiohttp
 assert (os.getuid(),os.getgid())==(1000,1000)
 assert pathlib.Path('/controller/access-key').read_text().strip()
@@ -239,9 +239,9 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
 """
         await asyncio.gather(
             docker("run", "--rm", "--network=none", "--user", "1000:1000", *mounted,
-                   "--entrypoint", "python", "agentic-home-controller:0.6.1", "-c", controller_access),
+                   "--entrypoint", "python", "agentic-home-controller:0.7.0", "-c", controller_access),
             docker("run", "--rm", "--network=none", "--user", "10003:10003", "--group-add", "1000", *mounted,
-                   "--entrypoint", "python", "agentic-home-hermes:0.6.1", "-c", hermes_access))
+                   "--entrypoint", "python", "agentic-home-hermes:0.7.0", "-c", hermes_access))
         runtime_args = ["-v", str(ROOT / "tests/e2e_runtime_fixture.py") + ":/e2e.py:ro", "-e", "E2E_MODEL_URL=" + model_url, "-e", "PYTHONPATH=/app", "--entrypoint", "python"]
         # Docker commands below use fixture-only entrypoints, with source mounted
         # read-only. No test hook or provider URL option is added to product code.
@@ -256,8 +256,8 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
             else:
                 extra += ["--group-add", "1000", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "-v", str(dirs["hermes-link"]) + ":/hermes-link:ro"]
             caps = ["--memory=1536m", "--pids-limit=256"] if role == "runner" else ["--memory=768m", "--pids-limit=64", "--cpus=1"]
-            await docker("run", "-d", "--name", name, "--network=host", *caps, *extra, "agentic-home-" + role + ":0.6.1", "/e2e.py")
-        controller = await launch("controller", "agentic-home-controller:0.6.1", [
+            await docker("run", "-d", "--name", name, "--network=host", *caps, *extra, "agentic-home-" + role + ":0.7.0", "/e2e.py")
+        controller = await launch("controller", "agentic-home-controller:0.7.0", [
             "-e", "AGENTIC_HOST_MODE=1", "-e", "AGENTIC_HERMES_MCP=1", "-e", "AGENTIC_HA_URL=" + CORE,
             "-v", str(dirs["controller"]) + ":/data", "-v", str(dirs["pairing"]) + ":/pairing:ro",
             "-v", str(dirs["hermes-link"]) + ":/hermes-link:ro", "-v", str(dirs["host-socket"]) + ":/run/agentic-home",
@@ -475,4 +475,4 @@ print(json.dumps({'evidence':records('case_evidence'),
         await host_server.cleanup()
         await models_server.cleanup()
         await docker("run", "--rm", "-v", str(tmp_path) + ":/lab", "-v", str(dirs["host-socket"]) + ":/host-socket",
-                     "--entrypoint", "chown", "agentic-home-runner:0.6.1", "-R", f"{os.getuid()}:{os.getgid()}", "/lab", "/host-socket")
+                     "--entrypoint", "chown", "agentic-home-runner:0.7.0", "-R", f"{os.getuid()}:{os.getgid()}", "/lab", "/host-socket")

@@ -24,6 +24,8 @@ from pydantic import Field, ValidationError
 from . import VERSION
 from .bootstrap import Bootstrap
 from .bootstrap import routes as bootstrap_routes
+from .bridge import IngressBridge
+from .bridge_maintenance import BridgeFault, BridgeMaintenance
 from .engine import Engine, Rejected
 from .gateway import Gateway
 from .gateway import routes as gateway_routes
@@ -36,6 +38,7 @@ from .host import routes as host_routes
 from .household import Household
 from .mcp import create_mcp
 from .models import (
+    ChatInput,
     Decision,
     Policy,
     Provider,
@@ -81,6 +84,10 @@ class PauseInput(Strict):
     paused: bool
 
 
+class BridgePolicy(Strict):
+    auto_repair: bool = False
+
+
 class ControlInput(Strict):
     action: Literal["enable", "disable", "rollback"]
 
@@ -121,7 +128,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     ha = ha or (external_ha(root) if host_mode else HomeAssistant(os.environ.get("SUPERVISOR_TOKEN", "")))
     runner = runner or Runner(store)
     inner_runner = inner_runner or Runner(store, "haos")
-    gateway, bootstrap = None, None
+    gateway, bootstrap, bridge, maintenance = None, None, None, None
     coordinator = Coordinator(store, hermes_client) if host_mode else None
     engine = Engine(store, ha)
     secret = store.setting("csrf_secret") or secrets.token_hex(32)
@@ -152,6 +159,9 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
             await gateway.start()
         if coordinator:
             await coordinator.worker_manager.start()
+        if bridge:
+            await bridge.start()
+            await maintenance.start()
         if bootstrap:
             bootstrap.resume()
         mcp_server = None
@@ -163,6 +173,9 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
             mcp_server.capture_signals = contextlib.nullcontext
             mcp_task = asyncio.create_task(mcp_server.serve())
         yield
+        if bridge:
+            await maintenance.close()
+            await bridge.close()
         if bootstrap:
             await bootstrap.close()
         if coordinator:
@@ -197,7 +210,10 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
             peer = request.client.host if request.client else ""
             if request.url.path == "/health" and peer in {"127.0.0.1", "::1", ingress_ip}:
                 return JSONResponse({"status": "ok", "version": VERSION})
-            if host_mode:
+            identity = bridge.identity(request) if bridge else None
+            if identity:
+                request.state.bridge_identity = identity
+            if host_mode and not identity:
                 # The packaged listener binds only loopback. Host checking also rejects DNS rebinding.
                 if request.headers.get("host") not in {"localhost:8099", "127.0.0.1:8099"}:
                     return JSONResponse({"detail": "請使用 localhost:8099 或 SSH tunnel 開啟"}, status_code=403)
@@ -214,7 +230,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                             return RedirectResponse("/#onboarding", status_code=303,
                                 headers={"Referrer-Policy": "no-referrer", "Cache-Control": "no-store"})
                         return JSONResponse({"detail": "請先登入 Linux 主機管理介面"}, status_code=401)
-            elif peer != ingress_ip:
+            elif not identity and peer != ingress_ip:
                 return JSONResponse({"detail": "請經由 Home Assistant Ingress 開啟"}, status_code=403)
             if store.setting("updater_gate") and request.url.path == "/api/host/authorized":
                 # This OAuth GET exchanges and persists credentials. Treat it
@@ -229,9 +245,9 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
             if int(request.headers.get("content-length", "0")) > 131072:
                 return JSONResponse({"detail": "請求太大"}, status_code=413)
             if request.url.path.startswith("/api/") and request.url.path not in {"/api/host/login", "/api/host/desktop-login"}:
-                local = host_mode and (request.method in {"GET", "HEAD"} or request.url.path.startswith(
+                local = bool(identity) or host_mode and (request.method in {"GET", "HEAD"} or request.url.path.startswith(
                     ("/api/host/", "/api/providers/", "/api/gateway/", "/api/runtimes/", "/api/hermes/", "/api/bootstrap/", "/api/worker/", "/api/workers/", "/api/network/", "/api/updates/")) or request.url.path in {"/api/pause", "/api/retention", "/api/backups/export"})
-                user_id = (store.setting("owner") or "host-owner") if host_mode else request.headers.get("x-remote-user-id", "")
+                user_id = identity.owner if identity else ((store.setting("owner") or "host-owner") if host_mode else request.headers.get("x-remote-user-id", ""))
                 if not user_id or (store.setting("owner") and store.setting("owner") != user_id):
                     return JSONResponse({"detail": "只有綁定的 HA owner 可以操作"}, status_code=403)
                 mutation = request.method not in {"GET", "HEAD"}
@@ -241,7 +257,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                     return JSONResponse({"detail": "目前帳號不是有效的 HA owner"}, status_code=403)
                 owners[user_id] = (time.time() + 20, owner)
                 request.state.principal = user_id
-                if mutation:
+                if mutation and not identity:
                     token = request.headers.get("x-agentic-csrf", "")
                     try:
                         expires = int(token.split(".")[0])
@@ -256,6 +272,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                         request.headers.get("sec-fetch-site") == "cross-site"):
                         return JSONResponse({"detail": "頁面認證已過期，請重新整理"}, status_code=403)
             response = await call_next(request)
+        except HTTPException as exc:
+            return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
         except HAError as exc:
             return JSONResponse({"detail": str(exc)}, status_code=503)
         response.headers["Cache-Control"] = "no-store"
@@ -291,11 +309,19 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     @app.get("/api/session")
     async def session(request: Request):
         principal = request.state.principal
-        return {"principal": principal, "csrf": csrf(principal, int(time.time()) + 3600), "version": VERSION,
-                "mode": "host" if host_mode else "ingress"}
+        identity = getattr(request.state, "bridge_identity", None)
+        expires = int(time.time()) + 3600
+        return {"principal": principal,
+                "csrf": bridge.csrf(principal, identity.pairing_id, expires) if identity else csrf(principal, expires),
+                "version": VERSION, "mode": "bridge" if identity else "host" if host_mode else "ingress",
+                "storage_scope": digest(["browser", principal, store.setting("hermes_auth_epoch"),
+                    store.setting("hermes_web_epoch"), identity.pairing_id if identity else None]),
+                "resume": gateway.resume(principal) if gateway else None}
 
     @app.get("/api/deployment")
-    async def deployment():
+    async def deployment(request: Request):
+        if getattr(request.state, "bridge_identity", None):
+            return {"mode": "bridge", "authenticated": True, "bridge_state": "ready"}
         return {"mode": "ingress"}
 
     @app.get("/api/status")
@@ -449,6 +475,20 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
 
     @app.post("/api/tasks/{id}/reply", status_code=202)
     async def reply(id: str, body: ReplyInput, request: Request):
+        identity = getattr(request.state, "bridge_identity", None)
+        if identity:
+            key = idempotency(request)
+            task = get("task", id)
+            previous = store.request("bridge_reply", key, digest([id, body.message]))
+            if previous:
+                return get("task", id)
+            source = next((item for item in gateway.owner_messages(identity.owner) if item.get("task_id") == id), None)
+            if not source or task["state"] != "awaiting_user":
+                raise Rejected("目前任務無法接收補充資訊")
+            item = gateway.submit(ChatInput(message=body.message, coordinator="hermes", reply_to=source["id"]),
+                "web", "owner", identity.owner, "task-reply:" + key, bridge_pairing_id=identity.pairing_id)
+            store.request("bridge_reply", key, digest([id, body.message]), id)
+            return store.transition(task, "cancelled", message="已交回同一段智能管家對話", continued_by=item["id"])
         key, body_digest = idempotency(request), digest([id, body.message])
         if store.request("reply", key, body_digest):
             return get("task", id)
@@ -598,6 +638,78 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         gateway_routes(app, gateway, store, gateway.runners, controller_id)
         app.state.gateway = gateway
         app.state.coordinator = coordinator
+        bridge = IngressBridge(app, store, ha, gateway, coordinator, secret)
+        gateway.bridge_valid = bridge.origin_valid
+        coordinator.worker_manager.bridge_valid = lambda authority: (bridge.current(authority.get("bridge_pairing_id"), authority.get("owner"))
+            and bridge.owner_valid_until > time.time())
+        app.state.ingress_bridge = bridge
+        maintenance = BridgeMaintenance(store, ha, bridge)
+        bridge.on_revoke = maintenance.suspend
+        app.state.bridge_maintenance = maintenance
+
+        def maintenance_guard(request):
+            epoch, owner = store.setting("hermes_web_epoch"), store.setting("owner")
+            def guard():
+                if (not host_session.verify(request) or epoch != store.setting("hermes_web_epoch")
+                        or owner != store.setting("owner") or store.setting("updater_gate")):
+                    raise BridgeFault("bridge_authorization_changed")
+            return guard
+
+        async def maintenance_action(method, request, **kwargs):
+            try:
+                return await method(commit_guard=maintenance_guard(request), **kwargs)
+            except BridgeFault as exc:
+                raise HTTPException(409, exc.code) from None
+
+        @app.get("/api/host/bridge/maintenance")
+        async def bridge_maintenance_status():
+            return {**maintenance.status(), "bridge": bridge.status()}
+
+        @app.post("/api/host/bridge/maintenance/authorize")
+        async def bridge_authorize(body: BridgePolicy, request: Request):
+            return await maintenance_action(maintenance.authorize, request, auto_repair=body.auto_repair)
+
+        @app.post("/api/host/bridge/maintenance/policy")
+        async def bridge_policy(body: BridgePolicy, request: Request):
+            return await maintenance_action(maintenance.policy, request, auto_repair=body.auto_repair)
+
+        @app.post("/api/host/bridge/maintenance/repair")
+        async def bridge_repair(request: Request):
+            if maintenance.record() is not None:
+                return await maintenance_action(maintenance.repair, request)
+            # Repair only an identity never handed to a managed App. Existing
+            # effects and revoked/used pairings stay with the maintenance ledger.
+            async with maintenance.lock:
+                guard = maintenance_guard(request)
+                owner, token = store.setting("owner"), getattr(ha, "token", None)
+                setup = store.get("bootstrap_v1", "setup") or {}
+                def unchanged():
+                    guard()
+                    maintenance.effect_gate()
+                    bridge.unused_pairing_guard()
+                    current_setup = store.get("bootstrap_v1", "setup") or {}
+                    if (setup.get("state") != "completed" or current_setup != setup or not owner or
+                            token != getattr(ha, "token", None)):
+                        raise BridgeFault("bridge_initial_repair_not_allowed")
+                try:
+                    unchanged()
+                    async with asyncio.timeout(5):
+                        active = await ha.owner(owner)
+                    unchanged()
+                    if not active:
+                        raise BridgeFault("bridge_owner_required")
+                    bridge.repair_unused_pairing()
+                except BridgeFault as exc:
+                    raise HTTPException(409, exc.code) from None
+                except (HAError, TimeoutError, OSError):
+                    raise HTTPException(503, "bridge_owner_unavailable") from None
+                return {**maintenance.status(), "bridge": bridge.status()}
+
+        @app.post("/api/host/bridge/maintenance/disable")
+        async def bridge_disable():
+            await bridge.revoke()
+            return {**maintenance.status(), "bridge": bridge.status()}
+
         bootstrap = Bootstrap(store, runner, coordinator, gateway, ha, controller_id)
         bootstrap_routes(app, bootstrap)
         app.state.bootstrap = bootstrap

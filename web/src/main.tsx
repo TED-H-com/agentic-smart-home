@@ -1,22 +1,25 @@
 import { StrictMode, useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { api, desktopLogin, consumeDesktopEntry, download, session, configureDeployment, haPath, haTarget } from './api';
+import { api, desktopLogin, consumeDesktopEntry, download, session, configureDeployment, haPath, haTarget, type ConversationSession } from './api';
 import {SetupGuide,currentRoute,type View} from './setup';
 import './style.css';
-import {Status,Notice,Button,Empty,timestamp,labels} from './ui';
+import {Status,Notice,Button,Empty,timestamp} from './ui';
 import {Provider} from './providers';
 import {GatewayPanel,RuntimePanel} from './gateway';
 import {Onboarding} from './bootstrap';
 import {HomeEntry} from './home-entry';
 import {HermesPanel} from './hermes';
 import {WorkerPanel} from './workers';
+import {TaskDetail,type Task} from './task-detail';
+import {BridgeApp} from './bridge';
+import {BridgeMaintenance} from './bridge-maintenance';
 import {HostLogin,HostPanel} from './host';
 
 type Entity = {entity_id:string; name:string; domain:string; area:string|null; state:string; availability:string; observed_at:string; actions:string[]};
 type Permission = {entity_id:string; read:boolean; write:string; purpose:string};
-type Task = {id:string; request:string; provider:string; state:string; message:string; created_at:string; updated_at:string; proposal_id?:string; proposal?:any; evidence?:any; events?:any[]; sources?:any[]};
 
 function App({hostMode=false,active=true,desktopEntry=false,onLogout}:{hostMode?:boolean;active?:boolean;desktopEntry?:boolean;onLogout:()=>void}) {
+  const [conversationSession,setConversationSession]=useState<ConversationSession>();
   const [dailyEntry]=useState(()=>hostMode&&(!location.hash||(desktopEntry&&location.hash==='#onboarding')));
   const [route,setRoute] = useState(()=>dailyEntry?{view:'entry' as View,task:null}:currentRoute(hostMode));
   const {view,task:selected}=route;
@@ -29,7 +32,7 @@ function App({hostMode=false,active=true,desktopEntry=false,onLogout}:{hostMode?
   useEffect(()=>setMenuOpen(false),[view]);
   const load = useCallback(async () => {const data = await api('tasks'); setTasks(data.tasks);}, []);
   const refreshStatus = useCallback(async () => setStatus(await api('status')), []);
-  const refresh = useCallback(async()=>{setRefreshing(true);try{await session();setReady(true);await Promise.all([load(),refreshStatus()]);setError('')}catch(e){setError((e as Error).message)}finally{setRefreshing(false)}},[load,refreshStatus]);
+  const refresh = useCallback(async()=>{setRefreshing(true);try{setConversationSession(await session());setReady(true);await Promise.all([load(),refreshStatus()]);setError('')}catch(e){setError((e as Error).message)}finally{setRefreshing(false)}},[load,refreshStatus]);
   useEffect(()=>{const update=()=>{const next=currentRoute(hostMode);if(dirty&&next.view!==view){setPendingView(next.view);history.replaceState(null,'',`#${view}`);return}setRoute(next)};window.addEventListener('hashchange',update);return()=>window.removeEventListener('hashchange',update)},[hostMode,dirty,view]);
   useEffect(()=>{if(!active)return;refresh();let alive=true;let timer:ReturnType<typeof setTimeout>;const poll=async()=>{try{await Promise.all([load(),refreshStatus()])}catch(e){if(alive)setError((e as Error).message)}if(alive)timer=setTimeout(poll,10000)};timer=setTimeout(poll,10000);const auth=setInterval(()=>session().catch(()=>{}),1800000);return()=>{alive=false;clearTimeout(timer);clearInterval(auth)}},[active,refresh,load,refreshStatus]);
   useEffect(()=>{if(!selected||!active){setDetail(null);return}let alive=true;let timer:ReturnType<typeof setTimeout>;setDetail(null);const update=async()=>{try{const d=await api(`tasks/${selected}`);if(alive)setDetail(d)}catch(e){if(alive)setError((e as Error).message)}if(alive)timer=setTimeout(update,2500)};update();return()=>{alive=false;clearTimeout(timer)}},[selected,active]);
@@ -56,7 +59,7 @@ function App({hostMode=false,active=true,desktopEntry=false,onLogout}:{hostMode?
   {view==='history'&&<><div className="section-intro"><p>回看每個需求、批准和執行結果。</p><Button secondary onClick={async()=>{try{download(new Blob([JSON.stringify(await api('evidence'),null,2)],{type:'application/json'}),'agentic-home-evidence.json')}catch(e){setError((e as Error).message)}}}>匯出執行證據</Button></div><div className="history-table"><div className="history-head"><span>需求</span><span>Agent</span><span>狀態</span><span>時間</span></div>{tasks.map(t=><button key={t.id} onClick={()=>openTask(t)}><strong>{t.request}</strong><span>{t.provider==='codex'?'Codex':'Claude Code'}</span><Status value={t.state}/><time>{timestamp(t.created_at)}</time></button>)}</div>{!tasks.length&&<Empty title="還沒有任務">送出第一個需求後，這裡會保留處理與操作紀錄。</Empty>}</>}
   {view==='settings'&&<Settings hostMode={hostMode} status={status} onChange={refreshStatus}/>}
   {view==='entry'&&<HomeEntry automatic={dailyEntry&&active} navigate={navigate}/>}
-  {(view==='gateway'||gatewayMounted)&&<div hidden={view!=='gateway'}><GatewayPanel visible={view==='gateway'&&active}/></div>}
+  {(view==='gateway'||gatewayMounted)&&<div hidden={view!=='gateway'}><GatewayPanel key={conversationSession?.storage_scope||'legacy'} visible={view==='gateway'&&active} conversationSession={conversationSession}/></div>}
   {view==='workers'&&<WorkerPanel/>}
   {view==='agents'&&<><HermesPanel/><RuntimePanel/></>}
   {view==='onboarding'&&<Onboarding status={status} onChange={refreshStatus} navigate={navigate}/>}
@@ -72,24 +75,6 @@ function Composer({status,draft,setDraft,onCreated,onSetup}:{status:any;draft:st
   return <form className="composer" onSubmit={submit}><div className="section-heading"><h2>你想讓家做什麼？</h2><span className="eyebrow">NEW REQUEST</span></div><label className="sr-only" htmlFor="request">家庭需求</label><textarea id="request" value={draft} onChange={e=>setDraft(e.target.value)} maxLength={5000} placeholder="例如：當測試動作感應器由 off 變 on，打開測試燈。先讓我看規則。" rows={5} required/><div className="composer-controls"><label>使用 Agent<select value={provider} onChange={e=>{setProvider(e.target.value);setProviderChosen(true)}}><option value="codex">Codex</option><option value="claude">Claude Code</option><option value="agy">Antigravity</option><option value="grok">Grok Build</option></select></label><label className="model-field">模型（可留空）<input value={model} onChange={e=>setModel(e.target.value)} placeholder={provider==='codex'?'gpt-6-astra':'使用官方預設'} maxLength={100}/></label><Button disabled={busy||!connected||status?.ha?.status!=='connected'||status?.paused||!draft.trim()} type="submit">{busy?'送出中…':'送出需求'} <span aria-hidden>↑</span></Button></div>{!connected&&<p className="helper-text">先完成 {provider==='codex'?'Codex':'Claude Code'} 登入。<button type="button" className="text-button" onClick={onSetup}>前往連線設定 →</button></p>}{error&&<Notice error>{error}</Notice>}<button type="button" className="suggestion" onClick={()=>setDraft('當 input_boolean.agentic_motion_test 從 off 變 on 時，把 input_boolean.agentic_lamp_test 打開。先給我看要建立的規則，不要先執行。')}>填入 test helpers 範例</button></form>
 }
 
-function TaskDetail({task,onChange}:{task:Task;onChange:()=>void}){
-  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
-  const p=task.proposal; const [reply,setReply]=useState('');
-  const stages=['查看提案','執行變更','觀測結果'];
-  const stage=task.state==='awaiting_approval'?0:task.state==='executing'?1:['verifying','succeeded','needs_reconcile'].includes(task.state)?2:-1;
-  async function action(path:string,data:unknown={}){setBusy(true);setError('');setNotice('');try{const result=await api(path,data);if(result.message)setNotice(result.message);onChange()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
-  const helper=p?.intent&&new Set([p.intent.trigger.entity_id,...p.intent.actions.map((a:any)=>a.entity_id)]).size===2&&[p.intent.trigger.entity_id,...p.intent.actions.map((a:any)=>a.entity_id)].every((s:string)=>['input_boolean.agentic_motion_test','input_boolean.agentic_lamp_test'].includes(s));
-  return <div className="task-detail"><div className="section-heading"><span className="eyebrow">TASK · {task.id.slice(0,8)}</span><Status value={task.state}/></div><h2>{task.request}</h2>{p&&stage>=0&&<ol className="task-progress" aria-label="任務進度">{stages.map((label,index)=><li key={label} className={stage===index?'current':stage>index?'done':''} aria-current={stage===index?'step':undefined}>{stage>index?'✓ ':''}{label}</li>)}</ol>}<p className="task-message">{task.message}</p>{error&&<Notice error>{error}</Notice>}{notice&&<Notice>{notice}</Notice>}
-  {p&&<><div className="proposal"><div className="proposal-title"><h3>{p.mode==='action'?'單次操作':p.intent?.title}</h3><span>{p.mode==='action'?'一次執行':'持續規則'}</span></div>{p.intent&&<><div className="rule-step"><span>當</span><div><code>{p.intent.trigger.entity_id}</code><p>{p.intent.trigger.from_state} <span aria-hidden>→</span> {p.intent.trigger.to_state}</p></div></div>{p.intent.time_window&&<div className="rule-step"><span>於</span><p>{p.intent.time_window.after}–{p.intent.time_window.before}</p></div>}<div className="rule-step"><span>則</span><div>{p.intent.actions.map((a:any)=><p key={a.entity_id}><code>{a.entity_id}</code><b>{a.action==='turn_on'?'開啟':'關閉'}</b></p>)}</div></div></>}{p.action&&<p><code>{p.action.entity_id}</code> → {p.action.action==='turn_on'?'開啟':'關閉'}</p>}<p className="effect">{p.mode==='disable'?'批准後停用此規則，重啟後仍保持停用。':p.mode==='rollback'?'批准後回復下方顯示的前一份設定。':p.mode==='action'?'批准後執行一次，並讀回設備狀態。':'批准後先寫入停用草稿，再啟用最終規則。之後由 HA 自行執行。'}</p><details><summary>查看 HA 設定與差異</summary>{p.prior&&<><h4>目前設定</h4><pre>{JSON.stringify(p.prior,null,2)}</pre></>}<h4>批准後的設定</h4><pre>{JSON.stringify(p.final||p.action,null,2)}</pre><p className="helper-text">提案摘要 <code>{p.digest}</code></p></details></div>
-  {task.state==='awaiting_approval'&&<div className="approval"><p>有效至 {new Date(p.expires*1000).toLocaleTimeString('zh-TW')} · 只有家庭 owner 可以批准</p><Button disabled={busy||Date.now()>p.expires*1000} onClick={()=>action(`proposals/${p.id}/approve`,{digest:p.digest})}>{busy?'處理中…':'批准並執行'}</Button><Button secondary disabled={busy} onClick={()=>action(`tasks/${task.id}/cancel`)}>取消提案</Button></div>}
-  {['verifying','succeeded'].includes(task.state)&&p.deployed_at&&helper&&<div className="verification-control"><h3>用兩個 helpers 真實觸發</h3><p>會先重設目標與來源 helper，再產生規則要求的狀態轉換。HA 原生自動化負責執行。</p><Button secondary disabled={busy} onClick={()=>action(`proposals/${p.id}/test`)}>執行 helper 測試</Button></div>}
-  {task.state==='needs_reconcile'&&<Button secondary disabled={busy} onClick={()=>action(`proposals/${p.id}/reconcile`)}>讀回並核對現況</Button>}</>}
-  {task.evidence&&<div className="evidence"><h3>已取得觀測證據</h3>{task.evidence.kind==='real_state_transition'&&<><p className="helper-text">來源發生真實狀態轉換，並觀察到同一條自動化的目標變更。</p><p><code>{task.evidence.source}</code> · {timestamp(task.evidence.source_at)}</p>{task.evidence.targets?.map((target:any)=><p key={target.entity_id}><code>{target.entity_id}</code> → <strong>{target.state}</strong></p>)}</>}{task.evidence.kind==='state_readback'&&<p><code>{task.evidence.entity_id}</code> → <strong>{task.evidence.state}</strong><span className="helper-text"> · 已讀回 HA 狀態，實體效果尚需觀察。</span></p>}<details><summary>完整觀測資料</summary><pre>{JSON.stringify(task.evidence,null,2)}</pre></details></div>}
-  {task.state==='awaiting_user'&&<form onSubmit={async e=>{e.preventDefault();await action(`tasks/${task.id}/reply`,{message:reply});setReply('')}}><label>補充需求<textarea value={reply} onChange={e=>setReply(e.target.value)} rows={3} maxLength={5000} required/></label><Button type="submit" disabled={busy}>送出補充</Button></form>}
-  {['queued','planning','awaiting_user'].includes(task.state)&&<Button secondary disabled={busy} onClick={()=>action(`tasks/${task.id}/cancel`)}>取消任務</Button>}
-  {task.sources&&<details><summary>Agent 讀取的 HA 證據（{task.sources.length}）</summary><pre>{JSON.stringify(task.sources,null,2)}</pre></details>}
-  {!!task.events?.length&&<details className="timeline"><summary>處理紀錄</summary><ol>{task.events.map(e=><li key={e.seq}><time>{timestamp(e.at)}</time><span>{labels[e.kind]||e.kind}</span></li>)}</ol></details>}</div>
-}
 
 function Inventory({onSaved,onDirty}:{onSaved:()=>void;onDirty:(dirty:boolean)=>void}){
   const [entities,setEntities]=useState<Entity[]>([]),[permissions,setPermissions]=useState<Record<string,Permission>>({}),[filter,setFilter]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[saved,setSaved]=useState(false),[loading,setLoading]=useState(true),[dirty,setDirty]=useState(false),[scope,setScope]=useState('all');
@@ -110,6 +95,7 @@ function Automations({onTask,onEdit}:{onTask:(t:Task)=>void;onEdit:(id:string)=>
 }
 
 function Settings({status,onChange,hostMode}:{status:any;onChange:()=>void;hostMode:boolean}){
+  const [sidebarOpen,setSidebarOpen]=useState(false);
   const [pairing,setPairing]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[services,setServices]=useState<any[]>([]),[passphrase,setPassphrase]=useState('');
   async function loadServices(){setServices((await api('services')).services)}
   useEffect(()=>{loadServices().catch(e=>setError(e.message))},[]);
@@ -125,6 +111,7 @@ function Settings({status,onChange,hostMode}:{status:any;onChange:()=>void;hostM
       <a className="button secondary" href="#workers">進階工具</a>
       <a className="button secondary" href="#home">家庭提案</a>
     </nav>
+    <details className="settings-fold" onToggle={event=>setSidebarOpen(event.currentTarget.open)}><summary>HA 智能管家側欄</summary>{sidebarOpen&&<BridgeMaintenance/>}</details>
     <details className="settings-fold"><summary>家庭服務</summary>
       {services.map(s=><article className="service-row" key={s.id}>
         <div className="section-heading"><h3>{s.title}</h3><Status value={s.state}/></div>
@@ -160,10 +147,12 @@ function Retention({compact=false}:{compact?:boolean}){
 
 function Root(){
   const [deployment,setDeployment]=useState<any>(null),[error,setError]=useState(''),[mounted,setMounted]=useState(false),[desktopError,setDesktopError]=useState(false),[desktopEntry,setDesktopEntry]=useState(false);
-  const load=useCallback(async()=>{setError('');try{setDesktopError(await desktopLogin()==='failed');if(consumeDesktopEntry())setDesktopEntry(true);const result=await api('deployment');configureDeployment(result.mode);setDeployment(result);if(result.mode!=='host'||result.authenticated)setMounted(true)}catch(e){setError((e as Error).message)}},[]);
+  const load=useCallback(async()=>{setError('');try{let result=await api('deployment');configureDeployment(result.mode);if(result.mode==='host'){setDesktopError(await desktopLogin()==='failed');if(consumeDesktopEntry()){setDesktopEntry(true);result=await api('deployment')}}setDeployment(result);if(result.mode==='ingress'||result.mode==='host'&&result.authenticated)setMounted(true)}catch(e){setError((e as Error).message)}},[]);
   useEffect(()=>{load();const expire=()=>setDeployment((d:any)=>({...d,authenticated:false}));window.addEventListener('agentic-session-expired',expire);return()=>window.removeEventListener('agentic-session-expired',expire)},[load]);
   if(!deployment)return <main className="host-login"><span className="eyebrow">AGENTIC HOME</span><h1>{error?'管理中心尚未回應':'正在開啟你的家庭主機…'}</h1>{error&&<><p role="alert">{error}</p><Button onClick={load}>重試連線</Button></>}</main>;
-  const loggedIn=deployment.mode!=='host'||deployment.authenticated;
+  if(deployment.mode==='bridge')return <BridgeApp deployment={deployment} onRetry={load}/>;
+  if(!['host','ingress'].includes(deployment.mode))return <main className="host-login"><h1>無法確認此入口</h1><Button secondary onClick={load}>重新連線</Button></main>;
+  const loggedIn=deployment.mode==='ingress'||deployment.authenticated;
   return <>{!loggedIn&&<HostLogin expired={mounted} desktopError={desktopError} onLogin={()=>{setDeployment({...deployment,authenticated:true});setMounted(true)}}/>}{mounted&&<div hidden={!loggedIn}><App hostMode={deployment.mode==='host'} active={loggedIn} desktopEntry={desktopEntry} onLogout={()=>{setDesktopEntry(false);Object.keys(sessionStorage).filter(key=>key.startsWith('agentic-auth-')||key==='agentic-host-task').forEach(key=>sessionStorage.removeItem(key));setMounted(false);setDeployment({...deployment,authenticated:false})}}/></div>}</>;
 }
 createRoot(document.getElementById('root')!).render(<StrictMode><Root/></StrictMode>);

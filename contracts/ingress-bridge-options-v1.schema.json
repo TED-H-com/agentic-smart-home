@@ -1,0 +1,45 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "fingerprint": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Fingerprint",
+      "type": "string"
+    },
+    "host": {
+      "const": "192.168.177.1",
+      "title": "Host",
+      "type": "string"
+    },
+    "pairing_id": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Pairing Id",
+      "type": "string"
+    },
+    "port": {
+      "const": 8444,
+      "title": "Port",
+      "type": "integer"
+    },
+    "protocol": {
+      "const": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "token": {
+      "pattern": "^[A-Za-z0-9_-]{32,128}$",
+      "title": "Token",
+      "type": "string"
+    }
+  },
+  "required": [
+    "protocol",
+    "host",
+    "port",
+    "fingerprint",
+    "token",
+    "pairing_id"
+  ],
+  "title": "Options",
+  "type": "object"
+}
