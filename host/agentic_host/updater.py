@@ -32,6 +32,9 @@ ACTIVE_WORK = {"accepted", "queued", "dispatching", "running", "cancel_requested
 TERMINAL_RUN = {"succeeded", "failed", "cancelled", "expired", "interrupted"}
 SNAPSHOT = re.compile(r"(?P<candidate>[a-f0-9]{64})-(?:rollback-)?[a-f0-9]{16}\.sqlite3")
 RECOVERY_STATES = {"deploying", "rolling_back", "needs_reconcile"}
+# Advertise only from this fixed updater implementation. It protects bridge
+# operations and requires the candidate probe to preserve bridge authority.
+INGRESS_BRIDGE_CONTRACT = 1
 
 
 class UpdateError(HostError):
@@ -361,7 +364,8 @@ class Updater:
                     # understands those semantics. Copy only the required major,
                     # never pairing credentials, Owner identity or maintenance data.
                     if source.execute("SELECT 1 FROM settings WHERE key='ingress_bridge'").fetchone():
-                        target.execute("INSERT INTO settings VALUES ('required_ingress_bridge_contract','1')")
+                        target.execute("INSERT INTO settings VALUES ('required_ingress_bridge_contract',?)",
+                                       (json.dumps(INGRESS_BRIDGE_CONTRACT),))
             os.chown(directory, 1000, 1000)
             os.chown(path, 1000, 1000)
             self.run("docker", "run", "--name", name, "--label", "agentic.update-probe=" + name, "--no-healthcheck", "--network", "none", "--read-only", "--cap-drop", "ALL",

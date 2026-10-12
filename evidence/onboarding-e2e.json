@@ -1,7 +1,7 @@
 {
   "kind": "composed_onboarding_e2e",
   "result": "passed",
-  "duration_seconds": 63.12,
+  "duration_seconds": 45.52,
   "real": [
     "Chromium and compiled Web without API interception",
     "Controller HTTP/session/CSRF",
@@ -35,11 +35,11 @@
     "provision"
   ],
   "mcp_evidence": {
-    "case_id": "7dca15fbca4a4ee182f84ee6ac031561",
+    "case_id": "0375a7f2c7b14504a2b0bbf86b24875c",
     "collection_method": "fixed_broker_status",
     "content_digest": "75ff4cbf49c5feea6e572c24166483d4e7a33c965c7a2a80fab5a72d4119be5f",
     "data_contract": 1,
-    "evidence_id": "9a77c69639bd487ca60c186dbce12eaf",
+    "evidence_id": "007ed362e85f4a17b13f276939f9d0c5",
     "facts": {
       "ha_onboarding": {
         "http_status": 200,
@@ -69,11 +69,11 @@
       "provisioned": true,
       "vm": "running"
     },
-    "id": "9a77c69639bd487ca60c186dbce12eaf",
+    "id": "007ed362e85f4a17b13f276939f9d0c5",
     "limitations": [
       "Native onboarding observations do not establish HA owner authority or physical device health."
     ],
-    "observed_at": "2026-10-12T18:18:50.459828+00:00",
+    "observed_at": "2026-10-12T19:04:18.719775+00:00",
     "observed_from": "host_broker",
     "redaction": "field_allowlist",
     "target_component": "host_and_managed_vm",
@@ -111,7 +111,7 @@
       "restart_count": 0
     },
     "controller": {
-      "image_id": "sha256:7824f39d1ae4d16a50b3c9ad2d1052e74e86c010a67d079bc593f10551cfed03",
+      "image_id": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
       "image_ref": "agentic-home-controller:0.7.0",
       "memory_bytes": 805306368,
       "pids_limit": 128,
@@ -134,10 +134,10 @@
   "device_kind": "none",
   "source_hashes": {
     "controller/agentic_controller/__init__.py": "8bf6c4a62b96995520e3bcffe9d908c17f66879230874a4062755b549d3438f6",
-    "controller/agentic_controller/app.py": "f55c7548eac8f4abe654a2476309152d2fc31c8ea0ff5a4db6df0803d32f47c9",
+    "controller/agentic_controller/app.py": "9ddd792829aa600f76e99e0ce341d813abe569a172faeb3b88acf101cdf12415",
     "controller/agentic_controller/bootstrap.py": "7eb2e84ac5dc741402b4bc5d5d1eb48f7b4999a586876649954528edaaa255d6",
-    "controller/agentic_controller/bridge.py": "c31948644c060e2600db6e0bcea764c38f9cbc893d006957020e8007da8e7e9d",
-    "controller/agentic_controller/bridge_maintenance.py": "98ed37d9a65dc178009503cba583807cb96988658ae2efbf27d5da25a78bc53d",
+    "controller/agentic_controller/bridge.py": "c36d42a36b9f1b4f03bee1f899e41f1d3c3696fdb4e0984b73c94b251dc4ab41",
+    "controller/agentic_controller/bridge_maintenance.py": "1cbf51cac7f6b0538648bda03e0db5bc7f79ccbb0b0ac5c2e26f4c23feb72148",
     "controller/agentic_controller/channels.py": "d2869655c2f96cbe73374300de6ec4ce64507981cfb6d88d318baebc8bbfab75",
     "controller/agentic_controller/engine.py": "b160eaf3026c7a2d06a0d38a1862fe565bbc5ce4b87d7d9d4d46a11f64719e18",
     "controller/agentic_controller/gateway.py": "18bf9a1c45b4300bb25edbd813a5e4311bf6453584ca34f4cfcc7299873f2760",

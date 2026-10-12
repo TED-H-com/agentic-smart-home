@@ -8,11 +8,11 @@
   "timings": [
     {
       "operation": "create",
-      "seconds": 0.063
+      "seconds": 0.061
     },
     {
       "operation": "start",
-      "seconds": 0.082
+      "seconds": 0.084
     },
     {
       "operation": "wait",
@@ -35,9 +35,9 @@
       "Pid": 0,
       "ExitCode": 137,
       "Status": "exited",
-      "StartedAt": "2026-10-12T18:16:09.778017553Z",
-      "FinishedAt": "2026-10-12T18:16:09.975448725Z",
-      "runtime_seconds": 0.197
+      "StartedAt": "2026-10-12T19:01:51.346642499Z",
+      "FinishedAt": "2026-10-12T19:01:51.547595642Z",
+      "runtime_seconds": 0.201
     },
     "state_error_signatures": {
       "permission": false,

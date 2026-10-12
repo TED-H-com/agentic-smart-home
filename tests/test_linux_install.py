@@ -140,6 +140,27 @@ def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run):
     return result
 
 
+def decode_bridge_contract_receipt(value, supporting_image):
+    """Reject partial/ambiguous proof; publish only fixed mechanism and digests."""
+    checks = ("revoked_history_marker_copied", "supporting_fixed_probe_passed", "missing_contract_fixed_probe_rejected",
+              "missing_contract_import_error", "missing_contract_without_history_passed", "revoked_database_unchanged",
+              "pending_maintenance_rejected", "pending_maintenance_readonly")
+    cleanup = ("probe_containers_absent", "quota_volumes_absent", "probe_journal_absent", "fixture_image_absent", "scratch_database_absent")
+    fixed = {"contract": 1, "observed_from": "installed_host_fixed_probe", "schema": 3,
+             "database_fixture": "isolated_structure_only_revoked_bridge", "fixed_probe_executions": 3,
+             "synthetic_missing_contract_image": True, "real_historical_release": False}
+    if (not isinstance(value, dict) or any(type(value.get(key)) is not type(expected) or value[key] != expected for key, expected in fixed.items()) or
+            value.get("supporting_image") != supporting_image or
+            not isinstance(value.get("missing_contract_image"), str) or not re.fullmatch(r"sha256:[a-f0-9]{64}", value["missing_contract_image"]) or
+            value["missing_contract_image"] == supporting_image or
+            not isinstance(value.get("fixed_script_sha256"), str) or not re.fullmatch(r"[a-f0-9]{64}", value["fixed_script_sha256"]) or
+            any(not isinstance(value.get(group), dict) or any(value[group].get(key) is not True for key in keys)
+                for group, keys in (("checks", checks), ("cleanup", cleanup)))):
+        raise ValueError("probe_bridge_contract_receipt_invalid")
+    return {**fixed, **{key: value[key] for key in ("supporting_image", "missing_contract_image", "fixed_script_sha256")},
+            "checks": dict.fromkeys(checks, True), "cleanup": dict.fromkeys(cleanup, True)}
+
+
 def decode_update_observation(output):
     """Validate/project private probe receipts; never publish arbitrary remote text."""
     from installed_update_probe import ERROR_TYPES, SAFE_ERRORS, STAGES, UPDATE_PHASES, process_diagnostics
@@ -224,8 +245,10 @@ def decode_update_observation(output):
                          stage=result.get("stage") if result.get("stage") in STAGES else "unknown")
     else:
         actual = ["ed25519_signature_verification", "bounded_candidate_probe", "compose_activation", "authenticated_owner_smoke",
-                  "consistent_snapshot", "schema3", "maintenance_gate", "same_database_rollback", "post_deployment_row_preserved"]
-        fixtures = ["ephemeral_publisher", "preloaded_registry_delivery", "candidate_changes_only_image_label", "synthetic_post_deployment_record"]
+                  "consistent_snapshot", "schema3", "maintenance_gate", "same_database_rollback", "post_deployment_row_preserved",
+                  "revoked_bridge_fixed_probe_enforced", "pending_bridge_operation_blocked", "isolated_probe_cleanup_verified"]
+        fixtures = ["ephemeral_publisher", "preloaded_registry_delivery", "candidate_changes_only_image_label", "synthetic_post_deployment_record",
+                    "synthetic_missing_bridge_contract_image", "isolated_structure_only_revoked_bridge"]
         if (result.get("actual") != actual or result.get("fixtures") != fixtures or result.get("final_schema") != 3 or
                 result.get("real_cloud") is not False or result.get("real_publisher_release") is not False or
                 result.get("rollback_restored_backup") is not False or result.get("registry_delivery_calls") != 1 or
@@ -235,7 +258,8 @@ def decode_update_observation(output):
             raise ValueError("probe_success_receipt_invalid")
         projected.update(observed_from="disposable_installed_linux_vm_root", actual=actual, fixtures=fixtures,
                          final_schema=3, real_cloud=False, real_publisher_release=False, rollback_restored_backup=False,
-                         registry_delivery_calls=1, original_image=result["original_image"], candidate_image=result["candidate_image"])
+                         registry_delivery_calls=1, original_image=result["original_image"], candidate_image=result["candidate_image"],
+                         bridge_update_contract=decode_bridge_contract_receipt(result.get("bridge_update_contract"), result["original_image"]))
     clean["result"] = projected
     return clean
 

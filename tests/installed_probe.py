@@ -92,6 +92,8 @@ def probe():
             "owner_session")
     csrf = session["csrf"]
     host = request("/api/host/status")
+    bridge_contract = host.get("controller_update", {}).get("ingress_bridge_contract")
+    require(type(bridge_contract) is int and bridge_contract == 1, "fixed_host_bridge_update_contract")
     status = request("/api/status")
     require(status["runner"]["identity"] == "agentic-home-runner", "runner_identity")
     require(status["onboarding"]["runner_paired"] is True, "automatic_runner_pairing")
@@ -115,6 +117,7 @@ def probe():
     require(replay["id"] == blocked["id"], "blocked_coding_request_idempotent")
     require(request("/api/workers")["active_job_id"] is None, "blocked_coding_has_no_writer_lease")
     return {"host_login": "passed", "authenticated_host_api": "passed", "automatic_runner_pairing": "passed",
+            "fixed_host_bridge_update_contract": bridge_contract,
             "desktop_single_use_login": "passed", "bootstrap_get_has_no_side_effect": "passed",
             "vm_observed": host["vm"], "providers": [{"provider": p["provider"], "status": p["status"]}
                                                     for p in status["runner"]["providers"]],

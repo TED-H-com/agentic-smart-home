@@ -27,6 +27,8 @@ Home 隔離基礎已有 [真 HAOS 18.3 App 證據](../../evidence/haos-app-bound
 
 每次驗收另附 test/case/job IDs、時間、執行者、source commit、candidate digest、安裝版本、runtime_location、model_backend、ha_backend、device_kind、CLI/Hermes/Core/Supervisor/OS 版本、觀測位置／方法、evidence refs、限制與批准的 Live 副作用。不得用單一 real=true 取代多維環境。
 
+0.7.0 更新審查另補 Host 固定更新器能力握手；舊 Host 只換 Controller 不能啟用側欄。新 gate 定向 190 項、本機產品 790 項、安裝腳本 74 項均通過；真公開 App 與新版 ISO 正在另驗。App 跨版本更新／退版已有 [下一增量設計](../reviews/2026-10-12-APP-UPDATE-NEXT.md)，U1–U8 仍待執行。原有 32 案不因這些工程回歸批次改為 passed。
+
 ## 16 項開發工作
 
 本輪分 A Hermes/Controller、B worker sandbox、C docs/support/交付，整合者管理共用契約。下表的 in_progress 並非可用能力或完成聲明；完整成果與相依仍見 [Backlog](BACKLOG_V3.md)。

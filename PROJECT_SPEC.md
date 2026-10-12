@@ -10,6 +10,8 @@ Steering v3.0；匯入基準是應用 `0.3.1`、commit `3ad476a712009469521c3f98
 
 日常入口使用原生 HA；外層 Web 保留智能管家、設定與救援。新增 `home-entry` contract 1 只允許固定原生路徑，需重新驗有效 Owner 與必要 HA 能力；明確對話、提案或救援連結不得被自動跳轉。Hermes 上游私有接點集中在 adapter facade，Linux 固定操作執行前重驗必要能力。0.7.0 新增薄 Ingress App：由 Supervisor 傳遞 HA user ID，經固定 TLS 指紋與專用配對 bearer 回到外層，再即時驗證綁定 Owner；不共用管理 cookie 或新增另一個協調者。撤銷配對後失效，斷線不清除對話。詳見 [adapter 邊界與候選策略](docs/ADAPTERS.md)。
 
+建立或使用側欄授權前，另從固定 Unix Host broker 確認已安裝更新器支援 bridge contract 1。證明只存程序記憶體、短期有效並綁當前 Owner／token／session 範圍；失效時停止側欄及其工作，外層救援可用。舊 Host 只升 Controller 無法滿足此條件，不能靠資料庫 marker 啟用新權限。連線恢復不解除 `stop_unconfirmed` 或工作區 lease。
+
 ```text
 Owner → 既有 Web/Gateway → conversation adapter → 外層 Hermes
                                                 ↓ MCP 工具

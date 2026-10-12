@@ -81,6 +81,26 @@ def test_interrupted_jobs_never_replay(tmp_path):
         jobs.start({"id": "request-id", "action": "restore"})
 
 
+def test_status_bridge_update_contract_comes_from_fixed_updater_not_state(tmp_path):
+    from agentic_host.updater import INGRESS_BRIDGE_CONTRACT
+
+    calls = []
+
+    def execute(*args, **kwargs):
+        calls.append(args)
+        return SimpleNamespace(returncode=1, stdout="")
+
+    manager = Manager(tmp_path, product=tmp_path / "product", execute=execute)
+    # Neither persisted state nor a product version is a capability proof.
+    atomic(manager.state_file, {"controller_update": {"ingress_bridge_contract": 999}})
+    status = manager.status()
+    contract = status["controller_update"]["ingress_bridge_contract"]
+    assert type(contract) is int and contract == INGRESS_BRIDGE_CONTRACT == 1
+    assert calls == [("virsh", "--connect", "qemu:///system", "domstate", "agentic-home-haos"),
+                     ("ip", "-json", "route", "show", "default")]
+    assert manager.state()["controller_update"]["ingress_bridge_contract"] == 999
+
+
 def test_forwarding_recovery_never_modifies_an_external_network(tmp_path):
     calls = []
     owned = False

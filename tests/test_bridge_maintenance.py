@@ -35,6 +35,15 @@ class Bridge:
                         "fingerprint": "f" * 64, "token": "t" * 64, "pairing_id": "b" * 32}
         self.state, self.listener, self.seen = "prepared", True, None
         self.preparations = 0
+        self.host_available = True
+
+    async def require_host(self):
+        self.host_guard()
+
+    def host_guard(self):
+        if not self.host_available:
+            from fastapi import HTTPException
+            raise HTTPException(503, "bridge_host_contract_required")
 
     def prepare_pairing(self):
         self.preparations += 1
@@ -144,6 +153,32 @@ async def installed(manager, *, auto_repair=False):
     await manager.authorize(auto_repair=auto_repair)
     await advance_to(manager, "monitor")
     return manager.ha.app
+
+
+async def test_host_capability_loss_preserves_intent_and_dispatches_no_supervisor_effect(manager):
+    await manager.authorize(auto_repair=True)
+    await manager.tick()  # Persist and send one repository addition.
+    intent = copy.deepcopy(manager.record()['operation'])
+    writes = copy.deepcopy(manager.ha.calls)
+    manager.bridge.host_available = False
+    status = await manager.tick()
+    assert status['state'] == 'unavailable' and status['code'] == 'bridge_host_contract_required'
+    assert manager.record()['operation'] == intent and manager.ha.calls == writes
+    for method in (manager.repair, lambda: manager.policy(auto_repair=True)):
+        with pytest.raises(BridgeFault, match='bridge_host_contract_required'):
+            await method()
+    assert manager.ha.calls == writes
+
+
+async def test_explicit_reconnect_requires_host_proof_before_rotating_identity(manager):
+    await installed(manager)
+    manager.suspend()
+    previous = copy.deepcopy(manager.record())
+    manager.bridge.host_available = False
+    prepared = manager.bridge.preparations
+    with pytest.raises(BridgeFault, match='bridge_host_contract_required'):
+        await manager.authorize(auto_repair=True)
+    assert manager.record() == previous and manager.bridge.preparations == prepared
 
 
 async def test_complete_flow_reads_back_fixed_source_version_settings_and_heartbeat(manager):

@@ -1,0 +1,13 @@
+{
+  "runtime_location": "disposable_outer_linux_vm",
+  "iso_sha256": "3eca462417b9223bdd08b85d28ffd159b5c8b5a128b88e46609b59009faa583f",
+  "result": "aborted_by_integrator",
+  "cloud_login": "not_run",
+  "phase": "installed_firstboot",
+  "duration_seconds": 339,
+  "reason": "Pre-gate media superseded by mixed-version Host capability fix; SIGINT at installed_firstboot. No test pass claimed.",
+  "cleanup": {
+    "owned_vm_removed": true,
+    "disk_basetemp_removed": true
+  }
+}

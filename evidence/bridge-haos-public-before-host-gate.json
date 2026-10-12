@@ -1,0 +1,62 @@
+{
+  "kind": "real_haos_sidebar_bridge",
+  "haos_image": "18.3",
+  "status": "passed",
+  "delivery": "published_release_branch",
+  "observed_from": "haos_app_via_core_ingress_to_outer_pinned_tls",
+  "inference": "protocol_fixture_no_cloud_account",
+  "outer_source": "candidate_source_mounted_readonly",
+  "checks": {
+    "supervisor_app_contract": true,
+    "service_heartbeat_without_owner_capability": true,
+    "ingress_native_identity_overrides_forged_header": true,
+    "direct_app_forged_header_denied": true,
+    "same_outer_case_and_deduplicated_conversation": true,
+    "host_management_and_cross_origin_denied": true,
+    "app_restart_preserves_options_and_outer_case": true,
+    "manual_stop_remains_stopped": true
+  },
+  "outer_source_commit": "5bf6babab1b9f23923c8352bd3d497288dd5c3fe",
+  "outer_source_uncommitted": false,
+  "phase": "native_stop_respected",
+  "core": "2026.10.1",
+  "supervisor": "2026.09.3",
+  "outer_dependency_image": "sha256:7824f39d1ae4d16a50b3c9ad2d1052e74e86c010a67d079bc593f10551cfed03",
+  "public_repository": {
+    "source": "https://github.com/teddashh/agentic-smart-home#release/0.7.0",
+    "reference": "release/0.7.0",
+    "repository_id": "9b5f5116",
+    "app_slug": "9b5f5116_agentic_bridge",
+    "version": "0.7.0",
+    "source_build": true,
+    "commit_digest_pinned_by_supervisor": false
+  },
+  "native_browser": {
+    "kind": "native_ha_ingress_browser",
+    "status": "passed",
+    "observed_from": "chromium_native_ha_to_actual_ingress_app",
+    "no_api_or_header_mocking": true,
+    "checks": {
+      "native_login_form_used": true,
+      "native_owner_login": true,
+      "native_http_confirmation_needed": false,
+      "compiled_bridge_ui": true,
+      "existing_case_resumed": true,
+      "actual_ingress_post_csrf_and_origin": true,
+      "reload_and_same_case_continuation": true,
+      "native_fullframe_screenshot": true
+    },
+    "entry_method": "native_sidebar_link",
+    "compiled_js_sha256": "02d3e8f51fecf71b6cdb99aa09517ff3beae409e93ec69d4a276819c3ccbdfe8",
+    "case_id": "2a1c84a25e1740a3b646b4ec7417e94b",
+    "thread_id": "c41c6d9acca9d67bdaa12f81830ed1a7ebca448a89ed63b462cb1013d96ea6bb",
+    "message_ids": [
+      "44479c1bb7ea4f32568e8e1a5d72c0f972d8a89eb95c20c11e2f1cc6dd4e5554",
+      "34fb905e3ab9782ef328d26865820048656867a5f9ceafa4f887d219a7627ab4"
+    ],
+    "browser_error_types": [],
+    "duration_seconds": 12.208
+  },
+  "cleanup": true,
+  "duration_seconds": 254
+}

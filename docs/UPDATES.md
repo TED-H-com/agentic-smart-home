@@ -6,6 +6,8 @@ HA 保留官方更新；外層負責本產品的受測發行與已授權智能�
 
 0.7.0 的固定 updater 只更新 **外層 Controller image**，相同 Controller schema 3、Runner protocol 1、worker contract 1。manifest 另綁目前 CLI／Hermes／Core／網路 runtime 指紋；不在同次升級 OS、HAOS、Core、Runner、Hermes 或網路。較舊 schema 的向前遷移與同 schema 的 image 退版分開處理。有智能管家 bridge 歷史時（即使已撤銷），候選仍必須支援 bridge contract 1；0.6.1 缺少此契約，不能僅憑 schema 3 就直接退回。
 
+**舊 Host 只換 Controller image，不會取得新版固定更新器。** 側欄首次配對、管理及使用前，Controller 必須從固定 Unix Host broker 取得 `controller_update.ingress_bridge_contract: 1`；值由 Host updater 實作提供，資料庫設定或產品版本號不能代替。證明只保存在程序記憶體並定期重驗，Host 過舊、失聯或證明失效時停止側欄連接與其工作，外層救援仍可用。0.7.0 媒體包含這項 Host 保護；既有 0.6.x Host 的就地升級流程尚未交付，不能用 Controller-only 更新宣稱整套升級完成。
+
 ## 發行者與候選
 
 產品預設不附虛造的可信發行者。Owner 在本機核對發行者 Ed25519 公鑰與 image repository 後，以固定 CLI 設定信任：

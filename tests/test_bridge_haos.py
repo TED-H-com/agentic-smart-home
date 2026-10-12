@@ -48,8 +48,28 @@ class ProbeHA(HomeAssistant):
                 raise HAError("supervisor_job_missing" if self.last_error["job_missing"] else "upstream_request_failed")
             return result["result"]
 
-OUTER = r'''
-import json, os, secrets
+HOST_CONTRACT_FIXTURE = r'''
+import json
+from aiohttp import web
+
+def host_contract_app(receipt):
+    reads = 0
+    async def status(request):
+        nonlocal reads
+        reads += 1
+        receipt.write_text(json.dumps({'kind':'unix_host_contract_fixture_not_installed_host',
+            'ingress_bridge_contract':1,'status_reads':reads}))
+        return web.json_response({'controller_update':{'ingress_bridge_contract':1}})
+    app = web.Application()
+    app.router.add_get('/status', status, allow_head=False)
+    async def unsupported(request):
+        return web.Response(status=404)
+    app.router.add_route('*', '/{tail:.*}', unsupported)
+    return app
+'''
+
+OUTER = HOST_CONTRACT_FIXTURE + r'''
+import asyncio, json, os, secrets
 from pathlib import Path
 import uvicorn
 from agentic_controller.app import create_app
@@ -76,11 +96,21 @@ class InferenceFixture:
 ha = HomeAssistant(settings['token'], 'http://192.168.177.2:8123/api',
                    'ws://192.168.177.2:8123/api/websocket', external=True)
 app = create_app(store=store, ha=ha, host_mode=True, hermes_client=InferenceFixture())
-options = app.state.ingress_bridge.prepare_pairing()
-Path('/lab/pairing.json').write_text(json.dumps(options))
-if settings['public']:
-    store.put('bootstrap_v1', {'id':'setup','run_id':'d'*32,'state':'completed','bridge_auto_enroll':True})
-uvicorn.run(app, host='0.0.0.0',port=8099,proxy_headers=False,access_log=False,log_level='warning')
+async def main():
+    host = web.AppRunner(host_contract_app(Path('/lab/host-contract-fixture.json')), access_log=None)
+    await host.setup()
+    await web.UnixSite(host, '/run/agentic-home/host.sock').start()
+    try:
+        await app.state.ingress_bridge.require_host()
+        options = app.state.ingress_bridge.prepare_pairing()
+        Path('/lab/pairing.json').write_text(json.dumps(options))
+        if settings['public']:
+            store.put('bootstrap_v1', {'id':'setup','run_id':'d'*32,'state':'completed','bridge_auto_enroll':True})
+        await uvicorn.Server(uvicorn.Config(app, host='0.0.0.0',port=8099,
+            proxy_headers=False,access_log=False,log_level='warning')).serve()
+    finally:
+        await host.cleanup()
+asyncio.run(main())
 '''
 
 
@@ -292,12 +322,14 @@ async def test_real_haos_sidebar_bridge(tmp_path, request):
                                            "access_key": secrets.token_urlsafe(32), "public": public}))
             identity.chmod(0o600)
             (tmp_path / "outer.py").write_text(OUTER)
+            (tmp_path / "host-socket").mkdir(mode=0o700)
             evidence["outer_dependency_image"] = docker("image", "inspect", CONTROLLER, "--format", "{{.Id}}")
             docker("run", "-d", "--name", outer, "--network", network, "--ip", "192.168.177.1",
                    "--memory", "768m", "--cpus", "1", "--pids-limit", "128", "--user", f"{os.getuid()}:{os.getgid()}",
                    "-p", "127.0.0.1::8099", "-e", "PYTHONPATH=/app",
                    "-e", "AGENTIC_DATA=/lab/outer-data", "-e", "AGENTIC_HOST_MODE=1",
-                   "-v", f"{tmp_path}:/lab", "-v", f"{ROOT / 'controller/agentic_controller'}:/app/agentic_controller:ro",
+                   "-v", f"{tmp_path}:/lab", "-v", f"{tmp_path / 'host-socket'}:/run/agentic-home",
+                   "-v", f"{ROOT / 'controller/agentic_controller'}:/app/agentic_controller:ro",
                    "-v", f"{ROOT / 'controller/static'}:/app/static:ro", CONTROLLER,
                    "python", "/lab/outer.py")
             database = tmp_path / "outer-data/controller.sqlite3"
@@ -480,6 +512,10 @@ async def test_real_haos_sidebar_bridge(tmp_path, request):
             if public:
                 assert setting(database, "bridge_maintenance")["state"] == "user_disabled"
             evidence["checks"]["manual_stop_remains_stopped"] = True
+            host_fixture = json.loads((tmp_path / "host-contract-fixture.json").read_text())
+            assert (host_fixture["kind"] == "unix_host_contract_fixture_not_installed_host" and
+                    host_fixture["ingress_bridge_contract"] == 1 and host_fixture["status_reads"] > 0)
+            evidence["host_capability"] = host_fixture
             evidence["status"] = "passed"
     except BaseException as exc:
         evidence.update(status="failed", error_type=type(exc).__name__)
@@ -610,3 +646,29 @@ def test_owned_lifecycle_diagnostics_are_bounded_and_never_export_raw_fields(fai
     else:
         assert observed["vm"]["state"] == {"Running": False, "Pid": 0, "ExitCode": 137}
         assert observed["vm"]["events"] == [{"action": "die", "timeNano": 1000000000}]
+
+
+
+async def test_host_capability_fixture_uses_real_unix_http_and_exposes_no_actions(tmp_path):
+    from aiohttp import web
+    namespace = {}
+    exec(HOST_CONTRACT_FIXTURE, namespace)
+    receipt = tmp_path / "receipt.json"
+    server = web.AppRunner(namespace["host_contract_app"](receipt))
+    socket = tmp_path.parent / "bridge-contract.sock"
+    await server.setup()
+    try:
+        await web.UnixSite(server, str(socket)).start()
+        async with aiohttp.ClientSession(connector=aiohttp.UnixConnector(path=str(socket))) as client:
+            async with client.get("http://localhost/status") as response:
+                assert response.status == 200
+                assert await response.json() == {"controller_update": {"ingress_bridge_contract": 1}}
+            for method, path in (("POST", "/actions"), ("POST", "/status"), ("HEAD", "/status"), ("GET", "/unknown")):
+                async with client.request(method, "http://localhost" + path, json={}) as response:
+                    assert response.status == 404
+        value = json.loads(receipt.read_text())
+        assert value == {"kind": "unix_host_contract_fixture_not_installed_host",
+                         "ingress_bridge_contract": 1, "status_reads": 1}
+    finally:
+        await server.cleanup()
+        socket.unlink(missing_ok=True)

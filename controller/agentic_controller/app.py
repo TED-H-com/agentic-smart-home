@@ -121,7 +121,7 @@ SERVICES = {
 }
 
 
-def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", static=None, host_mode=None, inner_runner=None, hermes_client=None):
+def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", static=None, host_mode=None, inner_runner=None, hermes_client=None, bridge_host_status=None):
     root = Path(os.environ.get("AGENTIC_DATA", "/data"))
     host_mode = os.environ.get("AGENTIC_HOST_MODE") == "1" if host_mode is None else host_mode
     store = store or Store(root / "controller.sqlite3")
@@ -638,9 +638,9 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         gateway_routes(app, gateway, store, gateway.runners, controller_id)
         app.state.gateway = gateway
         app.state.coordinator = coordinator
-        bridge = IngressBridge(app, store, ha, gateway, coordinator, secret)
+        bridge = IngressBridge(app, store, ha, gateway, coordinator, secret, host_status=bridge_host_status)
         gateway.bridge_valid = bridge.origin_valid
-        coordinator.worker_manager.bridge_valid = lambda authority: (bridge.current(authority.get("bridge_pairing_id"), authority.get("owner"))
+        coordinator.worker_manager.bridge_valid = lambda authority: (bridge.host_current() and bridge.current(authority.get("bridge_pairing_id"), authority.get("owner"))
             and bridge.owner_valid_until > time.time())
         app.state.ingress_bridge = bridge
         maintenance = BridgeMaintenance(store, ha, bridge)
@@ -692,6 +692,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                             token != getattr(ha, "token", None)):
                         raise BridgeFault("bridge_initial_repair_not_allowed")
                 try:
+                    unchanged()
+                    await bridge.require_host()
                     unchanged()
                     async with asyncio.timeout(5):
                         active = await ha.owner(owner)

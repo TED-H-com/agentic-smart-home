@@ -13,6 +13,8 @@ import time
 import uuid
 from dataclasses import asdict, dataclass
 
+from fastapi import HTTPException
+
 from .ha import HAError
 from .models import digest, utcnow
 
@@ -75,6 +77,18 @@ class BridgeMaintenance:
                                   "same_version_rebuild_requires_manual_reconciliation"]
         return result
 
+    async def require_host(self):
+        try:
+            await self.bridge.require_host()
+        except HTTPException as exc:
+            raise BridgeFault(exc.detail, "unavailable") from None
+
+    def host_guard(self):
+        try:
+            self.bridge.host_guard()
+        except HTTPException as exc:
+            raise BridgeFault(exc.detail, "unavailable") from None
+
     async def authorize(self, *, auto_repair=False, commit_guard=None):
         """Called by the existing explicitly authorized, completed setup flow only."""
         if type(auto_repair) is not bool:
@@ -85,6 +99,7 @@ class BridgeMaintenance:
             setup = self.store.get("bootstrap_v1", "setup") or {}
             if setup.get("state") != "completed" or not owner:
                 raise BridgeFault("bridge_setup_required")
+            await self.require_host()
             if not await self.ha.owner(owner):
                 raise BridgeFault("bridge_owner_required")
             if commit_guard:
@@ -92,6 +107,7 @@ class BridgeMaintenance:
             if owner != self.store.setting("owner") or token != self.ha.token:
                 raise BridgeFault("bridge_owner_changed")
             self.effect_gate()
+            self.host_guard()
             previous = self.record()
             if previous:
                 # Setup reconnects must not undo a manual disable/uninstall or rotate credentials.
@@ -122,6 +138,7 @@ class BridgeMaintenance:
             if commit_guard:
                 commit_guard()
             self.effect_gate()
+            self.host_guard()
             if (not current or current["id"] != generation or current["state"] != "disabled" or
                     self.store.setting("owner") != previous["owner"] or self.ha.token != token):
                 raise BridgeFault("bridge_authorization_changed", "needs_reconcile")
@@ -204,6 +221,7 @@ class BridgeMaintenance:
 
     def guard(self, record, token):
         self.effect_gate()
+        self.host_guard()
         current = self.record()
         if (not current or current["id"] != record["id"] or not current["enabled"] or
                 current["owner"] != self.store.setting("owner") or token != self.ha.token):
@@ -215,6 +233,7 @@ class BridgeMaintenance:
             raise BridgeFault("bridge_pairing_changed", "needs_reconcile")
 
     async def owner(self, record, token):
+        await self.require_host()
         self.guard(record, token)
         active = await self.ha.owner(record["owner"])
         self.guard(record, token)

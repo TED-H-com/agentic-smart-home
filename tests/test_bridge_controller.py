@@ -47,8 +47,11 @@ async def system(store, ha, monkeypatch, tmp_path):
         return {'id': OWNER, 'is_owner': True, 'is_active': True} if identifier == OWNER and not ha.revoked else None
     ha.owner = owner
     runtime = Runtime()
-    app = create_app(store=store, ha=ha, host_mode=True, hermes_client=runtime)
+    async def host_status():
+        return {'controller_update': {'ingress_bridge_contract': 1}}
+    app = create_app(store=store, ha=ha, host_mode=True, hermes_client=runtime, bridge_host_status=host_status)
     bridge = app.state.ingress_bridge
+    await bridge.require_host()
     options = bridge.prepare_pairing()
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=bridge.transport, client=('192.168.177.2', 1)),
             base_url='https://192.168.177.1:8444', headers={'Authorization': 'Bearer ' + options['token']}) as client:
@@ -173,7 +176,11 @@ async def test_history_resource_acl_excludes_channels_other_owners_and_manual_jo
 async def test_pairing_restart_replay_private_permissions_rotation_and_revocation(system, store, ha):
     app, bridge, _, _, options, _ = system
     assert bridge.prepare_pairing() == options
-    another = IngressBridge(app, store, ha, app.state.gateway, app.state.coordinator, store.setting('csrf_secret'))
+    another = IngressBridge(app, store, ha, app.state.gateway, app.state.coordinator, store.setting('csrf_secret'),
+                            host_status=bridge.host_status)
+    with pytest.raises(HTTPException, match='bridge_host_contract_required'):
+        another.prepare_pairing()
+    await another.require_host()
     assert another.prepare_pairing() == options
     assert options['token'] not in json.dumps(bridge.status()) and options['token'] not in store.path.read_bytes().decode(errors='ignore')
     assert bridge.root.stat().st_mode & 0o777 == 0o700
@@ -451,6 +458,169 @@ async def test_expired_internal_marker_cannot_skip_mutation_csrf(system):
 async def initial_repair(system, **kwargs):
     host = system[3]
     return await host.post('/api/host/bridge/maintenance/repair', json={}, **kwargs)
+
+
+@pytest.mark.parametrize('capability', [None, {}, {'controller_update': None},
+    *({'controller_update': {'ingress_bridge_contract': value}} for value in (None, False, True, '1', 1.0, 0, 2))])
+async def test_legacy_or_malformed_host_cannot_create_bridge_authority(store, ha, monkeypatch, tmp_path, capability):
+    from agentic_controller.bridge_maintenance import BridgeFault
+    monkeypatch.setenv('AGENTIC_DATA', str(tmp_path))
+    ha.token = 'fixture-ha-token'
+    store.set_setting('owner', OWNER)
+    store.put('bootstrap_v1', {'id': 'setup', 'state': 'completed', 'bridge_auto_enroll': True})
+    # A persisted claim from an old process is deliberately not a capability.
+    store.set_setting('controller_update', {'ingress_bridge_contract': 1})
+    async def status():
+        return capability
+    app = create_app(store=store, ha=ha, host_mode=True, bridge_host_status=status)
+    bridge, manager = app.state.ingress_bridge, app.state.bridge_maintenance
+    with pytest.raises(BridgeFault, match='bridge_host_contract_required'):
+        await manager.authorize(auto_repair=True)
+    result = await manager.tick()
+    assert result['state'] == 'unavailable' and result['code'] == 'bridge_host_contract_required'
+    assert manager.record() is None and not bridge.record() and not bridge.root.exists()
+    with pytest.raises(HTTPException, match='bridge_host_contract_required'):
+        bridge.prepare_pairing(repair=True)
+    await bridge.close()
+
+
+@pytest.mark.parametrize('change', ['owner', 'token', 'epoch'])
+async def test_host_proof_cannot_cross_owner_or_session_change_while_awaiting(system, store, ha, change):
+    bridge = system[1]
+    entered, release = asyncio.Event(), asyncio.Event()
+    async def status():
+        entered.set()
+        await release.wait()
+        return {'controller_update': {'ingress_bridge_contract': 1}}
+    bridge.host_status, bridge.host_valid_until = status, 0
+    pending = asyncio.create_task(call(system))
+    await entered.wait()
+    if change == 'owner':
+        store.set_setting('owner', OTHER)
+    elif change == 'token':
+        ha.token = 'changed-fixture-token'
+    else:
+        store.set_setting('hermes_web_epoch', 'new-session-epoch')
+    release.set()
+    response = await pending
+    assert response.status_code == 403 and response.json()['detail'] == 'bridge_authority_revoked'
+    assert not bridge.host_current() and bridge.owner_valid_until == 0
+
+
+async def test_host_outage_fences_live_model_and_outer_rescue_status_stays_read_only(system, store):
+    app, bridge, _, host, _, runtime = system
+    runtime.pending = True
+    accepted = await call(system, '/api/gateway/messages', 'POST', {'message': 'investigate', 'coordinator': 'hermes'})
+    for _ in range(50):
+        if runtime.runs:
+            break
+        await asyncio.sleep(0.01)
+    assert accepted.status_code == 202 and runtime.runs
+    calls = []
+    async def unavailable():
+        calls.append(True)
+        raise OSError('private diagnostic must not escape')
+    bridge.host_status, bridge.host_valid_until = unavailable, 0
+    response = await call(system)
+    assert response.status_code == 503 and 'private diagnostic' not in response.text
+    await bridge.host_stop_task
+    assert all(value['state'] == 'cancelled' for value in runtime.runs.values())
+    grants = store.list('mcp_grant')
+    assert grants and all(item['revoked'] is True for item in grants)
+    before = len(calls)
+    assert (await host.get('/api/session')).status_code == 200
+    assert (await host.get('/api/host/bridge/maintenance')).status_code == 200
+    assert len(calls) == before and not bridge.host_current()
+    assert not app.state.gateway.running
+
+
+async def test_host_recovery_does_not_clear_pending_worker_stop_or_uncertain_model(system, store, monkeypatch):
+    from agentic_controller.hermes import HermesError
+    app, bridge, _, _, options, runtime = system
+    message, run_id, job_id = '6'*64, '7'*32, '9'*32
+    store.put('conversation', {'id': message, 'bridge_pairing_id': options['pairing_id']})
+    store.put('hermes_run', {'id': run_id, 'message_id': message, 'scope': '8'*64, 'state': 'running'})
+    store.put('work_job', {'id': job_id, 'state': 'running', 'created_epoch': time.time(),
+        'authority': {'message_id': message, 'bridge_pairing_id': options['pairing_id']},
+        'execution_started': True, 'stop_confirmed': False, 'dispatch_attempted': True})
+    lease = {'job_id': job_id, 'epoch': 1}
+    store.set_setting('worker_lease', lease)
+    async def unavailable(*args):
+        raise HermesError('runtime_unavailable')
+    monkeypatch.setattr(runtime, 'call', unavailable)
+    bridge.invalidate_host()
+    await bridge.require_host()
+    assert bridge.host_current()
+    assert store.get('hermes_run', run_id)['state'] == 'stop_unconfirmed'
+    worker = store.get('work_job', job_id)
+    assert worker['state'] == 'cancel_requested' and worker['cancel_requested'] is True
+    assert worker['stop_confirmed'] is False and store.setting('worker_lease') == lease
+    assert app.state.coordinator.worker_manager.public_capabilities()['active_job_id'] == job_id
+
+
+async def test_host_recovery_waits_for_previous_cancellation_persistence(system, monkeypatch):
+    bridge = system[1]
+    entered, release = asyncio.Event(), asyncio.Event()
+    async def fence(generation):
+        entered.set()
+        await release.wait()
+    monkeypatch.setattr(bridge, 'stop_origin', fence)
+    bridge.invalidate_host()
+    await entered.wait()
+    pending = asyncio.create_task(bridge.require_host())
+    await asyncio.sleep(0)
+    assert not pending.done() and not bridge.host_current()
+    release.set()
+    await pending
+    assert bridge.host_current()
+
+
+async def test_host_gate_timeout_covers_lock_wait_and_keeps_pairing_unchanged(system, monkeypatch):
+    import agentic_controller.bridge as module
+    bridge, options = system[1], system[4]
+    monkeypatch.setattr(module, 'HOST_PROOF_TIMEOUT', 0.05)
+    bridge.host_valid_until = 0
+    await bridge.host_lock.acquire()
+    try:
+        response = await asyncio.wait_for(call(system), 1)
+    finally:
+        bridge.host_lock.release()
+    assert response.status_code == 503 and response.json()['detail'] == 'bridge_host_unavailable'
+    assert bridge.record()['pairing_id'] == options['pairing_id'] and not bridge.host_current()
+
+
+async def test_initial_private_identity_repair_cannot_bypass_legacy_host_gate(system, store):
+    app, bridge = system[:2]
+    store.put('bootstrap_v1', {'id': 'setup', 'state': 'completed'})
+    (bridge.root / 'tls.key').write_bytes(b'partial private key')
+    prior = bridge.record()
+    async def old_host():
+        return {'vm': 'running'}
+    bridge.host_status, bridge.host_valid_until = old_host, 0
+    response = await initial_repair(system)
+    assert response.status_code == 503 and response.json()['detail'] == 'bridge_host_contract_required'
+    assert bridge.record() == prior and (bridge.root / 'tls.key').read_bytes() == b'partial private key'
+    assert app.state.bridge_maintenance.record() is None
+
+
+async def test_restored_identity_listener_requires_new_process_host_proof(system, store, ha):
+    app, original = system[:2]
+    observed = asyncio.Event()
+    async def old_host():
+        observed.set()
+        return {'vm': 'running'}
+    restarted = IngressBridge(app, store, ha, app.state.gateway, app.state.coordinator,
+                              store.setting('csrf_secret'), host_status=old_host)
+    task = asyncio.create_task(restarted.listen())
+    try:
+        await asyncio.wait_for(observed.wait(), 1)
+        await asyncio.sleep(0)
+        assert not restarted.listener_ready and restarted.server is None
+        assert not restarted.host_current() and original.record()['pairing_id'] == restarted.record()['pairing_id']
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        await restarted.close()
 
 
 @pytest.mark.parametrize('orphan', [True, False])

@@ -38,6 +38,10 @@ App 跨版本 migration、重建及重新部署尚未交付。固定 release bra
 
 Controller 仍使用 schema 3，但有任何側欄歷史的資料庫要求候選支援 bridge contract 1。實際 0.6.1 映像因缺少契約而被固定 probe 拒絕，新版候選可通過；見 [映像測試](../../evidence/bridge-legacy-candidate.json)。尚未確認的 Supervisor 操作也會阻止 Controller 切版。退版保留當前 DB，不恢復舊快照蓋掉新家庭操作。
 
+混合版本審查發現舊 Host 不會執行這項新門檻，因此新增固定 Unix broker 的能力握手：`controller_update.ingress_bridge_contract` 必須是整數 1，來源為 Host updater 實作。配對、註冊、修復、重新連接、listener 與工作授權均受門檻約束；不從 DB 恢復 proof。證明以 monotonic clock 計 15 秒期限，每 5 秒背景重驗，包含鎖等待的觀測上限為 5 秒，並綁 Owner／HA token／Web session epoch。失聯時撤銷活動使用權並持久化取消；恢復連線不清掉未確認停止的工作或 lease。定向 [190 項 gate 回歸](../../evidence/bridge-host-gate.xml)與 [104 項 Host／更新器回歸](../../evidence/host-bridge-contract.xml)已通過；真正安裝證據另列於版本驗證。
+
+跨版本 App 更新尚未交付；已補 [下一增量設計](2026-10-12-APP-UPDATE-NEXT.md)，明確區分 release ref 改變後的新 App 身份、App-only 備份、單一配對世代切換與受控退版。設計中的 U1–U8 全部待執行，不沿用本輪首次安裝結果。
+
 ## 證據範圍
 
 - [薄 App 測試](../../evidence/bridge-app.xml)：固定目的地、Ingress 身份、跨來源請求、部署狀態與斷線。

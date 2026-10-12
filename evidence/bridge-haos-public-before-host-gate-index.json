@@ -1,0 +1,33 @@
+{
+  "kind": "public_haos_before_host_contract_gate_archive",
+  "records_unchanged": true,
+  "source_commit": "5bf6babab1b9f23923c8352bd3d497288dd5c3fe",
+  "report": "evidence/bridge-haos-public-before-host-gate.json",
+  "native_screenshot": "evidence/ui/bridge-native-haos-public-before-host-gate.png",
+  "files": [
+    {
+      "source": "evidence/bridge-haos-public.json",
+      "archive": "evidence/bridge-haos-public-before-host-gate.json",
+      "sha256": "20c4164ce8462c11050d260214bdf027ee483c32f6f6ec4d889973de5c13ed13",
+      "bytes": 2452
+    },
+    {
+      "source": "evidence/bridge-haos-public.xml",
+      "archive": "evidence/bridge-haos-public-before-host-gate.xml",
+      "sha256": "b7b27393ff44dd5c90ebe096347b077611c33945d2a2f702840eef805ee32953",
+      "bytes": 2604
+    },
+    {
+      "source": "evidence/ui/bridge-native-haos-public.png",
+      "archive": "evidence/ui/bridge-native-haos-public-before-host-gate.png",
+      "sha256": "a833eccef714f6bfd9aab11ad180de64ff163afc5f32554df69d92ba2e529a0d",
+      "bytes": 79751
+    },
+    {
+      "source": "build/bridge-haos-public.log",
+      "archive": "build/bridge-haos-public-before-host-gate.log",
+      "sha256": "244bdb9f6d01b8d90f3f2e833ed9589a034ab7d307c655861d84d71a046e9d86",
+      "bytes": 196
+    }
+  ]
+}

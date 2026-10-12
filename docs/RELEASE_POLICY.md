@@ -41,6 +41,8 @@ Manager 只處理本產品指定 App。使用者手動停止、移除或改變 A
 
 Controller 的 SQL `user_version` 仍為 3，但相同 schema 不代表舊 binary 理解側欄授權與停止語意。資料庫只要有任何 `ingress_bridge` 歷史（包含已 revoked），固定 candidate probe 就要求 `BRIDGE_CONTRACT=1`；不能把 0.6.1 當成可直接切回的同 schema 候選。Supervisor 安裝／設定／啟動等尚有未完成或效果未確認的操作時，也必須先核對，不能切換 Controller 來遺失持久管理狀態。這是能力及 quiescence 檢查，不是以舊 DB 覆蓋新 Live 資料的退版捷徑。
 
+上述保護需要新版 **Host 固定更新器**。只更新 Controller 的舊 Host 不具備它；側欄必須先通過固定 Unix broker 的能力握手，不能信任 DB marker 或僅比較版本字串。首次連接及運作中的證明都受期限與身份範圍限制，失聯時停用受影響的側欄並停止其工作。現有 Controller-only 發布工具不更新 Host，0.6.x Host 的受控就地升級仍需另交付；不得以新 Controller 能啟動作為已完成遷移的證據。
+
 統一可信發行索引、內建 publisher 信任根、全產品更新／遷移與完整 Linux 恢復，仍是待交付增量。不能把現有 Controller-only manifest 重新解讀為能更新 HAOS／Core／Linux。安全公告的追蹤與緊急發版仍需持續建立實際證據，不宣稱已有值班或 SLA。
 
 0.7.0 本輪 App、橋接身份、UI 與固定維護流程的工程結果由 [驗證紀錄](VERIFICATION.md) 記錄；真家庭驗收、Home coding 與 Plan v3 E1／E2 不因新增側欄自動完成。

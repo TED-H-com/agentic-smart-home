@@ -15,7 +15,9 @@ import subprocess
 import sys
 import time
 import uuid
+from contextlib import closing
 from pathlib import Path
+from types import SimpleNamespace
 
 STAGE = "disposable_vm_guard"
 FAILED_STAGE = None
@@ -50,6 +52,7 @@ UNIT = "agentic-installed-update-probe.service"
 STAGES = {
     "disposable_vm_guard", "installed_module_imports", "installed_update_baseline",
     "stop_host_broker_for_isolated_fixture", "build_fixed_label_candidate",
+    "installed_bridge_contract_probe",
     "ephemeral_publisher_and_signature", "verify_signature_and_stage_candidate",
     "approved_candidate_activation", "durable_post_deployment_record", "approved_same_database_rollback",
     "rollback_readback_and_row_preservation", "restore_original_image_and_cleanup",
@@ -185,6 +188,145 @@ def process_diagnostics(result):
                 "disk_full": ("no space left on device",), "read_only_filesystem": ("read-only file system",),
                 "io_error": ("input/output error",), "oom": ("out of memory", "oom-kill", "killed process"),
             }.items()}}
+
+
+def bridge_contract_probe(manager, original, base_tag, fixture, identity, database, schema):
+    """Exercise installed enforcement; fixture authority never enters the Live DB.
+
+    This is a current-image derivative with one removed declaration, NOT an old
+    released Controller. Both candidates execute the installed fixed script on
+    real bounded ext4 volumes. Docker, volume and probe calls are not replaced.
+    """
+    from agentic_host.manager import HostError
+    from agentic_host.updater import UpdateError, Updater, offline_check
+
+    checkpoint("installed_bridge_contract_probe")
+    run = manager.run
+    root = fixture / "bridge-contract"
+    root.mkdir(mode=0o700)
+    context, host, data = root / "context", root / "host", root / "controller"
+    for directory in (context, host, data):
+        directory.mkdir(mode=0o700)
+    scratch = data / "controller.sqlite3"
+    revoked = json.dumps({"state": "revoked", "pairing_id": "synthetic-revoked-generation"})
+    with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as source, closing(sqlite3.connect(scratch)) as target:
+        with target:
+            for row in source.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name IN ('settings','records','requests','events')"):
+                target.execute(row[0])
+            target.execute(f"PRAGMA user_version={int(schema)}")
+            target.execute("INSERT INTO settings VALUES ('ingress_bridge',?)", (revoked,))
+    scratch.chmod(0o600)
+    service = Updater(SimpleNamespace(root=host, product=manager.product, run=run))
+    assert service.database == scratch and service.database != database
+    missing_tag = "agentic-update-no-bridge-contract:" + identity
+    missing_image = None
+    observations = []
+    expected_marker = [True]
+    receipt = None
+
+    def actual_command(*args, **kwargs):
+        if args[:2] != ("docker", "run"):
+            return run(*args, **kwargs)
+        # Observe only the fixed probe's scrubbed input and exact exit cause.
+        name = args[args.index("--name") + 1]
+        assert re.fullmatch(r"agentic-update-probe-[a-f0-9]{32}", name)
+        mounts = [args[i + 1] for i, item in enumerate(args) if item == "--mount"]
+        assert f"type=bind,src={manager.product / 'host/agentic_host/update_probe.py'},dst=/fixed-probe.py,readonly" in mounts
+        mount = next(value for value in mounts if value.endswith(",dst=/probe"))
+        directory = Path(mount.removeprefix("type=bind,src=").removesuffix(",dst=/probe"))
+        assert directory.parent.parent == service.root / "probes"
+        with closing(sqlite3.connect((directory / "controller.sqlite3").as_uri() + "?mode=ro", uri=True)) as db:
+            settings = dict(db.execute("SELECT key,value FROM settings"))
+            assert settings == {"paused": "true", "retention": '{"context_days":7}',
+                                **({"required_ingress_bridge_contract": "1"} if expected_marker[0] else {})}
+            assert all(db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0 for table in ("records", "requests", "events"))
+        result = run(*args, **{**kwargs, "check": False})
+        observations.append({"name": name, "directory": directory, "returncode": result.returncode,
+                             "missing_contract": "ImportError: cannot import name 'BRIDGE_CONTRACT' from 'agentic_controller.bridge'" in result.stderr})
+        if result.returncode:
+            # A fixed safe exception preserves real checked-command behavior.
+            # Never export raw traceback, arguments, paths or candidate text.
+            raise HostError("installed_bridge_fixed_probe_failed")
+        return result
+
+    def prove_probe_cleanup():
+        assert not service.probe_path.exists()
+        probes = service.root / "probes"
+        assert not probes.exists() or not list(probes.iterdir())
+        for observation in observations:
+            assert not run("docker", "container", "ls", "-a", "--filter", "name=^/" + observation["name"] + "$",
+                           "--format", "{{.Names}}", timeout=15).stdout.strip()
+            assert not observation["directory"].parent.exists() and not os.path.ismount(observation["directory"])
+            assert not run("losetup", "-j", str(observation["directory"].parent / "workspace.ext4"), timeout=15).stdout.strip()
+
+    service.run = actual_command
+    try:
+        # Build only a one-line incompatibility fixture from the installed image.
+        patch = ("from pathlib import Path; p=Path('/app/agentic_controller/bridge.py'); s=p.read_text(); "
+                 "old='BRIDGE_CONTRACT = 1\\n'; assert s.count(old)==1; p.write_text(s.replace(old,''))")
+        (context / "Dockerfile").write_text(f"FROM {base_tag}\nRUN " + json.dumps(["python", "-c", patch]) + "\n")
+        run("docker", "build", "--network", "none", "--pull=false", "-t", missing_tag, str(context), timeout=180)
+        missing_image = run("docker", "image", "inspect", "--format", "{{.Id}}", missing_tag).stdout.strip()
+        assert re.fullmatch(r"sha256:[a-f0-9]{64}", missing_image) and missing_image != original
+        before = hashlib.sha256(scratch.read_bytes()).hexdigest()
+        service.probe(original, schema)
+        prove_probe_cleanup()
+        try:
+            service.probe(missing_image, schema)
+        except HostError:
+            assert len(observations) == 2 and observations[-1]["returncode"] == 1 and observations[-1]["missing_contract"]
+        else:
+            raise AssertionError("missing_bridge_contract_was_accepted")
+        prove_probe_cleanup()
+        assert hashlib.sha256(scratch.read_bytes()).hexdigest() == before
+        # Control: without bridge history the same derivative remains compatible.
+        with closing(sqlite3.connect(scratch)) as db, db:
+            db.execute("DELETE FROM settings WHERE key='ingress_bridge'")
+        expected_marker[0] = False
+        service.probe(missing_image, schema)
+        prove_probe_cleanup()
+        with closing(sqlite3.connect(scratch)) as db, db:
+            db.execute("INSERT INTO settings VALUES ('ingress_bridge',?)", (revoked,))
+        offline_check(scratch, schema)
+        with closing(sqlite3.connect(scratch)) as db, db:
+            db.execute("INSERT INTO settings VALUES ('bridge_maintenance',?)",
+                       (json.dumps({"operation": {"kind": "restart", "state": "pending", "job_id": "synthetic-supervisor-job"}}),))
+        pending_before = hashlib.sha256(scratch.read_bytes()).hexdigest()
+        try:
+            offline_check(scratch, schema)
+        except UpdateError as exc:
+            assert str(exc) == "update_active_or_uncertain_work"
+        else:
+            raise AssertionError("pending_bridge_operation_was_accepted")
+        assert hashlib.sha256(scratch.read_bytes()).hexdigest() == pending_before
+        assert [item["returncode"] for item in observations] == [0, 1, 0]
+        receipt = {
+            "contract": 1, "observed_from": "installed_host_fixed_probe", "schema": schema,
+            "database_fixture": "isolated_structure_only_revoked_bridge",
+            "fixed_script_sha256": hashlib.sha256((manager.product / "host/agentic_host/update_probe.py").read_bytes()).hexdigest(),
+            "supporting_image": original, "missing_contract_image": missing_image,
+            "synthetic_missing_contract_image": True, "real_historical_release": False,
+            "fixed_probe_executions": 3,
+            "checks": {key: True for key in ("revoked_history_marker_copied", "supporting_fixed_probe_passed",
+                "missing_contract_fixed_probe_rejected", "missing_contract_import_error", "missing_contract_without_history_passed",
+                "revoked_database_unchanged", "pending_maintenance_rejected", "pending_maintenance_readonly")},
+        }
+    finally:
+        # Recover only this helper's exact private journal. If fencing fails,
+        # leave its disk intact; the surrounding VM teardown is the last fence.
+        service.reconcile_probe()
+        prove_probe_cleanup()
+        run("docker", "image", "rm", missing_tag, timeout=30, check=False)
+        if missing_image:
+            run("docker", "image", "rm", missing_image, timeout=30, check=False)
+        listed = run("docker", "image", "ls", "-aq", "--no-trunc", timeout=15).stdout.splitlines()
+        assert missing_image is None or missing_image not in listed
+        shutil.rmtree(root)
+        assert not root.exists()
+        if receipt is not None:
+            receipt["cleanup"] = {key: True for key in ("probe_containers_absent", "quota_volumes_absent",
+                "probe_journal_absent", "fixture_image_absent", "scratch_database_absent")}
+    return receipt
 
 
 def lifecycle_receipt(value):
@@ -348,6 +490,7 @@ def main():
         run("docker", "build", "--network", "none", "--pull=false", "-t", candidate_tag, str(fixture), timeout=180)
         candidate = run("docker", "image", "inspect", "--format", "{{.Id}}", candidate_tag).stdout.strip()
         assert re.fullmatch(r"sha256:[a-f0-9]{64}", candidate) and candidate != original
+        bridge_contract = bridge_contract_probe(manager, original, base_tag, fixture, identity, service.database, schema)
         checkpoint("ephemeral_publisher_and_signature")
         run("openssl", "genpkey", "-algorithm", "ED25519", "-out", str(fixture / "private.pem"))
         run("openssl", "pkey", "-in", str(fixture / "private.pem"), "-pubout", "-out", str(fixture / "public.pem"))
@@ -431,10 +574,13 @@ def main():
             assert db.execute("SELECT value FROM settings WHERE key='updater_gate'").fetchone() is None
         result = {"state": "passed", "observed_from": "disposable_installed_linux_vm_root",
                   "actual": ["ed25519_signature_verification", "bounded_candidate_probe", "compose_activation", "authenticated_owner_smoke",
-                             "consistent_snapshot", "schema3", "maintenance_gate", "same_database_rollback", "post_deployment_row_preserved"],
-                  "fixtures": ["ephemeral_publisher", "preloaded_registry_delivery", "candidate_changes_only_image_label", "synthetic_post_deployment_record"],
+                             "consistent_snapshot", "schema3", "maintenance_gate", "same_database_rollback", "post_deployment_row_preserved",
+                             "revoked_bridge_fixed_probe_enforced", "pending_bridge_operation_blocked", "isolated_probe_cleanup_verified"],
+                  "fixtures": ["ephemeral_publisher", "preloaded_registry_delivery", "candidate_changes_only_image_label", "synthetic_post_deployment_record",
+                               "synthetic_missing_bridge_contract_image", "isolated_structure_only_revoked_bridge"],
                   "real_cloud": False, "real_publisher_release": False, "original_image": original, "candidate_image": candidate,
-                  "registry_delivery_calls": len(deliveries), "final_schema": schema, "rollback_restored_backup": False}
+                  "registry_delivery_calls": len(deliveries), "final_schema": schema, "rollback_restored_backup": False,
+                  "bridge_update_contract": bridge_contract}
     except Exception as exc:
         FAILED_STAGE = STAGE
         PRIMARY_FAILURE = safe_error(exc, STAGE)
@@ -464,6 +610,9 @@ def main():
         run("docker", "image", "rm", candidate_tag, base_tag, timeout=30, check=False)
         if candidate:
             run("docker", "image", "rm", candidate, timeout=30, check=False)
+        # Never recursively remove a quota disk whose writer/unmount could not
+        # be fenced. The test runner will tear down the entire disposable VM.
+        assert not any(Path(line.split()[4]).is_relative_to(fixture) for line in Path("/proc/self/mountinfo").read_text().splitlines())
         shutil.rmtree(fixture)
         run("systemctl", "start", "agentic-home-host.service", timeout=60)
         DIAGNOSTICS["cleanup_completed"] = True

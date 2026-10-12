@@ -1,0 +1,87 @@
+{
+  "headSha": "5bf6babab1b9f23923c8352bd3d497288dd5c3fe",
+  "conclusion": "success",
+  "createdAt": "2026-10-12T18:16:48Z",
+  "updatedAt": "2026-10-12T18:29:07Z",
+  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38289833372",
+  "run_id": 38289833372,
+  "branch": "release/0.7.0",
+  "pytest": {
+    "tests": 818,
+    "passed": 812,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 6,
+    "seconds": 486.541
+  },
+  "skips": [
+    {
+      "name": "test_real_haos_sidebar_bridge",
+      "class": "tests.test_bridge_haos",
+      "reason": "Actual HAOS App/Ingress needs --haos-vm"
+    },
+    {
+      "name": "test_desktop_ticket_private_hashed_rotating_and_fragment_only",
+      "class": "tests.test_desktop_login",
+      "reason": "Installed desktop handoff belongs to UID 1000"
+    },
+    {
+      "name": "test_actual_haos_app_boundary",
+      "class": "tests.test_haos_boundary",
+      "reason": "Actual HAOS App probe requires --haos-vm"
+    },
+    {
+      "name": "test_real_haos_boot_owner_and_supervisor_backup",
+      "class": "tests.test_haos_vm",
+      "reason": "Use --haos-vm for isolated KVM validation"
+    },
+    {
+      "name": "test_actual_qemu_machine_json_with_disk_fixture",
+      "class": "tests.test_host_compatibility",
+      "reason": "builder image is installed-VM tooling, not available in regular CI"
+    },
+    {
+      "name": "test_full_linux_install_with_nested_haos",
+      "class": "tests.test_linux_install",
+      "reason": "Use --linux-install to install onto a disposable virtual disk"
+    }
+  ],
+  "artifact": {
+    "id": 11766105358,
+    "name": "agentic-home-0.7.0",
+    "bytes": 50826364,
+    "sha256": "1a764c99dde3d035c6f02e600f98097b5f7a5c4b94505abe565a52d13e20bc5d",
+    "github_digest_verified": true,
+    "entries": 628
+  },
+  "source_archive": {
+    "path": "dist/agentic-home-0.7.0-source.zip",
+    "bytes": 26307054,
+    "sha256": "04574b5e2dfc60c231923290329d8c888418beaa004ab53173fc8643ffc60382",
+    "manifest_files": 918,
+    "all_manifest_entries_verified": true,
+    "tracked_runtime_paths_checked": 128,
+    "tracked_runtime_matches_exact_head": true,
+    "compiled_assets": {
+      "assets/index-7xxXC0si.js": "02d3e8f51fecf71b6cdb99aa09517ff3beae409e93ec69d4a276819c3ccbdfe8",
+      "assets/index-BlZhfU3M.css": "0ff7adf6e75f1ab9f46825c3fa11c8a8a27552f57df57972f230651ceea8cd7d",
+      "index.html": "e2a0230b6f2ccd4d712c20e287845560c8a4994498072e43e3cd34c0f1ff5625"
+    },
+    "bridge_matches_controller_ui": true
+  },
+  "scope": [
+    "GitHub ubuntu-24.04: clean frozen dependency installation, UI build, Ruff and contract checks.",
+    "Six product images built independently in CI.",
+    "pytest --real-ha --containers: disposable real Home Assistant Core, CLI/runtime containers, browser and fixture tests.",
+    "Product/source packaging and downloaded archive SHA256/manifest verification."
+  ],
+  "limitations": [
+    "The skipped tests listed above are not covered by this CI run.",
+    "HAOS VM, complete laptop/server install, real cloud account authorization, physical devices and long-duration household operation are not established by this receipt.",
+    "Hermes model/OAuth cases use bounded protocol fixtures; no real cloud credentials were used.",
+    "CI images are independently built; no equality with local or installed image IDs is claimed.",
+    "Local build/product runtime and compiled-asset comparison is pending the final product build."
+  ],
+  "prior_failed_run": 38289550827,
+  "verified_at": "2026-10-12T18:30:30.438078+00:00"
+}

@@ -4,7 +4,11 @@
 
 本輪新增薄 HAOS Ingress App、同一外層對話／case、即時 Owner 驗證、有限維護與配對恢復；首次 Hermes 改用隨附 digest。工程與產品範圍見 [整合審查](reviews/2026-10-12-INGRESS-BRIDGE.md)。HA 保留官方更新，Home coding、原生 Assist、App 跨版本 migration 與真帳號仍需另驗。
 
-本機最終完整回歸 **814 passed、4 skipped／424.07 秒**，見 [JUnit](../evidence/pytest-0.7.0.xml)。四個 skipped 是需另行啟用的 HAOS App boundary、HAOS 備份、薄 App、Linux ISO VM 案例。協定 fixture 與真服務分別標記；本節不沿用下方 0.6.1 的 passed 或 ISO 證據充當新版結果。
+最終更新審查另發現 **舊 Host＋新 Controller** 的能力落差：舊固定更新器不知道 bridge 授權，因此 Controller 必須先驗證真正 Host 的更新契約。下文標示 gate 前的結果不能視為新 gate 已驗證。第一份 0.7.0 ISO 在 Ubuntu 安裝完成、firstboot 階段由整合者主動中止，準備以修正後媒體重驗；[中止記錄](../evidence/linux-install-0.7.0-before-host-gate.json)保存原因、原媒體 hash 與清理結果，沒有標記 passed。
+
+Host gate 修正後，本機產品回歸 **790 passed、3 skipped／346.04 秒**，見 [JUnit](../evidence/pytest-0.7.0-host-gate.xml)，包含 `--real-ha --containers`。這輪排除同步補強的兩個安裝測試檔；兩檔另行 **74 passed、1 skipped／1.02 秒**，見 [安裝驗證腳本](../evidence/installed-bridge-contract-unit.xml)。合計範圍涵蓋全部本機回歸；四個 VM 案例需另行執行。
+
+Host gate 前的完整回歸為 **814 passed、4 skipped／424.07 秒**，見 [封存 JUnit](../evidence/pytest-0.7.0-before-host-gate.xml)。四個 skipped 是需另行啟用的 HAOS App boundary、HAOS 備份、薄 App、Linux ISO VM 案例。協定 fixture 與真服務分別標記；本節不沿用下方 0.6.1 的 passed 或 ISO 證據充當新版結果。
 
 第一輪為 **802 passed、4 skipped、1 failed／497.01 秒**；sandbox deadline 案例等待 Docker 結束逾時，見 [原始結果](../evidence/pytest-0.7.0-deadline-failure.xml)。原次沒有保存容器停止狀態，原因未確定。新增有界診斷後定向測試 **23 passed**，最終全套也通過；[deadline](../evidence/coding-boundary-deadline.json) 實測約 10 秒退出、所有子程序消失、清理完成，沒有放寬 10 秒 watchdog 或 20 秒控制等待限制。
 
@@ -14,7 +18,7 @@ GitHub 首次乾淨安裝揭露 setuptools 將 `static` 目錄誤認成 namespac
 
 真正 **HAOS 18.3／Core 2026.10.1／Supervisor 2026.09.3** 第三輪本地來源安裝 **7 passed／295.10 秒**，見 [結果](../evidence/bridge-haos-local.json)、[JUnit](../evidence/bridge-haos-local.xml)及 [原生側欄截圖](../evidence/ui/bridge-native-haos-local.png)。包含真 Supervisor 安裝、TLS 指紋錯誤拒絕、偽造身份拒絕、Owner 瀏覽器登入、CSRF、重送去重、同 case 續聊、App 重啟保留與人工停止不復活。模型使用明示協定 fixture，沒有雲端帳號；公開 GitHub source delivery 見下方；新版完整 ISO 安裝接著另驗。
 
-公開 GitHub source delivery 另以全新 HAOS 完成 **17 passed／253.98 秒**，見 [結果](../evidence/bridge-haos-public.json)、[JUnit](../evidence/bridge-haos-public.xml)與 [原生側欄截圖](../evidence/ui/bridge-native-haos-public.png)。正式管理器從 `release/0.7.0` 安裝 `0.7.0` 薄 App，讀回實際 repo／ref／版本及權限；未拷入本機 App source 或預載 App 映像。真 Owner／Ingress／CSRF／對話接續／App 重啟／人工停止通過；模型仍為 fixture，外層使用乾淨 `5bf6bab` 來源及本機候選映像。Supervisor 信任來源分支，不提供原子 commit/digest 安裝保證。
+Host gate 前的公開 GitHub source delivery 以全新 HAOS 完成 **17 passed／253.98 秒**，見 [封存結果](../evidence/bridge-haos-public-before-host-gate.json)、[JUnit](../evidence/bridge-haos-public-before-host-gate.xml)與 [原生側欄截圖](../evidence/ui/bridge-native-haos-public-before-host-gate.png)。正式管理器從 `release/0.7.0` 安裝 `0.7.0` 薄 App，讀回實際 repo／ref／版本及權限；未拷入本機 App source 或預載 App 映像。真 Owner／Ingress／CSRF／對話接續／App 重啟／人工停止通過；模型仍為 fixture，外層使用乾淨 `5bf6bab` 來源及本機候選映像。Supervisor 信任來源分支，不提供原子 commit/digest 安裝保證。
 
 公開模式第一次在 Docker 建立 VM 的 120 秒控制等待逾時，尚未進入 App 安裝；[事件診斷](../evidence/bridge-haos-public-vm-start-diagnostics.json)顯示容器接近期限才建立，逾時後立即被清理。當時 IO pressure 高，沒有證據指出特定來源。I/O 等待回落後 [獨立容器生命週期](../evidence/bridge-haos-builder-control-cycle.json)正常，再以原期限重驗通過；[原始失敗](../evidence/bridge-haos-public-vm-start-failure.xml)保留，沒有修改產品時限或重啟共用 Docker daemon。
 

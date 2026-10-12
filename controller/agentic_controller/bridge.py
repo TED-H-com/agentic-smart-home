@@ -37,9 +37,11 @@ from pydantic import Field, ValidationError, field_validator
 
 from . import VERSION
 from .ha import HAError
+from .host import host_call
 from .models import Strict
 
 BRIDGE_CONTRACT = 1
+HOST_PROOF_TTL, HOST_PROOF_TIMEOUT = 15, 5
 HOST, PORT, PEER = "192.168.177.1", 8444, "192.168.177.2"
 KEY, MARKER = "ingress_bridge", "agentic.ingress_bridge"
 IDENT = r"[a-f0-9]{32}"
@@ -91,13 +93,17 @@ class BridgeIdentity:
 
 
 class IngressBridge:
-    def __init__(self, app, store, ha, gateway, coordinator, secret):
+    def __init__(self, app, store, ha, gateway, coordinator, secret, *, host_status=None):
         self.app, self.store, self.ha = app, store, ha
         self.gateway, self.coordinator, self.secret = gateway, coordinator, secret
         self.root = Path(store.path).parent / "ingress-bridge"
         self.issuer = object()
         self.on_revoke = lambda: None
         self.owner_valid_until = 0.0
+        self.host_status = host_status or host_call
+        self.host_valid_until, self.host_scope = 0.0, None
+        self.host_lock = asyncio.Lock()
+        self.host_stop_task = None
         self.listener_ready = False
         self.server, self.listener_task, self.owner_task = None, None, None
         self.stop_tasks = set()
@@ -105,6 +111,60 @@ class IngressBridge:
 
     def record(self):
         return self.store.setting(KEY, {})
+
+    def authority_scope(self):
+        return (self.store.setting("owner"), getattr(self.ha, "token", None),
+                self.store.setting("hermes_web_epoch"))
+
+    def host_current(self):
+        # A DB marker or an earlier Controller process is never a Host proof.
+        return self.host_valid_until > time.monotonic() and self.host_scope == self.authority_scope()
+
+    def host_guard(self):
+        if not self.host_current():
+            raise HTTPException(503, "bridge_host_contract_required")
+
+    def invalidate_host(self):
+        self.host_valid_until, self.host_scope, self.owner_valid_until = 0.0, None, 0.0
+        if self.server:
+            self.server.should_exit = True
+        generation = self.record().get("pairing_id")
+        if generation and (self.host_stop_task is None or self.host_stop_task.done()):
+            self.host_stop_task = asyncio.create_task(self.stop_origin(generation))
+            self.stop_tasks.add(self.host_stop_task)
+            self.host_stop_task.add_done_callback(self.stop_tasks.discard)
+
+    async def require_host(self, *, force=False):
+        if not force and self.host_current():
+            return
+        try:
+            # Include lock contention and any earlier stop fence in this bound.
+            async with asyncio.timeout(HOST_PROOF_TIMEOUT):
+                async with self.host_lock:
+                    if not force and self.host_current():
+                        return
+                    scope = self.authority_scope()
+                    result = await self.host_status()
+                    value = result.get("controller_update") if isinstance(result, dict) else None
+                    major = value.get("ingress_bridge_contract") if isinstance(value, dict) else None
+                    if type(major) is not int or major != BRIDGE_CONTRACT:
+                        raise HTTPException(503, "bridge_host_contract_required")
+                    if self.host_stop_task:
+                        await asyncio.shield(self.host_stop_task)
+                    if scope != self.authority_scope():
+                        raise HTTPException(403, "bridge_authority_revoked")
+                    self.host_scope, self.host_valid_until = scope, time.monotonic() + HOST_PROOF_TTL
+        except asyncio.CancelledError:
+            self.invalidate_host()
+            raise
+        except HTTPException as exc:
+            self.invalidate_host()
+            if exc.detail in {"bridge_host_contract_required", "bridge_authority_revoked"}:
+                raise
+            raise HTTPException(503, "bridge_host_unavailable") from None
+        except Exception:
+            self.invalidate_host()
+            raise HTTPException(503, "bridge_host_unavailable") from None
 
     def private_read(self, name, limit=16384):
         fd = os.open(self.root / name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
@@ -171,6 +231,7 @@ class IngressBridge:
         return self.status()
 
     def prepare_pairing(self, repair=False):
+        self.host_guard()
         owner, previous = self.store.setting("owner"), self.record()
         if not isinstance(owner, str) or not re.fullmatch(IDENT, owner):
             raise HTTPException(409, "bridge_owner_required")
@@ -229,7 +290,9 @@ class IngressBridge:
         record = self.record()
         return {"protocol": 1, "state": record.get("state", "unpaired"),
                 **{k: record.get(k) for k in ("pairing_id", "fingerprint", "owner", "service_last_seen", "owner_verified_at")},
-                "last_seen": record.get("service_last_seen"), "listener_ready": self.listener_ready}
+                "last_seen": record.get("service_last_seen"),
+                "listener_ready": self.listener_ready and self.host_current(),
+                "host_contract": "verified" if self.host_current() else "unverified"}
 
     def current(self, pairing_id, owner=None):
         record = self.record()
@@ -239,13 +302,14 @@ class IngressBridge:
 
     def origin_valid(self, item):
         generation = item.get("bridge_pairing_id")
-        return not generation or (self.current(generation, item.get("sender")) and self.owner_valid_until > time.time())
+        return not generation or (self.host_current() and self.current(generation, item.get("sender"))
+                                  and self.owner_valid_until > time.time())
 
     def identity(self, request):
         marker = request.scope.get(MARKER)
         if not isinstance(marker, BridgeIdentity) or marker.issuer is not self.issuer:
             return None
-        if (marker.method != request.method or marker.path != request.url.path or
+        if (not self.host_current() or marker.method != request.method or marker.path != request.url.path or
                 not self.current(marker.pairing_id, marker.owner) or self.owner_valid_until <= time.time()
                 or (marker.method == "POST" and marker.expires <= time.time())):
             raise HTTPException(403, "bridge_authority_revoked")
@@ -258,6 +322,7 @@ class IngressBridge:
     async def authorize(self, generation, owner):
         if not owner or not self.current(generation, owner):
             raise HTTPException(403, "bridge_owner_required")
+        await self.require_host()
         token = getattr(self.ha, "token", None)
         try:
             async with asyncio.timeout(5):
@@ -268,6 +333,7 @@ class IngressBridge:
         if (not valid or not self.current(generation, owner) or token != getattr(self.ha, "token", None)):
             self.owner_valid_until = 0
             raise HTTPException(403, "bridge_owner_required")
+        self.host_guard()
         self.owner_valid_until = time.time() + 15
         self.store.set_setting(KEY, {**self.record(), "owner_verified_at": time.time()})
 
@@ -358,6 +424,7 @@ class IngressBridge:
         if content_type.split(";")[0] != "application/json":
             raise HTTPException(502, "bridge_response_invalid")
         self.acl(value.path, value.user_id)
+        self.host_guard()
         if not self.current(value.pairing_id, value.user_id):
             raise HTTPException(403, "bridge_authority_revoked")
         payload = json.loads(b"".join(chunks))
@@ -422,15 +489,19 @@ class IngressBridge:
             if heartbeat:
                 if value.user_id or value.body not in (None, {}) or any((value.csrf, value.idempotency_key, value.origin, value.host, value.fetch_site)):
                     raise HTTPException(422, "bridge_heartbeat_invalid")
+                await self.require_host()
             else:
                 expires = self.validate_request(value)
                 await self.authorize(value.pairing_id, value.user_id)
                 self.acl(value.path, value.user_id)
+            self.host_guard()
+            self.service(authorization[7:] if authorization.startswith("Bearer ") else "", value.pairing_id)
             self.store.set_setting(KEY, {**self.record(), "state": "connected", "service_last_seen": time.time()})
             if heartbeat:
                 result = JSONResponse({"protocol": 1, "version": VERSION, "paired": True, "state": "ready"})
             elif value.path.startswith("/api/bridge/previews/"):
                 result = await self.png(value.path, value.user_id)
+                self.host_guard()
                 if not self.current(value.pairing_id, value.user_id):
                     raise HTTPException(403, "bridge_authority_revoked")
             else:
@@ -482,6 +553,10 @@ class IngressBridge:
             generation = record.get("pairing_id")
             if not generation:
                 continue
+            try:
+                await self.require_host(force=True)
+            except HTTPException:
+                continue
             messages = [item for item in self.store.list("conversation", 10000) if item.get("bridge_pairing_id") == generation]
             identifiers = {item["id"] for item in messages}
             active = any("chat-" + identifier in self.gateway.running for identifier in identifiers)
@@ -500,6 +575,7 @@ class IngressBridge:
             sock = None
             try:
                 if self.record().get("state") in {"prepared", "connected"}:
+                    await self.require_host()
                     self.prepare_pairing()
                     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

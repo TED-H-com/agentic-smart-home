@@ -118,13 +118,156 @@ def update_observation():
         "process": {"returncode": None, "stdout_bytes": 42, "stderr_bytes": 0, "stderr_truncated": False, "stderr_signatures": {}},
         "result": {"state": "passed", "observed_from": "disposable_installed_linux_vm_root",
                    "actual": ["ed25519_signature_verification", "bounded_candidate_probe", "compose_activation", "authenticated_owner_smoke",
-                              "consistent_snapshot", "schema3", "maintenance_gate", "same_database_rollback", "post_deployment_row_preserved"],
-                   "fixtures": ["ephemeral_publisher", "preloaded_registry_delivery", "candidate_changes_only_image_label", "synthetic_post_deployment_record"],
+                              "consistent_snapshot", "schema3", "maintenance_gate", "same_database_rollback", "post_deployment_row_preserved",
+                              "revoked_bridge_fixed_probe_enforced", "pending_bridge_operation_blocked", "isolated_probe_cleanup_verified"],
+                   "fixtures": ["ephemeral_publisher", "preloaded_registry_delivery", "candidate_changes_only_image_label", "synthetic_post_deployment_record",
+                                "synthetic_missing_bridge_contract_image", "isolated_structure_only_revoked_bridge"],
                    "original_image": "sha256:" + "a" * 64, "candidate_image": "sha256:" + "b" * 64,
                    "real_cloud": False, "real_publisher_release": False, "final_schema": 3,
                    "registry_delivery_calls": 1, "rollback_restored_backup": False,
+                   "bridge_update_contract": {
+                       "contract": 1, "observed_from": "installed_host_fixed_probe", "schema": 3,
+                       "database_fixture": "isolated_structure_only_revoked_bridge", "fixed_probe_executions": 3,
+                       "supporting_image": "sha256:" + "a" * 64, "missing_contract_image": "sha256:" + "c" * 64,
+                       "fixed_script_sha256": "d" * 64, "synthetic_missing_contract_image": True, "real_historical_release": False,
+                       "checks": dict.fromkeys(("revoked_history_marker_copied", "supporting_fixed_probe_passed",
+                           "missing_contract_fixed_probe_rejected", "missing_contract_import_error", "missing_contract_without_history_passed",
+                           "revoked_database_unchanged", "pending_maintenance_rejected", "pending_maintenance_readonly"), True),
+                       "cleanup": dict.fromkeys(("probe_containers_absent", "quota_volumes_absent", "probe_journal_absent",
+                                                "fixture_image_absent", "scratch_database_absent"), True)},
                    "diagnostics": {"cleanup_started": True, "cleanup_completed": True}},
     }
+
+
+@pytest.mark.parametrize("fault", ["absent", "wrong_contract", "bool_contract", "wrong_schema", "wrong_origin", "real_release_claim",
+    "missing_synthetic_label", "wrong_database", "wrong_count", "float_count", "wrong_supporting_image", "identical_images",
+    "bad_image_digest", "bad_script_digest", "missing_check", "false_check", "integer_check", "missing_cleanup", "false_cleanup"])
+def test_bridge_update_receipt_fails_closed_for_incomplete_or_ambiguous_proof(fault):
+    from test_linux_install import decode_update_observation
+
+    value = update_observation()
+    receipt = value["result"]["bridge_update_contract"]
+    changes = {"wrong_contract": ("contract", 2), "bool_contract": ("contract", True), "wrong_schema": ("schema", 2),
+               "wrong_origin": ("observed_from", "reflected_constant"), "real_release_claim": ("real_historical_release", True),
+               "missing_synthetic_label": ("synthetic_missing_contract_image", False), "wrong_database": ("database_fixture", "live"),
+               "wrong_count": ("fixed_probe_executions", 2), "float_count": ("fixed_probe_executions", 3.0),
+               "wrong_supporting_image": ("supporting_image", "sha256:" + "f" * 64),
+               "identical_images": ("missing_contract_image", receipt["supporting_image"]),
+               "bad_image_digest": ("missing_contract_image", "private-image"), "bad_script_digest": ("fixed_script_sha256", "private-script")}
+    if fault in changes:
+        key, replacement = changes[fault]
+        receipt[key] = replacement
+    elif fault == "absent":
+        del value["result"]["bridge_update_contract"]
+    elif fault == "missing_check":
+        del receipt["checks"]["pending_maintenance_rejected"]
+    elif fault == "false_check":
+        receipt["checks"]["missing_contract_import_error"] = False
+    elif fault == "integer_check":
+        receipt["checks"]["supporting_fixed_probe_passed"] = 1
+    elif fault == "missing_cleanup":
+        del receipt["cleanup"]
+    else:
+        receipt["cleanup"]["quota_volumes_absent"] = False
+    with pytest.raises(ValueError, match="probe_bridge_contract_receipt_invalid"):
+        decode_update_observation(json.dumps(value))
+
+
+def test_bridge_update_receipt_projects_only_proven_fixed_fields():
+    from test_linux_install import decode_update_observation
+
+    value = update_observation()
+    receipt = value["result"]["bridge_update_contract"]
+    expected = json.loads(json.dumps(receipt))
+    for target in (receipt, receipt["checks"], receipt["cleanup"]):
+        target["private"] = "private log, path, key or candidate prose"
+    projected = decode_update_observation(json.dumps(value))["result"]["bridge_update_contract"]
+    assert projected == expected and "private log" not in json.dumps(projected)
+
+
+@pytest.mark.parametrize("fault", [None, "unrelated_failure", "missing_contract_accepted", "container_left"])
+def test_installed_bridge_probe_drives_real_probe_method_and_rejects_false_receipts(update_probe, monkeypatch, tmp_path, fault):
+    """Only command/volume boundaries are fixtures here; no VM acceptance claim."""
+    import shutil
+    import sqlite3
+    from contextlib import closing
+
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[1] / "host"))
+    import agentic_host.updater as module
+
+    root = tmp_path / "private"
+    root.mkdir()
+    (root / "receipt").mkdir()
+    monkeypatch.setattr(update_probe, "STATE_ROOT", root / "receipt")
+    product = Path(__file__).parents[1]
+    source = root / "live.sqlite3"
+    with closing(sqlite3.connect(source)) as db, db:
+        db.executescript("PRAGMA user_version=3; CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT);"
+                        "CREATE TABLE records(kind TEXT,body TEXT); CREATE TABLE requests(id TEXT); CREATE TABLE events(id TEXT);")
+        db.execute("INSERT INTO settings VALUES ('owner','private-owner')")
+        db.execute("INSERT INTO records VALUES ('task','private-live-body')")
+    before = source.read_bytes()
+    original, missing = "sha256:" + "a" * 64, "sha256:" + "c" * 64
+    calls, launches, builds, inspected_names = [], [], [], []
+    removed = [False]
+    class Volume:
+        def __init__(self, parent, identity, size):
+            assert size == 64
+            self.directory = parent / identity
+            self.mount = self.directory / "workspace"
+        def create(self):
+            self.mount.mkdir(parents=True)
+            return self.mount
+        def close(self):
+            shutil.rmtree(self.directory)
+    monkeypatch.setattr(module, "DiskVolume", Volume)
+    monkeypatch.setattr(module, "ready", lambda run, memory: None)
+    monkeypatch.setattr(module, "fence", lambda run, name, label: inspected_names.append(name))
+    monkeypatch.setattr(module.os, "chown", lambda *args: None)
+    def run(*args, **kwargs):
+        calls.append(args)
+        output, error, code = "", "", 0
+        if args[:2] == ("docker", "build"):
+            builds.append((Path(args[-1]) / "Dockerfile").read_text())
+        elif args[:3] == ("docker", "image", "inspect"):
+            output = missing
+        elif args[:2] == ("docker", "run"):
+            assert args[-4:] == ("--kill-after=3", "40", "python", "/fixed-probe.py")
+            directory = Path(next(arg.split(",src=", 1)[1].split(",dst=", 1)[0] for arg in args if arg.endswith(",dst=/probe")))
+            with closing(sqlite3.connect(directory / "controller.sqlite3")) as db:
+                marker = db.execute("SELECT value FROM settings WHERE key='required_ingress_bridge_contract'").fetchone()
+            image = args[args.index("--entrypoint") + 2]
+            launches.append((image, bool(marker)))
+            if image == missing and marker and fault != "missing_contract_accepted":
+                code = 1
+                error = ("ImportError: cannot import name 'BRIDGE_CONTRACT' from 'agentic_controller.bridge'"
+                         if fault != "unrelated_failure" else "ImportError: private unrelated package failure")
+        elif args[:3] == ("docker", "container", "ls") and fault == "container_left":
+            output = "still-running"
+        elif args[:3] == ("docker", "image", "rm"):
+            removed[0] = True
+        elif args[:3] == ("docker", "image", "ls"):
+            output = original + ("\n" + missing if not removed[0] else "")
+        return subprocess.CompletedProcess(args, code, output, error)
+    manager = SimpleNamespace(root=root, product=product, run=run)
+    if fault:
+        with pytest.raises(AssertionError):
+            update_probe.bridge_contract_probe(manager, original, "fixture-base", root, "a" * 32, source, 3)
+    else:
+        result = update_probe.bridge_contract_probe(manager, original, "fixture-base", root, "a" * 32, source, 3)
+        from test_linux_install import decode_bridge_contract_receipt
+        assert decode_bridge_contract_receipt(result, original) == result
+        assert launches == [(original, True), (missing, True), (missing, False)]
+        assert len(inspected_names) == 3 and len(set(inspected_names)) == 3
+        assert not (root / "bridge-contract").exists()
+        # The actual Docker build receives one fixed declaration removal only.
+        program = json.loads(builds[0].split("\nRUN ", 1)[1])[2]
+        source_fixture = root / "bridge.py"
+        source_fixture.write_text("# fixture\nBRIDGE_CONTRACT = 1\nUNCHANGED = True\n")
+        exec(compile(program.replace("/app/agentic_controller/bridge.py", str(source_fixture)), "fixture-removal", "exec"), {})
+        assert source_fixture.read_text() == "# fixture\nUNCHANGED = True\n"
+    assert source.read_bytes() == before
+    assert all("compose" not in call and "systemctl" not in call for call in calls)
 
 
 def test_probe_diagnostics_keep_command_import_cause_before_generic_update_error(update_probe, monkeypatch, tmp_path):
