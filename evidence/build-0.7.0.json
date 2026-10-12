@@ -24,7 +24,7 @@
     }
   },
   "bundle_manifest_verified_files": 204,
-  "installed_media": "failed_at_nested_haos_provision",
+  "installed_media": "failed_at_snapshot_status_read",
   "cloud_accounts": "not_run",
   "source_exclusions": "Public product allowlist; no private parent, runtime credentials, live workspaces or build cache",
   "app_delivery": "Official Supervisor installs public fixed release/0.7.0 source separately; not one of the five outer images",
@@ -176,5 +176,5 @@
     "scripts/upstreams.py": "a7faffd23dee055677f8a1a10c169355e132d8ceed5f97336e4f3bf828450919",
     "scripts/validate_kit.py": "e9841d42cb2f024a833450847e272c6ef4630f627557156adb60ba4937430955"
   },
-  "installed_failure_evidence": "evidence/installed-0.7.0-run1-prior-stages/manifest.json"
+  "installed_failure_evidence": "evidence/installed-0.7.0-run2-prior-stages/manifest.json"
 }

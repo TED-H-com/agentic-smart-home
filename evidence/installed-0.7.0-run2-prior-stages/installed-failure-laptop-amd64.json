@@ -1,0 +1,311 @@
+{
+  "phase": "nested_haos_shutdown_snapshot_restore",
+  "error_type": "CalledProcessError",
+  "process": {
+    "returncode": 1,
+    "stdout_bytes": 43,
+    "stderr_bytes": 1245,
+    "stderr_truncated": false,
+    "stderr_signatures": {
+      "traceback": true,
+      "import_error": false,
+      "syntax_error": false,
+      "permission_denied": false,
+      "ssh_transport": false,
+      "process_killed": false,
+      "sudo_error": false,
+      "timeout": true,
+      "disk_full": false,
+      "read_only_filesystem": false,
+      "io_error": false,
+      "oom": false,
+      "file_missing": false,
+      "kvm_unavailable": false,
+      "libvirt_connection": false,
+      "firmware_unavailable": false,
+      "network_conflict": false,
+      "checksum_mismatch": false,
+      "image_invalid": false,
+      "security_policy_denied": false,
+      "resource_unavailable": false
+    }
+  },
+  "remote": {
+    "selection": "exact_id",
+    "jobs": [
+      {
+        "id": "59ec29151f3a4fa99f271de4783c7dac",
+        "action": "snapshot",
+        "state": "running",
+        "error_code": "unclassified_host_error",
+        "operation": null,
+        "message_signatures": {
+          "traceback": false,
+          "import_error": false,
+          "syntax_error": false,
+          "permission_denied": false,
+          "ssh_transport": false,
+          "process_killed": false,
+          "sudo_error": false,
+          "timeout": false,
+          "disk_full": false,
+          "read_only_filesystem": false,
+          "io_error": false,
+          "oom": false,
+          "file_missing": false,
+          "kvm_unavailable": false,
+          "libvirt_connection": false,
+          "firmware_unavailable": false,
+          "network_conflict": false,
+          "checksum_mismatch": false,
+          "image_invalid": false,
+          "security_policy_denied": false,
+          "resource_unavailable": false
+        }
+      }
+    ],
+    "filesystem": {
+      "total_bytes": 125114646528,
+      "used_bytes": 29722927104,
+      "free_bytes": 88988958720
+    },
+    "compatibility": {
+      "observation": "ok",
+      "state": "supported",
+      "scope": "required_fixed_host_contracts",
+      "reuse_for_mutations": false,
+      "action": "shutdown",
+      "requested_action": "snapshot",
+      "matches_lifecycle_action": false,
+      "observed_at": 1791835762.2733872,
+      "checks": [
+        {
+          "id": "linux_runtime",
+          "state": "supported",
+          "error_code": null,
+          "observed_from": "outer_host_fixed_probe",
+          "affected_actions": [
+            "bootstrap_hermes",
+            "provision",
+            "restore",
+            "shutdown",
+            "snapshot",
+            "start"
+          ]
+        },
+        {
+          "id": "libvirt_connection",
+          "state": "supported",
+          "error_code": null,
+          "observed_from": "outer_host_fixed_probe",
+          "affected_actions": [
+            "provision",
+            "restore",
+            "shutdown",
+            "snapshot",
+            "start"
+          ]
+        }
+      ]
+    },
+    "provision_state": {
+      "record_readable": true,
+      "owner_reference_valid": true,
+      "complete": true,
+      "restore_pending": false,
+      "files": {
+        "disk": {
+          "kind": "regular",
+          "bytes": 5961613312
+        },
+        "partial_disk": {
+          "kind": "absent"
+        },
+        "nvram": {
+          "kind": "regular",
+          "bytes": 540672
+        }
+      }
+    },
+    "domain": {
+      "observation": "ok",
+      "xml_valid": true,
+      "name_matches": true,
+      "ownership_matches": true,
+      "disk_matches": true
+    },
+    "network": {
+      "observation": "ok",
+      "xml_valid": true,
+      "name_matches": true,
+      "ownership_matches": true
+    },
+    "broker_unit": {
+      "observation": "ok",
+      "signatures": {
+        "traceback": false,
+        "import_error": false,
+        "syntax_error": false,
+        "permission_denied": false,
+        "ssh_transport": false,
+        "process_killed": false,
+        "sudo_error": false,
+        "timeout": false,
+        "disk_full": false,
+        "read_only_filesystem": false,
+        "io_error": false,
+        "oom": false,
+        "file_missing": false,
+        "kvm_unavailable": false,
+        "libvirt_connection": false,
+        "firmware_unavailable": false,
+        "network_conflict": false,
+        "checksum_mismatch": false,
+        "image_invalid": false,
+        "security_policy_denied": false,
+        "resource_unavailable": false
+      },
+      "active": "active",
+      "oom_killed": false
+    },
+    "vm": {
+      "observation": "ok",
+      "signatures": {
+        "traceback": false,
+        "import_error": false,
+        "syntax_error": false,
+        "permission_denied": false,
+        "ssh_transport": false,
+        "process_killed": false,
+        "sudo_error": false,
+        "timeout": false,
+        "disk_full": false,
+        "read_only_filesystem": false,
+        "io_error": false,
+        "oom": false,
+        "file_missing": false,
+        "kvm_unavailable": false,
+        "libvirt_connection": false,
+        "firmware_unavailable": false,
+        "network_conflict": false,
+        "checksum_mismatch": false,
+        "image_invalid": false,
+        "security_policy_denied": false,
+        "resource_unavailable": false
+      },
+      "state": "shut off"
+    },
+    "journal": {
+      "observation": "ok",
+      "signatures": {
+        "traceback": true,
+        "import_error": false,
+        "syntax_error": false,
+        "permission_denied": false,
+        "ssh_transport": true,
+        "process_killed": false,
+        "sudo_error": false,
+        "timeout": false,
+        "disk_full": false,
+        "read_only_filesystem": false,
+        "io_error": false,
+        "oom": false,
+        "file_missing": false,
+        "kvm_unavailable": false,
+        "libvirt_connection": false,
+        "firmware_unavailable": false,
+        "network_conflict": false,
+        "checksum_mismatch": false,
+        "image_invalid": false,
+        "security_policy_denied": false,
+        "resource_unavailable": false
+      }
+    },
+    "kernel": {
+      "observation": "ok",
+      "signatures": {
+        "traceback": false,
+        "import_error": false,
+        "syntax_error": false,
+        "permission_denied": false,
+        "ssh_transport": false,
+        "process_killed": false,
+        "sudo_error": false,
+        "timeout": false,
+        "disk_full": false,
+        "read_only_filesystem": false,
+        "io_error": false,
+        "oom": false,
+        "file_missing": false,
+        "kvm_unavailable": false,
+        "libvirt_connection": false,
+        "firmware_unavailable": false,
+        "network_conflict": false,
+        "checksum_mismatch": false,
+        "image_invalid": false,
+        "security_policy_denied": true,
+        "resource_unavailable": false
+      }
+    }
+  },
+  "lifecycle_action": "snapshot",
+  "lifecycle_receipt": {
+    "id": "59ec29151f3a4fa99f271de4783c7dac",
+    "action": "snapshot",
+    "state": "unknown",
+    "error_code": "unclassified_host_error",
+    "operation": null,
+    "message_signatures": {
+      "traceback": false,
+      "import_error": false,
+      "syntax_error": false,
+      "permission_denied": false,
+      "ssh_transport": false,
+      "process_killed": false,
+      "sudo_error": false,
+      "timeout": false,
+      "disk_full": false,
+      "read_only_filesystem": false,
+      "io_error": false,
+      "oom": false,
+      "file_missing": false,
+      "kvm_unavailable": false,
+      "libvirt_connection": false,
+      "firmware_unavailable": false,
+      "network_conflict": false,
+      "checksum_mismatch": false,
+      "image_invalid": false,
+      "security_policy_denied": false,
+      "resource_unavailable": false
+    }
+  },
+  "diagnostic_process": {
+    "returncode": 0,
+    "stdout_bytes": 4315,
+    "stderr_bytes": 77,
+    "stderr_truncated": false,
+    "stderr_signatures": {
+      "traceback": false,
+      "import_error": false,
+      "syntax_error": false,
+      "permission_denied": false,
+      "ssh_transport": false,
+      "process_killed": false,
+      "sudo_error": false,
+      "timeout": false,
+      "disk_full": false,
+      "read_only_filesystem": false,
+      "io_error": false,
+      "oom": false,
+      "file_missing": false,
+      "kvm_unavailable": false,
+      "libvirt_connection": false,
+      "firmware_unavailable": false,
+      "network_conflict": false,
+      "checksum_mismatch": false,
+      "image_invalid": false,
+      "security_policy_denied": false,
+      "resource_unavailable": false
+    }
+  }
+}

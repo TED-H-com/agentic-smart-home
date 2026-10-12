@@ -1,10 +1,28 @@
 import argparse
 import http.client
 import json
+import re
 import socket
+import sys
 import time
 import uuid
 from pathlib import Path
+
+JOB_ACTIONS = {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes"}
+JOB_STATES = {"running", "succeeded", "failed", "needs_reconcile"}
+JOB_READ_ATTEMPTS = 3
+JOB_POLL_SECONDS = 2
+MAX_JOB_RESPONSE_BYTES = 262144
+
+
+class BrokerError(ValueError):
+    def __init__(self, status, message):
+        self.status = status
+        super().__init__(message)
+
+
+class JobObservationError(ValueError):
+    pass
 
 
 class Connection(http.client.HTTPConnection):
@@ -20,12 +38,74 @@ def call(method, path, body=None):
         connection.request(method, path, body=json.dumps(body) if body is not None else None,
                            headers={"Content-Type": "application/json"})
         response = connection.getresponse()
-        data = json.load(response)
+        if path.startswith("/jobs/"):
+            raw = response.read(MAX_JOB_RESPONSE_BYTES + 1)
+            if len(raw) > MAX_JOB_RESPONSE_BYTES:
+                raise JobObservationError("host_job_response_invalid")
+            if response.status >= 300:
+                # Status determines retryability; never relay private broker text.
+                raise BrokerError(response.status, "host_job_read_failed")
+            data = json.loads(raw)
+        else:
+            data = json.load(response)
         if response.status >= 300:
-            raise ValueError(data.get("detail", "Host operation failed"))
+            raise BrokerError(response.status, data.get("detail", "Host operation failed") if isinstance(data, dict) else "Host operation failed")
         return data
     finally:
         connection.close()
+
+
+def valid_job_id(id):
+    return isinstance(id, str) and re.fullmatch(r"[a-zA-Z0-9_-]{8,100}", id) is not None
+
+
+def validate_job(job, id, expected_request=None):
+    if not valid_job_id(id) or not isinstance(job, dict) or job.get("id") != id:
+        raise JobObservationError("host_job_response_invalid")
+    request = job.get("request")
+    if (not isinstance(request, dict) or set(request) - {"id", "action", "snapshot"} or
+            request.get("id") != id or not isinstance(request.get("action"), str) or request["action"] not in JOB_ACTIONS or
+            not isinstance(job.get("state"), str) or job["state"] not in JOB_STATES or
+            (request.get("snapshot") is not None and not isinstance(request["snapshot"], str)) or
+            (request["action"] != "restore" and request.get("snapshot") is not None) or
+            (expected_request is not None and request != expected_request) or
+            (job["state"] == "succeeded" and not isinstance(job.get("result"), dict))):
+        raise JobObservationError("host_job_response_invalid")
+    return job
+
+
+def read_job(id, expected_request=None, *, retry=True):
+    if not valid_job_id(id):
+        raise JobObservationError("host_job_id_invalid")
+    for attempt in range(JOB_READ_ATTEMPTS if retry else 1):
+        try:
+            return validate_job(call("GET", "/jobs/" + id), id, expected_request)
+        except BrokerError as exc:
+            if exc.status not in {502, 503, 504}:
+                raise JobObservationError("host_job_not_found" if exc.status == 404 else "host_job_read_refused") from None
+        except (TimeoutError, ConnectionError, FileNotFoundError, http.client.IncompleteRead):
+            pass
+        except (ValueError, TypeError, RecursionError, http.client.HTTPException):
+            raise JobObservationError("host_job_response_invalid") from None
+        except OSError:
+            raise JobObservationError("host_job_read_refused") from None
+        if not retry or attempt + 1 == JOB_READ_ATTEMPTS:
+            raise JobObservationError("host_job_observation_unavailable") from None
+        time.sleep(JOB_POLL_SECONDS)
+
+
+def wait_job(id, job):
+    request = dict(job["request"])
+    while job["state"] == "running":
+        time.sleep(JOB_POLL_SECONDS)
+        job = read_job(id, request)
+    return job
+
+
+def unconfirmed(id, error):
+    print(f"Job {id}: completion is unconfirmed ({error}). No operation was resubmitted. "
+          f"Inspect with 'agentic-home job --id {id}' or resume with 'agentic-home wait --id {id}'.", file=sys.stderr)
+    raise SystemExit(2)
 
 
 def main():
@@ -34,7 +114,8 @@ def main():
                                              "bootstrap_hermes", "open", "access-key", "diagnostics", "support-bundle",
                                              "network", "network-select", "network-login", "network-revoke", "updates",
                                              "update-stage", "update-apply", "update-rollback-offer", "update-rollback",
-                                             "update-publisher-inspect", "update-publisher-add", "update-publisher-revoke"])
+                                             "update-publisher-inspect", "update-publisher-add", "update-publisher-revoke", "job", "wait"])
+    parser.add_argument("--id", help="Existing lifecycle job ID for read-only job/wait")
     parser.add_argument("--snapshot")
     parser.add_argument("--output", type=Path, help="New JSON file for support-bundle")
     parser.add_argument("--lan", choices=["dhcp", "reservation"])
@@ -46,6 +127,21 @@ def main():
     parser.add_argument("--repository", help="Exact trusted image repository, without tag/digest")
     parser.add_argument("--public-key", type=Path, help="Ed25519 PUBLIC key PEM; never a private signing key")
     args = parser.parse_args()
+    if args.command in {"job", "wait"}:
+        if not valid_job_id(args.id):
+            parser.error("job/wait requires a valid existing --id")
+        try:
+            job = read_job(args.id, retry=args.command == "wait")
+            if args.command == "wait":
+                job = wait_job(args.id, job)
+        except JobObservationError as exc:
+            unconfirmed(args.id, exc)
+        print(json.dumps(job, ensure_ascii=False, indent=2))
+        if args.command == "wait" and job["state"] != "succeeded":
+            raise SystemExit(1)
+        return
+    if args.id is not None:
+        parser.error("--id is only accepted by read-only job/wait")
     if args.command.startswith("update-publisher-"):
         from .publisher import enroll, inspect
         if not args.publisher or not args.repository or not args.public_key or args.public_key.is_symlink() or args.public_key.stat().st_size > 4096:
@@ -101,11 +197,19 @@ def main():
     if args.command == "status":
         print(json.dumps(call("GET", "/status"), ensure_ascii=False, indent=2))
         return
-    job = call("POST", "/actions", {"id": uuid.uuid4().hex, "action": args.command, "snapshot": args.snapshot})
-    print("Operation " + job["id"], flush=True)
-    while job["state"] == "running":
-        time.sleep(2)
-        job = next(j for j in call("GET", "/status")["jobs"] if j["id"] == job["id"])
+    id = uuid.uuid4().hex
+    body = {"id": id, "action": args.command, "snapshot": args.snapshot}
+    # A lost POST reply must still leave the Owner an exact read-only recovery
+    # handle. Never automatically resend this mutation, even with the same ID.
+    print("Operation " + id, flush=True)
+    try:
+        job = validate_job(call("POST", "/actions", body), id, body)
+    except (OSError, ValueError, TypeError, RecursionError, http.client.HTTPException):
+        unconfirmed(id, "host_job_submit_unconfirmed")
+    try:
+        job = wait_job(id, job)
+    except JobObservationError as exc:
+        unconfirmed(id, exc)
     print(json.dumps(job, ensure_ascii=False, indent=2))
     if job["state"] != "succeeded":
         raise SystemExit(1)

@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import re
@@ -32,6 +33,14 @@ class Jobs:
                         if record.get("state") == "installing":
                             atomic(path, {**record, "state": "needs_reconcile", "error_code": "hermes_install_interrupted"})
         atomic(self.path, self.items)
+
+    def get(self, id):
+        if not re.fullmatch(r"[a-zA-Z0-9_-]{8,100}", id):
+            raise HostError("Invalid operation id")
+        # Read the persisted-job cache only. Never hold this lock while calling
+        # libvirt, Docker, HA or any other external status observer.
+        with self.lock:
+            return copy.deepcopy(self.items.get(id))
 
     def start(self, body):
         if set(body) - {"id", "action", "snapshot"}:
@@ -135,6 +144,9 @@ def serve(path="/run/agentic-home/host.sock"):
                 response = service("GET", self.path)
                 if response is not None:
                     return self.respond(*response)
+                if self.path.startswith("/jobs/"):
+                    job = jobs.get(self.path.removeprefix("/jobs/"))
+                    return self.respond(200, job) if job is not None else self.respond(404, {"detail": "host_job_not_found"})
                 if self.path != "/status":
                     return self.respond(404, {"detail": "Unknown route"})
                 return self.respond(200, {**manager.status(), "jobs": list(jobs.items.values())[-50:]})

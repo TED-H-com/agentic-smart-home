@@ -1,0 +1,33 @@
+{
+  "source_commit": "9146b38f6cbe04c0d3cfdc221b7b397a4f40261f",
+  "harness_commit": "2f83845117cd1ebd90273c67e0e75fb3a10241d0",
+  "iso_sha256": "44aaa2baea15ee0ba80bd3291fd0dcdd5e790823995514c8ff7857ba05d76a95",
+  "status": "failed_at_snapshot_status_read",
+  "retained_stages_do_not_mean_complete_install_passed": true,
+  "observation": {
+    "cli": "timeout_after_operation_id",
+    "exact_host_job": "snapshot_running",
+    "haos": "shut_off",
+    "ownership_and_disk": "matched",
+    "latest_compatibility_action": "shutdown",
+    "snapshot_completion": "unconfirmed",
+    "installed_controller_update_and_bridge_probe": "passed"
+  },
+  "cleanup": {
+    "owned_vm_removed": true,
+    "disk_basetemp_removed": true
+  },
+  "files": {
+    "installed-auth-laptop-amd64.json": "66fdc90b339d02c527946481d200c04016e486b4ea08b3f40bc44c0d9fb68fde",
+    "installed-process-auth-laptop-amd64.json": "9e4dd73afbe97d374281027ab626d16d30f8919b4e62c1668f2a7a00bf2ea742",
+    "installed-rescue-laptop-amd64.json": "69168b88e269a8b0e9f2a5aa646b458bdeaea432c173c4dabe916f6ba6b778f4",
+    "installed-sandbox-laptop-amd64.json": "5cd6c4da15020395de6db3347169e05b172ef86ef7c21be26095e7d21d42cf99",
+    "installed-process-sandbox-laptop-amd64.json": "39cb540cd808f01789f0c735d4ec2d891394d177e74a10e59cc39acce695fb76",
+    "installed-coding-laptop-amd64.json": "d442d3774714dab2cca85634459a1f1014a324a1cb717faffe0fd65272ad6b66",
+    "installed-process-coding-laptop-amd64.json": "4bac36fb8c66099be15c3f2a9e5d94226ac9db6b9dbcc1e640f9134f606ad27c",
+    "installed-hermes-laptop-amd64.json": "8dc8c05f713c127cbeb1d245ef97f5d935081e3ffbcc8840c4a127a31e6ddfa7",
+    "installed-update-laptop-amd64.json": "361675cbe6f819b3ab86a8088922d2a5d8475ff308f037d28e063789d6bdfffa",
+    "installed-progress-laptop-amd64.json": "754e96ade6e0c866b0c992fb2205967c4666a8c1aa7dae062442d52f6d1338c5",
+    "installed-failure-laptop-amd64.json": "52a90baf26f32cf576d9d259cf45d669afb6d0431da681618c03156a5a688efc"
+  }
+}

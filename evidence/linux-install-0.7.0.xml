@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="1116.214" timestamp="2026-10-12T15:16:19.744208-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_linux_install" name="test_full_linux_install_with_nested_haos" time="1116.169"><failure message="subprocess.CalledProcessError: Command '('ssh', '-i', '/home/ted-h/agent-work/tmp/pytest/20261012-151619-SaJ3DV/bt/test_full_linux_install_with_n0/test-key', '-o', 'BatchMode=yes', '-o', 'ProxyCommand=docker exec -i agentic-linux-install-test-de9099b103 python3 /lab/ssh-proxy.py', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', '-o', 'ConnectTimeout=5', 'tester@127.0.0.1', 'agentic-home provision')' returned non-zero exit status 1.">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-151619-SaJ3DV/bt/test_full_linux_install_with_n0')
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="1511.092" timestamp="2026-10-12T15:45:27.339367-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_linux_install" name="test_full_linux_install_with_nested_haos" time="1511.037"><failure message="subprocess.CalledProcessError: Command '('ssh', '-i', '/home/ted-h/agent-work/tmp/pytest/20261012-154527-uMPOhq/bt/test_full_linux_install_with_n0/test-key', '-o', 'BatchMode=yes', '-o', 'ProxyCommand=docker exec -i agentic-linux-install-test-dcdea520cf python3 /lab/ssh-proxy.py', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', '-o', 'ConnectTimeout=5', 'tester@127.0.0.1', 'agentic-home snapshot')' returned non-zero exit status 1.">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-154527-uMPOhq/bt/test_full_linux_install_with_n0')
 request = &lt;FixtureRequest for &lt;Function test_full_linux_install_with_nested_haos&gt;&gt;
 
     def test_full_linux_install_with_nested_haos(tmp_path, request):
@@ -188,17 +188,42 @@ request = &lt;FixtureRequest for &lt;Function test_full_linux_install_with_neste
     '''))
             assert runtime_revision == bootstrap_hermes["commit"]
             phase("nested_haos_provision")
-&gt;           command(*ssh, "agentic-home provision")
+            command(*ssh, "agentic-home provision")
+            host = json.loads(command(*ssh, "agentic-home status"))
+            assert host["vm"] == "running" and host["provisioned"]
+            def wait_ha(stage):
+                phase(stage)
+                for _ in range(180):
+                    response = subprocess.run([*ssh, "curl --max-time 3 -fsS http://localhost:8123/api/onboarding"],
+                                              capture_output=True)
+                    try:
+                        if response.returncode == 0 and isinstance(json.loads(response.stdout), list):
+                            return
+                    except ValueError:
+                        pass
+                    time.sleep(5)
+                raise AssertionError("Nested HAOS HTTP did not become ready")
+    
+            wait_ha("nested_haos_first_boot")
+            phase("installed_controller_update_rollback")
+            update_probe = installed_update(ssh, (ROOT / "tests/installed_update_probe.py").read_text(),
+                                            ROOT / "evidence" / ("installed-update-" + profile + ".json"))
+            assert update_probe["state"] == "passed", update_probe
+            phase("nested_haos_shutdown_snapshot_restore")
+            command(*ssh, "agentic-home shutdown")
+            assert json.loads(command(*ssh, "agentic-home status"))["vm"] == "shut off"
+            assert command(*ssh, "curl -fsS http://localhost:8099/api/deployment")
+&gt;           command(*ssh, "agentic-home snapshot")
 
-tests/test_linux_install.py:515: 
+tests/test_linux_install.py:560: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-tests/test_linux_install.py:46: in command
+tests/test_linux_install.py:38: in command
     return subprocess.run(args, check=True, capture_output=True, text=True, **kwargs).stdout.strip()
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
 input = None, capture_output = True, timeout = None, check = True
-popenargs = (('ssh', '-i', '/home/ted-h/agent-work/tmp/pytest/20261012-151619-SaJ3DV/bt/test_full_linux_install_with_n0/test-key', '-o', 'BatchMode=yes', '-o', ...),)
+popenargs = (('ssh', '-i', '/home/ted-h/agent-work/tmp/pytest/20261012-154527-uMPOhq/bt/test_full_linux_install_with_n0/test-key', '-o', 'BatchMode=yes', '-o', ...),)
 kwargs = {'text': True, 'stdout': -1, 'stderr': -1}
 
     def run(*popenargs,
@@ -268,6 +293,6 @@ kwargs = {'text': True, 'stdout': -1, 'stderr': -1}
             if check and retcode:
 &gt;               raise CalledProcessError(retcode, process.args,
                                          output=stdout, stderr=stderr)
-E               subprocess.CalledProcessError: Command '('ssh', '-i', '/home/ted-h/agent-work/tmp/pytest/20261012-151619-SaJ3DV/bt/test_full_linux_install_with_n0/test-key', '-o', 'BatchMode=yes', '-o', 'ProxyCommand=docker exec -i agentic-linux-install-test-de9099b103 python3 /lab/ssh-proxy.py', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', '-o', 'ConnectTimeout=5', 'tester@127.0.0.1', 'agentic-home provision')' returned non-zero exit status 1.
+E               subprocess.CalledProcessError: Command '('ssh', '-i', '/home/ted-h/agent-work/tmp/pytest/20261012-154527-uMPOhq/bt/test_full_linux_install_with_n0/test-key', '-o', 'BatchMode=yes', '-o', 'ProxyCommand=docker exec -i agentic-linux-install-test-dcdea520cf python3 /lab/ssh-proxy.py', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', '-o', 'ConnectTimeout=5', 'tester@127.0.0.1', 'agentic-home snapshot')' returned non-zero exit status 1.
 
 ../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:577: CalledProcessError</failure></testcase></testsuite></testsuites>

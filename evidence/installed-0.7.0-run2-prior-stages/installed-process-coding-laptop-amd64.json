@@ -1,0 +1,29 @@
+{
+  "returncode": 0,
+  "stdout_bytes": 1159,
+  "stderr_bytes": 77,
+  "stderr_truncated": false,
+  "stderr_signatures": {
+    "traceback": false,
+    "import_error": false,
+    "syntax_error": false,
+    "permission_denied": false,
+    "ssh_transport": false,
+    "process_killed": false,
+    "sudo_error": false,
+    "timeout": false,
+    "disk_full": false,
+    "read_only_filesystem": false,
+    "io_error": false,
+    "oom": false,
+    "file_missing": false,
+    "kvm_unavailable": false,
+    "libvirt_connection": false,
+    "firmware_unavailable": false,
+    "network_conflict": false,
+    "checksum_mismatch": false,
+    "image_invalid": false,
+    "security_policy_denied": false,
+    "resource_unavailable": false
+  }
+}

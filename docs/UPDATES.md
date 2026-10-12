@@ -43,6 +43,19 @@ agentic-home update-rollback --candidate <candidate_digest> --approval <新rollb
 
 命令參數以 `agentic-home --help` 為準。正常操作用安裝時的主要 Linux Owner 帳號；本機 root 救援可切至該 UID 1000 帳號呼叫 broker。Controller 更新批准不等於家庭設備批准。
 
+## 主機工作續查
+
+逾時或連線中斷不代表操作未執行。保留 CLI 印出的 `Operation <id>`，以**同一個 ID**查詢或繼續等待：
+
+```bash
+agentic-home job --id <原工作id>
+agentic-home wait --id <原工作id>
+```
+
+`job` 只讀一次；exit 0 表示查詢成功，仍須看 `state`。`wait` 每 2 秒查同一工作，每次讀取遇到暫時性錯誤時最多嘗試 3 次，不重送操作；工作仍為 `running` 就繼續等，目前沒有 `--timeout` 選項。`wait` 的 exit 0 表示 `succeeded`，exit 1 表示 `failed` 或 `needs_reconcile`，exit 2 表示結果無法確認，包括查無 ID。讀取失敗、查無工作或 `needs_reconcile` 都不能當作未執行而重新提交；先核對實際狀態。一般 `failed` 也可能已有部分效果。
+
+這兩個命令適用於 `provision`、`start`、`shutdown`、`snapshot`、`restore`、`bootstrap_hermes`，只讀已保存的工作，不依賴完整主機狀態探測。Controller 更新／退版使用獨立的 candidate 記錄；以 `agentic-home updates` 查對原 `candidate_digest`，不要拿主機 job ID 代替。
+
 ## 網路選擇
 
 「網路與遠端連線」分開選擇位址與遠端身份：

@@ -3,7 +3,7 @@
   "iso_sha256": "44aaa2baea15ee0ba80bd3291fd0dcdd5e790823995514c8ff7857ba05d76a95",
   "result": "failed",
   "cloud_login": "not_run",
-  "phase": "nested_haos_provision",
-  "duration_seconds": 1111,
+  "phase": "nested_haos_shutdown_snapshot_restore",
+  "duration_seconds": 1495,
   "error_type": "CalledProcessError"
 }

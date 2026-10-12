@@ -3,7 +3,7 @@
   "transport": {
     "launch": {
       "returncode": 0,
-      "stdout_bytes": 386,
+      "stdout_bytes": 638,
       "stderr_bytes": 77,
       "stderr_truncated": false,
       "stderr_signatures": {
@@ -18,13 +18,22 @@
         "disk_full": false,
         "read_only_filesystem": false,
         "io_error": false,
-        "oom": false
+        "oom": false,
+        "file_missing": false,
+        "kvm_unavailable": false,
+        "libvirt_connection": false,
+        "firmware_unavailable": false,
+        "network_conflict": false,
+        "checksum_mismatch": false,
+        "image_invalid": false,
+        "security_policy_denied": false,
+        "resource_unavailable": false
       }
     },
-    "observation_attempts": 10,
+    "observation_attempts": 14,
     "observation": {
       "returncode": 0,
-      "stdout_bytes": 1545,
+      "stdout_bytes": 3056,
       "stderr_bytes": 77,
       "stderr_truncated": false,
       "stderr_signatures": {
@@ -39,7 +48,16 @@
         "disk_full": false,
         "read_only_filesystem": false,
         "io_error": false,
-        "oom": false
+        "oom": false,
+        "file_missing": false,
+        "kvm_unavailable": false,
+        "libvirt_connection": false,
+        "firmware_unavailable": false,
+        "network_conflict": false,
+        "checksum_mismatch": false,
+        "image_invalid": false,
+        "security_policy_denied": false,
+        "resource_unavailable": false
       }
     }
   },
@@ -56,7 +74,7 @@
       "ExecMainStatus": "0"
     },
     "process": {
-      "stdout_bytes": 939,
+      "stdout_bytes": 2197,
       "stderr_bytes": 0,
       "stderr_truncated": false,
       "stderr_signatures": {
@@ -75,8 +93,8 @@
         "cleanup_started": true,
         "cleanup_completed": true,
         "probe_resources": {
-          "free_disk_bytes": 90726772736,
-          "available_memory_bytes": 4778573824
+          "free_disk_bytes": 91325337600,
+          "available_memory_bytes": 4741353472
         }
       },
       "observed_from": "disposable_installed_linux_vm_root",
@@ -89,29 +107,63 @@
         "schema3",
         "maintenance_gate",
         "same_database_rollback",
-        "post_deployment_row_preserved"
+        "post_deployment_row_preserved",
+        "revoked_bridge_fixed_probe_enforced",
+        "pending_bridge_operation_blocked",
+        "isolated_probe_cleanup_verified"
       ],
       "fixtures": [
         "ephemeral_publisher",
         "preloaded_registry_delivery",
         "candidate_changes_only_image_label",
-        "synthetic_post_deployment_record"
+        "synthetic_post_deployment_record",
+        "synthetic_missing_bridge_contract_image",
+        "isolated_structure_only_revoked_bridge"
       ],
       "final_schema": 3,
       "real_cloud": false,
       "real_publisher_release": false,
       "rollback_restored_backup": false,
       "registry_delivery_calls": 1,
-      "original_image": "sha256:6ff6cad9730eea9b9172fa173f0d8a8ae7c36954839486048f48f478fd47e456",
-      "candidate_image": "sha256:c1c7280f6ccb282c5b15cf6f4bf212c8eb7d7b3302490c91b74b9140cc5d0a4a"
+      "original_image": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
+      "candidate_image": "sha256:304682548c8edc032de15a940ac2dbd87392204c2fb8a98ce8b5a193fd45c114",
+      "bridge_update_contract": {
+        "contract": 1,
+        "observed_from": "installed_host_fixed_probe",
+        "schema": 3,
+        "database_fixture": "isolated_structure_only_revoked_bridge",
+        "fixed_probe_executions": 3,
+        "synthetic_missing_contract_image": true,
+        "real_historical_release": false,
+        "supporting_image": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
+        "missing_contract_image": "sha256:d8692e294c94ab42fa035bc5566b650e3dc9b946eb49650b6f66f9fba1efbbe6",
+        "fixed_script_sha256": "868d5260adfeae4e43bbbdf06b5db8f5624187396db08bef76781062b4ccfa70",
+        "checks": {
+          "revoked_history_marker_copied": true,
+          "supporting_fixed_probe_passed": true,
+          "missing_contract_fixed_probe_rejected": true,
+          "missing_contract_import_error": true,
+          "missing_contract_without_history_passed": true,
+          "revoked_database_unchanged": true,
+          "pending_maintenance_rejected": true,
+          "pending_maintenance_readonly": true
+        },
+        "cleanup": {
+          "probe_containers_absent": true,
+          "quota_volumes_absent": true,
+          "probe_journal_absent": true,
+          "fixture_image_absent": true,
+          "scratch_database_absent": true
+        }
+      }
     }
   },
   "diagnostics": {
     "cleanup_started": true,
     "cleanup_completed": true,
     "probe_resources": {
-      "free_disk_bytes": 90726772736,
-      "available_memory_bytes": 4778573824
+      "free_disk_bytes": 91325337600,
+      "available_memory_bytes": 4741353472
     }
   },
   "observed_from": "disposable_installed_linux_vm_root",
@@ -124,19 +176,53 @@
     "schema3",
     "maintenance_gate",
     "same_database_rollback",
-    "post_deployment_row_preserved"
+    "post_deployment_row_preserved",
+    "revoked_bridge_fixed_probe_enforced",
+    "pending_bridge_operation_blocked",
+    "isolated_probe_cleanup_verified"
   ],
   "fixtures": [
     "ephemeral_publisher",
     "preloaded_registry_delivery",
     "candidate_changes_only_image_label",
-    "synthetic_post_deployment_record"
+    "synthetic_post_deployment_record",
+    "synthetic_missing_bridge_contract_image",
+    "isolated_structure_only_revoked_bridge"
   ],
   "final_schema": 3,
   "real_cloud": false,
   "real_publisher_release": false,
   "rollback_restored_backup": false,
   "registry_delivery_calls": 1,
-  "original_image": "sha256:6ff6cad9730eea9b9172fa173f0d8a8ae7c36954839486048f48f478fd47e456",
-  "candidate_image": "sha256:c1c7280f6ccb282c5b15cf6f4bf212c8eb7d7b3302490c91b74b9140cc5d0a4a"
+  "original_image": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
+  "candidate_image": "sha256:304682548c8edc032de15a940ac2dbd87392204c2fb8a98ce8b5a193fd45c114",
+  "bridge_update_contract": {
+    "contract": 1,
+    "observed_from": "installed_host_fixed_probe",
+    "schema": 3,
+    "database_fixture": "isolated_structure_only_revoked_bridge",
+    "fixed_probe_executions": 3,
+    "synthetic_missing_contract_image": true,
+    "real_historical_release": false,
+    "supporting_image": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
+    "missing_contract_image": "sha256:d8692e294c94ab42fa035bc5566b650e3dc9b946eb49650b6f66f9fba1efbbe6",
+    "fixed_script_sha256": "868d5260adfeae4e43bbbdf06b5db8f5624187396db08bef76781062b4ccfa70",
+    "checks": {
+      "revoked_history_marker_copied": true,
+      "supporting_fixed_probe_passed": true,
+      "missing_contract_fixed_probe_rejected": true,
+      "missing_contract_import_error": true,
+      "missing_contract_without_history_passed": true,
+      "revoked_database_unchanged": true,
+      "pending_maintenance_rejected": true,
+      "pending_maintenance_readonly": true
+    },
+    "cleanup": {
+      "probe_containers_absent": true,
+      "quota_volumes_absent": true,
+      "probe_journal_absent": true,
+      "fixture_image_absent": true,
+      "scratch_database_absent": true
+    }
+  }
 }

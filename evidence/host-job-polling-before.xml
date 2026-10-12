@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.017" timestamp="2026-10-12T16:13:18.528554-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_host_job_polling" name="test_started_snapshot_survives_read_timeout_without_reposting" time="0.001"><failure message="TimeoutError: private transport detail">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ef019c7b5c0&gt;
+capsys = &lt;_pytest.capture.CaptureFixture object at 0x7ef019c9f380&gt;
+
+    def test_started_snapshot_survives_read_timeout_without_reposting(monkeypatch, capsys):
+        calls, reads, accepted = [], [], []
+    
+        def broker(method, path, body=None):
+            calls.append((method, path, body))
+            if method == "POST":
+                assert path == "/actions" and not accepted
+                accepted.append({"id": body["id"], "request": dict(body), "state": "running", "at": 1.0})
+                return dict(accepted[0])
+            reads.append(path)
+            if len(reads) == 1:
+                # The broker already accepted the snapshot. Only observation failed.
+                raise TimeoutError("private transport detail")
+            return {**accepted[0], "state": "succeeded", "result": {"id": "snapshot-fixture"}, "finished_at": 2.0}
+    
+        monkeypatch.setattr(cli, "call", broker)
+        monkeypatch.setattr(cli.time, "sleep", lambda seconds: None)
+        monkeypatch.setattr(sys, "argv", ["agentic-home", "snapshot"])
+&gt;       cli.main()
+
+tests/test_host_job_polling.py:27: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+host/agentic_host/cli.py:108: in main
+    job = next(j for j in call("GET", "/status")["jobs"] if j["id"] == job["id"])
+                          ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+method = 'GET', path = '/status', body = None
+
+    def broker(method, path, body=None):
+        calls.append((method, path, body))
+        if method == "POST":
+            assert path == "/actions" and not accepted
+            accepted.append({"id": body["id"], "request": dict(body), "state": "running", "at": 1.0})
+            return dict(accepted[0])
+        reads.append(path)
+        if len(reads) == 1:
+            # The broker already accepted the snapshot. Only observation failed.
+&gt;           raise TimeoutError("private transport detail")
+E           TimeoutError: private transport detail
+
+tests/test_host_job_polling.py:21: TimeoutError</failure></testcase></testsuite></testsuites>
