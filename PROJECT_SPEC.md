@@ -2,7 +2,7 @@
 
 Steering v3.0；匯入基準是應用 `0.3.1`、commit `3ad476a712009469521c3f9838a44ef35ba29f76`。完整規格以 [Owner Project Spec v3](docs/v3/PROJECT_SPEC_V3.md) 和 [Worker Contract v1](docs/v3/WORKER_PROTOCOL_V1.md) 為準；以下是工程落地的共同不變條件，不是所有設計均已實作的聲明。當前證據見 [進度表](docs/v3/PROGRESS.md)。
 
-首次使用順序依 Owner 2026-10-12 指示改為 CLI 先行，見 [自動 onboarding](docs/ONBOARDING.md)。0.5.0 新增持久 `bootstrap_v1` 流程、短效本機桌面登入、首次 Hermes 最新來源相容性檢查、LINE／Telegram 配對碼與 HA 官方瀏覽器授權。仍使用 Controller schema 2；新增記錄與既有家庭 journal 分開，不宣稱能原地退回 0.4.0。
+首次使用順序依 Owner 2026-10-12 指示改為 CLI 先行，見 [自動 onboarding](docs/ONBOARDING.md)。0.5.0 新增持久 `bootstrap_v1` 流程、短效本機桌面登入、首次 Hermes 最新來源相容性檢查、LINE／Telegram 配對碼與 HA 官方瀏覽器授權。當時使用 schema 2；目前 **0.6.0 使用 Controller schema 3**，新增工作記錄與既有家庭 journal 分開，舊版不能原地讀取新格式。
 
 0.6.0 將前輪 [審查](docs/reviews/2026-10-12-E2E-ARCHITECTURE.md) 的 retention、停止核對、Host coding、成果／预览、家庭提案 adapter 與 updater 逐項落地。真實能力依 `/api/workers` 回報，不因 CLI 安裝或登入即宣稱完成研究；見 [Workers](docs/WORKERS.md) 與 [Updates](docs/UPDATES.md)。
 
@@ -34,7 +34,7 @@ Hermes 不持有家庭 Owner／host root 權威。Controller 驗證身份、scop
 | `home_operator` | 現有受限結構化 intent 與有限 observations | 新增的一般 filesystem、terminal、browser 工具 |
 | `live_verification` | 固定並已授權的驗收 runbook／helpers | 任意 live shell、超出批准的設備動作 |
 
-保留原家庭 CLI 啟動限制。Research／development 以獨立 process、credential、mount、network 與 hard resource limits 實作；prompt 或 UI 開關不算 sandbox。Home Worker 必須在 App 內實測可用邊界，不給 Docker socket、`full_access`、host PID、整份 HA config、Core／Supervisor 管理 token。不可隔離時禁用該 coding mode，保留固定診斷並記錄缺口。
+保留原家庭 CLI 啟動限制。Research／development 以獨立 process、credential、mount、network 與 hard resource limits 實作；prompt 或 UI 開關不算 sandbox。Home Worker 必須在 App 內實測可用邊界，模型工作程序不得取得 Docker socket、`full_access`、host PID、整份 HA config、Core／Supervisor 管理 token。不可隔離時禁用該 coding mode，保留固定診斷並記錄缺口。0.6.0 已接通 Host Codex coding；真 HAOS App 已有 cgroup 委派與記憶體 OOM 的平台證據，但 Home coding launcher 及完整隔離尚未交付。
 
 ## 工作、身份與恢復
 

@@ -1,7 +1,7 @@
 {
   "kind": "composed_onboarding_e2e",
   "result": "passed",
-  "duration_seconds": 88.28,
+  "duration_seconds": 44.45,
   "real": [
     "Chromium and compiled Web without API interception",
     "Controller HTTP/session/CSRF",
@@ -33,11 +33,11 @@
     "provision"
   ],
   "mcp_evidence": {
-    "case_id": "f81f71e03bbb4600b9cc902221350f64",
+    "case_id": "afb601e0580a410e952af468be39a8b0",
     "collection_method": "fixed_broker_status",
     "content_digest": "75ff4cbf49c5feea6e572c24166483d4e7a33c965c7a2a80fab5a72d4119be5f",
     "data_contract": 1,
-    "evidence_id": "a2c0b2eb303846b9bcd618f4f02cd478",
+    "evidence_id": "b050f33924754463b8375c915c8da417",
     "facts": {
       "ha_onboarding": {
         "http_status": 200,
@@ -67,11 +67,11 @@
       "provisioned": true,
       "vm": "running"
     },
-    "id": "a2c0b2eb303846b9bcd618f4f02cd478",
+    "id": "b050f33924754463b8375c915c8da417",
     "limitations": [
       "Native onboarding observations do not establish HA owner authority or physical device health."
     ],
-    "observed_at": "2026-10-12T10:11:56.972271+00:00",
+    "observed_at": "2026-10-12T11:02:17.396242+00:00",
     "observed_from": "host_broker",
     "redaction": "field_allowlist",
     "target_component": "host_and_managed_vm",
@@ -109,7 +109,7 @@
       "restart_count": 0
     },
     "controller": {
-      "image_id": "sha256:21535c7892e9d37e7642142cbabc2d0c9b771a583c812d5e7376fead55821ab6",
+      "image_id": "sha256:4146cd79e045e5fdcd360a89af8800f916c3ffcb58ea4ac412cc993f02391a04",
       "image_ref": "agentic-home-controller:0.6.0",
       "memory_bytes": 805306368,
       "pids_limit": 128,

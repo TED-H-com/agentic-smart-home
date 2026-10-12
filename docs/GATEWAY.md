@@ -1,4 +1,4 @@
-# 統一通訊、Hermes 與受控 Agent · 0.5.0 技術預覽
+# 統一通訊、Hermes 與受控 Agent · 0.6.0 技術預覽
 
 外層 Controller/Gateway 維持唯一通訊 receiver。Web 一直可用，onboarding 預設 LINE，亦可選 Discord／Telegram／Web；Hermes 不啟動自己的 bot Gateway，也不取得通道 token。首次開機不建立 HAOS，不影響外層 Web、Hermes 登入或固定主機查詢。
 
@@ -20,15 +20,17 @@
 
 ## 固定工具與 worker 的實際狀態
 
-Hermes 可見工具固定為 `host.status`、`worker.capabilities`、`worker.submit`、`worker.status`、`worker.cancel`、`worker.result`、`case.evidence.read`。MCP 每次呼叫驗證短期 case/run capability；server 決定身份、資料 scope 與工具限制。沒有任意 shell、filesystem、browser、原生 delegate、HA API、Live approve/apply 或模型自簽批准。
+Hermes 可見工具固定為 `host.status`、`worker.capabilities`、`worker.submit`、`worker.status`、`worker.cancel`、`worker.result`、`case.evidence.read`、`home.observe`、`home.propose`、`home.proposal_status`。MCP 每次呼叫驗證短期 case/run capability；server 決定身份、資料 scope 與工具限制。沒有任意 shell、filesystem、browser、原生 delegate、HA API、Live approve/apply 或模型自簽批准。
 
 本版 `host.status` 提供去密且標註觀測位置的固定主機證據，不能由 libvirt／host 狀態推論 Core、App 或設備正常。`case.evidence.read` 只接受同一 case 的 evidence IDs，不能指定任意路徑／URL。
 
-兩個 research/development workers 目前都回報 **blocked**。submit 會建立可追蹤、可去重的 handle，但 `execution_started=false`，沒有啟動 coding CLI。Host 的 [offline sandbox foundation](../host/worker/README.md) 尚待完整 filesystem lifecycle／provider egress 驗證與 CLI adapter；Home 仍需真正 HAOS App sandbox。受控 Runner 的存在或兩個 worker 名字出現在畫面，不是 E1/E2 已完成。
+Host research/development 已接通獨立登入的 Codex、私有 clone、受限 relay、程式差異、固定 verifier 與隔離預覽。能力由實際 Runtime 回報，未登入或環境未就緒不能派工；同時最多一份 coding 工作。Home coding 仍 blocked：真正 HAOS App 的 cgroup 可行性已有證據，完整 launcher 與憑證／出站／磁碟隔離仍待整合。詳見 [Workers](WORKERS.md)。受控 Runner 或工程 fixture 通過均不代表 E1/E2 家庭驗收完成。
 
 ## 對話、case 與重試
 
-Web 對話預設「Hermes 協調助手」。選「受控 Agent（進階）」才顯示 runtime／CLI；切換進階 Grok／HAOS 後回 Hermes，仍回到自己的 Hermes 對話 scope，不讓隱藏的 CLI 選擇改變 Hermes case。Web 可按「開始新對話」，或從舊 Web 訊息接續；sessionStorage 只保存各 scope 的訊息 IDs。
+「智能管家」直接呈現對話框，預設交給 Hermes。帳號與通訊入口移至「設定」，模型／CLI 選擇收在「進階對話設定」。選「受控 Agent（進階）」才顯示 runtime／CLI；切換進階 Grok／HAOS 後回 Hermes，仍回到自己的 Hermes 對話 scope，不讓隱藏的 CLI 選擇改變 Hermes case。Web 可按「開始新對話」，或從「對話紀錄」選擇可續接的 Web thread；無 thread 的舊紀錄、外部通道和已結束紀錄只能查看。送出時停用歷史切換；閱讀外部紀錄不清除原 Web 續接位置。sessionStorage 只保存各 scope 的訊息 IDs。
+
+同 case 的工作進度與成果在原對話展開，讀取成果不派新工作。成果必須符合 exact job 與 case；checkpoint 和觀測位置保留在技術資料，檔案仍驗 SHA，候選 HTML 只產生隔離 PNG。
 
 外部通道依設定的協調方式處理；`/new 新需求` 開始新對話。`/host 需求`／`/home 需求` 明確選擇既有受控 Runner；可組合 `/home /new 新需求`。不同通道、聊天室、sender 及設定保持隔離，不會自動跨通道共用 Hermes session。更換 bot token／白名單、Owner／政策、Hermes 模型或認證會使不再授權的舊 context／能力失效。明確主機登出也切斷 Web Hermes scope。
 
@@ -50,7 +52,7 @@ Codex 支援 device code／API key；Claude 支援 API key／setup token；Grok 
 
 受控模式的前文最多六回合、8 KiB，每則需求與答覆最多 2 KiB；逾限明示省略，保留期 1–7 天。HAOS 問答重新取得授權觀測，不把舊記憶當即時狀態。補充需求會建立後續家庭任務並連回先前等待補充的任務；等待批准的提案仍是獨立的確切資源。
 
-目前家庭提案走受控 HAOS 問答／原家庭工作台，保留 policy、live Owner、具體提案、Web 批准、備份、journal 及讀回核對。Hermes 沒有把研究結果直接部署的工具；通道訊息與模型 `approved=true` 均不能代替批准。已部署的日常規則由 HA 執行，停止 Hermes／Runner 不會停用規則。
+Hermes 的 `home.observe`／`home.propose` 和受控 HAOS 問答都接到原家庭 Engine，保留 policy、live Owner、具體提案、Web 批准、備份、journal 及讀回核對。對話中的「檢查家庭操作」開啟確切提案。Hermes 沒有把研究結果直接部署的工具；通道訊息與模型 `approved=true` 均不能代替批准。已部署的日常規則由 HA 執行，停止 Hermes／Runner 不會停用規則。
 
 ## LINE.js
 

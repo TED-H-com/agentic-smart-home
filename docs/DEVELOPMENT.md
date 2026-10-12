@@ -1,4 +1,4 @@
-# 開發與自動化測試 · 0.5.1 技術預覽
+# 開發與自動化測試 · 0.6.0 技術預覽
 
 先讀根 [AGENTS](../AGENTS.md)、[Plan](../PROJECT_PLAN.md) 和 [v3 原稿／進度](v3/README.md)。A Hermes/Controller、B worker isolation、C Web/preview/delivery 三線可並行，共用契約由整合者維護，同一檔案／workspace 維持一個 writer。工程測試和 32 個產品驗收分開記。
 
@@ -16,6 +16,7 @@ docker build -t agentic-home-controller:0.6.0 controller
 docker build -t agentic-home-runner:0.6.0 runner
 docker build -t agentic-home-linejs:0.6.0 host/linejs
 docker build -t agentic-home-hermes:0.6.0 hermes
+docker build -t agentic-home-preview:0.6.0 host/preview
 docker pull ghcr.io/home-assistant/amd64-hassio-supervisor:2026.09.3
 ```
 
@@ -37,7 +38,7 @@ uv run pytest -q --basetemp "$agentic_test_tmp"
 | 家庭 Engine/API/Runner | `tests/test_engine.py tests/test_api.py tests/test_runner.py` | HA/provider 協定 fixtures |
 | Hermes Controller/MCP | `tests/test_hermes_controller.py` | 身份、scope、blocked jobs、固定工具、去重／撤權；runtime fixture |
 | Hermes 私有 runtime | `tests/test_hermes_runtime.py --containers` | service tests＋真 pinned AIAgent／官方 MCP client；模型及 MCP endpoints 為本機 fixture |
-| Web | `tests/test_bootstrap_ui.py tests/test_ui.py tests/test_gateway_ui.py tests/test_hermes_ui.py` | 真 Chromium、API fixtures，1440／768／390 px |
+| Web | `tests/test_bootstrap_ui.py tests/test_ui.py tests/test_gateway_ui.py tests/test_hermes_ui.py tests/test_worker_ui.py` | 真 Chromium、API fixtures，1440／768／390 px |
 | 首次設定／登入 | `tests/test_bootstrap.py tests/test_bootstrap_host.py tests/test_bootstrap_runner.py tests/test_desktop_login.py tests/test_ha_oauth.py --containers --real-ha` | 持久步驟／負向恢復、真封裝CLI本機推論fixture、真Core OAuth；不登入雲端 |
 | 跨服務 onboarding E2E | `tests/test_onboarding_e2e.py --containers --real-ha` | 真 Chromium／Controller／TLS Runner／Codex／Hermes AIAgent／MCP／Core OAuth；模型與 Host 安裝副作用為 fixture，無瀏覽器 API 攔截；精確限制見測試與審查報告 |
 | 競爭與恢復回歸 | `tests/test_review_bootstrap.py tests/test_review_runtime.py tests/test_review_ui.py` | 真程序樹取消、配對回覆遺失、授權／pause race、登入表單狀態、Telegram 首次配對；外部帳號端點 fixture |
@@ -45,6 +46,8 @@ uv run pytest -q --basetemp "$agentic_test_tmp"
 | Coding 隔離基礎 | `tests/test_coding_sandbox.py --containers` | 真 Docker 的 network／process／resource negatives；不等於真 cloud CLI、完整 ext4 lifecycle 或 HAOS App |
 | Core | `tests/test_real_ha.py --real-ha` | 真官方 Core；Supervisor backup 與 Agent intent 仍有 fixture |
 | 受控 Runner／Supervisor | `tests/test_container.py --containers` | 真 CLI、TLS、UID、schema／backup filter；模型為本機 fixture |
+
+先完成 image 建置與媒體匯出，再跑容器回歸；不要讓 `docker save`／ISO 打包與限時 Docker create 測試並行。所有測試結束後，再執行一次性 Linux 安裝案例。
 
 完整候選回歸用 `pytest-disktmp uv run pytest -q --real-ha --containers`。真 Core 測試使用 2026.10.1；測試容器用唯一名稱和磁碟 temp，必須在 finally 停止／移除。不得讀開發機 credentials 或偷偷呼叫付費 inference。
 

@@ -1,11 +1,13 @@
 # Agentic Smart Home 0.6.0 驗證
 
 使用者要求對話優先後，主選單已改為五项，進度與成果留在智能管家同一段對話，技術設定收起。[新版24張截圖](../evidence/ui/chat-first/README.md) 已檢视桌面／平板／手機。
-最新瀏覽器與 composed E2E 回歸 **13 passed／134.90 秒**，見 [JUnit](../evidence/assistant-browser-final.xml)。保留登入、精確家庭批准、草稿與重試、provider／runtime／Hermes scope，另覆蓋無 thread 舊紀錄唯讀、送出中禁止切換，以及成果 exact case 核對。前一輪完整 suite 為407 passed、3 skipped、1項 Chromium capture失敗（[原始紀錄](../evidence/pytest-chat-first.xml)）；已加入 resize後 layout frame等待，功能與截圖皆重新通過，完整最終回歸另記錄。
+**最終本機完整回歸：409 passed、3 skipped／248.34 秒**，見 [完整 JUnit](../evidence/pytest-chat-first-final.xml)。三個 skipped 都是需另行啟動的 HAOS App 探針、HAOS owner／Supervisor 備份，以及 Linux 安裝 VM。
+
+最新瀏覽器與 composed E2E 回歸 **13 passed／134.90 秒**，見 [JUnit](../evidence/assistant-browser-final.xml)。保留登入、精確家庭批准、草稿與重試、provider／runtime／Hermes scope，另覆蓋無 thread 舊紀錄唯讀、送出中禁止切換，以及成果 exact case 核對。前一輪完整 suite 為407 passed、3 skipped、1項 Chromium capture失敗（[原始紀錄](../evidence/pytest-chat-first.xml)）；已加入 resize 後 layout frame 等待，最終完整回歸通過。另一次與 image 匯出並行的回歸因兩個 Docker create 超時而中止，保留 [原始紀錄](../evidence/pytest-chat-first-build-contention.xml)；清理晚到容器並依序執行後，全套通過，未放寬產品限制。
 
 本輪將 0.5.1 審查的工程缺口接入產品，並依實際 Chromium 截圖改善 onboarding 與開發成果畫面。完整服務、精確安裝媒體與 CI 的結果會各自記錄，不把模型 transport fixtures 說成真帳號驗收。
 
-已完成的分項：Controller／Engine／Hermes 管理層 **106 passed、1 skipped**（另待 real Core）；真 pinned Hermes 容器 **22 passed**；Web 三尺寸瀏覽器回歸 **11 passed**。對應 [Controller](../evidence/worker-controller.xml)、[Hermes runtime](../evidence/worker-hermes-runtime.xml)。本機完整 `--real-ha --containers` 已為 **385 passed、3 skipped／378.44 秒**，見 [完整 JUnit](../evidence/pytest-0.6.0.xml)；另補遷移快照、updater 快照與 verifier shadowing 的定向回歸，分別 35、34、35 項通過。三個跳過項為兩個 HAOS VM 案例與 Linux 安裝案例，另行執行；真帳號不在上述數字內。
+較早的分項紀錄（不是額外加總）：Controller／Engine／Hermes 管理層 **106 passed、1 skipped**（另待 real Core）；真 pinned Hermes 容器 **22 passed**；Web 三尺寸瀏覽器回歸 **11 passed**。對應 [Controller](../evidence/worker-controller.xml)、[Hermes runtime](../evidence/worker-hermes-runtime.xml)。先前本機完整 `--real-ha --containers` 為 **385 passed、3 skipped／378.44 秒**，見 [完整 JUnit](../evidence/pytest-0.6.0.xml)；另補遷移快照、updater 快照與 verifier shadowing 的定向回歸，分別 35、34、35 項通過。三個跳過項為兩個 HAOS VM 案例與 Linux 安裝案例，另行執行；真帳號不在上述數字內。
 
 [30 張三尺寸截圖](../evidence/ui/0.6.0/README.md) 已逐類檢視；調整見 [本輪審查](reviews/2026-10-12-UI-WORKER-DELIVERY.md)。
 

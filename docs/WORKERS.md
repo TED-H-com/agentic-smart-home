@@ -4,7 +4,7 @@
 
 ## 使用
 
-在「開發工作」選外層助手，完成獨立 Codex device code 或 API key 登入，描述問題。Host 工作者只讀封裝內的產品來源，在私有 clone 調查、修改和跑測試。CLI 登入資料不複製到 Hermes 或模型的工作區。尚未登入時不送出工作；`configured` 表示資料保存，成功模型工作才記為 `inference_verified`。
+日常在「智能管家」描述需求，由 Hermes 依能力派工，成果回到同一段對話。第一次 coding 登入或手動派工可從「設定 → 進階工具」選外層助手，完成獨立 Codex device code 或 API key 登入。Host 工作者只讀封裝內的產品來源，在私有 clone 調查、修改和跑測試。CLI 登入資料不複製到 Hermes 或模型的工作區。尚未登入時不送出工作；`configured` 表示資料保存，成功模型工作才記為 `inference_verified`。
 
 目前 enabled provider 為 **Codex 0.157.1**；Claude、Antigravity、Grok 的家庭模式／初始化能力繼續保留，但不冒充已完成的 coding adapter。Home coding launcher 尚未交付，不能派內層 coding 工作；HAOS App 的隔離基礎已有實測可行路徑，並非平台一概不支援。
 

@@ -3,12 +3,14 @@
 This is the Plan v3 orchestrator adapter. The inference loop is the actual upstream
 `run_agent.AIAgent`, pinned to the commit and verified archive in
 [`hermes.lock.json`](hermes.lock.json). It does not launch Hermes Gateway, accept bot
-tokens, run coding workers, or acquire household approval authority.
+tokens, execute coding workers inside this service, or acquire household approval
+authority. It dispatches supported Host coding work through the fixed Controller
+MCP adapter; Home coding remains unavailable pending its separate App launcher.
 
 Build from the product root:
 
 ```sh
-docker build -t agentic-home-hermes:0.5.0 hermes
+docker build -t agentic-home-hermes:0.6.0 hermes
 pytest-disktmp uv run pytest -q tests/test_hermes_runtime.py --containers
 ```
 

@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="67" time="176.298" timestamp="2026-10-12T06:54:19.830047-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_api" name="test_ingress_source_and_owner_cannot_be_forged[172.30.33.7-owner]" time="0.384" /><testcase classname="tests.test_api" name="test_ingress_source_and_owner_cannot_be_forged[172.30.32.2-normal-user]" time="0.016" /><testcase classname="tests.test_api" name="test_ingress_source_and_owner_cannot_be_forged[127.0.0.1-owner]" time="0.016" /><testcase classname="tests.test_api" name="test_csrf_origin_and_runner_bearer_cannot_approve" time="0.117" /><testcase classname="tests.test_api" name="test_owner_rechecked_on_mutation_even_with_read_cache" time="0.016" /><testcase classname="tests.test_api" name="test_validation_error_does_not_echo_secret" time="0.017" /><testcase classname="tests.test_api" name="test_encrypted_snapshot_can_restore" time="0.117" /><testcase classname="tests.test_api" name="test_task_reply_preserves_request_and_deduplicates" time="0.053" /><testcase classname="tests.test_api" name="test_onboarding_does_not_count_excluded_entities_as_shared" time="0.018" /><testcase classname="tests.test_bootstrap" name="test_start_pairs_automatically_waits_for_actual_auth_and_resumes" time="0.032" /><testcase classname="tests.test_bootstrap" name="test_no_network_prevents_pairing_auth_and_any_host_action" time="0.023" /><testcase classname="tests.test_bootstrap" name="test_lost_runner_reply_uses_exact_persisted_handle_without_second_inference" time="0.048" /><testcase classname="tests.test_bootstrap" name="test_restart_after_lost_host_reply_reconciles_original_job" time="0.051" /><testcase classname="tests.test_bootstrap" name="test_configured_or_model_success_never_substitutes_for_hermes_readiness" time="0.044" /><testcase classname="tests.test_bootstrap" name="test_channel_must_be_live_or_explicitly_skipped_before_auto_ha" time="0.178" /><testcase classname="tests.test_bootstrap" name="test_native_ha_requires_native_completion_and_live_owner_not_browser_checkpoint" time="0.066" /><testcase classname="tests.test_bootstrap" name="test_restarted_core_missing_onboarding_route_requires_live_owner_readback" time="0.051" /><testcase classname="tests.test_bootstrap" name="test_retry_never_replays_unconfirmed_host_operation" time="0.199" /><testcase classname="tests.test_bootstrap" name="test_failed_host_job_needs_explicit_idempotent_retry_with_new_handle" time="0.039" /><testcase classname="tests.test_bootstrap" name="test_lifespan_resume_keeps_background_progress_without_page" time="0.041" /><testcase classname="tests.test_bootstrap" name="test_http_get_is_pure_and_browser_cannot_report_success" time="0.039" /><testcase classname="tests.test_bootstrap" name="test_controller_request_passes_real_runner_bootstrap_contract" time="0.073" /><testcase classname="tests.test_bootstrap" name="test_desktop_ticket_is_single_use_origin_bound_and_not_a_general_auth_bypass" time="0.033" /><testcase classname="tests.test_bootstrap_host" name="test_resolve_immutable_official_source_and_reject_bad_archive" time="0.002" /><testcase classname="tests.test_bootstrap_host" name="test_native_onboarding_requires_real_complete_typed_steps" time="0.000" /><testcase classname="tests.test_bootstrap_host" name="test_initial_install_never_replaces_account_or_logged_out_used_runtime" time="0.011" /><testcase classname="tests.test_bootstrap_host" name="test_candidate_is_probed_without_credentials_and_activated_once" time="0.011" /><testcase classname="tests.test_bootstrap_host" name="test_failed_candidate_preserves_original_and_rechecks_auth[probe_fails]" time="0.009" /><testcase classname="tests.test_bootstrap_host" name="test_failed_candidate_preserves_original_and_rechecks_auth[activation_fails]" time="0.028" /><testcase classname="tests.test_bootstrap_host" name="test_failed_candidate_preserves_original_and_rechecks_auth[race_account]" time="0.011" /><testcase classname="tests.test_bootstrap_host" name="test_failed_fallback_and_restart_never_blindly_replay" time="0.021" /><testcase classname="tests.test_bootstrap_host" name="test_image_override_cannot_inject_environment_or_shell" time="0.000" /><testcase classname="tests.test_bootstrap_runner" name="test_bootstrap_invokes_subprocess_and_persists_safe_result" time="0.060" /><testcase classname="tests.test_bootstrap_runner" name="test_bootstrap_rejects_untrusted_fields_and_inner_runner" time="0.157" /><testcase classname="tests.test_bootstrap_runner" name="test_bootstrap_auth_and_output_fail_closed[False-False]" time="0.026" /><testcase classname="tests.test_bootstrap_runner" name="test_bootstrap_auth_and_output_fail_closed[True-True]" time="0.026" /><testcase classname="tests.test_bootstrap_runner" name="test_bootstrap_uses_real_packaged_codex_with_offline_model" time="6.381" /><testcase classname="tests.test_bootstrap_ui" name="test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states" time="41.583" /><testcase classname="tests.test_bootstrap_ui" name="test_desktop_ticket_is_consumed_once_and_never_persisted" time="1.888" /><testcase classname="tests.test_coding_sandbox" name="test_profiles_are_not_advertised_as_cloud_or_inner_coding" time="0.001" /><testcase classname="tests.test_coding_sandbox" name="test_launch_refuses_unsupported_broker_before_docker_or_storage" time="0.001" /><testcase classname="tests.test_coding_sandbox" name="test_container_profile_has_no_network_or_secret_mounts" time="0.000" /><testcase classname="tests.test_coding_sandbox" name="test_artifacts_reject_traversal_links_specials_secrets_and_quota" time="0.001" /><testcase classname="tests.test_coding_sandbox" name="test_unconfirmed_stop_never_releases_writer_or_exports" time="0.037" /><testcase classname="tests.test_coding_sandbox" name="test_restart_kills_owned_process_before_releasing_writer" time="0.009" /><testcase classname="tests.test_coding_sandbox" name="test_replaced_container_cannot_be_killed_or_exported" time="0.007" /><testcase classname="tests.test_coding_sandbox" name="test_real_docker_offline_negative_boundaries_and_process_tree[deadline]" time="20.047"><failure message="subprocess.TimeoutExpired: Command '['docker', 'create', '--name', 'agentic-coding-adfa6f09ed3c45a88d5c0c70a8061079', '--label', 'agentic.coding=agentic-coding-adfa6f09ed3c45a88d5c0c70a8061079', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--cap-add', 'SETUID', '--cap-add', 'SETGID', '--cap-add', 'SETPCAP', '--cap-add', 'KILL', '--security-opt', 'no-new-privileges', '--memory', '256m', '--memory-swap', '256m', '--cpus', '1', '--pids-limit', '64', '--ulimit', 'core=0:0', '--ulimit', 'nofile=256:256', '--ulimit', 'fsize=16777216:16777216', '--ipc', 'none', '--cgroupns', 'private', '--restart', 'no', '--log-driver', 'none', '--user', '0:0', '--workdir', '/work/source', '--env', 'HOME=/work/profile', '--env', 'TMPDIR=/work/scratch', '--env', 'PYTHONDONTWRITEBYTECODE=1', '--env', 'GIT_CONFIG_NOSYSTEM=1', '--env', 'GIT_CONFIG_GLOBAL=/dev/null', '--mount', 'type=bind,src=/home/ted-h/agent-work/tmp/pytest/20261012-065419-Wwfifj/bt/test_real_docker_offline_negat0/work,dst=/work,bind-propagation=rprivate', '--mount', 'type=bind,src=/home/ted-h/agent-work/tmp/pytest/20261012-065419-Wwfifj/bt/test_real_docker_offline_negat0/work/scratch,dst=/tmp,bind-propagation=rprivate', '--entrypoint', '/bin/sh', 'sha256:8f57b79e8ae3db8a15d33ba63dd210ef8abc5f1cae9e7402f589d1bfd2f051f5', '-c', 'exec /usr/bin/timeout --signal=KILL 10s /usr/bin/setpriv --reuid=10000 --regid=10000 --clear-groups --inh-caps=-all --ambient-caps=-all --bounding-set=-all /usr/local/bin/python -I /work/task.py &gt; /work/stdout.txt 2&gt; /work/stderr.txt']' timed out after 20 seconds">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-065419-Wwfifj/bt/test_real_docker_offline_negat0')
+request = &lt;FixtureRequest for &lt;Function test_real_docker_offline_negative_boundaries_and_process_tree[deadline]&gt;&gt;
+stop_method = 'deadline'
+
+    @pytest.mark.parametrize("stop_method", ["deadline", "cancel"])
+    def test_real_docker_offline_negative_boundaries_and_process_tree(tmp_path, request, stop_method):
+        if not request.config.getoption("--containers"):
+            pytest.skip("requires local packaged Runner image and Docker; foundation only")
+        # This smoke deliberately does not claim the root-only bounded filesystem was exercised.
+        # It uses disk-backed pytest scratch and verifies the remaining real Docker boundaries.
+        image = subprocess.check_output(["docker", "image", "inspect", f"agentic-home-runner:{VERSION}",
+                                         "--format", "{{.Id}}"], text=True).strip()
+        workspace = tmp_path / "work"
+        workspace.mkdir(mode=0o755)
+        workspace.chmod(0o777)  # Production mount root is root-owned; this harness runs as uid 1000.
+        for directory in ("source", "profile", "scratch", "artifacts"):
+            (workspace / directory).mkdir(mode=0o777)
+            (workspace / directory).chmod(0o777)  # Test harness only; production root broker chowns UID 10000.
+        program = '''import json, os, pathlib, socket, subprocess, time
+    assert os.geteuid() == 10000
+    assert "CapEff:\\t0000000000000000" in pathlib.Path('/proc/self/status').read_text()
+    assert set(pathlib.Path('/sys/class/net').iterdir()) == {pathlib.Path('/sys/class/net/lo')}
+    assert not pathlib.Path('/var/run/docker.sock').exists()
+    assert not pathlib.Path('/data').exists()
+    assert not any(k in os.environ for k in ('SUPERVISOR_TOKEN','XAI_API_KEY','OPENAI_API_KEY','AGENTIC_TOKEN'))
+    for address in ('192.168.177.2', '169.254.169.254', '1.1.1.1'):
+        with socket.socket() as connection:
+            connection.settimeout(.2)
+            assert connection.connect_ex((address, 443)) != 0
+    try:
+        pathlib.Path('/app/forbidden').write_text('no')
+    except OSError:
+        pass
+    else:
+        raise AssertionError('read-only root bypass')
+    try:
+        os.kill(1, 19)
+    except PermissionError:
+        pass
+    else:
+        raise AssertionError('job can stop watchdog')
+    assert pathlib.Path('/sys/fs/cgroup/memory.max').read_text().strip() == '268435456'
+    assert pathlib.Path('/sys/fs/cgroup/memory.swap.max').read_text().strip() == '0'
+    assert pathlib.Path('/sys/fs/cgroup/pids.max').read_text().strip() == '64'
+    assert pathlib.Path('/sys/fs/cgroup/cpu.max').read_text().strip() == '100000 100000'
+    children = []
+    try:
+        for _ in range(80):
+            children.append(subprocess.Popen(['/usr/bin/sleep', '60']))
+    except BlockingIOError:
+        pass
+    else:
+        raise AssertionError('PID quota bypass')
+    assert 1 &lt; len(children) &lt; 64
+    pathlib.Path('/work/artifacts/result.json').write_text(json.dumps({'checks':'passed','children':len(children)}))
+    time.sleep(60)
+    '''
+        (workspace / "task.py").write_text(program)
+        name = "agentic-coding-" + uuid.uuid4().hex
+        args = container_command(name, image, workspace, Limits(wall_seconds=10))
+        try:
+&gt;           subprocess.run(args, check=True, capture_output=True, text=True, timeout=20)
+
+tests/test_coding_sandbox.py:202: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:556: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:1222: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:2155: in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;Popen: returncode: -9 args: ['docker', 'create', '--name', 'agentic-coding-...&gt;
+endtime = 780114.103957871, orig_timeout = 20, stdout_seq = [], stderr_seq = []
+skip_check_and_raise = False
+
+    def _check_timeout(self, endtime, orig_timeout, stdout_seq, stderr_seq,
+                       skip_check_and_raise=False):
+        """Convenience for checking if a timeout has expired."""
+        if endtime is None:
+            return
+        if skip_check_and_raise or _time() &gt; endtime:
+&gt;           raise TimeoutExpired(
+                    self.args, orig_timeout,
+                    output=b''.join(stdout_seq) if stdout_seq else None,
+                    stderr=b''.join(stderr_seq) if stderr_seq else None)
+E           subprocess.TimeoutExpired: Command '['docker', 'create', '--name', 'agentic-coding-adfa6f09ed3c45a88d5c0c70a8061079', '--label', 'agentic.coding=agentic-coding-adfa6f09ed3c45a88d5c0c70a8061079', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--cap-add', 'SETUID', '--cap-add', 'SETGID', '--cap-add', 'SETPCAP', '--cap-add', 'KILL', '--security-opt', 'no-new-privileges', '--memory', '256m', '--memory-swap', '256m', '--cpus', '1', '--pids-limit', '64', '--ulimit', 'core=0:0', '--ulimit', 'nofile=256:256', '--ulimit', 'fsize=16777216:16777216', '--ipc', 'none', '--cgroupns', 'private', '--restart', 'no', '--log-driver', 'none', '--user', '0:0', '--workdir', '/work/source', '--env', 'HOME=/work/profile', '--env', 'TMPDIR=/work/scratch', '--env', 'PYTHONDONTWRITEBYTECODE=1', '--env', 'GIT_CONFIG_NOSYSTEM=1', '--env', 'GIT_CONFIG_GLOBAL=/dev/null', '--mount', 'type=bind,src=/home/ted-h/agent-work/tmp/pytest/20261012-065419-Wwfifj/bt/test_real_docker_offline_negat0/work,dst=/work,bind-propagation=rprivate', '--mount', 'type=bind,src=/home/ted-h/agent-work/tmp/pytest/20261012-065419-Wwfifj/bt/test_real_docker_offline_negat0/work/scratch,dst=/tmp,bind-propagation=rprivate', '--entrypoint', '/bin/sh', 'sha256:8f57b79e8ae3db8a15d33ba63dd210ef8abc5f1cae9e7402f589d1bfd2f051f5', '-c', 'exec /usr/bin/timeout --signal=KILL 10s /usr/bin/setpriv --reuid=10000 --regid=10000 --clear-groups --inh-caps=-all --ambient-caps=-all --bounding-set=-all /usr/local/bin/python -I /work/task.py &gt; /work/stdout.txt 2&gt; /work/stderr.txt']' timed out after 20 seconds
+
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:1269: TimeoutExpired</failure></testcase><testcase classname="tests.test_coding_sandbox" name="test_real_docker_offline_negative_boundaries_and_process_tree[cancel]" time="20.055"><failure message="subprocess.TimeoutExpired: Command '['docker', 'create', '--name', 'agentic-coding-b4fcd308810049419d506e01647026e1', '--label', 'agentic.coding=agentic-coding-b4fcd308810049419d506e01647026e1', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--cap-add', 'SETUID', '--cap-add', 'SETGID', '--cap-add', 'SETPCAP', '--cap-add', 'KILL', '--security-opt', 'no-new-privileges', '--memory', '256m', '--memory-swap', '256m', '--cpus', '1', '--pids-limit', '64', '--ulimit', 'core=0:0', '--ulimit', 'nofile=256:256', '--ulimit', 'fsize=16777216:16777216', '--ipc', 'none', '--cgroupns', 'private', '--restart', 'no', '--log-driver', 'none', '--user', '0:0', '--workdir', '/work/source', '--env', 'HOME=/work/profile', '--env', 'TMPDIR=/work/scratch', '--env', 'PYTHONDONTWRITEBYTECODE=1', '--env', 'GIT_CONFIG_NOSYSTEM=1', '--env', 'GIT_CONFIG_GLOBAL=/dev/null', '--mount', 'type=bind,src=/home/ted-h/agent-work/tmp/pytest/20261012-065419-Wwfifj/bt/test_real_docker_offline_negat1/work,dst=/work,bind-propagation=rprivate', '--mount', 'type=bind,src=/home/ted-h/agent-work/tmp/pytest/20261012-065419-Wwfifj/bt/test_real_docker_offline_negat1/work/scratch,dst=/tmp,bind-propagation=rprivate', '--entrypoint', '/bin/sh', 'sha256:8f57b79e8ae3db8a15d33ba63dd210ef8abc5f1cae9e7402f589d1bfd2f051f5', '-c', 'exec /usr/bin/timeout --signal=KILL 10s /usr/bin/setpriv --reuid=10000 --regid=10000 --clear-groups --inh-caps=-all --ambient-caps=-all --bounding-set=-all /usr/local/bin/python -I /work/task.py &gt; /work/stdout.txt 2&gt; /work/stderr.txt']' timed out after 20 seconds">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-065419-Wwfifj/bt/test_real_docker_offline_negat1')
+request = &lt;FixtureRequest for &lt;Function test_real_docker_offline_negative_boundaries_and_process_tree[cancel]&gt;&gt;
+stop_method = 'cancel'
+
+    @pytest.mark.parametrize("stop_method", ["deadline", "cancel"])
+    def test_real_docker_offline_negative_boundaries_and_process_tree(tmp_path, request, stop_method):
+        if not request.config.getoption("--containers"):
+            pytest.skip("requires local packaged Runner image and Docker; foundation only")
+        # This smoke deliberately does not claim the root-only bounded filesystem was exercised.
+        # It uses disk-backed pytest scratch and verifies the remaining real Docker boundaries.
+        image = subprocess.check_output(["docker", "image", "inspect", f"agentic-home-runner:{VERSION}",
+                                         "--format", "{{.Id}}"], text=True).strip()
+        workspace = tmp_path / "work"
+        workspace.mkdir(mode=0o755)
+        workspace.chmod(0o777)  # Production mount root is root-owned; this harness runs as uid 1000.
+        for directory in ("source", "profile", "scratch", "artifacts"):
+            (workspace / directory).mkdir(mode=0o777)
+            (workspace / directory).chmod(0o777)  # Test harness only; production root broker chowns UID 10000.
+        program = '''import json, os, pathlib, socket, subprocess, time
+    assert os.geteuid() == 10000
+    assert "CapEff:\\t0000000000000000" in pathlib.Path('/proc/self/status').read_text()
+    assert set(pathlib.Path('/sys/class/net').iterdir()) == {pathlib.Path('/sys/class/net/lo')}
+    assert not pathlib.Path('/var/run/docker.sock').exists()
+    assert not pathlib.Path('/data').exists()
+    assert not any(k in os.environ for k in ('SUPERVISOR_TOKEN','XAI_API_KEY','OPENAI_API_KEY','AGENTIC_TOKEN'))
+    for address in ('192.168.177.2', '169.254.169.254', '1.1.1.1'):
+        with socket.socket() as connection:
+            connection.settimeout(.2)
+            assert connection.connect_ex((address, 443)) != 0
+    try:
+        pathlib.Path('/app/forbidden').write_text('no')
+    except OSError:
+        pass
+    else:
+        raise AssertionError('read-only root bypass')
+    try:
+        os.kill(1, 19)
+    except PermissionError:
+        pass
+    else:
+        raise AssertionError('job can stop watchdog')
+    assert pathlib.Path('/sys/fs/cgroup/memory.max').read_text().strip() == '268435456'
+    assert pathlib.Path('/sys/fs/cgroup/memory.swap.max').read_text().strip() == '0'
+    assert pathlib.Path('/sys/fs/cgroup/pids.max').read_text().strip() == '64'
+    assert pathlib.Path('/sys/fs/cgroup/cpu.max').read_text().strip() == '100000 100000'
+    children = []
+    try:
+        for _ in range(80):
+            children.append(subprocess.Popen(['/usr/bin/sleep', '60']))
+    except BlockingIOError:
+        pass
+    else:
+        raise AssertionError('PID quota bypass')
+    assert 1 &lt; len(children) &lt; 64
+    pathlib.Path('/work/artifacts/result.json').write_text(json.dumps({'checks':'passed','children':len(children)}))
+    time.sleep(60)
+    '''
+        (workspace / "task.py").write_text(program)
+        name = "agentic-coding-" + uuid.uuid4().hex
+        args = container_command(name, image, workspace, Limits(wall_seconds=10))
+        try:
+&gt;           subprocess.run(args, check=True, capture_output=True, text=True, timeout=20)
+
+tests/test_coding_sandbox.py:202: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:556: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:1222: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:2155: in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;Popen: returncode: -9 args: ['docker', 'create', '--name', 'agentic-coding-...&gt;
+endtime = 780134.183518098, orig_timeout = 20, stdout_seq = [], stderr_seq = []
+skip_check_and_raise = False
+
+    def _check_timeout(self, endtime, orig_timeout, stdout_seq, stderr_seq,
+                       skip_check_and_raise=False):
+        """Convenience for checking if a timeout has expired."""
+        if endtime is None:
+            return
+        if skip_check_and_raise or _time() &gt; endtime:
+&gt;           raise TimeoutExpired(
+                    self.args, orig_timeout,
+                    output=b''.join(stdout_seq) if stdout_seq else None,
+                    stderr=b''.join(stderr_seq) if stderr_seq else None)
+E           subprocess.TimeoutExpired: Command '['docker', 'create', '--name', 'agentic-coding-b4fcd308810049419d506e01647026e1', '--label', 'agentic.coding=agentic-coding-b4fcd308810049419d506e01647026e1', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--cap-add', 'SETUID', '--cap-add', 'SETGID', '--cap-add', 'SETPCAP', '--cap-add', 'KILL', '--security-opt', 'no-new-privileges', '--memory', '256m', '--memory-swap', '256m', '--cpus', '1', '--pids-limit', '64', '--ulimit', 'core=0:0', '--ulimit', 'nofile=256:256', '--ulimit', 'fsize=16777216:16777216', '--ipc', 'none', '--cgroupns', 'private', '--restart', 'no', '--log-driver', 'none', '--user', '0:0', '--workdir', '/work/source', '--env', 'HOME=/work/profile', '--env', 'TMPDIR=/work/scratch', '--env', 'PYTHONDONTWRITEBYTECODE=1', '--env', 'GIT_CONFIG_NOSYSTEM=1', '--env', 'GIT_CONFIG_GLOBAL=/dev/null', '--mount', 'type=bind,src=/home/ted-h/agent-work/tmp/pytest/20261012-065419-Wwfifj/bt/test_real_docker_offline_negat1/work,dst=/work,bind-propagation=rprivate', '--mount', 'type=bind,src=/home/ted-h/agent-work/tmp/pytest/20261012-065419-Wwfifj/bt/test_real_docker_offline_negat1/work/scratch,dst=/tmp,bind-propagation=rprivate', '--entrypoint', '/bin/sh', 'sha256:8f57b79e8ae3db8a15d33ba63dd210ef8abc5f1cae9e7402f589d1bfd2f051f5', '-c', 'exec /usr/bin/timeout --signal=KILL 10s /usr/bin/setpriv --reuid=10000 --regid=10000 --clear-groups --inh-caps=-all --ambient-caps=-all --bounding-set=-all /usr/local/bin/python -I /work/task.py &gt; /work/stdout.txt 2&gt; /work/stderr.txt']' timed out after 20 seconds
+
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:1269: TimeoutExpired</failure></testcase><testcase classname="tests.test_coding_sandbox" name="test_artifact_directory_budget" time="0.009" /><testcase classname="tests.test_coding_sandbox" name="test_idempotency_and_active_writer_fencing" time="21.190" /><testcase classname="tests.test_coding_sandbox" name="test_real_docker_memory_limit_stops_excess_allocation" time="0.498" /><testcase classname="tests.test_coding_sandbox" name="test_retained_workspace_budget_prevents_unbounded_disk_growth" time="0.001" /><testcase classname="tests.test_coding_sandbox" name="test_disk_format_preserves_reserved_blocks_without_mounting" time="0.011" /><testcase classname="tests.test_coding_sandbox" name="test_installed_probe_is_guarded_and_embedded_programs_compile" time="0.001" /><testcase classname="tests.test_coding_sandbox" name="test_docker_info_uses_json_wire_names_and_still_requires_every_boundary" time="0.000" /><testcase classname="tests.test_coding_sandbox" name="test_real_docker_info_passes_resource_handshake" time="0.030" /><testcase classname="tests.test_coding_sandbox" name="test_command_failure_has_safe_machine_readable_diagnostics" time="0.000" /><testcase classname="tests.test_coding_sandbox" name="test_cancel_timeout_records_safe_operation_and_keeps_writer_fenced" time="0.014" /><testcase classname="tests.test_coding_source" name="test_exact_offline_commit_private_independent_source_and_no_other_refs" time="0.042" /><testcase classname="tests.test_coding_source" name="test_dirty_product_and_altered_bundle_or_commit_are_refused" time="0.023" /><testcase classname="tests.test_container" name="test_packaged_linejs_gateway_boundary" time="6.620" /><testcase classname="tests.test_container" name="test_packaged_runner_cli_and_tls" time="12.195" /><testcase classname="tests.test_container" name="test_packaged_app_start_restart_and_stop[controller-1000]" time="10.515" /><testcase classname="tests.test_container" name="test_packaged_app_start_restart_and_stop[runner-0]" time="8.176" /><testcase classname="tests.test_container" name="test_official_supervisor_app_schema_and_backup_filter" time="2.285" /><testcase classname="tests.test_desktop_login" name="test_desktop_ticket_private_hashed_rotating_and_fragment_only" time="0.040" /><testcase classname="tests.test_desktop_login" name="test_desktop_other_user_unsafe_directory_and_symlink_use_manual_login" time="0.000" /><testcase time="0.000" /></testsuite></testsuites>
