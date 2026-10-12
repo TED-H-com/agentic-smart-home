@@ -1,5 +1,14 @@
 {
+  "conclusion": "success",
+  "createdAt": "2026-10-12T03:32:15Z",
+  "headSha": "02e7e00cffe9309657ac723bf28a0f435cdb3a3b",
+  "status": "completed",
+  "updatedAt": "2026-10-12T03:37:29Z",
+  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38200135512",
   "version": "0.4.0",
-  "status": "not_run",
-  "note": "Awaiting new public code commit; previous CI evidence archived separately."
+  "test_result": "141 passed, 2 skipped",
+  "scope": "Same product runtime and dependency inputs as media source 69a1a24; installed-test harness corrections included.",
+  "skipped": "Large standalone HAOS VM and Linux installation. Installed Linux case verified separately.",
+  "junit": "pytest-0.4.0-github.xml",
+  "seconds": 152.74
 }

@@ -1,0 +1,10 @@
+{
+  "result": "interrupted",
+  "candidate_iso_sha256": "ef6f455b258780746ff104204e63f01729e3c89aa3f47a77bf3e7a88d3a17131",
+  "source_commit": "a973a0782d138bb1e6bbd50ad3645b27872a3bf0",
+  "duration_seconds": 1618.58,
+  "stage": "firstboot_package_installation",
+  "reason": "Superseded by security-patched Hermes candidate; stopped to avoid competing disk-heavy work and start final media validation.",
+  "acceptance": "not_passed",
+  "cleanup": "test_container_removed_and_disk_basetemp_deleted"
+}

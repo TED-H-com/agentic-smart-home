@@ -186,6 +186,10 @@ asyncio.run(main())
     # E0 starts with Web + Hermes. Creating the HAOS VM is an explicit later
     # lifecycle operation; its availability cannot block first use of the host.
     atomic(STATE / "installed.json", {"version": "0.4.0", "profile": profile["id"], "installed_at": time.time()})
+    # The fixed owner console needs these nonsecret release fields even when
+    # Controller is unavailable. Other state and credential files stay private.
+    os.chown(STATE / "installed.json", 0, 1000)
+    os.chmod(STATE / "installed.json", 0o640)
     print("Agentic Home installed. Open http://localhost:8099; view local login key: sudo agentic-home access-key")
     if profile["desktop"]:
         run("systemctl", "start", "gdm3")

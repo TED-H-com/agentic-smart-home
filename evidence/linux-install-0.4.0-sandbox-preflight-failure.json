@@ -1,0 +1,23 @@
+{
+  "result": "failed",
+  "iso_sha256": "21b4d9a0b9caaeb9bf8840602f2858a1843ad347f3b0e13c5dfdddda035a24c3",
+  "source_commit": "69a1a2470988a47f3520cf7081a3435b3e19fdae",
+  "verification_commit": "02e7e00cffe9309657ac723bf28a0f435cdb3a3b",
+  "duration_seconds": 1764.31,
+  "passed_before_failure": [
+    "OS install",
+    "outer-only firstboot",
+    "all four installed image IDs",
+    "real local-owner HTTP login and Runner pairing",
+    "Hermes needs_auth",
+    "Controller stopped and health unavailable",
+    "independent diagnostics",
+    "support bundle format verified"
+  ],
+  "failure": "Sandbox preflight expects CPUCfsQuota, but Docker info JSON uses CpuCfsQuota. Refused before any job record or execution. Runtime correction required.",
+  "not_executed": [
+    "offline quota and cancellation program",
+    "nested HAOS provision/restore/reboot"
+  ],
+  "cleanup": "test VM and disk basetemp removed"
+}

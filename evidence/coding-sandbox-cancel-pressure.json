@@ -1,0 +1,95 @@
+{
+  "test": "cancel PID-exhaustion Docker fixture",
+  "failure_report": "coding-sandbox-cancel-pressure-failure.xml",
+  "container": "agentic-coding-d36212cc72864b67accba548d976a413",
+  "source": "Docker Engine event log, queried after failure",
+  "events_ns": {
+    "start": 1791777946798639861,
+    "kill_signal_9": 1791777971083206822,
+    "die_exit_137": 1791777988739790166,
+    "destroy": 1791777989145064016
+  },
+  "seconds_from_kill_event_to_die": 17.657,
+  "broker_wait_deadline_seconds": 15,
+  "inference": "Docker reported exit 17.657 seconds after its kill event, longer than the 15-second wait budget; the original failure did not record the exact timed-out command. stop_unconfirmed correctly avoided claiming that the writer stopped.",
+  "rerun": "One instrumented cancel case passed, followed by one full 19-case run after safe timeout diagnostics were added; no runtime limits were increased.",
+  "cloud_backend": "none",
+  "runtime_location": "development_host_docker",
+  "full_rerun": {
+    "report": "coding-sandbox-foundation.xml",
+    "tests": 19,
+    "failures": 0,
+    "errors": 0,
+    "seconds": 31.955,
+    "source_changed": "Safe command timeout diagnostics and deterministic fail-closed test only; containment limits and 15-second wait unchanged.",
+    "cancel_case_seconds": 2.162
+  },
+  "full_rerun_engine_events": {
+    "agentic-coding-d9466f7e38394788a339740d623c48eb": [
+      {
+        "action": "create",
+        "time_ns": 1791778335414363527
+      },
+      {
+        "action": "start",
+        "time_ns": 1791778335931015413
+      },
+      {
+        "action": "die",
+        "time_ns": 1791778346997811587,
+        "exit_code": "137"
+      },
+      {
+        "action": "destroy",
+        "time_ns": 1791778347286434489
+      }
+    ],
+    "agentic-coding-774e2f8cb512405db3c4f13a071286c1": [
+      {
+        "action": "create",
+        "time_ns": 1791778347799722820
+      },
+      {
+        "action": "start",
+        "time_ns": 1791778348268546050
+      },
+      {
+        "action": "kill",
+        "time_ns": 1791778348554789441,
+        "signal": "9"
+      },
+      {
+        "action": "die",
+        "time_ns": 1791778349027112051,
+        "exit_code": "137"
+      },
+      {
+        "action": "destroy",
+        "time_ns": 1791778349448111871
+      }
+    ],
+    "agentic-coding-4234a46ed9024601a3fa1e68bafe6abd": [
+      {
+        "action": "create",
+        "time_ns": 1791778350559252723
+      },
+      {
+        "action": "start",
+        "time_ns": 1791778350946298011
+      },
+      {
+        "action": "oom",
+        "time_ns": 1791778351487627467
+      },
+      {
+        "action": "die",
+        "time_ns": 1791778352327470259,
+        "exit_code": "0"
+      },
+      {
+        "action": "destroy",
+        "time_ns": 1791778352852713780
+      }
+    ]
+  }
+}

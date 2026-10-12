@@ -1,12 +1,15 @@
 {
   "version": "0.4.0",
   "stage": "technical_preview",
-  "media": "pending_disposable_vm_verification",
+  "media": "requires_rebuild_after_installed_validation_fixes",
   "regression": {
     "passed": 141,
     "skipped": 2,
-    "evidence": "pytest-0.4.0.xml",
-    "skipped_cases": "Large HAOS VM and full Linux installation; Linux candidate validation is run separately."
+    "environment": "GitHub ubuntu-24.04",
+    "source_commit": "02e7e00cffe9309657ac723bf28a0f435cdb3a3b",
+    "evidence": "github-ci.json",
+    "seconds": 152.74,
+    "junit": "pytest-0.4.0-github.xml"
   },
   "cloud_login": "not_run",
   "external_channel_messages": "not_run",
@@ -14,5 +17,62 @@
   "host_cloud_coding": "disabled_pending_egress_adapter",
   "home_app_coding": "not_implemented",
   "fixed_update_rollback": "not_implemented",
-  "database_schema": 2
+  "database_schema": 2,
+  "code_commit": null,
+  "recorded_at": "2026-10-12T02:58:50.713319+00:00",
+  "artifacts": {},
+  "runner_zip": {
+    "sha256": "1e0636ef2d00e875050a0973a107fc31087caf26190408b29bb0eb24db5d129a",
+    "manifest_files": 16
+  },
+  "github_ci": {
+    "conclusion": "success",
+    "createdAt": "2026-10-12T03:32:15Z",
+    "headSha": "02e7e00cffe9309657ac723bf28a0f435cdb3a3b",
+    "status": "completed",
+    "updatedAt": "2026-10-12T03:37:29Z",
+    "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38200135512",
+    "version": "0.4.0",
+    "test_result": "141 passed, 2 skipped",
+    "scope": "Same product runtime and dependency inputs as media source 69a1a24; installed-test harness corrections included.",
+    "skipped": "Large standalone HAOS VM and Linux installation. Installed Linux case verified separately.",
+    "junit": "pytest-0.4.0-github.xml",
+    "seconds": 152.74
+  },
+  "local_initial_regression": {
+    "passed": 141,
+    "skipped": 2,
+    "evidence": "pytest-0.4.0.xml",
+    "skipped_cases": "Large HAOS VM and full Linux installation; Linux candidate validation is run separately.",
+    "source_commit": "a973a0782d138bb1e6bbd50ad3645b27872a3bf0"
+  },
+  "hermes_security_regression": {
+    "passed": 16,
+    "evidence": "hermes-security-update.json"
+  },
+  "verification_commit": null,
+  "superseded_candidate": "release-0.4.0-before-sandbox-fix.json",
+  "installed_validation": {
+    "result": "failed",
+    "evidence": "linux-install-0.4.0-sandbox-preflight-failure.json",
+    "corrections": [
+      "Docker info CpuCfsQuota JSON field",
+      "Owner-readable nonsecret installation metadata"
+    ],
+    "new_media_verification": "pending"
+  },
+  "installed_fix_regression": {
+    "host_and_support": {
+      "passed": 20,
+      "seconds": 39.55,
+      "evidence": "installed-metadata-regression.xml"
+    },
+    "sandbox": {
+      "passed": 19,
+      "seconds": 31.95,
+      "evidence": "coding-sandbox-foundation.xml"
+    },
+    "previous_cancel_failure": "coding-sandbox-cancel-pressure.json",
+    "installed_ext4_quota": "pending_new_media_verification"
+  }
 }

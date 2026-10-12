@@ -1,0 +1,19 @@
+{
+  "kind": "installed_offline_coding_sandbox",
+  "runtime_location": "disposable_outer_linux_vm",
+  "observed_from": "host_container_in_disposable_outer_vm",
+  "model_backend": "none",
+  "ha_backend": "none",
+  "device_kind": "none",
+  "cloud_login": "not_run",
+  "home_worker": "not_run",
+  "E1": "not_run",
+  "E2": "not_run",
+  "result": "failed",
+  "installed_release": "0.4.0",
+  "runner_image_id": "sha256:669d1474ab8083186b282a3dd785093a7ac1de24c42d4121f5afac0a17ee75d3",
+  "stage": "launch_quota",
+  "error": "SandboxError",
+  "cleanup": "passed",
+  "duration_seconds": 0.12
+}

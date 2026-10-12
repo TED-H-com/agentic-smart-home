@@ -118,6 +118,18 @@ def job_diagnostics(job):
         data["exit_code"] = job["exit_code"]
     if type(job.get("oom_killed")) is bool:
         data["oom_killed"] = job["oom_killed"]
+    failure = job.get("stop_failure")
+    if isinstance(failure, dict):
+        safe = {}
+        if failure.get("error_code") in {"command_failed", "command_timeout", "sandbox_rejected"}:
+            safe["error_code"] = failure["error_code"]
+        if failure.get("operation") in {"docker.inspect", "docker.kill", "docker.wait"}:
+            safe["operation"] = failure["operation"]
+        for key, minimum, maximum in (("timeout_seconds", 1, 900), ("command_exit_code", -128, 255)):
+            if type(failure.get(key)) is int and minimum <= failure[key] <= maximum:
+                safe[key] = failure[key]
+        if safe:
+            data["stop_failure"] = safe
     return data
 
 
@@ -164,6 +176,7 @@ def probe():
     started = time.monotonic()
     directory, jobs, stage = None, [], "guard"
     sandbox, quota_id, cancel_id = None, None, None
+    sandbox_error_type = None
     report = {"kind": "installed_offline_coding_sandbox", "runtime_location": "disposable_outer_linux_vm",
               "observed_from": "host_container_in_disposable_outer_vm", "model_backend": "none",
               "ha_backend": "none", "device_kind": "none", "cloud_login": "not_run",
@@ -179,6 +192,7 @@ def probe():
         guard()
         sys.path.insert(0, str(PRODUCT / "host"))
         from agentic_host.coding_sandbox import CodingSandbox, Limits, SandboxError
+        sandbox_error_type = SandboxError
 
         stage = "fixed_image"
         version = json.loads((STATE / "installed.json").read_text())["version"]
@@ -298,6 +312,11 @@ def probe():
     except Exception as exc:
         report.update(result="failed", stage=stage,
                       error=exc.args[0] if isinstance(exc, ProbeFailure) else type(exc).__name__)
+        if sandbox_error_type is not None and isinstance(exc, sandbox_error_type):
+            # The installed broker exposes fixed codes, enum operations and
+            # bounded numeric status only; never include its raw command output.
+            report.update(error_code=getattr(exc, "code", "sandbox_rejected"),
+                          **getattr(exc, "diagnostics", {}))
         # Read only local broker records here: an unavailable Docker daemon must
         # not consume the remaining cleanup allowance or leak its error output.
         for name, identifier in (("quota_job", quota_id), ("cancel_job", cancel_id)):

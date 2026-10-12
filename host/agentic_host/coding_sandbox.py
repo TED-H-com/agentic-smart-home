@@ -28,8 +28,57 @@ SECRET = re.compile(rb"(?i)(-----BEGIN [A-Z ]*PRIVATE KEY-----|Bearer\s+[A-Za-z0
 SUFFIXES = {".txt", ".md", ".json", ".py", ".patch", ".diff", ".log"}
 
 
+ERROR_CODES = frozenset({
+    "sandbox_rejected", "command_failed", "command_timeout", "root_broker_required", "invalid_docker_info",
+    "resource_limits_unavailable", "docker_security_unavailable", "state_root_permissions",
+    "state_ancestor_permissions", "disk_backing_required", "host_reserve_insufficient",
+    "workspace_mount_unverified",
+})
+RESOURCE_KEYS = ("MemoryLimit", "SwapLimit", "PidsLimit", "CpuCfsQuota")
+OPERATIONS = {
+    "docker": {"info", "create", "start", "inspect", "kill", "wait", "rm"},
+    "git": {"clone", "checkout", "remote"},
+    "findmnt": set(), "mkfs.ext4": set(), "mount": set(), "umount": set(),
+}
+
+
 class SandboxError(Exception):
-    pass
+    def __init__(self, message, *, code="sandbox_rejected", operation=None, exit_code=None, missing=(),
+                 timeout_seconds=None):
+        super().__init__(message)
+        self.code = code if code in ERROR_CODES else "sandbox_rejected"
+        allowed_operations = {name for name in OPERATIONS} | {
+            name + "." + action for name, actions in OPERATIONS.items() for action in actions}
+        self.diagnostics = {}
+        if operation in allowed_operations:
+            self.diagnostics["operation"] = operation
+        if type(exit_code) is int and -128 <= exit_code <= 255:
+            self.diagnostics["command_exit_code"] = exit_code
+        if type(timeout_seconds) is int and 1 <= timeout_seconds <= 900:
+            self.diagnostics["timeout_seconds"] = timeout_seconds
+        absent = [name for name in (*RESOURCE_KEYS, "CgroupVersion", "seccomp", "apparmor") if name in missing]
+        if absent:
+            self.diagnostics["missing_capabilities"] = absent
+
+
+def validate_docker_security(data):
+    """Validate Docker's JSON wire names, which differ from its Go-template field names."""
+    if not isinstance(data, dict):
+        raise SandboxError("Invalid Docker info response", code="invalid_docker_info")
+    missing = [key for key in RESOURCE_KEYS if data.get(key) is not True]
+    if data.get("CgroupVersion") != "2":
+        missing.append("CgroupVersion")
+    if missing:
+        raise SandboxError("Enforceable cgroup v2 memory, swap, CPU and PID limits are required",
+                           code="resource_limits_unavailable", missing=missing)
+    options = data.get("SecurityOptions")
+    if not isinstance(options, list) or not all(isinstance(value, str) for value in options):
+        raise SandboxError("Invalid Docker security info", code="invalid_docker_info")
+    missing = [feature for feature in ("seccomp", "apparmor")
+               if not any(value.split(",", 1)[0] == "name=" + feature for value in options)]
+    if missing:
+        raise SandboxError("Docker seccomp and AppArmor are required", code="docker_security_unavailable",
+                           missing=missing)
 
 
 @dataclass(frozen=True)
@@ -53,12 +102,20 @@ class Limits:
 
 def command(*args, check=True, timeout=30):
     # The trusted broker never inherits Git hooks, provider credentials or Docker contexts.
-    result = subprocess.run(args, capture_output=True, text=True, timeout=timeout,
-                            env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C",
-                                 "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
-                                 "GIT_TERMINAL_PROMPT": "0", "DOCKER_HOST": "unix:///var/run/docker.sock"})
+    executable = Path(args[0]).name
+    action = next((arg for arg in args[1:] if arg in OPERATIONS.get(executable, set())), None)
+    operation = executable + "." + action if action else executable
+    try:
+        result = subprocess.run(args, capture_output=True, text=True, timeout=timeout,
+                                env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C",
+                                     "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
+                                     "GIT_TERMINAL_PROMPT": "0", "DOCKER_HOST": "unix:///var/run/docker.sock"})
+    except subprocess.TimeoutExpired as exc:
+        raise SandboxError("Sandbox command timed out", code="command_timeout", operation=operation,
+                           timeout_seconds=timeout) from exc
     if check and result.returncode:
-        raise SandboxError(f"{Path(args[0]).name} failed (exit {result.returncode})")
+        raise SandboxError(f"{executable} failed (exit {result.returncode})", code="command_failed",
+                           operation=operation, exit_code=result.returncode)
     return result
 
 
@@ -163,26 +220,26 @@ class CodingSandbox:
 
     def preflight(self):
         if os.geteuid() != 0:
-            raise SandboxError("A trusted root broker is required for fixed-size disk workspaces")
-        data = json.loads(self.execute("docker", "info", "--format", "{{json .}}").stdout)
-        if data.get("CgroupVersion") != "2" or not all(data.get(k) for k in
-                    ("MemoryLimit", "SwapLimit", "PidsLimit", "CPUCfsQuota")):
-            raise SandboxError("Enforceable cgroup v2 memory, swap, CPU and PID limits are required")
-        security = " ".join(data.get("SecurityOptions", []))
-        if "name=seccomp" not in security or "name=apparmor" not in security:
-            raise SandboxError("Docker seccomp and AppArmor are required")
+            raise SandboxError("A trusted root broker is required for fixed-size disk workspaces",
+                               code="root_broker_required")
+        try:
+            data = json.loads(self.execute("docker", "info", "--format", "{{json .}}").stdout)
+        except ValueError as exc:
+            raise SandboxError("Invalid Docker info response", code="invalid_docker_info") from exc
+        validate_docker_security(data)
         self.root.mkdir(parents=True, mode=0o700, exist_ok=True)
         if self.root.resolve() != self.root or self.root.stat().st_uid != 0 or self.root.stat().st_mode & 0o077:
-            raise SandboxError("State root must be private and owned by root")
+            raise SandboxError("State root must be private and owned by root", code="state_root_permissions")
         for parent in self.root.parents:
             if parent.stat().st_uid != 0 or parent.stat().st_mode & 0o022:
-                raise SandboxError("State ancestors must be owned and writable only by root")
+                raise SandboxError("State ancestors must be owned and writable only by root", code="state_ancestor_permissions")
         fs = self.execute("findmnt", "-n", "-o", "FSTYPE", "-T", str(self.root)).stdout.strip()
         if fs not in {"ext4", "xfs", "btrfs"}:
-            raise SandboxError("Workspace backing file must reside on disk, not tmpfs")
+            raise SandboxError("Workspace backing file must reside on disk, not tmpfs", code="disk_backing_required")
         space = os.statvfs(self.root)
         if space.f_bavail * space.f_frsize < self.limits.disk_mib * 1024 * 1024 + 4 * 1024**3:
-            raise SandboxError("At least 4 GiB of host reserve must remain after workspace allocation")
+            raise SandboxError("At least 4 GiB of host reserve must remain after workspace allocation",
+                               code="host_reserve_insufficient")
         return True
 
     @contextmanager
@@ -231,7 +288,7 @@ class CodingSandbox:
         self.execute("mount", "-o", "loop,nodev,nosuid", str(disk), str(mount))
         # Kernel filesystem capacity is the hard quota, including every subprocess/file.
         if not os.path.ismount(mount) or os.statvfs(mount).f_blocks * os.statvfs(mount).f_frsize > disk.stat().st_size:
-            raise SandboxError("Bounded workspace mount could not be verified")
+            raise SandboxError("Bounded workspace mount could not be verified", code="workspace_mount_unverified")
         mount.chmod(0o755)
         source = mount / "source"
         self.execute("git", "-c", "core.hooksPath=/dev/null", "clone", "--no-local", "--no-hardlinks",
@@ -309,6 +366,7 @@ class CodingSandbox:
             if job["state"] in {"cancelled", "succeeded", "failed", "interrupted", "disposed"}:
                 return self.save(job)
             job["state"] = "stop_unconfirmed"
+            job.pop("stop_failure", None)
             self.save(job)
             try:
                 info = self.inspect(job)
@@ -318,7 +376,9 @@ class CodingSandbox:
                 info = self.inspect(job)
                 if not info["State"]["Running"] and not info["State"].get("Paused"):
                     job["state"] = "cancelled"
-            except (SandboxError, subprocess.SubprocessError):
+            except SandboxError as exc:
+                job["stop_failure"] = {"error_code": exc.code, **exc.diagnostics}
+            except subprocess.SubprocessError:
                 pass
             return self.save(job)
 

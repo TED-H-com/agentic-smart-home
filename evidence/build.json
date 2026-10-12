@@ -74,7 +74,7 @@
     "host/agentic_host/__init__.py": "3bda1dd0ed5903d2dbbea69c0a364c8069d93354f74cd9369a7181eb2a1774a7",
     "host/agentic_host/artifacts.py": "62ed70cc0cce036d13e70a7620abf25161340663aeb6eb8b666e7f6f80e58514",
     "host/agentic_host/cli.py": "a14d3199e6322aad094b0998c97250abea43d4e4e3e35e90fcb78b6b04097056",
-    "host/agentic_host/coding_sandbox.py": "7424e9ba6995349093227e4e76a01d0da8ed80e1858b455987bc782c61b80b8f",
+    "host/agentic_host/coding_sandbox.py": "11904f9790a1c7495723d4950f48aa4fa2839fd9bc72e6ee6fb909e82fd9726a",
     "host/agentic_host/daemon.py": "cec2ee57cb27a038755639c3696c8381db59606d797351774abec2b7e1a87a6f",
     "host/agentic_host/manager.py": "6ff2aed5279e94ca3f06bd6f76d9fc9554caf1fb2ed7a1ba36e7d11655e4fa88",
     "host/agentic_host/proxy.py": "d307b950017e3daa2d041cbce3369133a90cd65f0580eba92db9b166f5b16c8d",
@@ -82,7 +82,7 @@
     "host/bases.lock.json": "e6a7cc057bb57889f9a2aedd82efc3478ad682ed7cf7c1e57fef56b546b0871a",
     "host/compose.yaml": "f0b49726debaed6450b21c411e20b66d3c2890bc5258f3be4a5c73761ae42daa",
     "host/desktop/agentic-home.desktop": "6b85407aadbb353674951d098be890837e5378e7ede54ca51a16ac45554d40f8",
-    "host/install.py": "b3783c182b2e6e988b881c012602bb0d64e2977ed8a3e69f8feb34c36da7a8a5",
+    "host/install.py": "b888258a30d89c891ac668be44e5d3e7fe756c78855d7b8fdb30d114e838e29e",
     "host/linejs/Dockerfile": "8806bb6e040521cc44df25968a66b229484f10497c9e1e56350a0ef1f2510249",
     "host/linejs/patch-local-host.mjs": "bd200c9594f1eab75ea796b683141336eabc35dbaf24ddfd4616594f9c79d5c7",
     "host/linejs/start.mjs": "7eb62553aea0c98b6fc43ca210c84173a1ae9aa6a1bcc120b78218119db48c40",
@@ -108,5 +108,7 @@
     "hermes/requirements.in": "4cf7915c1a2b150f85186668aa3bbb585e273e251a10b2590605563d86791a39",
     "hermes/requirements.txt": "e3a114f9181cc94128f4ed29b8cd405b8d0c5ce477d1d3c6c050180da27240d6"
   },
-  "runner_zip_metadata": "Fixed metadata; 16-file source archive. Cloud accounts not used."
+  "runner_zip_metadata": "Fixed metadata; 16-file source archive. Cloud accounts not used.",
+  "host_runtime_updated_at": "2026-10-12T04:12:25.215452+00:00",
+  "host_runtime_update": "Correct installed Docker info wire-field validation and safe timeout diagnostics; make nonsecret installation metadata readable to the fixed owner group. Four container images unchanged."
 }

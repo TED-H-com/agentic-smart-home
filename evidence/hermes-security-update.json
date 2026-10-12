@@ -20,5 +20,8 @@
     "reject mismatched OKP keys"
   ],
   "cloud_login": "not_run",
-  "remote_alert_rescan": "pending_push"
+  "remote_alert_rescan": "completed",
+  "open_alerts": 0,
+  "checked_at": "2026-10-12T02:48:07.104471+00:00",
+  "commit": "69a1a2470988a47f3520cf7081a3435b3e19fdae"
 }

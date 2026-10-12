@@ -17,6 +17,7 @@ from agentic_host.coding_sandbox import (  # noqa: E402
     SandboxError,
     container_command,
     read_artifacts,
+    validate_docker_security,
 )
 
 IMAGE = "sha256:" + "1" * 64
@@ -206,9 +207,18 @@ time.sleep(60)
                 if (workspace / "artifacts/result.json").exists():
                     break
                 time.sleep(.05)
-            sandbox = CodingSandbox(tmp_path, image, {})
+            from agentic_host.coding_sandbox import command
+            timings = []
+            def observed_command(*args, **kwargs):
+                started = time.monotonic()
+                try:
+                    return command(*args, **kwargs)
+                finally:
+                    timings.append({"operation": " ".join(args[:2]), "seconds": round(time.monotonic() - started, 2)})
+            sandbox = CodingSandbox(tmp_path, image, {}, execute=observed_command)
             sandbox.save({"job_id": name.removeprefix("agentic-coding-"), "container": name, "state": "running"})
-            assert sandbox.cancel(name.removeprefix("agentic-coding-"))["state"] == "cancelled"
+            cancelled = sandbox.cancel(name.removeprefix("agentic-coding-"))
+            assert cancelled["state"] == "cancelled", {"job": cancelled, "commands": timings}
         code = subprocess.check_output(["docker", "wait", name], text=True, timeout=20).strip()
         state = json.loads(subprocess.check_output(["docker", "inspect", name], text=True))[0]["State"]
         result = workspace / "artifacts/result.json"
@@ -317,3 +327,85 @@ def test_installed_probe_is_guarded_and_embedded_programs_compile(monkeypatch):
     report = module.probe()
     assert report["result"] == "failed" and report["error"] == "requires_root_in_disposable_guest"
     assert report["cleanup"] == "passed"
+    assert module.job_diagnostics({"state": "stop_unconfirmed", "stop_failure": {
+        "error_code": "command_timeout", "operation": "docker.wait", "timeout_seconds": 15,
+        "stderr": "private", "command_exit_code": True}}) == {
+        "state": "stop_unconfirmed", "stop_failure": {
+            "error_code": "command_timeout", "operation": "docker.wait", "timeout_seconds": 15}}
+
+
+def test_docker_info_uses_json_wire_names_and_still_requires_every_boundary():
+    # Captured names from `docker info --format '{{json .}}'`: the CLI Go
+    # field CPUCfsQuota is serialized as CpuCfsQuota, not its template name.
+    data = {"MemoryLimit": True, "SwapLimit": True, "PidsLimit": True,
+            "CpuCfsQuota": True, "CgroupVersion": "2",
+            "SecurityOptions": ["name=apparmor,profile=default", "name=seccomp,profile=builtin", "name=cgroupns"]}
+    validate_docker_security(data)
+    for field in ("MemoryLimit", "SwapLimit", "PidsLimit", "CpuCfsQuota", "CgroupVersion"):
+        missing = {key: value for key, value in data.items() if key != field}
+        with pytest.raises(SandboxError) as error:
+            validate_docker_security(missing)
+        assert error.value.code == "resource_limits_unavailable"
+        assert error.value.diagnostics["missing_capabilities"] == [field]
+    # Accepting the old Go template name would hide the exact regression.
+    wrong_name = {key: value for key, value in data.items() if key != "CpuCfsQuota"}
+    with pytest.raises(SandboxError) as error:
+        validate_docker_security({**wrong_name, "CPUCfsQuota": True})
+    assert error.value.diagnostics["missing_capabilities"] == ["CpuCfsQuota"]
+    with pytest.raises(SandboxError):
+        validate_docker_security({**data, "CpuCfsQuota": "true"})
+    for feature in ("seccomp", "apparmor"):
+        weakened = {**data, "SecurityOptions": [value for value in data["SecurityOptions"] if feature not in value]}
+        with pytest.raises(SandboxError) as error:
+            validate_docker_security(weakened)
+        assert error.value.code == "docker_security_unavailable"
+        assert error.value.diagnostics["missing_capabilities"] == [feature]
+
+
+def test_real_docker_info_passes_resource_handshake(request):
+    if not request.config.getoption("--containers"):
+        pytest.skip("requires real Docker info; no container or mount is created")
+    actual = json.loads(subprocess.check_output(["docker", "info", "--format", "{{json .}}"], text=True))
+    validate_docker_security(actual)
+
+
+def test_command_failure_has_safe_machine_readable_diagnostics(monkeypatch):
+    from agentic_host.coding_sandbox import command
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: SimpleNamespace(
+        returncode=1, stdout="private output", stderr="private account details"))
+    with pytest.raises(SandboxError) as error:
+        command("git", "clone", "https://user:private-credential@example.invalid/repo", "/private/path")
+    assert error.value.code == "command_failed"
+    assert error.value.diagnostics == {"operation": "git.clone", "command_exit_code": 1}
+    assert "private" not in str(error.value)
+    untrusted = SandboxError("private error", code="private", operation="private", exit_code=True, missing=["private"])
+    assert untrusted.code == "sandbox_rejected" and untrusted.diagnostics == {}
+
+
+def test_cancel_timeout_records_safe_operation_and_keeps_writer_fenced(tmp_path, monkeypatch):
+    calls = []
+    def run(args, **kwargs):
+        calls.append(args)
+        if args[:2] == ("docker", "wait"):
+            assert kwargs["timeout"] == 15
+            raise subprocess.TimeoutExpired(args, 15, output="private", stderr="private")
+        state = [{"Id": "container-123", "Config": {"Labels": {"agentic.coding": "agentic-coding-" + JOB}},
+                  "State": {"Running": True, "Paused": False}}]
+        return SimpleNamespace(returncode=0, stdout=json.dumps(state) if args[1] == "inspect" else "")
+    monkeypatch.setattr(subprocess, "run", run)
+    sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path})
+    monkeypatch.setattr(sandbox, "preflight", lambda: True)
+    sandbox.save({"job_id": JOB, "container": "agentic-coding-" + JOB, "container_id": "container-123",
+                  "state": "running"})
+    stopped = sandbox.cancel(JOB)
+    assert stopped["state"] == "stop_unconfirmed"
+    assert stopped["stop_failure"] == {
+        "error_code": "command_timeout", "operation": "docker.wait", "timeout_seconds": 15}
+    assert "private" not in json.dumps(stopped)
+    with pytest.raises(SandboxError, match="release"):
+        sandbox.dispose(JOB)
+    with pytest.raises(SandboxError, match="fenced"):
+        sandbox.launch("test-second-0002", 1, "product", "a" * 40, "print('hi')")
+    with pytest.raises(SandboxError, match="Writer must stop"):
+        sandbox.artifacts(JOB)
+    assert not any(args[:2] == ("docker", "rm") or args[0] == "umount" for args in calls)

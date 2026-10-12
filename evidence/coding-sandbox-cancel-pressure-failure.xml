@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="18" time="78.765" timestamp="2026-10-12T00:05:20.358582-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_coding_sandbox" name="test_profiles_are_not_advertised_as_cloud_or_inner_coding" time="0.001" /><testcase classname="tests.test_coding_sandbox" name="test_launch_refuses_unsupported_broker_before_docker_or_storage" time="0.001" /><testcase classname="tests.test_coding_sandbox" name="test_container_profile_has_no_network_or_secret_mounts" time="0.000" /><testcase classname="tests.test_coding_sandbox" name="test_artifacts_reject_traversal_links_specials_secrets_and_quota" time="0.001" /><testcase classname="tests.test_coding_sandbox" name="test_unconfirmed_stop_never_releases_writer_or_exports" time="0.419" /><testcase classname="tests.test_coding_sandbox" name="test_restart_kills_owned_process_before_releasing_writer" time="0.280" /><testcase classname="tests.test_coding_sandbox" name="test_replaced_container_cannot_be_killed_or_exported" time="0.179" /><testcase classname="tests.test_coding_sandbox" name="test_real_docker_offline_negative_boundaries_and_process_tree[deadline]" time="22.842" /><testcase classname="tests.test_coding_sandbox" name="test_real_docker_offline_negative_boundaries_and_process_tree[cancel]" time="44.729"><failure message="AssertionError: assert 'stop_unconfirmed' == 'cancelled'&#10;  &#10;  - cancelled&#10;  + stop_unconfirmed">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-000519-rlpzEd/bt/test_real_docker_offline_negat1')
+request = &lt;FixtureRequest for &lt;Function test_real_docker_offline_negative_boundaries_and_process_tree[cancel]&gt;&gt;
+stop_method = 'cancel'
+
+    @pytest.mark.parametrize("stop_method", ["deadline", "cancel"])
+    def test_real_docker_offline_negative_boundaries_and_process_tree(tmp_path, request, stop_method):
+        if not request.config.getoption("--containers"):
+            pytest.skip("requires local packaged Runner image and Docker; foundation only")
+        # This smoke deliberately does not claim the root-only bounded filesystem was exercised.
+        # It uses disk-backed pytest scratch and verifies the remaining real Docker boundaries.
+        image = subprocess.check_output(["docker", "image", "inspect", f"agentic-home-runner:{VERSION}",
+                                         "--format", "{{.Id}}"], text=True).strip()
+        workspace = tmp_path / "work"
+        workspace.mkdir(mode=0o755)
+        workspace.chmod(0o777)  # Production mount root is root-owned; this harness runs as uid 1000.
+        for directory in ("source", "profile", "scratch", "artifacts"):
+            (workspace / directory).mkdir(mode=0o777)
+            (workspace / directory).chmod(0o777)  # Test harness only; production root broker chowns UID 10000.
+        program = '''import json, os, pathlib, socket, subprocess, time
+    assert os.geteuid() == 10000
+    assert "CapEff:\\t0000000000000000" in pathlib.Path('/proc/self/status').read_text()
+    assert set(pathlib.Path('/sys/class/net').iterdir()) == {pathlib.Path('/sys/class/net/lo')}
+    assert not pathlib.Path('/var/run/docker.sock').exists()
+    assert not pathlib.Path('/data').exists()
+    assert not any(k in os.environ for k in ('SUPERVISOR_TOKEN','XAI_API_KEY','OPENAI_API_KEY','AGENTIC_TOKEN'))
+    for address in ('192.168.177.2', '169.254.169.254', '1.1.1.1'):
+        with socket.socket() as connection:
+            connection.settimeout(.2)
+            assert connection.connect_ex((address, 443)) != 0
+    try:
+        pathlib.Path('/app/forbidden').write_text('no')
+    except OSError:
+        pass
+    else:
+        raise AssertionError('read-only root bypass')
+    try:
+        os.kill(1, 19)
+    except PermissionError:
+        pass
+    else:
+        raise AssertionError('job can stop watchdog')
+    assert pathlib.Path('/sys/fs/cgroup/memory.max').read_text().strip() == '268435456'
+    assert pathlib.Path('/sys/fs/cgroup/memory.swap.max').read_text().strip() == '0'
+    assert pathlib.Path('/sys/fs/cgroup/pids.max').read_text().strip() == '64'
+    assert pathlib.Path('/sys/fs/cgroup/cpu.max').read_text().strip() == '100000 100000'
+    children = []
+    try:
+        for _ in range(80):
+            children.append(subprocess.Popen(['/usr/bin/sleep', '60']))
+    except BlockingIOError:
+        pass
+    else:
+        raise AssertionError('PID quota bypass')
+    assert 1 &lt; len(children) &lt; 64
+    pathlib.Path('/work/artifacts/result.json').write_text(json.dumps({'checks':'passed','children':len(children)}))
+    time.sleep(60)
+    '''
+        (workspace / "task.py").write_text(program)
+        name = "agentic-coding-" + uuid.uuid4().hex
+        args = container_command(name, image, workspace, Limits(wall_seconds=10))
+        try:
+            subprocess.run(args, check=True, capture_output=True, text=True, timeout=20)
+            subprocess.run(["docker", "start", name], check=True, capture_output=True, timeout=20)
+            if stop_method == "cancel":
+                import time
+                for _ in range(80):
+                    if (workspace / "artifacts/result.json").exists():
+                        break
+                    time.sleep(.05)
+                sandbox = CodingSandbox(tmp_path, image, {})
+                sandbox.save({"job_id": name.removeprefix("agentic-coding-"), "container": name, "state": "running"})
+&gt;               assert sandbox.cancel(name.removeprefix("agentic-coding-"))["state"] == "cancelled"
+E               AssertionError: assert 'stop_unconfirmed' == 'cancelled'
+E                 
+E                 - cancelled
+E                 + stop_unconfirmed
+
+tests/test_coding_sandbox.py:212: AssertionError</failure></testcase><testcase classname="tests.test_coding_sandbox" name="test_artifact_directory_budget" time="0.334" /><testcase classname="tests.test_coding_sandbox" name="test_idempotency_and_active_writer_fencing" time="1.251" /><testcase classname="tests.test_coding_sandbox" name="test_real_docker_memory_limit_stops_excess_allocation" time="8.090" /><testcase classname="tests.test_coding_sandbox" name="test_retained_workspace_budget_prevents_unbounded_disk_growth" time="0.001" /><testcase classname="tests.test_coding_sandbox" name="test_disk_format_preserves_reserved_blocks_without_mounting" time="0.099" /><testcase classname="tests.test_coding_sandbox" name="test_installed_probe_is_guarded_and_embedded_programs_compile" time="0.155" /><testcase classname="tests.test_coding_sandbox" name="test_docker_info_uses_json_wire_names_and_still_requires_every_boundary" time="0.000" /><testcase classname="tests.test_coding_sandbox" name="test_real_docker_info_passes_resource_handshake" time="0.036" /><testcase classname="tests.test_coding_sandbox" name="test_command_failure_has_safe_machine_readable_diagnostics" time="0.000" /></testsuite></testsuites>

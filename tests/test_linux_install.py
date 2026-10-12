@@ -114,6 +114,10 @@ while data:=s.recv(65536):
         # Exercise independent console recovery before adding any household VM.
         diagnostics = json.loads(command(*ssh, "agentic-home diagnostics"))
         assert diagnostics["observations"]
+        assert all(item["version_refs"]["installed_application"] == installed["version"]
+                   for item in diagnostics["observations"])
+        installation = next(item for item in diagnostics["observations"] if item["target_component"] == "installation")
+        assert installation["status"] == "collected" and installation["data"]["profile"] == profile
         compose = "sudo docker compose -f /opt/agentic-home/host/compose.yaml"
         command(*ssh, compose + " stop controller")
         try:
@@ -121,6 +125,8 @@ while data:=s.recv(65536):
             assert unavailable.returncode != 0
             rescue = json.loads(command(*ssh, "agentic-home diagnostics"))
             assert rescue["observations"]
+            assert all(item["version_refs"]["installed_application"] == installed["version"]
+                       for item in rescue["observations"])
             command(*ssh, "agentic-home support-bundle --output /home/tester/support-probe.json")
             support = json.loads(command(*ssh, "cat /home/tester/support-probe.json"))
             assert support["format"] == "agentic-support-bundle-v1"

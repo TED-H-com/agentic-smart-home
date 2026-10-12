@@ -1,0 +1,82 @@
+{
+  "version": "0.4.0",
+  "stage": "technical_preview",
+  "media": "pending_final_disposable_vm_verification",
+  "regression": {
+    "passed": 141,
+    "skipped": 2,
+    "environment": "GitHub ubuntu-24.04",
+    "source_commit": "02e7e00cffe9309657ac723bf28a0f435cdb3a3b",
+    "evidence": "github-ci.json",
+    "seconds": 152.74,
+    "junit": "pytest-0.4.0-github.xml"
+  },
+  "cloud_login": "not_run",
+  "external_channel_messages": "not_run",
+  "physical_hardware": "not_run",
+  "host_cloud_coding": "disabled_pending_egress_adapter",
+  "home_app_coding": "not_implemented",
+  "fixed_update_rollback": "not_implemented",
+  "database_schema": 2,
+  "code_commit": "69a1a2470988a47f3520cf7081a3435b3e19fdae",
+  "recorded_at": "2026-10-12T02:58:50.713319+00:00",
+  "artifacts": {
+    "agentic-home-0.4.0-laptop-amd64.iso": {
+      "sha256": "21b4d9a0b9caaeb9bf8840602f2858a1843ad347f3b0e13c5dfdddda035a24c3",
+      "bytes": 5387124736
+    },
+    "agentic-home-0.4.0-linux-amd64.tar": {
+      "sha256": "17d5933fdba0499ac46d19168d1cdfb3c5eb0b315230d0689c87ff2e732a1b48",
+      "bytes": 1307648000
+    }
+  },
+  "bundle_verification": {
+    "manifest_files": 126,
+    "runtime_files": 78,
+    "images": {
+      "agentic-home-controller:0.4.0": "sha256:e26625326972cc2f84dd08066459a5df74849cca097999a8145cbb2d10787b3e",
+      "agentic-home-runner:0.4.0": "sha256:669d1474ab8083186b282a3dd785093a7ac1de24c42d4121f5afac0a17ee75d3",
+      "agentic-home-linejs:0.4.0": "sha256:db23d533e59e9f9d4f37dff666724b5edc994600d81bdf5e0c838e5578a31014",
+      "agentic-home-hermes:0.4.0": "sha256:b201bb13052e4306b7dd5d1cafe16adcab540a074512bd6c498bb4b717e3c124"
+    },
+    "result": "passed"
+  },
+  "runner_zip": {
+    "sha256": "1e0636ef2d00e875050a0973a107fc31087caf26190408b29bb0eb24db5d129a",
+    "manifest_files": 16
+  },
+  "github_ci": {
+    "conclusion": "success",
+    "createdAt": "2026-10-12T03:32:15Z",
+    "headSha": "02e7e00cffe9309657ac723bf28a0f435cdb3a3b",
+    "status": "completed",
+    "updatedAt": "2026-10-12T03:37:29Z",
+    "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38200135512",
+    "version": "0.4.0",
+    "test_result": "141 passed, 2 skipped",
+    "scope": "Same product runtime and dependency inputs as media source 69a1a24; installed-test harness corrections included.",
+    "skipped": "Large standalone HAOS VM and Linux installation. Installed Linux case verified separately.",
+    "junit": "pytest-0.4.0-github.xml",
+    "seconds": 152.74
+  },
+  "local_initial_regression": {
+    "passed": 141,
+    "skipped": 2,
+    "evidence": "pytest-0.4.0.xml",
+    "skipped_cases": "Large HAOS VM and full Linux installation; Linux candidate validation is run separately.",
+    "source_commit": "a973a0782d138bb1e6bbd50ad3645b27872a3bf0"
+  },
+  "hermes_security_regression": {
+    "passed": 16,
+    "evidence": "hermes-security-update.json"
+  },
+  "verification_commit": "02e7e00cffe9309657ac723bf28a0f435cdb3a3b",
+  "runtime_source_verification": {
+    "result": "passed",
+    "files": 78,
+    "evidence": "build.json",
+    "media_source_commit": "69a1a2470988a47f3520cf7081a3435b3e19fdae",
+    "harness_commit": "02e7e00cffe9309657ac723bf28a0f435cdb3a3b",
+    "difference": "Only installed test harness and its evidence; all runtime hashes match the frozen media build."
+  }
+}

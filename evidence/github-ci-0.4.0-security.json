@@ -1,0 +1,13 @@
+{
+  "conclusion": "success",
+  "createdAt": "2026-10-12T02:45:28Z",
+  "headSha": "69a1a2470988a47f3520cf7081a3435b3e19fdae",
+  "status": "completed",
+  "updatedAt": "2026-10-12T02:50:48Z",
+  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38197039535",
+  "version": "0.4.0",
+  "test_result": "141 passed, 2 skipped",
+  "seconds": 164.44,
+  "skipped": "Large standalone HAOS VM and Linux installation cases; Linux installation is verified separately.",
+  "junit": "pytest-0.4.0-github-security.xml"
+}
