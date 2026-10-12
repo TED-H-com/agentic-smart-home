@@ -6,6 +6,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -170,9 +171,41 @@ def test_environment_overrides_preserve_both_pinned_components(tmp_path):
     assert path.read_text().splitlines() == ["AGENTIC_CONTROLLER_IMAGE=sha256:" + "2" * 64, "AGENTIC_HERMES_IMAGE=sha256:" + "3" * 64]
 
 
-@pytest.mark.parametrize("actual_container", [False, True], ids=["database_handles", "packaged_controller"])
+def probe_fixture_owner(directory, image, uid, gid):
+    """Change only the synthetic volume's fixed SQLite files, then remove helper."""
+    name = "agentic-updater-fixture-" + uuid.uuid4().hex
+    script = """
+import os,stat,sys
+from pathlib import Path
+root=Path('/fixture')
+files=list(root.iterdir())
+assert len(files)<=3
+for path in files:
+    assert path.name in {'controller.sqlite3','controller.sqlite3-wal','controller.sqlite3-shm'}
+    assert stat.S_ISREG(path.lstat().st_mode)
+uid,gid=int(sys.argv[1]),int(sys.argv[2])
+for path in files:
+    path.chmod(0o600)
+    os.chown(path,uid,gid,follow_symlinks=False)
+root.chmod(0o700)
+os.chown(root,uid,gid,follow_symlinks=False)
+"""
+    try:
+        subprocess.run(["docker", "run", "--rm", "--name", name, "--network", "none", "--read-only",
+                        "--no-healthcheck", "--user", "0:0", "--cap-drop", "ALL", "--cap-add", "CHOWN",
+                        "--cap-add", "DAC_OVERRIDE", "--cap-add", "FOWNER", "--security-opt", "no-new-privileges:true",
+                        "--memory", "64m", "--pids-limit", "16", "--log-driver", "none",
+                        "--mount", f"type=bind,src={directory},dst=/fixture", "--entrypoint", "python", image,
+                        "-I", "-c", script, str(uid), str(gid)],
+                       check=True, capture_output=True, timeout=20)
+    finally:
+        subprocess.run(["docker", "rm", "-fv", name], capture_output=True, timeout=20, check=False)
+
+
+@pytest.mark.parametrize("actual_container,foreign_owner", [(False, False), (True, False), (True, True)],
+                         ids=["database_handles", "packaged_controller", "packaged_controller_foreign_owner"])
 def test_fixed_probe_launch_and_database_handles_close_before_volume_release(
-        updater, tmp_path, monkeypatch, request, record_property, actual_container):
+        updater, tmp_path, monkeypatch, request, record_property, actual_container, foreign_owner):
     """Exercise the actual probe; only root-only disk allocation is substituted.
 
     No developer-host mount is created. Installed-VM coverage separately proves
@@ -213,12 +246,15 @@ def test_fixed_probe_launch_and_database_handles_close_before_volume_release(
 
     def test_chown(path, uid, gid):
         assert (uid, gid) == (1000, 1000)
-        if os.getuid() == 1000:
-            os.chown(path, uid, gid)
-        else:
-            # Non-root CI has UID 1001. This disk-plumbing fixture grants only
-            # its synthetic data access; the real container still runs UID 1000.
-            Path(path).chmod(0o777 if Path(path).is_dir() else 0o666)
+        assert Path(path) in {directory, directory / "controller.sqlite3"}
+        if not actual_container or Path(path) == directory:
+            return
+        # The real broker is root; CI is UID1001. Transfer both paths together
+        # after creation instead of replacing ownership with world-write access.
+        if foreign_owner:
+            # Exercise the cross-UID handoff even on a UID1000 developer host.
+            probe_fixture_owner(directory, image, 1001, 1001)
+        probe_fixture_owner(directory, image, uid, gid)
 
     monkeypatch.setattr(module, "DiskVolume", DiskFixture)
     monkeypatch.setattr(module, "os", SimpleNamespace(chown=test_chown))
@@ -231,6 +267,7 @@ def test_fixed_probe_launch_and_database_handles_close_before_volume_release(
         if args[:2] == ("docker", "run"):
             command_diagnostics.append({"returncode": result.returncode,
                                         "controller_import_error": "No module named 'agentic_controller'" in result.stderr,
+                                        "controller_chmod_error": "PermissionError: [Errno 1] Operation not permitted" in result.stderr and "chmod" in result.stderr,
                                         "stdout_bytes": len(result.stdout.encode()), "stderr_bytes": len(result.stderr.encode())})
         if kwargs.get("check", True) and result.returncode:
             raise subprocess.CalledProcessError(result.returncode, args)
@@ -252,11 +289,19 @@ def test_fixed_probe_launch_and_database_handles_close_before_volume_release(
             failure = type(exc).__name__
     finally:
         os.umask(old_umask)
-        for name in containers:
-            subprocess.run(["docker", "rm", "-fv", name], capture_output=True, timeout=20, check=False)
+        try:
+            for name in containers:
+                subprocess.run(["docker", "rm", "-fv", name], capture_output=True, timeout=20, check=False)
+        finally:
+            if actual_container and directory.exists():
+                probe_fixture_owner(directory, image, os.getuid(), os.getgid())
+                assert directory.stat().st_uid == os.getuid()
+                assert (directory / "controller.sqlite3").stat().st_uid == os.getuid()
     diagnostics = {"failure_type": failure, "database_handles_at_volume_close": handles,
                    "volume_cleanup_called": released == [True], "command": command_diagnostics,
-                   "image": image, "disk_allocation": "substituted_without_host_mount", "umask": "0077"}
+                   "image": image, "disk_allocation": "substituted_without_host_mount", "umask": "0077",
+                   "synthetic_prior_owner": 1001 if foreign_owner else os.getuid(),
+                   "controller_uid": 1000, "cleanup_owner": os.getuid()}
     record_property("probe_diagnostics", json.dumps(diagnostics, sort_keys=True))
     assert failure is None, diagnostics
     assert released == [True] and handles == [], diagnostics

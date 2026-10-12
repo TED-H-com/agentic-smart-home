@@ -1,0 +1,30 @@
+{
+  "conclusion": "failure",
+  "createdAt": "2026-10-12T14:37:51Z",
+  "headSha": "6847a03c8f5d1ad2a100df76eaaf8f3eca323794",
+  "updatedAt": "2026-10-12T14:47:20Z",
+  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38264318494",
+  "pytest": {
+    "tests": 472,
+    "passed": 467,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 4,
+    "seconds": 380.69
+  },
+  "failed_test": "tests/test_updater.py::test_fixed_probe_launch_and_database_handles_close_before_volume_release[packaged_controller]",
+  "failure": {
+    "type": "CalledProcessError",
+    "command_returncode": 1,
+    "controller_import_error": false,
+    "database_handles_at_volume_close": [],
+    "volume_cleanup_called": true,
+    "stdout_bytes": 0,
+    "stderr_bytes": 483
+  },
+  "junit": "not_uploaded: workflow artifact upload follows success-only package step",
+  "classification": "independently reproduced CI fixture defect: chmod0666 permits writes but UID1000 cannot chmod a UID1001-owned SQLite file; production uses real root chown",
+  "runtime_scope": "Installed product uses root chown to fixed UID 1000; new test approximated this with chmod for other CI users",
+  "vm_validation": "RUN7 continues on exact6847a03 media; no product or installer change inferred from CI failure",
+  "independent_reproduction": "evidence/updater-probe-ci-owner-before.xml"
+}
