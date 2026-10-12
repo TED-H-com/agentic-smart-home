@@ -14,10 +14,39 @@ pytest-disktmp uv run pytest -q tests/test_hermes_runtime.py --containers
 
 Python 3.14 is required by this upstream revision. `requirements.in` records its
 core and MCP dependencies; `requirements.txt` locks all 77 resolved packages and
-hashes. The deliberate security override is cryptography 50.0.2 instead of the
-upstream 50.0.1 pin. The upstream source is unmodified; source extraction omits
+hashes. Deliberate security overrides are recorded below and in
+`hermes.lock.json`. The upstream source is unmodified; source extraction omits
 convenience symlinks. This service and its dependencies are separate from the
 Controller and household Runner images.
+
+## Dependency security overrides
+
+The 2026-10-11 review of this repository's open Dependabot alerts identified 20
+alerts against the Hermes lock: 14 for PyJWT, five for httpx2 and one for
+httpcore2. The lock changes only these three installed package versions; the
+Hermes commit, MCP 2.0.0, other dependencies and existing cryptography 50.0.2
+override remain unchanged.
+
+| Package | Previous | Locked | Upstream evidence |
+| --- | --- | --- | --- |
+| PyJWT | 2.13.0 | 2.15.0 | [2.15.0 changelog](https://github.com/jpadilla/pyjwt/blob/2.15.0/CHANGELOG.rst), [OKP key consistency fix](https://github.com/jpadilla/pyjwt/security/advisories/GHSA-x33g-cr3x-6449), [HMAC confusion fix](https://github.com/jpadilla/pyjwt/security/advisories/GHSA-ffc3-869f-jxw9) |
+| httpx2 | 2.7.0 | 2.12.0 | [Bounded response decompression](https://github.com/pydantic/httpx2/security/advisories/GHSA-8xx6-hgc6-gc2m) |
+| httpcore2 | 2.7.0 | 2.12.0 | [SOCKS secure WebSocket TLS fix](https://github.com/pydantic/httpx2/security/advisories/GHSA-7mj9-2mp8-4m2p), [httpx2 2.12.0 package metadata](https://pypi.org/pypi/httpx2/2.12.0/json) |
+
+The HTTP transport advisory first fixes httpcore2 in 2.10.0, but httpx2 2.12.0
+requires exactly httpcore2 2.12.0. This is a required dependency change. The
+[PyJWT options-mutation advisory](https://github.com/jpadilla/pyjwt/security/advisories/GHSA-gvp8-978c-rx2q)
+has no first-patched-version field in GitHub's advisory metadata; its published
+affected range ends at 2.13.0. An installed-package regression probe verifies
+that 2.15.0 preserves caller options and rejects an expired token after signature
+verification is re-enabled. These checks establish this reviewed lock's behavior;
+they are not a claim that every dependency is free of vulnerabilities.
+
+Regenerate the hash lock while retaining compatible existing resolutions:
+
+```sh
+uv pip compile --python 3.14 --generate-hashes hermes/requirements.in -o hermes/requirements.txt
+```
 
 ## Private API, protocol 1
 

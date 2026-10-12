@@ -591,6 +591,48 @@ asyncio.run(main())
 """
         stopped = subprocess.run(["docker", "exec", name, "python", "-c", fence_probe], capture_output=True, text=True, timeout=15)
         assert stopped.returncode == 0, stopped.stderr[-2000:]
+        # Exercise security fixes in installed wheels, including the advisory
+        # whose first-patched-version metadata is still empty on GitHub.
+        security_probe = """
+import base64
+from importlib.metadata import version
+import jwt
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat, PublicFormat
+assert version('PyJWT') == '2.15.0'
+assert version('httpx2') == version('httpcore2') == '2.12.0'
+secret = 'synthetic-security-probe-key-00000000'
+token = jwt.encode({'exp': 1}, secret, algorithm='HS256')
+options = {'verify_signature': False}
+jwt.decode(token, options=options)
+assert options == {'verify_signature': False}, 'decoder mutated caller options'
+options['verify_signature'] = True
+try:
+    jwt.decode(token, secret, algorithms=['HS256'], options=options)
+except jwt.ExpiredSignatureError:
+    pass
+else:
+    raise AssertionError('reused options skipped expiry verification')
+private = Ed25519PrivateKey.generate()
+other = Ed25519PrivateKey.generate()
+def b64(value):
+    return base64.urlsafe_b64encode(value).rstrip(b'=').decode()
+jwk = {'kty': 'OKP', 'crv': 'Ed25519',
+       'x': b64(private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)),
+       'd': b64(private.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption()))}
+jwt.PyJWK.from_dict(jwk)
+jwk['x'] = b64(other.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw))
+try:
+    jwt.PyJWK.from_dict(jwk)
+except jwt.InvalidKeyError:
+    pass
+else:
+    raise AssertionError('mismatched OKP key components accepted')
+"""
+        secured = subprocess.run(["docker", "exec", name, "python", "-c", security_probe], capture_output=True, text=True, timeout=15)
+        assert secured.returncode == 0, secured.stderr[-2000:]
+        consistent = subprocess.run(["docker", "exec", name, "python", "-m", "pip", "check"], capture_output=True, text=True, timeout=15)
+        assert consistent.returncode == 0, consistent.stdout[-2000:] + consistent.stderr[-2000:]
     finally:
         subprocess.run(["docker", "rm", "-fv", name], capture_output=True, check=False)
         subprocess.run(["docker", "volume", "rm", volume], capture_output=True, check=False)

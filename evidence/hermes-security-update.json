@@ -1,0 +1,24 @@
+{
+  "version": "0.4.0",
+  "packages": {
+    "PyJWT": "2.15.0",
+    "httpx2": "2.12.0",
+    "httpcore2": "2.12.0"
+  },
+  "other_locked_packages_unchanged": 74,
+  "reason": "20 published alerts; patched versions verified against affected ranges. HTTPX2 requires matching HTTPCore2 2.12.0.",
+  "image_id": "sha256:b201bb13052e4306b7dd5d1cafe16adcab540a074512bd6c498bb4b717e3c124",
+  "regression": {
+    "passed": 16,
+    "seconds": 58.08,
+    "command": "pytest-disktmp uv run pytest -q tests/test_hermes_runtime.py --containers"
+  },
+  "actual_wheel_checks": [
+    "pip check",
+    "retained verification options",
+    "re-enabled verification rejects expired token",
+    "reject mismatched OKP keys"
+  ],
+  "cloud_login": "not_run",
+  "remote_alert_rescan": "pending_push"
+}

@@ -1,6 +1,6 @@
 # Agentic Smart Home 0.4.0 技術預覽驗證
 
-2026-10-11，凍結本輪程式後的完整自動回歸：**141 passed、2 skipped，107.87 秒**，見 [pytest-0.4.0.xml](../evidence/pytest-0.4.0.xml)。執行包含 `--real-ha --containers`；跳過的是大型 HAOS KVM 與完整 Linux ISO 安裝案例，並非略過失敗的單元測試。本節不宣稱 E0、E1 或 E2 的產品驗收完成。
+2026-10-11，首版候選的本機完整自動回歸：**141 passed、2 skipped，107.87 秒**，見 [pytest-0.4.0.xml](../evidence/pytest-0.4.0.xml)。這是下述 CI fixture 修正與相依安全更新之前的結果。執行包含 `--real-ha --containers`；跳過的是大型 HAOS KVM 與完整 Linux ISO 安裝案例。本節不宣稱 E0、E1 或 E2 的產品驗收完成。
 
 ```bash
 pytest-disktmp uv run pytest -q --real-ha --containers --junitxml=evidence/pytest-0.4.0.xml
@@ -24,6 +24,12 @@ Hermes 的七工具為 `host.status`、`worker.capabilities`、`worker.submit/st
 Controller 使用 `user_version=2`，0.3.x binary 不能讀取新格式。Hermes 的獨立保存上限透過私有 `/v1/retention` 同步，縮短時停止進行中的 turn 再刪逾期內容；同步失败不先改 Controller 設定。操作與敏感遷移快照的保護見 [OPERATIONS](OPERATIONS.md)。
 
 Ruff、產生契約與文件完整性檢查通過。Git 發佈 allowlist 的 237 份檔案經 Gitleaks 8.30.1 掃描，0 findings，見 [source-audit.json](../evidence/source-audit.json)；掃描範圍排除私有 parent／ignored runtime 資料，不能當成真家庭資料已獲公開授權。四個 0.4.0 image 的建置記錄與待建置媒體的安裝驗收分開。
+
+## 0.4.0 工程追蹤（待再驗）
+
+- 首次 GitHub CI（`a973a078`）為 **140 passed、1 failed、2 skipped**。失敗來自 PID fixture 檔案已存在但內容尚未寫完的競態，完整記錄保留於 [initial-failure](../evidence/github-ci-0.4.0-initial-failure.json)。`d3ad83b` 改為原子發布 fixture，沒有修改 runtime 或放寬產品斷言；該案例單跑與 runtime 16 項回歸通過。[第二次 CI](https://github.com/teddashh/agentic-smart-home/actions/runs/38196533079) 已通過 **141 passed、2 skipped／160.94 秒**，為相依安全更新前的結果。
+- 發佈後 Dependabot 列出 Hermes 三項相依共 20 則公告（PyJWT 14、httpx2 5、httpcore2 1）。目前候選改為 PyJWT 2.15.0、httpx2／httpcore2 2.12.0；依據包含上游 [PyJWT 公告](https://github.com/jpadilla/pyjwt/security/advisories/GHSA-ffc3-869f-jxw9)、[HTTPX2 解壓公告](https://github.com/pydantic/httpx2/security/advisories/GHSA-8xx6-hgc6-gc2m)及 [HTTPCore2 TLS 公告](https://github.com/pydantic/httpx2/security/advisories/GHSA-7mj9-2mp8-4m2p)。更新後映像已重建，runtime／容器 **16 passed／58.08 秒**，含實際 wheel 的 pip check 與 PyJWT 驗證選項／過期 token／OKP keys 回歸；見 [安全更新證據](../evidence/hermes-security-update.json)。完整 GitHub 回歸與遠端公告重新掃描待提交後執行；依賴說明見 [Hermes README](../hermes/README.md)。
+- 初始候選 ISO 的一次性 VM 安裝正在執行，尚無通過結果。相依更新完成後仍須重建精確對應的媒體並另記 digest 與驗證範圍，不能沿用初始候選作為最終媒體證據。
 
 ## 0.4.0 仍待取得的證據
 

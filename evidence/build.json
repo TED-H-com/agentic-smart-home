@@ -1,6 +1,6 @@
 {
   "version": "0.4.0",
-  "built_at": "2026-10-12T02:25:49.571686+00:00",
+  "built_at": "2026-10-12T02:45:23.207600+00:00",
   "platform": "linux/amd64",
   "images": {
     "controller": {
@@ -23,9 +23,9 @@
     },
     "hermes": {
       "tag": "agentic-home-hermes:0.4.0",
-      "id": "sha256:558f5dfe6db126389b66019003e20baae4dd5a642d9df9be2448c778581164f4",
+      "id": "sha256:b201bb13052e4306b7dd5d1cafe16adcab540a074512bd6c498bb4b717e3c124",
       "architecture": "amd64",
-      "bytes": 805073627
+      "bytes": 805201170
     }
   },
   "runtime_files": {
@@ -98,15 +98,15 @@
     "hermes/.dockerignore": "87ff6b6bd915e44c20b674ff1b478b0637ad02ba5135da1a9d27dae99c85c791",
     "hermes/Dockerfile": "cdfca83b48d39b79da5b81f6c1fc287c6064cf7c9d34e3fe73e67bd33a5736c1",
     "hermes/HERMES-LICENSE": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6",
-    "hermes/README.md": "68bb6a4ce594245086af4d0ec0aa1556391cebf206915e6b30a8f1c465785ac1",
+    "hermes/README.md": "29baf8469052be892a18246388872a1d404d45c89d5b957f72721079d8bdb530",
     "hermes/agentic_hermes/__init__.py": "a1e6e77ff2aacf71e428db739e81a78f5b0095086a8e49d4d8d21ee6c5265fcb",
     "hermes/agentic_hermes/app.py": "a8b028081b98f0584afa4be3e591c6a180d532a41144e00768ecebc312a02a95",
     "hermes/agentic_hermes/child.py": "f92a69c506e0d3149fe10b2b1d6618fdb5ce6c27591cd3ebf0f8bae3cf4414cc",
     "hermes/agentic_hermes/models.py": "053fd1d648cd646e32bbeedda9abe09a489ab792cd561fb77633e00d6239f1d1",
     "hermes/fetch_upstream.py": "5ca58043b59dad0589d2e89c7c3269ecd659955ba1bcbd3294b24c140b66f8cb",
-    "hermes/hermes.lock.json": "0f3b4423f33310de74de0f927451d0f887f02d1f462c8c106aca3ae249863e0d",
-    "hermes/requirements.in": "633373aa846bd10ab8eb0eb998fa8c7159dd5dde670638e1f52f38c710290272",
-    "hermes/requirements.txt": "f894648103a99f89dd59354401f0951faad92d7891bb9ab28b19489023680ab9"
+    "hermes/hermes.lock.json": "d2db4cf2b4984ca3a1418d59113fcd827336009cfc998ed23ff1638158d8c4fa",
+    "hermes/requirements.in": "4cf7915c1a2b150f85186668aa3bbb585e273e251a10b2590605563d86791a39",
+    "hermes/requirements.txt": "e3a114f9181cc94128f4ed29b8cd405b8d0c5ce477d1d3c6c050180da27240d6"
   },
   "runner_zip_metadata": "Fixed metadata; 16-file source archive. Cloud accounts not used."
 }

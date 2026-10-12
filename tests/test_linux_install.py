@@ -100,6 +100,13 @@ while data:=s.recv(65536):
             raise AssertionError("Firstboot did not complete: " + logs.stdout[-4000:])
         host = json.loads(command(*ssh, "agentic-home status"))
         assert not host["provisioned"] and host["kvm"]
+        installed = json.loads(command(*ssh, "sudo cat /var/lib/agentic-home/installed.json"))
+        assert installed["version"] == "0.4.0" and installed["profile"] == profile
+        image_lock = json.loads(command(*ssh, "cat /opt/agentic-home/images.lock.json"))
+        expected_tags = {f"agentic-home-{service}:0.4.0" for service in ("controller", "runner", "linejs", "hermes")}
+        assert set(image_lock) == expected_tags
+        for tag, digest in image_lock.items():
+            assert command(*ssh, "sudo docker image inspect --format '{{.Id}}' " + tag) == digest
         assert command(*ssh, "systemctl is-active agentic-home agentic-home-host agentic-home-proxy") == "active\nactive\nactive"
         assert command(*ssh, "curl -fsS http://localhost:8099/api/deployment")
         auth_probe = command(*ssh, "python3 -", input=(ROOT / "tests/installed_probe.py").read_text())
@@ -167,6 +174,9 @@ while data:=s.recv(65536):
         wait_ha()
         evidence = {"kind": "real_linux_install_nested_kvm", "profile": profile, "base": "Ubuntu 24.04.5",
                     "iso_sha256": iso_hash,
+                    "installed_version": installed["version"], "images": image_lock,
+                    "runtime_location": "disposable_outer_linux_vm", "model_backend": "none",
+                    "ha_backend": "nested_official_haos", "device_kind": "none",
                     "installation": "passed", "firstboot": "passed", "haos_vm_running": True,
                     "outer_ui_with_haos_off": True, "cold_snapshot_restore": "passed",
                     "firstboot_without_haos": True, "hermes_service_without_account": "needs_auth",

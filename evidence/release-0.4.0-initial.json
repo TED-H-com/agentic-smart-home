@@ -1,0 +1,45 @@
+{
+  "version": "0.4.0",
+  "stage": "technical_preview",
+  "media": "pending_disposable_vm_verification",
+  "regression": {
+    "passed": 141,
+    "skipped": 2,
+    "evidence": "pytest-0.4.0.xml",
+    "skipped_cases": "Large HAOS VM and full Linux installation; Linux candidate validation is run separately."
+  },
+  "cloud_login": "not_run",
+  "external_channel_messages": "not_run",
+  "physical_hardware": "not_run",
+  "host_cloud_coding": "disabled_pending_egress_adapter",
+  "home_app_coding": "not_implemented",
+  "fixed_update_rollback": "not_implemented",
+  "database_schema": 2,
+  "code_commit": "a973a0782d138bb1e6bbd50ad3645b27872a3bf0",
+  "recorded_at": "2026-10-12T02:32:01.214679+00:00",
+  "artifacts": {
+    "agentic-home-0.4.0-laptop-amd64.iso": {
+      "sha256": "ef6f455b258780746ff104204e63f01729e3c89aa3f47a77bf3e7a88d3a17131",
+      "bytes": 5387124736
+    },
+    "agentic-home-0.4.0-linux-amd64.tar": {
+      "sha256": "37b79637d10536254c8e3ac3de9da3cbc31b4553dbf6b0cdef3832d63ef61df7",
+      "bytes": 1307607040
+    }
+  },
+  "bundle_verification": {
+    "manifest_files": 126,
+    "runtime_files": 78,
+    "images": {
+      "agentic-home-controller:0.4.0": "sha256:e26625326972cc2f84dd08066459a5df74849cca097999a8145cbb2d10787b3e",
+      "agentic-home-runner:0.4.0": "sha256:669d1474ab8083186b282a3dd785093a7ac1de24c42d4121f5afac0a17ee75d3",
+      "agentic-home-linejs:0.4.0": "sha256:db23d533e59e9f9d4f37dff666724b5edc994600d81bdf5e0c838e5578a31014",
+      "agentic-home-hermes:0.4.0": "sha256:558f5dfe6db126389b66019003e20baae4dd5a642d9df9be2448c778581164f4"
+    },
+    "result": "passed"
+  },
+  "runner_zip": {
+    "sha256": "1e0636ef2d00e875050a0973a107fc31087caf26190408b29bb0eb24db5d129a",
+    "manifest_files": 16
+  }
+}
