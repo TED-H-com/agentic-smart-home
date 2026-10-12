@@ -113,6 +113,27 @@ def main():
                 break
             time.sleep(0.25)
         evidence['job'] = {k: job.get(k) for k in ('state', 'stop_confirmed', 'error_code', 'exit_code', 'verification')}
+        stage = 'verification_evidence'
+        for metadata in job.get('artifacts', []):
+            if metadata.get('name') not in {'verification.json', 'verification.log'}:
+                continue
+            code, report = service.handle('GET', '/coding/jobs/' + body['id'] + '/artifacts/' + metadata['id'])
+            assert code == 200
+            raw = base64.b64decode(report['content_base64'], validate=True)
+            assert len(raw) <= 180 * 1024 and hashlib.sha256(raw).hexdigest() == metadata['sha256']
+            if metadata['name'] == 'verification.json':
+                value = json.loads(raw)
+                # Only typed, fixed completion fields; no generated output or paths.
+                evidence['verifier_completion'] = {key: value[key] for key in
+                    ('completion_verified', 'tests_executed', 'exit_code')
+                    if key in value and type(value[key]) in {int, bool}}
+            else:
+                text = raw[:8192].decode(errors='replace')
+                evidence['verifier_log_summary'] = {'bytes': len(raw), 'scanned_bytes': min(len(raw), 8192),
+                    'permission_error': 'PermissionError' in text or 'Permission denied' in text,
+                    'collection_error': 'ERROR collecting' in text, 'no_tests_ran': 'no tests ran' in text,
+                    'import_error': 'ModuleNotFoundError' in text or 'ImportError' in text}
+        stage = 'coding_verified'
         assert job['state'] == 'succeeded' and job['stop_confirmed'], job.get('error_code')
         assert job['verification']['state'] == 'passed' and len(calls) == 2
         patch = next(a for a in job['artifacts'] if a['kind'] == 'patch')

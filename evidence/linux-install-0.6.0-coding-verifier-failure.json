@@ -1,0 +1,37 @@
+{
+  "version": "0.6.0",
+  "source_commit": "acc44fc78b51c01416e83f40163a415ffae3ef19",
+  "harness_commit": "09acfb757a4e370ed4456d672434f21494b6bff9",
+  "iso_sha256": "3b6872c2816a42cbdc19c23133be2b44a42ea911fcf99bb3fe4bc4d31a67bd69",
+  "result": "failed",
+  "duration_seconds": 1099.57,
+  "phase": "installed_coding_independent_verifier",
+  "passed": [
+    "linux_installation",
+    "firstboot",
+    "five_image_ids",
+    "pinned_source_clone",
+    "desktop_ticket_and_replay_rejection",
+    "owner_login",
+    "hermes_needs_auth",
+    "host_boundary_ready_role_needs_auth",
+    "coding_without_login_blocked_idempotent_no_lease",
+    "controller_stopped_rescue",
+    "offline_sandbox",
+    "disk_volume_enospc",
+    "actual_codex_tool_edit_and_own_tests"
+  ],
+  "failed": "independent verifier exit 1 after developer exit 0",
+  "root_cause": "production umask 0077 changes mkdir(mode=0755) into root-only 0700; UID 10000 cannot traverse trusted-tests",
+  "reproduction": "evidence/coding-prepare-permissions.json",
+  "fix": "Explicit root-owned directory mode 0555 after copying fixed baseline tests; individual files remain 0444",
+  "not_reached": [
+    "latest_hermes_bootstrap",
+    "nested_haos",
+    "candidate_update_rollback"
+  ],
+  "model_backend": "coding_transport_fixture",
+  "cloud_accounts": "not_run",
+  "cleanup": "VM, test containers and disk basetemp removed by fixture; coding probe cleanup passed",
+  "diagnostic_limit": "Original installed probe did not export verifier log; root cause reproduced independently with the pinned Runner and production umask."
+}

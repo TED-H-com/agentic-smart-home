@@ -1,0 +1,32 @@
+{
+  "observed_from": "disposable_installed_linux_vm",
+  "cloud_account": "not_used",
+  "disk_volume": {
+    "capacity_bytes": 62869504,
+    "written_bytes": 61505536,
+    "errno": 28,
+    "cleaned": true
+  },
+  "job": {
+    "state": "failed",
+    "stop_confirmed": true,
+    "error_code": null,
+    "exit_code": 0,
+    "verification": {
+      "state": "failed",
+      "patch_sha256": "69b232d6245bd92e846690eb5259eda28d2bb6df1eda78d3f4e15949b9a415e6",
+      "observed_from": "independent_host_verifier",
+      "exit_code": 1,
+      "stop_confirmed": true,
+      "trusted_tests": "pinned_baseline",
+      "test_command_sha256": "dfded52e7ff4ff20155a69260dfab23b1988a55ba9573ecbffa38a58358c69e8",
+      "network": "none"
+    }
+  },
+  "status": "failed",
+  "stage": "coding_dispatch",
+  "error": "AssertionError",
+  "cleanup": "passed",
+  "duration_seconds": 10.82,
+  "installed_source": "acc44fc78b51c01416e83f40163a415ffae3ef19"
+}

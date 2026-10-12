@@ -1,0 +1,11 @@
+{
+  "observed_from": "actual_pinned_runner_container",
+  "prepare": "actual_product_method",
+  "umask": "0077",
+  "trusted_directory_mode": "0555",
+  "trusted_owner_uid": 0,
+  "kernel_quota": "separate_installed_vm_evidence",
+  "uid10000_can_read": true,
+  "directory_and_files_not_writable": true,
+  "verifier_tests_executed": 2
+}

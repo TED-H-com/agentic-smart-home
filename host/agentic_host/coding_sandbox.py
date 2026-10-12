@@ -333,6 +333,9 @@ class CodingSandbox:
                     raise SandboxError("Trusted baseline verification test missing")
                 (tests / name).write_bytes(source_test.read_bytes())
                 (tests / name).chmod(0o444)
+            # The broker uses umask 077. Make trusted tests traversable by the
+            # unprivileged verifier without giving it directory write access.
+            tests.chmod(0o555)
             (mount / "verification.ini").write_text("[pytest]\nasyncio_mode=auto\n")
             (mount / "verification.ini").chmod(0o444)
         return mount

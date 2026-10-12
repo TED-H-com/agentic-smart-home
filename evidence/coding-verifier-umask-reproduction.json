@@ -1,0 +1,19 @@
+{
+  "observed_from": "real_pinned_runner_container",
+  "image": "sha256:8f57b79e8ae3db8a15d33ba63dd210ef8abc5f1cae9e7402f589d1bfd2f051f5",
+  "umask": "0077",
+  "production_modified_during_reproduction": false,
+  "original_directory_mode": "0700",
+  "original_verifier_exit": 1,
+  "original_completion_verified": false,
+  "original_tests_executed": 0,
+  "corrected_directory_mode": "0555",
+  "corrected_verifier_exit": 0,
+  "corrected_completion_verified": true,
+  "corrected_tests_executed": 2,
+  "cloud_account": "not_used",
+  "limitations": [
+    "Initial minimal DAC reproduction created matching fixed fixture directories manually; exact product prepare regression is recorded separately.",
+    "Kernel disk quota was observed in the installed VM, not this unprivileged container."
+  ]
+}

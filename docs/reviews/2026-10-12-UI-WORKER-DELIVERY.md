@@ -41,6 +41,8 @@
 
 最後交叉檢查另實際重現候選 `pytest.py` 遮蔽測試工具，以及候選匯入時 `os._exit(0)` 導致未測先綠。驗證器固定先載入工具、要求完整測試完成紀錄；零測試、跳過或未完成不能當成功。這種白箱驗證仍有候選程式在同一 Python interpreter 執行的限制，不能單憑它批准部署。舊媒體未做安裝驗收，保留其來源與 digest 後重建。
 
+精確安裝又發現正式 broker 的 `umask 0077` 使可信測試目錄變成 root-only，獨立 verifier 因無法讀取而失敗。修正只將複製完成的目錄明確設為 root-owned 0555，測試檔案仍為 0444；真正的 prepare／UID 10000／固定 Runner 回歸確認可讀、不可寫並完成兩項測試。安裝 probe 另改為區分 Host 隔離環境就緒與角色未登入，要求未登入派工拒絕執行、無 lease 且重送不重複。兩次失敗和修正證據保留於 [版本驗證](../VERIFICATION.md)，修正後媒體須另行完整安裝。
+
 ## 仍需獨立完成
 
 - 真 HAOS App 診斷已證明受限 SYS_ADMIN 與自訂 AppArmor 設定可建立 App 專屬 cgroup，並實際觸發記憶體限制；完整 Home launcher、出站／憑證／磁碟界線與真 Codex tools 流程仍未交付，維持 blocked。App、Core 容器和整個 HAOS 的觀測不可混稱。

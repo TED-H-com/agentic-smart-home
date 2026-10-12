@@ -1,11 +1,19 @@
 # Agentic Smart Home 0.6.0 驗證
 
 使用者要求對話優先後，主選單已改為五项，進度與成果留在智能管家同一段對話，技術設定收起。[新版24張截圖](../evidence/ui/chat-first/README.md) 已檢视桌面／平板／手機。
-**最終本機完整回歸：409 passed、3 skipped／248.34 秒**，見 [完整 JUnit](../evidence/pytest-chat-first-final.xml)。三個 skipped 都是需另行啟動的 HAOS App 探針、HAOS owner／Supervisor 備份，以及 Linux 安裝 VM。
+**對話版完整本機回歸：409 passed、3 skipped／248.34 秒**，見 [完整 JUnit](../evidence/pytest-chat-first-final.xml)。三個 skipped 都是需另行啟動的 HAOS App 探針、HAOS owner／Supervisor 備份，以及 Linux 安裝 VM。後續安裝發現的可信測試目錄權限問題已修正，定向 **41 passed／27.58 秒**，見 [JUnit](../evidence/coding-prepare-permissions.xml)；修正後的 CI 與精確媒體須各自重驗。
 
 最新瀏覽器與 composed E2E 回歸 **13 passed／134.90 秒**，見 [JUnit](../evidence/assistant-browser-final.xml)。保留登入、精確家庭批准、草稿與重試、provider／runtime／Hermes scope，另覆蓋無 thread 舊紀錄唯讀、送出中禁止切換，以及成果 exact case 核對。前一輪完整 suite 為407 passed、3 skipped、1項 Chromium capture失敗（[原始紀錄](../evidence/pytest-chat-first.xml)）；已加入 resize 後 layout frame 等待，最終完整回歸通過。另一次與 image 匯出並行的回歸因兩個 Docker create 超時而中止，保留 [原始紀錄](../evidence/pytest-chat-first-build-contention.xml)；清理晚到容器並依序執行後，全套通過，未放寬產品限制。
 
-本輪將 0.5.1 審查的工程缺口接入產品，並依實際 Chromium 截圖改善 onboarding 與開發成果畫面。完整服務、精確安裝媒體與 CI 的結果會各自記錄，不把模型 transport fixtures 說成真帳號驗收。
+權限修正前的 GitHub [CI 38243649110](https://github.com/teddashh/agentic-smart-home/actions/runs/38243649110) 已通過 **414 passed、4 skipped／359.433 秒**，來源為 `09acfb757a4e370ed4456d672434f21494b6bff9`，含新增六項安裝 probe 契約檢查；見 [CI 記錄](../evidence/github-ci-0.6.0-before-trusted-test-permissions.json)、[JUnit](../evidence/pytest-0.6.0-github-before-trusted-test-permissions.xml)。CI 比本機多跳過一個限定 UID 1000 的桌面單元案例；其餘三項為獨立大型 VM 測試。
+
+舊媒體來源為 `acc44fc78b51c01416e83f40163a415ffae3ef19`；當時較新的 CI commit 僅修正安裝測試與保存證據。CI ZIP 的 596 檔 manifest 全數核對，媒體內 131 份非 Markdown 執行來源／編譯資產均與當時 CI 產物相同，隨附操作文件也一致，見 [歷史核對](../evidence/ci-media-match-0.6.0-before-trusted-test-permissions.json)。這份舊媒體未通過下述獨立 verifier 安裝測試，不能作為最終交付。兩地 Docker image 是獨立建置，來源核對不宣稱 image IDs 相同。
+
+本輪將 0.5.1 審查的工程缺口接入產品，並依實際 Chromium 截圖改善 onboarding 與成果畫面。模型 transport fixtures 與真帳號驗收分開記錄。
+
+精確 ISO 首次安裝測試在 **1152.82 秒**後於安裝後狀態斷言失敗，見 [失敗摘要](../evidence/linux-install-0.6.0-initial-failure.json)及 [原始 JUnit](../evidence/linux-install-0.6.0-initial-auth-failure.xml)。Linux／firstboot、五個 image IDs、來源 bundle、Tailscale、單次登入與重播拒絕、Owner 登入和 Runner 配對均已通過；coding、HAOS 與更新／退版尚未開始。舊 probe 仍要求所有 workers 都不可用，與 0.6 Host 的「隔離環境已就緒、角色尚未登入」契約衝突。原紀錄未包含確切斷言位置，不能回溯排除同段 Hermes 狀態曾異常。新版 probe 增加安全階段診斷、精確 Host／Home 契約，以及未登入派工必須 blocked、未執行、無 lease 和重送不重複的檢查；[六項回歸](../evidence/installed-probe-contract-0.6.0.xml)通過。產品與 ISO 均未修改；完整安裝結果另記。
+
+同 ISO 第二輪為 **1 failed／1099.57 秒**：上述狀態與未登入拒絕派工檢查通過，Controller 停止救援、離線 sandbox、真 ext4 ENOSPC 與 Codex 工具修改／自身測試也通過，但獨立 verifier exit 1。正式 broker 的 `umask 0077` 使 `mkdir(mode=0755)` 實際建立 root-only 0700 目錄，UID 10000 無法讀取可信測試。已在固定 Runner 重現；修正只於複製完成後明確設定目錄 0555，檔案仍為 0444。新增回歸呼叫真正的 prepare 方法（只替代掛載 plumbing），確認 UID 10000 能讀、不能寫，並完成兩項獨立測試，見 [權限證據](../evidence/coding-prepare-permissions.json)。原安裝 probe 沒有保存 verifier log，這個原因是後續獨立重現；新版另補僅含布林值與完成計數的診斷。保留 [第二輪摘要](../evidence/linux-install-0.6.0-coding-verifier-failure.json)、[JUnit](../evidence/linux-install-0.6.0-coding-verifier-failure.xml)與 [舊媒體](../evidence/build-0.6.0-before-trusted-test-permissions.json)，修正後須重新封裝並驗證。
 
 較早的分項紀錄（不是額外加總）：Controller／Engine／Hermes 管理層 **106 passed、1 skipped**（另待 real Core）；真 pinned Hermes 容器 **22 passed**；Web 三尺寸瀏覽器回歸 **11 passed**。對應 [Controller](../evidence/worker-controller.xml)、[Hermes runtime](../evidence/worker-hermes-runtime.xml)。先前本機完整 `--real-ha --containers` 為 **385 passed、3 skipped／378.44 秒**，見 [完整 JUnit](../evidence/pytest-0.6.0.xml)；另補遷移快照、updater 快照與 verifier shadowing 的定向回歸，分別 35、34、35 項通過。三個跳過項為兩個 HAOS VM 案例與 Linux 安裝案例，另行執行；真帳號不在上述數字內。
 
