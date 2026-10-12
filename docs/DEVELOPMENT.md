@@ -1,4 +1,4 @@
-# 開發與自動化測試 · 0.5.0 技術預覽
+# 開發與自動化測試 · 0.5.1 技術預覽
 
 先讀根 [AGENTS](../AGENTS.md)、[Plan](../PROJECT_PLAN.md) 和 [v3 原稿／進度](v3/README.md)。A Hermes/Controller、B worker isolation、C Web/preview/delivery 三線可並行，共用契約由整合者維護，同一檔案／workspace 維持一個 writer。工程測試和 32 個產品驗收分開記。
 
@@ -12,10 +12,10 @@ npm ci --prefix web
 npm run build --prefix web
 uv run playwright install --with-deps chromium
 uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner; package_runner()"
-docker build -t agentic-home-controller:0.5.0 controller
-docker build -t agentic-home-runner:0.5.0 runner
-docker build -t agentic-home-linejs:0.5.0 host/linejs
-docker build -t agentic-home-hermes:0.5.0 hermes
+docker build -t agentic-home-controller:0.5.1 controller
+docker build -t agentic-home-runner:0.5.1 runner
+docker build -t agentic-home-linejs:0.5.1 host/linejs
+docker build -t agentic-home-hermes:0.5.1 hermes
 docker pull ghcr.io/home-assistant/amd64-hassio-supervisor:2026.09.3
 ```
 
@@ -39,6 +39,8 @@ uv run pytest -q --basetemp "$agentic_test_tmp"
 | Hermes 私有 runtime | `tests/test_hermes_runtime.py --containers` | service tests＋真 pinned AIAgent／官方 MCP client；模型及 MCP endpoints 為本機 fixture |
 | Web | `tests/test_bootstrap_ui.py tests/test_ui.py tests/test_gateway_ui.py tests/test_hermes_ui.py` | 真 Chromium、API fixtures，1440／768／390 px |
 | 首次設定／登入 | `tests/test_bootstrap.py tests/test_bootstrap_host.py tests/test_bootstrap_runner.py tests/test_desktop_login.py tests/test_ha_oauth.py --containers --real-ha` | 持久步驟／負向恢復、真封裝CLI本機推論fixture、真Core OAuth；不登入雲端 |
+| 跨服務 onboarding E2E | `tests/test_onboarding_e2e.py --containers --real-ha` | 真 Chromium／Controller／TLS Runner／Codex／Hermes AIAgent／MCP／Core OAuth；模型與 Host 安裝副作用為 fixture，無瀏覽器 API 攔截；精確限制見測試與審查報告 |
+| 競爭與恢復回歸 | `tests/test_review_bootstrap.py tests/test_review_runtime.py tests/test_review_ui.py` | 真程序樹取消、配對回覆遺失、授權／pause race、登入表單狀態、Telegram 首次配對；外部帳號端點 fixture |
 | 固定救援 | `tests/test_support.py tests/test_host.py` | 去密／固定 probe fixtures、真子程序 timeout/output bounds，無家庭寫入 |
 | Coding 隔離基礎 | `tests/test_coding_sandbox.py --containers` | 真 Docker 的 network／process／resource negatives；不等於真 cloud CLI、完整 ext4 lifecycle 或 HAOS App |
 | Core | `tests/test_real_ha.py --real-ha` | 真官方 Core；Supervisor backup 與 Agent intent 仍有 fixture |

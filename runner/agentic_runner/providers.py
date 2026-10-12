@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import ctypes
 import json
 import os
 import re
@@ -25,6 +26,58 @@ class ProviderError(Exception):
     pass
 
 
+class StopUnconfirmed(ProviderError):
+    def __init__(self):
+        super().__init__("stop_unconfirmed")
+
+
+def process_info(pid, uid=None):
+    try:
+        path = Path(f"/proc/{pid}")
+        actual_uid = path.stat().st_uid
+        if uid is not None and actual_uid != uid:
+            return None
+        fields = (path / "stat").read_text().rsplit(") ", 1)[1].split()
+        return {"uid": actual_uid, "state": fields[0], "parent": int(fields[1]),
+                "group": int(fields[2]), "session": int(fields[3]), "start": int(fields[19])}
+    except (FileNotFoundError, ProcessLookupError):
+        return None
+
+
+def group_members(group, uid):
+    result = {}
+    for path in Path("/proc").iterdir():
+        if path.name.isdecimal():
+            info = process_info(int(path.name), uid)
+            if info and info["group"] == group and info["session"] == group and info["state"] not in {"Z", "X"}:
+                result[int(path.name)] = info["start"]
+    return result
+
+
+def signal_members(members, uid, value):
+    """Check UID/start identity and signal kernel handles, never recycled PIDs."""
+    libc = ctypes.CDLL(None, use_errno=True)
+    libc.pidfd_open.argtypes, libc.pidfd_open.restype = [ctypes.c_int, ctypes.c_uint], ctypes.c_int
+    libc.pidfd_send_signal.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_uint]
+    libc.pidfd_send_signal.restype = ctypes.c_int
+    for pid, started in members.items():
+        fd = libc.pidfd_open(pid, 0)
+        if fd < 0:
+            error = ctypes.get_errno()
+            if error == 3:  # ESRCH: this exact process has already exited.
+                continue
+            raise OSError(error, os.strerror(error))
+        try:
+            info = process_info(pid, uid)
+            if info and info["start"] == started:
+                if libc.pidfd_send_signal(fd, value, None, 0) != 0:
+                    error = ctypes.get_errno()
+                    if error != 3:
+                        raise OSError(error, os.strerror(error))
+        finally:
+            os.close(fd)
+
+
 def limits():
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     resource.setrlimit(resource.RLIMIT_FSIZE, (64 * 1024 * 1024, 64 * 1024 * 1024))
@@ -38,6 +91,10 @@ class Providers:
         self.processes = {}
         self.auth_sessions = {}
         self.metrics = {}
+        private = root / "private"
+        private.mkdir(mode=0o700, exist_ok=True)
+        self.quarantine_path = private / "stop-unconfirmed.json"
+        self.unconfirmed = json.loads(self.quarantine_path.read_text()) if self.quarantine_path.exists() else {}
         for provider in VERSIONS:
             profile = self.profile(provider)
             profile.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -74,25 +131,96 @@ class Providers:
                 env[key] = credential["value"]
         return env
 
+    def ensure_available(self):
+        if self.unconfirmed:
+            raise StopUnconfirmed()
+
+    def quarantine(self, reason, pid=None):
+        self.unconfirmed[str(pid) if pid is not None else "restart"] = {"reason": reason}
+        temporary = self.quarantine_path.with_suffix(".new")
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as stream:
+            json.dump(self.unconfirmed, stream)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, self.quarantine_path)
+        directory = os.open(self.quarantine_path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+
+    def track_process(self, proc, provider):
+        if hasattr(proc, "_agentic_fence"):
+            return
+        try:
+            uid = self.uid(provider) if os.getuid() == 0 else os.getuid()
+            leader = process_info(proc.pid, uid)
+            owned = leader and leader["parent"] == os.getpid() and leader["group"] == proc.pid and leader["session"] == proc.pid
+            proc._agentic_fence = {"uid": uid, "members": group_members(proc.pid, uid) if owned else {},
+                                   "lock": asyncio.Lock(), "stopped": False}
+        except (OSError, ValueError, AttributeError):
+            self.quarantine("process_identity_unconfirmed", proc.pid)
+            raise StopUnconfirmed() from None
+
     async def spawn(self, provider, args, cwd=None):
+        self.ensure_available()
         if not shutil.which(provider):
             raise ProviderError(f"{provider} CLI 未安裝")
         privileges = {"user": self.uid(provider), "group": self.uid(provider), "extra_groups": []} if os.getuid() == 0 else {}
-        return await asyncio.create_subprocess_exec(provider, *args, env=self.environment(provider),
+        pending = asyncio.create_task(asyncio.create_subprocess_exec(provider, *args, env=self.environment(provider),
             cwd=cwd or self.profile(provider), stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-            start_new_session=True, preexec_fn=limits, **privileges)
+            start_new_session=True, preexec_fn=limits, **privileges))
+        try:
+            proc = await asyncio.shield(pending)
+        except asyncio.CancelledError:
+            proc = await pending
+            self.track_process(proc, provider)
+            await self.stop(proc)
+            raise
+        self.track_process(proc, provider)
+        return proc
 
     async def stop(self, process):
-        if process.returncode is None:
-            try:
-                os.killpg(process.pid, signal.SIGTERM)
-                await asyncio.wait_for(process.wait(), 3)
-            except TimeoutError:
-                os.killpg(process.pid, signal.SIGKILL)
-                await process.wait()
-            except ProcessLookupError:
-                pass
+        try:
+            fence = process._agentic_fence
+            async with fence["lock"]:
+                if fence["stopped"]:
+                    return
+                current = group_members(process.pid, fence["uid"])
+                if current:
+                    if not any(current.get(pid) == start for pid, start in fence["members"].items()):
+                        raise StopUnconfirmed()
+                    fence["members"].update(current)
+                    signal_members(current, fence["uid"], signal.SIGTERM)
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(asyncio.shield(process.wait()), 2)
+                # Leader exit never transfers ownership. Freeze the remaining
+                # group and terminate each anchored member through its pidfd.
+                for _ in range(100):
+                    current = group_members(process.pid, fence["uid"])
+                    if not current:
+                        await asyncio.wait_for(asyncio.shield(process.wait()), 1)
+                        fence["stopped"] = True
+                        return
+                    if not any(current.get(pid) == start for pid, start in fence["members"].items()):
+                        raise StopUnconfirmed()
+                    for _ in range(8):
+                        signal_members(current, fence["uid"], signal.SIGSTOP)
+                        fence["members"].update(current)
+                        frozen = group_members(process.pid, fence["uid"])
+                        stopped = all((info := process_info(pid, fence["uid"])) is None or
+                                      info["state"] in {"T", "t", "Z", "X"} for pid in frozen)
+                        if current == frozen and stopped:
+                            signal_members(frozen, fence["uid"], signal.SIGKILL)
+                            break
+                        current = frozen
+                    await asyncio.sleep(0.02)
+                raise StopUnconfirmed()
+        except (OSError, ValueError, KeyError, AttributeError, TimeoutError, StopUnconfirmed, asyncio.CancelledError):
+            self.quarantine("process_group_stop_unconfirmed", process.pid)
+            raise StopUnconfirmed() from None
 
     async def capture(self, process, input=b"", timeout=300):
         async def read(stream):
@@ -116,10 +244,12 @@ class Providers:
                 await process.wait()
             return stdout, stderr
         finally:
-            await self.stop(process)
-            for reader in readers:
-                reader.cancel()
-            await asyncio.gather(*readers, return_exceptions=True)
+            try:
+                await self.stop(process)
+            finally:
+                for reader in readers:
+                    reader.cancel()
+                await asyncio.gather(*readers, return_exceptions=True)
 
     def private_files(self, provider):
         for path in self.profile(provider).rglob("*"):
@@ -129,6 +259,7 @@ class Providers:
 
     async def probe(self, provider):
         proc = await self.spawn(provider, ["--version"])
+        self.track_process(proc, provider)
         out, _ = await self.capture(proc, timeout=15)
         version = re.search(r"\d+\.\d+\.\d+", out)
         return {"provider": provider, "version": version[0] if version else "unknown",
@@ -142,6 +273,7 @@ class Providers:
                     else "needs_reauth", "auth_method": "api_key" if (self.profile(provider) / "credential.json").exists()
                     else "subscription" if provider == "grok" else "none"}
         proc = await self.spawn(provider, ["login", "status"] if provider == "codex" else ["auth", "status"])
+        self.track_process(proc, provider)
         try:
             out, err = await self.capture(proc, timeout=20)
         except (TimeoutError, ProviderError):
@@ -160,6 +292,7 @@ class Providers:
         return {**probe, "status": "connected" if connected else "needs_reauth", "auth_method": method}
 
     async def secret_login(self, provider, method, secret):
+        self.ensure_available()
         if not secret or len(secret) > 16384 or "\n" in secret or "\r" in secret:
             raise ProviderError("登入資訊格式無效")
         if provider in {"agy", "grok"}:
@@ -186,6 +319,7 @@ class Providers:
             if method != "api_key":
                 raise ProviderError("Codex 請使用 device code 或 API key")
             proc = await self.spawn(provider, ["login", "--with-api-key"])
+            self.track_process(proc, provider)
             await self.capture(proc, (secret + "\n").encode(), timeout=30)
             if proc.returncode:
                 raise ProviderError("Codex 官方登入失敗，請確認 API key")
@@ -202,6 +336,7 @@ class Providers:
         return await self.health(provider)
 
     async def begin_device_auth(self, id, provider="codex"):
+        self.ensure_available()
         if any(a["status"] == "pending" for a in self.auth_sessions.values()):
             raise ProviderError("已有登入流程正在進行")
         if provider not in {"codex", "grok"}:
@@ -213,6 +348,7 @@ class Providers:
             (self.profile(provider) / "credential.json").unlink(missing_ok=True)
             (self.profile(provider) / "verified").unlink(missing_ok=True)
         proc = await self.spawn(provider, args)
+        self.track_process(proc, provider)
         self.processes[id] = proc
         duration = 1800 if provider == "grok" else 900
         state = {"id": id, "provider": provider, "status": "pending", "url": None, "code": None, "expires_in": duration,
@@ -233,30 +369,37 @@ class Providers:
                     state["code"] = code[0]
 
         async def complete():
+            outcome = "failed"
             try:
                 async with asyncio.timeout(duration):
                     await asyncio.gather(consume(proc.stdout), consume(proc.stderr))
                     await proc.wait()
-                state["status"] = "connected" if proc.returncode == 0 else "failed"
-                if provider == "grok" and proc.returncode == 0:
-                    (self.profile(provider) / "verified").touch(mode=0o600)
-                self.private_files(provider)
+                outcome = "connected" if proc.returncode == 0 else "failed"
             except TimeoutError:
-                state["status"] = "expired"
+                outcome = "expired"
             finally:
-                await self.stop(proc)
-                self.processes.pop(id, None)
-                if state["status"] != "pending":
-                    state["code"] = None
+                try:
+                    await self.stop(proc)
+                except StopUnconfirmed:
+                    state["status"] = "stop_unconfirmed"
+                else:
+                    state["status"] = outcome
+                    if provider == "grok" and outcome == "connected":
+                        (self.profile(provider) / "verified").touch(mode=0o600)
+                    self.private_files(provider)
+                    self.processes.pop(id, None)
+                state["code"] = None
 
         state["_task"] = asyncio.create_task(complete())
         return {k: v for k, v in state.items() if not k.startswith("_")}
 
     async def logout(self, provider):
+        self.ensure_available()
         for proc in list(self.processes.values()):
             await self.stop(proc)
         if provider != "agy":
             proc = await self.spawn(provider, ["logout"] if provider in {"codex", "grok"} else ["auth", "logout"])
+            self.track_process(proc, provider)
             await self.capture(proc, timeout=20)
         profile = self.profile(provider)
         # Fixed, app-owned path only. Erase local auth even if remote revocation was unavailable.
@@ -302,6 +445,7 @@ class Providers:
         return args
 
     async def run(self, id, provider, prompt, schema, model=""):
+        self.ensure_available()
         probe = await self.probe(provider)
         if not probe["version_matches"]:
             raise ProviderError("CLI 版本與打包版本不符，請重新安裝 Runner")
@@ -337,6 +481,7 @@ class Providers:
                         os.chown(path, self.uid(provider), self.uid(provider))
                 self.private_files(provider)
             proc = await self.spawn(provider, self.command(provider, schema_path, output_path, model), workspace)
+            self.track_process(proc, provider)
             self.processes[id] = proc
 
             async def watch_resources():
@@ -407,6 +552,7 @@ class Providers:
                 monitor.cancel()
                 await asyncio.gather(monitor, return_exceptions=True)
             self.metrics[id] = {**metrics, "elapsed_seconds": round(time.monotonic() - started, 3)}
-            self.processes.pop(id, None)
-            self.private_files(provider)
-            shutil.rmtree(workspace, ignore_errors=True)
+            if not self.unconfirmed:
+                self.processes.pop(id, None)
+                self.private_files(provider)
+                shutil.rmtree(workspace, ignore_errors=True)

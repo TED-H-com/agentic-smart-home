@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-12T05:43:40.707693+00:00",
+  "run_at": "2026-10-12T08:10:15.627294+00:00",
   "core": "2026.10.1",
   "image": "ghcr.io/home-assistant/home-assistant:2026.10.1",
   "image_digest": [
@@ -21,33 +21,33 @@
   ],
   "before_restart": {
     "source": "input_boolean.agentic_motion_test",
-    "source_at": "2026-10-12T05:43:34.361367+00:00",
-    "automation_context": "01M4QA6H6SSNT654XG6BN94FSW",
+    "source_at": "2026-10-12T08:10:08.931384+00:00",
+    "automation_context": "01M4QJJXN3VRBJ38N9X2SXBJM9",
     "targets": [
       {
         "entity_id": "input_boolean.agentic_lamp_test",
         "state": "on",
-        "at": "2026-10-12T05:43:34.362054+00:00",
-        "context_id": "01M4QA6H6SSNT654XG6BN94FSW"
+        "at": "2026-10-12T08:10:08.931956+00:00",
+        "context_id": "01M4QJJXN3VRBJ38N9X2SXBJM9"
       }
     ],
     "kind": "real_state_transition",
-    "observed_at": "2026-10-12T05:43:34.462788+00:00"
+    "observed_at": "2026-10-12T08:10:08.932764+00:00"
   },
   "after_restart": {
     "source": "input_boolean.agentic_motion_test",
-    "source_at": "2026-10-12T05:43:40.696895+00:00",
-    "automation_context": "01M4QA6QCRC50HMB1QH4CB5NXR",
+    "source_at": "2026-10-12T08:10:15.616064+00:00",
+    "automation_context": "01M4QJK460XBZGCDAC9Z01A3E1",
     "targets": [
       {
         "entity_id": "input_boolean.agentic_lamp_test",
         "state": "on",
-        "at": "2026-10-12T05:43:40.697485+00:00",
-        "context_id": "01M4QA6QCRC50HMB1QH4CB5NXR"
+        "at": "2026-10-12T08:10:15.617036+00:00",
+        "context_id": "01M4QJK460XBZGCDAC9Z01A3E1"
       }
     ],
     "kind": "real_state_transition",
-    "observed_at": "2026-10-12T05:43:40.698198+00:00"
+    "observed_at": "2026-10-12T08:10:15.617928+00:00"
   },
   "not_tested": [
     "HAOS Ingress",

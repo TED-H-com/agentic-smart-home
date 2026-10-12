@@ -1,3 +1,10 @@
+# 0.5.1 recovery and E2E fixes
+
+- Propagate unconfirmed cancellation through household tasks, host queries and Gateway; never report a lost stop reply as cancelled.
+- Preserve onboarding forms during background observations; fence pause and HA owner changes at commit.
+- Bound Hermes readiness checks, recover expired HA callbacks and keep Telegram pairing during startup.
+- Add composed browser/service/Core E2E and explicit architecture gaps.
+
 # 0.5.0 technical preview
 
 - Add durable CLI-first onboarding, one-use local desktop login, verified first-install latest Hermes, native Codex OAuth and automatic HAOS startup.

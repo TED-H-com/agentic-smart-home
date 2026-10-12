@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="9" time="0.258" timestamp="2026-10-12T03:33:49.170345-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_review_ui" name="test_rejected_ha_callback_always_returns_to_clean_onboarding[expired_grant]" time="0.039"><failure message="assert 400 == 303&#10; +  where 400 = &lt;Response [400 Bad Request]&gt;.status_code">store = &lt;agentic_controller.store.Store object at 0x7d57062aaf90&gt;
+tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-033348-nOmiJm/bt/test_rejected_ha_callback_alwa0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7d5704e99f30&gt;
+failure = 'expired_grant'
+
+    @pytest.mark.parametrize('failure', ['expired_grant', 'expired_session', 'malformed_callback'])
+    async def test_rejected_ha_callback_always_returns_to_clean_onboarding(store, tmp_path, monkeypatch, failure):
+        monkeypatch.setenv('AGENTIC_DATA', str(tmp_path))
+        key = 'review-owner-fixture-' + 'a' * 24
+        (tmp_path / 'access-key').write_text(key)
+        ha = HomeAssistant('', 'http://fixture.invalid/api', 'ws://fixture.invalid/api/websocket', external=True)
+        app = create_app(store=store, ha=ha, host_mode=True)
+        exchange_calls = []
+    
+        async def no_exchange(*args):
+            exchange_calls.append(args)
+            raise AssertionError('Rejected authorization must not exchange credentials')
+    
+        app.state.ha_authorization.token_request = no_exchange
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://localhost:8099',
+                                     headers={'Origin': 'http://localhost:8099'}) as client:
+            assert (await client.post('/api/host/login', json={'key': key})).status_code == 200
+            client.headers['X-Agentic-CSRF'] = (await client.get('/api/session')).json()['csrf']
+            client.headers['Idempotency-Key'] = 'review-native-auth'
+            started = await client.post('/api/host/authorize', json={})
+            state = parse_qs(urlsplit(started.json()['url']).query)['state'][0]
+            if failure == 'expired_grant':
+                record = store.get('ha_oauth', store.setting('ha_oauth_current'))
+                record['expires'] = 0
+                store.put('ha_oauth', record)
+            elif failure == 'expired_session':
+                client.cookies.clear()
+            else:
+                state = 'malformed-fixture-state'
+            response = await client.get('/api/host/authorized', params={'state': state, 'code': 'one-use-fixture-code'})
+&gt;           assert response.status_code == 303
+E           assert 400 == 303
+E            +  where 400 = &lt;Response [400 Bad Request]&gt;.status_code
+
+tests/test_review_ui.py:48: AssertionError</failure></testcase><testcase classname="tests.test_review_ui" name="test_rejected_ha_callback_always_returns_to_clean_onboarding[expired_session]" time="0.025"><failure message="assert 401 == 303&#10; +  where 401 = &lt;Response [401 Unauthorized]&gt;.status_code">store = &lt;agentic_controller.store.Store object at 0x7d5704cee210&gt;
+tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-033348-nOmiJm/bt/test_rejected_ha_callback_alwa1')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7d5704cdb890&gt;
+failure = 'expired_session'
+
+    @pytest.mark.parametrize('failure', ['expired_grant', 'expired_session', 'malformed_callback'])
+    async def test_rejected_ha_callback_always_returns_to_clean_onboarding(store, tmp_path, monkeypatch, failure):
+        monkeypatch.setenv('AGENTIC_DATA', str(tmp_path))
+        key = 'review-owner-fixture-' + 'a' * 24
+        (tmp_path / 'access-key').write_text(key)
+        ha = HomeAssistant('', 'http://fixture.invalid/api', 'ws://fixture.invalid/api/websocket', external=True)
+        app = create_app(store=store, ha=ha, host_mode=True)
+        exchange_calls = []
+    
+        async def no_exchange(*args):
+            exchange_calls.append(args)
+            raise AssertionError('Rejected authorization must not exchange credentials')
+    
+        app.state.ha_authorization.token_request = no_exchange
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://localhost:8099',
+                                     headers={'Origin': 'http://localhost:8099'}) as client:
+            assert (await client.post('/api/host/login', json={'key': key})).status_code == 200
+            client.headers['X-Agentic-CSRF'] = (await client.get('/api/session')).json()['csrf']
+            client.headers['Idempotency-Key'] = 'review-native-auth'
+            started = await client.post('/api/host/authorize', json={})
+            state = parse_qs(urlsplit(started.json()['url']).query)['state'][0]
+            if failure == 'expired_grant':
+                record = store.get('ha_oauth', store.setting('ha_oauth_current'))
+                record['expires'] = 0
+                store.put('ha_oauth', record)
+            elif failure == 'expired_session':
+                client.cookies.clear()
+            else:
+                state = 'malformed-fixture-state'
+            response = await client.get('/api/host/authorized', params={'state': state, 'code': 'one-use-fixture-code'})
+&gt;           assert response.status_code == 303
+E           assert 401 == 303
+E            +  where 401 = &lt;Response [401 Unauthorized]&gt;.status_code
+
+tests/test_review_ui.py:48: AssertionError</failure></testcase><testcase classname="tests.test_review_ui" name="test_rejected_ha_callback_always_returns_to_clean_onboarding[malformed_callback]" time="0.030"><failure message="assert 400 == 303&#10; +  where 400 = &lt;Response [400 Bad Request]&gt;.status_code">store = &lt;agentic_controller.store.Store object at 0x7d5704ced590&gt;
+tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-033348-nOmiJm/bt/test_rejected_ha_callback_alwa2')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7d5704bfd150&gt;
+failure = 'malformed_callback'
+
+    @pytest.mark.parametrize('failure', ['expired_grant', 'expired_session', 'malformed_callback'])
+    async def test_rejected_ha_callback_always_returns_to_clean_onboarding(store, tmp_path, monkeypatch, failure):
+        monkeypatch.setenv('AGENTIC_DATA', str(tmp_path))
+        key = 'review-owner-fixture-' + 'a' * 24
+        (tmp_path / 'access-key').write_text(key)
+        ha = HomeAssistant('', 'http://fixture.invalid/api', 'ws://fixture.invalid/api/websocket', external=True)
+        app = create_app(store=store, ha=ha, host_mode=True)
+        exchange_calls = []
+    
+        async def no_exchange(*args):
+            exchange_calls.append(args)
+            raise AssertionError('Rejected authorization must not exchange credentials')
+    
+        app.state.ha_authorization.token_request = no_exchange
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://localhost:8099',
+                                     headers={'Origin': 'http://localhost:8099'}) as client:
+            assert (await client.post('/api/host/login', json={'key': key})).status_code == 200
+            client.headers['X-Agentic-CSRF'] = (await client.get('/api/session')).json()['csrf']
+            client.headers['Idempotency-Key'] = 'review-native-auth'
+            started = await client.post('/api/host/authorize', json={})
+            state = parse_qs(urlsplit(started.json()['url']).query)['state'][0]
+            if failure == 'expired_grant':
+                record = store.get('ha_oauth', store.setting('ha_oauth_current'))
+                record['expires'] = 0
+                store.put('ha_oauth', record)
+            elif failure == 'expired_session':
+                client.cookies.clear()
+            else:
+                state = 'malformed-fixture-state'
+            response = await client.get('/api/host/authorized', params={'state': state, 'code': 'one-use-fixture-code'})
+&gt;           assert response.status_code == 303
+E           assert 400 == 303
+E            +  where 400 = &lt;Response [400 Bad Request]&gt;.status_code
+
+tests/test_review_ui.py:48: AssertionError</failure></testcase><testcase classname="tests.test_review_ui" name="test_telegram_initial_poll_retains_only_current_pairing[current_code]" time="0.014"><failure message="AssertionError: assert 'pending' == 'paired'&#10;  &#10;  - paired&#10;  + pending">store = &lt;agentic_controller.store.Store object at 0x7d5704dd3e10&gt;
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7d5704c13950&gt;
+kind = 'current_code'
+
+    @pytest.mark.parametrize('kind', ['current_code', 'wrong_code', 'expired_code', 'ordinary', 'bot_sender'])
+    async def test_telegram_initial_poll_retains_only_current_pairing(store, monkeypatch, kind):
+        """A just-displayed pairing command may arrive before initial polling finishes."""
+        gateway = Gateway(store, {}, None, None, {})
+        model_calls = []
+        gateway.submit = lambda *args, **kwargs: model_calls.append((args, kwargs))
+        initialized = asyncio.Event()
+        requests = []
+    
+        async def replies(session, method, url, **kwargs):
+            operation = url.rsplit('/', 1)[-1]
+            requests.append((operation, kwargs))
+            if operation == 'getMe':
+                return {'ok': True, 'result': {'id': 99, 'is_bot': True}}
+            if operation == 'getWebhookInfo':
+                return {'ok': True, 'result': {'url': ''}}
+            assert operation == 'getUpdates'
+            if kwargs['json']['offset'] == -1:
+                record = store.setting('channel_pairing_telegram')
+                code = 'incorrect-code' if kind == 'wrong_code' else record['code']
+                text = 'Historical ordinary instruction' if kind == 'ordinary' else '/pair ' + code
+                return {'ok': True, 'result': [{'update_id': 100, 'message': {
+                    'chat': {'id': 55}, 'from': {'id': 77, 'is_bot': kind == 'bot_sender'}, 'text': text}}]}
+            initialized.set()
+            await asyncio.Future()
+    
+        monkeypatch.setattr('agentic_controller.channels.json_request', replies)
+        try:
+            await gateway.begin_pairing('telegram', ChannelPairingInput(secret='12345:synthetic_review_bot'), 'review-pair')
+            if kind == 'expired_code':
+                record = store.setting('channel_pairing_telegram')
+                record['expires_at'] = time.time() - 1
+                store.set_setting('channel_pairing_telegram', record)
+            await asyncio.wait_for(initialized.wait(), timeout=2)
+            if kind == 'current_code':
+&gt;               assert gateway.pairing('telegram')['state'] == 'paired'
+E               AssertionError: assert 'pending' == 'paired'
+E                 
+E                 - paired
+E                 + pending
+
+tests/test_review_ui.py:91: AssertionError</failure></testcase><testcase classname="tests.test_review_ui" name="test_telegram_initial_poll_retains_only_current_pairing[wrong_code]" time="0.011" /><testcase classname="tests.test_review_ui" name="test_telegram_initial_poll_retains_only_current_pairing[expired_code]" time="0.012" /><testcase classname="tests.test_review_ui" name="test_telegram_initial_poll_retains_only_current_pairing[ordinary]" time="0.011" /><testcase classname="tests.test_review_ui" name="test_telegram_initial_poll_retains_only_current_pairing[bot_sender]" time="0.011" /><testcase classname="tests.test_review_ui" name="test_telegram_baseline_never_delivers_ordinary_history" time="0.010" /></testsuite></testsuites>

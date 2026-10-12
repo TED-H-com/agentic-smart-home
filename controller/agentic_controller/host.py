@@ -18,7 +18,7 @@ from pydantic import Field
 
 from .ha import HAError, HomeAssistant
 from .models import Strict
-from .runner import RunnerError
+from .runner import RunnerError, cancel_and_confirm
 
 
 class Unlock(Strict):
@@ -127,7 +127,7 @@ def external_ha(root):
                          "/api/websocket", external=True)
 
 
-async def pair_runner(store, runner, controller_id):
+async def pair_runner(store, runner, controller_id, *, commit_guard=None):
     """Use only the installer-owned TLS pin/code, never a browser-selected peer."""
     if store.setting("runner"):
         try:
@@ -139,6 +139,8 @@ async def pair_runner(store, runner, controller_id):
     path = Path("/pairing/runner.json")
     if not path.exists():
         raise HTTPException(409, "Runner 配對資料尚未備妥；若已重設 Controller，需同時重設 Runner 配對")
+    if commit_guard is not None:
+        commit_guard()
     result = await runner.pair(json.loads(path.read_text()), "host-owner", controller_id)
     store.set_setting("onboarding", {**store.setting("onboarding", {}), "runner_paired": True})
     return result
@@ -158,6 +160,10 @@ async def connect_home_owner(auth, ha, store, token, *, commit_guard=None):
         await candidate.close()
     if commit_guard is not None:
         commit_guard()
+    # Another binding can finish while the candidate session is closing. Keep
+    # the final household check synchronous with token and owner persistence.
+    if store.setting("owner") not in {None, user["id"]}:
+        raise HTTPException(409, "這是另一個家庭；請先備份並使用獨立 Controller 資料目錄")
     path = auth.root / "ha-token"
     temp = path.with_suffix(".new")
     with temp.open("w") as stream:
@@ -205,11 +211,17 @@ def routes(app, auth, ha, store, runner, controller_id):
                 result = HostAnswer.model_validate(result)
                 store.put("host_task", {**item, "state": "succeeded", "answer": result.model_dump()})
             except asyncio.CancelledError:
-                await runner.call("POST", f"/jobs/{id}/cancel", {})
-                store.put("host_task", {**item, "state": "cancelled"})
+                confirmed = await cancel_and_confirm(runner, id)
+                store.put("host_task", {**item, "state": "cancelled" if confirmed else "needs_reconcile",
+                    "error_code": None if confirmed else "stop_unconfirmed",
+                    "message": "查詢已取消" if confirmed else "Runner 尚未確認原程序已停止；請查看診斷並核對原工作。"})
                 raise
             except Exception:
-                store.put("host_task", {**item, "state": "failed", "message": "Agent 查詢未完成，請檢查官方登入或供應商狀態。"})
+                confirmed = await cancel_and_confirm(runner, id)
+                store.put("host_task", {**item, "state": "failed" if confirmed else "needs_reconcile",
+                    "error_code": None if confirmed else "stop_unconfirmed",
+                    "message": "Agent 查詢未完成，請檢查官方登入或供應商狀態。" if confirmed else
+                               "Runner 尚未確認原程序已停止；請查看診斷並核對原工作。"})
 
         task = asyncio.create_task(execute())
         app.state.running[id] = task
@@ -226,7 +238,8 @@ def routes(app, auth, ha, store, runner, controller_id):
     @app.post("/api/host/tasks/{id}/cancel")
     async def cancel(id: str):
         if id in app.state.running:
-            app.state.running[id].cancel()
+            if not app.state.running[id].cancelling():
+                app.state.running[id].cancel()
         return {"cancel_requested": True}
 
     @app.post("/api/host/login")
@@ -262,8 +275,14 @@ def routes(app, auth, ha, store, runner, controller_id):
         return await host_call("POST", {"id": key, **body.model_dump()})
 
     @app.post("/api/host/connect")
-    async def connect(body: ConnectHA):
-        return await connect_home_owner(auth, ha, store, body.token)
+    async def connect(body: ConnectHA, request: Request):
+        epoch = store.setting("hermes_web_epoch")
+
+        def commit_guard():
+            if not auth.verify(request) or epoch != store.setting("hermes_web_epoch"):
+                raise HTTPException(403, "主機登入已變更，請重新登入後連結家庭")
+
+        return await connect_home_owner(auth, ha, store, body.token, commit_guard=commit_guard)
 
     @app.post("/api/host/pair")
     async def pair():

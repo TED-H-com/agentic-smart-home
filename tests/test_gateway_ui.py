@@ -50,7 +50,7 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
                 "ha": {"status": "unavailable"},
                 "runner": {"protocol": 1, "providers": []},
                 "gateway": gateway,
-                "version": "0.5.0",
+                "version": "0.5.1",
             }
         elif path == "tasks":
             result = {"tasks": []}

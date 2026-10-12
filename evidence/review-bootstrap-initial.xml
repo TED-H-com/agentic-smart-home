@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="4" time="0.196" timestamp="2026-10-12T03:33:56.017762-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_review_bootstrap" name="test_review_pause_during_status_prevents_new_ha_provision" time="0.023"><failure message="AssertionError: A new Host provision action was issued after AI pause took effect&#10;assert not [{'id': '6e3e613e450d475babdd080a13d4083b', 'action': 'provision'}]">review_setup = (&lt;agentic_controller.bootstrap.Bootstrap object at 0x737c6272a120&gt;, &lt;test_bootstrap.HostFixture object at 0x737c62729b...30&gt;, &lt;test_bootstrap.HermesFixture object at 0x737c62729e80&gt;, &lt;test_bootstrap.GatewayFixture object at 0x737c62729fd0&gt;)
+store = &lt;agentic_controller.store.Store object at 0x737c627296a0&gt;
+
+    async def test_review_pause_during_status_prevents_new_ha_provision(review_setup, store):
+        bootstrap, backend, _, _, _ = review_setup
+        await checkpoint_at(bootstrap, "ha_provision")
+        entered, release = asyncio.Event(), asyncio.Event()
+    
+        async def gated_status(method="GET", body=None):
+            if method == "GET":
+                entered.set()
+                await release.wait()
+            return await backend(method, body)
+    
+        bootstrap.host_request = gated_status
+        task = asyncio.create_task(bootstrap.advance())
+        try:
+            await asyncio.wait_for(entered.wait(), 1)
+            store.set_setting("paused", True)
+            release.set()
+            await asyncio.wait_for(task, 1)
+&gt;           assert not [body for method, body in backend.calls if method == "POST"], \
+                "A new Host provision action was issued after AI pause took effect"
+E               AssertionError: A new Host provision action was issued after AI pause took effect
+E               assert not [{'id': '6e3e613e450d475babdd080a13d4083b', 'action': 'provision'}]
+
+tests/test_review_bootstrap.py:55: AssertionError</failure></testcase><testcase classname="tests.test_review_bootstrap" name="test_review_native_completion_rechecks_bound_owner_after_readback" time="0.021"><failure message="AssertionError: Onboarding became complete even though the owner binding was revoked during readback&#10;assert 'completed' != 'completed'">review_setup = (&lt;agentic_controller.bootstrap.Bootstrap object at 0x737c62775090&gt;, &lt;test_bootstrap.HostFixture object at 0x737c627749...d0&gt;, &lt;test_bootstrap.HermesFixture object at 0x737c62774e10&gt;, &lt;test_bootstrap.GatewayFixture object at 0x737c62774f50&gt;)
+store = &lt;agentic_controller.store.Store object at 0x737c62774a50&gt;
+ha = &lt;conftest.FakeHA object at 0x737c62774b90&gt;
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x737c633e7e30&gt;
+
+    async def test_review_native_completion_rechecks_bound_owner_after_readback(review_setup, store, ha, monkeypatch):
+        bootstrap, backend, _, _, _ = review_setup
+        await checkpoint_at(bootstrap, "ha_native")
+        backend.value["bootstrap"]["ha"].update(reachable=True, onboarding_complete=True)
+        store.set_setting("owner", "owner")
+        entered, release = asyncio.Event(), asyncio.Event()
+    
+        async def readback(method, path):
+            assert (method, path) == ("GET", "/config")
+            entered.set()
+            await release.wait()
+            return {"version": "fixture-version"}
+    
+        monkeypatch.setattr(ha, "request", readback)
+        task = asyncio.create_task(bootstrap.advance())
+        try:
+            await asyncio.wait_for(entered.wait(), 1)
+            store.set_setting("owner", None)
+            release.set()
+            await asyncio.wait_for(task, 1)
+&gt;           assert bootstrap.public()["state"] != "completed", \
+                "Onboarding became complete even though the owner binding was revoked during readback"
+E               AssertionError: Onboarding became complete even though the owner binding was revoked during readback
+E               assert 'completed' != 'completed'
+
+tests/test_review_bootstrap.py:84: AssertionError</failure></testcase><testcase classname="tests.test_review_bootstrap" name="test_review_concurrent_manual_connect_cannot_replace_first_household" time="0.016"><failure message="Failed: DID NOT RAISE HTTPException">store = &lt;agentic_controller.store.Store object at 0x737c627756d0&gt;
+tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-033355-X9pafg/bt/test_review_concurrent_manual_0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x737c62753bd0&gt;
+
+    async def test_review_concurrent_manual_connect_cannot_replace_first_household(store, tmp_path, monkeypatch):
+        entered = {owner: asyncio.Event() for owner in ("first-owner", "second-owner")}
+        release = {owner: asyncio.Event() for owner in entered}
+    
+        class Candidate:
+            def __init__(self, token, base, websocket, external):
+                self.owner_id = token
+    
+            async def start(self):
+                pass
+    
+            async def ws(self, operation):
+                assert operation == "auth/current_user"
+                return {"id": self.owner_id}
+    
+            async def owner(self, owner):
+                return {"id": owner, "is_owner": True, "is_active": True}
+    
+            async def close(self):
+                entered[self.owner_id].set()
+                await release[self.owner_id].wait()
+    
+        monkeypatch.setattr(host, "HomeAssistant", Candidate)
+        auth = SimpleNamespace(root=tmp_path)
+        ha = SimpleNamespace(base="http://fixture/api", websocket="ws://fixture/api/websocket", session=None, token="")
+        first = asyncio.create_task(host.connect_home_owner(auth, ha, store, "first-owner"))
+        second = asyncio.create_task(host.connect_home_owner(auth, ha, store, "second-owner"))
+        try:
+            await asyncio.wait_for(asyncio.gather(*(event.wait() for event in entered.values())), 1)
+            release["first-owner"].set()
+            assert (await asyncio.wait_for(first, 1))["principal"] == "first-owner"
+            release["second-owner"].set()
+&gt;           with pytest.raises(HTTPException) as rejected:
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE HTTPException
+
+tests/test_review_bootstrap.py:124: Failed</failure></testcase><testcase classname="tests.test_review_bootstrap" name="test_review_lost_pair_reply_recovers_same_runner_identity" time="0.033"><failure message="agentic_controller.runner.RunnerError: 已配對或配對碼過期">store = &lt;agentic_controller.store.Store object at 0x737c6276a3f0&gt;
+tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-033355-X9pafg/bt/test_review_lost_pair_reply_re0')
+
+    async def test_review_lost_pair_reply_recovers_same_runner_identity(store, tmp_path):
+        """Real Runner pairing route; simulate only transport loss after its committed response."""
+        broker = Broker(tmp_path / "review-runner")
+        try:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_api(broker)),
+                                         base_url="https://runner") as client:
+                class LocalRunner(Runner):
+                    lose_once = True
+    
+                    async def call(self, method, path, data=None, pairing=None):
+                        response = await client.request(method, path, json=data)
+                        if response.status_code &gt;= 300:
+                            raise RunnerError(response.json()["detail"], response.status_code)
+                        if path == "/pair" and self.lose_once:
+                            self.lose_once = False
+                            raise RunnerError("fixture: response lost after Runner committed pairing", 503)
+                        return response.json()
+    
+                runner = LocalRunner(store)
+                pairing = {"host": "runner", "port": 8443, "fingerprint": broker.fingerprint, "code": broker.code}
+                with pytest.raises(RunnerError, match="response lost"):
+                    await runner.pair(pairing, "host-owner", "a" * 32)
+                assert broker.setting("token_hash") and store.setting("runner") is None
+&gt;               assert await runner.pair(pairing, "host-owner", "a" * 32) == {"paired": True}
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_review_bootstrap.py:161: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+controller/agentic_controller/runner.py:50: in pair
+    response = await self.call("POST", "/pair", {
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_review_bootstrap.test_review_lost_pair_reply_recovers_same_runner_identity.&lt;locals&gt;.LocalRunner object at 0x737c6253c980&gt;
+method = 'POST', path = '/pair'
+data = {'code': 'tgg8q4sWGLOHeUuTFsWtn3K60G6XKojnWNmI2JsjP1s', 'principal': 'host-owner', 'controller_id': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'protocol': 1}
+pairing = {'host': 'runner', 'port': 8443, 'fingerprint': 'd21af882df6a0e8c9a151623ca83ad6d06e931b754e89312ea1407122128c3e6', 'code': 'tgg8q4sWGLOHeUuTFsWtn3K60G6XKojnWNmI2JsjP1s'}
+
+    async def call(self, method, path, data=None, pairing=None):
+        response = await client.request(method, path, json=data)
+        if response.status_code &gt;= 300:
+&gt;           raise RunnerError(response.json()["detail"], response.status_code)
+E           agentic_controller.runner.RunnerError: 已配對或配對碼過期
+
+tests/test_review_bootstrap.py:150: RunnerError</failure></testcase></testsuite></testsuites>

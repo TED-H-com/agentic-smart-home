@@ -32,6 +32,11 @@ from .runner import RunnerError
 STEPS = ("network", "runner_pairing", "cli_auth", "cli_assist", "hermes_install",
          "hermes_auth", "channel", "ha_provision", "ha_native")
 VERIFY_MESSAGE = "這是 Hermes 模型連線驗證。請僅回覆「Hermes 已可回應」，不要呼叫工具、修改設定或操作家庭。"
+OBSERVATION_TIMEOUT = 120
+
+
+class SetupPaused(Exception):
+    """A pause observed after an await must fence the next setup effect."""
 
 
 class Bootstrap:
@@ -55,7 +60,13 @@ class Bootstrap:
         record["updated_at"] = utcnow()
         self.store.put("bootstrap_v1", record)
 
+    def require_active(self):
+        if self.store.setting("paused", False):
+            raise SetupPaused
+
     def checkpoint(self, record, step, state, code=None, action=None):
+        if state in {"completed", "skipped"}:
+            self.require_active()
         target = next(item for item in record["steps"] if item["id"] == step)
         verified = target.get("verified_at") or utcnow() if state in {"completed", "skipped"} else None
         target.update(state=state, code=code, verified_at=verified)
@@ -71,6 +82,17 @@ class Bootstrap:
 
     def block(self, record, step, code, message):
         self.checkpoint(record, step, "blocked", code, self.human("retry", message, code=code))
+
+    def wait_for_observation(self, record, step, name, code, message, *, identity=None):
+        waits = record.setdefault("observation_waits", {})
+        pending = waits.get(name)
+        if not pending or pending.get("identity") != identity:
+            pending = {"deadline": time.time() + OBSERVATION_TIMEOUT, "identity": identity}
+            waits[name] = pending
+        if time.time() >= pending["deadline"]:
+            self.block(record, step, name + "_timeout", message)
+        else:
+            self.checkpoint(record, step, "running", code)
 
     def resume(self):
         record = self.record()
@@ -120,6 +142,10 @@ class Bootstrap:
                 step = record["current_step"]
                 if record["state"] == "blocked":
                     current = next(item for item in record["steps"] if item["id"] == step)
+                    if current["code"] in {"hermes_revision_timeout", "hermes_runtime_timeout", "hermes_readback_timeout"}:
+                        # Retry only the observation window. Keep the confirmed
+                        # install job and exact inference event; do not replay either.
+                        record.get("observation_waits", {}).pop(current["code"].removesuffix("_timeout"), None)
                     # Only terminal failed jobs get a new identity. Lost responses and
                     # unconfirmed side effects retain the old handle for reconciliation.
                     if current["code"] in {"cli_assist_failed", "cli_assist_expired", "hermes_verification_failed",
@@ -162,6 +188,7 @@ class Bootstrap:
         return self.public()
 
     async def host_operation(self, record, step, action, observed):
+        self.require_active()
         operation_key = step + ":" + action
         operation = record["jobs"].get(operation_key)
         if not operation:
@@ -172,10 +199,12 @@ class Bootstrap:
         result = next((item for item in observed.get("jobs", [])
                        if item.get("id") == operation["request"]["id"]), None)
         if result is None:
+            self.require_active()
             result = await self.host_request("POST", operation["request"])
         state = result.get("state")
         operation["state"] = state if state in {"running", "succeeded", "failed", "needs_reconcile"} else "unknown"
         self.save(record)
+        self.require_active()  # Preserve an already dispatched handle even if pause arrived in flight.
         if state in {"needs_reconcile", "unknown"} or operation["state"] == "unknown":
             self.block(record, step, "host_needs_reconcile", "主機操作尚未確認；請檢查主機診斷，再重試相同操作。")
         elif state == "failed":
@@ -187,6 +216,7 @@ class Bootstrap:
         request = record.get("assist_request")
         if not request:
             runtime = await self.coordinator.capabilities()
+            self.require_active()
             auth_state = runtime["runtime"].get("state", "unavailable")
             if auth_state not in {"needs_auth", "configured", "ready", "needs_reauth"}:
                 auth_state = "unavailable"
@@ -206,8 +236,13 @@ class Bootstrap:
             if request["expires"] <= time.time():
                 self.block(record, "cli_assist", "cli_assist_expired", "尚未接單的 CLI 查證已過期，請重試。")
                 return False
+            self.require_active()
             result = await self.runner.call("POST", "/bootstrap/jobs", request)
+        self.require_active()
         state = result.get("state")
+        if state == "stop_unconfirmed":
+            self.block(record, "cli_assist", "runner_needs_reconcile", "Runner 尚未確認原程序已停止；請查看診斷後重新核對原工作。")
+            return False
         if state == "succeeded" and result.get("evidence", {}).get("inference_completed") is True:
             self.checkpoint(record, "cli_assist", "completed", "cli_inference_verified")
             return True
@@ -219,16 +254,25 @@ class Bootstrap:
 
     async def hermes_auth(self, record):
         runtime = (await self.coordinator.capabilities())["runtime"]
+        self.require_active()
+        if runtime.get("execution_state") == "stop_unconfirmed":
+            self.block(record, "hermes_auth", "hermes_needs_reconcile", "Hermes 先前程序尚未確認停止；請查看診斷後重新核對。")
+            return False
         if runtime.get("state") == "ready" and runtime.get("auth_verified_at"):
+            record.get("observation_waits", {}).pop("hermes_readback", None)
+            record.get("observation_waits", {}).pop("hermes_runtime", None)
             self.checkpoint(record, "hermes_auth", "completed", "hermes_inference_verified")
             return True
         if runtime.get("state") in {"needs_auth", "needs_reauth"}:
+            record.get("observation_waits", {}).pop("hermes_runtime", None)
             self.checkpoint(record, "hermes_auth", "waiting_input", "hermes_login_required", self.human(
                 "hermes_login", "請完成 Hermes 自己的官方登入；完成後會自動驗證模型連線。"))
             return False
         if runtime.get("state") != "configured":
-            self.checkpoint(record, "hermes_auth", "running", "hermes_runtime_starting")
+            self.wait_for_observation(record, "hermes_auth", "hermes_runtime", "hermes_runtime_starting",
+                                      "Hermes 服務在等待期限內未恢復；請查看診斷，重試只會重新核對狀態。")
             return False
+        record.get("observation_waits", {}).pop("hermes_runtime", None)
         verification = record.get("verification")
         epoch = self.store.setting("hermes_auth_epoch")
         if not verification or verification.get("epoch") != epoch:
@@ -237,12 +281,15 @@ class Bootstrap:
             self.save(record)
         item = self.gateway.submit(ChatInput(message=VERIFY_MESSAGE, coordinator="hermes", new_conversation=True),
                                    "web", "owner", self.store.setting("owner") or "host-owner", verification["event"])
-        if item["state"] in {"failed", "cancelled", "interrupted", "needs_reconcile", "succeeded"}:
+        if item["state"] in {"needs_reconcile", "stop_unconfirmed"}:
+            self.block(record, "hermes_auth", "hermes_needs_reconcile", "Hermes 驗證工作尚待核對；重試會保留原工作，不重新送出推理。")
+        elif item["state"] in {"failed", "cancelled", "interrupted", "succeeded"}:
             # Success text is not authority: wait for independently observed ready.
             if item["state"] != "succeeded":
                 self.block(record, "hermes_auth", "hermes_verification_failed", "Hermes 模型驗證未完成，請檢查登入後重試。")
             else:
-                self.checkpoint(record, "hermes_auth", "running", "hermes_readback_pending")
+                self.wait_for_observation(record, "hermes_auth", "hermes_readback", "hermes_readback_pending",
+                    "Hermes 回覆後仍未確認登入驗證；請查看診斷，重試只會核對原工作。", identity=verification["event"])
         else:
             self.checkpoint(record, "hermes_auth", "running", "hermes_verification_running")
         return False
@@ -262,10 +309,9 @@ class Bootstrap:
                 return
             step = record["current_step"] or "network"
             try:
-                if self.store.setting("paused", False):
-                    self.block(record, step, "ai_paused", "AI 已暫停；恢復後可重試設定。")
-                    return
+                self.require_active()
                 observed = await self.host_request()
+                self.require_active()
                 platform = observed.get("bootstrap")
                 if not isinstance(platform, dict):
                     self.block(record, step, "host_upgrade_required", "主機服務尚未提供新版設定接口。")
@@ -274,7 +320,10 @@ class Bootstrap:
                     checkpoint = next(item for item in record["steps"] if item["id"] == step)
                     if checkpoint["state"] in {"completed", "skipped"}:
                         continue
-                    self.checkpoint(record, step, "running")
+                    # Re-observing a step is not a state change. Preserve active
+                    # login/setup forms while an awaited health probe is in flight.
+                    if checkpoint["state"] == "pending" or record["current_step"] != step:
+                        self.checkpoint(record, step, "running")
                     if step == "network":
                         if platform.get("network", {}).get("ready") is not True:
                             self.checkpoint(record, step, "waiting_input", "network_unavailable", self.human(
@@ -282,10 +331,15 @@ class Bootstrap:
                             return
                         self.checkpoint(record, step, "completed", "network_verified")
                     elif step == "runner_pairing":
-                        await host.pair_runner(self.store, self.runner, self.controller_id)
+                        await host.pair_runner(self.store, self.runner, self.controller_id,
+                                               commit_guard=self.require_active)
                         self.checkpoint(record, step, "completed", "runner_paired")
                     elif step == "cli_auth":
                         peer = await self.runner.call("GET", "/status")
+                        self.require_active()
+                        if peer.get("execution_state") == "stop_unconfirmed":
+                            self.block(record, step, "runner_needs_reconcile", "Runner 尚未確認原程序已停止；請查看診斷後再繼續登入。")
+                            return
                         provider = next((item for item in peer.get("providers", []) if item.get("provider") == record["provider"]), {})
                         if provider.get("version_matches") is not True:
                             self.block(record, step, "cli_version_mismatch", "所選 CLI 尚未通過套件版本檢查。")
@@ -303,9 +357,12 @@ class Bootstrap:
                         revision = installed.get("commit")
                         if installed.get("state") == "ready" and installed.get("source") == "latest" and isinstance(revision, str) and re.fullmatch(r"[0-9a-f]{40}", revision):
                             runtime = (await self.coordinator.capabilities())["runtime"]
+                            self.require_active()
                             if runtime.get("upstream_commit") != revision:
-                                self.checkpoint(record, step, "running", "hermes_runtime_starting")
+                                self.wait_for_observation(record, step, "hermes_revision", "hermes_runtime_starting",
+                                    "已安裝的 Hermes 與執行版本仍不一致；請查看診斷，重試只會重新核對版本。", identity=revision)
                                 return
+                            record.get("observation_waits", {}).pop("hermes_revision", None)
                             self.checkpoint(record, step, "completed", "hermes_revision_verified")
                         else:
                             await self.host_operation(record, step, "bootstrap_hermes", observed)
@@ -322,8 +379,12 @@ class Bootstrap:
                                         "channel_explicitly_skipped" if record["channel"] == "web" else "channel_connection_verified")
                     elif step == "ha_provision":
                         # Recheck live gates immediately before any household platform action.
+                        auth_epoch = self.store.setting("hermes_auth_epoch")
                         runtime = (await self.coordinator.capabilities())["runtime"]
-                        if not self.channel_ready(record) or runtime.get("state") != "ready" or not runtime.get("auth_verified_at"):
+                        self.require_active()
+                        if (auth_epoch != self.store.setting("hermes_auth_epoch") or
+                            not self.channel_ready(record) or runtime.get("state") != "ready" or
+                            not runtime.get("auth_verified_at") or runtime.get("execution_state") == "stop_unconfirmed"):
                             self.block(record, step, "setup_readiness_changed", "Hermes 或通道連線已改變；恢復連線後再重試。")
                             return
                         if observed.get("restore_pending") or observed.get("kvm") is not True:
@@ -339,6 +400,7 @@ class Bootstrap:
                     elif step == "ha_native":
                         native = platform.get("ha", {})
                         owner = self.store.setting("owner")
+                        token = getattr(self.ha, "token", None)
                         native_complete = native.get("onboarding_complete") is True
                         # Official Core omits this route after a completed onboarding
                         # restart. A 404 alone is never proof: require active owner + config.
@@ -349,7 +411,9 @@ class Bootstrap:
                                 config = await self.ha.request("GET", "/config")
                             except HAError:
                                 valid_owner, config = None, {}
-                            if valid_owner and isinstance(config.get("version"), str):
+                            self.require_active()
+                            if (valid_owner and isinstance(config.get("version"), str) and
+                                owner == self.store.setting("owner") and token == getattr(self.ha, "token", None)):
                                 self.checkpoint(record, step, "completed", "ha_owner_and_route_absence_verified"
                                                 if completed_route_absent and not native_complete else "ha_owner_and_onboarding_verified")
                                 continue
@@ -363,7 +427,12 @@ class Bootstrap:
                         return
                 record.update(state="completed", current_step=None, human_action=None)
                 self.save(record)
-            except (HTTPException, RunnerError, HermesError, HAError, OSError, ValueError, KeyError, TypeError):
+            except SetupPaused:
+                self.block(record, step, "ai_paused", "AI 已暫停；恢復後可重試設定。")
+            except (HTTPException, RunnerError, HermesError, HAError, OSError, ValueError, KeyError, TypeError) as exc:
+                if isinstance(exc, RunnerError) and exc.status_code == 409 and str(exc) == "stop_unconfirmed":
+                    self.block(record, step, "runner_needs_reconcile", "Runner 尚未確認原程序已停止；請查看診斷後重新核對原工作。")
+                    return
                 record["transient_errors"] = record.get("transient_errors", 0) + 1
                 if record["transient_errors"] <= 3:
                     self.checkpoint(record, step, "running", "service_reconnecting")

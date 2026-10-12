@@ -88,7 +88,7 @@ def installer(tmp_path, monkeypatch):
     product = tmp_path / "product"
     (product / "hermes").mkdir(parents=True)
     (product / "hermes/hermes.lock.json").write_text(json.dumps({"commit": "b" * 40, "python": "3.14"}))
-    (product / "images.lock.json").write_text(json.dumps({"agentic-home-hermes:0.5.0": ORIGINAL}))
+    (product / "images.lock.json").write_text(json.dumps({"agentic-home-hermes:0.5.1": ORIGINAL}))
     calls = []
     flags = {"probe_fails": False, "activation_fails": False, "fallback_fails": False, "race_account": False}
     manager = Manager(tmp_path / "host", product=product)

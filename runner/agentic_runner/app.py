@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import hashlib
 import hmac
 import json
 import os
 import secrets
 import sqlite3
+import stat
 import time
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -26,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .bootstrap import BootstrapJob, BootstrapResult
 from .bootstrap import prompt as bootstrap_prompt
-from .providers import ProviderError, Providers
+from .providers import ProviderError, Providers, StopUnconfirmed
 
 
 class Input(BaseModel):
@@ -97,10 +97,14 @@ class Broker:
         self.tasks = {}
         self.code, self.code_expires, self.pair_attempts = secrets.token_urlsafe(32), time.time() + 600, []
         if self.setting("certificate_pin") != self.fingerprint:
-            self.settings({"token_hash": None, "controller_id": None, "certificate_pin": self.fingerprint})
+            self.settings({"token_hash": None, "controller_id": None, "certificate_pin": self.fingerprint,
+                           "pair_recovery": None})
         for _id, _, body in self.db.execute("SELECT * FROM jobs").fetchall():
             job = json.loads(body)
-            if job["state"] in {"queued", "running"}:
+            if job["state"] in {"running", "stop_unconfirmed"}:
+                self.providers.quarantine("runner_restarted_with_unconfirmed_job")
+                self.save_job({**job, "state": "stop_unconfirmed", "error": "stop_unconfirmed"})
+            elif job["state"] == "queued":
                 self.save_job({**job, "state": "failed", "error": "Runner 已重啟，任務未重新執行"})
 
     def setting(self, key):
@@ -111,6 +115,71 @@ class Broker:
         with self.db:
             self.db.executemany("INSERT OR REPLACE INTO settings VALUES (?,?)",
                                 [(k, json.dumps(v)) for k, v in values.items()])
+
+    def pairing_token(self, body):
+        # Exact retries derive the same bearer without storing it in SQLite.
+        # The seed remains inside the existing private, backup-excluded directory.
+        path = self.root / "private" / "pairing-recovery.key"
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        except FileExistsError:
+            pass
+        else:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(secrets.token_bytes(48))
+                stream.flush()
+                os.fsync(stream.fileno())
+            directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        try:
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(fd, "rb") as stream:
+                metadata = os.fstat(stream.fileno())
+                if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid() or
+                    stat.S_IMODE(metadata.st_mode) != 0o600 or metadata.st_nlink != 1):
+                    raise ValueError("invalid private seed")
+                seed = stream.read(49)
+            if len(seed) != 48:
+                raise ValueError("invalid private seed")
+        except (OSError, ValueError):
+            raise HTTPException(409, "配對恢復資訊無效") from None
+        return hmac.new(seed, body.model_dump_json().encode(), hashlib.sha384).hexdigest()
+
+    def refresh_pairing_file(self, path, now=None):
+        """Retain only the exact original installer handoff until its deadline."""
+        now = time.time() if now is None else now
+        if self.setting("token_hash"):
+            recovery = self.setting("pair_recovery") or {}
+            try:
+                pairing = json.loads(path.read_text())
+                if (recovery.get("expires", 0) > now and pairing.get("fingerprint") == self.fingerprint and
+                    isinstance(pairing.get("code"), str) and
+                    hmac.compare_digest(hashlib.sha256(pairing["code"].encode()).hexdigest(),
+                                        recovery.get("code_hash", ""))):
+                    return True
+            except (FileNotFoundError, ValueError, AttributeError, TypeError):
+                pass
+            path.unlink(missing_ok=True)
+            return False
+        if self.code_expires < now + 60:
+            self.code, self.code_expires = secrets.token_urlsafe(32), now + 600
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".new")
+        temporary.write_text(json.dumps({"host": "localhost", "port": 8443,
+                                        "fingerprint": self.fingerprint, "code": self.code}))
+        if os.getuid() == 0:
+            os.chown(temporary, 0, 1000)
+        temporary.chmod(0o640)
+        os.replace(temporary, path)
+        return True
+
+    @staticmethod
+    def pairing_response(token):
+        return {"token": token, "protocol": 1, "identity": "agentic-home-runner",
+                "features": ["structured_intents", "cancel", "codex", "claude", "agy", "grok"]}
 
     def save_job(self, job):
         job = {**job, "updated": time.time()}
@@ -136,14 +205,18 @@ class Broker:
             if job["state"] == "cancelled":
                 return
             try:
+                self.providers.ensure_available()
                 if request.expires < time.time():
                     raise ProviderError("任務授權已過期")
                 self.save_job({**job, "state": "running"})
                 result = await self.providers.run(request.id, request.provider, request.prompt,
                                                   request.schema_, request.model)
                 self.save_job({**job, "state": "succeeded", "result": result})
+            except StopUnconfirmed:
+                self.save_job({**job, "state": "stop_unconfirmed", "error": "stop_unconfirmed"})
             except asyncio.CancelledError:
-                self.save_job({**job, "state": "cancelled"})
+                state = "stop_unconfirmed" if self.providers.unconfirmed else "cancelled"
+                self.save_job({**job, "state": state, "error": "stop_unconfirmed" if self.providers.unconfirmed else None})
                 raise
             except (ProviderError, TimeoutError, OSError, ValueError) as exc:
                 error = str(exc) if isinstance(exc, ProviderError) else "CLI 超時或無法取得結構化結果"
@@ -159,6 +232,7 @@ class Broker:
             if job["state"] == "cancelled":
                 return
             try:
+                self.providers.ensure_available()
                 if request.expires < time.time():
                     raise ProviderError("bootstrap_expired")
                 self.save_job({**job, "state": "running"})
@@ -173,8 +247,11 @@ class Broker:
                     "cli_version": health["version"], "inference_completed": True,
                     "live_mutations": False,
                 }})
+            except StopUnconfirmed:
+                self.save_job({**job, "state": "stop_unconfirmed", "error": "stop_unconfirmed"})
             except asyncio.CancelledError:
-                self.save_job({**job, "state": "cancelled"})
+                state = "stop_unconfirmed" if self.providers.unconfirmed else "cancelled"
+                self.save_job({**job, "state": state, "error": "stop_unconfirmed" if self.providers.unconfirmed else None})
                 raise
             except (ProviderError, TimeoutError, OSError, ValueError) as exc:
                 # Neither CLI diagnostics nor rejected structured fields reach Controller.
@@ -208,22 +285,39 @@ def create_api(broker):
     async def provider_error(request, exc):
         return JSONResponse({"detail": str(exc)}, status_code=422)
 
+    def require_fenced():
+        if broker.providers.unconfirmed:
+            raise HTTPException(409, "stop_unconfirmed")
+
     @app.post("/pair")
     async def pair(body: Pair):
         broker.pair_attempts = [t for t in broker.pair_attempts if t > time.time() - 60]
         broker.pair_attempts.append(time.time())
         if len(broker.pair_attempts) > 5:
             raise HTTPException(429, "配對嘗試過於頻繁")
-        if broker.setting("token_hash") or time.time() > broker.code_expires:
+        if broker.setting("token_hash"):
+            recovery = broker.setting("pair_recovery") or {}
+            expected = {"controller_id": body.controller_id, "principal": body.principal, "protocol": body.protocol}
+            if (recovery.get("expires", 0) <= time.time() or
+                any(recovery.get(key) != value for key, value in expected.items()) or
+                not hmac.compare_digest(recovery.get("code_hash", ""), hashlib.sha256(body.code.encode()).hexdigest())):
+                raise HTTPException(409, "已配對或配對碼過期")
+            token = broker.pairing_token(body)
+            if not hmac.compare_digest(broker.setting("token_hash"), hashlib.sha256(token.encode()).hexdigest()):
+                raise HTTPException(409, "配對恢復資訊無效")
+            return broker.pairing_response(token)
+        if time.time() > broker.code_expires:
             raise HTTPException(409, "已配對或配對碼過期")
         if not hmac.compare_digest(body.code, broker.code):
             raise HTTPException(403, "配對碼錯誤")
-        token = secrets.token_urlsafe(48)
+        token = broker.pairing_token(body)
         broker.settings({"token_hash": hashlib.sha256(token.encode()).hexdigest(),
-                         "controller_id": body.controller_id, "principal": body.principal})
+                         "controller_id": body.controller_id, "principal": body.principal,
+                         "pair_recovery": {"controller_id": body.controller_id, "principal": body.principal,
+                            "protocol": body.protocol, "code_hash": hashlib.sha256(body.code.encode()).hexdigest(),
+                            "expires": broker.code_expires}})
         broker.code = ""
-        return {"token": token, "protocol": 1, "identity": "agentic-home-runner",
-                "features": ["structured_intents", "cancel", "codex", "claude", "agy", "grok"]}
+        return broker.pairing_response(token)
 
     @app.get("/status")
     async def status():
@@ -234,10 +328,13 @@ def create_api(broker):
             except (ProviderError, OSError, TimeoutError):
                 providers.append({"provider": name, "status": "unavailable"})
         return {"protocol": 1, "identity": "agentic-home-runner", "providers": providers,
-                "running": sum(not t.done() for t in broker.tasks.values())}
+                "running": sum(not t.done() for t in broker.tasks.values()),
+                "execution_state": "stop_unconfirmed" if broker.providers.unconfirmed else
+                    "busy" if any(not t.done() for t in broker.tasks.values()) else "idle"}
 
     @app.post("/providers/{provider}/auth")
     async def auth(provider: Literal["codex", "claude", "agy", "grok"], body: Login):
+        require_fenced()
         if any(not t.done() for t in broker.tasks.values()):
             raise HTTPException(409, "請先取消或等候目前任務")
         if body.method == "device_code":
@@ -255,6 +352,7 @@ def create_api(broker):
 
     @app.post("/providers/{provider}/logout")
     async def logout(provider: Literal["codex", "claude", "agy", "grok"]):
+        require_fenced()
         if any(not t.done() for t in broker.tasks.values()):
             raise HTTPException(409, "請先取消目前任務")
         return await broker.providers.logout(provider)
@@ -271,6 +369,7 @@ def create_api(broker):
             if old["digest"] != digest:
                 raise HTTPException(409, "任務 ID 已用於其他內容")
             return old
+        require_fenced()
         if sum(not t.done() for t in broker.tasks.values()) >= 10:
             raise HTTPException(429, "任務佇列已滿")
         record = broker.save_job({"id": body.id, "digest": digest, "provider": body.provider,
@@ -290,6 +389,7 @@ def create_api(broker):
             if old["digest"] != digest or old.get("kind") != "bootstrap_assist":
                 raise HTTPException(409, "bootstrap_idempotency_conflict")
             return old
+        require_fenced()
         if not time.time() < body.expires <= time.time() + 360:
             raise HTTPException(422, "bootstrap_expired")
         if len(broker.tasks) >= 10:
@@ -329,9 +429,18 @@ def create_api(broker):
             return record
         task = broker.tasks.get(id)
         if task and not task.done():
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
+            # All callers await the same writer's fence. A second cancel or a
+            # disconnected request must not inject cancellation into its cleanup.
+            if not task.cancelling():
+                task.cancel()
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                if asyncio.current_task().cancelling():
+                    raise
+        record = broker.job(id)
+        if record["state"] == "stop_unconfirmed" or broker.providers.unconfirmed:
+            return broker.save_job({**record, "state": "stop_unconfirmed", "error": "stop_unconfirmed"})
         return broker.save_job({**record, "state": "cancelled"})
 
     return app
@@ -382,11 +491,7 @@ async def serve():
         pairing = {"host": "localhost" if host_mode else hostname, "port": 8443,
                    "fingerprint": broker.fingerprint, "code": broker.code}
         if host_mode:
-            path = Path("/pairing/runner.json")
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(pairing))
-            os.chown(path, 0, 1000)
-            os.chmod(path, 0o640)
+            broker.refresh_pairing_file(Path("/pairing/runner.json"))
         else:
             print("一次性配對資料（私人資料，10 分鐘有效）：" + json.dumps(pairing), flush=True)
     del token
@@ -396,17 +501,8 @@ async def serve():
         proxy_headers=False, access_log=False))
     async def refresh_pairing():
         path = Path("/pairing/runner.json")
-        while not broker.setting("token_hash"):
+        while broker.refresh_pairing_file(path):
             await asyncio.sleep(30)
-            if broker.code_expires < time.time() + 60:
-                broker.code, broker.code_expires = secrets.token_urlsafe(32), time.time() + 600
-                temp = path.with_suffix(".new")
-                temp.write_text(json.dumps({"host": "localhost", "port": 8443,
-                                            "fingerprint": broker.fingerprint, "code": broker.code}))
-                os.chown(temp, 0, 1000)
-                temp.chmod(0o640)
-                os.replace(temp, path)
-        path.unlink(missing_ok=True)
     pairing_task = asyncio.create_task(refresh_pairing()) if host_mode else None
     try:
         await asyncio.gather(api.serve(), ingress.serve())
@@ -416,7 +512,8 @@ async def serve():
             await asyncio.gather(pairing_task, return_exceptions=True)
         tasks = list(broker.tasks.values()) + [s["_task"] for s in broker.providers.auth_sessions.values() if s.get("_task")]
         for task in tasks:
-            task.cancel()
+            if not task.done() and not task.cancelling():
+                task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
         for proc in list(broker.providers.processes.values()):
             await broker.providers.stop(proc)

@@ -5,6 +5,8 @@
 
 0.5.0 開發新增 CLI 先行的自動 onboarding：持久九步流程、桌面單次登入、官方最新 Hermes 相容性檢查、Hermes 原生 Codex OAuth、LINE／Telegram 配對碼、自動 HAOS 啟動及 HA 官方瀏覽器授權。這是 Owner 的新流程，不改六份原稿。最新CI為210 passed／3 skipped；精確0.5.0 ISO在一次性VM為1 passed／1310.79秒。T3-01與T3-05的E0工程範圍已重驗，其他30項不批次升級，詳見 [版本驗證](../VERIFICATION.md)。通用 Host／Home coding、真雲端家庭與固定產品更新／退版仍未完成。
 
+0.5.1 本輪補上跨服務 E2E 與恢復修正，本機完整回歸 **271 passed／2 skipped**；真 HAOS 另為 **1 passed**。測試含實際服務／CLI／MCP／Core 瀏覽器授權，但模型及 Host 副作用為 fixture，見 [審查](../reviews/2026-10-12-E2E-ARCHITECTURE.md)。新版 ISO 待獨立驗證，不覆蓋下列已通過的 0.5.0 精確媒體；32 案不批次升級。下一輪先補 Runner retention／停止恢復與真正 Host coding 修正交付。
+
 ## 記錄規則
 
 開發狀態 `not_run / in_progress / implemented` 只描述程式交付；案例結果使用 `not_run / blocked / passed / failed`。新增案例預設 `not_run`，不得因舊測試或相關 unit test 通過而批次改為 passed。具體功能因隔離不足 disabled，可在開發備註記錄原因；未實際執行整個案例仍保留 not_run。

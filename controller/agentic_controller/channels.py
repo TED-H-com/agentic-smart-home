@@ -108,17 +108,30 @@ class TelegramTransport:
             hook = await json_request(session, "POST", self.base + "/getWebhookInfo")
             if hook.get("result", {}).get("url"):
                 raise ChannelError("此 Telegram bot 已設定 webhook，請為家庭主機使用獨立 bot")
-            state("connected")
             # Cursor is per credential so replacing a bot cannot inherit another bot's update IDs.
             from .models import digest
             key = "telegram_cursor_" + digest(self.config["secret"])
             offset = self.store.setting(key)
             if offset is None:
-                # Start at the newest update and acknowledge it without replaying historical commands.
+                # Bound the initial history while retaining a fresh pairing that
+                # was followed by other messages before this poll completed.
                 initial = await json_request(session, "POST", self.base + "/getUpdates",
-                                             json={"offset": -1, "limit": 1, "timeout": 0})
+                                             json={"offset": -100, "limit": 100, "timeout": 0,
+                                                   "allowed_updates": ["message"]})
+                if not initial.get("ok"):
+                    raise ChannelError("Telegram 暫時無法讀取訊息")
+                # A fresh pairing code can arrive while getMe/webhook checks run.
+                # Preserve only this typed handshake for Gateway's current-code,
+                # expiry and audience checks; ordinary history is still skipped.
+                for update in initial.get("result", []):
+                    message = update.get("message", {})
+                    sender, text = message.get("from", {}), message.get("text", "")
+                    if not sender.get("is_bot") and isinstance(text, str) and text.startswith("/pair "):
+                        await receive(str(update["update_id"]), str(message.get("chat", {}).get("id", "")),
+                                      str(sender.get("id", "")), text)
                 offset = max((u["update_id"] + 1 for u in initial.get("result", [])), default=0)
                 self.store.set_setting(key, offset)
+            state("connected")
             while True:
                 result = await json_request(session, "POST", self.base + "/getUpdates", json={
                     "offset": offset, "timeout": 25, "allowed_updates": ["message"], "limit": 50})

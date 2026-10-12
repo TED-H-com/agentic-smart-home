@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="5.143" timestamp="2026-10-12T04:03:27.995276-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_review_runtime" name="test_imported_fifo_pair_seed_is_rejected_without_blocking_api" time="5.019"><failure message="subprocess.TimeoutExpired: Command '['/home/ted-h/castle-smarthome/agentic-home/.venv/bin/python', '-c', &quot;\nimport asyncio,sys\nfrom pathlib import Path\nimport httpx\nfrom agentic_runner.app import Broker,create_api\nasync def main():\n    broker=Broker(Path(sys.argv[1]))\n    try:\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_api(broker)),base_url='https://runner') as client:\n            result=await client.post('/pair',json={'code':broker.code,'controller_id':'a'*32,'principal':'fixture','protocol':1})\n            assert result.status_code==409\n            assert not broker.setting('token_hash')\n            print('rejected_fifo')\n    finally:\n        broker.db.close()\nasyncio.run(main())\n&quot;, '/home/ted-h/agent-work/tmp/pytest/20261012-040327-rWWnHv/bt/test_imported_fifo_pair_seed_i0/runner']' timed out after 5 seconds">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-040327-rWWnHv/bt/test_imported_fifo_pair_seed_i0')
+
+    def test_imported_fifo_pair_seed_is_rejected_without_blocking_api(tmp_path):
+        root = tmp_path / "runner"
+        broker = Broker(root)
+        broker.db.close()
+        os.mkfifo(root / "private/pairing-recovery.key", 0o600)
+        script = '''
+    import asyncio,sys
+    from pathlib import Path
+    import httpx
+    from agentic_runner.app import Broker,create_api
+    async def main():
+        broker=Broker(Path(sys.argv[1]))
+        try:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_api(broker)),base_url='https://runner') as client:
+                result=await client.post('/pair',json={'code':broker.code,'controller_id':'a'*32,'principal':'fixture','protocol':1})
+                assert result.status_code==409
+                assert not broker.setting('token_hash')
+                print('rejected_fifo')
+        finally:
+            broker.db.close()
+    asyncio.run(main())
+    '''
+        # An asyncio timeout cannot interrupt blocking os.open; enforce this bound
+        # outside the API process, and let subprocess kill/reap it on regression.
+&gt;       result = subprocess.run([sys.executable, "-c", script, str(root)], capture_output=True, text=True, timeout=5)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_review_runtime.py:296: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:556: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:1222: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:2155: in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;Popen: returncode: -9 args: ['/home/ted-h/castle-smarthome/agentic-home/.ve...&gt;
+endtime = 769795.225416528, orig_timeout = 5, stdout_seq = [], stderr_seq = []
+skip_check_and_raise = False
+
+    def _check_timeout(self, endtime, orig_timeout, stdout_seq, stderr_seq,
+                       skip_check_and_raise=False):
+        """Convenience for checking if a timeout has expired."""
+        if endtime is None:
+            return
+        if skip_check_and_raise or _time() &gt; endtime:
+&gt;           raise TimeoutExpired(
+                    self.args, orig_timeout,
+                    output=b''.join(stdout_seq) if stdout_seq else None,
+                    stderr=b''.join(stderr_seq) if stderr_seq else None)
+E           subprocess.TimeoutExpired: Command '['/home/ted-h/castle-smarthome/agentic-home/.venv/bin/python', '-c', "\nimport asyncio,sys\nfrom pathlib import Path\nimport httpx\nfrom agentic_runner.app import Broker,create_api\nasync def main():\n    broker=Broker(Path(sys.argv[1]))\n    try:\n        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_api(broker)),base_url='https://runner') as client:\n            result=await client.post('/pair',json={'code':broker.code,'controller_id':'a'*32,'principal':'fixture','protocol':1})\n            assert result.status_code==409\n            assert not broker.setting('token_hash')\n            print('rejected_fifo')\n    finally:\n        broker.db.close()\nasyncio.run(main())\n", '/home/ted-h/agent-work/tmp/pytest/20261012-040327-rWWnHv/bt/test_imported_fifo_pair_seed_i0/runner']' timed out after 5 seconds
+
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:1269: TimeoutExpired</failure></testcase></testsuite></testsuites>

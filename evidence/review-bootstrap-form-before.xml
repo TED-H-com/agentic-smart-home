@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="0.165" timestamp="2026-10-12T03:46:52.980844-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_review_bootstrap" name="test_review_login_action_stays_visible_during_reobservation[cli_auth-cli_login]" time="0.031"><failure message="AssertionError: assert 'running' == 'waiting_input'&#10;  &#10;  - waiting_input&#10;  + running">review_setup = (&lt;agentic_controller.bootstrap.Bootstrap object at 0x7c940ea12660&gt;, &lt;test_bootstrap.HostFixture object at 0x7c940ea121...70&gt;, &lt;test_bootstrap.HermesFixture object at 0x7c940ea123c0&gt;, &lt;test_bootstrap.GatewayFixture object at 0x7c940ea12510&gt;)
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7c940ea29f30&gt;
+step = 'cli_auth', kind = 'cli_login'
+
+    @pytest.mark.parametrize("step,kind", [("cli_auth", "cli_login"), ("hermes_auth", "hermes_login")])
+    async def test_review_login_action_stays_visible_during_reobservation(review_setup, monkeypatch, step, kind):
+        bootstrap, _, runner, hermes, _ = review_setup
+        runner.connected = False
+        hermes.runtime.update(state="needs_auth", auth_verified_at=None)
+        await checkpoint_at(bootstrap, step)
+        await bootstrap.advance()
+        waiting = bootstrap.public()
+        assert waiting["state"] == "waiting_input" and waiting["human_action"]["kind"] == kind
+        entered, release = asyncio.Event(), asyncio.Event()
+        target, method = (runner, "call") if step == "cli_auth" else (hermes, "capabilities")
+        original = getattr(target, method)
+    
+        async def observe(*args, **kwargs):
+            entered.set()
+            await release.wait()
+            return await original(*args, **kwargs)
+    
+        monkeypatch.setattr(target, method, observe)
+        task = asyncio.create_task(bootstrap.advance())
+        try:
+            await asyncio.wait_for(entered.wait(), 1)
+            during = bootstrap.public()
+&gt;           assert during["state"] == "waiting_input"
+E           AssertionError: assert 'running' == 'waiting_input'
+E             
+E             - waiting_input
+E             + running
+
+tests/test_review_bootstrap.py:69: AssertionError</failure></testcase><testcase classname="tests.test_review_bootstrap" name="test_review_login_action_stays_visible_during_reobservation[hermes_auth-hermes_login]" time="0.017"><failure message="AssertionError: assert 'running' == 'waiting_input'&#10;  &#10;  - waiting_input&#10;  + running">review_setup = (&lt;agentic_controller.bootstrap.Bootstrap object at 0x7c940ea2dd10&gt;, &lt;test_bootstrap.HostFixture object at 0x7c940ea2d8...50&gt;, &lt;test_bootstrap.HermesFixture object at 0x7c940ea2da90&gt;, &lt;test_bootstrap.GatewayFixture object at 0x7c940ea2dbd0&gt;)
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7c940eaaccb0&gt;
+step = 'hermes_auth', kind = 'hermes_login'
+
+    @pytest.mark.parametrize("step,kind", [("cli_auth", "cli_login"), ("hermes_auth", "hermes_login")])
+    async def test_review_login_action_stays_visible_during_reobservation(review_setup, monkeypatch, step, kind):
+        bootstrap, _, runner, hermes, _ = review_setup
+        runner.connected = False
+        hermes.runtime.update(state="needs_auth", auth_verified_at=None)
+        await checkpoint_at(bootstrap, step)
+        await bootstrap.advance()
+        waiting = bootstrap.public()
+        assert waiting["state"] == "waiting_input" and waiting["human_action"]["kind"] == kind
+        entered, release = asyncio.Event(), asyncio.Event()
+        target, method = (runner, "call") if step == "cli_auth" else (hermes, "capabilities")
+        original = getattr(target, method)
+    
+        async def observe(*args, **kwargs):
+            entered.set()
+            await release.wait()
+            return await original(*args, **kwargs)
+    
+        monkeypatch.setattr(target, method, observe)
+        task = asyncio.create_task(bootstrap.advance())
+        try:
+            await asyncio.wait_for(entered.wait(), 1)
+            during = bootstrap.public()
+&gt;           assert during["state"] == "waiting_input"
+E           AssertionError: assert 'running' == 'waiting_input'
+E             
+E             - waiting_input
+E             + running
+
+tests/test_review_bootstrap.py:69: AssertionError</failure></testcase></testsuite></testsuites>

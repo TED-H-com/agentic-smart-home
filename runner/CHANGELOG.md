@@ -1,3 +1,10 @@
+# 0.5.1 recovery and E2E fixes
+
+- Coalesce repeated cancellation and protect ongoing cleanup from client disconnects.
+- Confirm whole process-group termination using PID identities before cancellation completes.
+- Persist uncertain-stop quarantine across restart and refuse new jobs or credential rotation.
+- Recover exact lost pairing replies within the original pairing window without storing bearer plaintext.
+
 # 0.5.0 technical preview
 
 Add a separate host-only, tools-disabled bootstrap advisor using the selected official CLI, typed observations and durable idempotent jobs. Retain the existing household restrictions and pinned provider versions; this does not enable the v3 general coding workers.

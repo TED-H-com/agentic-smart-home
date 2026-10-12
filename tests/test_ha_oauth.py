@@ -252,7 +252,8 @@ async def test_host_authorization_routes_require_cookie_csrf_and_fixed_host(stor
         assert urlsplit(result.json()["url"]).netloc == "localhost:8123"
         assert (await client.get("/api/host/authorization")).json()["state"] == "pending"
         assert (await client.post("/api/host/authorize", json={"url": "http://attacker"})).status_code == 422
-        assert (await client.get("/api/host/authorized?state=forged&code=forged")).status_code == 400
+        rejected = await client.get("/api/host/authorized?state=forged&code=forged")
+        assert rejected.status_code == 303 and rejected.headers["location"] == "/#onboarding"
 
 
 async def test_real_core_oauth_to_revocable_persistent_owner_binding(real_container, tmp_path, store):  # noqa: F811

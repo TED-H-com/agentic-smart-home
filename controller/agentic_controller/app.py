@@ -17,7 +17,7 @@ import uvicorn
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import Field, ValidationError
 
@@ -44,7 +44,7 @@ from .models import (
     provider_schema,
     utcnow,
 )
-from .runner import Runner, RunnerError
+from .runner import Runner, RunnerError, cancel_and_confirm
 from .store import Conflict, Store
 
 
@@ -199,6 +199,11 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                         "http://localhost:8099", "http://127.0.0.1:8099"}:
                         return JSONResponse({"detail": "頁面來源不符"}, status_code=403)
                     if request.url.path not in {"/api/host/login", "/api/host/desktop-login"} and not host_session.verify(request):
+                        if request.method == "GET" and request.url.path == "/api/host/authorized":
+                            # Expired/logged-out callbacks still leave a clean URL;
+                            # this grants no session and never reaches token exchange.
+                            return RedirectResponse("/#onboarding", status_code=303,
+                                headers={"Referrer-Policy": "no-referrer", "Cache-Control": "no-store"})
                         return JSONResponse({"detail": "請先登入 Linux 主機管理介面"}, status_code=401)
             elif peer != ingress_ip:
                 return JSONResponse({"detail": "請經由 Home Assistant Ingress 開啟"}, status_code=403)
@@ -394,17 +399,17 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                     return
                 raise Rejected("已達到 20 次工具請求上限")
         except asyncio.CancelledError:
-            if job_id:
-                with contextlib.suppress(RunnerError):
-                    await selected_runner.call("POST", f"/jobs/{job_id}/cancel")
-            store.transition(task, "cancelled", message="Agent 任務已取消")
+            confirmed = job_id is None or await cancel_and_confirm(selected_runner, job_id)
+            store.transition(task, "cancelled" if confirmed else "needs_reconcile",
+                message="Agent 任務已取消" if confirmed else "Runner 尚未確認原程序已停止；請先查看診斷並核對原工作。",
+                error_code=None if confirmed else "stop_unconfirmed")
             raise
         except (RunnerError, HAError, Rejected, TimeoutError, ValidationError) as exc:
-            if job_id:
-                with contextlib.suppress(RunnerError):
-                    await selected_runner.call("POST", f"/jobs/{job_id}/cancel")
+            confirmed = job_id is None or await cancel_and_confirm(selected_runner, job_id)
             message = "Agent 回覆不符合操作契約" if isinstance(exc, ValidationError) else str(exc) or "任務逾時"
-            store.transition(task, "failed", message=message)
+            store.transition(task, "failed" if confirmed else "needs_reconcile",
+                message=message if confirmed else "Runner 尚未確認原程序已停止；請先查看診斷並核對原工作。",
+                error_code=None if confirmed else "stop_unconfirmed")
 
     @app.post("/api/tasks", status_code=202)
     async def create_task(body: TaskInput, request: Request):
@@ -456,7 +461,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         if task["state"] in {"executing", "needs_reconcile"}:
             raise Rejected("部署可能已有副作用，請先核對或在原生 HA 停用規則")
         if id in running:
-            running[id].cancel()
+            if not running[id].cancelling():
+                running[id].cancel()
         elif task["state"] in {"awaiting_user", "awaiting_approval", "verifying"}:
             store.transition(task, "cancelled", message="任務追蹤已取消；已部署規則保持原狀")
         return get("task", id)

@@ -4,6 +4,8 @@ Steering v3.0；匯入基準是應用 `0.3.1`、commit `3ad476a712009469521c3f98
 
 首次使用順序依 Owner 2026-10-12 指示改為 CLI 先行，見 [自動 onboarding](docs/ONBOARDING.md)。0.5.0 新增持久 `bootstrap_v1` 流程、短效本機桌面登入、首次 Hermes 最新來源相容性檢查、LINE／Telegram 配對碼與 HA 官方瀏覽器授權。仍使用 Controller schema 2；新增記錄與既有家庭 journal 分開，不宣稱能原地退回 0.4.0。
 
+0.5.1 補強取消停止確認、原期限內配對回應恢復、onboarding 的 pause／owner 競爭與等待期限、HA callback 及通道首次配對。尚未完成的 Runner retention 同步與可信 quarantine reconciliation 見 [架構審查](docs/reviews/2026-10-12-E2E-ARCHITECTURE.md)，不以重啟或新 job 覆蓋不確定狀態。
+
 ## 路徑與權威
 
 ```text

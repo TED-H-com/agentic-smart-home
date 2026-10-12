@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="0.242" timestamp="2026-10-12T04:00:30.303231-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_review_runtime" name="test_duplicate_cancel_and_request_disconnect_do_not_interrupt_shared_fence[False]" time="0.072"><failure message="AssertionError: assert (200 == 200 and 'stop_unconfirmed' == 'cancelled'&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code&#10;  &#10;  - cancelled&#10;  + stop_unconfirmed)">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-040030-co1xAj/bt/test_duplicate_cancel_and_requ0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x736941d6c3e0&gt;
+disconnect_first = False
+
+    @pytest.mark.parametrize("disconnect_first", [False, True])
+    async def test_duplicate_cancel_and_request_disconnect_do_not_interrupt_shared_fence(
+            tmp_path, monkeypatch, disconnect_first):
+        from agentic_runner import providers as provider_module
+    
+        broker = Broker(tmp_path / "runner")
+        broker.settings({"token_hash": hashlib.sha256(b"review-token").hexdigest()})
+        child_path, spawned = await install_fork_fixture(broker, tmp_path, monkeypatch, leader_ignores_term=True)
+        identity, requests = None, []
+        term_sent = asyncio.Event()
+        original_signal = provider_module.signal_members
+    
+        def signal_and_observe(members, uid, value):
+            original_signal(members, uid, value)
+            if value == signal.SIGTERM:
+                term_sent.set()
+    
+        monkeypatch.setattr(provider_module, "signal_members", signal_and_observe)
+        try:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_api(broker)),
+                                        base_url="https://runner", headers={"Authorization": "Bearer review-token"}) as client:
+                assert (await client.post("/jobs", json=job_body())).status_code == 200
+                identity = await child_ready(child_path)
+                writer = broker.tasks["a" * 32]
+                first = asyncio.create_task(client.post("/jobs/" + "a" * 32 + "/cancel"))
+                requests.append(first)
+                await asyncio.wait_for(term_sent.wait(), 1)
+                if disconnect_first:
+                    first.cancel()
+                    with pytest.raises(asyncio.CancelledError):
+                        await first
+                second = asyncio.create_task(client.post("/jobs/" + "a" * 32 + "/cancel"))
+                requests.append(second)
+                result = await asyncio.wait_for(second, 4)
+&gt;               assert result.status_code == 200 and result.json()["state"] == "cancelled"
+E               AssertionError: assert (200 == 200 and 'stop_unconfirmed' == 'cancelled'
+E                +  where 200 = &lt;Response [200 OK]&gt;.status_code
+E                 
+E                 - cancelled
+E                 + stop_unconfirmed)
+
+tests/test_review_runtime.py:136: AssertionError</failure></testcase><testcase classname="tests.test_review_runtime" name="test_duplicate_cancel_and_request_disconnect_do_not_interrupt_shared_fence[True]" time="0.059"><failure message="AssertionError: assert (200 == 200 and 'stop_unconfirmed' == 'cancelled'&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code&#10;  &#10;  - cancelled&#10;  + stop_unconfirmed)">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-040030-co1xAj/bt/test_duplicate_cancel_and_requ1')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x736941cd1010&gt;
+disconnect_first = True
+
+    @pytest.mark.parametrize("disconnect_first", [False, True])
+    async def test_duplicate_cancel_and_request_disconnect_do_not_interrupt_shared_fence(
+            tmp_path, monkeypatch, disconnect_first):
+        from agentic_runner import providers as provider_module
+    
+        broker = Broker(tmp_path / "runner")
+        broker.settings({"token_hash": hashlib.sha256(b"review-token").hexdigest()})
+        child_path, spawned = await install_fork_fixture(broker, tmp_path, monkeypatch, leader_ignores_term=True)
+        identity, requests = None, []
+        term_sent = asyncio.Event()
+        original_signal = provider_module.signal_members
+    
+        def signal_and_observe(members, uid, value):
+            original_signal(members, uid, value)
+            if value == signal.SIGTERM:
+                term_sent.set()
+    
+        monkeypatch.setattr(provider_module, "signal_members", signal_and_observe)
+        try:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_api(broker)),
+                                        base_url="https://runner", headers={"Authorization": "Bearer review-token"}) as client:
+                assert (await client.post("/jobs", json=job_body())).status_code == 200
+                identity = await child_ready(child_path)
+                writer = broker.tasks["a" * 32]
+                first = asyncio.create_task(client.post("/jobs/" + "a" * 32 + "/cancel"))
+                requests.append(first)
+                await asyncio.wait_for(term_sent.wait(), 1)
+                if disconnect_first:
+                    first.cancel()
+                    with pytest.raises(asyncio.CancelledError):
+                        await first
+                second = asyncio.create_task(client.post("/jobs/" + "a" * 32 + "/cancel"))
+                requests.append(second)
+                result = await asyncio.wait_for(second, 4)
+&gt;               assert result.status_code == 200 and result.json()["state"] == "cancelled"
+E               AssertionError: assert (200 == 200 and 'stop_unconfirmed' == 'cancelled'
+E                +  where 200 = &lt;Response [200 OK]&gt;.status_code
+E                 
+E                 - cancelled
+E                 + stop_unconfirmed)
+
+tests/test_review_runtime.py:136: AssertionError</failure></testcase></testsuite></testsuites>

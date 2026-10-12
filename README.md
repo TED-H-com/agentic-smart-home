@@ -1,4 +1,4 @@
-# Agentic Smart Home · 0.5.0 技術預覽
+# Agentic Smart Home · 0.5.1 技術預覽
 
 從開機一路引導到家庭設定：**Linux／網路 → 選 coding CLI 並登入 → 準備最新版 Hermes → LINE 或其他通道 → 自動啟動 HAOS → HA 原生設定**。程式保存進度並自動執行固定步驟，遇到帳號授權才等待使用者；可選擇先用 Web／外層助手。
 
@@ -20,9 +20,9 @@ Web ＋ 可選 LINE／Discord／Telegram（同一個 Gateway）
 待完成：隔離 Host coding CLI → 真 HAOS App Home coding → 更新／退版
 ```
 
-[安裝](INSTALL.md) · [通訊與登入](docs/GATEWAY.md) · [Linux 架構](docs/LINUX_PRODUCT.md) · [Hermes runtime](hermes/README.md) · [驗證](docs/VERIFICATION.md) · [v3 進度](docs/v3/PROGRESS.md)
+[安裝](INSTALL.md) · [通訊與登入](docs/GATEWAY.md) · [Linux 架構](docs/LINUX_PRODUCT.md) · [Hermes runtime](hermes/README.md) · [驗證](docs/VERIFICATION.md) · [E2E／架構審查](docs/reviews/2026-10-12-E2E-ARCHITECTURE.md) · [v3 進度](docs/v3/PROGRESS.md)
 
-0.5.0 的 Controller 資料格式為 **schema 2**。開啟 0.3.x 的 schema 1 DB 時會先留私有一致快照，再遷移；舊 binary 不能讀取 schema 2。此功能不是原地部署／降版工具，固定 updater 與 rollback 仍待完成；請依 [恢復說明](docs/OPERATIONS.md) 保留現況，不能用舊 DB 覆蓋新家庭操作。
+0.5.1 的 Controller 資料格式為 **schema 2**。開啟 0.3.x 的 schema 1 DB 時會先留私有一致快照，再遷移；舊 binary 不能讀取 schema 2。此功能不是原地部署／降版工具，固定 updater 與 rollback 仍待完成；請依 [恢復說明](docs/OPERATIONS.md) 保留現況，不能用舊 DB 覆蓋新家庭操作。
 
 ## 開始使用
 
@@ -63,15 +63,15 @@ npm ci --prefix web
 npm run build --prefix web
 uv run python scripts/contracts.py --check
 uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner; package_runner()"
-docker build -t agentic-home-controller:0.5.0 controller
-docker build -t agentic-home-runner:0.5.0 runner
-docker build -t agentic-home-linejs:0.5.0 host/linejs
-docker build -t agentic-home-hermes:0.5.0 hermes
+docker build -t agentic-home-controller:0.5.1 controller
+docker build -t agentic-home-runner:0.5.1 runner
+docker build -t agentic-home-linejs:0.5.1 host/linejs
+docker build -t agentic-home-hermes:0.5.1 hermes
 python3 scripts/build_host.py
 uv run python scripts/package.py
 ```
 
-`dist/` 產生 `agentic-home-0.5.0-linux-amd64.tar`、source ZIP 與 `SHA256SUMS`。內部服務名稱保留 `agentic-home`；大型 TAR／ISO 不存入 Git。產生 laptop 安裝媒體：
+`dist/` 產生 `agentic-home-0.5.1-linux-amd64.tar`、source ZIP 與 `SHA256SUMS`。內部服務名稱保留 `agentic-home`；大型 TAR／ISO 不存入 Git。產生 laptop 安裝媒體：
 
 ```bash
 docker build -f host/Builder.Dockerfile -t agentic-home-builder:0.2.0 host

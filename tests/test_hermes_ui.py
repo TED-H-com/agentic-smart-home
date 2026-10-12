@@ -42,7 +42,7 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             result = {"principal": "host-owner", "csrf": "fixture-csrf"}
         elif path == "status":
             result = {"ha": {"status": "unavailable"}, "runner": {"protocol": 1, "providers": []},
-                      "gateway": gateway, "version": "0.5.0", "paused": False}
+                      "gateway": gateway, "version": "0.5.1", "paused": False}
         elif path == "tasks":
             result = {"tasks": []}
         elif path == "gateway":

@@ -42,7 +42,8 @@ async def test_pairing_is_one_time_and_bearer_protected(tmp_path):
         token = result.json()["token"]
         assert broker.setting("token_hash") == hashlib.sha256(token.encode()).hexdigest()
         assert token not in (tmp_path / "runner.sqlite3").read_bytes().decode(errors="ignore")
-        assert (await client.post("/pair", json=body)).status_code == 409
+        retry = await client.post("/pair", json=body)
+        assert retry.status_code == 200 and retry.json()["token"] == token
         assert (await client.get("/jobs/nonexistent", headers={"Authorization": "Bearer " + token})).status_code == 404
     broker.db.close()
 

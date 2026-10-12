@@ -10,6 +10,15 @@ class RunnerError(Exception):
         self.status_code = status_code
 
 
+async def cancel_and_confirm(runner, identifier):
+    """A cancellation request or lost reply never proves the writer stopped."""
+    try:
+        result = await runner.call("POST", f"/jobs/{identifier}/cancel")
+        return isinstance(result, dict) and result.get("state") in {"succeeded", "failed", "cancelled"}
+    except (RunnerError, OSError, TimeoutError, ValueError, TypeError, asyncio.CancelledError):
+        return False
+
+
 class Runner:
     def __init__(self, store, scope="host"):
         self.store = store
@@ -62,6 +71,8 @@ class Runner:
                 job = await self.call("GET", "/jobs/" + request["id"])
                 if job["state"] == "succeeded":
                     return job["result"]
+                if job["state"] == "stop_unconfirmed":
+                    raise RunnerError("stop_unconfirmed", 409)
                 if job["state"] in {"failed", "cancelled"}:
                     raise RunnerError(job.get("error", "任務已取消"))
                 await asyncio.sleep(1)

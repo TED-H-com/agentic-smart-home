@@ -165,6 +165,19 @@ class HomeAuthorization:
                 self.store.put("ha_oauth", record)
         return self.public()
 
+    def reject_callback(self, request, state):
+        # A rejected current handoff may show a safe failure. An old/forged state
+        # must not overwrite the newer handoff, and no code is ever retained.
+        if not re.fullmatch(r"[a-f0-9]{64}", state or ""):
+            return
+        identifier = hashlib.sha256(state.encode()).hexdigest()
+        try:
+            record = self.require_scope(request, identifier, "pending")
+        except ValueError:
+            return
+        record.update(state="failed", error_code="ha_authorization_failed")
+        self.store.put("ha_oauth", record)
+
 
 def routes(app, auth, ha, store):
     service = HomeAuthorization(auth, ha, store)
@@ -181,5 +194,10 @@ def routes(app, auth, ha, store):
     @app.get("/api/host/authorized")
     async def authorized(request: Request):
         # No token/code is reflected, retained in records, or placed in final URL.
-        await service.finish(request, request.query_params.get("state"), request.query_params.get("code"))
-        return RedirectResponse("/#onboarding", status_code=303, headers={"Referrer-Policy": "no-referrer"})
+        state = request.query_params.get("state")
+        try:
+            await service.finish(request, state, request.query_params.get("code"))
+        except HTTPException:
+            service.reject_callback(request, state)
+        return RedirectResponse("/#onboarding", status_code=303,
+                                headers={"Referrer-Policy": "no-referrer", "Cache-Control": "no-store"})

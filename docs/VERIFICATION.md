@@ -1,4 +1,12 @@
-# Agentic Smart Home 0.5.0 自動 onboarding 驗證
+# Agentic Smart Home 0.5.1 E2E 與恢復驗證
+
+2026-10-12，本機完整 `pytest-disktmp uv run pytest -q --real-ha --containers` 回歸 **271 passed、2 skipped，194.16 秒**，見 [JUnit](../evidence/pytest-0.5.1.xml)。兩個獨立大型案例未在此命令啟動：真 HAOS 已另跑 **1 passed／84.78 秒**；新版 Linux ISO 安裝待本輪媒體凍結後執行。0.5.0 媒體證據保留於下方，不轉記成新版驗收。
+
+新增的 [跨服務 E2E](../evidence/onboarding-e2e.json) 使用真正 Chromium、Controller HTTP、TLS Runner、真 Codex、Hermes AIAgent／MCP、隔離 Core 與原生瀏覽器 OAuth；涵蓋 CLI 選擇／登入、Hermes 獨立驗證、Web 通道、HA 引導、Controller 重啟不重派、家庭授權，以及同 case 的 MCP 證據／對話刷新。最後將 Controller／Runner／Hermes 資源限制對齊正式 compose 後，該條 E2E 另跑 **1 passed／45.37 秒**，並記錄實際 image IDs、記憶體／CPU／PID 限制及 OOM 狀態。沒有 browser API interception。模型回覆、Host 安裝／VM effects 是明示 fixture，原生 HA wizard 的初始化透過真 Core API 完成；真雲端同意、實體 laptop／設備、真 bot 仍未執行。
+
+修正涵蓋整組 CLI 停止確認、重複取消／斷線、停止未確認的 Controller／Gateway 呈現、配對回覆遺失、異常 FIFO、pause／HA owner 競爭、登入表單、Hermes readback 期限、HA callback 與 Telegram 初始配對。完整缺陷與未完成功能見 [E2E／架構審查](reviews/2026-10-12-E2E-ARCHITECTURE.md)。Runner idle retention 與可信 quarantine 解除仍是已知缺口；Host／Home coding、preview、固定更新／退版尚未完成，E1／E2 未升級。
+
+# 0.5.0 自動 onboarding 驗證（歷史）
 
 2026-10-12，0.5.0 精確 laptop ISO 在一次性 VM 完成安裝與生命週期測試，**1 passed／1310.79秒**。最新 [GitHub CI](https://github.com/teddashh/agentic-smart-home/actions/runs/38210802532) **210 passed／3 skipped／245.250秒**，見 [CI記錄](../evidence/github-ci-0.5.0-final.json)及 [JUnit](../evidence/pytest-0.5.0-github-final.xml)。本機完整 `--real-ha --containers` 回歸 **210 passed／2 skipped／188.68秒**，見 [本機JUnit](../evidence/pytest-0.5.0.xml)。CI跳過獨立大型HAOS VM、完整ISO安裝與UID1000專用本機桌面單元測試；後兩項另有安裝及本機證據，跨程序桌面票據測試已在CI通過。
 

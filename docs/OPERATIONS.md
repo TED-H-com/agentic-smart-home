@@ -93,3 +93,9 @@ Do not restore the HAOS disk while it is running. After a whole-guest restore, r
 初次 Hermes 安裝使用 `/var/lib/agentic-home/host/runtime.env` 保存通過檢查的 image digest，systemd 啟停都讀取它。手動使用 Compose 時也必須傳入 `--env-file /var/lib/agentic-home/host/runtime.env`，否則會回到安裝包 image。已有認證／session 的 runtime 不允許走首次更新。`needs_reconcile` 必須核對原 host 操作與容器，不能刪記錄強迫重播。
 
 桌面票據失效時重開 Agentic Home 捷徑即可；key 登入仍是備援。HA 官方授權失敗會顯示固定錯誤碼；中斷的 exchanging 不重用 auth code，可重新開啟新的授權流程。tokens 留在私有 storage，不放入支援報告。
+
+## 0.5.1 程序停止與資料保留限制
+
+Runner 無法證明 CLI 整組程序已停止時持久記錄 `stop_unconfirmed`，拒絕新 job、登入／登出；Controller 應顯示需要核對，不能宣稱已取消。重啟不清除此狀態，目前尚無可信解除工具；不要手動刪 marker 後啟動下一個 writer。一般受限 CLI 的程序組確認也不等於任意 coding sandbox 隔離。
+
+Controller／Hermes 的 context_days 同步不涵蓋 Runner：Runner idle 7 天過期結果尚有清理缺陷。降低 Controller 保存天數不能宣稱所有副本立即清除。完整修正需期限同步、離線重連處理與去重 tombstone；追蹤見 [審查](reviews/2026-10-12-E2E-ARCHITECTURE.md)。

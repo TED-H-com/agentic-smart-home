@@ -1,4 +1,4 @@
-# Linux 產品架構 · 0.5.0 技術預覽
+# Linux 產品架構 · 0.5.1 技術預覽
 
 外層 Linux 先啟動 Web／Hermes／固定診斷，HAOS VM 由持久 onboarding 在 CLI／Hermes／通道就緒後自動建立。Plan v3 的完整 Host/Home coding 仍待啟用；本頁描述當前部署，完整設計與缺口見 [v3 文件](v3/README.md) 和 [進度](v3/PROGRESS.md)。
 

@@ -18,6 +18,7 @@ from pydantic import ValidationError
 
 from .channels import TRANSPORTS, ChannelError, line_admin
 from .ha import HAError
+from .hermes import TERMINAL as HERMES_TERMINAL
 from .hermes import HermesError
 from .host import host_call
 from .models import (
@@ -38,7 +39,7 @@ from .models import (
     provider_schema,
     utcnow,
 )
-from .runner import RunnerError
+from .runner import RunnerError, cancel_and_confirm
 
 CONTINUABLE = {"queued", "planning", "awaiting_user", "awaiting_approval", "succeeded"}
 
@@ -366,6 +367,7 @@ class Gateway:
     async def execute(self, item, config):
         runner = self.runners[item["runtime"]]
         job_id = uuid.uuid4().hex
+        direct_dispatched = False
         result = {**item, "state": "planning"}
         self.store.put("conversation", result)
         try:
@@ -404,7 +406,7 @@ class Gateway:
                 self.store.put("conversation", result)
                 await self.plan_home(task, body, runner, conversation)
                 task = self.store.get("task", task["id"])
-                result.update(state=task["state"], answer=task.get("message", ""))
+                result.update(state=task["state"], answer=task.get("message", ""), error_code=task.get("error_code"))
                 if task["state"] == "awaiting_approval":
                     result["answer"] = "已準備家庭操作提案。請開啟 Web 工作台檢查內容並批准；目前尚未執行。"
             else:
@@ -412,6 +414,7 @@ class Gateway:
                 with contextlib.suppress(HTTPException):
                     raw = await host_call()
                     observed = {k: raw[k] for k in ("vm", "kvm", "provisioned", "storage_free_bytes") if k in raw}
+                direct_dispatched = True
                 answer = await runner.run({"id": job_id, "provider": item["provider"], "model": "",
                     "expires": time.time() + 300, "schema": provider_schema(),
                     "prompt": "你是外層 Linux 上的家庭助理，用繁體中文回答。可以對話並解釋主機觀測。"
@@ -425,21 +428,40 @@ class Gateway:
                     raise RunnerError("外層對話不能直接操作家庭，請切換 HAOS Agent")
                 result.update(state="awaiting_user" if decision.needs_user else "succeeded", answer=decision.message)
         except asyncio.CancelledError:
-            if item.get("coordinator") != "hermes":
-                with contextlib.suppress(Exception):
-                    await runner.call("POST", f"/jobs/{job_id}/cancel")
-            self.store.put("conversation", {**result, "state": "interrupted", "answer": "處理已中斷，請重新送出。"})
+            confirmed = True
+            if direct_dispatched:
+                confirmed = await cancel_and_confirm(runner, job_id)
+            elif result.get("task_id"):
+                home_task = self.store.get("task", result["task_id"]) or {}
+                confirmed = home_task.get("state") in {"cancelled", "failed", "succeeded", "awaiting_user", "awaiting_approval"}
+            elif result.get("hermes_run_id"):
+                hermes_run = self.store.get("hermes_run", result["hermes_run_id"]) or {}
+                confirmed = hermes_run.get("state") in HERMES_TERMINAL
+            self.store.put("conversation", {**result, "state": "interrupted" if confirmed else "needs_reconcile",
+                "error_code": None if confirmed else "stop_unconfirmed",
+                "answer": "處理已中斷，請重新送出。" if confirmed else "原程序尚未確認停止；請先查看診斷並核對原工作。"})
             raise
         except ConversationError as exc:
             result.update(state="failed", answer=str(exc))
         except HermesError as exc:
-            result.update(state="failed", answer="請先在 Web 登入 Hermes。" if exc.code in {"needs_auth", "needs_reauth"}
-                          else "上一份工作尚未確認停止，請查看協調服務；目前無法啟動新工作。" if exc.code == "stop_unconfirmed"
+            run = self.store.get("hermes_run", result["hermes_run_id"]) if result.get("hermes_run_id") else None
+            uncertain = exc.code == "stop_unconfirmed" or bool(run and run.get("state") not in HERMES_TERMINAL)
+            result.update(state="needs_reconcile" if uncertain else "failed",
+                          answer="上一份工作尚未確認停止，請查看協調服務；目前無法啟動新工作。" if uncertain else
+                          "請先在 Web 登入 Hermes。" if exc.code in {"needs_auth", "needs_reauth"}
                           else "Hermes 正在處理另一份工作，請等它完成後再送出。" if exc.code == "session_busy"
                           else "這段對話已到期，請開始新對話。" if exc.code in {"session_expired", "expired"}
-                          else "Hermes 尚未完成回覆，請檢查協調服務與登入狀態。", error_code=exc.code)
+                          else "Hermes 尚未完成回覆，請檢查協調服務與登入狀態。",
+                          error_code="stop_unconfirmed" if uncertain else exc.code)
         except (RunnerError, HAError, ValidationError, TimeoutError):
-            result.update(state="failed", answer="Agent 尚未完成回覆，請在 Web 檢查此執行環境的配對、登入與連線。")
+            confirmed = not direct_dispatched or await cancel_and_confirm(runner, job_id)
+            if result.get("hermes_run_id"):
+                run = self.store.get("hermes_run", result["hermes_run_id"]) or {}
+                confirmed = run.get("state") in HERMES_TERMINAL
+            result.update(state="failed" if confirmed else "needs_reconcile",
+                error_code=None if confirmed else "stop_unconfirmed",
+                answer="Agent 尚未完成回覆，請在 Web 檢查此執行環境的配對、登入與連線。" if confirmed else
+                       "Runner 尚未確認原程序已停止；請先查看診斷並核對原工作。")
         self.store.put("conversation", result)
         if item["source"] != "web":
             # A changed audience/token must never receive an in-flight response from the previous configuration.

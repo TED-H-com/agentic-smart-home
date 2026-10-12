@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "host"))
 from agentic_host.artifacts import fetch, sha256  # noqa: E402
 from agentic_host.manager import validate_profile  # noqa: E402
 
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 SKIP = {"__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", "test-results"}
 
 
@@ -113,7 +113,7 @@ def iso(profile, product, destination):
         partial.unlink(missing_ok=True)
         try:
             xorriso("-indev", base, "-outdev", partial, "-boot_image", "any", "replay",
-                    "-volid", "AGENTIC_HOME_050", "-map", product, "/agentic-home/product.tar",
+                    "-volid", "AGENTIC_HOME_051", "-map", product, "/agentic-home/product.tar",
                     "-map", work / "product.sha256", "/agentic-home/SHA256SUMS",
                     "-map", seed, "/agentic-seed", "-map", work / "grub.cfg", "/boot/grub/grub.cfg",
                     "-map", work / "loopback.cfg", "/boot/grub/loopback.cfg",
