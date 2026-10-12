@@ -45,3 +45,26 @@ LINE 為預設選项；Web 一直可用，選 Web 是明確略過外部通道。
 ## 驗證界線
 
 程式測試、官方最新來源下載、真封裝 CLI／Hermes 與本機協定 fixture、一次性 VM 安裝、真雲端登入和 Owner 家庭分開記錄。0.5.1 精確ISO已在一次性VM驗證最新版Hermes安裝、HAOS啟動／還原／重啟；無帳號的安裝案例直接呼叫固定Host動作，自動Web流程另有真服務／CLI／MCP／Core瀏覽器整合，但模型及Host副作用為fixture，不能合稱真雲端端到端onboarding。最新結果見 [驗證紀錄](VERIFICATION.md)，Plan v3 原有 32 案不因新增 onboarding 測試自動改為 passed。
+
+
+## 原生家庭首頁與智能管家：2026-10-12 介面方向評估
+
+Owner 指出聊天首頁的「今天想處理什麼」不自然，並要求評估完成建置後銜接 Home Assistant 原生 Web。這是下一輪介面方向評估；目前 0.6.0 已交付的聊天入口、截圖及受測 ISO 尚未實作下述切換，不能將提案寫成已完成。
+
+Home Assistant 已有家庭儀表板、設備控制、自動化與設定介面；原生 onboarding 結束後即進入其 dashboard。產品應優先使用這個日常家庭入口。外層 Web 負責安裝、AI／通道連接及故障恢復；智能管家負責對話、研究、提案和結果。這三個用途可以有清楚的入口，不必複製一套家庭控制介面。[原生 dashboards](https://www.home-assistant.io/dashboards/)、[原生 onboarding](https://www.home-assistant.io/getting-started/onboarding)。
+
+建議流程如下，尚待實作與專項驗證：
+
+| 狀態 | 預設體驗 |
+|---|---|
+| 外層尚未設定／主動選擇只用外層 | 繼續安裝引導，或使用外層助手；HA 尚未建立不阻擋使用 |
+| HA 正在準備或原生設定未完成 | 顯示真實準備進度；就緒後進原生設定，必要的 Owner 帳號與授權仍由本人完成 |
+| HA 已完成且可用 | 日常啟動進 Home Assistant 原生 dashboard；聊天成為可隨時開啟的智能管家入口 |
+| 有提案、進行中的對話或尚未儲存的修改 | 保留明確深連結與當前工作，不因預設首頁變更強制跳走 |
+| HA 無法開啟 | 外層獨立入口仍可診斷與修復；避免自動跳轉迴圈，也不把故障誤判為需要重新初始化 |
+
+第一個切片應先完成正常頁面導向、原生登入及返回智能管家的可用路徑。第二個切片再將管家入口整合到 HA 側欄；官方 App Ingress 可承接 HA 登入，但現有 Controller App 是另一個部署模式，不能直接宣稱它已連到外層 Hermes。目前 `create_app` 僅在 host mode 建立外層 Coordinator 與 gateway／Hermes／worker API；Ingress 模式是自己的 DB／Engine，不能以側欄可見推論同一個 Hermes 已接通。需要薄型、經驗證的外層 bridge、使用者身份對應、家庭授權、登出／撤權、對話 scope 與故障 fallback，並沿用同一外層 case／proposal store；不得把 HA 的所有登入者都當成外層 Owner，也不直接轉送瀏覽器提供的身份 header 或共享 Host cookie。[官方 Ingress](https://developers.home-assistant.io/docs/apps/presentation/#ingress)。
+
+原生設備控制維持 HA 自己的身份及權限。由 Agent 提出的家庭變更仍走既有精確提案／Owner 批准；HA 側欄入口不能繞過該流程。HA Assist／Conversation 可另作後續接點評估，並非已完成的 Hermes adapter。
+
+實作前須核对本機、LAN 與遠端的受信任 URL／登入路徑。既有 Host Web 使用 localhost:8099 與本機 HA :8123，不能只改首頁字串就宣稱遠端銜接也可用。專項驗收至少包含首次設定、後續啟動、HA 不可用、外層救援、非 Owner、登出撤權、待批准提案／草稿保留，以及返回管家的完整瀏覽器流程。

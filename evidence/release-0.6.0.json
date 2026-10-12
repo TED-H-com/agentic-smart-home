@@ -1,0 +1,79 @@
+{
+  "version": "0.6.0",
+  "source_commit": "6847a03c8f5d1ad2a100df76eaaf8f3eca323794",
+  "installed_test_harness_commit": "6847a03c8f5d1ad2a100df76eaaf8f3eca323794",
+  "profile": "laptop-amd64",
+  "artifacts": {
+    "agentic-home-0.6.0-laptop-amd64.iso": {
+      "bytes": 6553468928,
+      "sha256": "ed0686dabba1e267a4bddbbf1f22d62397484b95ac00679868716c26bf3856ce"
+    },
+    "agentic-home-0.6.0-linux-amd64.tar": {
+      "bytes": 2474004480,
+      "sha256": "b0b087533c1299e2f169165bb0ca80a0d098e4ce14ee6fdc82c3e45b17808be5"
+    }
+  },
+  "images": {
+    "agentic-home-controller:0.6.0": "sha256:4146cd79e045e5fdcd360a89af8800f916c3ffcb58ea4ac412cc993f02391a04",
+    "agentic-home-runner:0.6.0": "sha256:8f57b79e8ae3db8a15d33ba63dd210ef8abc5f1cae9e7402f589d1bfd2f051f5",
+    "agentic-home-linejs:0.6.0": "sha256:119b79610ad0308611f510c76e37a54a3ff65700d1faacbcbff463457a2c86d6",
+    "agentic-home-hermes:0.6.0": "sha256:cd24355f82db6ef51cd88073c4268bf9f0a2a85111fb9a8b37a5ef3babe4b858",
+    "agentic-home-preview:0.6.0": "sha256:7cdaa9eba31d2c46d64f3fda86370540f92f6e8e706b1b9651dbeda80a19e903"
+  },
+  "installed_validation": "passed",
+  "installed_evidence": "evidence/linux-install-0.6.0.json",
+  "junit": "evidence/linux-install-0.6.0.xml",
+  "junit_result": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "1",
+    "time": "1789.412",
+    "timestamp": "2026-10-12T10:42:27.212709-04:00",
+    "hostname": "castleridge-ai1"
+  },
+  "latest_hermes": {
+    "state": "ready",
+    "commit": "7cc3fb8cb55898747dd1dfa56fda3e16ebba028e",
+    "source": "latest",
+    "image_id": "sha256:9882cc2b4cef5ee33c86f0d9fe537facb61d956416c79c7af0e23191292c04bb",
+    "runtime_revision_readback": "passed",
+    "persists_after_reboot": true
+  },
+  "ci": "evidence/github-ci-0.6.0.json",
+  "ci_media_match": "evidence/ci-media-match-0.6.0.json",
+  "composed_e2e": "evidence/onboarding-e2e-0.6.0-github.json",
+  "screenshots": "evidence/ui/chat-first/README.md",
+  "architecture_review": "docs/reviews/2026-10-12-UI-WORKER-DELIVERY.md",
+  "installed_coding": "evidence/installed-coding-laptop-amd64-0.6.0.json",
+  "installed_updater": "evidence/installed-update-laptop-amd64-0.6.0.json",
+  "accepted_product_cases": {
+    "T3-01": "engineering disposable VM media only",
+    "T3-05": "E0 console rescue; installed Controller updater mechanics verified separately, not complete E2 pilot"
+  },
+  "remaining_product_cases": 30,
+  "not_run": [
+    "physical laptop",
+    "real cloud OAuth",
+    "real LINE/Telegram/Discord accounts",
+    "real Tailscale account",
+    "Home HAOS App coding launcher",
+    "Host autonomous real cloud case",
+    "Claude/Antigravity/Grok tools-enabled coding",
+    "native HA setup wizard clicks",
+    "physical devices",
+    "interactive candidate website",
+    "same live BAT/CLI session handoff",
+    "public publisher release",
+    "full product or cross-schema update/rollback",
+    "72h observation",
+    "single-versus-dual-worker comparison"
+  ],
+  "fixture_scope": [
+    "Screenshots use compiled product UI with synthetic API states",
+    "Host coding executes real Codex tools against local model transport fixtures",
+    "Installed updater uses ephemeral publisher and preloaded candidate with image-label-only change; post-deployment row is synthetic"
+  ],
+  "source_audit": "evidence/source-audit-0.6.0.json"
+}

@@ -24,7 +24,11 @@
     }
   ],
   "hermes_service": "needs_auth",
-  "coding_workers": "blocked",
+  "coding_workers": {
+    "host": "ready_needs_auth",
+    "home": "not_paired"
+  },
+  "coding_without_login": "blocked_no_execution",
   "cloud_login": "not_run",
   "http_observations": [
     {
@@ -58,6 +62,25 @@
     {
       "path": "/api/bootstrap",
       "status": 200
+    },
+    {
+      "path": "/api/worker/jobs",
+      "status": 202
+    },
+    {
+      "path": "/api/worker/jobs",
+      "status": 202
+    },
+    {
+      "path": "/api/workers",
+      "status": 200
     }
-  ]
+  ],
+  "diagnostics": {
+    "hermes_needs_auth": true,
+    "hermes_inference_verified": false,
+    "host_boundary_ready": true,
+    "home_boundary_ready": false,
+    "host_role_needs_auth": true
+  }
 }

@@ -1,7 +1,21 @@
 # Agentic Smart Home 0.6.0 驗證
 
 使用者要求對話優先後，主選單已改為五项，進度與成果留在智能管家同一段對話，技術設定收起。[新版24張截圖](../evidence/ui/chat-first/README.md) 已檢视桌面／平板／手機。
-**最新 GitHub [CI 38259847764](https://github.com/teddashh/agentic-smart-home/actions/runs/38259847764)：462 passed、4 skipped／369.988 秒**，測試來源 `53260e1cfe2c5233200f2305678ae667cb8c2644`，見 [CI 記錄](../evidence/github-ci-0.6.0.json)及 [JUnit](../evidence/pytest-0.6.0-github.xml)。包含真 Core、CLI 容器與瀏覽器回歸；四項跳過為 UID1000 桌面單元案例和三個獨立大型 VM 案例。媒體來源保持 `a67fab69c3ca4462a20b760b8ba1f3175659cb4a`；兩者差異只有測試、文件與證據。CI ZIP 的 652 檔 manifest 全部核對，精確媒體內 131 份執行來源／編譯資產完全一致，僅驗證文件新增後續紀錄，見 [來源核對](../evidence/ci-media-match-0.6.0.json)。
+**最新 GitHub [CI 38266420366](https://github.com/teddashh/agentic-smart-home/actions/runs/38266420366)：469 passed、4 skipped／392.548 秒**，測試來源 `c6cff8fbebf087665a592484dd5587227a3e62f4`，見 [CI 記錄](../evidence/github-ci-0.6.0.json)及 [JUnit](../evidence/pytest-0.6.0-github.xml)。包含真 Core、CLI 容器與瀏覽器回歸；四項跳過為 UID1000 桌面單元案例和三個獨立大型 VM 案例。媒體來源為 `6847a03c8f5d1ad2a100df76eaaf8f3eca323794`；兩者差異只有測試 fixture、文件與證據。CI ZIP 的 680 檔 manifest 全部核對，精確媒體內 131 份執行來源／編譯資產完全一致，僅驗證文件新增後續紀錄，見 [來源核對](../evidence/ci-media-match-0.6.0.json)。
+
+**精確 0.6.0 ISO 完整安裝：1 passed／1789.412 秒**，媒體與 installer harness 均為 `6847a03c8f5d1ad2a100df76eaaf8f3eca323794`。一次性 VM 完成 Ubuntu 24.04.5、firstboot、五映像與來源核對、單次桌面登入／重播拒絕、角色權限、Controller 停止救援、ext4 quota／停止隔離、真 Codex 工具修改與兩項獨立 verifier、最新版 Hermes、官方 HAOS、Controller 更新／同 DB 退版、冷快照還原及外層重啟自動啟動。見 [安裝結果](../evidence/linux-install-0.6.0.json)、[JUnit](../evidence/linux-install-0.6.0.xml)、[交付記錄](../evidence/release-0.6.0.json)。測試 VM、容器與唯一磁碟 basetemp 已刪除，未在開發 host 安裝產品。
+
+| 媒體 | Bytes | SHA-256 |
+|---|---|---|
+| `agentic-home-0.6.0-laptop-amd64.iso` | 6553468928 | `ed0686dabba1e267a4bddbbf1f22d62397484b95ac00679868716c26bf3856ce` |
+| `agentic-home-0.6.0-linux-amd64.tar` | 2474004480 | `b0b087533c1299e2f169165bb0ca80a0d098e4ce14ee6fdc82c3e45b17808be5` |
+
+官方最新 Hermes 在這次安裝解析為 `7cc3fb8cb55898747dd1dfa56fda3e16ebba028e`；建置、啟用、runtime revision 讀回及重啟持續性通過，見 [Hermes](../evidence/installed-hermes-laptop-amd64-0.6.0.json)。[更新測試](../evidence/installed-update-laptop-amd64-0.6.0.json)實際執行簽章驗證、受限 compatibility probe、compose activation、Owner smoke、schema 3 私有 snapshot 與保留更新後資料的退版；durable systemd 工作 exit 0、cleanup 完成。發行者是臨時 fixture、候選只改 image label、registry 預載及新增資料為合成案例，不宣稱公開發行或跨 schema／全產品更新。
+
+[Codex coding](../evidence/installed-coding-laptop-amd64-0.6.0.json)使用真正 CLI／工具與固定模型 transport，沒有真雲端登入。三次 HA 就緒以原生 onboarding API JSON 核對；未自動代填原生家庭帳號，亦未實作 Home App coding。公共 ISO 的 [seed](../evidence/public-seed-0.6.0.json)保留網路、磁碟及身份選擇，沒有內嵌密碼或 SSH key。TAR 未另做既有主機就地安裝；Owner laptop、真 bot／OAuth／Tailscale 帳號、實體設備仍待驗。大型媒體留在本機 `dist/`，不存入 Git。
+
+使用者後續提出以 HA 原生 Web 作為日常首頁；[介面方向評估](ONBOARDING.md#原生家庭首頁與智能管家2026-10-12-介面方向評估)已記錄，尚未改動受測產品。聊天版截圖是目前介面，不代表已交付原生首頁導向或 HA 側欄 Hermes bridge。
+
 
 **對話版完整本機回歸：409 passed、3 skipped／248.34 秒**，見 [完整 JUnit](../evidence/pytest-chat-first-final.xml)。三個 skipped 都是需另行啟動的 HAOS App 探針、HAOS owner／Supervisor 備份，以及 Linux 安裝 VM。後續安裝發現的可信測試目錄權限問題已修正，定向 **41 passed／27.58 秒**，見 [JUnit](../evidence/coding-prepare-permissions.xml)；修正後 CI 如上，精確媒體另行完整安裝。
 
@@ -27,7 +41,7 @@
 
 第六輪同 ISO、harness `53260e1…` 為 **1 failed／1466.27 秒**。Linux、角色權限、救援、真 Codex 與兩項獨立測試、最新 Hermes `f5a6651231cf67031d9e458e45328efe239c628b`、首次 HAOS 原生 API 均通過。持久更新探針已真正執行，簽名與候選 staging 完成，但在 `approved_candidate_activation` 步驟回報 updater failed；systemd 證明 exit 1，cleanup started／completed 皆為 true。該步驟名稱不證明候選已啟用，內部 phase 未保留；一般錯誤碼又被 probe allowlist 遮成未分類。快照和重啟尚未執行。見 [第六輪摘要](../evidence/linux-install-0.6.0-run6-update-activation-failure.json)、[持久結果](../evidence/installed-update-0.6.0-run6-failure.json)、[安全診斷](../evidence/installed-failure-0.6.0-run6.json)及 [JUnit](../evidence/linux-install-0.6.0-run6-update-activation-failure.xml)。後續以同一實際 Controller 映像、UID 1000、umask 0077 與產品 probe 命令，獨立重現兩個缺陷：`python /fixed-probe.py` 沒有 `/app` 匯入路徑；SQLite 交易 context 結束後，source／target 檔案描述符仍存活到 volume.close。這項局部重現只替代 root 磁碟配置／掛載 plumbing，沒有在開發主機掛載，不能冒稱實際 ext4 卸載重現。修正固定 `/app` 路徑，並明確關閉連線且保留 target 交易提交；同兩項測試由 [2 failed](../evidence/updater-probe-prefixed-failure.xml) 變成 [2 passed](../evidence/updater-probe-fixed.xml)。原第六輪沒有保存內部 phase／原始例外，這是獨立重現的產品缺陷，不是回溯取得原錯誤堆疊。另有 [101 項定向回歸](../evidence/updater-probe-regression.xml)通過（9.15 秒），[重現範圍](../evidence/updater-probe-reproduction.json)記錄映像與隔離條件；harness 也保留內部 phase、命令與 probe 原例外的固定診斷，不重試效果。需重新封裝媒體並完成安裝驗證。
 
-新版 Host probe 來源 `6847a03…` 的 [CI 38264318494](https://github.com/teddashh/agentic-smart-home/actions/runs/38264318494) 為 **467 passed、1 failed、4 skipped／380.69 秒**；只有新增的實際 Controller probe fixture 失敗。GitHub 使用 UID 1001，fixture 原本以 0666／0777 模擬 root chown；UID 1000 雖可寫入，仍不能執行 Store 要求的 chmod 0600。已用真映像及 UID 1001 擁有的合成資料獨立重現相同 PermissionError（483 bytes stderr），匯入與描述符清理皆正常，見 [CI 摘要](../evidence/github-ci-0.6.0-probe-fixture-failure.json)與 [重現](../evidence/updater-probe-ci-owner-before.xml)。已只修測試資料的真實所有權與 finally 回復，加入強制外來 UID 案例；[更新器全套 36 項](../evidence/updater-probe-ci-owner-fixed.xml)通過（5.68 秒），[修正範圍](../evidence/updater-probe-ci-owner.json)記錄實際容器及擁有權回復。產品的 root chown、ISO 與進行中的完整安裝不變；完整 CI 重新驗證中。
+新版 Host probe 來源 `6847a03…` 的 [CI 38264318494](https://github.com/teddashh/agentic-smart-home/actions/runs/38264318494) 為 **467 passed、1 failed、4 skipped／380.69 秒**；只有新增的實際 Controller probe fixture 失敗。GitHub 使用 UID 1001，fixture 原本以 0666／0777 模擬 root chown；UID 1000 雖可寫入，仍不能執行 Store 要求的 chmod 0600。已用真映像及 UID 1001 擁有的合成資料獨立重現相同 PermissionError（483 bytes stderr），匯入與描述符清理皆正常，見 [CI 摘要](../evidence/github-ci-0.6.0-probe-fixture-failure.json)與 [重現](../evidence/updater-probe-ci-owner-before.xml)。已只修測試資料的真實所有權與 finally 回復，加入強制外來 UID 案例；[更新器全套 36 項](../evidence/updater-probe-ci-owner-fixed.xml)通過（5.68 秒），[修正範圍](../evidence/updater-probe-ci-owner.json)記錄實際容器及擁有權回復。產品的 root chown、ISO 與進行中的完整安裝不變；修正後完整 CI 如上，469 passed、4 skipped。
 
 較早的分項紀錄（不是額外加總）：Controller／Engine／Hermes 管理層 **106 passed、1 skipped**（另待 real Core）；真 pinned Hermes 容器 **22 passed**；Web 三尺寸瀏覽器回歸 **11 passed**。對應 [Controller](../evidence/worker-controller.xml)、[Hermes runtime](../evidence/worker-hermes-runtime.xml)。先前本機完整 `--real-ha --containers` 為 **385 passed、3 skipped／378.44 秒**，見 [完整 JUnit](../evidence/pytest-0.6.0.xml)；另補遷移快照、updater 快照與 verifier shadowing 的定向回歸，分別 35、34、35 項通過。三個跳過項為兩個 HAOS VM 案例與 Linux 安裝案例，另行執行；真帳號不在上述數字內。
 

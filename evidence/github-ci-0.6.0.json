@@ -1,16 +1,16 @@
 {
   "conclusion": "success",
-  "createdAt": "2026-10-12T14:01:14Z",
-  "headSha": "53260e1cfe2c5233200f2305678ae667cb8c2644",
-  "updatedAt": "2026-10-12T14:11:37Z",
-  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38259847764",
+  "createdAt": "2026-10-12T14:55:16Z",
+  "headSha": "c6cff8fbebf087665a592484dd5587227a3e62f4",
+  "updatedAt": "2026-10-12T15:06:45Z",
+  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38266420366",
   "pytest": {
-    "tests": 466,
+    "tests": 473,
     "failures": 0,
     "errors": 0,
     "skipped": 4,
-    "passed": 462,
-    "seconds": 369.988
+    "passed": 469,
+    "seconds": 392.548
   },
   "skips": [
     "test_desktop_ticket_private_hashed_rotating_and_fragment_only",

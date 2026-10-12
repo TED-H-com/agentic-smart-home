@@ -1,0 +1,8 @@
+{
+  "runtime_location": "disposable_outer_linux_vm",
+  "iso_sha256": "ed0686dabba1e267a4bddbbf1f22d62397484b95ac00679868716c26bf3856ce",
+  "result": "passed",
+  "cloud_login": "not_run",
+  "phase": "completed",
+  "duration_seconds": 1785
+}

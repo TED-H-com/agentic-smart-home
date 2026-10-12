@@ -1,7 +1,7 @@
 {
   "kind": "composed_onboarding_e2e",
   "result": "passed",
-  "duration_seconds": 60.32,
+  "duration_seconds": 74.79,
   "real": [
     "Chromium and compiled Web without API interception",
     "Controller HTTP/session/CSRF",
@@ -33,11 +33,11 @@
     "provision"
   ],
   "mcp_evidence": {
-    "case_id": "0073b1575beb499587120d91932697ff",
+    "case_id": "aa63fa0a4e9543b2b31f83623a02cf80",
     "collection_method": "fixed_broker_status",
     "content_digest": "75ff4cbf49c5feea6e572c24166483d4e7a33c965c7a2a80fab5a72d4119be5f",
     "data_contract": 1,
-    "evidence_id": "f0212b25b1884c3884fe8a2bb2f50895",
+    "evidence_id": "f6bcf3c98b69484eabd4a2ca7d9bea01",
     "facts": {
       "ha_onboarding": {
         "http_status": 200,
@@ -67,11 +67,11 @@
       "provisioned": true,
       "vm": "running"
     },
-    "id": "f0212b25b1884c3884fe8a2bb2f50895",
+    "id": "f6bcf3c98b69484eabd4a2ca7d9bea01",
     "limitations": [
       "Native onboarding observations do not establish HA owner authority or physical device health."
     ],
-    "observed_at": "2026-10-12T14:08:39.895206+00:00",
+    "observed_at": "2026-10-12T15:03:37.973975+00:00",
     "observed_from": "host_broker",
     "redaction": "field_allowlist",
     "target_component": "host_and_managed_vm",
@@ -91,7 +91,7 @@
       "restart_count": 0
     },
     "runner": {
-      "image_id": "sha256:3ff282c6fe65a910530f53617f32171fc908270c65dc54946ee10e97dfce9d37",
+      "image_id": "sha256:5bd481d0793c1219b39914790d0e8cc29d96e88157b8a56dbe582c7bbd0e4edf",
       "image_ref": "agentic-home-runner:0.6.0",
       "memory_bytes": 1610612736,
       "pids_limit": 256,
@@ -100,7 +100,7 @@
       "restart_count": 0
     },
     "hermes": {
-      "image_id": "sha256:5dd48f309a2bfc02f050c85156f6f6506b6b72c576ef7c5a70c5d47232e06999",
+      "image_id": "sha256:75d565c3c21a23f9896764f498da99cbb37388a1c9af8c5f10588549115a73e6",
       "image_ref": "agentic-home-hermes:0.6.0",
       "memory_bytes": 805306368,
       "pids_limit": 64,
@@ -109,7 +109,7 @@
       "restart_count": 0
     },
     "controller": {
-      "image_id": "sha256:2e4700cf7da6d1a5b7a9e43cee76fe2720cfecf81de693f8b46fd5317c4324d6",
+      "image_id": "sha256:1468910fa6a29a7cccec75ee426f85d062e78b8b8eadadbeaf775a5e4d137658",
       "image_ref": "agentic-home-controller:0.6.0",
       "memory_bytes": 805306368,
       "pids_limit": 128,

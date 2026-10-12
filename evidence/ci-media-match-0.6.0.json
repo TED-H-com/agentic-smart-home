@@ -1,8 +1,8 @@
 {
-  "source_commit": "53260e1cfe2c5233200f2305678ae667cb8c2644",
-  "media_source_commit": "a67fab69c3ca4462a20b760b8ba1f3175659cb4a",
+  "source_commit": "c6cff8fbebf087665a592484dd5587227a3e62f4",
+  "media_source_commit": "6847a03c8f5d1ad2a100df76eaaf8f3eca323794",
   "source_files_verified": 131,
-  "ci_archive_files_verified": 652,
+  "ci_archive_files_verified": 680,
   "all_runtime_media_source_hashes_match_ci_archive": true,
   "documentation_differences": [
     "docs/VERIFICATION.md"
@@ -343,11 +343,11 @@
     },
     {
       "path": "host/agentic_host/update_probe.py",
-      "sha256": "de57e7991c5e0bc463d613224782f06064c08f96f191b285090a8e29a1966f10"
+      "sha256": "7419fbd3d825b78ef35252a70044044f84c5a5c62f29ad6f89ff7d394ce93fe0"
     },
     {
       "path": "host/agentic_host/updater.py",
-      "sha256": "df789d4a23b444eb7bed04f3113c9e75599b72a58c5a74eda779754497180897"
+      "sha256": "a603e28950217227e22428f14e2986e38fb2e2f66613814845f068c8d1c10398"
     },
     {
       "path": "host/bases.lock.json",
@@ -535,6 +535,6 @@
     }
   ],
   "runtime_artifacts_compared_by_source": "CI and local images are independent builds; image IDs remain separate evidence",
-  "run_url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38259847764",
+  "run_url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38266420366",
   "source_delta_scope": "tests, docs and evidence only"
 }
