@@ -1,0 +1,12 @@
+{
+  "source_commit": "a67fab69c3ca4462a20b760b8ba1f3175659cb4a",
+  "iso_sha256": "9e4b48243963f065d48a281a6c77d6744c27860d65def328198c0aa574eea1cf",
+  "scope": "Run4 passed intermediate stages; full installer run failed at updater probe transport/JSON boundary",
+  "files": {
+    "installed-auth-laptop-amd64.json": "9803e70c185bb776fd6befb1a71925138ed4b67446c6fa3919d6e29731ea13d5",
+    "installed-rescue-laptop-amd64.json": "a3e2462ab3f608668b266f7c2514cd952a7ea31c25f3e23065a2805150ad06f0",
+    "installed-sandbox-laptop-amd64.json": "0298e8caeedf5af8de3ef478c55db0858045fceac5da80876d30286cfb4565f9",
+    "installed-coding-laptop-amd64.json": "ecdbaa2fcdd0da908ecb9bfcfade9b7c97fe5d0aa47d8ba49bda3af8decd90a5",
+    "installed-hermes-laptop-amd64.json": "c424cc99c2a179f9970824547b59096397927f3c1b8e23c6cc18b41cf7c7e324"
+  }
+}

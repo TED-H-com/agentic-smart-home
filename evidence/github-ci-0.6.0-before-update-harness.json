@@ -1,0 +1,21 @@
+{
+  "conclusion": "success",
+  "createdAt": "2026-10-12T12:34:22Z",
+  "headSha": "a67fab69c3ca4462a20b760b8ba1f3175659cb4a",
+  "updatedAt": "2026-10-12T12:44:31Z",
+  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38249860342",
+  "pytest": {
+    "tests": 427,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 4,
+    "passed": 423,
+    "seconds": 366.626
+  },
+  "skips": [
+    "test_desktop_ticket_private_hashed_rotating_and_fragment_only",
+    "test_actual_haos_app_boundary",
+    "test_real_haos_boot_owner_and_supervisor_backup",
+    "test_full_linux_install_with_nested_haos"
+  ]
+}

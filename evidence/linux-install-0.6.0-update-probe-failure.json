@@ -1,0 +1,43 @@
+{
+  "version": "0.6.0",
+  "source_commit": "a67fab69c3ca4462a20b760b8ba1f3175659cb4a",
+  "iso_sha256": "9e4b48243963f065d48a281a6c77d6744c27860d65def328198c0aa574eea1cf",
+  "result": "failed",
+  "pytest": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "1",
+    "skipped": "0",
+    "tests": "1",
+    "time": "1605.101",
+    "timestamp": "2026-10-12T08:38:54.079300-04:00",
+    "hostname": "castleridge-ai1"
+  },
+  "failed_stage": "installed_controller_update_rollback",
+  "failure": "Probe stdout was empty; JSONDecodeError before its result could be checked",
+  "cause": "unclassified: original subprocess return code and stderr were not saved; no product failure established",
+  "completed": [
+    "Ubuntu installation/firstboot and exact images/source",
+    "Owner login and role-auth boundaries",
+    "Controller-stopped console rescue",
+    "real ext4 quota and sandbox fencing",
+    "real Codex tools and independent verifier (2 completed tests)",
+    "latest Hermes build/activation and runtime revision readback",
+    "real HAOS native API",
+    "HAOS shutdown/cold snapshot/restore and restored native API",
+    "outer reboot, HAOS autostart, persisted latest Hermes image and native API"
+  ],
+  "latest_hermes_commit": "3f2abce7f468cf194bb7f9ff9c6a033b075d834c",
+  "passed_stage_evidence": "evidence/installed-0.6.0-run4-prior-stages/",
+  "remaining": [
+    "verified Controller candidate activation and same-database rollback",
+    "complete full-run success"
+  ],
+  "independent_checks": [
+    "exact probe top-level imports and syntax run on Python 3.12; disposable guard emits JSON",
+    "short captured VM serial log has no OOM/traceback markers but cannot exclude process/transport loss"
+  ],
+  "next_step": "harness-only durable guarded probe phase/result, one launch and fresh readback; same ISO full retest",
+  "cloud_accounts": "not_run",
+  "cleanup": "exact VM/container/test disk basetemp removed"
+}

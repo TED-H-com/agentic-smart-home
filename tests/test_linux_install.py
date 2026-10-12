@@ -1,4 +1,5 @@
 """Full Linux installation rehearsal. Every disk/credential is temporary and isolated."""
+import base64
 import hashlib
 import importlib.util
 import json
@@ -43,6 +44,135 @@ def bootstrap_job_diagnostics(output):
 
 def command(*args, **kwargs):
     return subprocess.run(args, check=True, capture_output=True, text=True, **kwargs).stdout.strip()
+
+
+def decode_update_observation(output):
+    """Validate/project private probe receipts; never publish arbitrary remote text."""
+    from installed_update_probe import ERROR_TYPES, SAFE_ERRORS, STAGES
+
+    if not output or len(output.encode()) > 65536:
+        raise ValueError("probe_output_missing_or_oversized")
+    value = json.loads(output)
+    if not isinstance(value, dict) or set(value) != {"checkpoint", "result", "unit", "process"}:
+        raise ValueError("probe_observation_invalid")
+    checkpoint = value["checkpoint"]
+    if checkpoint is not None and (not isinstance(checkpoint, dict) or checkpoint.get("state") != "running" or checkpoint.get("stage") not in STAGES):
+        raise ValueError("probe_checkpoint_invalid")
+    clean = {"checkpoint": None if checkpoint is None else {"state": "running", "stage": checkpoint["stage"]}}
+    unit = value["unit"]
+    if not isinstance(unit, dict):
+        raise ValueError("probe_unit_invalid")
+    clean["unit"] = {
+        "ActiveState": unit.get("ActiveState") if unit.get("ActiveState") in {"active", "activating", "deactivating", "inactive", "failed"} else "unknown",
+        "SubState": unit.get("SubState") if unit.get("SubState") in {"running", "exited", "failed", "dead", "start", "stop", "stop-sigterm", "stop-sigkill"} else "unknown",
+        "Result": unit.get("Result") if unit.get("Result") in {"success", "exit-code", "signal", "core-dump", "timeout", "oom-kill", "resources"} else "unknown",
+        **{key: unit.get(key) if isinstance(unit.get(key), str) and re.fullmatch(r"[0-9]{1,3}", unit[key]) else None
+           for key in ("ExecMainCode", "ExecMainStatus")},
+    }
+    process = value["process"]
+    if not isinstance(process, dict):
+        raise ValueError("probe_process_invalid")
+    clean["process"] = {k: process[k] for k in ("stdout_bytes", "stderr_bytes") if type(process.get(k)) is int and process[k] >= 0}
+    clean["process"]["stderr_truncated"] = process.get("stderr_truncated") is True
+    flags = process.get("stderr_signatures", {})
+    clean["process"]["stderr_signatures"] = {k: flags.get(k) is True for k in (
+        "traceback", "import_error", "syntax_error", "permission_denied", "ssh_transport", "process_killed", "sudo_error")}
+    result = value["result"]
+    if result is None:
+        clean["result"] = None
+        return clean
+    if not isinstance(result, dict) or result.get("state") not in {"passed", "failed"}:
+        raise ValueError("probe_result_invalid")
+    diagnostic = result.get("diagnostics", {})
+    if not isinstance(diagnostic, dict):
+        raise ValueError("probe_diagnostics_invalid")
+    projected = {"state": result["state"], "diagnostics": {
+        k: diagnostic.get(k) is True for k in ("cleanup_started", "cleanup_completed")}}
+    if diagnostic.get("updater_state") in {"failed", "needs_reconcile", "rolled_back"}:
+        projected["diagnostics"]["updater_state"] = diagnostic["updater_state"]
+        error = diagnostic.get("updater_error_code")
+        projected["diagnostics"]["updater_error_code"] = error if error in SAFE_ERRORS else "unclassified_update_error"
+    if result["state"] == "failed":
+        projected.update(error_code=result.get("error_code") if result.get("error_code") in SAFE_ERRORS else "unclassified_update_error",
+                         error_type=result.get("error_type") if result.get("error_type") in ERROR_TYPES else "OtherError",
+                         stage=result.get("stage") if result.get("stage") in STAGES else "unknown")
+    else:
+        actual = ["ed25519_signature_verification", "bounded_candidate_probe", "compose_activation", "authenticated_owner_smoke",
+                  "consistent_snapshot", "schema3", "maintenance_gate", "same_database_rollback", "post_deployment_row_preserved"]
+        fixtures = ["ephemeral_publisher", "preloaded_registry_delivery", "candidate_changes_only_image_label", "synthetic_post_deployment_record"]
+        if (result.get("actual") != actual or result.get("fixtures") != fixtures or result.get("final_schema") != 3 or
+                result.get("real_cloud") is not False or result.get("real_publisher_release") is not False or
+                result.get("rollback_restored_backup") is not False or result.get("registry_delivery_calls") != 1 or
+                not all(projected["diagnostics"].get(k) for k in ("cleanup_started", "cleanup_completed")) or
+                any(not isinstance(result.get(k), str) or not re.fullmatch(r"sha256:[a-f0-9]{64}", result[k]) for k in ("original_image", "candidate_image")) or
+                result["original_image"] == result["candidate_image"]):
+            raise ValueError("probe_success_receipt_invalid")
+        projected.update(observed_from="disposable_installed_linux_vm_root", actual=actual, fixtures=fixtures,
+                         final_schema=3, real_cloud=False, real_publisher_release=False, rollback_restored_backup=False,
+                         registry_delivery_calls=1, original_image=result["original_image"], candidate_image=result["candidate_image"])
+    clean["result"] = projected
+    return clean
+
+
+def installed_update(ssh, source, report, *, run=subprocess.run, clock=time.monotonic, pause=time.sleep):
+    """Launch once, then recover only the same fixed private receipt over fresh SSH."""
+    from installed_update_probe import STATE_ROOT, process_diagnostics
+
+    evidence = {"state": "failed", "error_code": "probe_result_unconfirmed", "transport": {}}
+    def save():
+        report.write_text(json.dumps(evidence, indent=2) + "\n")
+    def invoke(command, **kwargs):
+        try:
+            return run([*ssh, command], capture_output=True, text=True, timeout=30, **kwargs)
+        except subprocess.TimeoutExpired as exc:
+            return subprocess.CompletedProcess([], None, exc.stdout or "", exc.stderr or "")
+    encoded = base64.b64encode(source.encode()).decode()
+    launcher = ("import base64,json\ns=base64.b64decode('" + encoded + "').decode()\n"
+                "ns={'__name__':'installed_probe_launcher'}\nexec(compile(s,'installed_update_probe','exec'),ns)\n"
+                "print(json.dumps(ns['launch'](s)),flush=True)\n")
+    started = invoke("sudo env AGENTIC_DISPOSABLE_VM=1 python3 -", input=launcher)
+    evidence["transport"]["launch"] = process_diagnostics(started)
+    save()  # Preserve return code/flags BEFORE attempting to parse anything.
+    deadline = clock() + 660
+    attempts = 0
+    misses = 0
+    while clock() < deadline:
+        response = invoke("sudo env AGENTIC_DISPOSABLE_VM=1 python3 " + str(STATE_ROOT / "probe.py") + " --observe")
+        attempts += 1
+        evidence["transport"].update(observation_attempts=attempts, observation=process_diagnostics(response))
+        save()
+        try:
+            if response.returncode != 0:
+                raise ValueError("probe_observation_transport")
+            observed = decode_update_observation(response.stdout)
+            evidence["observation"] = observed
+        except (ValueError, TypeError, AttributeError):
+            misses += 1
+            evidence["error_code"] = "probe_observation_unavailable"
+            save()
+            if misses >= 3:
+                return evidence
+            pause(2)
+            continue
+        misses = 0
+        unit = observed["unit"]
+        if unit["ActiveState"] in {"inactive", "failed", "unknown"} or unit["SubState"] == "exited":
+            result = observed["result"]
+            if result is not None:
+                evidence.update(result)
+            if not (result is not None and result["state"] == "passed" and unit["ActiveState"] == "active" and unit["SubState"] == "exited" and
+                    unit["Result"] == "success" and unit["ExecMainCode"] == "1" and unit["ExecMainStatus"] == "0"):
+                evidence["state"] = "failed"
+                evidence.setdefault("error_code", "probe_completion_unconfirmed")
+            else:
+                evidence.pop("error_code", None)
+            save()
+            return evidence
+        save()
+        pause(2)
+    evidence["error_code"] = "probe_observation_deadline"
+    save()
+    return evidence
 
 
 def test_full_linux_install_with_nested_haos(tmp_path, request):
@@ -272,11 +402,9 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
         assert hermes_image() == candidate_id
         wait_ha("nested_haos_after_outer_reboot")
         phase("installed_controller_update_rollback")
-        update_result = subprocess.run([*ssh, "sudo env AGENTIC_DISPOSABLE_VM=1 python3 -"], capture_output=True, text=True,
-                                      input=(ROOT / "tests/installed_update_probe.py").read_text(), timeout=600)
-        update_probe = json.loads(update_result.stdout)
-        (ROOT / "evidence" / ("installed-update-" + profile + ".json")).write_text(json.dumps(update_probe, indent=2) + "\n")
-        assert update_result.returncode == 0 and update_probe["state"] == "passed", update_probe
+        update_probe = installed_update(ssh, (ROOT / "tests/installed_update_probe.py").read_text(),
+                                        ROOT / "evidence" / ("installed-update-" + profile + ".json"))
+        assert update_probe["state"] == "passed", update_probe
         evidence = {"kind": "real_linux_install_nested_kvm", "profile": profile, "base": "Ubuntu 24.04.5",
                     "iso_sha256": iso_hash,
                     "installed_version": installed["version"], "images": image_lock,

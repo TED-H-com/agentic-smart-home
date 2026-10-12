@@ -17,11 +17,6 @@ import time
 import uuid
 from pathlib import Path
 
-sys.path.insert(0, "/opt/agentic-home/host")
-from agentic_host.bootstrap import write_environment
-from agentic_host.manager import Manager, atomic, run
-from agentic_host.updater import Updater, canonical
-
 STAGE = "disposable_vm_guard"
 FAILED_STAGE = None
 DIAGNOSTICS = {"cleanup_started": False, "cleanup_completed": False}
@@ -43,17 +38,138 @@ SAFE_ERRORS = {
     "update_final_smoke_mismatch", "update_staging_interrupted", "update_interrupted",
 }
 
+STATE_ROOT = Path("/var/lib/agentic-home/installed-update-probe")
+UNIT = "agentic-installed-update-probe.service"
+STAGES = {
+    "disposable_vm_guard", "installed_module_imports", "installed_update_baseline",
+    "stop_host_broker_for_isolated_fixture", "build_fixed_label_candidate",
+    "ephemeral_publisher_and_signature", "verify_signature_and_stage_candidate",
+    "approved_candidate_activation", "durable_post_deployment_record", "approved_same_database_rollback",
+    "rollback_readback_and_row_preservation", "restore_original_image_and_cleanup",
+}
+ERROR_TYPES = {"RuntimeError", "AssertionError", "HostError", "UpdateError", "OSError", "FileNotFoundError",
+               "PermissionError", "ImportError", "ModuleNotFoundError", "TimeoutExpired", "CalledProcessError",
+               "ValueError", "KeyError", "TypeError", "JSONDecodeError", "OperationalError"}
+
+
+def validate_guard(uid, marker, hostname, serials, virtualization, installed):
+    if not (uid == 0 and marker == "1" and hostname == "agentic-disposable" and
+            "AGENTIC_TEST_ONLY" in serials and virtualization in {"kvm", "qemu"} and installed):
+        raise RuntimeError("disposable_installed_vm_required")
+
+
+def guard():
+    # Reject before imports, state-directory creation, or any service command.
+    if os.geteuid() != 0 or os.environ.get("AGENTIC_DISPOSABLE_VM") != "1":
+        raise RuntimeError("disposable_installed_vm_required")
+    serials = [*Path("/sys/class/block").glob("*/serial"), *Path("/sys/class/block").glob("*/device/serial")]
+    validate_guard(os.geteuid(), os.environ.get("AGENTIC_DISPOSABLE_VM"),
+                   Path("/etc/hostname").read_text().strip(), [p.read_text().strip() for p in serials],
+                   subprocess.check_output(["systemd-detect-virt", "--vm"], text=True, timeout=5).strip(),
+                   Path("/opt/agentic-home/host/compose.yaml").is_file())
+
+
+def persist(name, value):
+    temporary = STATE_ROOT / (name + ".new")
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w") as stream:
+        json.dump(value, stream, sort_keys=True)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, STATE_ROOT / name)
+
+
+def checkpoint(stage):
+    global STAGE
+    assert stage in STAGES
+    STAGE = stage
+    persist("checkpoint.json", {"state": "running", "stage": stage})
+
+
+def process_diagnostics(result):
+    """No subprocess text leaves the disposable VM/test process."""
+    stdout = result.stdout or ""
+    stderr = result.stderr or ""
+    if isinstance(stdout, bytes):
+        stdout = stdout.decode(errors="replace")
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode(errors="replace")
+    sample = stderr[:16384].lower()
+    return {"returncode": result.returncode if type(result.returncode) is int and -255 <= result.returncode <= 255 else None,
+            "stdout_bytes": len(stdout.encode()), "stderr_bytes": len(stderr.encode()),
+            "stderr_truncated": len(stderr) > 16384,
+            "stderr_signatures": {key: any(marker in sample for marker in markers) for key, markers in {
+                "traceback": ("traceback (most recent call last)",),
+                "import_error": ("modulenotfounderror", "importerror"),
+                "syntax_error": ("syntaxerror",), "permission_denied": ("permission denied",),
+                "ssh_transport": ("connection reset", "connection closed", "connection refused", "broken pipe", "connection timed out"),
+                "process_killed": ("killed", "terminated"), "sudo_error": ("sudo:",),
+            }.items()}}
+
+
+def launch(source):
+    guard()
+    os.umask(0o077)
+    # Exclusive fixed directory is the launch receipt. Never replay effects.
+    STATE_ROOT.mkdir(mode=0o700, exist_ok=False)
+    checkpoint("disposable_vm_guard")
+    script = STATE_ROOT / "probe.py"
+    script.write_text(source)
+    script.chmod(0o400)
+    completed = subprocess.run([
+        "systemd-run", "--unit=" + UNIT, "--property=RuntimeMaxSec=600", "--property=KillMode=control-group",
+        "--property=RemainAfterExit=yes",
+        "--property=UMask=0077", "--property=StandardOutput=append:" + str(STATE_ROOT / "stdout"),
+        "--property=StandardError=append:" + str(STATE_ROOT / "stderr"),
+        "--setenv=AGENTIC_DISPOSABLE_VM=1", "/usr/bin/python3", str(script),
+    ], capture_output=True, text=True, timeout=15)
+    return {"launch": process_diagnostics(completed)}
+
+
+def observe():
+    guard()
+    result = None
+    checkpoint_value = None
+    for name in ("checkpoint.json", "result.json"):
+        path = STATE_ROOT / name
+        if path.is_file():
+            if path.stat().st_size > 65536:
+                raise RuntimeError("probe_record_oversized")
+            value = json.loads(path.read_text())
+            if name == "checkpoint.json":
+                checkpoint_value = value
+            else:
+                result = value
+    unit = subprocess.run(["systemctl", "show", UNIT, "--property=ActiveState,SubState,Result,ExecMainCode,ExecMainStatus"],
+                          capture_output=True, text=True, timeout=10)
+    fields = dict(line.split("=", 1) for line in unit.stdout.splitlines() if "=" in line)
+    status = {key: fields.get(key) for key in ("ActiveState", "SubState", "Result", "ExecMainCode", "ExecMainStatus")}
+    logs = []
+    lengths = []
+    for name in ("stdout", "stderr"):
+        path = STATE_ROOT / name
+        if path.exists():
+            lengths.append(path.stat().st_size)
+            with path.open("rb") as stream:
+                logs.append(stream.read(16384).decode(errors="replace"))
+        else:
+            lengths.append(0)
+            logs.append("")
+    diagnostic = process_diagnostics(subprocess.CompletedProcess([], None, *logs))
+    diagnostic.update(stdout_bytes=lengths[0], stderr_bytes=lengths[1], stderr_truncated=lengths[1] > 16384)
+    return {"checkpoint": checkpoint_value, "result": result, "unit": status, "process": diagnostic}
+
 
 def main():
     global STAGE, FAILED_STAGE
-    if os.geteuid() != 0 or not Path("/opt/agentic-home/installed.json").exists():
-        # Some media records installed.json in /var/lib; accept only the exact
-        # installed root plus explicit caller-supplied disposable-VM marker.
-        if os.geteuid() != 0 or os.environ.get("AGENTIC_DISPOSABLE_VM") != "1" or not Path("/opt/agentic-home/host/compose.yaml").exists():
-            raise RuntimeError("disposable_installed_vm_required")
-    if os.environ.get("AGENTIC_DISPOSABLE_VM") != "1":
-        raise RuntimeError("disposable_installed_vm_required")
-    STAGE = "installed_update_baseline"
+    guard()
+    checkpoint("installed_module_imports")
+    sys.path.insert(0, "/opt/agentic-home/host")
+    from agentic_host.bootstrap import write_environment
+    from agentic_host.manager import Manager, atomic, run
+    from agentic_host.updater import Updater, canonical
+
+    checkpoint("installed_update_baseline")
     os.umask(0o077)
     manager = Manager()
     service = Updater(manager)
@@ -72,16 +188,16 @@ def main():
     candidate = None
     record = None
     result = None
-    STAGE = "stop_host_broker_for_isolated_fixture"
+    checkpoint("stop_host_broker_for_isolated_fixture")
     run("systemctl", "stop", "agentic-home-host.service", timeout=60)
     try:
-        STAGE = "build_fixed_label_candidate"
+        checkpoint("build_fixed_label_candidate")
         run("docker", "tag", original, base_tag)
         (fixture / "Dockerfile").write_text(f"FROM {base_tag}\nLABEL agentic.disposable.update={identity}\n")
         run("docker", "build", "--network", "none", "--pull=false", "-t", candidate_tag, str(fixture), timeout=180)
         candidate = run("docker", "image", "inspect", "--format", "{{.Id}}", candidate_tag).stdout.strip()
         assert re.fullmatch(r"sha256:[a-f0-9]{64}", candidate) and candidate != original
-        STAGE = "ephemeral_publisher_and_signature"
+        checkpoint("ephemeral_publisher_and_signature")
         run("openssl", "genpkey", "-algorithm", "ED25519", "-out", str(fixture / "private.pem"))
         run("openssl", "pkey", "-in", str(fixture / "private.pem"), "-pubout", "-out", str(fixture / "public.pem"))
         trust = fixture / "publishers.json"
@@ -116,7 +232,7 @@ def main():
                 return run("docker", "image", "inspect", candidate, **kwargs)
             return run(*args, **kwargs)
         service.run = execute
-        STAGE = "verify_signature_and_stage_candidate"
+        checkpoint("verify_signature_and_stage_candidate")
         status, record = service.handle("POST", "/updates/stage", {"manifest": manifest, "signature": signature})
         assert status == 202
         record = service.records[record["candidate_digest"]]
@@ -133,14 +249,14 @@ def main():
                 time.sleep(.25)
         wait({"staged"})
         digest = record["candidate_digest"]
-        STAGE = "approved_candidate_activation"
+        checkpoint("approved_candidate_activation")
         service.handle("POST", "/updates/apply", {"candidate_digest": digest, "approval_id": record["approval_id"]})
         wait({"deployed"})
         assert service.image() == candidate
         # This is a synthetic durable post-deployment record in the real Live
         # database, written while its owner is stopped. It represents the data
         # that would be lost by restoring the pre-deployment snapshot.
-        STAGE = "durable_post_deployment_record"
+        checkpoint("durable_post_deployment_record")
         service.stop()
         marker = "post-deployment-" + identity
         with sqlite3.connect(service.database) as db:
@@ -148,11 +264,11 @@ def main():
             db.execute("INSERT INTO records VALUES (?,?,?,?,?)", ("update_vm_fixture", marker, json.dumps({"id": marker, "fixture": True}), now, now))
         service.activate(candidate)
         service.health()
-        STAGE = "approved_same_database_rollback"
+        checkpoint("approved_same_database_rollback")
         offered = service.handle("POST", "/updates/rollback-offer", {"candidate_digest": digest})[1]
         service.handle("POST", "/updates/rollback", {"candidate_digest": digest, "approval_id": offered["rollback_approval_id"]})
         wait({"rolled_back"})
-        STAGE = "rollback_readback_and_row_preservation"
+        checkpoint("rollback_readback_and_row_preservation")
         assert service.image() == original
         with sqlite3.connect(service.database.as_uri() + "?mode=ro", uri=True) as db:
             assert db.execute("SELECT body FROM records WHERE kind='update_vm_fixture' AND id=?", (marker,)).fetchone()
@@ -171,7 +287,7 @@ def main():
     finally:
         # Exact original artifact and owner pause setting are restored; never
         # restore a stale DB. The surrounding disposable VM is deleted by pytest.
-        STAGE = "restore_original_image_and_cleanup"
+        checkpoint("restore_original_image_and_cleanup")
         DIAGNOSTICS["cleanup_started"] = True
         service.stop()
         with sqlite3.connect(service.database) as db:
@@ -198,15 +314,28 @@ def main():
         run("systemctl", "start", "agentic-home-host.service", timeout=60)
         DIAGNOSTICS["cleanup_completed"] = True
     result["diagnostics"] = DIAGNOSTICS
+    return result
+
+
+def execute():
+    guarded = False
+    try:
+        guard()
+        guarded = True
+        result = main()
+    except Exception as exc:
+        code = str(exc) if str(exc) in SAFE_ERRORS else "unclassified_update_error"
+        result = {"state": "failed", "error_code": code,
+                  "error_type": type(exc).__name__ if type(exc).__name__ in ERROR_TYPES else "OtherError",
+                  "stage": FAILED_STAGE or STAGE, "diagnostics": DIAGNOSTICS}
+    if guarded:
+        persist("result.json", result)
     print(json.dumps(result, sort_keys=True), flush=True)
+    return 0 if result["state"] == "passed" else 1
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as exc:
-        # Do not print subprocess output, account material, or private paths.
-        code = str(exc) if str(exc) in SAFE_ERRORS else "unclassified_update_error"
-        print(json.dumps({"state": "failed", "error_code": code, "error_type": type(exc).__name__,
-                          "stage": FAILED_STAGE or STAGE, "diagnostics": DIAGNOSTICS}), flush=True)
-        raise SystemExit(1) from None
+    if sys.argv[1:] == ["--observe"]:
+        print(json.dumps(observe(), sort_keys=True), flush=True)
+    else:
+        raise SystemExit(execute())
