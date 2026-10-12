@@ -1,0 +1,43 @@
+{
+  "version": "0.3.1",
+  "recorded_at": "2026-10-11T22:09:15.085204+00:00",
+  "code_commit": "63ad5354c68cec5622cf2e5da338ee9e1929b079",
+  "artifacts": {
+    "agentic-home-0.3.1-laptop-amd64.iso": {
+      "sha256": "ad6f5692b720a91d80c626b91c1983f641fe8587131cfd4cab6900a2d2b60d1b",
+      "bytes": 5228003328
+    },
+    "agentic-home-0.3.1-linux-amd64.tar": {
+      "sha256": "f5d04d26d6397ec7cb3e804e570028ad9b59b64426b22529deaabba92160b3b0",
+      "bytes": 1148497920
+    },
+    "agentic-home-0.3.1-server-amd64.iso": {
+      "sha256": "72d09dbb72c32e0c4638dc84fd5cfd5211f2006503997d08ac77d0d0655f236a",
+      "bytes": 5228003328
+    }
+  },
+  "regression": {
+    "passed": 89,
+    "skipped": 2,
+    "evidence": "pytest-0.3.1.xml",
+    "skipped_cases": "Full HAOS VM and Linux installation cases were not rerun.",
+    "retry_note": "An intermediate full run had one Chromium Page.captureScreenshot error (88 passed, 2 skipped); its evidence is retained in pytest-0.3.1-screenshot-failure.xml. After ISO builds finished, the final full run passed without source or test changes."
+  },
+  "cloud_login": "not_run",
+  "external_channel_messages": "not_run",
+  "physical_hardware": "not_run",
+  "antigravity_subscription_login": "not_integrated",
+  "bundle_manifest": "90 files verified against BUNDLE.sha256.json; all 60 recorded runtime files match the bundle",
+  "runner_zip": "Repeated builds produce SHA-256 ac63cb8f7bf18adc5f4845dea71e3f598ff96c9e4f1f923d6c2aa3dea68677a4; all 16 manifest entries verified",
+  "github_ci": {
+    "conclusion": "success",
+    "createdAt": "2026-10-11T22:04:41Z",
+    "headSha": "63ad5354c68cec5622cf2e5da338ee9e1929b079",
+    "status": "completed",
+    "updatedAt": "2026-10-11T22:13:00Z",
+    "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38178958317",
+    "version": "0.3.1",
+    "test_result": "89 passed, 2 skipped",
+    "skipped": "Large HAOS VM and Linux installation cases; hardware/cloud accounts not exercised"
+  }
+}

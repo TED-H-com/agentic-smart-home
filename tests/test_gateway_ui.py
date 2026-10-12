@@ -47,7 +47,7 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
                 "ha": {"status": "unavailable"},
                 "runner": {"protocol": 1, "providers": []},
                 "gateway": gateway,
-                "version": "0.3.1",
+                "version": "0.4.0",
             }
         elif path == "tasks":
             result = {"tasks": []}
@@ -131,6 +131,7 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
             page.get_by_role("heading", name="你的家庭管理入口已經就緒").wait_for()
             screenshots(page, "onboarding-web")
             page.get_by_role("button", name="下一步", exact=True).click()
+            page.get_by_text("進階：受控 CLI 登入", exact=True).click()
             page.get_by_role("heading", name="登入外層 Agent", exact=True).wait_for()
             grok = page.locator("article.provider").filter(
                 has=page.get_by_role("heading", name="Grok Build", exact=True)

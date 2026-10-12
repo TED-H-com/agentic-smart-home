@@ -24,7 +24,7 @@ def test_full_linux_install_with_nested_haos(tmp_path, request):
     assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
     profile = os.environ.get("AGENTIC_INSTALL_TEST_PROFILE", "laptop-amd64")
     assert profile in {"laptop-amd64", "server-amd64"}
-    iso = ROOT / "dist" / ("agentic-home-0.3.1-" + profile + ".iso")
+    iso = ROOT / "dist" / ("agentic-home-0.4.0-" + profile + ".iso")
     assert iso.exists()
     with iso.open("rb") as stream:
         iso_hash = hashlib.file_digest(stream, "sha256").hexdigest()
@@ -99,11 +99,40 @@ while data:=s.recv(65536):
             logs = subprocess.run([*ssh, "journalctl -u agentic-home-firstboot --no-pager -n 50"], capture_output=True, text=True)
             raise AssertionError("Firstboot did not complete: " + logs.stdout[-4000:])
         host = json.loads(command(*ssh, "agentic-home status"))
-        assert host["vm"] == "running" and host["provisioned"] and host["kvm"]
+        assert not host["provisioned"] and host["kvm"]
         assert command(*ssh, "systemctl is-active agentic-home agentic-home-host agentic-home-proxy") == "active\nactive\nactive"
         assert command(*ssh, "curl -fsS http://localhost:8099/api/deployment")
         auth_probe = command(*ssh, "python3 -", input=(ROOT / "tests/installed_probe.py").read_text())
         (ROOT / "evidence" / ("installed-auth-" + profile + ".json")).write_text(auth_probe + "\n")
+        # Exercise independent console recovery before adding any household VM.
+        diagnostics = json.loads(command(*ssh, "agentic-home diagnostics"))
+        assert diagnostics["observations"]
+        compose = "sudo docker compose -f /opt/agentic-home/host/compose.yaml"
+        command(*ssh, compose + " stop controller")
+        try:
+            unavailable = subprocess.run([*ssh, "curl --max-time 3 -fsS http://localhost:8099/health"], capture_output=True)
+            assert unavailable.returncode != 0
+            rescue = json.loads(command(*ssh, "agentic-home diagnostics"))
+            assert rescue["observations"]
+            command(*ssh, "agentic-home support-bundle --output /home/tester/support-probe.json")
+            support = json.loads(command(*ssh, "cat /home/tester/support-probe.json"))
+            assert support["format"] == "agentic-support-v1"
+            (ROOT / "evidence" / ("installed-rescue-" + profile + ".json")).write_text(json.dumps({
+                "runtime_location": "disposable_outer_linux_vm", "controller_stopped": True,
+                "diagnostics": rescue, "support_bundle": "created", "cloud_login": "not_run"}, indent=2) + "\n")
+        finally:
+            command(*ssh, compose + " up -d --wait controller")
+        sandbox_result = subprocess.run([*ssh, "sudo python3 -"], capture_output=True, text=True,
+                                       input=(ROOT / "tests/installed_sandbox_probe.py").read_text(), timeout=120)
+        # Preserve the probe's allowlisted diagnostics before asserting a failure;
+        # never publish arbitrary SSH stderr or workspace contents.
+        sandbox_probe = json.loads(sandbox_result.stdout)
+        (ROOT / "evidence" / ("installed-sandbox-" + profile + ".json")).write_text(
+            json.dumps(sandbox_probe, indent=2) + "\n")
+        assert sandbox_result.returncode == 0 and sandbox_probe["result"] == "passed", sandbox_probe
+        command(*ssh, "agentic-home provision")
+        host = json.loads(command(*ssh, "agentic-home status"))
+        assert host["vm"] == "running" and host["provisioned"]
         def wait_ha():
             for _ in range(180):
                 response = subprocess.run([*ssh, "curl --max-time 3 -fsS http://localhost:8123/api/onboarding"],
@@ -140,6 +169,8 @@ while data:=s.recv(65536):
                     "iso_sha256": iso_hash,
                     "installation": "passed", "firstboot": "passed", "haos_vm_running": True,
                     "outer_ui_with_haos_off": True, "cold_snapshot_restore": "passed",
+                    "firstboot_without_haos": True, "hermes_service_without_account": "needs_auth",
+                    "console_rescue_with_controller_stopped": "passed",
                     "outer_reboot_haos_autostart": "passed",
                     "ha_readiness_check": "real Core onboarding API JSON list after startup, restore and outer reboot",
                     "duration_seconds": round(time.time() - started),

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
+import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -23,12 +24,22 @@ class Store:
         path.chmod(0o600)
         self.db = sqlite3.connect(path)
         self.db.row_factory = sqlite3.Row
+        version = self.db.execute("PRAGMA user_version").fetchone()[0]
+        if version not in (0, 1, 2):
+            self.db.close()
+            raise RuntimeError("資料庫版本較新，請使用相容 App 或完整還原")
+        if version == 1:
+            # V3 records and Gateway preferences have new semantics despite
+            # retaining the SQL tables. Old binaries must refuse the new data.
+            # Keep a consistent, private pre-migration backup, never overwrite it.
+            backup = path.with_name(path.name + ".before-v2-" + uuid.uuid4().hex + ".sqlite3")
+            backup.touch(mode=0o600, exist_ok=False)
+            with sqlite3.connect(backup) as target:
+                self.db.backup(target)
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA synchronous=FULL")
-        version = self.db.execute("PRAGMA user_version").fetchone()[0]
-        if version not in (0, 1):
-            raise RuntimeError("資料庫版本較新，請使用相容 App 或完整還原")
         self.db.executescript("""
+            BEGIN IMMEDIATE;
             CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS records (
                 kind TEXT NOT NULL, id TEXT NOT NULL, body TEXT NOT NULL,
@@ -41,7 +52,8 @@ class Store:
                 at TEXT NOT NULL, kind TEXT NOT NULL, body TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS conversation_scope ON records (
                 json_extract(body, '$.scope'), created DESC) WHERE kind='conversation';
-            PRAGMA user_version=1;
+            PRAGMA user_version=2;
+            COMMIT;
         """)
         path.chmod(0o600)
 
@@ -133,6 +145,15 @@ class Store:
         context_cutoff = (datetime.now(UTC) - timedelta(days=days["context_days"])).isoformat()
         with self.db:
             self.db.execute("DELETE FROM records WHERE kind='conversation' AND created < ?", (context_cutoff,))
+            # Capability hashes and context-bearing evidence expire independently
+            # of audit handles. Idempotency tombstones deliberately remain.
+            self.db.execute("DELETE FROM records WHERE kind='mcp_grant' AND json_extract(body,'$.expires') < ?",
+                            (time.time(),))
+            self.db.execute("DELETE FROM records WHERE kind IN ('hermes_case','case_evidence') AND created < ?",
+                            (context_cutoff,))
+            self.db.execute("DELETE FROM records WHERE kind IN ('hermes_run','work_job') AND created < ? "
+                            "AND json_extract(body,'$.state') IN ('succeeded','failed','cancelled','interrupted','blocked')",
+                            (cutoff,))
         for task in self.list("host_task", 10000):
             if task["state"] != "planning" and task["created_at"] < context_cutoff:
                 self.put("host_task", {"id": task["id"], "state": task["state"], "created_at": task["created_at"],

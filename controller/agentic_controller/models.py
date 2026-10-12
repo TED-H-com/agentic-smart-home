@@ -38,6 +38,7 @@ class GatewayPreferences(Strict):
     primary: Literal["web", "line", "discord", "telegram"] = "line"
     runtime: Runtime = "host"
     provider: Provider = "codex"
+    coordinator: Literal["hermes", "direct"] = "hermes"
 
 
 class ChannelConfig(Strict):
@@ -59,6 +60,9 @@ class ChatInput(Strict):
     message: Annotated[str, Field(min_length=1, max_length=5000)]
     runtime: Runtime = "host"
     provider: Provider = "codex"
+    # Existing API clients retain the restricted direct path; the normal Web and
+    # channel entry points explicitly select the default Hermes coordinator.
+    coordinator: Literal["hermes", "direct"] = "direct"
     reply_to: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None = None
     new_conversation: bool = False
 

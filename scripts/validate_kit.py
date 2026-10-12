@@ -34,11 +34,17 @@ def main():
             if line.startswith("FROM "):
                 assert "@sha256:" in line
     assert (ROOT / "controller/static/index.html").is_file(), "Build the UI first"
-    markdown = [*ROOT.glob("*.md"), *ROOT.glob("docs/*.md"), *ROOT.glob("controller/*.md"), *ROOT.glob("runner/*.md")]
+    markdown = [*ROOT.glob("*.md"), *ROOT.glob("docs/*.md"), *ROOT.glob("docs/v3/*.md"),
+                *ROOT.glob("controller/*.md"), *ROOT.glob("runner/*.md"), *ROOT.glob("hermes/*.md")]
     for path in markdown:
         for target in re.findall(r"\]\(([^\s)]+)\)", path.read_text()):
             if "://" not in target and not target.startswith("#"):
                 assert (path.parent / target.split("#")[0]).exists(), f"Broken link in {path.name}: {target}"
+    hermes = json.loads((ROOT / "hermes/hermes.lock.json").read_text())
+    assert re.fullmatch(r"[a-f0-9]{40}", hermes["commit"])
+    assert re.fullmatch(r"[a-f0-9]{64}", hermes["sha256"])
+    assert hermes["commit"] in hermes["archive_url"]
+    assert (ROOT / "hermes/Dockerfile").read_text().splitlines()[0] == "FROM " + hermes["base_image"]
     print("App packages, pinned dependencies, tool catalog, compiled UI and document links verified")
 
 

@@ -155,6 +155,11 @@ def routes(app, auth, ha, store, runner, controller_id):
 
     @app.post("/api/host/logout")
     async def logout():
+        # Web authority is independent of configured external bot audiences.
+        store.set_setting("hermes_web_epoch", uuid.uuid4().hex)
+        coordinator = getattr(app.state, "coordinator", None)
+        if coordinator:
+            await coordinator.recover(source="web")
         response = JSONResponse({"authenticated": False})
         response.delete_cookie("agentic_host", path="/")
         return response

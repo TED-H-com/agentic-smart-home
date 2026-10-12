@@ -20,7 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 TARGET = Path("/opt/agentic-home")
 STATE = Path("/var/lib/agentic-home")
 PACKAGES = ["qemu-kvm", "qemu-utils", "libvirt-daemon-system", "libvirt-clients", "ovmf", "dnsmasq-base",
-            "docker.io", "docker-compose-v2", "python3", "ca-certificates", "curl", "openssh-server"]
+            "docker.io", "docker-compose-v2", "python3", "ca-certificates", "curl", "openssh-server",
+            "git", "e2fsprogs", "util-linux"]
 
 
 def run(*args):
@@ -108,6 +109,7 @@ def install(profile, bases):
     run("apt-get", "install", "-y", *packages)
     for directory, mode, uid, gid in (("controller", 0o700, 1000, 1000), ("runner", 0o700, 0, 0),
                                       ("pairing", 0o750, 0, 1000), ("host", 0o700, 0, 0),
+                                      ("hermes", 0o700, 10003, 10003), ("hermes-link", 0o750, 0, 1000),
                                       ("linejs", 0o700, 1000, 1000), ("line-config", 0o700, 1000, 1000)):
         path = STATE / directory
         path.mkdir(exist_ok=True)
@@ -118,6 +120,11 @@ def install(profile, bases):
         access.write_text(secrets.token_urlsafe(32) + "\n")
     os.chown(access, 1000, 1000)
     os.chmod(access, 0o600)
+    hermes_link = STATE / "hermes-link/service-token"
+    if not hermes_link.exists():
+        hermes_link.write_text(secrets.token_urlsafe(48) + "\n")
+    os.chown(hermes_link, 0, 1000)
+    os.chmod(hermes_link, 0o640)
     for unit in (TARGET / "host/systemd").glob("*.service"):
         shutil.copyfile(unit, Path("/etc/systemd/system") / unit.name)
     cli = Path("/usr/local/bin/agentic-home")
@@ -176,8 +183,9 @@ asyncio.run(main())
 """
     subprocess.run(["docker", "compose", "-f", str(TARGET / "host/compose.yaml"), "exec", "-T", "-u", "1000:1000",
                     "controller", "python", "-c", script], input=json.dumps(payload), text=True, check=True)
-    run("/usr/local/bin/agentic-home", "provision")
-    atomic(STATE / "installed.json", {"version": "0.3.1", "profile": profile["id"], "installed_at": time.time()})
+    # E0 starts with Web + Hermes. Creating the HAOS VM is an explicit later
+    # lifecycle operation; its availability cannot block first use of the host.
+    atomic(STATE / "installed.json", {"version": "0.4.0", "profile": profile["id"], "installed_at": time.time()})
     print("Agentic Home installed. Open http://localhost:8099; view local login key: sudo agentic-home access-key")
     if profile["desktop"]:
         run("systemctl", "start", "gdm3")

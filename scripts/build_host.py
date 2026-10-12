@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "host"))
 from agentic_host.artifacts import fetch, sha256  # noqa: E402
 from agentic_host.manager import validate_profile  # noqa: E402
 
-VERSION = "0.3.1"
+VERSION = "0.4.0"
 SKIP = {"__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", "test-results"}
 
 
@@ -59,7 +59,7 @@ def bundle(destination):
     if stage.exists():
         shutil.rmtree(stage)
     stage.mkdir(parents=True)
-    for directory in ("host", "controller", "runner", "contracts", "docs", "scripts"):
+    for directory in ("host", "controller", "runner", "hermes", "contracts", "docs", "scripts"):
         shutil.copytree(ROOT / directory, stage / directory,
                         ignore=shutil.ignore_patterns(*SKIP, "*.pyc", "*.tsbuildinfo"))
     for name in ("README.md", "INSTALL.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md", "providers.lock.json", "upstream.lock.json", "channels.lock.json"):
@@ -69,7 +69,7 @@ def bundle(destination):
     lock = json.loads((ROOT / "host/bases.lock.json").read_text())
     artifact = fetch(lock["haos"], ROOT / "build/cache")
     os.link(artifact, assets / artifact.name)
-    tags = ["agentic-home-controller:" + VERSION, "agentic-home-runner:" + VERSION, "agentic-home-linejs:" + VERSION]
+    tags = ["agentic-home-" + service + ":" + VERSION for service in ("controller", "runner", "linejs", "hermes")]
     images = {tag: subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", tag], text=True).strip()
               for tag in tags}
     (stage / "images.lock.json").write_text(json.dumps(images, indent=2) + "\n")
@@ -113,7 +113,7 @@ def iso(profile, product, destination):
         partial.unlink(missing_ok=True)
         try:
             xorriso("-indev", base, "-outdev", partial, "-boot_image", "any", "replay",
-                    "-volid", "AGENTIC_HOME_031", "-map", product, "/agentic-home/product.tar",
+                    "-volid", "AGENTIC_HOME_040", "-map", product, "/agentic-home/product.tar",
                     "-map", work / "product.sha256", "/agentic-home/SHA256SUMS",
                     "-map", seed, "/agentic-seed", "-map", work / "grub.cfg", "/boot/grub/grub.cfg",
                     "-map", work / "loopback.cfg", "/boot/grub/loopback.cfg",

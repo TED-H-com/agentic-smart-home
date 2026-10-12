@@ -1,26 +1,56 @@
-# 統一通訊與兩層 Agent · 0.3.1
+# 統一通訊、Hermes 與受控 Agent · 0.4.0 技術預覽
 
-外層 Linux 的 Controller 是唯一通訊入口。Web 永遠可用，外部通道由使用者在 onboarding 啟用；預設呈現 LINE，也可選 Discord、Telegram 或只使用 Web。HAOS 停機不會阻止外層登入或對話。
+外層 Controller/Gateway 維持唯一通訊 receiver。Web 一直可用，LINE／Discord／Telegram 可於 onboarding 稍後啟用；Hermes 不啟動自己的 bot Gateway，也不取得通道 token。首次開機不建立 HAOS，不影響外層 Web、Hermes 登入或固定主機查詢。
 
-## 執行與登入
+## Hermes 是一般對話的協調助手
 
-Controller 分別保存外層與內層 Runner 的 TLS 指紋、配對 bearer；provider 認證留在各自 Runner 的私有 profile。每個環境都有 Codex、Claude Code、Antigravity 與 Grok Build，不共用登入檔案。HAOS Runner 是該 OS 的 App 容器，透過 Supervisor 管理；不是在 HAOS 唯讀主機根目錄安裝 npm。
+新的一般 Web／通道對話預設交給 Hermes。它執行 [固定 commit 的真上游 AIAgent](../hermes/hermes.lock.json)，透過私有 adapter 的 session/run/cancel 介面與 Controller 整合，詳見 [runtime 契約](../hermes/README.md)。沒有用自製推理 loop 假稱 Hermes，也沒有把上游 `delegate_task` 當作已完成的 HAOS worker。
 
-內層位址固定為受管理 VM 的 `192.168.177.2:8443`，使用者不能將登入 API 改成任意遠端 URL。HA App 商店加入 `https://github.com/teddashh/agentic-smart-home`，安裝 Runner、保留 8443 映射，再將一次性配對 JSON 貼到外層 Web。Runner ZIP 可作為本機 App 來源替代方案。
+第一條模型認證路徑是 **OpenRouter API key＋模型 ID**。在 onboarding「Hermes 登入」或「Agent 環境」設定；它與 Host／HAOS 的 CLI 認證各自獨立，不自動沿用訂閱／token，不偷偷 fallback 到其他 provider。
 
-Codex 支援 device code／API key；Claude 支援 API key／setup token；Grok 支援官方 device code／xAI API key；Antigravity 目前只整合 Gemini API key，尚未整合 Google 訂閱登入。API key 直接送到指定 Runner，不進 Controller 對話紀錄或模型 prompt。API key 登入檢查會執行一次簡短的官方 CLI 推理，可能使用帳號額度。
+| 顯示狀態 | 意義 |
+|---|---|
+| 尚待登入（needs_auth） | 尚無有效設定；仍可使用 Web 和固定 console 診斷 |
+| 已儲存，待實際回覆驗證（configured） | 金鑰已保存，未藉儲存動作呼叫模型或宣稱登入成功 |
+| 已完成推論驗證（ready） | 實際模型呼叫已成功；不代表 worker／家庭／設備驗收完成 |
+| 需要重新登入（needs_reauth） | 認證失效，需處理原帳號 |
+| 服務尚未連線（unavailable） | 私有 runtime 不可用；與 HAOS 未建立分開呈現 |
 
-## 訊息與家庭操作
+瀏覽器只與 Controller 互動；key 表單儲存後清空，不放入 localStorage/sessionStorage、URL、對話 prompt 或一般 evidence。runtime service bearer 不交給瀏覽器。Hermes 私有服務在 loopback 8096，Controller 的獨立 MCP listener 在 8097，兩者都不是使用者或 worker 的通用管理 API。
 
-Web 明確選擇 runtime 與 provider。外部通道依預設設定處理，`/host `、`/home ` 前綴可分別選擇外層或內層。Web 送出後會接續目前對話，可按「開始新對話」清除前文選擇，也可從舊訊息選「接續這段對話」。切換環境或 provider 時各自保留選擇；瀏覽器 sessionStorage 僅保存訊息 ID，不保存需求或憑證。網路回覆遺失時，同一份尚未成功確認的表單重試會沿用 Idempotency-Key。
+## 固定工具與 worker 的實際狀態
 
-外部訊息自動接續同一通道、聊天室、使用者、runtime、provider 的最近對話。`/new 新需求` 開始新對話；`/home /new 新需求` 則同時指定 HAOS。變更 bot token、白名單、HA owner 或設備政策後不繼承原上下文。連續送出的訊息會等待前一則完成；中斷或已過期的前文不會重播。
+Hermes 可見工具固定為 `host.status`、`worker.capabilities`、`worker.submit`、`worker.status`、`worker.cancel`、`worker.result`、`case.evidence.read`。MCP 每次呼叫驗證短期 case/run capability；server 決定身份、資料 scope 與工具限制。沒有任意 shell、filesystem、browser、原生 delegate、HA API、Live approve/apply 或模型自簽批准。
 
-Controller 最多提供六回合、8 KiB 的前文，每則需求與答覆各最多 2 KiB；超限或已清理時明確標記省略，不把舊觀測當作即時狀態。每次 HAOS 問答重新讀取已授權設備。前文依設定保留 1–7 天，查詢也立即套用期限，不依賴定期清理。補充家庭需求會建立後續任務，原本等待補充的任務標示已接續並記錄後續任務 ID；等待批准的提案保持獨立。
+本版 `host.status` 提供去密且標註觀測位置的固定主機證據，不能由 libvirt／host 狀態推論 Core、App 或設備正常。`case.evidence.read` 只接受同一 case 的 evidence IDs，不能指定任意路徑／URL。
 
-外層只接受文字答覆與有限主機觀測。內層需求進入既有 Engine，保留設備政策、HA owner 即時驗證、具體提案、Web 批准、備份、讀回及日誌。LINE／Discord／Telegram 的訊息不能充當批准。已啟用的日常自動化由 Home Assistant 執行，不依賴 Agent 常駐推理。
+兩個 research/development workers 目前都回報 **blocked**。submit 會建立可追蹤、可去重的 handle，但 `execution_started=false`，沒有啟動 coding CLI。Host 的 [offline sandbox foundation](../host/worker/README.md) 尚待完整 filesystem lifecycle／provider egress 驗證與 CLI adapter；Home 仍需真正 HAOS App sandbox。受控 Runner 的存在或兩個 worker 名字出現在畫面，不是 E1/E2 已完成。
 
-聊天室與使用者白名單必須同時符合；bot／自身訊息忽略。外部通道以來源＋聊天室＋使用者＋事件 ID＋通道設定持久化去重，重複送出不重跑。每位來源使用者每分鐘最多 10 條，總共最多 10 個處理中工作。Controller 重啟後標示中斷，不重播未完成需求；回覆傳送不確定時記為 `unconfirmed`，不盲目重送。變更聊天室或 token 後，舊工作不會將內容送給新設定的對象。
+## 對話、case 與重試
+
+Web 對話預設「Hermes 協調助手」。選「受控 Agent（進階）」才顯示 runtime／CLI；切換進階 Grok／HAOS 後回 Hermes，仍回到自己的 Hermes 對話 scope，不讓隱藏的 CLI 選擇改變 Hermes case。Web 可按「開始新對話」，或從舊 Web 訊息接續；sessionStorage 只保存各 scope 的訊息 IDs。
+
+外部通道依設定的協調方式處理；`/new 新需求` 開始新對話。`/host 需求`／`/home 需求` 明確選擇既有受控 Runner；可組合 `/home /new 新需求`。不同通道、聊天室、sender 及設定保持隔離，不會自動跨通道共用 Hermes session。更換 bot token／白名單、Owner／政策、Hermes 模型或認證會使不再授權的舊 context／能力失效。明確主機登出也切斷 Web Hermes scope。
+
+Controller 保存 conversation→case→Hermes session/run mapping；提交取得 handle，頁面離開不必維持原 HTTP 請求。相同 key/digest 的重試指向同一工作，換 payload 則拒絕。Controller 和 Hermes 重啟都會查核／標示中斷，不直接重播未完成推論或家庭副作用。短期 capability 可因取消、暫停、登出或 scope 變更撤銷。
+
+Hermes runtime 一次一個 run，5 分鐘 deadline、最多 12 次模型 iterations；history 與回覆有大小／期限上限，詳細見 runtime 契約。這套有限 session history 與原受控 Runner 的前文編譯分開。輪詢狀態不會呼叫模型；無可信供應商用量時不捏造費用。
+
+保存期限 `context_days` 可設 1–7 天。外層 Controller 先同步 Hermes 私有 `/v1/retention` 才保存本機設定；同步失敗回 503，Controller 原設定保留。縮短時 runtime 先停止 turn，再清除過期 context，避免進行中回覆把舊前文寫回；調長不恢復已刪內容。一般證據／內容刪除與必要去重 tombstones 分開，不能把只改一份 DB 當成所有前文已移除。
+
+聊天室及 sender 必須同時在白名單，bot／自身訊息忽略。來源事件持久化去重，每位來源使用者每分鐘最多 10 條，Gateway 最多 10 個處理中工作；runtime 自己的並行限制另行生效。回覆傳送不確定時保留 `unconfirmed`，不盲目重送；更換收件範圍後，舊工作不發送到新對象。
+
+## 進階受控 Runner 與家庭操作
+
+既有 `home_operator` 限制保留，沒有為新增 coding 全域打開工具。Controller 分別保存 Host／HAOS Runner 的 TLS 指紋與配對 bearer，provider 認證留在各自的私有 profile。內層是實際 HAOS Runner App，不是在 HAOS 唯讀根目錄安裝 npm，也不是 Home Coding Worker 驗收的替代品。
+
+內層位址固定為產品 VM 的 `192.168.177.2:8443`。HAOS 建立後，在 App 商店加入 `https://github.com/teddashh/agentic-smart-home`、安裝 Runner、保留 8443，將一次性配對 JSON 貼到外層 Web；Runner ZIP 可作本機 App 來源。
+
+Codex 支援 device code／API key；Claude 支援 API key／setup token；Grok 支援官方 device code／xAI API key；Antigravity 目前只整合 Gemini API key。CLI 的 API-key 登入檢查會執行一次簡短官方推論、可能使用額度；這與 Hermes 的「先保存 configured，再由提問驗證」不同。
+
+受控模式的前文最多六回合、8 KiB，每則需求與答覆最多 2 KiB；逾限明示省略，保留期 1–7 天。HAOS 問答重新取得授權觀測，不把舊記憶當即時狀態。補充需求會建立後續家庭任務並連回先前等待補充的任務；等待批准的提案仍是獨立的確切資源。
+
+目前家庭提案走受控 HAOS 問答／原家庭工作台，保留 policy、live Owner、具體提案、Web 批准、備份、journal 及讀回核對。Hermes 沒有把研究結果直接部署的工具；通道訊息與模型 `approved=true` 均不能代替批准。已部署的日常規則由 HA 執行，停止 Hermes／Runner 不會停用規則。
 
 ## LINE.js
 

@@ -1,75 +1,59 @@
-# Agentic Smart Home 實作規格 0.3.1
+# Agentic Smart Home — 現行 v3 規格入口
 
-## 0.3 統一通訊
+Steering v3.0；匯入基準是應用 `0.3.1`、commit `3ad476a712009469521c3f9838a44ef35ba29f76`。完整規格以 [Owner Project Spec v3](docs/v3/PROJECT_SPEC_V3.md) 和 [Worker Contract v1](docs/v3/WORKER_PROTOCOL_V1.md) 為準；以下是工程落地的共同不變條件，不是所有設計均已實作的聲明。當前證據見 [進度表](docs/v3/PROGRESS.md)。
 
-新增 Web-first onboarding、LINE／Discord／Telegram gateway，以及內外兩層各自登入的 Codex、Claude、Antigravity、Grok Runner。四種 CLI 各自使用 UID 1001–1004。新能力、實際限制與通訊契約見 [GATEWAY.md](docs/GATEWAY.md)。以下家庭操作核心沿用原架構。
+## 路徑與權威
 
-## 外層 Linux 優先的部署修正
+```text
+Owner → 既有 Web/Gateway → conversation adapter → 外層 Hermes
+                                                ↓ MCP 工具
+                                            Controller
+                          ┌─────────────────────┼──────────────────┐
+                    Host Runner           Home Runner        家庭 Engine
+                    隔離 coding           真 HAOS App         精確提案／批准
+                          ↓                     ↓                   ↓
+                   source/tests/preview   source/scratch/tests     HA APIs
 
-產品主入口是 Linux ISO／完整安裝 TAR。Controller、Runner 在外層 Linux 的容器運行，HAOS 是 KVM guest；下方原 Ingress 部署只保留為相容模式。完整主機架構、profile、ownership、網路與快照契約見 [LINUX_PRODUCT.md](docs/LINUX_PRODUCT.md)。
-
-host mode 使用獨立主機登入與 HA owner 權杖；登入主機即可在 HAOS 停機時使用 host status、Agent 診斷及 VM 啟停。家庭 mutation 仍需 live HA owner 驗證，不能以主機 session 冒充批准者。Supervisor backup 透過 Core 的 `supervisor/api` WebSocket 代理。host mode 的 `/api/host/` 路由及原有家庭 API 共用 Controller，契約見 `contracts/host-controller.openapi.json`。
-
-Host broker 是 systemd root 服務，只接受固定 VM 的 provision、start、shutdown、snapshot、restore。模型没有任意 shell；外層 Agent 以真實主機觀測提出 typed 建議，UI 顯示具體動作後可交給 broker 執行。
-
-## 權限與部署
-
-```mermaid
-flowchart LR
-  B[HA owner 瀏覽器] --> I[Supervisor Ingress]
-  I --> C[Controller]
-  C --> H[Home Assistant Core]
-  C --> S[Supervisor 備份]
-  C <-->|固定 TLS 指紋 + 私有 bearer| R[Runner broker]
-  R --> X[Codex UID 1001]
-  R --> A[Claude UID 1002]
-  X --> O[OpenAI]
-  A --> N[Anthropic]
-  H --> D[日常自動化與設備]
+主機操作／版本切換：Controller → 固定 Host broker／獨立 updater
+證據：兩個 workers → 同一 Controller case → Hermes／Owner
 ```
 
-Controller 容器啟動後降為 UID 1000，沒有 Agent CLI、Docker socket、主機掛載、shell 執行工具或 HA `.storage` 寫入。Core proxy bearer 只留在 Controller。Supervisor role 為 `backup`。
+Hermes 不持有家庭 Owner／host root 權威。Controller 驗證身份、scope、capability、job、proposal 與執行；不在自身高權限 process 執行模型程式。Runner broker 由 server 配對決定目標／身份／限制，不接受模型指定 URL、UID、mount 或 shell hook。單一 bot 維持一個 receiver。Hermes 原生 `delegate_task` 不等於我們的遠端 worker adapter。
 
-Runner broker 管理 App 內部憑證；四個 CLI profile 各自 0700，使用不同 UID，任務環境只包含該 provider 必要欄位。App 的 Supervisor token 不會交給 CLI。Runner 沒有 Core API／Supervisor管理權限、HA config 掛載或 Controller UI 授權。
+## 執行模式
 
-Ingress 管理 API 檢查實際 TCP peer `172.30.32.2`，不信任 forwarded IP。`X-Remote-User-Id` 經 Core `config/auth/list` 查核 active owner；mutation 每次重新查核，搭配 Origin、HMAC CSRF 與已綁定 owner。Runner bearer 不能呼叫這些 API。
+| Profile | 可做 | 不可取得 |
+|---|---|---|
+| `orchestrator` | 記憶、受控查詢、case 分工與提案 | 任意 host shell、Owner cookie、正式批准 |
+| `research` | 允許來源研究、case-scoped 診斷、可寫 scratch、小型重現及測試 | Live 寫入、管理 token、任意 LAN 探測 |
+| `development` | 任務獨立 clone/workspace、修改、tests、patch／preview | Live checkout／DB、共用 Git metadata、部署權 |
+| `home_operator` | 現有受限結構化 intent 與有限 observations | 新增的一般 filesystem、terminal、browser 工具 |
+| `live_verification` | 固定並已授權的驗收 runbook／helpers | 任意 live shell、超出批准的設備動作 |
 
-## Agent 契約
+保留原家庭 CLI 啟動限制。Research／development 以獨立 process、credential、mount、network 與 hard resource limits 實作；prompt 或 UI 開關不算 sandbox。Home Worker 必須在 App 內實測可用邊界，不給 Docker socket、`full_access`、host PID、整份 HA config、Core／Supervisor 管理 token。不可隔離時禁用該 coding mode，保留固定診斷並記錄缺口。
 
-輸入為明確授權設備的有限 JSON 觀測、使用者需求與 ownership ledger 摘要。輸出為 `contracts/agent-decision.schema.json`：答覆、需要補充、額外 inspect、單次操作意圖或 automation intent。每次只允許一類意圖；20 次額外查詢上限。Controller 重新驗證每個 entity 與 action。
+## 工作、身份與恢復
 
-工具語意透過 typed intent 迴圈實現，沒有一般 shell、filesystem、browser 或任意 MCP transport。Codex 固定 CLI + 靜態官方模型 catalog，移除檔案修改及其他工具能力；未知模型名稱會拒絕。Claude 的內建工具清單為空，只保留官方結構化輸出工具。兩者的真實送出工具清單已有本機協定測試。
+對話依 Owner、channel binding、conversation 映射 Hermes session；provider/scope 變更不得沿用未授權 context。case、job、proposal、operation 各自有不同 ID。job 綁 worker/workspace/lease，server 補上實際 authorization、policy、deadline、budget、digest 和 provider；模型自報 `approved=true` 或 `live_mutation_allowed` 不授權。
 
-一次一個 CLI job，最多 10 個排隊。job 最長 300 秒，prompt 32 KiB，回覆 256 KiB，stdout／stderr 各 1 MiB，CLI process group RSS 上限 1 GiB、每 0.5 秒觀測；CPU／經過時間留在 Runner job 紀錄。無自動排程模型呼叫、模型轉送或捏造的美元費用。
+既有 Runner `protocol=1` 與新 `work_contract_major=1` 分別握手。提交先持久化再發送並立即回 handle；Controller 和 Runner 都做 key/digest 去重。斷線／重啟先查 exact job，不直接重派。取消需分 `cancel_requested`、`cancelled`、`stop_unconfirmed`；舊程序仍能寫入時不能釋出 writer lease。初期每 worker 一 job、總 coding 並行一個、最多兩輪跨 worker 補查；不允許 worker 遞迴派工。
 
-## 自動化與操作
+## 正式家庭保護
 
-Intent 僅支援一個明列 entity 的固定狀態轉換、可選固定時間區間、一至三個 `turn_on`／`turn_off` 動作、`single` 模式。來源不可同時是目標，目標不可重複。不接受任意 YAML、template、service、script、scene、webhook 或間接指令。
+既有 policy、entity/action allowlist、typed intent、canonical digest、10 分鐘提案有效期、revision/base hash、ownership ledger、live Owner 身份、備份、journal、staging/readback、activation 與事件核對仍有效。只有 Owner 的正式批准或明確預授權 runbook 能形成執行權。新修訂使舊批准失效；寫入結果不確定時進 `needs_reconcile`。停止 Hermes／workers 不會停止已部署的 HA 原生規則。
 
-Pydantic strict models 禁止額外欄位。確定性編譯器產生原生 `triggers`／`conditions`／`actions` 與 canonical SHA-256。Core 2026.10.1 的原生 `validate_config` 使用複數欄位；寫入 adapter 使用固定版本的 `/config/automation/config/{id}`。
+Ingress／host 管理身份、Controller／Runner 私有 bearer 及 credentials 分離沿用 [API contract](docs/API_CONTRACT.md)、[Linux 部署](docs/LINUX_PRODUCT.md) 和 [Gateway](docs/GATEWAY.md)。舊 0.3.1 的詳細家庭執行規格保存於 [封存規格](docs/history/pre-v3-0.3.1/PROJECT_SPEC.md)，其中「所有 Agent 都無一般工具」僅適用保留的 `home_operator`，不再限制隔離的 research/development。
 
-Proposal 綁定確切 ID、原始／草稿／最終設定、完整 digest、policy hash、穩定 inventory metadata、revision、10 分鐘有效期、操作與驗證計畫。只有 UI owner 可產生 approval；每個副作用前再次查身份、授權、相容版本與相關條件。
+## 證據、preview、更新
 
-新建 ID 為 `agentic_<uuidhex>`。修改必須同時有 ledger 且 live config 等於最後已知 hash，僅 ID 前綴不授權。先取得已完成的 HA 備份與 SQLite 一致快照，再建立停用草稿，確認檔案與執行中 raw config，寫最終設定、啟用並讀回。最終啟用設定不含 `initial_state:false`，保留 HA 原生重啟恢復行為。
+每份 observation 帶 `observed_from`、`target_component`、`observed_at`、`version_refs`、`collection_method`、`evidence_id`、digest、redaction 及 limitations。App probe 與透過 Controller 的 Core API 是不同來源，不能由 App 連線正常推論整個 Core／HAOS 正常。Fixture、真 CLI、real cloud、Core、HAOS、helper 和 physical device 分開記。
 
-只有單次 action／設定停用的讀回可直接結案；持續規則要觀測來源轉換、automation context 與 target context 才顯示觸發成功。自動 helper 測試也使用真實 state transitions。未取得新的事件時保持 `verifying`。
+Artifact 經 broker 檢查大小、路徑、symlink、特殊檔案及 secrets；HTML 和 findings 當作不可信內容。Preview 不能使用正式 cookies、管理 origin、HA 登入備份或連正式設備；只換 localhost port 不等於隔離。UI 依 `DESIGN.md` 與既有元件演進。
 
-## 持久化與恢復
+固定 updater 只接受可信 publisher、固定配置和版本 manifest；hash 不是發布身份。第一版只做相容 schema/protocol 的應用更新，保留舊 artifact、一致資料快照及不靠 Web 的退版工具。新增 case/job schema 必須明示 migration；不能盲目恢復舊 DB 蓋過新操作。不在同次混升 OS、Core、CLI 或網路。
 
-Controller／Runner 各自 SQLite WAL、單 process 寫入。Controller schema version 1，未知 schema 拒絕開啟。每個狀態先持久化；重啟把不確定部署改為 `needs_reconcile`，不重送副作用。
+**0.4.0 實作註記：Controller 使用 schema 2。** SQL tables 沿用，但新增 Gateway `coordinator` 與 v3 records 的資料語意不相容於 0.3.x。開啟 schema 1 時，先產生 mode-0600、SQLite 一致性的 `.before-v2-<uuid>.sqlite3` 私有快照，再於交易中更新版本 marker；settings、audit、records 和去重紀錄保留。新 DB 為 2，舊 binary 拒絕 2。這是明確的向前資料遷移，不代表已提供同格式 updater／原地降版；restore 工具接受 1 或 2，保留原格式，不把 2 降為 1。
 
-Idempotency key 綁 request digest，重用 key 改內容回 409。Controller writer lock 序列化寫入；沒有宣稱可與 HA 外部編輯器形成跨應用交易。讀回不一致、逾時或回應遺失保留現場，需 reconcile；rollback 亦先比對 live hash。
+外層 Controller 的 context 保存設定同步至 Hermes 私有 `/v1/retention`，範圍 1–7 天。同步失敗回 503 並保留 Controller 原設定，不能只清一份 DB 就宣稱收回所有前文；Hermes 縮短期限時先停止 turn，再清除逾期資料。具體操作和敏感遷移快照處理見 [OPERATIONS](docs/OPERATIONS.md)。固定 updater／rollback 和完整現場恢復仍待另行交付與驗收。
 
-一般紀錄 30 天、Agent 觀測上下文 7 天，可縮短。當前受管理規則的操作依據與去重 tombstones 保留。Runner 完成 job 保留 7 天，任務工作目錄執行後移除。provider credentials 不進 Controller DB、事件或一般匯出。
-
-Controller 下載備份為 `AGHOME1` 容器格式：PBKDF2-SHA256 390,000 次、隨機 16-byte salt、12-byte nonce、AES-256-GCM，payload 為 SQLite backup API 快照。還原先驗證完整性／schema，再以排他操作建立目標 DB。原生 Runner 備份排除 profiles、work、TLS private；還原後重新配對／授權。
-
-## 原生家庭服務
-
-Alexa 控制 HA、HA 控制 Alexa Devices、Nest 分開提供前提、跳轉、持久化 checkpoint 與回來驗證。家庭 credentials 全由 HA 保管。Alexa 語音實測採 `user_reported_connected`；其他 paths 需 loaded config entry 與 available entities。沒有可用帳號時顯示真實等待／重新授權狀態。
-
-## 介面與可觀測性
-
-繁體中文 React 單頁應用，Ingress 相對資源路徑；桌面 1440、768、390 px 瀏覽器測試。HTTP LAN 不依賴 secure-context-only `crypto.randomUUID`。任務補充、取消、暫停、差異、批准、核對、helpers、自動化管理、服務 checkpoint、備份及保存設定均有 UI。
-
-API 細節由 `contracts/controller.openapi.json` 與 [API_CONTRACT.md](docs/API_CONTRACT.md) 維護。交付真實性依 [VERIFICATION.md](docs/VERIFICATION.md)；硬體與雲端帳號結果不以 fixture 代替。
+每個能力按 [Pilot Acceptance](docs/v3/PILOT_ACCEPTANCE.md) 分階段啟用。硬體／帳號／內層執行的未測項保持 `not_run` 或具體 `blocked`；不得用既有測試、模型自己的 passed 或三個 Agent 意見一致取代驗收。

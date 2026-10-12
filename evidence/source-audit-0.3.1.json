@@ -1,0 +1,8 @@
+{
+  "version": "0.3.1",
+  "scope": "Exported product allowlist, including nested Runner source archive; private parent repository excluded",
+  "scanner": "Gitleaks 8.30.1",
+  "findings": 0,
+  "manifest": "All SHA-256 entries recomputed and matched; six initial generic-api-key matches were these verified checksums, not credentials",
+  "date": "2026-10-11"
+}

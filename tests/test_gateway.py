@@ -313,6 +313,9 @@ async def test_channel_config_has_explicit_audience_and_never_returns_credential
 
 async def test_channel_filters_deduplicates_and_routes_back_to_same_conversation(system, store, monkeypatch):
     app, _, outer, inner = system
+    # This case verifies the retained restricted Runner mode, selected explicitly
+    # now that new channel conversations default to Hermes in v3.
+    store.set_setting('gateway', {'coordinator': 'direct'})
     ready = asyncio.Event()
     sent = []
     receive_handler = None

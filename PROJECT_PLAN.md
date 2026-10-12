@@ -1,27 +1,34 @@
-# Agentic Home Linux 產品計畫 — 0.3.1
+# Agentic Smart Home — Plan v3
 
-Owner：Ted Huang。2026-10-11 的外層 Linux 架構修正優先於先前「只交付 HAOS Apps」方案。
+Owner：Ted Huang。方向版本：Steering v3.0，2026-10-11。匯入時應用基準為 `0.3.1`、commit `3ad476a712009469521c3f9838a44ef35ba29f76`；文件 v3 不代表應用版本 3.0 或已完成驗收。
 
-產品從外層 Linux 安裝開始；Agent、管理介面與主機服務在 Linux 上，產品建立並管理內層官方 HAOS。HAOS 保留 Supervisor、Core、integrations、日常自動化。
+完整權威文件為 [Owner 的 Project Plan v3](docs/v3/PROJECT_PLAN_V3.md)，先讀 [Dev Team Brief](docs/v3/DEV_TEAM_BRIEF.md)。本頁是 repo 的現行入口；舊根目錄文件保存在 [history](docs/history/pre-v3-0.3.1/README.md)，其角色安排與執行模式已由 v3 取代。
 
-## 交付範圍
+## 固定角色
 
-- 可開機 Linux ISO、完整產品 TAR、來源 ZIP。
-- 官方映像 lock、多主機 profile、可恢復 firstboot 安裝。
-- 外層 Controller／Runner、主機登入、HA owner 連接、provider 官方登入。
-- KVM provisioning、VM ownership、正常啟停、冷快照／還原、操作紀錄。
-- HAOS 停機時仍可用的主機介面與 Agent 診斷。
-- 既有家庭設備盤點、提案、批准、備份、原生自動化及真實觸發流程。
+外層 Linux 上的一個 Hermes 是唯一主要協調者，管理需求、case、分工與證據。Host Coding Worker 研究產品／上游、修改隔離 checkout、跑 tests 與 preview；Home Coding Worker 在真正的 HAOS App 內自主追加現場查證、寫 scratch／重現程式、跑輕量測試並提出 patch。兩者可使用同一 provider，認證、session、workspace 和能力分開。
 
-首條部署路徑：amd64 Ubuntu 24.04.5 + KVM + HAOS 18.3，有桌面／無桌面兩種 profile。Ubuntu 26.04.1 有鎖定 recipe，驗證狀態另列。ARM／其他 Linux 要實作對應 installer、firmware、HAOS image 及 provider binary adapter。
+保留 Ubuntu＋KVM＋官方 HAOS、現有 Web/Gateway、Controller、Runner 的 `host/haos` 路由、TLS/pairing/jobs、家庭 Engine 和 Host broker。新增薄 Hermes/MCP adapter 與工作契約，不建立第二套通訊 receiver、家庭政策或遠端派工平台。簡單查詢由 Hermes 使用固定工具；有互補研究價值時才派 worker。
 
-不安排開發人工 gate。自動測試由開發 Agent 執行；使用者登入、硬體及長時間運作如實記錄，不拿 fixture 代替。既有 credential 分離、家庭寫入政策、分層备份與 owner 身份要求继续有效。
+## 交付順序
 
-## 目前開發順序
+| 階段 | 可使用的成果 | 必須另外取得的證據 |
+|---|---|---|
+| E0 | 既有 laptop profile 的工程 bundle/ISO；Hermes 接點／明確登入狀態；可跳過 HA/通道；固定診斷及不靠 Web 的救援 | 待交付媒體在一次性 VM 的安裝；Owner laptop 現場硬體／磁碟選擇 |
+| E1 | Hermes 派 Host Worker 真正修一個問題，交 diff、測試及隔離 preview；可取消／接手 | 真實模型與 CLI、工具執行、隔離負向測試、舊 writer 確實停止 |
+| E2 | HAOS App 內真實研究／小型程式驗證；內外互補證據；helpers 提案→批准→觸發；固定同 schema 更新／退版 | 真正 inner runtime、家庭流程、候選故障回復與整機重啟 |
+| E3 | 逐台實體設備、相鄰 Core 版本、72h 運作、離機恢復和三個單／雙 worker 對照案例 | 逐項現場紀錄；不阻擋先用 E0/E1 |
 
-- 已完成：外層 Web onboarding、四種 CLI 的雙層登入、LINE／Discord／Telegram 統一入口與提案批准流程。
-- 0.3.1：可接續的對話、明確的新對話、隔離與限量前文、快速追問排序，以及瀏覽器重試去重。驗證結果記於 `docs/VERIFICATION.md`。
-- 下一階段：通道連線與送達問題的診斷、容易取得聊天室／使用者 ID 的設定流程。
-- 後續：已安装系統的版本升級／回復流程、更多 Linux profile，以及實機與長時間運作證據。
+第一條 profile 沿用 `host/profiles/laptop-amd64.json`。本輪不加 provider、distro、第二套 Hermes 或新的 UI framework。內層未準備好不阻擋外層 Support，但另一個外層容器或固定 JSON executor 不能算完成 E2。
 
-真實雲端帳號與 LINE／Discord／Telegram 收發需在已授權帳號上實測；協定 fixture 與本機容器證據不代表平台登入成功。
+## 自主開發與正式執行
+
+Research 可在隔離工作區寫分析程式；Development 可修改自己的 clone、跑 tests 與產出候選。它們對正式安裝、家庭設定與設備保持唯讀。原 `home_operator` 限制繼續有效，新增 coding profile 的自由必須由實際 sandbox 隔離，不能全域開啟舊 Runner 工具。
+
+正式家庭變更與部署仍經 Controller／Host broker／固定 updater：精確提案、Owner 批准、備份、journal、讀回及核對。公開家庭資料、真實帳號、磁碟選擇與 Live 授權需要對應 Owner 操作；隔離範圍內開發與自動驗證不增加逐 PR 人工 gate。
+
+## 三條開發工作線
+
+A 負責 Hermes／Controller／身份與持久派工；B 負責兩層 worker／sandbox／診斷；C 負責 Web／preview／交付恢復。Owner 授權三條工作線並行，指定一位整合者管理共同契約；同一檔案、workspace 或 session 維持單一 writer。產品 workers 不因此取得遞迴派工權。
+
+16 項工作及相依以 [Backlog](docs/v3/BACKLOG_V3.md) 為準；32 個分階段驗收以 [Pilot Acceptance](docs/v3/PILOT_ACCEPTANCE.md) 為準。最新開發／驗收紀錄放 [PROGRESS.md](docs/v3/PROGRESS.md)，與六份原稿分離。既有 `0.3.1` 測試只是基準，不會自動算成新增 v3 功能已通過。

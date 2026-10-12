@@ -1,3 +1,7 @@
+# 0.4.0 technical preview
+
+Package with the v3 outer Controller and Hermes coordinator. The existing restricted home_operator execution and four pinned CLI versions remain in place. The offline coding sandbox prototype is separate and is not enabled as an HAOS coding worker.
+
 # 0.3.1
 
 與 Controller 0.3.1 同版封裝；CLI 版本與憑證隔離維持原設定。

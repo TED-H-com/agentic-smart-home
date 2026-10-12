@@ -26,8 +26,11 @@ from .engine import Engine, Rejected
 from .gateway import Gateway
 from .gateway import routes as gateway_routes
 from .ha import HAError, HomeAssistant
+from .hermes import Coordinator, HermesError
+from .hermes import routes as hermes_routes
 from .host import HostSession, external_ha
 from .host import routes as host_routes
+from .mcp import create_mcp
 from .models import (
     Decision,
     Policy,
@@ -105,7 +108,7 @@ SERVICES = {
 }
 
 
-def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", static=None, host_mode=None, inner_runner=None):
+def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", static=None, host_mode=None, inner_runner=None, hermes_client=None):
     root = Path(os.environ.get("AGENTIC_DATA", "/data"))
     host_mode = os.environ.get("AGENTIC_HOST_MODE") == "1" if host_mode is None else host_mode
     store = store or Store(root / "controller.sqlite3")
@@ -113,6 +116,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     runner = runner or Runner(store)
     inner_runner = inner_runner or Runner(store, "haos")
     gateway = None
+    coordinator = Coordinator(store, hermes_client) if host_mode else None
     engine = Engine(store, ha)
     secret = store.setting("csrf_secret") or secrets.token_hex(32)
     store.set_setting("csrf_secret", secret)
@@ -140,6 +144,14 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         watchers = [asyncio.create_task(ha.watch()), asyncio.create_task(engine.observe()), asyncio.create_task(maintain())]
         if gateway:
             await gateway.start()
+        mcp_server = None
+        mcp_task = None
+        if coordinator and os.environ.get("AGENTIC_HERMES_MCP") == "1":
+            mcp_server = uvicorn.Server(uvicorn.Config(create_mcp(coordinator), host="127.0.0.1", port=8097,
+                proxy_headers=False, access_log=False, log_level="warning"))
+            # Only the outer main server owns process signal handling.
+            mcp_server.capture_signals = contextlib.nullcontext
+            mcp_task = asyncio.create_task(mcp_server.serve())
         yield
         if gateway:
             await gateway.close()
@@ -147,6 +159,9 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+        if mcp_server:
+            mcp_server.should_exit = True
+            await mcp_task
         await ha.close()
         store.close()
 
@@ -183,7 +198,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                 return JSONResponse({"detail": "請求太大"}, status_code=413)
             if request.url.path.startswith("/api/") and request.url.path != "/api/host/login":
                 local = host_mode and (request.method in {"GET", "HEAD"} or request.url.path.startswith(
-                    ("/api/host/", "/api/providers/", "/api/gateway/", "/api/runtimes/")) or request.url.path in {"/api/pause", "/api/retention", "/api/backups/export"})
+                    ("/api/host/", "/api/providers/", "/api/gateway/", "/api/runtimes/", "/api/hermes/")) or request.url.path in {"/api/pause", "/api/retention", "/api/backups/export"})
                 user_id = (store.setting("owner") or "host-owner") if host_mode else request.headers.get("x-remote-user-id", "")
                 if not user_id or (store.setting("owner") and store.setting("owner") != user_id):
                     return JSONResponse({"detail": "只有綁定的 HA owner 可以操作"}, status_code=403)
@@ -527,6 +542,11 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     async def set_retention(body: RetentionInput):
         if body.context_days > body.audit_days:
             raise Rejected("觀測資料保存天數不能大於任務紀錄")
+        if coordinator:
+            try:
+                await coordinator.client.call("POST", "/v1/retention", {"context_days": body.context_days})
+            except HermesError as exc:
+                raise HTTPException(503, "Hermes 保存設定尚未同步，請恢復服務後重試；本機設定尚未變更。") from exc
         store.set_setting("retention", body.model_dump())
         store.prune()
         return body.model_dump()
@@ -538,9 +558,12 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                 "limitations": ["API state 不等於物理設備效果", "HAOS／laptop 重啟與 soak 由實際現場觀測確認"]}
 
     if host_mode:
-        gateway = Gateway(store, {"host": runner, "haos": inner_runner}, engine, plan, running)
+        gateway = Gateway(store, {"host": runner, "haos": inner_runner}, engine, plan, running, coordinator)
+        coordinator.scope_valid = gateway.scope_valid
+        hermes_routes(app, coordinator, store)
         gateway_routes(app, gateway, store, gateway.runners, controller_id)
         app.state.gateway = gateway
+        app.state.coordinator = coordinator
     static = Path(static or Path(__file__).resolve().parent.parent / "static")
     if static.is_dir():
         app.mount("/", StaticFiles(directory=static, html=True), name="web")

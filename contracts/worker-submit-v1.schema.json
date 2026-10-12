@@ -1,0 +1,62 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "goal": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Goal",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "pattern": "^[a-zA-Z0-9_-]{8,100}$",
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "mode": {
+      "enum": [
+        "research",
+        "development"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "questions": {
+      "default": [],
+      "items": {
+        "maxLength": 500,
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Questions",
+      "type": "array"
+    },
+    "repo_id": {
+      "const": "agentic-home",
+      "default": "agentic-home",
+      "title": "Repo Id",
+      "type": "string"
+    },
+    "work_contract_major": {
+      "const": 1,
+      "default": 1,
+      "title": "Work Contract Major",
+      "type": "integer"
+    },
+    "worker_id": {
+      "enum": [
+        "host-coder",
+        "home-coder"
+      ],
+      "title": "Worker Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "worker_id",
+    "mode",
+    "idempotency_key",
+    "goal"
+  ],
+  "title": "WorkerSubmit",
+  "type": "object"
+}

@@ -1,3 +1,10 @@
+# 0.4.0 technical preview
+
+- Adopt Plan v3 and add the separate pinned Hermes runtime, Web onboarding, scoped cases and private MCP tools.
+- Preserve the restricted household Runner and exact Owner approval path. Research/development worker dispatch remains blocked pending complete containment and account integration.
+- Migrate Controller data format to user_version 2 with a private consistent pre-upgrade snapshot; old binaries cannot interpret the new preferences. This is not a same-schema rollback release.
+- Start the outer OS independently of HAOS provisioning; add fixed console diagnostics and support export.
+
 # 0.3.1
 
 統一窗口接續對話、Web 開始新對話與重試去重、外部 /new 指令。限制前文大小與保存期限，隔離不同聊天室／使用者／Agent／家庭權限；家庭提案仍須批准。

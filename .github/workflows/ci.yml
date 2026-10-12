@@ -23,15 +23,16 @@ jobs:
           uv run playwright install --with-deps chromium
       - name: Source and contract checks
         run: |
-          uv run ruff check controller runner host scripts tests
+          uv run ruff check controller runner hermes host scripts tests
           uv run python scripts/contracts.py --check
           uv run python scripts/validate_kit.py
       - name: Build installable App images
         run: |
           uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner; package_runner()"
-          docker build -t agentic-home-controller:0.3.1 controller
-          docker build -t agentic-home-runner:0.3.1 runner
-          docker build -t agentic-home-linejs:0.3.1 host/linejs
+          docker build -t agentic-home-controller:0.4.0 controller
+          docker build -t agentic-home-runner:0.4.0 runner
+          docker build -t agentic-home-linejs:0.4.0 host/linejs
+          docker build -t agentic-home-hermes:0.4.0 hermes
           docker pull ghcr.io/home-assistant/amd64-hassio-supervisor:2026.09.3
       - name: Real Core, CLI containers and browser tests
         run: |
@@ -45,8 +46,8 @@ jobs:
           uv run python scripts/package.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: agentic-home-0.3.1
+          name: agentic-home-0.4.0
           retention-days: 7
           path: |
-            dist/agentic-home-0.3.1-source.zip
+            dist/agentic-home-0.4.0-source.zip
             evidence/

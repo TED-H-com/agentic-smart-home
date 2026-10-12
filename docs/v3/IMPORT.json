@@ -1,0 +1,45 @@
+{
+  "kind": "owner_supplied_documents",
+  "steering_version": "3.0",
+  "baseline_commit": "3ad476a712009469521c3f9838a44ef35ba29f76",
+  "document_count": 6,
+  "files": [
+    {
+      "file": "DEV_TEAM_BRIEF.md",
+      "upload_filename": "DEV_TEAM_BRIEF-48bd9a1a.md",
+      "sha256": "86450e716261a331618386e17f01b55f153078cc06f865c83abb1e5271ff52b9",
+      "bytes": 5714
+    },
+    {
+      "file": "PROJECT_PLAN_V3.md",
+      "upload_filename": "PROJECT_PLAN_V3-47a8c809.md",
+      "sha256": "1ccdb41280306386664e4312bacd680bde386b27a1c8fa2b462b29dc12f16a1c",
+      "bytes": 15508
+    },
+    {
+      "file": "PROJECT_SPEC_V3.md",
+      "upload_filename": "PROJECT_SPEC_V3-c637aa1c.md",
+      "sha256": "16bd5177eb6b0bb009271c1f6ae8a4216f5bb2500dc6e32526c616635a3c3259",
+      "bytes": 19654
+    },
+    {
+      "file": "WORKER_PROTOCOL_V1.md",
+      "upload_filename": "WORKER_PROTOCOL_V1-67934849.md",
+      "sha256": "88625d3c56334c4ce2bfa88d8567840111fda056147b94b9327dd9bb8cf7719f",
+      "bytes": 10214
+    },
+    {
+      "file": "BACKLOG_V3.md",
+      "upload_filename": "BACKLOG_V3-ec9e028b.md",
+      "sha256": "9d349bea6746b0c559d57c9a09cd4788fe14d4710e8109af4e0ca0d062cd6dd2",
+      "bytes": 7392
+    },
+    {
+      "file": "PILOT_ACCEPTANCE.md",
+      "upload_filename": "PILOT_ACCEPTANCE-319c3bbc.md",
+      "sha256": "9e3266b9e68b363cb41b6d155c77d0d375b49db14a36874fb01c56d5dff715f5",
+      "bytes": 9367
+    }
+  ],
+  "note": "Hashes verified against the six uploaded originals and the private parent docs/v3 copies. README.md, SOURCES.md and PROGRESS.md are team-created companions, not additional uploaded originals."
+}

@@ -26,3 +26,12 @@
 - 每個 runtime／provider 各自保留目前訊息 ID；只允許 Web 訊息在 Web 接續，外部訊息回原通道接續。
 - 不可接續或已清理的訊息需要明確開始新對話，未送出草稿保留在記憶體。登入到期不丟棄草稿，明確登出清除保存的 ID。
 - 對話前文省略時顯示短提示；不把舊回答呈現成當前設備狀態。
+
+## 0.4.0 Hermes 技術預覽
+
+- Onboarding 第二步以 Hermes 獨立登入為主；受控 CLI 登入收於「進階：受控 CLI 登入」。Web、通道、HAOS 和內層登入可分步完成，HAOS 未建立不能遮住外層對話入口。
+- 登入狀態由 runtime 回報：needs_auth、configured、ready、needs_reauth、unavailable。儲存 key 只顯示「已儲存，待實際回覆驗證」，不得填成已連線或已完成推論。Key 儲存後清空，不入 URL、storage、截圖 fixture 或一般 evidence。
+- 一般對話預設 Hermes；runtime／CLI 控制項僅在「受控 Agent（進階）」顯示。Hermes 使用固定且獨立的對話 scope，進階選 Grok／HAOS 後切回仍可接續原 Hermes case；不由隱藏控制項改變目的地。
+- 既有 Button／Notice／Status 與 tokens 沿用。主操作是儲存或送出，重新檢查／登出／新對話是次要操作；狀態不只靠顏色。
+- worker 尚未啟用時明確顯示不可用；blocked handle 或成功登入不能呈現為 coding 已執行。一般操作頁不顯示虛構進度、費用或已完成產品驗收。
+- 1440／768／390 px 檢查鍵盤表單送出、認證失敗／服務斷線、刷新續接與進階切換。`evidence/ui/hermes-*` 是協定 fixture 畫面，不冒充真帳號或家庭現場證據。

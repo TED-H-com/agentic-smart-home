@@ -16,6 +16,7 @@ from pydantic import ValidationError
 
 from .channels import TRANSPORTS, ChannelError, line_admin
 from .ha import HAError
+from .hermes import HermesError
 from .host import host_call
 from .models import (
     AgentLogin,
@@ -43,12 +44,13 @@ class ConversationError(Exception):
 
 
 class Gateway:
-    def __init__(self, store, runners, engine, plan_home, running):
+    def __init__(self, store, runners, engine, plan_home, running, coordinator=None):
         self.store, self.runners, self.engine = store, runners, engine
         self.plan_home, self.running = plan_home, running
         self.workers, self.states, self.transports, self.rates = {}, {}, {}, {}
         self.line_login = None
         self.line_task = None
+        self.coordinator = coordinator
 
     def preferences(self):
         return GatewayPreferences.model_validate(self.store.setting("gateway", {}))
@@ -67,6 +69,8 @@ class Gateway:
                     for name in TRANSPORTS]}
 
     async def start(self):
+        if self.coordinator:
+            await self.coordinator.recover()
         for item in self.store.list("conversation", 10000):
             if item.get("delivery") == "sending":
                 item["delivery"] = "unconfirmed"
@@ -108,17 +112,19 @@ class Gateway:
                     return
                 prefs = self.preferences()
                 target = prefs.runtime
+                coordinator = prefs.coordinator
                 # Routing belongs to the gateway; no model can choose a privileged target.
                 for prefix, scope in (("/host ", "host"), ("/home ", "haos")):
                     if text.startswith(prefix):
                         target, text = scope, text[len(prefix):]
+                        coordinator = "direct"
                         break
                 new_conversation = text.startswith("/new ")
                 if new_conversation:
                     text = text[5:]
                 try:
                     self.submit(ChatInput(message=text, runtime=target, provider=prefs.provider,
-                                          new_conversation=new_conversation),
+                                          coordinator=coordinator, new_conversation=new_conversation),
                                 name, chat, sender, id, config=config)
                 except (HTTPException, ValidationError):
                     return
@@ -137,7 +143,17 @@ class Gateway:
     def scope(self, body, source, chat, sender, config):
         # Credential/audience changes and HA authorization changes cut off old context.
         permissions = [self.store.setting("owner", ""), self.engine.policy().model_dump()] if body.runtime == "haos" else None
+        if body.coordinator == "hermes":
+            return digest(["hermes", source, chat, sender, config, self.store.setting("owner"),
+                           self.store.setting("hermes_auth_epoch"), self.engine.policy().model_dump(),
+                           self.store.setting("hermes_web_epoch") if source == "web" else None])
         return digest([source, chat, sender, body.runtime, body.provider, config, permissions])
+
+    def scope_valid(self, item):
+        body = ChatInput.model_validate({k: item[k] for k in ("message", "provider", "runtime", "coordinator") if k in item})
+        config = self.config(item["source"]) if item["source"] != "web" else None
+        return not self.store.setting("paused", False) and self.scope(
+            body, item["source"], item["chat"], item["sender"], config) == item["scope"]
 
     @staticmethod
     def public_message(item):
@@ -167,11 +183,15 @@ class Gateway:
         return {"turns": turns, "truncated": truncated or bool(previous)}
 
     def submit(self, body, source, chat, sender, event, config=None):
+        if body.coordinator == "hermes":
+            body = body.model_copy(update={"runtime": "host", "provider": "codex"})
         if not body.message.strip():
             raise HTTPException(422, "請輸入訊息")
         id = digest([source, chat, event] if source == "web" else [source, chat, sender, event, config])
         # Preserve old Web idempotency keys; resolve the automatic parent only after deduplication.
-        request_body = body.model_dump(exclude={"reply_to", "new_conversation"})
+        request_body = body.model_dump(exclude={"reply_to", "new_conversation", "coordinator"})
+        if body.coordinator != "direct":
+            request_body["coordinator"] = body.coordinator
         if body.reply_to:
             request_body["reply_to"] = body.reply_to
         if body.new_conversation:
@@ -225,7 +245,7 @@ class Gateway:
                 if pending:
                     # A cancelled follow-up must not cancel the message it is waiting for.
                     try:
-                        async with asyncio.timeout(310):
+                        async with asyncio.timeout(620 if item.get("coordinator") == "hermes" else 310):
                             await asyncio.shield(pending)
                     except asyncio.CancelledError:
                         if asyncio.current_task().cancelling():
@@ -233,13 +253,16 @@ class Gateway:
                         raise ConversationError("前一則訊息已中斷，請開始新對話。") from None
                 if not self.store.conversation(id=item["reply_to"]):
                     raise ConversationError("前文已依保存設定移除，請開始新對話。")
-            body = ChatInput.model_validate({k: item[k] for k in ("message", "provider", "runtime")})
-            current_config = self.config(item["source"]) if item["source"] != "web" else None
-            if self.store.setting("paused", False) or self.scope(body, item["source"], item["chat"], item["sender"], current_config) != item["scope"]:
+            body = ChatInput.model_validate({k: item[k] for k in ("message", "provider", "runtime", "coordinator") if k in item})
+            if not self.scope_valid(item):
                 raise ConversationError("AI 已暫停或對話權限已變更，請檢查設定後開始新對話。")
             conversation = self.history(item)
             result.update(context_turns=len(conversation["turns"]), context_truncated=conversation["truncated"])
-            if item["runtime"] == "haos":
+            if item.get("coordinator") == "hermes":
+                if not self.coordinator:
+                    raise HermesError()
+                result.update(await self.coordinator.run(result))
+            elif item["runtime"] == "haos":
                 task = self.engine.task(item["message"], item["provider"])
                 task["runtime"] = "haos"
                 self.store.put("task", task)
@@ -273,12 +296,19 @@ class Gateway:
                     raise RunnerError("外層對話不能直接操作家庭，請切換 HAOS Agent")
                 result.update(state="awaiting_user" if decision.needs_user else "succeeded", answer=decision.message)
         except asyncio.CancelledError:
-            with contextlib.suppress(Exception):
-                await runner.call("POST", f"/jobs/{job_id}/cancel")
+            if item.get("coordinator") != "hermes":
+                with contextlib.suppress(Exception):
+                    await runner.call("POST", f"/jobs/{job_id}/cancel")
             self.store.put("conversation", {**result, "state": "interrupted", "answer": "處理已中斷，請重新送出。"})
             raise
         except ConversationError as exc:
             result.update(state="failed", answer=str(exc))
+        except HermesError as exc:
+            result.update(state="failed", answer="請先在 Web 登入 Hermes。" if exc.code in {"needs_auth", "needs_reauth"}
+                          else "上一份工作尚未確認停止，請查看協調服務；目前無法啟動新工作。" if exc.code == "stop_unconfirmed"
+                          else "Hermes 正在處理另一份工作，請等它完成後再送出。" if exc.code == "session_busy"
+                          else "這段對話已到期，請開始新對話。" if exc.code in {"session_expired", "expired"}
+                          else "Hermes 尚未完成回覆，請檢查協調服務與登入狀態。", error_code=exc.code)
         except (RunnerError, HAError, ValidationError, TimeoutError):
             result.update(state="failed", answer="Agent 尚未完成回覆，請在 Web 檢查此執行環境的配對、登入與連線。")
         self.store.put("conversation", result)

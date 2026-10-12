@@ -1,0 +1,20 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "evidence_ids": {
+      "items": {
+        "pattern": "^[a-f0-9]{32}$",
+        "type": "string"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "title": "Evidence Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "evidence_ids"
+  ],
+  "title": "EvidenceQuery",
+  "type": "object"
+}

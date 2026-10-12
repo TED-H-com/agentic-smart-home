@@ -24,11 +24,14 @@ def probe():
     status = request("/api/status")
     assert status["runner"]["identity"] == "agentic-home-runner"
     assert status["onboarding"]["runner_paired"] is True
-    assert {p["provider"] for p in status["runner"]["providers"]} == {"codex", "claude"}
+    assert {p["provider"] for p in status["runner"]["providers"]} == {"codex", "claude", "agy", "grok"}
+    hermes = request("/api/hermes")
+    assert hermes["runtime"]["state"] == "needs_auth" and hermes["runtime"]["auth_verified_at"] is None
+    assert all(not worker["available"] for worker in hermes["workers"])
     return {"host_login": "passed", "authenticated_host_api": "passed", "automatic_runner_pairing": "passed",
             "vm_observed": host["vm"], "providers": [{"provider": p["provider"], "status": p["status"]}
                                                     for p in status["runner"]["providers"]],
-            "cloud_login": "not_run"}
+            "hermes_service": "needs_auth", "coding_workers": "blocked", "cloud_login": "not_run"}
 
 
 if __name__ == "__main__":

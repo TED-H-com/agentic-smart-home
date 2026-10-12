@@ -8,6 +8,7 @@ from pathlib import Path
 from agentic_controller.app import create_app
 from agentic_controller.models import AutomationIntent, Policy, provider_schema
 from agentic_controller.store import Store
+from agentic_controller.work import EvidenceQuery, HermesAuth, WorkerQuery, WorkerSubmit
 from agentic_runner.app import Job, Pair
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,6 +27,10 @@ def main():
             schemas = {"automation-intent": AutomationIntent.model_json_schema(),
                        "policy": Policy.model_json_schema(), "agent-decision": provider_schema(),
                        "runner-job": Job.model_json_schema(), "runner-pair": Pair.model_json_schema(),
+                       "worker-submit-v1": WorkerSubmit.model_json_schema(),
+                       "worker-query-v1": WorkerQuery.model_json_schema(),
+                       "case-evidence-query-v1": EvidenceQuery.model_json_schema(),
+                       "hermes-auth": HermesAuth.model_json_schema(),
                        "controller.openapi": app.openapi(),
                        "host-controller.openapi": create_app(store=store, host_mode=True).openapi()}
         finally:

@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/NousResearch/hermes-agent",
+  "commit": "835c3dd038d903182a66ecc45e34bf5e0de65f00",
+  "archive_url": "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/835c3dd038d903182a66ecc45e34bf5e0de65f00",
+  "sha256": "580004a258de05e135266f73faa7522aa840ebfaff888b29506ae5b30e27c1e5",
+  "python": "3.14",
+  "base_image": "python:3.14-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83",
+  "dependency_override": {
+    "cryptography": "50.0.2"
+  },
+  "integration": "run_agent.AIAgent + official HTTP MCP client; no Hermes gateway"
+}

@@ -130,7 +130,7 @@ def test_host_login_offline_management_and_responsive_layout():
         elif path == 'session':
             result = {'principal': 'host-owner', 'csrf': 'fixture-host-csrf', 'mode': 'host'}
         elif path == 'status':
-            result = {'version': '0.3.1', 'ha': {'status': 'unavailable'}, 'runner': {'status': 'unpaired'}}
+            result = {'version': '0.4.0', 'ha': {'status': 'unavailable'}, 'runner': {'status': 'unpaired'}}
         elif path == 'tasks':
             result = {'tasks': []}
         elif path == 'host/status':
@@ -207,7 +207,7 @@ def test_setup_links_session_recovery_and_login_resume():
             authenticated = True
             result = {'authenticated':True}
         elif path == 'status':
-            result = {'version':'0.3.1','ha':{'status':'connected' if connected else 'unavailable', 'location_name':'介面測試家庭'},
+            result = {'version':'0.4.0','ha':{'status':'connected' if connected else 'unavailable', 'location_name':'介面測試家庭'},
                       'runner':{'protocol':1,'providers':[{'provider':'codex','status':'connected' if agent_connected else 'needs_reauth'}]},
                       'onboarding':{'policy_confirmed':False},'policy_entities':0}
         elif path == 'tasks':

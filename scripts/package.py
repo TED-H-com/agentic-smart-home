@@ -7,7 +7,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.3.1"
+VERSION = "0.4.0"
 EXCLUDED = {"__pycache__", "node_modules", "test-results", ".pytest_cache", ".ruff_cache"}
 
 
@@ -46,7 +46,7 @@ def main():
     distribution = ROOT / "dist"
     distribution.mkdir(exist_ok=True)
     source = []
-    for directory in ("controller", "runner", "web", "scripts", "contracts", "tests", "docs", "evidence", "host", ".github"):
+    for directory in ("controller", "runner", "hermes", "web", "scripts", "contracts", "tests", "docs", "evidence", "host", ".github"):
         source += [(path, "agentic-home/" + str(path.relative_to(ROOT))) for path in files(ROOT / directory)]
     for path in sorted(ROOT.iterdir()):
         if path.is_file() and path.suffix in {".md", ".json", ".toml", ".lock", ".yaml"}:

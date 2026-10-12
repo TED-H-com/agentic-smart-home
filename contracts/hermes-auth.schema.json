@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "api_key": {
+      "format": "password",
+      "maxLength": 4096,
+      "minLength": 8,
+      "title": "Api Key",
+      "type": "string",
+      "writeOnly": true
+    },
+    "model": {
+      "maxLength": 200,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9_./:@-]+$",
+      "title": "Model",
+      "type": "string"
+    },
+    "provider": {
+      "const": "openrouter",
+      "default": "openrouter",
+      "title": "Provider",
+      "type": "string"
+    }
+  },
+  "required": [
+    "model",
+    "api_key"
+  ],
+  "title": "HermesAuth",
+  "type": "object"
+}

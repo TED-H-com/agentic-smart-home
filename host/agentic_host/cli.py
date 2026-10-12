@@ -30,9 +30,17 @@ def call(method, path, body=None):
 
 def main():
     parser = argparse.ArgumentParser(description="Agentic Home outer Linux lifecycle")
-    parser.add_argument("command", choices=["status", "provision", "start", "shutdown", "snapshot", "restore", "access-key"])
+    parser.add_argument("command", choices=["status", "provision", "start", "shutdown", "snapshot", "restore",
+                                             "access-key", "diagnostics", "support-bundle"])
     parser.add_argument("--snapshot")
+    parser.add_argument("--output", type=Path, help="New JSON file for support-bundle")
     args = parser.parse_args()
+    if args.command in {"diagnostics", "support-bundle"}:
+        from .support import main as support_main
+        if args.command == "support-bundle" and args.output is None:
+            parser.error("support-bundle requires --output to a new file")
+        support_main(["status"] if args.command == "diagnostics" else ["bundle", str(args.output)])
+        return
     if args.command == "access-key":
         print(Path("/var/lib/agentic-home/controller/access-key").read_text().strip())
         return

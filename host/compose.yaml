@@ -1,7 +1,25 @@
 name: agentic-home
 services:
+  hermes:
+    image: agentic-home-hermes:0.4.0
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    group_add: ["1000"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - /var/lib/agentic-home/hermes:/data
+      - /var/lib/agentic-home/hermes-link:/hermes-link:ro
+    mem_limit: 768m
+    pids_limit: 64
+    cpus: 1.0
+    stop_grace_period: 45s
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "2"}
   linejs:
-    image: agentic-home-linejs:0.3.1
+    image: agentic-home-linejs:0.4.0
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -11,7 +29,7 @@ services:
     pids_limit: 64
     stop_grace_period: 20s
   runner:
-    image: agentic-home-runner:0.3.1
+    image: agentic-home-runner:0.4.0
     hostname: localhost
     network_mode: host
     restart: unless-stopped
@@ -26,17 +44,19 @@ services:
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8098/health',timeout=3)"]
   controller:
-    image: agentic-home-controller:0.3.1
+    image: agentic-home-controller:0.4.0
     network_mode: host
     restart: unless-stopped
     environment:
       AGENTIC_HOST_MODE: "1"
       AGENTIC_HA_URL: http://192.168.177.2:80
+      AGENTIC_HERMES_MCP: "1"
     volumes:
       - /var/lib/agentic-home/controller:/data
       - /var/lib/agentic-home/pairing:/pairing:ro
       - /run/agentic-home:/run/agentic-home
       - /var/lib/agentic-home/line-config:/line-config
+      - /var/lib/agentic-home/hermes-link:/hermes-link:ro
     mem_limit: 768m
     pids_limit: 128
     stop_grace_period: 45s

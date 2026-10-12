@@ -1,11 +1,5 @@
 {
-  "conclusion": "success",
-  "createdAt": "2026-10-11T22:04:41Z",
-  "headSha": "63ad5354c68cec5622cf2e5da338ee9e1929b079",
-  "status": "completed",
-  "updatedAt": "2026-10-11T22:13:00Z",
-  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38178958317",
-  "version": "0.3.1",
-  "test_result": "89 passed, 2 skipped",
-  "skipped": "Large HAOS VM and Linux installation cases; hardware/cloud accounts not exercised"
+  "version": "0.4.0",
+  "status": "not_run",
+  "note": "Awaiting new public code commit; previous CI evidence archived separately."
 }

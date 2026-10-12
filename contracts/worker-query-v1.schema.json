@@ -1,0 +1,15 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "job_id": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Job Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "job_id"
+  ],
+  "title": "WorkerQuery",
+  "type": "object"
+}
