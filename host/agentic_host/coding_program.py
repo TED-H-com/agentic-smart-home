@@ -89,20 +89,60 @@ patch=Path('/work/candidate.patch').read_bytes()
 result=subprocess.run(['git','-c','core.hooksPath=/dev/null','apply','--check','/work/candidate.patch'],capture_output=True)
 if result.returncode==0:
     result=subprocess.run(['git','-c','core.hooksPath=/dev/null','apply','/work/candidate.patch'],capture_output=True)
-bootstrap=('import sys; import pytest; import pytest_asyncio.plugin; '
-    "sys.path[:0]=['/work/source/controller','/work/source/runner','/work/source/hermes']; "
-    'raise SystemExit(pytest.main(sys.argv[1:]))')
-args=['python','-I','-c',bootstrap,'-q','-p','pytest_asyncio.plugin','-c','/work/verification.ini',
+bootstrap = """
+import json,os,sys
+import pytest
+import pytest_asyncio.plugin
+fd=int(sys.argv[1])
+class Completion:
+    collected=0
+    executed=0
+    passed=0
+    bad=0
+    def pytest_collection_finish(self,session):
+        self.collected=len(session.items)
+    def pytest_runtest_logreport(self,report):
+        if report.when=='call':
+            self.executed+=1
+            if report.passed and not getattr(report,'wasxfail',False):self.passed+=1
+        if report.failed or report.skipped or getattr(report,'wasxfail',False):self.bad+=1
+completion=Completion()
+sys.path[:0]=['/work/source/controller','/work/source/runner','/work/source/hermes']
+code=pytest.main(sys.argv[2:],plugins=[completion])
+os.write(fd,json.dumps({'completed':True,'collected':completion.collected,'executed':completion.executed,
+    'passed':completion.passed,'bad':completion.bad}).encode())
+os.close(fd)
+raise SystemExit(code)
+"""
+read_fd,write_fd=os.pipe()
+os.set_blocking(read_fd,False)
+args=['python','-I','-c',bootstrap,str(write_fd),'-q','-p','pytest_asyncio.plugin','-c','/work/verification.ini',
       '--confcutdir=/work/trusted-tests','--basetemp=/work/scratch/pytest','/work/trusted-tests']
-os.environ['PYTHONPATH']='/work/source/controller:/work/source/runner:/work/source/hermes'
 os.environ['PYTEST_DISABLE_PLUGIN_AUTOLOAD']='1'
-if result.returncode==0:
-    with open('/work/artifacts/verification.log','wb') as stream:
-        result=subprocess.run(args,stdout=stream,stderr=subprocess.STDOUT,check=False)
-Path('/work/artifacts/verification.json').write_text(json.dumps({'state':'passed' if result.returncode==0 else 'failed',
-    'patch_sha256':hashlib.sha256(patch).hexdigest(),'exit_code':result.returncode,
+completion={}
+try:
+    if result.returncode==0:
+        with open('/work/artifacts/verification.log','wb') as stream:
+            result=subprocess.run(args,stdout=stream,stderr=subprocess.STDOUT,check=False,pass_fds=(write_fd,))
+finally:
+    os.close(write_fd)
+    try:
+        raw=os.read(read_fd,4097)
+        if len(raw)<=4096:completion=json.loads(raw)
+    except (OSError,ValueError):pass
+    finally:os.close(read_fd)
+valid=(isinstance(completion,dict) and completion.get('completed') is True and
+    all(type(completion.get(k)) is int for k in ('collected','executed','passed','bad')) and
+    completion['collected']>0 and completion['executed']==completion['collected']==completion['passed'] and
+    completion['bad']==0)
+code=result.returncode if result.returncode else (0 if valid else 1)
+# A normal pytest completion is required. Candidate code shares the test interpreter;
+# this receipt is not a cryptographic proof against hostile interpreter tampering.
+Path('/work/artifacts/verification.json').write_text(json.dumps({'state':'passed' if code==0 else 'failed',
+    'patch_sha256':hashlib.sha256(patch).hexdigest(),'exit_code':code,'completion_verified':valid,
+    'tests_executed':completion.get('executed',0) if valid else 0,
     'test_command_sha256':hashlib.sha256(json.dumps(args).encode()).hexdigest(),
     'observed_from':'independent_host_verifier','trusted_tests':'pinned_baseline',
     'credentials_present':False,'network':'none','approval':False}))
-raise SystemExit(result.returncode)
+raise SystemExit(code)
 '''

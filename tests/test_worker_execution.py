@@ -302,7 +302,8 @@ async def test_role_logout_reply_is_durable_and_cannot_replay_into_new_auth(tmp_
         broker.db.close()
 
 
-def test_actual_independent_verifier_rejects_candidate_pytest_shadow(request):
+@pytest.mark.parametrize("attack", ["pytest_shadow", "early_exit", "skipped", "xfailed", "empty", "passing"])
+def test_actual_independent_verifier_rejects_candidate_pytest_shadow(request, attack):
     if not request.config.getoption("--containers"):
         pytest.skip("Actual pinned verifier requires --containers")
     name = "agentic-coding-verifier-" + uuid.uuid4().hex[:12]
@@ -329,18 +330,31 @@ for directory,dirs,files in os.walk(source):
 (root/'candidate.patch').write_text('diff --git a/README b/README\n--- a/README\n+++ b/README\n@@ -1 +1 @@\n-before\n+after\n')
 (root/'trusted-tests/test_failure.py').write_text('def test_real_failure(): assert False, "trusted-test-failure"\n')
 (root/'verification.ini').write_text('[pytest]\nasyncio_mode=auto\n')
+if ATTACK=='early_exit':
+ (source/'controller/exit_candidate.py').write_text('import os; os._exit(0)\n')
+ (root/'trusted-tests/test_failure.py').write_text('import exit_candidate\ndef test_failure(): assert False\n')
+elif ATTACK=='skipped':
+ (root/'trusted-tests/test_failure.py').write_text('import pytest\n@pytest.mark.skip\ndef test_skipped(): assert True\n')
+elif ATTACK=='xfailed':
+ (root/'trusted-tests/test_failure.py').write_text('import pytest\n@pytest.mark.xfail\ndef test_xfailed(): assert False\n')
+elif ATTACK=='empty':
+ (root/'trusted-tests/test_failure.py').write_text('# no tests\n')
+elif ATTACK=='passing':
+ (root/'trusted-tests/test_failure.py').write_text('def test_pass(): assert 2+2==4\n')
 (root/'task.py').write_text(VERIFY_PROGRAM)
 result=subprocess.run(['python','-I','/work/task.py'],cwd=source,user=10000,group=10000,extra_groups=[],env={'PATH':'/usr/local/bin:/usr/bin:/bin','HOME':'/work/scratch','TMPDIR':'/work/scratch'},capture_output=True,text=True,timeout=30)
-assert result.returncode==1,(result.returncode,result.stderr)
+assert (result.returncode==0)==(ATTACK=='passing'),(result.returncode,result.stderr)
 log=(root/'artifacts/verification.log').read_text()
-assert 'trusted-test-failure' in log and 'FAKE PASS' not in log,log
-assert json.loads((root/'artifacts/verification.json').read_text())['state']=='failed'
-print('trusted baseline rejected fake candidate pytest')
+assert 'FAKE PASS' not in log,log
+report=json.loads((root/'artifacts/verification.json').read_text())
+assert report['state']==('passed' if ATTACK=='passing' else 'failed'),report
+assert report['completion_verified']==(ATTACK=='passing'),report
+print('trusted completion checked: '+ATTACK)
 '''
     try:
         result = subprocess.run(["docker", "run", "--rm", "--name", name, "--network", "none", "--memory", "768m",
             "--memory-swap", "768m", "--pids-limit", "128", "--cpus", "1", "--mount", f"type=bind,src={source / 'host'},dst=/host,readonly",
-            "--env", "PYTHONPATH=/host", "--entrypoint", "python", "agentic-home-runner:0.6.0", "-c", script],
+            "--env", "PYTHONPATH=/host", "--entrypoint", "python", "agentic-home-runner:0.6.0", "-c", "ATTACK=" + repr(attack) + "\n" + script],
             capture_output=True, text=True, timeout=45)
         assert result.returncode == 0, result.stdout + result.stderr
     finally:

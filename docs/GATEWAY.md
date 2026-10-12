@@ -36,7 +36,7 @@ Controller 保存 conversation→case→Hermes session/run mapping；提交取�
 
 Hermes runtime 一次一個 run，5 分鐘 deadline、最多 12 次模型 iterations；history 與回覆有大小／期限上限，詳細見 runtime 契約。這套有限 session history 與原受控 Runner 的前文編譯分開。輪詢狀態不會呼叫模型；無可信供應商用量時不捏造費用。
 
-保存期限 `context_days` 可設 1–7 天。外層 Controller 先同步 Hermes 私有 `/v1/retention` 才保存本機設定；同步失敗回 503，Controller 原設定保留。縮短時 runtime 先停止 turn，再清除過期 context，避免進行中回覆把舊前文寫回；調長不恢復已刪內容。一般證據／內容刪除與必要去重 tombstones 分開，不能把只改一份 DB 當成所有前文已移除。
+保存期限 `context_days` 可設 1–7 天。Controller 同步 Hermes 與所有已配對 Runner／coding broker；同步失敗回 503，保留 pending barrier，完成前不派新工作。較短期限先套用，不能因某個服務離線就繼續讀取應過期內容。各 runtime 在 idle 時也清除，停止未確認時保留隔離；調長不復活已刪內容。一般證據／內容、去重 tombstones 與稽核備份的期限分開，詳見 [Workers](WORKERS.md) 與 [Updates](UPDATES.md)。
 
 聊天室及 sender 必須同時在白名單，bot／自身訊息忽略。來源事件持久化去重，每位來源使用者每分鐘最多 10 條，Gateway 最多 10 個處理中工作；runtime 自己的並行限制另行生效。回覆傳送不確定時保留 `unconfirmed`，不盲目重送；更換收件範圍後，舊工作不發送到新對象。
 

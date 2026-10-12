@@ -30,7 +30,7 @@
 
 原生 HA 設定與家庭授權完成後：
 
-1. 在 HA App 商店加入 `https://github.com/teddashh/agentic-smart-home`，安裝 **Agentic Home Runner**、保留 8443。將記錄中的一次性配對 JSON 貼至外層 Web 的 HAOS 內層登入區，再獨立登入 CLI。本機來源可用 Web 提供的 Runner ZIP，解壓到 `/addons/agentic_runner` 後重新載入本機 Apps。
+1. 在 HA App 商店加入 `https://github.com/teddashh/agentic-smart-home`，安裝 **Agentic Home Runner**、保留 8443。將記錄中的一次性配對 JSON 貼至外層 Web 的 HAOS 內層登入區，再獨立登入 CLI。本機來源可用 Web 提供的 Runner ZIP，放入 Samba／SSH App 提供的本機 Apps 目錄後重新載入。新版文件使用 `/local_apps/agentic_runner`，部分映射仍為 `/addons/agentic_runner`；依所用 App 的實際掛載目錄操作，參考 [官方本機測試](https://developers.home-assistant.io/docs/apps/testing/)。
 2. 到「設備與權限」選擇分享與操作範圍。一般對話仍是 Hermes；目前家庭提案走「受控 Agent（進階）」→「HAOS 內層」，或通道的 `/home 需求`。精確提案留在 Web 等待 Owner 批准。
 
 這個 App 保留受控 `home_operator`；v3 的 Home Coding Worker 仍需獨立 HAOS App sandbox 與真實研究／測試證據。內層 App 自動安裝／登入尚未交付，配對成功不代表 E2 完成。HA 手動貼 token 保留為進階備援。

@@ -1,0 +1,33 @@
+{
+  "version": "0.6.0",
+  "source_commit": "bc2c32928dcd6a68933b8780d842c8658f1abb17",
+  "images": {
+    "agentic-home-controller:0.6.0": "sha256:7511bd074097d46728236c6b4cd4e03cf04077a5e795247cf861d780dd5c262d",
+    "agentic-home-runner:0.6.0": "sha256:8f57b79e8ae3db8a15d33ba63dd210ef8abc5f1cae9e7402f589d1bfd2f051f5",
+    "agentic-home-linejs:0.6.0": "sha256:119b79610ad0308611f510c76e37a54a3ff65700d1faacbcbff463457a2c86d6",
+    "agentic-home-hermes:0.6.0": "sha256:cd24355f82db6ef51cd88073c4268bf9f0a2a85111fb9a8b37a5ef3babe4b858",
+    "agentic-home-preview:0.6.0": "sha256:7cdaa9eba31d2c46d64f3fda86370540f92f6e8e706b1b9651dbeda80a19e903"
+  },
+  "source_exclusions": "tracked public product allowlist; no credential files, parent repository, runtime data or build cache",
+  "tests": {
+    "local_full": "385 passed, 3 skipped; evidence/pytest-0.6.0.xml",
+    "post_review_targeted": [
+      "worker-migration-retention.xml",
+      "updater-retention-tests.xml",
+      "coding-worker-final.xml"
+    ]
+  },
+  "cloud_accounts": "not_run",
+  "installed_media": "not_run",
+  "media": {
+    "agentic-home-0.6.0-linux-amd64.tar": {
+      "bytes": 2471024640,
+      "sha256": "557247ca170ec2ec5b9cc6d62b3f6e175f376522bc827159c69dbd92e76f9cf0"
+    },
+    "agentic-home-0.6.0-laptop-amd64.iso": {
+      "bytes": 6550519808,
+      "sha256": "e3bf67f3103dce1f3709fd1c1cce0e0ded91ef46d10d7ef3668d410119d2071d"
+    }
+  },
+  "superseded_reason": "Independent verifier accepted child exit 0 without completed test evidence; reproduced in actual Runner container after this media build."
+}
