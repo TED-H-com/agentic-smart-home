@@ -1,0 +1,22 @@
+{
+  "result": "failed",
+  "iso_sha256": "21b4d9a0b9caaeb9bf8840602f2858a1843ad347f3b0e13c5dfdddda035a24c3",
+  "source_commit": "69a1a2470988a47f3520cf7081a3435b3e19fdae",
+  "duration_seconds": 1784.18,
+  "passed_before_failure": [
+    "OS install",
+    "outer-only firstboot",
+    "all four installed image IDs",
+    "real local-owner HTTP login",
+    "Hermes needs_auth",
+    "Controller stopped and health unavailable",
+    "independent diagnostics",
+    "support file creation"
+  ],
+  "failure": "Test asserted agentic-support-v1; existing collector contract is agentic-support-bundle-v1. Product source and media unchanged.",
+  "not_executed": [
+    "offline sandbox probe",
+    "nested HAOS provision/restore/reboot"
+  ],
+  "cleanup": "test VM and disk basetemp removed"
+}

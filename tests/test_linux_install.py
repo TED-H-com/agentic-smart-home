@@ -123,7 +123,7 @@ while data:=s.recv(65536):
             assert rescue["observations"]
             command(*ssh, "agentic-home support-bundle --output /home/tester/support-probe.json")
             support = json.loads(command(*ssh, "cat /home/tester/support-probe.json"))
-            assert support["format"] == "agentic-support-v1"
+            assert support["format"] == "agentic-support-bundle-v1"
             (ROOT / "evidence" / ("installed-rescue-" + profile + ".json")).write_text(json.dumps({
                 "runtime_location": "disposable_outer_linux_vm", "controller_stopped": True,
                 "diagnostics": rescue, "support_bundle": "created", "cloud_login": "not_run"}, indent=2) + "\n")

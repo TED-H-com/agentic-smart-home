@@ -74,8 +74,8 @@ files, observed_errno = [], None
 try:
     for index in range(100):
         path = pathlib.Path('/work/scratch') / ('quota-%03d.bin' % index)
-        files.append(path)
         with path.open('wb', buffering=0) as stream:
+            files.append(path)
             stream.write(chunk)
             os.fsync(stream.fileno())
 except OSError as exc:
