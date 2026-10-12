@@ -21,6 +21,11 @@ class AuthInput(Strict):
     api_key: SecretStr = Field(min_length=8, max_length=4096)
 
 
+class DeviceAuthInput(Strict):
+    provider: Literal["openai-codex"]
+    model: Annotated[str, Field(min_length=1, max_length=200, pattern=r"^[a-zA-Z0-9_./:@-]+$")]
+
+
 class SessionInput(Strict):
     scope_id: Scope
 

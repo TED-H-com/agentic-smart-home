@@ -1,0 +1,102 @@
+{
+  "$defs": {
+    "Observations": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "line",
+            "telegram",
+            "discord",
+            "web"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "ha_state": {
+          "enum": [
+            "not_installed",
+            "stopped",
+            "running",
+            "unknown"
+          ],
+          "title": "Ha State",
+          "type": "string"
+        },
+        "hermes_auth_state": {
+          "enum": [
+            "needs_auth",
+            "configured",
+            "ready",
+            "needs_reauth",
+            "unavailable"
+          ],
+          "title": "Hermes Auth State",
+          "type": "string"
+        },
+        "hermes_installed": {
+          "title": "Hermes Installed",
+          "type": "boolean"
+        },
+        "network_ready": {
+          "title": "Network Ready",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "network_ready",
+        "hermes_installed",
+        "hermes_auth_state",
+        "channel",
+        "ha_state"
+      ],
+      "title": "Observations",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "expires": {
+      "title": "Expires",
+      "type": "number"
+    },
+    "id": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "model": {
+      "default": "",
+      "pattern": "^[a-zA-Z0-9._:/-]{0,100}$",
+      "title": "Model",
+      "type": "string"
+    },
+    "observations": {
+      "$ref": "#/$defs/Observations"
+    },
+    "provider": {
+      "enum": [
+        "codex",
+        "claude",
+        "agy",
+        "grok"
+      ],
+      "title": "Provider",
+      "type": "string"
+    },
+    "stage": {
+      "const": "hermes_setup",
+      "title": "Stage",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "provider",
+    "stage",
+    "observations",
+    "expires"
+  ],
+  "title": "BootstrapJob",
+  "type": "object"
+}

@@ -8,8 +8,8 @@ Wants=agentic-home-host.service agentic-home-proxy.service
 Type=oneshot
 RemainAfterExit=true
 WorkingDirectory=/opt/agentic-home
-ExecStart=/usr/bin/docker compose -f host/compose.yaml up -d --wait
-ExecStop=/usr/bin/docker compose -f host/compose.yaml down
+ExecStart=/usr/bin/docker compose --env-file /var/lib/agentic-home/host/runtime.env -f host/compose.yaml up -d --wait
+ExecStop=/usr/bin/docker compose --env-file /var/lib/agentic-home/host/runtime.env -f host/compose.yaml down
 TimeoutStartSec=300
 TimeoutStopSec=120
 

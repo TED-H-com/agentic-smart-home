@@ -1,11 +1,12 @@
 import { StrictMode, useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { api, download, session, configureDeployment, haPath, haTarget } from './api';
+import { api, desktopLogin, download, session, configureDeployment, haPath, haTarget } from './api';
 import {SetupGuide,currentRoute,type View} from './setup';
 import './style.css';
 import {Status,Notice,Button,Empty,timestamp,labels} from './ui';
 import {Provider} from './providers';
-import {Onboarding,GatewayPanel,RuntimePanel} from './gateway';
+import {GatewayPanel,RuntimePanel} from './gateway';
+import {Onboarding} from './bootstrap';
 import {HermesPanel} from './hermes';
 import {HostLogin,HostPanel} from './host';
 
@@ -32,7 +33,7 @@ function App({hostMode=false,active=true,onLogout}:{hostMode?:boolean;active?:bo
   if(hostMode)nav.push(['gateway','對話與通訊','06'],['agents','Agent 環境','07'],['host','Linux 主機','08'],['onboarding','開始設定','09']);
   useEffect(()=>{const reveal=()=>{const button=document.querySelector<HTMLElement>('nav button[aria-current="page"]');const nav=button?.parentElement;if(button&&nav)nav.scrollLeft+=button.getBoundingClientRect().left-nav.getBoundingClientRect().left-(nav.clientWidth-button.clientWidth)/2};reveal();window.addEventListener('resize',reveal);return()=>window.removeEventListener('resize',reveal)},[view]);
   const connected=status?.ha?.status==='connected';
-  return <div className="app-shell"><a className="skip-link" href="#main-content" onClick={e=>{e.preventDefault();document.getElementById('main-content')?.focus()}}>跳到主要內容</a><aside className="sidebar"><a className="brand" href="#home" onClick={e=>{e.preventDefault();navigate('home')}}><span className="brand-mark">a<span>h</span></span><span>Agentic<br/><b>Smart Home</b></span></a><p className="nav-label">家庭控制中心</p><nav aria-label="主選單">{nav.map(([id,label,index])=><button className={view===id?'active':''} aria-current={view===id?'page':undefined} onClick={()=>navigate(id)} key={id}><span>{index}</span>{label}</button>)}</nav><div className="sidebar-foot">日常規則由 Home Assistant 執行<small>Agentic Home {status?.version || '0.4.0'}</small></div></aside>
+  return <div className="app-shell"><a className="skip-link" href="#main-content" onClick={e=>{e.preventDefault();document.getElementById('main-content')?.focus()}}>跳到主要內容</a><aside className="sidebar"><a className="brand" href="#home" onClick={e=>{e.preventDefault();navigate('home')}}><span className="brand-mark">a<span>h</span></span><span>Agentic<br/><b>Smart Home</b></span></a><p className="nav-label">家庭控制中心</p><nav aria-label="主選單">{nav.map(([id,label,index])=><button className={view===id?'active':''} aria-current={view===id?'page':undefined} onClick={()=>navigate(id)} key={id}><span>{index}</span>{label}</button>)}</nav><div className="sidebar-foot">日常規則由 Home Assistant 執行<small>Agentic Home {status?.version || '0.5.0'}</small></div></aside>
   <main id="main-content" tabIndex={-1}><header className="topbar"><div><span className="eyebrow">{status?.ha?.location_name || 'AGENTIC HOME · LINUX'}</span><h1>{nav.find(n=>n[0]===view)?.[1]}</h1></div><div className="top-actions"><span className="ha-status">HA <Status value={status?status.ha?.status:'loading'}/></span>{ready&&<Button secondary disabled={!status} onClick={async()=>{try{await api('pause',{paused:!status?.paused});await refreshStatus()}catch(e){setError((e as Error).message)}}}>{status?.paused?'恢復 AI':'暫停 AI'}</Button>}{hostMode&&<button className="text-button" onClick={async()=>{try{await api('host/logout',{});onLogout()}catch(e){setError((e as Error).message)}}}>登出</button>}</div></header>
   {error&&<div className="global-error"><Notice error>{error}<div className="row-actions"><Button secondary disabled={refreshing} onClick={refresh}>{refreshing?'重新連線中…':'重新連線'}</Button><button className="text-button" onClick={()=>setError('')}>關閉提示</button></div></Notice></div>}
   {pendingView&&<div className="global-error"><Notice>設備授權尚未儲存。可以留在本頁儲存，或捨棄這次修改。<div className="row-actions"><Button secondary onClick={()=>setPendingView(null)}>繼續編輯</Button><button className="text-button" onClick={()=>{setDirty(false);location.hash=pendingView;setRoute({view:pendingView,task:null});setPendingView(null)}}>捨棄修改並離開</button></div></Notice></div>}
@@ -117,11 +118,11 @@ function Retention(){
 
 
 function Root(){
-  const [deployment,setDeployment]=useState<any>(null),[error,setError]=useState(''),[mounted,setMounted]=useState(false);
-  const load=useCallback(async()=>{setError('');try{const result=await api('deployment');configureDeployment(result.mode);setDeployment(result);if(result.mode!=='host'||result.authenticated)setMounted(true)}catch(e){setError((e as Error).message)}},[]);
+  const [deployment,setDeployment]=useState<any>(null),[error,setError]=useState(''),[mounted,setMounted]=useState(false),[desktopError,setDesktopError]=useState(false);
+  const load=useCallback(async()=>{setError('');try{setDesktopError(await desktopLogin()==='failed');const result=await api('deployment');configureDeployment(result.mode);setDeployment(result);if(result.mode!=='host'||result.authenticated)setMounted(true)}catch(e){setError((e as Error).message)}},[]);
   useEffect(()=>{load();const expire=()=>setDeployment((d:any)=>({...d,authenticated:false}));window.addEventListener('agentic-session-expired',expire);return()=>window.removeEventListener('agentic-session-expired',expire)},[load]);
   if(!deployment)return <main className="host-login"><span className="eyebrow">AGENTIC HOME</span><h1>{error?'管理中心尚未回應':'正在開啟你的家庭主機…'}</h1>{error&&<><p role="alert">{error}</p><Button onClick={load}>重試連線</Button></>}</main>;
   const loggedIn=deployment.mode!=='host'||deployment.authenticated;
-  return <>{!loggedIn&&<HostLogin expired={mounted} onLogin={()=>{setDeployment({...deployment,authenticated:true});setMounted(true)}}/>}{mounted&&<div hidden={!loggedIn}><App hostMode={deployment.mode==='host'} active={loggedIn} onLogout={()=>{Object.keys(sessionStorage).filter(key=>key.startsWith('agentic-auth-')||key==='agentic-host-task').forEach(key=>sessionStorage.removeItem(key));setMounted(false);setDeployment({...deployment,authenticated:false})}}/></div>}</>;
+  return <>{!loggedIn&&<HostLogin expired={mounted} desktopError={desktopError} onLogin={()=>{setDeployment({...deployment,authenticated:true});setMounted(true)}}/>}{mounted&&<div hidden={!loggedIn}><App hostMode={deployment.mode==='host'} active={loggedIn} onLogout={()=>{Object.keys(sessionStorage).filter(key=>key.startsWith('agentic-auth-')||key==='agentic-host-task').forEach(key=>sessionStorage.removeItem(key));setMounted(false);setDeployment({...deployment,authenticated:false})}}/></div>}</>;
 }
 createRoot(document.getElementById('root')!).render(<StrictMode><Root/></StrictMode>);

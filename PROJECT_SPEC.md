@@ -2,6 +2,8 @@
 
 Steering v3.0；匯入基準是應用 `0.3.1`、commit `3ad476a712009469521c3f9838a44ef35ba29f76`。完整規格以 [Owner Project Spec v3](docs/v3/PROJECT_SPEC_V3.md) 和 [Worker Contract v1](docs/v3/WORKER_PROTOCOL_V1.md) 為準；以下是工程落地的共同不變條件，不是所有設計均已實作的聲明。當前證據見 [進度表](docs/v3/PROGRESS.md)。
 
+首次使用順序依 Owner 2026-10-12 指示改為 CLI 先行，見 [自動 onboarding](docs/ONBOARDING.md)。0.5.0 新增持久 `bootstrap_v1` 流程、短效本機桌面登入、首次 Hermes 最新來源相容性檢查、LINE／Telegram 配對碼與 HA 官方瀏覽器授權。仍使用 Controller schema 2；新增記錄與既有家庭 journal 分開，不宣稱能原地退回 0.4.0。
+
 ## 路徑與權威
 
 ```text

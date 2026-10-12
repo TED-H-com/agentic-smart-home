@@ -5,9 +5,10 @@ const actionLabels:Record<string,string>={provision:'建立 HAOS',start:'啟動 
 const jobLabels:Record<string,string>={running:'處理中',succeeded:'已完成',failed:'未完成',needs_reconcile:'需要核對'};
 const time=(value:number)=>new Date(value*1000).toLocaleString('zh-TW');
 
-export function HostLogin({onLogin,expired=false}:{onLogin:()=>void;expired?:boolean}){
+export function HostLogin({onLogin,expired=false,desktopError=false}:{onLogin:()=>void;expired?:boolean;desktopError?:boolean}){
   const [key,setKey]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[show,setShow]=useState(false);
   return <main className="host-login"><span className="eyebrow">AGENTIC HOME · LINUX</span><h1>{expired?'歡迎回來':'你的家庭，從這裡開始'}</h1><p>{expired?'登入已到期。重新登入後，會回到你剛才的頁面。':'在這台 Linux 上管理 Home Assistant、連接 Agent，建立每天替你運作的家庭規則。'}</p>
+    {desktopError&&<p className="notice error" role="alert">桌面登入已過期或未完成。請重新開啟桌面的「Agentic Home」，或使用下方的主機登入金鑰。</p>}
     <form className="login-form" onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{await api('host/login',{key:key.trim()});setKey('');onLogin()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>
       <label htmlFor="host-key">主機登入金鑰</label><div className="secret-field"><input id="host-key" type={show?'text':'password'} value={key} onChange={e=>setKey(e.target.value)} autoComplete="current-password" autoFocus required aria-describedby="key-help"/><button className="text-button" type="button" aria-pressed={show} onClick={()=>setShow(!show)}>{show?'隱藏':'顯示'}</button></div>
       <p id="key-help" className="helper-text">打開家目錄中的 <strong>Agentic-Home.txt</strong>，複製「主機登入金鑰」貼上。</p>

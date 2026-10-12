@@ -22,10 +22,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import Field, ValidationError
 
 from . import VERSION
+from .bootstrap import Bootstrap
+from .bootstrap import routes as bootstrap_routes
 from .engine import Engine, Rejected
 from .gateway import Gateway
 from .gateway import routes as gateway_routes
 from .ha import HAError, HomeAssistant
+from .ha_oauth import routes as ha_oauth_routes
 from .hermes import Coordinator, HermesError
 from .hermes import routes as hermes_routes
 from .host import HostSession, external_ha
@@ -115,7 +118,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     ha = ha or (external_ha(root) if host_mode else HomeAssistant(os.environ.get("SUPERVISOR_TOKEN", "")))
     runner = runner or Runner(store)
     inner_runner = inner_runner or Runner(store, "haos")
-    gateway = None
+    gateway, bootstrap = None, None
     coordinator = Coordinator(store, hermes_client) if host_mode else None
     engine = Engine(store, ha)
     secret = store.setting("csrf_secret") or secrets.token_hex(32)
@@ -144,6 +147,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         watchers = [asyncio.create_task(ha.watch()), asyncio.create_task(engine.observe()), asyncio.create_task(maintain())]
         if gateway:
             await gateway.start()
+        if bootstrap:
+            bootstrap.resume()
         mcp_server = None
         mcp_task = None
         if coordinator and os.environ.get("AGENTIC_HERMES_MCP") == "1":
@@ -153,6 +158,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
             mcp_server.capture_signals = contextlib.nullcontext
             mcp_task = asyncio.create_task(mcp_server.serve())
         yield
+        if bootstrap:
+            await bootstrap.close()
         if gateway:
             await gateway.close()
         tasks = list(running.values()) + watchers
@@ -169,6 +176,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     app.state.engine, app.state.store, app.state.ha, app.state.running = engine, store, ha, running
     if host_mode:
         host_routes(app, host_session, ha, store, runner, controller_id)
+        ha_oauth_routes(app, host_session, ha, store)
 
     def csrf(principal, expires):
         payload = f"{principal}:{expires}"
@@ -190,15 +198,15 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                     if request.method not in {"GET", "HEAD"} and request.headers.get("origin") not in {
                         "http://localhost:8099", "http://127.0.0.1:8099"}:
                         return JSONResponse({"detail": "頁面來源不符"}, status_code=403)
-                    if request.url.path != "/api/host/login" and not host_session.verify(request):
+                    if request.url.path not in {"/api/host/login", "/api/host/desktop-login"} and not host_session.verify(request):
                         return JSONResponse({"detail": "請先登入 Linux 主機管理介面"}, status_code=401)
             elif peer != ingress_ip:
                 return JSONResponse({"detail": "請經由 Home Assistant Ingress 開啟"}, status_code=403)
             if int(request.headers.get("content-length", "0")) > 131072:
                 return JSONResponse({"detail": "請求太大"}, status_code=413)
-            if request.url.path.startswith("/api/") and request.url.path != "/api/host/login":
+            if request.url.path.startswith("/api/") and request.url.path not in {"/api/host/login", "/api/host/desktop-login"}:
                 local = host_mode and (request.method in {"GET", "HEAD"} or request.url.path.startswith(
-                    ("/api/host/", "/api/providers/", "/api/gateway/", "/api/runtimes/", "/api/hermes/")) or request.url.path in {"/api/pause", "/api/retention", "/api/backups/export"})
+                    ("/api/host/", "/api/providers/", "/api/gateway/", "/api/runtimes/", "/api/hermes/", "/api/bootstrap/")) or request.url.path in {"/api/pause", "/api/retention", "/api/backups/export"})
                 user_id = (store.setting("owner") or "host-owner") if host_mode else request.headers.get("x-remote-user-id", "")
                 if not user_id or (store.setting("owner") and store.setting("owner") != user_id):
                     return JSONResponse({"detail": "只有綁定的 HA owner 可以操作"}, status_code=403)
@@ -228,7 +236,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
             return JSONResponse({"detail": str(exc)}, status_code=503)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Referrer-Policy"] = "same-origin"
+        response.headers.setdefault("Referrer-Policy", "same-origin")
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
             "connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'")
@@ -564,6 +572,9 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         gateway_routes(app, gateway, store, gateway.runners, controller_id)
         app.state.gateway = gateway
         app.state.coordinator = coordinator
+        bootstrap = Bootstrap(store, runner, coordinator, gateway, ha, controller_id)
+        bootstrap_routes(app, bootstrap)
+        app.state.bootstrap = bootstrap
     static = Path(static or Path(__file__).resolve().parent.parent / "static")
     if static.is_dir():
         app.mount("/", StaticFiles(directory=static, html=True), name="web")

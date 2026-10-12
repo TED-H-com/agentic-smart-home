@@ -4,6 +4,7 @@ No cloud account, physical device or real HAOS is used by these tests.
 """
 
 import asyncio
+import base64
 import json
 import os
 import signal
@@ -28,6 +29,10 @@ SCOPE = "a" * 64
 OTHER_SCOPE = "b" * 64
 MCP_TOKEN = "fixture-capability-" + "c" * 40
 API_KEY = "fixture-api-key-" + "d" * 40
+CODEX_HEADER = base64.urlsafe_b64encode(b'{"alg":"RS256"}').rstrip(b"=").decode()
+CODEX_TOKEN = CODEX_HEADER + "." + base64.urlsafe_b64encode(json.dumps({
+    "exp": 4102444800, "https://api.openai.com/auth": {"chatgpt_account_id": "fixture-account"},
+}).encode()).rstrip(b"=").decode() + ".AA"
 
 
 @pytest.fixture
@@ -66,6 +71,100 @@ def request_body(**values):
 async def drain(runtime):
     await asyncio.gather(*list(runtime.tasks.values()), return_exceptions=True)
     await asyncio.sleep(0)
+
+
+async def test_native_oauth_is_separate_idempotent_and_requires_real_run(client, runtime, monkeypatch):
+    await configure(client)
+    old_session = await session(client)
+    entered, release = asyncio.Event(), asyncio.Event()
+    calls = []
+
+    async def oauth_fixture(item, home):
+        calls.append(item["auth_id"])
+        runtime.device_login.update(item, "pending", verification_uri="https://auth.openai.com/codex/device", user_code="ABCD-EFGH")
+        entered.set()
+        await release.wait()
+        (home / "auth.json").write_text(json.dumps({"tokens": {"access_token": "synthetic-access", "refresh_token": "synthetic-refresh"}}))
+        return "configured"
+
+    monkeypatch.setattr(runtime.device_login, "invoke", oauth_fixture)
+    body = {"provider": "openai-codex", "model": "gpt-6-astra"}
+    response = await client.post("/v1/auth/device", json=body, headers={"Idempotency-Key": "native-login"})
+    assert response.status_code == 202
+    identifier = response.json()["auth_id"]
+    await entered.wait()
+    retry = await client.post("/v1/auth/device", json=body, headers={"Idempotency-Key": "native-login"})
+    assert retry.json()["auth_id"] == identifier and len(calls) == 1
+    status = await client.get("/v1/auth/device/" + identifier)
+    assert status.json()["user_code"] == "ABCD-EFGH"
+    assert runtime.auth["state"] == "needs_auth" and "api_key" not in runtime.auth
+    assert runtime.get("session", old_session) is None
+    assert "CODEX_HOME" not in runtime.child_environment(runtime.directory / "fixture")
+    release.set()
+    await drain(runtime)
+    status = await client.get("/v1/auth/device/" + identifier)
+    assert status.json()["state"] == "configured" and status.json()["user_code"] is None
+    assert runtime.capabilities()["auth_verified_at"] is None
+    assert "synthetic-access" not in status.text + runtime.auth_path.read_text()
+    assert "synthetic-refresh" not in runtime.db.execute("SELECT group_concat(body) FROM records").fetchone()[0]
+
+    async def inference_fixture(payload, scratch, identifier):
+        assert payload["provider"] == "openai-codex" and payload["api_key"] == ""
+        return {"answer": "synthetic inference", "history": []}
+
+    monkeypatch.setattr(runtime, "invoke", inference_fixture)
+    sid = await session(client, key="new-native-session")
+    await client.post(f"/v1/sessions/{sid}/runs", json=request_body(), headers={"Idempotency-Key": "native-run"})
+    await drain(runtime)
+    assert runtime.auth["state"] == "ready" and runtime.auth["verified_at"]
+    await client.post("/v1/auth/logout")
+    assert not (runtime.directory / "oauth").exists()
+    assert (await client.get("/v1/auth/device/" + identifier)).json()["state"] == "interrupted"
+
+
+async def test_native_oauth_cancel_fences_before_erasing_store(client, runtime, monkeypatch):
+    entered = asyncio.Event()
+
+    async def fixture(item, home):
+        entered.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(runtime.device_login, "invoke", fixture)
+    response = await client.post("/v1/auth/device", json={"provider": "openai-codex", "model": "gpt-6-astra"}, headers={"Idempotency-Key": "cancel-login"})
+    identifier = response.json()["auth_id"]
+    await entered.wait()
+    response = await client.post(f"/v1/auth/device/{identifier}/cancel")
+    assert response.json()["state"] == "cancelled"
+    assert not list((runtime.directory / "oauth").iterdir())
+    assert runtime.auth["state"] == "needs_auth"
+
+
+async def test_native_oauth_uncertain_stop_quarantines_login_and_store(client, runtime, monkeypatch):
+    entered = asyncio.Event()
+
+    async def fixture(item, home):
+        entered.set()
+        await asyncio.Event().wait()
+
+    async def unknown_stop(identifier):
+        raise TimeoutError("fixture unknown stop")
+
+    monkeypatch.setattr(runtime.device_login, "invoke", fixture)
+    monkeypatch.setattr(runtime, "stop_process", unknown_stop)
+    response = await client.post("/v1/auth/device", json={"provider": "openai-codex", "model": "gpt-6-astra"}, headers={"Idempotency-Key": "unknown-login"})
+    identifier = response.json()["auth_id"]
+    await entered.wait()
+    assert (await client.post(f"/v1/auth/device/{identifier}/cancel")).json()["state"] == "stop_unconfirmed"
+    assert runtime.capabilities()["execution_state"] == "stop_unconfirmed"
+    assert (await client.post("/v1/auth/logout")).status_code == 409
+    assert (runtime.directory / "oauth" / runtime.auth["epoch"]).is_dir()
+    await runtime.close()
+    restarted = Runtime(runtime.directory, TOKEN, upstream=runtime.upstream)
+    try:
+        assert identifier in restarted.unconfirmed
+    finally:
+        await restarted.close()
+    runtime.unconfirmed.clear()
 
 
 async def test_runtime_auth_and_no_secret_echo(client, runtime):
@@ -352,7 +451,7 @@ def test_hermes_builtin_dispatch_is_refused_even_if_model_invents_tools():
 
 
 @contextmanager
-def protocol_server(auth_error=False, controller=False):
+def protocol_server(auth_error=False, controller=False, native=False):
     observed = {"model_calls": [], "tool_calls": []}
 
     class Handler(BaseHTTPRequestHandler):
@@ -392,6 +491,24 @@ def protocol_server(auth_error=False, controller=False):
                 return
             if self.path == "/api/show":
                 self.reply({"model_info": {"general.architecture": "fixture", "fixture.context_length": 65536}})
+                return
+            if native and self.path.endswith("/responses"):
+                assert self.headers["Authorization"] == "Bearer " + CODEX_TOKEN
+                observed["model_calls"].append(body)
+                assert {tool["name"] for tool in body["tools"]} == {"mcp__agentic__host_status"}
+                if len(observed["model_calls"]) == 1:
+                    item = {"id": "fc_fixture", "type": "function_call", "status": "completed", "call_id": "call_fixture", "name": "mcp__agentic__host_status", "arguments": "{}"}
+                else:
+                    item = {"id": "msg_fixture", "type": "message", "role": "assistant", "status": "completed", "content": [{"type": "output_text", "text": "Fixture host diagnosis received; no real household tested.", "annotations": []}]}
+                response = {"id": "resp_fixture", "object": "response", "created_at": 1, "model": "gpt-6-astra", "status": "completed", "output": [item], "usage": {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2}}
+                events = [{"type": "response.created", "response": {**response, "status": "in_progress", "output": []}},
+                          {"type": "response.output_item.added", "output_index": 0, "item": item},
+                          {"type": "response.output_item.done", "output_index": 0, "item": item},
+                          {"type": "response.completed", "response": response}]
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.end_headers()
+                self.wfile.write("".join("event: " + event["type"] + "\ndata: " + json.dumps(event) + "\n\n" for event in events).encode())
                 return
             assert self.path.endswith("/chat/completions"), self.path
             assert self.headers["Authorization"] == "Bearer " + API_KEY
@@ -495,8 +612,8 @@ def controller_mcp_server(tmp_path, monkeypatch):
         assert not thread.is_alive()
 
 
-@pytest.mark.parametrize("auth_error,controller", [(False, False), (True, False), (False, True)], ids=["mcp_roundtrip", "provider_401", "actual_controller_mcp"])
-def test_real_pinned_hermes_uses_only_controller_mcp(tmp_path, request, monkeypatch, auth_error, controller):
+@pytest.mark.parametrize("auth_error,controller,native", [(False, False, False), (True, False, False), (False, True, False), (False, False, True)], ids=["mcp_roundtrip", "provider_401", "actual_controller_mcp", "native_codex_oauth"])
+def test_real_pinned_hermes_uses_only_controller_mcp(tmp_path, request, monkeypatch, auth_error, controller, native):
     if not request.config.getoption("--containers") and not os.environ.get("AGENTIC_HERMES_TEST_PYTHON"):
         pytest.skip("Real pinned Hermes requires --containers or explicit isolated test interpreter/source")
     home = tmp_path / "hermes-home"
@@ -504,15 +621,20 @@ def test_real_pinned_hermes_uses_only_controller_mcp(tmp_path, request, monkeypa
     (home / ".hermes").mkdir()
     (home / "tmp").mkdir()
     payload = {"run_id": uuid.uuid4().hex, "session_id": uuid.uuid4().hex, "message": "Use host.status to diagnose the host", "history": [], "model": "fixture/model", "api_key": API_KEY, "mcp_token": MCP_TOKEN}
-    with protocol_server(auth_error, controller) as (url, observed), controller_mcp_server(tmp_path, monkeypatch) if controller else nullcontext({"url": url + "/mcp", "token": MCP_TOKEN}) as mcp:
+    with protocol_server(auth_error, controller, native) as (url, observed), controller_mcp_server(tmp_path, monkeypatch) if controller else nullcontext({"url": url + "/mcp", "token": MCP_TOKEN}) as mcp:
         payload["mcp_token"] = mcp["token"]
         name = "agentic-hermes-test-" + uuid.uuid4().hex[:12]
         if python := os.environ.get("AGENTIC_HERMES_TEST_PYTHON"):
             command = [python, "-m", "agentic_hermes.child"]
             env = {"PATH": "/usr/bin:/bin", "HOME": str(home), "HERMES_HOME": str(home / ".hermes"), "TMPDIR": str(home / "tmp"), "PYTHONPATH": str(Path(__file__).parents[1] / "hermes") + ":" + os.environ["AGENTIC_HERMES_TEST_UPSTREAM"], "AGENTIC_MCP_URL": mcp["url"], "AGENTIC_PROVIDER_URL": url + "/v1"}
         else:
-            command = ["docker", "run", "--rm", "--name", name, "-i", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "--network=host", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{home}:/scratch", "-e", "HOME=/scratch", "-e", "HERMES_HOME=/scratch/.hermes", "-e", "TMPDIR=/scratch/tmp", "-e", "PYTHONPATH=/app:/opt/hermes", "-e", "AGENTIC_MCP_URL=" + mcp["url"], "-e", "AGENTIC_PROVIDER_URL=" + url + "/v1", "--entrypoint=python", os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.4.0"), "-m", "agentic_hermes.child"]
+            command = ["docker", "run", "--rm", "--name", name, "-i", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "--network=host", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{home}:/scratch", "-e", "HOME=/scratch", "-e", "HERMES_HOME=/scratch/.hermes", "-e", "TMPDIR=/scratch/tmp", "-e", "PYTHONPATH=/app:/opt/hermes", "-e", "AGENTIC_MCP_URL=" + mcp["url"], "-e", "AGENTIC_PROVIDER_URL=" + url + "/v1", "--entrypoint=python", os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.5.0"), "-m", "agentic_hermes.child"]
             env = None
+        if native:
+            payload.update(provider="openai-codex", model="gpt-6-astra", api_key="")
+            command[-2:] = ["-c", "from hermes_cli.auth_codex import _save_codex_tokens; "
+                f"_save_codex_tokens({{'access_token':{CODEX_TOKEN!r},'refresh_token':'synthetic-native-refresh'}}); "
+                "from agentic_hermes.child import main; main()"]
         try:
             result = subprocess.run(command, input=json.dumps(payload), text=True, capture_output=True, env=env, timeout=90)
         finally:
@@ -543,6 +665,7 @@ def test_real_pinned_hermes_uses_only_controller_mcp(tmp_path, request, monkeypa
         assert MCP_TOKEN not in json.dumps(observed["model_calls"])
         assert mcp["token"] not in json.dumps(observed["model_calls"])
         assert API_KEY not in json.dumps(body)
+        assert CODEX_TOKEN not in json.dumps(body) and "synthetic-native-refresh" not in json.dumps(body)
         assert set(TOOLS) >= {"host.status", "worker.submit"}
 
 
@@ -554,7 +677,7 @@ def test_packaged_runtime_starts_nonroot_without_cloud_credentials(tmp_path, req
     token_path = tmp_path / "service-token"
     token_path.write_text(TOKEN)
     token_path.chmod(0o644)  # Dedicated synthetic credential, mounted as a file.
-    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.4.0")
+    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.5.0")
     probe = (
         "import json,os,urllib.request; "
         "r=urllib.request.Request('http://127.0.0.1:8096/v1/capabilities',"
@@ -633,6 +756,68 @@ else:
         assert secured.returncode == 0, secured.stderr[-2000:]
         consistent = subprocess.run(["docker", "exec", name, "python", "-m", "pip", "check"], capture_output=True, text=True, timeout=15)
         assert consistent.returncode == 0, consistent.stdout[-2000:] + consistent.stderr[-2000:]
+    finally:
+        subprocess.run(["docker", "rm", "-fv", name], capture_output=True, check=False)
+        subprocess.run(["docker", "volume", "rm", volume], capture_output=True, check=False)
+
+
+def test_offline_candidate_gate_and_real_upstream_device_flow(request):
+    if not request.config.getoption("--containers"):
+        pytest.skip("Candidate and native device-flow probes require --containers")
+    name = "agentic-hermes-oauth-" + uuid.uuid4().hex[:12]
+    volume = name + "-data"
+    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.5.0")
+    common = ["docker", "run", "--rm", "--name", name, "--network=none", "--read-only", "--cap-drop=ALL",
+              "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "-v", volume + ":/data",
+              "-e", "HOME=/data", "-e", "HERMES_HOME=/data", "-e", "TMPDIR=/data",
+              "-e", "PYTHONPATH=/app:/opt/hermes", "--entrypoint=python", image]
+    script = r'''
+import contextlib,io,json,os
+from pathlib import Path
+import httpx
+os.environ['HERMES_HOME']='/data/native-login'
+os.environ['AGENTIC_PARENT_PID']=str(os.getppid())
+Path(os.environ['HERMES_HOME']).mkdir(mode=0o700)
+from hermes_cli import auth_codex
+from agentic_hermes.oauth_child import main
+observed=[]
+def endpoint(request):
+    observed.append(request.url.path)
+    assert request.url.host=='auth.openai.com'
+    if request.url.path.endswith('/usercode'):
+        data={'device_auth_id':'synthetic-private-device','user_code':'ABCD-EFGH','interval':3}
+    elif request.url.path.endswith('/deviceauth/token'):
+        data={'authorization_code':'synthetic-private-code','code_verifier':'synthetic-private-verifier'}
+    elif request.url.path=='/oauth/token':
+        data={'access_token':'synthetic-access','refresh_token':'synthetic-refresh'}
+    else:
+        raise AssertionError(str(request.url))
+    return httpx.Response(200,json=data)
+auth_codex._codex_http_client=lambda **kw: httpx.Client(transport=httpx.MockTransport(endpoint),**kw)
+auth_codex.time.sleep=lambda _:None
+output=io.StringIO()
+with contextlib.redirect_stdout(output):
+    main()
+public=output.getvalue()
+events=[json.loads(line) for line in public.splitlines()]
+assert events==[{'state':'pending','verification_uri':'https://auth.openai.com/codex/device','user_code':'ABCD-EFGH'},{'state':'configured'}],events
+assert all(secret not in public for secret in ('synthetic-access','synthetic-refresh','synthetic-private-device','synthetic-private-code','synthetic-private-verifier'))
+auth=Path(os.environ['HERMES_HOME'])/'auth.json'
+assert auth.stat().st_mode & 0o777 == 0o600
+tokens=json.loads(auth.read_text())['providers']['openai-codex']['tokens']
+assert tokens=={'access_token':'synthetic-access','refresh_token':'synthetic-refresh'}
+assert not (Path('/data')/'.codex').exists()
+assert len(observed)==3
+assert json.loads((auth.parent/'config.yaml').read_text())['auth']['adopt_external_logins'] is False
+print(json.dumps({'oauth':'real_upstream_helpers','transport':'mock_http','account_verified':False}))
+'''
+    try:
+        gate = subprocess.run(common + ["/app/compatibility_probe.py"], capture_output=True, text=True, timeout=90)
+        assert gate.returncode == 0, gate.stdout[-3000:] + gate.stderr[-3000:]
+        assert json.loads(gate.stdout)["compatible"] is True
+        oauth = subprocess.run(common + ["-c", script], capture_output=True, text=True, timeout=45)
+        assert oauth.returncode == 0, oauth.stdout[-3000:] + oauth.stderr[-3000:]
+        assert json.loads(oauth.stdout)["oauth"] == "real_upstream_helpers"
     finally:
         subprocess.run(["docker", "rm", "-fv", name], capture_output=True, check=False)
         subprocess.run(["docker", "volume", "rm", volume], capture_output=True, check=False)

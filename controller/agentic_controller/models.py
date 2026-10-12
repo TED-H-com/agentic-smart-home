@@ -56,6 +56,11 @@ class ChannelConfig(Strict):
         return self
 
 
+class ChannelPairingInput(Strict):
+    secret: Annotated[str, Field(max_length=16384)] = ""
+    chat: Annotated[str, Field(pattern=r"^[ucrs][0-9a-f]{32}$")] | None = None
+
+
 class ChatInput(Strict):
     message: Annotated[str, Field(min_length=1, max_length=5000)]
     runtime: Runtime = "host"
@@ -85,6 +90,57 @@ class AgentLogin(Strict):
 
 class OnboardingStep(Strict):
     step: Annotated[int, Field(ge=0, le=4)]
+
+
+BootstrapStepId = Literal["network", "runner_pairing", "cli_auth", "cli_assist", "hermes_install",
+                          "hermes_auth", "channel", "ha_provision", "ha_native"]
+BootstrapChannel = Literal["line", "telegram", "discord", "web"]
+
+
+class BootstrapStart(Strict):
+    provider: Provider
+    channel: BootstrapChannel = "line"
+
+
+class BootstrapPreferences(Strict):
+    channel: BootstrapChannel
+
+
+class BootstrapRetry(Strict):
+    pass
+
+
+class HermesDeviceAuth(Strict):
+    provider: Literal["openai-codex"] = "openai-codex"
+    model: Annotated[str, Field(min_length=1, max_length=200, pattern=r"^[a-zA-Z0-9_./:@-]+$")]
+
+
+class BootstrapStep(Strict):
+    id: BootstrapStepId
+    state: Literal["pending", "running", "waiting_input", "blocked", "completed", "skipped"] = "pending"
+    code: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,80}$")] | None = None
+    verified_at: str | None = None
+
+
+class BootstrapHumanAction(Strict):
+    kind: Literal["cli_login", "hermes_login", "channel_setup", "ha_native_onboarding", "retry"]
+    message: str
+    provider: Provider | None = None
+    channel: BootstrapChannel | None = None
+    url: str | None = None
+    code: str | None = None
+
+
+class BootstrapStatus(Strict):
+    contract: Literal[1] = 1
+    id: str | None = None
+    state: Literal["idle", "running", "waiting_input", "blocked", "completed"] = "idle"
+    provider: Provider | None = None
+    channel: BootstrapChannel = "line"
+    current_step: BootstrapStepId | None = None
+    steps: list[BootstrapStep] = []
+    human_action: BootstrapHumanAction | None = None
+    updated_at: str | None = None
 
 
 class Trigger(Strict):

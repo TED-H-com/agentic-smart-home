@@ -1,0 +1,14 @@
+{
+  "conclusion": "success",
+  "createdAt": "2026-10-12T04:14:16Z",
+  "headSha": "cb11ffd8c0d3eb48a9854fd51add030a1df936e9",
+  "status": "completed",
+  "updatedAt": "2026-10-12T04:19:44Z",
+  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38202961564",
+  "version": "0.4.0",
+  "test_result": "145 passed, 2 skipped",
+  "scope": "Corrected installed sandbox Docker JSON checks, bounded stop diagnostics and owner-readable installation metadata; same source used for rebuilt media.",
+  "skipped": "Large standalone HAOS VM and Linux installation. Installed Linux case verified separately.",
+  "junit": "pytest-0.4.0-github.xml",
+  "seconds": 152.424
+}

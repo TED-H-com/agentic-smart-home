@@ -92,6 +92,49 @@ async def test_hermes_auth_works_without_ha_and_does_not_verify_configuration(sy
     assert (await client.post("/api/hermes/auth", json={"api_key": "secret"})).status_code == 403
 
 
+async def test_device_auth_lost_response_retries_same_identity_without_epoch_rotation(system, store):
+    _, client, bridge = system
+    observed = []
+    original = bridge.call
+    async def call(method, path, body=None, key=None):
+        if path == "/v1/auth/device":
+            observed.append((method, path, body, key))
+            if len(observed) == 1:
+                raise HermesError()
+            return {"auth_id": "a" * 32, "state": "pending", "verification_uri": "https://auth.openai.com/codex/device"}
+        return await original(method, path, body, key)
+    bridge.call = call
+    body = {"provider": "openai-codex", "model": "fixture-model"}
+    assert (await client.post("/api/hermes/auth/device", json=body)).status_code == 400
+    headers = {"Idempotency-Key": "official-oauth"}
+    assert (await client.post("/api/hermes/auth/device", json=body, headers=headers)).status_code == 503
+    epoch = store.setting("hermes_auth_epoch")
+    assert (await client.post("/api/hermes/auth/device", json=body, headers=headers)).status_code == 202
+    assert store.setting("hermes_auth_epoch") == epoch and observed[0] == observed[1]
+    assert (await client.post("/api/hermes/auth/device", json={**body, "model": "different"}, headers=headers)).status_code == 409
+    before = store.db.total_changes
+    assert (await client.get("/api/hermes/auth/device/" + "a" * 32)).status_code == 200
+    assert store.db.total_changes == before
+
+
+async def test_host_mcp_native_onboarding_evidence_is_typed_and_secret_free(system, store, monkeypatch):
+    app, _, _ = system
+    async def observe():
+        return {"kvm": True, "vm": "running", "bootstrap": {"ha": {"reachable": True,
+            "onboarding_available": True, "onboarding_complete": False, "http_status": 200,
+            "token": "never expose", "steps": [{"step": "user", "done": False, "identity": "private-owner"},
+            {"step": "core_config", "done": True}, {"step": "private-owner", "done": True},
+            {"step": {"injected": "identity"}, "done": True}, {"step": "integration", "done": "true"}]}}}
+    monkeypatch.setattr("agentic_controller.hermes.host_call", observe)
+    store.put("bootstrap_v1", {"id": "setup", "current_step": "ha_native", "private": "never expose"})
+    result = await app.state.coordinator.host_evidence({"case_id": "fixture"})
+    native = result["facts"]["ha_onboarding"]
+    assert native["observed_from"] == "outer_host_to_core_onboarding_api"
+    assert native["steps"] == [{"step": "user", "done": False}, {"step": "core_config", "done": True}]
+    assert result["facts"]["setup_step"] == "ha_native"
+    assert not any(word in json.dumps(result) for word in ("never expose", "private-owner", "identity", "token"))
+
+
 async def test_context_retention_requires_bridge_acknowledgement(system, store):
     _, client, bridge = system
     response = await client.post("/api/retention", json={"audit_days": 30, "context_days": 1})

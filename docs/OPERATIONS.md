@@ -85,3 +85,11 @@ The primary deployment runs Controller and Runner on the outer Linux host. Use [
 Outer Linux data is in `/var/lib/agentic-home/`. To back it up consistently, stop `agentic-home.service` before copying Controller/Runner files, protect the copy with encryption, and restart the service afterwards; HAOS continues to run independently. Runner profiles contain provider credentials. A cold backup of that directory is not a full HAOS disk backup; use `agentic-home snapshot` for HAOS, and copy completed snapshot directories off-machine with encryption.
 
 Do not restore the HAOS disk while it is running. After a whole-guest restore, reconcile Controller's automation ledger with actual HA config before further writes. The current installer refuses to overwrite `/opt/agentic-home` with a new release; an in-place distribution upgrade is not supplied as an unattended operation.
+
+## 0.5.0 首次設定恢復
+
+`bootstrap_v1` 和短效通道配對是 schema 2 的新增記錄，沒有移動既有家庭 journal；這不构成 0.5.0 → 0.4.0 原地退版保证。引導 GET 只讀，啟動／重試會保存固定 job ID；回應遺失先核對原工作，不重新派相同副作用。
+
+初次 Hermes 安裝使用 `/var/lib/agentic-home/host/runtime.env` 保存通過檢查的 image digest，systemd 啟停都讀取它。手動使用 Compose 時也必須傳入 `--env-file /var/lib/agentic-home/host/runtime.env`，否則會回到安裝包 image。已有認證／session 的 runtime 不允許走首次更新。`needs_reconcile` 必須核對原 host 操作與容器，不能刪記錄強迫重播。
+
+桌面票據失效時重開 Agentic Home 捷徑即可；key 登入仍是備援。HA 官方授權失敗會顯示固定錯誤碼；中斷的 exchanging 不重用 auth code，可重新開啟新的授權流程。tokens 留在私有 storage，不放入支援報告。

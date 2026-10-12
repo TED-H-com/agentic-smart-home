@@ -1,0 +1,25 @@
+{
+  "source": {
+    "repository": "https://github.com/NousResearch/hermes-agent",
+    "commit": "8a7a5a905fc66ed82b922587a8e3c011e819dbb5",
+    "archive_url": "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/8a7a5a905fc66ed82b922587a8e3c011e819dbb5",
+    "sha256": "ec8f4a2d93074af7ef31848ba1a6c14372a60c153d41bb700d4d906fb83c0355",
+    "python": "3.14",
+    "base_image": "python:3.14-slim-bookworm@sha256:48b13b003dda20b16f9442b8475aa05fe21bf6579a8c881db92ffb4d8fd20f83",
+    "dependency_override": {
+      "cryptography": "50.0.2",
+      "PyJWT": "2.15.0",
+      "httpx2": "2.12.0",
+      "httpcore2": "2.12.0"
+    },
+    "integration": "run_agent.AIAgent + official HTTP MCP client; no Hermes gateway"
+  },
+  "candidate_image_id": "sha256:209c5fa2d630317b768891de2e5f6339b2a21c0fa236fb50f9db4d6d28b3e444",
+  "runtime_location": "isolated_runtime_container",
+  "model_backend": "loopback_protocol_fixture",
+  "mcp": "real official upstream client plus Controller fixture",
+  "result": "21 passed",
+  "junit": "latest-hermes-compatibility.xml",
+  "cloud_account": "not_run",
+  "initial_install_activation": "awaiting disposable Linux VM validation"
+}

@@ -165,6 +165,8 @@ class Manager:
         return xml
 
     def status(self):
+        from .bootstrap import InitialSetup
+
         state = self.state()
         result = self.virsh("domstate", NAME, check=False)
         vm = result.stdout.strip() if result.returncode == 0 else "not_created"
@@ -176,7 +178,8 @@ class Manager:
                 "ha_internal_url": f"http://{IP}:80", "network": "nat", "snapshots": snapshots,
                 "kvm": os.access("/dev/kvm", os.R_OK | os.W_OK),
                 "storage_free_bytes": shutil.disk_usage(self.root).free,
-                "provisioned": bool(state.get("complete")), "restore_pending": state.get("restore_pending")}
+                "provisioned": bool(state.get("complete")), "restore_pending": state.get("restore_pending"),
+                "bootstrap": InitialSetup(self).status()}
 
     def refresh_forwarding(self):
         """Restore scoped forwarding after Linux/Docker restarts, only for our network."""
@@ -342,7 +345,10 @@ class Manager:
         return {"restored": id, "vm": "shut off"}
 
     def action(self, action, snapshot=None):
-        if action not in {"provision", "start", "shutdown", "snapshot", "restore"}:
+        if action not in {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes"}:
             raise HostError("Unknown lifecycle operation")
         with self.locked():
+            if action == "bootstrap_hermes":
+                from .bootstrap import InitialSetup
+                return InitialSetup(self).install()
             return self.restore(snapshot) if action == "restore" else getattr(self, action)()

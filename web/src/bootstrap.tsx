@@ -1,0 +1,59 @@
+import {useCallback,useEffect,useRef,useState} from 'react';
+import {api,haPath,requestKey,session} from './api';
+import {Button,Notice,Status,timestamp} from './ui';
+import {Provider} from './providers';
+import {ChannelSettings,ManualOnboarding} from './gateway';
+import {HermesPanel} from './hermes';
+import type {View} from './setup';
+
+type ProviderId='codex'|'claude'|'agy'|'grok';
+type Step={id:string;state:string;code?:string|null;verified_at?:string|null};
+type Bootstrap={contract:number;id:string|null;state:string;provider:ProviderId|null;channel:string;current_step:string|null;steps:Step[];human_action:null|{kind:string;message?:string;provider?:string;channel?:string;code?:string};updated_at:string|null};
+const names:Record<string,string>={codex:'Codex',claude:'Claude Code',agy:'Antigravity',grok:'Grok Build'};
+const groups=[{title:'網路與主機',ids:['network','runner_pairing']},{title:'登入助手',ids:['cli_auth','cli_assist']},{title:'設定 Hermes',ids:['hermes_install','hermes_auth']},{title:'連接通訊',ids:['channel']},{title:'啟動家庭',ids:['ha_provision','ha_native']}];
+const stepNames:Record<string,string>={network:'檢查區域網路',runner_pairing:'連接主機助手',cli_auth:'登入選定的助手',cli_assist:'由助手確認初始化需求',hermes_install:'安裝與檢查最新 Hermes',hermes_auth:'登入 Hermes',channel:'連接主要通訊入口',ha_provision:'建立並啟動 Home Assistant',ha_native:'完成家庭原生設定'};
+const states:Record<string,string>={idle:'尚未開始',pending:'尚未開始',running:'處理中',waiting_input:'等待你的操作',blocked:'需要處理',completed:'已完成',skipped:'已略過'};
+
+function SelectedCli({provider,onChange}:{provider:ProviderId;onChange:()=>void}){
+  const [runtime,setRuntime]=useState<any>(null),[error,setError]=useState('');
+  const refresh=useCallback(async()=>{try{setRuntime((await api('runtimes')).host);setError('');onChange()}catch(e){setError((e as Error).message)}},[onChange]);
+  useEffect(()=>{refresh()},[refresh]);
+  return <div className="bootstrap-auth">{error&&<Notice error>{error}</Notice>}<p>請在官方授權頁完成登入。成功後會自動繼續，你可以離開這一頁再回來。</p><Provider key={provider} provider={provider} runtime="host" paired={runtime?.protocol===1} state={runtime?.providers?.find((p:any)=>p.provider===provider)} onChange={refresh} subscriptionFirst/></div>
+}
+
+function NativeHome({onChange,ownerRequired=false}:{onChange:()=>void;ownerRequired?:boolean}){
+  const [token,setToken]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [authorization,setAuthorization]=useState<{state:string;error_code?:string|null}|null>(null),[statusError,setStatusError]=useState('');
+  useEffect(()=>{let active=true;let timer:ReturnType<typeof setTimeout>;async function refresh(){try{const value=await api('host/authorization');if(active){setAuthorization(value);setStatusError('')}}catch(e){if(active)setStatusError((e as Error).message)}if(active)timer=setTimeout(refresh,2500)}refresh();return()=>{active=false;clearTimeout(timer)}},[]);
+  async function connect(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await api('host/connect',{token:token.trim()});setToken('');await session();onChange()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+  async function authorize(){setBusy(true);setError('');try{const result=await api('host/authorize',{});const url=new URL(result.url);if(url.origin!==new URL(haPath()).origin||url.pathname!=='/auth/authorize')throw new Error('家庭授權位置不正確，請重新檢查主機設定。');location.assign(url.toString())}catch(e){setError((e as Error).message);setBusy(false)}}
+  return <section aria-label="Home Assistant 原生設定"><h2>{ownerRequired?'授權助手連接你的家庭':'最後，把你的家庭接進來'}</h2><p>{ownerRequired?'家庭帳號已建立。請在 Home Assistant 確認授權，完成後會回到這裡自動繼續。':'Home Assistant 已啟動。先開啟原生畫面，建立管理者帳號與家庭；這些資料由你本人填寫。'}</p><div className="row-actions"><a className={`button ${ownerRequired?'secondary':''}`} href={haPath()} target="_blank" rel="noreferrer">開啟 Home Assistant 設定 ↗</a><Button secondary={!ownerRequired} disabled={busy||authorization?.state==='exchanging'} onClick={authorize}>{busy?'準備家庭授權…':'授權連接家庭'}</Button></div><p className="helper-text">在 Home Assistant 確認授權後，系統會保存這台主機專用、可在 HA 撤銷的一年存取授權。</p>{error&&<Notice error>{error}</Notice>}{statusError&&<Notice error>{statusError}</Notice>}{authorization?.state==='failed'&&<Notice error>家庭授權尚未完成。請使用 Home Assistant 的管理者帳號重新授權。</Notice>}{authorization?.state==='expired'&&<Notice error>家庭授權已過期，請重新開始授權。</Notice>}{authorization?.state==='exchanging'&&<p role="status">正在驗證家庭管理者身份，完成後會自動繼續。</p>}{authorization?.state==='connected'&&<p role="status">家庭授權已連接，正在等待初始化服務確認。</p>}
+    <details><summary>進階：使用 HA owner 權杖</summary><p>若瀏覽器授權無法完成，可到 Home Assistant 的 <a href={haPath('/profile/security')} target="_blank" rel="noreferrer">個人資料 → 安全性 ↗</a> 建立長效存取權杖。管理中心會驗證 owner 身份，權杖不交給模型。</p><form onSubmit={connect}><label>HA owner 權杖<input type="password" autoComplete="off" value={token} onChange={e=>setToken(e.target.value)} required/></label><Button type="submit" disabled={busy||!token.trim()}>{busy?'驗證管理者身份…':'驗證並連接家庭'}</Button></form></details><p className="helper-text">完成前，外層 Web 對話仍可使用；家庭控制會等待實際授權。可到 <a href="#gateway">Web 對話請 Hermes 協助</a>。</p></section>
+}
+
+export function Onboarding({status,onChange,navigate}:{status:any;onChange:()=>void;navigate:(view:View)=>void}){
+  const [data,setData]=useState<Bootstrap|null>(null),[provider,setProvider]=useState<ProviderId>('codex'),[busy,setBusy]=useState(false),[readError,setReadError]=useState(''),[error,setError]=useState(''),[manual,setManual]=useState(false);
+  const pending=useRef<{signature:string;key:string}|null>(null);
+  const refresh=useCallback(async()=>{const next=await api('bootstrap');if(next.contract!==1||!Array.isArray(next.steps))throw new Error('設定服務尚未提供可用的進度，請重試或開啟手動設定。');setData(next);setReadError('');if(next.id&&pending.current?.signature.startsWith('["start",')){pending.current=null;setError('')}},[]);
+  useEffect(()=>{let alive=true;let timer:ReturnType<typeof setTimeout>;const poll=async()=>{try{await refresh()}catch(e){if(alive)setReadError((e as Error).message)}if(alive)timer=setTimeout(poll,2500)};poll();return()=>{alive=false;clearTimeout(timer)}},[refresh]);
+  const changed=useCallback(()=>{refresh().catch(e=>setReadError(e.message));onChange()},[refresh,onChange]);
+  async function mutate(path:string,body:unknown){setBusy(true);setError('');const signature=JSON.stringify([path,body]);if(pending.current?.signature!==signature)pending.current={signature,key:requestKey()};try{await api(`bootstrap/${path}`,body,false,pending.current.key);pending.current=null;await refresh();onChange()}catch(e){setError((e as Error).message);throw e}finally{setBusy(false)}}
+  const action=data?.human_action,started=!!data?.id,complete=data?.state==='completed';
+  const selected=data?.provider||provider;
+  const current=data?.steps.find(s=>s.id===data.current_step);
+  const activeGroup=groups.findIndex(group=>group.ids.includes(data?.current_step||''));
+  const disconnected=!!readError;
+  return <div className="onboarding bootstrap"><div className="onboarding-intro"><span className="eyebrow">從這台 LINUX 開始</span><h2>選一個助手，接著讓設定自動繼續。</h2><p>連上網路、完成一次 CLI 登入。助手會協助準備 Hermes，再連接通訊入口與 Home Assistant。</p></div>
+    <ol className="onboarding-steps bootstrap-steps" aria-label="自動設定進度">{groups.map((group,index)=>{const entries=data?.steps.filter(step=>group.ids.includes(step.id))||[];const done=started&&entries.length===group.ids.length&&entries.every(step=>['completed','skipped'].includes(step.state));const skipped=done&&entries.every(step=>step.state==='skipped');return <li key={group.title} aria-current={activeGroup===index?'step':undefined} className={done?'complete':''}><span className="step-number" aria-hidden>{skipped?'—':done?'✓':index+1}</span><span><strong>{group.title}</strong><small>{skipped?'已略過':done?'已完成':activeGroup===index?(states[data?.state||'']||'處理中'):'尚未開始'}</small></span></li>})}</ol>
+    {readError&&<Notice error>{readError}{data&&<p>目前保留上次進度，連線恢復前不會送出新操作。</p>}<Button secondary disabled={busy} onClick={()=>refresh().catch(e=>setReadError(e.message))}>重試連線</Button></Notice>}{error&&<Notice error>{error}</Notice>}
+    <div className="onboarding-body" aria-busy={busy}>{!data?<p role="status">正在讀取設定進度…</p>:!started?<section aria-label="選擇初始化助手"><span className="status s-connected">外層 Web 已啟動</span><h2>先登入一個你正在使用的助手</h2><p>網路線接上家中路由器後，Linux 會透過 DHCP 取得位址。開始時會檢查網路與主機，接著提示官方登入。</p><form onSubmit={e=>{e.preventDefault();mutate('start',{provider,channel:'line'}).catch(()=>{})}}><label>初始化使用的 CLI<select value={provider} disabled={busy||disconnected} onChange={e=>setProvider(e.target.value as ProviderId)}><option value="codex">Codex</option><option value="claude">Claude Code</option><option value="grok">Grok Build</option><option value="agy">Antigravity</option></select></label>{provider==='claude'&&<p className="helper-text">Claude Code 目前使用官方 setup-token 完成訂閱登入；會提示你在官方 CLI 授權。</p>}{provider==='agy'&&<Notice>Google 訂閱登入尚未整合。目前 Antigravity 需要 Gemini API key；若要使用訂閱授權，可改選 Codex、Claude Code 或 Grok Build。</Notice>}<p className="helper-text">預設連接 LINE，之後可改用 Telegram 或先只用 Web。授權與掃碼需要你本人完成，後續安裝與 HA 啟動會自動接續。</p><Button type="submit" disabled={busy||disconnected}>{busy?'開始設定中…':`使用 ${names[provider]} 開始設定`}</Button></form></section>:complete?<section><Status value="succeeded"/><h2>家庭入口已完成設定</h2><p>主機、助手、通訊選擇與家庭授權已由服務逐項確認。你可以開始對話，再選擇要分享的設備與操作範圍。</p><Button onClick={()=>navigate('gateway')}>開啟統一對話窗口 →</Button><button className="text-button" onClick={()=>navigate('inventory')}>選擇設備與權限</button></section>:<>
+      <div className="section-heading"><div><span className="eyebrow">{names[selected]} · 初始化助手</span>{!['hermes_login','channel_setup','ha_native_onboarding'].includes(action?.kind||'')&&<h2>{stepNames[data.current_step||'']||'繼續完成設定'}</h2>}</div><Status value={data.state==='blocked'?'needs_reconcile':data.state==='waiting_input'?'waiting_for_user':'running'}/></div>
+      {action?.message&&<p className="bootstrap-message">{action.message}</p>}
+      {disconnected?<p className="helper-text">等待管理服務恢復連線。</p>:action?.kind==='cli_login'?<SelectedCli provider={selected} onChange={changed}/>:action?.kind==='hermes_login'?<HermesPanel guided/>:action?.kind==='channel_setup'?<ChannelSettings guided initialChannel={data.channel} onChannelChange={channel=>mutate('preferences',{channel})} onChange={changed}/>:action?.kind==='ha_native_onboarding'?<NativeHome onChange={changed} ownerRequired={action.code==='ha_owner_required'}/>:data.state==='blocked'||action?.kind==='retry'?<><Notice error>設定暫停在這一步。處理提示後可重試，已完成的進度會保留。</Notice><Button disabled={busy} onClick={()=>mutate('retry',{}).catch(()=>{})}>{busy?'重新檢查中…':'重新檢查並繼續'}</Button></>:<p role="status">{data.current_step==='hermes_install'?'正在從官方來源準備 Hermes 並檢查相容性。這可能需要幾分鐘。':data.current_step==='ha_provision'?'正在建立家庭環境並等待 Home Assistant 啟動。請保持主機電源與網路。':data.current_step==='cli_assist'?'已登入的助手正在確認初始化需求。':'正在檢查實際狀態，完成後會自動進入下一步。'}</p>}
+      <p className="helper-text bootstrap-resume">進度保存在這台主機。關閉頁面後可從此處接續；官方授權過期時會再次提示。</p>
+      <details><summary>設定進度與診斷</summary><ol className="bootstrap-log">{data.steps.map(step=><li key={step.id}><strong>{stepNames[step.id]||step.id}</strong><span>{states[step.state]||step.state}</span>{step.code&&<code>{step.code}</code>}{step.verified_at&&<small>{timestamp(step.verified_at)}</small>}</li>)}</ol>{current?.code&&<p className="helper-text">目前狀態：{current.code}</p>}</details>
+    </>}</div>
+    <div className="onboarding-actions"><button className="text-button" onClick={()=>navigate('gateway')}>先使用 Web，稍後繼續設定</button><button className="text-button" onClick={()=>navigate('host')}>查看 Linux 主機</button></div>
+    <details className="bootstrap-manual" onToggle={e=>setManual(e.currentTarget.open)}><summary>進階：手動設定與其他登入方式</summary>{manual&&<ManualOnboarding status={status} onChange={onChange} navigate={navigate}/>}</details>
+  </div>
+}

@@ -1,11 +1,11 @@
 import {useEffect,useState} from 'react';
 import {api,ApiError} from './api';
 import {Status,Notice,Button} from './ui';
-export function Provider({provider,state,paired,onChange,runtime}:{provider:string;state:any;paired:boolean;onChange:()=>void;runtime?:'host'|'haos'}){
+export function Provider({provider,state,paired,onChange,runtime,subscriptionFirst=false}:{provider:string;state:any;paired:boolean;onChange:()=>void;runtime?:'host'|'haos';subscriptionFirst?:boolean}){
   const prefix=runtime?`runtimes/${runtime}/`:'';
   const authKey=`agentic-auth-${runtime||'default'}-${provider}`;
   const name=provider==='codex'?'Codex':provider==='agy'?'Antigravity':provider==='grok'?'Grok Build':'Claude Code';
-  const [method,setMethod]=useState(['codex','grok'].includes(provider)?'device_code':'api_key'),[secret,setSecret]=useState(''),[auth,setAuth]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [method,setMethod]=useState(['codex','grok'].includes(provider)?'device_code':subscriptionFirst&&provider==='claude'?'oauth_token':'api_key'),[secret,setSecret]=useState(''),[auth,setAuth]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
   useEffect(()=>{const id=sessionStorage.getItem(authKey);if(id)api(`${prefix}auth/${id}`).then(setAuth).catch(()=>sessionStorage.removeItem(authKey))},[provider,prefix,authKey]);
   useEffect(()=>{if(!auth?.id||auth.status!=='pending')return;let alive=true;let timer:ReturnType<typeof setTimeout>;const poll=async()=>{try{const result=await api(`${prefix}auth/${auth.id}`);if(alive){setAuth(result);setError('');if(result.status==='connected')onChange()}}catch(e){if(alive){setError((e as Error).message);if(e instanceof ApiError&&e.status===404){setAuth({...auth,status:'expired'});sessionStorage.removeItem(authKey)}}}if(alive)timer=setTimeout(poll,3000)};timer=setTimeout(poll,2000);return()=>{alive=false;clearTimeout(timer)}},[auth?.id,auth?.status,onChange,provider,prefix,authKey]);
   async function login(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{const result=await api(`${prefix}providers/${provider}/auth`,{method,secret});setAuth(result);if(result.id)sessionStorage.setItem(authKey,result.id);setSecret('');onChange()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}

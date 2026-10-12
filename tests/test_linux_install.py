@@ -24,7 +24,7 @@ def test_full_linux_install_with_nested_haos(tmp_path, request):
     assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
     profile = os.environ.get("AGENTIC_INSTALL_TEST_PROFILE", "laptop-amd64")
     assert profile in {"laptop-amd64", "server-amd64"}
-    iso = ROOT / "dist" / ("agentic-home-0.4.0-" + profile + ".iso")
+    iso = ROOT / "dist" / ("agentic-home-0.5.0-" + profile + ".iso")
     assert iso.exists()
     with iso.open("rb") as stream:
         iso_hash = hashlib.file_digest(stream, "sha256").hexdigest()
@@ -101,9 +101,9 @@ while data:=s.recv(65536):
         host = json.loads(command(*ssh, "agentic-home status"))
         assert not host["provisioned"] and host["kvm"]
         installed = json.loads(command(*ssh, "sudo cat /var/lib/agentic-home/installed.json"))
-        assert installed["version"] == "0.4.0" and installed["profile"] == profile
+        assert installed["version"] == "0.5.0" and installed["profile"] == profile
         image_lock = json.loads(command(*ssh, "cat /opt/agentic-home/images.lock.json"))
-        expected_tags = {f"agentic-home-{service}:0.4.0" for service in ("controller", "runner", "linejs", "hermes")}
+        expected_tags = {f"agentic-home-{service}:0.5.0" for service in ("controller", "runner", "linejs", "hermes")}
         assert set(image_lock) == expected_tags
         for tag, digest in image_lock.items():
             assert command(*ssh, "sudo docker image inspect --format '{{.Id}}' " + tag) == digest
@@ -118,7 +118,8 @@ while data:=s.recv(65536):
                    for item in diagnostics["observations"])
         installation = next(item for item in diagnostics["observations"] if item["target_component"] == "installation")
         assert installation["status"] == "collected" and installation["data"]["profile"] == profile
-        compose = "sudo docker compose -f /opt/agentic-home/host/compose.yaml"
+        compose = ("sudo docker compose --env-file /var/lib/agentic-home/host/runtime.env "
+                   "-f /opt/agentic-home/host/compose.yaml")
         command(*ssh, compose + " stop controller")
         try:
             unavailable = subprocess.run([*ssh, "curl --max-time 3 -fsS http://localhost:8099/health"], capture_output=True)
@@ -143,6 +144,23 @@ while data:=s.recv(65536):
         (ROOT / "evidence" / ("installed-sandbox-" + profile + ".json")).write_text(
             json.dumps(sandbox_probe, indent=2) + "\n")
         assert sandbox_result.returncode == 0 and sandbox_probe["result"] == "passed", sandbox_probe
+        # Exercise the real first-install latest-source build/probe/activation
+        # on this disposable OS, without logging into any model account.
+        command(*ssh, "agentic-home bootstrap_hermes", timeout=1500)
+        bootstrap_hermes = json.loads(command(*ssh, "agentic-home status"))["bootstrap"]["hermes"]
+        assert bootstrap_hermes["state"] == "ready" and bootstrap_hermes["source"] == "latest"
+        candidate_id = command(*ssh, compose + " images -q hermes")
+        assert candidate_id.startswith("sha256:")
+        runtime_revision = json.loads(command(*ssh, "python3 -", input='''
+import http.cookiejar,json,urllib.request
+from pathlib import Path
+base='http://localhost:8099'
+o=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+r=urllib.request.Request(base+'/api/host/login',data=json.dumps({'key':Path('/var/lib/agentic-home/controller/access-key').read_text().strip()}).encode(),headers={'Origin':base,'Content-Type':'application/json'})
+o.open(r).close()
+print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_commit']))
+'''))
+        assert runtime_revision == bootstrap_hermes["commit"]
         command(*ssh, "agentic-home provision")
         host = json.loads(command(*ssh, "agentic-home status"))
         assert host["vm"] == "running" and host["provisioned"]
@@ -177,6 +195,7 @@ while data:=s.recv(65536):
         else:
             raise AssertionError("Outer product did not restart")
         assert json.loads(command(*ssh, "agentic-home status"))["vm"] == "running"
+        assert command(*ssh, compose + " images -q hermes") == candidate_id
         wait_ha()
         evidence = {"kind": "real_linux_install_nested_kvm", "profile": profile, "base": "Ubuntu 24.04.5",
                     "iso_sha256": iso_hash,
@@ -187,6 +206,9 @@ while data:=s.recv(65536):
                     "outer_ui_with_haos_off": True, "cold_snapshot_restore": "passed",
                     "firstboot_without_haos": True, "hermes_service_without_account": "needs_auth",
                     "console_rescue_with_controller_stopped": "passed",
+                    "desktop_single_use_login": "passed", "bootstrap_get_has_no_side_effect": "passed",
+                    "latest_hermes": {**bootstrap_hermes, "image_id": candidate_id,
+                                      "runtime_revision_readback": "passed", "persists_after_reboot": True},
                     "outer_reboot_haos_autostart": "passed",
                     "ha_readiness_check": "real Core onboarding API JSON list after startup, restore and outer reboot",
                     "duration_seconds": round(time.time() - started),

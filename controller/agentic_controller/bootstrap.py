@@ -1,0 +1,395 @@
+"""Durable CLI-first setup. Only fixed service adapters can perform setup actions.
+
+The additive bootstrap_v1 record is independent of household policy and approvals.
+GET reads it without network calls or mutations. Explicit start authorizes the fixed
+workflow; lifespan recovery resumes observations and exact persisted operation IDs.
+"""
+from __future__ import annotations
+
+import asyncio
+import re
+import time
+import uuid
+
+from fastapi import HTTPException, Request
+
+from . import host
+from .ha import HAError
+from .hermes import HermesError
+from .models import (
+    BootstrapHumanAction,
+    BootstrapPreferences,
+    BootstrapRetry,
+    BootstrapStart,
+    BootstrapStatus,
+    BootstrapStep,
+    ChatInput,
+    digest,
+    utcnow,
+)
+from .runner import RunnerError
+
+STEPS = ("network", "runner_pairing", "cli_auth", "cli_assist", "hermes_install",
+         "hermes_auth", "channel", "ha_provision", "ha_native")
+VERIFY_MESSAGE = "這是 Hermes 模型連線驗證。請僅回覆「Hermes 已可回應」，不要呼叫工具、修改設定或操作家庭。"
+
+
+class Bootstrap:
+    def __init__(self, store, runner, coordinator, gateway, ha, controller_id, *, host_request=None):
+        self.store, self.runner, self.coordinator, self.gateway = store, runner, coordinator, gateway
+        self.ha, self.controller_id = ha, controller_id
+        self.host_request = host_request or host.host_call
+        self.lock, self.task = asyncio.Lock(), None
+
+    def record(self):
+        return self.store.get("bootstrap_v1", "setup")
+
+    def public(self):
+        record = self.record()
+        if not record:
+            return BootstrapStatus(steps=[BootstrapStep(id=step) for step in STEPS]).model_dump()
+        return BootstrapStatus.model_validate({key: value for key, value in record.items()
+                                              if key in BootstrapStatus.model_fields}).model_dump()
+
+    def save(self, record):
+        record["updated_at"] = utcnow()
+        self.store.put("bootstrap_v1", record)
+
+    def checkpoint(self, record, step, state, code=None, action=None):
+        target = next(item for item in record["steps"] if item["id"] == step)
+        verified = target.get("verified_at") or utcnow() if state in {"completed", "skipped"} else None
+        target.update(state=state, code=code, verified_at=verified)
+        if state in {"completed", "skipped"}:
+            record.pop("transient_errors", None)
+        record.update(current_step=step, human_action=action,
+                      state=state if state in {"waiting_input", "blocked"} else "running")
+        self.save(record)
+
+    @staticmethod
+    def human(kind, message, **fields):
+        return BootstrapHumanAction(kind=kind, message=message, **fields).model_dump()
+
+    def block(self, record, step, code, message):
+        self.checkpoint(record, step, "blocked", code, self.human("retry", message, code=code))
+
+    def resume(self):
+        record = self.record()
+        if record and record["state"] in {"running", "waiting_input"} and (self.task is None or self.task.done()):
+            self.task = asyncio.create_task(self.run())
+
+    async def close(self):
+        if self.task:
+            self.task.cancel()
+            await asyncio.gather(self.task, return_exceptions=True)
+            self.task = None
+
+    async def run(self):
+        while self.record() and self.record()["state"] in {"running", "waiting_input"}:
+            await self.advance()
+            await asyncio.sleep(3)
+
+    async def start(self, body, key):
+        async with self.lock:
+            previous = self.store.request("bootstrap_start", key, digest(body.model_dump()))
+            record = self.record()
+            if record and (record["provider"] != body.provider or record["channel"] != body.channel) and not previous:
+                raise HTTPException(409, "設定流程已開始；通訊選擇請使用 preferences，不會替換正在工作的 CLI")
+            if not record:
+                if self.store.setting("paused", False):
+                    raise HTTPException(409, "請先恢復 AI，再開始設定")
+                record = {**BootstrapStatus(provider=body.provider, channel=body.channel,
+                    steps=[BootstrapStep(id=step) for step in STEPS]).model_dump(),
+                    "id": "setup", "data_contract": 1, "run_id": uuid.uuid4().hex, "state": "running",
+                    "current_step": "network", "jobs": {}, "attempts": {}}
+                self.save(record)
+                # Selecting the external audience is still a separate authenticated action.
+                self.store.set_setting("gateway", {**self.gateway.preferences().model_dump(),
+                    "primary": body.channel, "provider": body.provider, "runtime": "host", "coordinator": "hermes"})
+                self.store.set_setting("gateway_selected", True)
+            self.store.request("bootstrap_start", key, digest(body.model_dump()), record["run_id"])
+        self.resume()
+        return self.public()
+
+    async def retry(self, key):
+        async with self.lock:
+            record = self.record()
+            if not record:
+                raise HTTPException(409, "請先開始設定")
+            previous = self.store.request("bootstrap_retry", key, digest({}))
+            if not previous:
+                step = record["current_step"]
+                if record["state"] == "blocked":
+                    current = next(item for item in record["steps"] if item["id"] == step)
+                    # Only terminal failed jobs get a new identity. Lost responses and
+                    # unconfirmed side effects retain the old handle for reconciliation.
+                    if current["code"] in {"cli_assist_failed", "cli_assist_expired", "hermes_verification_failed",
+                                            "hermes_install_failed", "ha_provision_failed"}:
+                        record["attempts"][step] = record["attempts"].get(step, 0) + 1
+                        if step == "cli_assist":
+                            record.pop("assist_request", None)
+                        if step == "hermes_auth":
+                            record.pop("verification", None)
+                        for operation in list(record["jobs"]):
+                            if operation.startswith(step + ":") and record["jobs"][operation].get("state") == "failed":
+                                record["jobs"].pop(operation)
+                    record.pop("transient_errors", None)
+                    self.checkpoint(record, step, "running", "retry_requested")
+                self.store.request("bootstrap_retry", key, digest({}), record["run_id"])
+        self.resume()
+        return self.public()
+
+    async def preferences(self, body, key):
+        async with self.lock:
+            record = self.record()
+            if not record:
+                raise HTTPException(409, "請先開始設定")
+            previous = self.store.request("bootstrap_preferences", key, digest(body.model_dump()))
+            if not previous:
+                # A channel change cannot retract an already issued HA operation.
+                if any(step["state"] != "pending" for step in record["steps"] if step["id"] in {"ha_provision", "ha_native"}):
+                    raise HTTPException(409, "家庭啟動已開始；請在通訊設定中變更通道")
+                if record["channel"] != body.channel and record["channel"] in {"line", "telegram"}:
+                    await self.gateway.cancel_pairing(record["channel"])
+                record["channel"] = body.channel
+                channel = next(step for step in record["steps"] if step["id"] == "channel")
+                channel.update(state="pending", code=None, verified_at=None)
+                if record["current_step"] == "channel":
+                    record.update(state="running", human_action=None)
+                self.save(record)
+                self.store.set_setting("gateway", {**self.gateway.preferences().model_dump(), "primary": body.channel})
+                self.store.request("bootstrap_preferences", key, digest(body.model_dump()), record["run_id"])
+        self.resume()
+        return self.public()
+
+    async def host_operation(self, record, step, action, observed):
+        operation_key = step + ":" + action
+        operation = record["jobs"].get(operation_key)
+        if not operation:
+            identifier = uuid.uuid4().hex
+            operation = {"request": {"id": identifier, "action": action}, "state": "submitting"}
+            record["jobs"][operation_key] = operation
+            self.save(record)  # Commit identity before sending any host side effect.
+        result = next((item for item in observed.get("jobs", [])
+                       if item.get("id") == operation["request"]["id"]), None)
+        if result is None:
+            result = await self.host_request("POST", operation["request"])
+        state = result.get("state")
+        operation["state"] = state if state in {"running", "succeeded", "failed", "needs_reconcile"} else "unknown"
+        self.save(record)
+        if state in {"needs_reconcile", "unknown"} or operation["state"] == "unknown":
+            self.block(record, step, "host_needs_reconcile", "主機操作尚未確認；請檢查主機診斷，再重試相同操作。")
+        elif state == "failed":
+            self.block(record, step, step + "_failed", "固定主機設定未完成；請查看主機診斷後重試。")
+        else:
+            self.checkpoint(record, step, "running", "host_operation_pending")
+
+    async def assist(self, record, observed):
+        request = record.get("assist_request")
+        if not request:
+            runtime = await self.coordinator.capabilities()
+            auth_state = runtime["runtime"].get("state", "unavailable")
+            if auth_state not in {"needs_auth", "configured", "ready", "needs_reauth"}:
+                auth_state = "unavailable"
+            vm = observed.get("vm")
+            request = {"id": uuid.uuid4().hex, "provider": record["provider"], "stage": "hermes_setup",
+                "expires": time.time() + 300, "observations": {
+                    "network_ready": True, "hermes_installed": observed["bootstrap"]["hermes"].get("state") in {"bundled", "ready"},
+                    "hermes_auth_state": auth_state, "channel": record["channel"],
+                    "ha_state": "running" if vm == "running" else "not_installed" if not observed.get("provisioned") else "stopped"}}
+            record["assist_request"] = request
+            self.save(record)
+        try:
+            result = await self.runner.call("GET", "/bootstrap/jobs/" + request["id"])
+        except RunnerError as exc:
+            if exc.status_code != 404:
+                raise
+            if request["expires"] <= time.time():
+                self.block(record, "cli_assist", "cli_assist_expired", "尚未接單的 CLI 查證已過期，請重試。")
+                return False
+            result = await self.runner.call("POST", "/bootstrap/jobs", request)
+        state = result.get("state")
+        if state == "succeeded" and result.get("evidence", {}).get("inference_completed") is True:
+            self.checkpoint(record, "cli_assist", "completed", "cli_inference_verified")
+            return True
+        if state in {"queued", "running"}:
+            self.checkpoint(record, "cli_assist", "running", "cli_assistance_running")
+        else:
+            self.block(record, "cli_assist", "cli_assist_failed", "CLI 尚未完成實際模型查證；請檢查登入與供應商狀態後重試。")
+        return False
+
+    async def hermes_auth(self, record):
+        runtime = (await self.coordinator.capabilities())["runtime"]
+        if runtime.get("state") == "ready" and runtime.get("auth_verified_at"):
+            self.checkpoint(record, "hermes_auth", "completed", "hermes_inference_verified")
+            return True
+        if runtime.get("state") in {"needs_auth", "needs_reauth"}:
+            self.checkpoint(record, "hermes_auth", "waiting_input", "hermes_login_required", self.human(
+                "hermes_login", "請完成 Hermes 自己的官方登入；完成後會自動驗證模型連線。"))
+            return False
+        if runtime.get("state") != "configured":
+            self.checkpoint(record, "hermes_auth", "running", "hermes_runtime_starting")
+            return False
+        verification = record.get("verification")
+        epoch = self.store.setting("hermes_auth_epoch")
+        if not verification or verification.get("epoch") != epoch:
+            verification = {"event": uuid.uuid4().hex, "epoch": epoch}
+            record["verification"] = verification
+            self.save(record)
+        item = self.gateway.submit(ChatInput(message=VERIFY_MESSAGE, coordinator="hermes", new_conversation=True),
+                                   "web", "owner", self.store.setting("owner") or "host-owner", verification["event"])
+        if item["state"] in {"failed", "cancelled", "interrupted", "needs_reconcile", "succeeded"}:
+            # Success text is not authority: wait for independently observed ready.
+            if item["state"] != "succeeded":
+                self.block(record, "hermes_auth", "hermes_verification_failed", "Hermes 模型驗證未完成，請檢查登入後重試。")
+            else:
+                self.checkpoint(record, "hermes_auth", "running", "hermes_readback_pending")
+        else:
+            self.checkpoint(record, "hermes_auth", "running", "hermes_verification_running")
+        return False
+
+    def channel_ready(self, record):
+        channel = record["channel"]
+        if channel == "web":
+            return True
+        config = self.gateway.config(channel)
+        return bool(config.get("enabled") and config.get("chats") and config.get("senders")
+                    and self.gateway.states.get(channel) == "connected")
+
+    async def advance(self):
+        async with self.lock:
+            record = self.record()
+            if not record or record["state"] not in {"running", "waiting_input"}:
+                return
+            step = record["current_step"] or "network"
+            try:
+                if self.store.setting("paused", False):
+                    self.block(record, step, "ai_paused", "AI 已暫停；恢復後可重試設定。")
+                    return
+                observed = await self.host_request()
+                platform = observed.get("bootstrap")
+                if not isinstance(platform, dict):
+                    self.block(record, step, "host_upgrade_required", "主機服務尚未提供新版設定接口。")
+                    return
+                for step in STEPS:
+                    checkpoint = next(item for item in record["steps"] if item["id"] == step)
+                    if checkpoint["state"] in {"completed", "skipped"}:
+                        continue
+                    self.checkpoint(record, step, "running")
+                    if step == "network":
+                        if platform.get("network", {}).get("ready") is not True:
+                            self.checkpoint(record, step, "waiting_input", "network_unavailable", self.human(
+                                "retry", "請接上網路；偵測到連線後會自動繼續。", code="network_unavailable"))
+                            return
+                        self.checkpoint(record, step, "completed", "network_verified")
+                    elif step == "runner_pairing":
+                        await host.pair_runner(self.store, self.runner, self.controller_id)
+                        self.checkpoint(record, step, "completed", "runner_paired")
+                    elif step == "cli_auth":
+                        peer = await self.runner.call("GET", "/status")
+                        provider = next((item for item in peer.get("providers", []) if item.get("provider") == record["provider"]), {})
+                        if provider.get("version_matches") is not True:
+                            self.block(record, step, "cli_version_mismatch", "所選 CLI 尚未通過套件版本檢查。")
+                            return
+                        if provider.get("status") != "connected":
+                            self.checkpoint(record, step, "waiting_input", "cli_login_required", self.human(
+                                "cli_login", "請完成所選 CLI 的官方登入；完成後會自動繼續。", provider=record["provider"]))
+                            return
+                        self.checkpoint(record, step, "completed", "cli_login_observed")
+                    elif step == "cli_assist":
+                        if not await self.assist(record, observed):
+                            return
+                    elif step == "hermes_install":
+                        installed = platform.get("hermes", {})
+                        revision = installed.get("commit")
+                        if installed.get("state") == "ready" and installed.get("source") == "latest" and isinstance(revision, str) and re.fullmatch(r"[0-9a-f]{40}", revision):
+                            runtime = (await self.coordinator.capabilities())["runtime"]
+                            if runtime.get("upstream_commit") != revision:
+                                self.checkpoint(record, step, "running", "hermes_runtime_starting")
+                                return
+                            self.checkpoint(record, step, "completed", "hermes_revision_verified")
+                        else:
+                            await self.host_operation(record, step, "bootstrap_hermes", observed)
+                            return
+                    elif step == "hermes_auth":
+                        if not await self.hermes_auth(record):
+                            return
+                    elif step == "channel":
+                        if not self.channel_ready(record):
+                            self.checkpoint(record, step, "waiting_input", "channel_setup_required", self.human(
+                                "channel_setup", "請完成通道登入與允許的對象；也可明確選擇先使用 Web。", channel=record["channel"]))
+                            return
+                        self.checkpoint(record, step, "skipped" if record["channel"] == "web" else "completed",
+                                        "channel_explicitly_skipped" if record["channel"] == "web" else "channel_connection_verified")
+                    elif step == "ha_provision":
+                        # Recheck live gates immediately before any household platform action.
+                        runtime = (await self.coordinator.capabilities())["runtime"]
+                        if not self.channel_ready(record) or runtime.get("state") != "ready" or not runtime.get("auth_verified_at"):
+                            self.block(record, step, "setup_readiness_changed", "Hermes 或通道連線已改變；恢復連線後再重試。")
+                            return
+                        if observed.get("restore_pending") or observed.get("kvm") is not True:
+                            self.block(record, step, "ha_host_not_ready", "請先完成主機虛擬化或恢復診斷，再重試。")
+                            return
+                        if observed.get("provisioned") is not True:
+                            await self.host_operation(record, step, "provision", observed)
+                            return
+                        if observed.get("vm") != "running":
+                            await self.host_operation(record, step, "start", observed)
+                            return
+                        self.checkpoint(record, step, "completed", "ha_vm_running")
+                    elif step == "ha_native":
+                        native = platform.get("ha", {})
+                        owner = self.store.setting("owner")
+                        native_complete = native.get("onboarding_complete") is True
+                        # Official Core omits this route after a completed onboarding
+                        # restart. A 404 alone is never proof: require active owner + config.
+                        completed_route_absent = native.get("http_status") == 404
+                        if (native_complete or completed_route_absent) and owner:
+                            try:
+                                valid_owner = await self.ha.owner(owner)
+                                config = await self.ha.request("GET", "/config")
+                            except HAError:
+                                valid_owner, config = None, {}
+                            if valid_owner and isinstance(config.get("version"), str):
+                                self.checkpoint(record, step, "completed", "ha_owner_and_route_absence_verified"
+                                                if completed_route_absent and not native_complete else "ha_owner_and_onboarding_verified")
+                                continue
+                        if native.get("reachable") is not True and not completed_route_absent:
+                            self.checkpoint(record, step, "running", "ha_starting")
+                            return
+                        code = "ha_owner_required" if native_complete or completed_route_absent else "ha_native_onboarding_required"
+                        self.checkpoint(record, step, "waiting_input", code, self.human("ha_native_onboarding",
+                            "請在 Home Assistant 原生頁面完成帳號與家庭設定，再連結 HA owner；系統會自動確認。",
+                            url="http://localhost:8123/onboarding.html", code=code))
+                        return
+                record.update(state="completed", current_step=None, human_action=None)
+                self.save(record)
+            except (HTTPException, RunnerError, HermesError, HAError, OSError, ValueError, KeyError, TypeError):
+                record["transient_errors"] = record.get("transient_errors", 0) + 1
+                if record["transient_errors"] <= 3:
+                    self.checkpoint(record, step, "running", "service_reconnecting")
+                else:
+                    self.block(record, step, "service_unavailable", "設定服務暫時無法確認狀態；重試會沿用原操作識別碼。")
+
+
+def routes(app, bootstrap):
+    def key(request):
+        value = request.headers.get("idempotency-key", "")
+        if not value or len(value) > 200:
+            raise HTTPException(400, "缺少有效的 Idempotency-Key")
+        return value
+
+    @app.get("/api/bootstrap", response_model=BootstrapStatus)
+    async def status():
+        return bootstrap.public()
+
+    @app.post("/api/bootstrap/start", status_code=202, response_model=BootstrapStatus)
+    async def start(body: BootstrapStart, request: Request):
+        return await bootstrap.start(body, key(request))
+
+    @app.post("/api/bootstrap/retry", status_code=202, response_model=BootstrapStatus)
+    async def retry(body: BootstrapRetry, request: Request):
+        return await bootstrap.retry(key(request))
+
+    @app.post("/api/bootstrap/preferences", status_code=202, response_model=BootstrapStatus)
+    async def preferences(body: BootstrapPreferences, request: Request):
+        return await bootstrap.preferences(body, key(request))

@@ -38,7 +38,10 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
         if body is not None:
             calls.append((path, body))
             assert path == "host/login" or route.request.headers.get("x-agentic-csrf") == "fixture-csrf"
-        if path == "deployment":
+        if path == "bootstrap":
+            result = {"contract": 1, "id": None, "state": "idle", "provider": None,
+                      "channel": "line", "current_step": None, "steps": [], "human_action": None, "updated_at": None}
+        elif path == "deployment":
             result = {"mode": "host", "authenticated": True}
         elif path == "session":
             result = {"principal": "host-owner", "csrf": "fixture-csrf"}
@@ -47,7 +50,7 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
                 "ha": {"status": "unavailable"},
                 "runner": {"protocol": 1, "providers": []},
                 "gateway": gateway,
-                "version": "0.4.0",
+                "version": "0.5.0",
             }
         elif path == "tasks":
             result = {"tasks": []}
@@ -128,6 +131,7 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.route("**/api/**", route)
             page.goto(f"http://127.0.0.1:{server.server_port}/")
+            page.get_by_text("進階：手動設定與其他登入方式", exact=True).click()
             page.get_by_role("heading", name="你的家庭管理入口已經就緒").wait_for()
             screenshots(page, "onboarding-web")
             page.get_by_role("button", name="下一步", exact=True).click()
@@ -163,6 +167,7 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
             page.get_by_role("button", name="使用 Web 作為主要入口").click()
             page.get_by_text("Web 已設為主要入口。", exact=True).wait_for()
             page.reload()
+            page.get_by_text("進階：手動設定與其他登入方式", exact=True).click()
             page.get_by_role("heading", name="選擇你的通訊入口").wait_for()
             assert (
                 page.get_by_role("button", name="Web 瀏覽器直接對話").get_attribute("aria-pressed") == "true"

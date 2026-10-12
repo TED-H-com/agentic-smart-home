@@ -33,13 +33,16 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             assert request.headers.get("x-agentic-csrf") == "fixture-csrf"
             assert request.headers.get("idempotency-key")
             calls.append((path, body))
-        if path == "deployment":
+        if path == "bootstrap":
+            result = {"contract": 1, "id": None, "state": "idle", "provider": None,
+                      "channel": "line", "current_step": None, "steps": [], "human_action": None, "updated_at": None}
+        elif path == "deployment":
             result = {"mode": "host", "authenticated": True}
         elif path == "session":
             result = {"principal": "host-owner", "csrf": "fixture-csrf"}
         elif path == "status":
             result = {"ha": {"status": "unavailable"}, "runner": {"protocol": 1, "providers": []},
-                      "gateway": gateway, "version": "0.4.0", "paused": False}
+                      "gateway": gateway, "version": "0.5.0", "paused": False}
         elif path == "tasks":
             result = {"tasks": []}
         elif path == "gateway":
@@ -97,6 +100,7 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             page.on("pageerror", lambda error: errors.append(str(error)))
             page.route("**/api/**", route)
             page.goto(f"http://127.0.0.1:{server.server_port}/#onboarding")
+            page.get_by_text("進階：手動設定與其他登入方式", exact=True).click()
             panel = page.get_by_role("region", name="Hermes 協調服務")
             panel.get_by_role("heading", name="登入你的協調助手", exact=True).wait_for()
             expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚待登入")
@@ -117,6 +121,7 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             assert [path for path, _ in calls] == ["hermes/auth"]  # storing credentials must not start a turn
             screenshots(page, "configured")
             page.reload()
+            page.get_by_text("進階：手動設定與其他登入方式", exact=True).click()
             expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，待實際回覆驗證")
             expect(page.get_by_label("OpenRouter API key", exact=True)).to_have_value("")
             assert secret not in stored(page)

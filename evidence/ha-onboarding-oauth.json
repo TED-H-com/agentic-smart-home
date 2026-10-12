@@ -1,0 +1,13 @@
+{
+  "kind": "real_core_oauth_owner_binding",
+  "runtime_location": "isolated_core_container",
+  "ha_version": "2026.10.1",
+  "model_backend": "none",
+  "device_kind": "none",
+  "authorization_code": "native_onboarding_endpoint",
+  "one_year_named_token": "passed",
+  "owner_readback_after_temporary_grant_revoked": "passed",
+  "token_permissions": "0600",
+  "browser_login_screen": "not_run",
+  "owner_household": "not_run"
+}

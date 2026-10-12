@@ -6,9 +6,11 @@ import contextlib
 import json
 import os
 import re
+import secrets
 import time
 import uuid
 from pathlib import Path
+from typing import Literal
 
 import aiohttp
 from fastapi import HTTPException, Request
@@ -20,8 +22,10 @@ from .hermes import HermesError
 from .host import host_call
 from .models import (
     AgentLogin,
+    BootstrapRetry,
     Channel,
     ChannelConfig,
+    ChannelPairingInput,
     ChatInput,
     Decision,
     GatewayPreferences,
@@ -51,12 +55,127 @@ class Gateway:
         self.line_login = None
         self.line_task = None
         self.coordinator = coordinator
+        self.pairing_lock, self.pairing_timers = asyncio.Lock(), {}
 
     def preferences(self):
         return GatewayPreferences.model_validate(self.store.setting("gateway", {}))
 
     def config(self, channel):
         return self.store.setting("channel_" + channel, ChannelConfig().model_dump())
+
+    def pairing(self, channel):
+        record = self.store.setting("channel_pairing_" + channel, {})
+        state = record.get("state", "idle")
+        if state == "pending" and record.get("expires_at", 0) <= time.time():
+            state = "expired"
+        return {"state": state, "code": record.get("code") if state == "pending" else None,
+                "expires_at": record.get("expires_at"), "chat": record.get("chat"), "sender": record.get("sender")}
+
+    @staticmethod
+    def line_config(enabled, chats):
+        path = Path(os.environ.get("AGENTIC_LINE_CONFIG", "/line-config/gateway.json"))
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        temp = path.with_suffix(".new")
+        fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as stream:
+            json.dump({"enabled": enabled, "chats": chats}, stream)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp, path)
+
+    def pair_timer(self, channel):
+        previous = self.pairing_timers.pop(channel, None)
+        if previous:
+            previous.cancel()
+        record = self.store.setting("channel_pairing_" + channel, {})
+        if record.get("state") != "pending":
+            return
+        async def expire():
+            await asyncio.sleep(max(0, record["expires_at"] - time.time()))
+            current = self.store.setting("channel_pairing_" + channel, {})
+            if current.get("id") == record["id"] and current.get("state") == "pending":
+                self.store.set_setting("channel_pairing_" + channel, {**current, "state": "expired", "code": None})
+                if channel == "line" and not self.config(channel)["enabled"]:
+                    with contextlib.suppress(OSError):
+                        self.line_config(False, [])
+                await self.restart(channel)
+        self.pairing_timers[channel] = asyncio.create_task(expire())
+
+    async def begin_pairing(self, channel, body, key):
+        async with self.pairing_lock:
+            previous = self.store.request("channel_pairing_" + channel, key, digest(body.model_dump()))
+            record = self.store.setting("channel_pairing_" + channel, {})
+            if previous:
+                if previous != record.get("id"):
+                    raise HTTPException(409, "配對已被取代，請重新開始")
+                return self.pairing(channel)
+            config = self.config(channel)
+            if config["enabled"]:
+                raise HTTPException(409, "通道已啟用；請先在通道設定停用，才能重新選擇對象")
+            token = body.secret or config["secret"]
+            if channel == "line":
+                channels = self.line_login.get("channels", []) if self.line_login else []
+                if not self.line_login or self.line_login.get("status") != "ready" or body.chat not in {item["channelId"] for item in channels}:
+                    raise HTTPException(422, "請先完成 LINE 登入，再從已取得的聊天室清單選擇")
+                if body.secret:
+                    raise HTTPException(422, "LINE 通訊憑證由本機服務管理")
+                try:
+                    self.line_config(True, [body.chat])
+                    token = token or await self.line_token()
+                except (OSError, aiohttp.ClientError, ChannelError, TimeoutError):
+                    with contextlib.suppress(OSError):
+                        self.line_config(False, [])
+                    raise HTTPException(503, "LINE 配對服務尚未就緒") from None
+            elif body.chat is not None or not re.fullmatch(r"\d+:[A-Za-z0-9_-]+", token):
+                raise HTTPException(422, "請輸入 Telegram bot token；聊天室會從配對訊息取得")
+            pending_config = {"enabled": False, "secret": token, "chats": [body.chat] if body.chat else [], "senders": []}
+            record = {"id": uuid.uuid4().hex, "state": "pending", "code": secrets.token_urlsafe(18),
+                      "expires_at": time.time() + 180, "chat": body.chat, "sender": None,
+                      "config_digest": digest(pending_config)}
+            self.store.set_settings({"channel_" + channel: pending_config, "channel_pairing_" + channel: record})
+            self.store.request("channel_pairing_" + channel, key, digest(body.model_dump()), record["id"])
+            await self.restart(channel)
+            self.pair_timer(channel)
+            return self.pairing(channel)
+
+    def consume_pairing(self, channel, event, chat, sender, text, config):
+        """Only a typed pairing command crosses the pre-authorization receiver."""
+        if not isinstance(text, str) or not text.startswith("/pair "):
+            return None
+        record = self.store.setting("channel_pairing_" + channel, {})
+        if (record.get("state") != "pending" or record.get("expires_at", 0) <= time.time()
+                or digest(config) != record.get("config_digest") or self.config(channel) != config
+                or not event or len(event) > 256 or len(text) > 64):
+            return "ignored"
+        if not secrets.compare_digest(text[6:].strip().encode(), record["code"].encode()):
+            return "ignored"
+        if channel == "line":
+            valid = chat == record["chat"] and re.fullmatch(r"u[0-9a-f]{32}", sender)
+        else:
+            valid = channel == "telegram" and re.fullmatch(r"-?\d{1,30}", chat) and re.fullmatch(r"\d{1,30}", sender)
+        if not valid:
+            return "ignored"
+        paired = {**record, "state": "paired", "code": None, "chat": chat, "sender": sender,
+                  "event_digest": digest([channel, event, chat, sender])}
+        # Audience and code consumption commit together; a restart cannot replay the grant.
+        self.store.set_settings({"channel_pairing_" + channel: paired,
+                                 "channel_" + channel: {**config, "enabled": True, "chats": [chat], "senders": [sender]}})
+        timer = self.pairing_timers.pop(channel, None)
+        if timer:
+            timer.cancel()
+        return "paired"
+
+    async def cancel_pairing(self, channel):
+        async with self.pairing_lock:
+            record = self.store.setting("channel_pairing_" + channel, {})
+            if record.get("state") == "pending":
+                self.store.set_setting("channel_pairing_" + channel, {**record, "state": "cancelled", "code": None})
+                if channel == "line" and not self.config(channel)["enabled"]:
+                    with contextlib.suppress(OSError):
+                        self.line_config(False, [])
+                await self.restart(channel)
+                self.pair_timer(channel)
+            return self.pairing(channel)
 
     def public(self):
         return {"web": {"status": "connected", "always_available": True},
@@ -79,13 +198,15 @@ class Gateway:
                 self.store.put("conversation", {**item, "state": "interrupted", "answer": "服務已重啟，請重新送出需求。"})
         for name in TRANSPORTS:
             await self.restart(name)
+            self.pair_timer(name)
 
     async def close(self):
-        tasks = list(self.workers.values()) + ([self.line_task] if self.line_task else [])
+        tasks = list(self.workers.values()) + list(self.pairing_timers.values()) + ([self.line_task] if self.line_task else [])
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
         self.workers.clear()
+        self.pairing_timers.clear()
 
     async def restart(self, name):
         previous = self.workers.pop(name, None)
@@ -94,8 +215,9 @@ class Gateway:
             await asyncio.gather(previous, return_exceptions=True)
         self.transports.pop(name, None)
         config = self.config(name)
-        self.states[name] = "connecting" if config["enabled"] else "disabled"
-        if config["enabled"]:
+        listen = config["enabled"] or self.pairing(name)["state"] == "pending"
+        self.states[name] = "connecting" if listen else "disabled"
+        if listen:
             self.workers[name] = asyncio.create_task(self.watch(name, config))
 
     async def watch(self, name, config):
@@ -105,8 +227,15 @@ class Gateway:
             self.transports[name] = adapter
             def state(value):
                 self.states[name] = value
-            async def receive(id, chat, sender, text):
-                if self.config(name) != config or chat not in config["chats"] or sender not in config["senders"]:
+            async def receive(id, chat, sender, text, adapter=adapter):
+                nonlocal config
+                pairing = self.consume_pairing(name, id, chat, sender, text, config)
+                if pairing:
+                    if pairing == "paired":
+                        config = self.config(name)
+                        adapter.config = config
+                    return
+                if not config["enabled"] or self.config(name) != config or chat not in config["chats"] or sender not in config["senders"]:
                     return
                 if not id or not isinstance(text, str) or not text.strip() or len(text) > 5000:
                     return
@@ -411,27 +540,38 @@ def routes(app, gateway, store, runners, controller_id):
 
     @app.post("/api/gateway/preferences")
     async def preferences(body: GatewayPreferences):
+        if gateway.preferences().primary != body.primary and gateway.preferences().primary in {"line", "telegram"}:
+            await gateway.cancel_pairing(gateway.preferences().primary)
         store.set_setting("gateway", body.model_dump())
         store.set_setting("gateway_selected", True)
         return gateway.public()
 
+    @app.get("/api/gateway/channels/{channel}/pairing")
+    async def pairing_status(channel: Literal["line", "telegram"]):
+        return gateway.pairing(channel)
+
+    @app.post("/api/gateway/channels/{channel}/pairing", status_code=202)
+    async def pairing_start(channel: Literal["line", "telegram"], body: ChannelPairingInput, request: Request):
+        key = request.headers.get("idempotency-key", "")
+        if not key or len(key) > 200:
+            raise HTTPException(400, "缺少有效的 Idempotency-Key")
+        return await gateway.begin_pairing(channel, body, key)
+
+    @app.post("/api/gateway/channels/{channel}/pairing/cancel")
+    async def pairing_cancel(channel: Literal["line", "telegram"], body: BootstrapRetry):
+        return await gateway.cancel_pairing(channel)
+
     @app.post("/api/gateway/channels/{channel}")
     async def configure(channel: Channel, body: ChannelConfig):
+        if channel in {"line", "telegram"}:
+            await gateway.cancel_pairing(channel)
         config = body.model_dump()
         config["secret"] = body.secret or gateway.config(channel).get("secret", "")
         if channel == "line":
             if any(not re.fullmatch(r"[ucrs][0-9a-f]{32}", id) for id in body.chats):
                 raise HTTPException(422, "LINE 聊天室 ID 格式不正確")
-            path = Path(os.environ.get("AGENTIC_LINE_CONFIG", "/line-config/gateway.json"))
             try:
-                path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-                temp = path.with_suffix(".new")
-                fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-                with os.fdopen(fd, "w") as stream:
-                    json.dump({"enabled": body.enabled, "chats": body.chats}, stream)
-                    stream.flush()
-                    os.fsync(stream.fileno())
-                os.replace(temp, path)
+                gateway.line_config(body.enabled, body.chats)
             except OSError:
                 raise HTTPException(503, "LINE.js 設定目錄尚未安裝，請使用完整 Linux 套件") from None
             if body.enabled and not config["secret"]:

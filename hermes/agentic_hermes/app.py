@@ -23,7 +23,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from .models import TOOLS, AuthInput, RetentionInput, RunInput, SessionInput
+from .models import TOOLS, AuthInput, DeviceAuthInput, RetentionInput, RunInput, SessionInput
+from .oauth import DeviceLogin
+from .oauth import public as public_auth
 
 TERMINAL = {"succeeded", "failed", "cancelled", "interrupted"}
 PRIVATE = {"scope_id", "digest", "key", "message", "auth_epoch"}
@@ -128,6 +130,8 @@ class Runtime:
         self.tasks, self.processes, self.groups = {}, {}, {}
         self.unconfirmed = set()
         self._closing = False
+        self.auth_lock = asyncio.Lock()
+        self.auth_changing = False
         self.context_days = RetentionInput.model_validate(
             self.get("setting", "retention") or {"context_days": 7}
         ).context_days
@@ -140,6 +144,7 @@ class Runtime:
                 self.unconfirmed.add(run["run_id"])
             elif run["state"] not in TERMINAL:
                 self.transition(run, "interrupted", "runtime_restarted")
+        self.device_login = DeviceLogin(self)
         # Unconfirmed groups retain their scratch and quarantine across restart.
         turns = self.directory / "turns"
         turns.mkdir(mode=0o700, exist_ok=True)
@@ -203,12 +208,14 @@ class Runtime:
     def capabilities(self):
         return {
             "protocol": 1, "runtime": "hermes", "upstream_commit": self.lock["commit"],
-            "state": self.auth.get("state", "needs_auth"), "provider": "openrouter",
+            "state": self.auth.get("state", "needs_auth"), "provider": self.auth.get("provider", "openrouter"),
             "execution_state": "stop_unconfirmed" if self.unconfirmed else "busy" if self.tasks else "idle",
             "model": self.auth.get("model", ""), "auth_verified_at": self.auth.get("verified_at"),
             "features": {"sessions": True, "async_runs": True, "events": True, "cancel": True, "mcp": True},
             "tools": list(TOOLS),
             "context_days": self.context_days,
+            "auth_methods": ["openrouter_api_key", "openai_codex_device"],
+            "default_models": {"openai-codex": "gpt-6-astra"},
         }
 
     async def set_retention(self, body):
@@ -230,17 +237,32 @@ class Runtime:
             json.dump(self.auth, file)
         os.replace(temp, self.auth_path)
 
-    async def authenticate(self, body):
-        await self.stop_all()
-        self.auth = {} if body is None else {
-            "provider": body.provider, "model": body.model,
-            "api_key": body.api_key.get_secret_value(), "epoch": uuid.uuid4().hex,
-            "state": "configured", "verified_at": None,
-        }
-        self.save_auth()
+    @asynccontextmanager
+    async def account_change(self, *, stop=True):
+        async with self.auth_lock:
+            self.auth_changing = True
+            try:
+                if stop:
+                    await self.stop_all()
+                yield
+            finally:
+                self.auth_changing = False
+
+    def clear_account(self):
+        shutil.rmtree(self.directory / "oauth", ignore_errors=True)
         # Revocation includes runtime context; deduplication tombstones remain.
         with self.db:
             self.db.execute("DELETE FROM records WHERE kind='session'")
+
+    async def authenticate(self, body):
+        async with self.account_change():
+            self.clear_account()
+            self.auth = {} if body is None else {
+                "provider": body.provider, "model": body.model,
+                "api_key": body.api_key.get_secret_value(), "epoch": uuid.uuid4().hex,
+                "state": "configured", "verified_at": None,
+            }
+            self.save_auth()
         return self.capabilities()
 
     def session(self, identifier, scope):
@@ -291,7 +313,9 @@ class Runtime:
             if previous["digest"] != payload_digest:
                 fail(409, "idempotency_conflict", "Run ID belongs to another request")
             return public(previous)
-        if not self.auth.get("api_key"):
+        if self.auth_changing:
+            fail(409, "session_busy", "Account change is in progress")
+        if self.auth.get("state", "needs_auth") == "needs_auth":
             fail(503, "needs_auth", "Configure the Hermes model account first")
         if self.auth.get("state") == "needs_reauth":
             fail(503, "needs_reauth", "The model account must be authenticated again")
@@ -333,9 +357,12 @@ class Runtime:
         self.groups[identifier] = {"pid": proc.pid, "members": known}
 
     async def invoke(self, payload, scratch, identifier):
+        environment = self.child_environment(scratch)
+        if self.auth.get("provider") == "openai-codex":
+            environment["HERMES_HOME"] = str(self.directory / "oauth" / self.auth["epoch"])
         spawning = asyncio.create_task(asyncio.create_subprocess_exec(
             self.python, "-m", "agentic_hermes.child", cwd=scratch,
-            env=self.child_environment(scratch), stdin=asyncio.subprocess.PIPE,
+            env=environment, stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL, start_new_session=True,
         ))
         try:
@@ -416,12 +443,13 @@ class Runtime:
                 result = await self.invoke({
                     "run_id": body.run_id, "session_id": run["session_id"],
                     "message": body.message, "history": session["history"],
-                    "model": self.auth["model"], "api_key": self.auth["api_key"],
+                    "model": self.auth["model"], "provider": self.auth.get("provider", "openrouter"),
+                    "api_key": self.auth.get("api_key", ""),
                     "mcp_token": body.mcp_token.get_secret_value(),
                 }, scratch, body.run_id)
             await self.stop_process(body.run_id)
             # Exact secret scrubbing is a last boundary, not permission to send secrets to the model.
-            result = scrub(result, (self.token, self.auth["api_key"], body.mcp_token.get_secret_value()))
+            result = scrub(result, tuple(value for value in (self.token, self.auth.get("api_key"), body.mcp_token.get_secret_value()) if value))
             error = result.get("error")
             if error:
                 if error == "needs_reauth":
@@ -485,7 +513,10 @@ class Runtime:
 
     async def stop_all(self, *, require_confirmed=True):
         for identifier in set(self.tasks) | self.unconfirmed:
-            await self.cancel(self.get("run", identifier))
+            if item := self.get("auth", identifier):
+                await self.device_login.cancel(item)
+            else:
+                await self.cancel(self.get("run", identifier))
         if require_confirmed and self.unconfirmed:
             fail(409, "stop_unconfirmed", "A prior process group has not been confirmed stopped")
 
@@ -545,6 +576,18 @@ def create_app(runtime):
     @app.post("/v1/auth/logout")
     async def logout():
         return await runtime.authenticate(None)
+
+    @app.post("/v1/auth/device", status_code=202)
+    async def device_login(body: DeviceAuthInput, request: Request):
+        return await runtime.device_login.begin(body, key(request))
+
+    @app.get("/v1/auth/device/{identifier}")
+    async def device_login_status(identifier: str):
+        return public_auth(runtime.device_login.find(identifier))
+
+    @app.post("/v1/auth/device/{identifier}/cancel")
+    async def device_login_cancel(identifier: str):
+        return await runtime.device_login.cancel(runtime.device_login.find(identifier))
 
     @app.post("/v1/retention")
     async def retention(body: RetentionInput):

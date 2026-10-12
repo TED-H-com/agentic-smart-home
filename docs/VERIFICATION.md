@@ -1,6 +1,21 @@
-# Agentic Smart Home 0.4.0 技術預覽驗證
+# Agentic Smart Home 0.5.0 自動 onboarding 驗證
 
-2026-10-12，修正 sandbox／manifest 權限後的 [GitHub CI](https://github.com/teddashh/agentic-smart-home/actions/runs/38202961564) 通過 **145 passed、2 skipped，152.424 秒**；受測與媒體 source commit 均為 `cb11ffd8c0d3eb48a9854fd51add030a1df936e9`，見 [CI 記錄](../evidence/github-ci.json)及 [JUnit](../evidence/pytest-0.4.0-github.xml)。CI 包含 `--real-ha --containers`，跳過獨立大型 HAOS KVM 與完整 Linux ISO 安裝；後者已另行通過 **1 passed，1566.81 秒**，見 [ISO JUnit](../evidence/linux-install-0.4.0.xml)。本輪完成 E0 工程媒體及獨立救援範圍；Owner laptop／真帳號與 E1、E2 尚未完成。
+2026-10-12，本機完整回歸 **210 passed、2 skipped／188.68秒**，見 [0.5.0 JUnit](../evidence/pytest-0.5.0.xml)。包含 `--real-ha --containers`；兩個跳過案例為大型獨立 HAOS VM 與完整 Linux ISO 安裝。0.5.0精確媒體安裝另行驗證；以下0.4.0歷史通過結果不能代替新版驗收。真雲端帳號、LINE／Telegram真實收發與Owner laptop仍未執行。
+
+新版針對桌面單次授權、設定中斷／重試、最新版Hermes、原生CodexOAuth、通道配對、HA原生授權及多種畫面進行測試。CLI設定助手是受限bootstrap模式；兩個通用research/development workers仍blocked，不能當成E1/E2完成。
+
+| 新版範圍 | 實際證據與限制 |
+|---|---|
+| CLI bootstrap | 真封裝 Codex binary，tools-disabled 與本機模型 fixture；typed 觀測、持久去重與取消，不是通用 coding worker |
+| 官方最新 Hermes | commit `8a7a5a905fc66ed82b922587a8e3c011e819dbb5` 成功建置，21項 runtime／OAuth helper／MCP／容器相容性測試通過；[來源及 image](../evidence/latest-hermes.json)、[JUnit](../evidence/latest-hermes-compatibility.xml)，未用真雲端帳號 |
+| HA 官方授權 | 真隔離 Core2026.10.1 code交換→owner核對→專用LLT→撤銷臨時grant，另測登出／替代授權與等待中權限失效；[Core記錄](../evidence/ha-onboarding-oauth.json) |
+| 設定恢復／通道 | Controller協定fixtures驗證重試、回應遺失、真observations的HA404、配對到期與sender綁定；沒有真LINE／Telegram外部收發 |
+| 桌面／Web | 一次性本機票據、私有launcher不洩漏程序參數，真Chromium+APIfixtures測引導、刷新、斷線、三種螢幕及既有操作；[画面](../evidence/ui/bootstrap-choose-1440.png) |
+
+
+## 0.4.0 技術預覽驗證（歷史）
+
+2026-10-12，修正 sandbox／manifest 權限後的 [GitHub CI](https://github.com/teddashh/agentic-smart-home/actions/runs/38202961564) 通過 **145 passed、2 skipped，152.424 秒**；受測與媒體 source commit 均為 `cb11ffd8c0d3eb48a9854fd51add030a1df936e9`，見 [CI 記錄](../evidence/github-ci-0.4.0-final.json)及 [JUnit](../evidence/pytest-0.4.0-github.xml)。CI 包含 `--real-ha --containers`，跳過獨立大型 HAOS KVM 與完整 Linux ISO 安裝；後者已另行通過 **1 passed，1566.81 秒**，見 [ISO JUnit](../evidence/linux-install-0.4.0.xml)。本輪完成 E0 工程媒體及獨立救援範圍；Owner laptop／真帳號與 E1、E2 尚未完成。
 
 ```bash
 pytest-disktmp uv run pytest -q --real-ha --containers --junitxml=evidence/pytest-0.4.0.xml
@@ -14,32 +29,32 @@ pytest-disktmp uv run pytest -q --real-ha --containers --junitxml=evidence/pytes
 | 私有 Hermes bridge | 真 packaged service 以 UID 10003 啟動、無帳號顯示 needs_auth；service tests 檢查 scope/session/run 去重、認證撤銷、重啟不重播、期限與真本機子程序停止，包括 leader 已退出的 descendant／stop_unconfirmed fencing | configured 只表示保存，不是驗證登入；未通過 E1 coding |
 | Controller／MCP | `tests/test_hermes_controller.py` 檢查固定七工具、拒絕 Live／偽造權限、blocked job 去重、case ACL、credential/audience 變更、串流期間重新驗權／budget、取消後不接受晚到成功、Web 登出撤權及 retention 同步失败回 503 | worker submit 只建立 `execution_started=false` 的 blocked handle；沒有發起 cloud coding 或家庭寫入 |
 | Schema 2 遷移 | `tests/test_store_migration.py` 兩項測試：schema 1 先留私有一致 snapshot，再升到 2 並保留 settings／audit／去重；新 DB 為 2，未知新版拒絕。SQL tables 沿用，但資料語意明確不相容於 0.3.x | 遷移不是安全降版；固定 updater／rollback 尚未實作 |
-| 離線 coding containment 基礎 | 19 項 sandbox 回歸檢查 Docker 限制與 fencing；另在安裝後一次性 VM 完成 root broker 掛載獨立 ext4、clone／修改／測試／patch、總容量耗盡、去重、程序樹取消及清理，見 [installed sandbox](../evidence/installed-sandbox-laptop-amd64.json) | 程式為離線 Python fixture，沒有 provider egress、cloud CLI 或 HAOS App coding；兩個 coding workers 仍 blocked |
-| 固定 console 支援 | Host／support 20 項回歸通過；精確 ISO 安裝後停止 Controller，一般 Owner 以非 sudo diagnostics／support-bundle 完成救援，每筆版本均為 0.4.0，見 [installed rescue](../evidence/installed-rescue-laptop-amd64.json) | 通過 E0 獨立救援範圍；E2 updater／退版擴充與 Owner laptop 現場仍未驗 |
+| 離線 coding containment 基礎 | 19 項 sandbox 回歸檢查 Docker 限制與 fencing；另在安裝後一次性 VM 完成 root broker 掛載獨立 ext4、clone／修改／測試／patch、總容量耗盡、去重、程序樹取消及清理，見 [installed sandbox](../evidence/installed-sandbox-laptop-amd64-0.4.0.json) | 程式為離線 Python fixture，沒有 provider egress、cloud CLI 或 HAOS App coding；兩個 coding workers 仍 blocked |
+| 固定 console 支援 | Host／support 20 項回歸通過；精確 ISO 安裝後停止 Controller，一般 Owner 以非 sudo diagnostics／support-bundle 完成救援，每筆版本均為 0.4.0，見 [installed rescue](../evidence/installed-rescue-laptop-amd64-0.4.0.json) | 通過 E0 獨立救援範圍；E2 updater／退版擴充與 Owner laptop 現場仍未驗 |
 | 實際 Chromium UI | `tests/test_ui.py`、`test_gateway_ui.py`、`test_hermes_ui.py`：1440／768／390 px；Hermes 真實狀態語意、keyboard login form、key 清空且不進 storage／URL、續接／刷新／新 case、進階 Grok/HAOS 與 Hermes scope 隔離。API 為 fixtures，畫面見 `evidence/ui/hermes-*` | 沒有登入真 OpenRouter／LINE／CLI 帳號；UI fixture 不證明真家庭語意 |
 | 保留家庭／CLI／通道回歸 | 真 Core 2026.10.1 的原生驗證／helpers／讀回／觸發／重啟；真受控 Runner、LINE.js 與 Supervisor package 測試。模型、部分 backup/平台端點依既有案例使用 fixtures | 不代表真 model→家庭完整流程、LINE／Discord／Telegram 實際收發或新 HAOS App coding |
-| 精確 ISO／HAOS lifecycle | 一次性 VM 的 OS 安裝、外層 firstboot、四映像 ID、Owner HTTP、可選 HAOS provision、冷快照／restore、外層 reboot／HAOS autostart；三次讀到真 Core onboarding JSON list，見 [linux-install](../evidence/linux-install.json) | 是基礎安裝與生命週期驗證；没有 Home Worker App coding、真帳號或 T3-27 的完整 re-pair／helpers 驗收 |
+| 精確 ISO／HAOS lifecycle | 一次性 VM 的 OS 安裝、外層 firstboot、四映像 ID、Owner HTTP、可選 HAOS provision、冷快照／restore、外層 reboot／HAOS autostart；三次讀到真 Core onboarding JSON list，見 [linux-install](../evidence/linux-install-0.4.0-final.json) | 是基礎安裝與生命週期驗證；没有 Home Worker App coding、真帳號或 T3-27 的完整 re-pair／helpers 驗收 |
 
 Hermes 的七工具為 `host.status`、`worker.capabilities`、`worker.submit/status/cancel/result` 和 `case.evidence.read`。沒有原生 terminal/filesystem/browser/delegate 或 Live approve/apply。真上游執行與模型 fixture 分開標記；沒有把檔案名稱或模型輸出 passed 當作測試平台結果。
 
 Controller 使用 `user_version=2`，0.3.x binary 不能讀取新格式。Hermes 的獨立保存上限透過私有 `/v1/retention` 同步，縮短時停止進行中的 turn 再刪逾期內容；同步失败不先改 Controller 設定。操作與敏感遷移快照的保護見 [OPERATIONS](OPERATIONS.md)。
 
-Ruff、產生契約與文件完整性檢查通過。Git 發佈 allowlist 已做 Gitleaks 8.30.1 掃描，0 findings，見 [source-audit.json](../evidence/source-audit.json)；最終檔案數以該記錄為準。掃描範圍排除私有 parent／ignored runtime 資料，不能當成真家庭資料已獲公開授權。
+Ruff、產生契約與文件完整性檢查通過。Git 發佈 allowlist 已做 Gitleaks 8.30.1 掃描，0 findings，見 [source-audit.json](../evidence/source-audit-0.4.0-final.json)；最終檔案數以該記錄為準。掃描範圍排除私有 parent／ignored runtime 資料，不能當成真家庭資料已獲公開授權。
 
 ## 0.4.0 工程媒體（一次性 VM 驗證通過）
 
-媒體來自已凍結的 source commit `cb11ffd8c0d3eb48a9854fd51add030a1df936e9`，見 [release](../evidence/release.json)。下列精確 laptop ISO 已通過一次性 VM 全流程；測試核對安裝版本與四個實際 image ID。Linux TAR 是封裝產物，沒有另外執行既有主機就地安裝驗收。
+媒體來自已凍結的 source commit `cb11ffd8c0d3eb48a9854fd51add030a1df936e9`，見 [release](../evidence/release-0.4.0-final.json)。下列精確 laptop ISO 已通過一次性 VM 全流程；測試核對安裝版本與四個實際 image ID。Linux TAR 是封裝產物，沒有另外執行既有主機就地安裝驗收。
 
 | 媒體 | Bytes | SHA-256 |
 |---|---|---|
 | `agentic-home-0.4.0-laptop-amd64.iso` | 5387124736 | `44d163dba7ff629cc287213cbbb9a4836381d24e45531533efa0051ca9625868` |
 | `agentic-home-0.4.0-linux-amd64.tar` | 1307658240 | `12d4426978674706810dcc4be73de40ea26542a15f869e032b864d3879f04229` |
 
-完整 pytest 耗時 1566.81 秒，內部安裝流程計時 1564 秒。`runtime_location=disposable_outer_linux_vm`、`model_backend=none`、`ha_backend=nested_official_haos`、`device_kind=none`；Ubuntu 24.04.5 上以一次性磁碟 serial 與臨時 SSH key 安裝，未碰其他磁碟。結束後 VM、測試容器與磁碟 basetemp 已清除。證據見 [linux-install](../evidence/linux-install.json)及 [JUnit](../evidence/linux-install-0.4.0.xml)。
+完整 pytest 耗時 1566.81 秒，內部安裝流程計時 1564 秒。`runtime_location=disposable_outer_linux_vm`、`model_backend=none`、`ha_backend=nested_official_haos`、`device_kind=none`；Ubuntu 24.04.5 上以一次性磁碟 serial 與臨時 SSH key 安裝，未碰其他磁碟。結束後 VM、測試容器與磁碟 basetemp 已清除。證據見 [linux-install](../evidence/linux-install-0.4.0-final.json)及 [JUnit](../evidence/linux-install-0.4.0.xml)。
 
-firstboot 僅啟外層，HAOS 尚未建立；[真 Owner HTTP 登入](../evidence/installed-auth-laptop-amd64.json)與受控 Runner 配對成功。四個 CLI 均為 `needs_reauth`、Hermes 為 `needs_auth`，coding workers 為 blocked，這是未登入帳號的真實狀態。停止 Controller 後，[非 sudo 診斷與 support bundle](../evidence/installed-rescue-laptop-amd64.json)仍可用，版本保持 0.4.0；無模型參與。
+firstboot 僅啟外層，HAOS 尚未建立；[真 Owner HTTP 登入](../evidence/installed-auth-laptop-amd64-0.4.0.json)與受控 Runner 配對成功。四個 CLI 均為 `needs_reauth`、Hermes 為 `needs_auth`，coding workers 為 blocked，這是未登入帳號的真實狀態。停止 Controller 後，[非 sudo 診斷與 support bundle](../evidence/installed-rescue-laptop-amd64-0.4.0.json)仍可用，版本保持 0.4.0；無模型參與。
 
-[離線 sandbox probe](../evidence/installed-sandbox-laptop-amd64.json)共耗時 2.1 秒：獨立 clone 產出 patch、重現程式與成功測試；原始 checkout／Git metadata 不變。容量 62869504 bytes 的 ext4 在累計寫入 60252160 bytes 時回 ENOSPC，單檔只有 1048576 bytes，低於 16777216 bytes 的檔案限制，證明測到總檔案系統容量。取消後程序樹停止、writer fencing 與清理通過。隨後真正 provision HAOS，首次啟動、冷快照 restore、外層 reboot／HAOS autostart 後均讀到 Core onboarding API JSON list。
+[離線 sandbox probe](../evidence/installed-sandbox-laptop-amd64-0.4.0.json)共耗時 2.1 秒：獨立 clone 產出 patch、重現程式與成功測試；原始 checkout／Git metadata 不變。容量 62869504 bytes 的 ext4 在累計寫入 60252160 bytes 時回 ENOSPC，單檔只有 1048576 bytes，低於 16777216 bytes 的檔案限制，證明測到總檔案系統容量。取消後程序樹停止、writer fencing 與清理通過。隨後真正 provision HAOS，首次啟動、冷快照 restore、外層 reboot／HAOS autostart 後均讀到 Core onboarding API JSON list。
 
 前輪 source `69a1a24`／ISO `21b4d9a0…` 已失敗，媒體移至本機 `build/before-sandbox-fix-*`；其精確 digest 與 `02e7e00` 測試紀錄保留於 [封存 release](../evidence/release-0.4.0-before-sandbox-fix.json)，不能當作本轮媒體驗證。
 
@@ -77,7 +92,7 @@ firstboot 僅啟外層，HAOS 尚未建立；[真 Owner HTTP 登入](../evidence
 
 真實雲端登入、LINE／Discord／Telegram 收發、實機硬體與 Google 訂閱登入不在本次已完成證據之內。家庭寫入仍須具體提案與 owner 批准。
 
-0.3.1 當時的映像與媒體記錄固定參照 [build](https://github.com/teddashh/agentic-smart-home/blob/3ad476a712009469521c3f9838a44ef35ba29f76/evidence/build.json)、[release](https://github.com/teddashh/agentic-smart-home/blob/3ad476a712009469521c3f9838a44ef35ba29f76/evidence/release.json)。這些是歷史資料；GitHub CI 記錄以 `headSha` 明確指出受測 commit。
+0.3.1 當時的映像與媒體記錄固定參照 [build](https://github.com/teddashh/agentic-smart-home/blob/3ad476a712009469521c3f9838a44ef35ba29f76/evidence/build-0.4.0-final.json)、[release](https://github.com/teddashh/agentic-smart-home/blob/3ad476a712009469521c3f9838a44ef35ba29f76/evidence/release-0.4.0-final.json)。這些是歷史資料；GitHub CI 記錄以 `headSha` 明確指出受測 commit。
 
 ## 0.3.0 歷史驗證紀錄
 

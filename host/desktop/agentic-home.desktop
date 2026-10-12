@@ -2,7 +2,7 @@
 Type=Application
 Name=Agentic Home
 Comment=家庭 Agent 與 HAOS 管理
-Exec=xdg-open http://localhost:8099
+Exec=agentic-home open
 Icon=preferences-system
 Terminal=false
 Categories=System;Utility;

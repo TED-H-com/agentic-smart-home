@@ -24,6 +24,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from .bootstrap import BootstrapJob, BootstrapResult
+from .bootstrap import prompt as bootstrap_prompt
 from .providers import ProviderError, Providers
 
 
@@ -151,6 +153,36 @@ class Broker:
                 if metrics:
                     self.save_job({**self.job(request.id), "resources": metrics})
 
+    async def execute_bootstrap(self, request: BootstrapJob):
+        async with self.worker:
+            job = self.job(request.id)
+            if job["state"] == "cancelled":
+                return
+            try:
+                if request.expires < time.time():
+                    raise ProviderError("bootstrap_expired")
+                self.save_job({**job, "state": "running"})
+                health = await self.providers.health(request.provider)
+                if health["status"] != "connected":
+                    raise ProviderError("needs_reauth")
+                result = await self.providers.run(request.id, request.provider, bootstrap_prompt(request),
+                                                  BootstrapResult.model_json_schema(), request.model)
+                safe = BootstrapResult.model_validate(result).model_dump()
+                self.save_job({**job, "state": "succeeded", "result": safe, "evidence": {
+                    "observed_from": "host_runner", "provider": request.provider,
+                    "cli_version": health["version"], "inference_completed": True,
+                    "live_mutations": False,
+                }})
+            except asyncio.CancelledError:
+                self.save_job({**job, "state": "cancelled"})
+                raise
+            except (ProviderError, TimeoutError, OSError, ValueError) as exc:
+                # Neither CLI diagnostics nor rejected structured fields reach Controller.
+                error = "needs_reauth" if "needs_reauth" in str(exc) else "bootstrap_assistance_failed"
+                self.save_job({**job, "state": "failed", "error": error})
+            finally:
+                self.providers.metrics.pop(request.id, None)
+
 
 def create_api(broker):
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -247,6 +279,39 @@ def create_api(broker):
         broker.tasks[body.id] = task = asyncio.create_task(broker.execute(body))
         task.add_done_callback(lambda done: broker.tasks.pop(body.id, None))
         return record
+
+    @app.post("/bootstrap/jobs", status_code=202)
+    async def bootstrap_job(body: BootstrapJob):
+        if os.environ.get("AGENTIC_HOST_MODE") != "1":
+            raise HTTPException(403, "bootstrap_requires_host_runner")
+        digest = hashlib.sha256(body.model_dump_json().encode()).hexdigest()
+        old = broker.job(body.id)
+        if old:
+            if old["digest"] != digest or old.get("kind") != "bootstrap_assist":
+                raise HTTPException(409, "bootstrap_idempotency_conflict")
+            return old
+        if not time.time() < body.expires <= time.time() + 360:
+            raise HTTPException(422, "bootstrap_expired")
+        if len(broker.tasks) >= 10:
+            raise HTTPException(429, "任務佇列已滿")
+        record = broker.save_job({"id": body.id, "digest": digest, "provider": body.provider,
+                                  "kind": "bootstrap_assist", "state": "queued", "created": time.time()})
+        broker.prune()
+        broker.tasks[body.id] = task = asyncio.create_task(broker.execute_bootstrap(body))
+        task.add_done_callback(lambda done: broker.tasks.pop(body.id, None))
+        return record
+
+    @app.get("/bootstrap/jobs/{id}")
+    async def bootstrap_status(id: str):
+        record = broker.job(id)
+        if not record or record.get("kind") != "bootstrap_assist":
+            raise HTTPException(404, "找不到初始化任務")
+        return record
+
+    @app.post("/bootstrap/jobs/{id}/cancel")
+    async def bootstrap_cancel(id: str):
+        await bootstrap_status(id)
+        return await cancel(id)
 
     @app.get("/jobs/{id}")
     async def job_status(id: str):

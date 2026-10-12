@@ -1,12 +1,12 @@
-# 統一通訊、Hermes 與受控 Agent · 0.4.0 技術預覽
+# 統一通訊、Hermes 與受控 Agent · 0.5.0 技術預覽
 
-外層 Controller/Gateway 維持唯一通訊 receiver。Web 一直可用，LINE／Discord／Telegram 可於 onboarding 稍後啟用；Hermes 不啟動自己的 bot Gateway，也不取得通道 token。首次開機不建立 HAOS，不影響外層 Web、Hermes 登入或固定主機查詢。
+外層 Controller/Gateway 維持唯一通訊 receiver。Web 一直可用，onboarding 預設 LINE，亦可選 Discord／Telegram／Web；Hermes 不啟動自己的 bot Gateway，也不取得通道 token。首次開機不建立 HAOS，不影響外層 Web、Hermes 登入或固定主機查詢。
 
 ## Hermes 是一般對話的協調助手
 
-新的一般 Web／通道對話預設交給 Hermes。它執行 [固定 commit 的真上游 AIAgent](../hermes/hermes.lock.json)，透過私有 adapter 的 session/run/cancel 介面與 Controller 整合，詳見 [runtime 契約](../hermes/README.md)。沒有用自製推理 loop 假稱 Hermes，也沒有把上游 `delegate_task` 當作已完成的 HAOS worker。
+新的一般 Web／通道對話預設交給 Hermes。它執行真上游 AIAgent：安裝包有 [鎖定回復基線](../hermes/hermes.lock.json)，首次設定可準備並驗證官方最新 commit，啟用後固定 digest，透過私有 adapter 的 session/run/cancel 介面與 Controller 整合，詳見 [runtime 契約](../hermes/README.md)。沒有用自製推理 loop 假稱 Hermes，也沒有把上游 `delegate_task` 當作已完成的 HAOS worker。
 
-第一條模型認證路徑是 **OpenRouter API key＋模型 ID**。在 onboarding「Hermes 登入」或「Agent 環境」設定；它與 Host／HAOS 的 CLI 認證各自獨立，不自動沿用訂閱／token，不偷偷 fallback 到其他 provider。
+自動 onboarding 先登入選定的 CLI，再準備 Hermes。Hermes 提供 **原生 Codex device OAuth** 或 **OpenRouter API key＋模型 ID**；模型預設值來自 runtime。它與 Host／HAOS CLI 各自保存認證，不複製 refresh token。儲存狀態為 configured，引導隨後自動執行一個不操作家庭的驗證提問，只有推論成功才為 ready。
 
 | 顯示狀態 | 意義 |
 |---|---|
@@ -46,7 +46,7 @@ Hermes runtime 一次一個 run，5 分鐘 deadline、最多 12 次模型 iterat
 
 內層位址固定為產品 VM 的 `192.168.177.2:8443`。HAOS 建立後，在 App 商店加入 `https://github.com/teddashh/agentic-smart-home`、安裝 Runner、保留 8443，將一次性配對 JSON 貼到外層 Web；Runner ZIP 可作本機 App 來源。
 
-Codex 支援 device code／API key；Claude 支援 API key／setup token；Grok 支援官方 device code／xAI API key；Antigravity 目前只整合 Gemini API key。CLI 的 API-key 登入檢查會執行一次簡短官方推論、可能使用額度；這與 Hermes 的「先保存 configured，再由提問驗證」不同。
+Codex 支援 device code／API key；Claude 支援 API key／setup token；Grok 支援官方 device code／xAI API key；Antigravity 目前只整合 Gemini API key。CLI 的 API-key 登入檢查會執行一次簡短官方推論、可能使用額度；Hermes 引導亦在保存 configured 後自動提交驗證提問。
 
 受控模式的前文最多六回合、8 KiB，每則需求與答覆最多 2 KiB；逾限明示省略，保留期 1–7 天。HAOS 問答重新取得授權觀測，不把舊記憶當即時狀態。補充需求會建立後續家庭任務並連回先前等待補充的任務；等待批准的提案仍是獨立的確切資源。
 
@@ -58,13 +58,13 @@ Codex 支援 device code／API key；Claude 支援 API key／setup token；Grok 
 
 原始 LINE.js 容許任意 Host。本產品的 `host/linejs/patch-local-host.mjs` 在建置時限制 HTTP、admin socket、bot socket 的 Host 為 `127.0.0.1:3789`，防止 DNS rebinding 繞過入口。上游的 cookie／Origin／bearer 驗證仍保留。設定、LINE session 與訊息快取位於 `/var/lib/agentic-home/linejs`，0700 目錄，不納入 source archive。Controller 只交換 typed 白名單設定，不接受任意程式參數。
 
-LINE.js 是非官方 LINE 客戶端；帳號登入與平台相容性需現場驗證。可先用次要帳號。通道啟用需要聊天室 ID 以及允許使用者的 LINE MID；從 LINE.js 本機聊天室／成員資料取得，不能以顯示名稱代替。
+LINE.js 是非官方 LINE 客戶端；帳號登入與平台相容性需現場驗證。可先用次要帳號。引導先讓使用者選擇真實聊天室，再從目標帳號傳送短效配對碼；Controller 綁定訊息中實際的聊天室 ID 與 sender MID，不必手動複製 IDs。配對期間未授權的訊息不送入模型。手動 ID 白名單仍在進階設定。
 
 ## Discord 與 Telegram
 
 Discord 使用專用 bot token，開啟 Message Content Intent，對指定頻道授予 View Channel、Read Message History、Send Messages。以 REST 每 3 秒查詢指定頻道；忽略 bot 與 webhook，回覆停用 mentions。第一次只設定游標，不處理舊訊息。
 
-Telegram 使用 BotFather 建立的專用 bot，long polling 讀取 message updates；若 bot 已有 webhook 則拒絕接管。群組的 privacy mode 會影響 bot 可收到的內容。初次略過舊 updates，游標以 token hash 分開持久化；回覆停用 link preview。更換 token 不繼承另一個 bot 的游標。
+Telegram 使用 BotFather 建立的專用 bot；輸入 token 後，在預定對話傳送 `/pair 畫面的配對碼`，自動綁定實際 chat／sender。取消或過期可以重新產生配對碼，已保存 token 不需重貼。long polling 讀取 message updates；若 bot 已有 webhook 則拒絕接管。群組的 privacy mode 會影響 bot 可收到的內容。初次略過舊 updates，游標以 token hash 分開持久化；回覆停用 link preview。更換 token 不繼承另一個 bot 的游標。
 
 HTTP 通道禁止重新導向、限制回覆大小；錯誤不回傳含 bot token 的原始 URL。所有外部通道皆由主機向外連接，不需公開 Controller HTTP port。
 

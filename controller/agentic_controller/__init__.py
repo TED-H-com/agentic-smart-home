@@ -1,3 +1,3 @@
 """The trusted Home Assistant control plane. No agent subprocesses live here."""
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"

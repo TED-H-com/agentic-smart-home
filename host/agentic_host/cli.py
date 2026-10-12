@@ -31,10 +31,14 @@ def call(method, path, body=None):
 def main():
     parser = argparse.ArgumentParser(description="Agentic Home outer Linux lifecycle")
     parser.add_argument("command", choices=["status", "provision", "start", "shutdown", "snapshot", "restore",
-                                             "access-key", "diagnostics", "support-bundle"])
+                                             "bootstrap_hermes", "open", "access-key", "diagnostics", "support-bundle"])
     parser.add_argument("--snapshot")
     parser.add_argument("--output", type=Path, help="New JSON file for support-bundle")
     args = parser.parse_args()
+    if args.command == "open":
+        from .desktop import open_desktop
+        open_desktop()
+        return
     if args.command in {"diagnostics", "support-bundle"}:
         from .support import main as support_main
         if args.command == "support-bundle" and args.output is None:

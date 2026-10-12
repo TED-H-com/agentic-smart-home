@@ -5,7 +5,9 @@ import aiohttp
 
 
 class RunnerError(Exception):
-    pass
+    def __init__(self, message, status_code=None):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class Runner:
@@ -39,7 +41,7 @@ class Runner:
                     import json
                     result = json.loads(raw)
                     if response.status >= 300:
-                        raise RunnerError(str(result.get("detail", "Runner 拒絕操作"))[:300])
+                        raise RunnerError(str(result.get("detail", "Runner 拒絕操作"))[:300], response.status)
                     return result
         except (aiohttp.ClientError, ValueError, TimeoutError) as exc:
             raise RunnerError("Runner 無法連線或憑證指紋不符，請檢查配對與 App 狀態") from exc

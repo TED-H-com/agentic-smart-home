@@ -125,6 +125,10 @@ def install(profile, bases):
         hermes_link.write_text(secrets.token_urlsafe(48) + "\n")
     os.chown(hermes_link, 0, 1000)
     os.chmod(hermes_link, 0o640)
+    runtime_environment = STATE / "host/runtime.env"
+    if not runtime_environment.exists():
+        runtime_environment.write_text("# Initial Hermes uses the bundled image until setup verifies a candidate.\n")
+        runtime_environment.chmod(0o600)
     for unit in (TARGET / "host/systemd").glob("*.service"):
         shutil.copyfile(unit, Path("/etc/systemd/system") / unit.name)
     cli = Path("/usr/local/bin/agentic-home")
@@ -183,9 +187,9 @@ asyncio.run(main())
 """
     subprocess.run(["docker", "compose", "-f", str(TARGET / "host/compose.yaml"), "exec", "-T", "-u", "1000:1000",
                     "controller", "python", "-c", script], input=json.dumps(payload), text=True, check=True)
-    # E0 starts with Web + Hermes. Creating the HAOS VM is an explicit later
-    # lifecycle operation; its availability cannot block first use of the host.
-    atomic(STATE / "installed.json", {"version": "0.4.0", "profile": profile["id"], "installed_at": time.time()})
+    # Firstboot starts the outer services. The durable Web onboarding creates
+    # HAOS automatically after CLI, Hermes and channel setup, or an explicit skip.
+    atomic(STATE / "installed.json", {"version": "0.5.0", "profile": profile["id"], "installed_at": time.time()})
     # The fixed owner console needs these nonsecret release fields even when
     # Controller is unavailable. Other state and credential files stay private.
     os.chown(STATE / "installed.json", 0, 1000)

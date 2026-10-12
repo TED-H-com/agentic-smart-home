@@ -1,0 +1,31 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "channel": {
+      "default": "line",
+      "enum": [
+        "line",
+        "telegram",
+        "discord",
+        "web"
+      ],
+      "title": "Channel",
+      "type": "string"
+    },
+    "provider": {
+      "enum": [
+        "codex",
+        "claude",
+        "agy",
+        "grok"
+      ],
+      "title": "Provider",
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider"
+  ],
+  "title": "BootstrapStart",
+  "type": "object"
+}

@@ -1,0 +1,271 @@
+{
+  "$defs": {
+    "BootstrapHumanAction": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "anyOf": [
+            {
+              "enum": [
+                "line",
+                "telegram",
+                "discord",
+                "web"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code"
+        },
+        "kind": {
+          "enum": [
+            "cli_login",
+            "hermes_login",
+            "channel_setup",
+            "ha_native_onboarding",
+            "retry"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "enum": [
+                "codex",
+                "claude",
+                "agy",
+                "grok"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "kind",
+        "message"
+      ],
+      "title": "BootstrapHumanAction",
+      "type": "object"
+    },
+    "BootstrapStep": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,80}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code"
+        },
+        "id": {
+          "enum": [
+            "network",
+            "runner_pairing",
+            "cli_auth",
+            "cli_assist",
+            "hermes_install",
+            "hermes_auth",
+            "channel",
+            "ha_provision",
+            "ha_native"
+          ],
+          "title": "Id",
+          "type": "string"
+        },
+        "state": {
+          "default": "pending",
+          "enum": [
+            "pending",
+            "running",
+            "waiting_input",
+            "blocked",
+            "completed",
+            "skipped"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "verified_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verified At"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "BootstrapStep",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "channel": {
+      "default": "line",
+      "enum": [
+        "line",
+        "telegram",
+        "discord",
+        "web"
+      ],
+      "title": "Channel",
+      "type": "string"
+    },
+    "contract": {
+      "const": 1,
+      "default": 1,
+      "title": "Contract",
+      "type": "integer"
+    },
+    "current_step": {
+      "anyOf": [
+        {
+          "enum": [
+            "network",
+            "runner_pairing",
+            "cli_auth",
+            "cli_assist",
+            "hermes_install",
+            "hermes_auth",
+            "channel",
+            "ha_provision",
+            "ha_native"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Current Step"
+    },
+    "human_action": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BootstrapHumanAction"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Id"
+    },
+    "provider": {
+      "anyOf": [
+        {
+          "enum": [
+            "codex",
+            "claude",
+            "agy",
+            "grok"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider"
+    },
+    "state": {
+      "default": "idle",
+      "enum": [
+        "idle",
+        "running",
+        "waiting_input",
+        "blocked",
+        "completed"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "steps": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/BootstrapStep"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "updated_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Updated At"
+    }
+  },
+  "title": "BootstrapStatus",
+  "type": "object"
+}

@@ -1,9 +1,11 @@
 """Outer Linux authentication and typed host-broker client, independent of HA availability."""
 import asyncio
+import fcntl
 import hashlib
 import hmac
 import json
 import os
+import stat
 import time
 import uuid
 from pathlib import Path
@@ -21,6 +23,10 @@ from .runner import RunnerError
 
 class Unlock(Strict):
     key: str = Field(min_length=20, max_length=200)
+
+
+class DesktopLogin(Strict):
+    ticket: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
 
 
 class ConnectHA(Strict):
@@ -65,6 +71,33 @@ class HostSession:
         expected = (self.root / "access-key").read_text().strip()
         if not hmac.compare_digest(key, expected):
             raise HTTPException(403, "主機登入金鑰不正確")
+        return self.cookie()
+
+    def desktop_login(self, ticket):
+        # The installer-owned fixed directory is the only ticket source. Truncate
+        # under flock before issuing a cookie so concurrent open descriptors cannot replay.
+        try:
+            fd = os.open(self.root / "desktop-ticket.json", os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(fd, "r+") as stream:
+                info = os.fstat(stream.fileno())
+                if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o077 or info.st_size > 4096:
+                    raise ValueError("invalid ticket file")
+                fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                value = json.loads(stream.read(4097))
+                expires, expected = value.get("expires"), value.get("ticket_hash")
+                if (type(expires) not in {int, float} or not time.time() < expires <= time.time() + 120
+                        or not isinstance(expected, str) or len(expected) != 64
+                        or not hmac.compare_digest(hashlib.sha256(ticket.encode()).hexdigest(), expected)):
+                    raise ValueError("invalid desktop ticket")
+                stream.seek(0)
+                stream.truncate()
+                stream.flush()
+                os.fsync(stream.fileno())
+        except (OSError, ValueError, TypeError, AttributeError):
+            raise HTTPException(403, "桌面登入已失效，請重新從桌面開啟管理頁面") from None
+        return self.cookie()
+
+    def cookie(self):
         expires = str(int(time.time()) + 43200)
         response = JSONResponse({"authenticated": True})
         response.set_cookie("agentic_host", expires + "." + self.sign(expires), httponly=True,
@@ -92,6 +125,53 @@ def external_ha(root):
     base = os.environ.get("AGENTIC_HA_URL", "http://192.168.177.2:80").rstrip("/")
     return HomeAssistant(token, base + "/api", base.replace("http:", "ws:").replace("https:", "wss:") +
                          "/api/websocket", external=True)
+
+
+async def pair_runner(store, runner, controller_id):
+    """Use only the installer-owned TLS pin/code, never a browser-selected peer."""
+    if store.setting("runner"):
+        try:
+            observed = await runner.call("GET", "/status")
+            if observed.get("identity") == "agentic-home-runner" and observed.get("protocol") == 1:
+                return {"paired": True}
+        except RunnerError:
+            pass
+    path = Path("/pairing/runner.json")
+    if not path.exists():
+        raise HTTPException(409, "Runner 配對資料尚未備妥；若已重設 Controller，需同時重設 Runner 配對")
+    result = await runner.pair(json.loads(path.read_text()), "host-owner", controller_id)
+    store.set_setting("onboarding", {**store.setting("onboarding", {}), "runner_paired": True})
+    return result
+
+
+async def connect_home_owner(auth, ha, store, token, *, commit_guard=None):
+    """Verify the candidate owner before replacing the current HA connection."""
+    candidate = HomeAssistant(token, ha.base, ha.websocket, external=True)
+    await candidate.start()
+    try:
+        user = await candidate.ws("auth/current_user")
+        if not await candidate.owner(user["id"]):
+            raise HTTPException(403, "需要有效的 HA owner 權杖")
+        if store.setting("owner") not in {None, user["id"]}:
+            raise HTTPException(409, "這是另一個家庭；請先備份並使用獨立 Controller 資料目錄")
+    finally:
+        await candidate.close()
+    if commit_guard is not None:
+        commit_guard()
+    path = auth.root / "ha-token"
+    temp = path.with_suffix(".new")
+    with temp.open("w") as stream:
+        os.chmod(temp, 0o600)
+        stream.write(token)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temp, path)
+    ha.token = token
+    if ha.session:
+        ha.session.headers["Authorization"] = "Bearer " + token
+    store.set_setting("owner", user["id"])
+    store.set_setting("onboarding", {**store.setting("onboarding", {}), "owner_verified": True})
+    return {"connected": True, "principal": user["id"]}
 
 
 def routes(app, auth, ha, store, runner, controller_id):
@@ -153,6 +233,10 @@ def routes(app, auth, ha, store, runner, controller_id):
     async def login(body: Unlock):
         return auth.login(body.key)
 
+    @app.post("/api/host/desktop-login")
+    async def desktop_login(body: DesktopLogin):
+        return auth.desktop_login(body.ticket)
+
     @app.post("/api/host/logout")
     async def logout():
         # Web authority is independent of configured external bot audiences.
@@ -179,47 +263,11 @@ def routes(app, auth, ha, store, runner, controller_id):
 
     @app.post("/api/host/connect")
     async def connect(body: ConnectHA):
-        # Authenticate a candidate independently, preserving the previous connection on failure.
-        candidate = HomeAssistant(body.token, ha.base, ha.websocket, external=True)
-        await candidate.start()
-        try:
-            user = await candidate.ws("auth/current_user")
-            if not await candidate.owner(user["id"]):
-                raise HTTPException(403, "需要有效的 HA owner 權杖")
-            if store.setting("owner") not in {None, user["id"]}:
-                raise HTTPException(409, "這是另一個家庭；請先備份並使用獨立 Controller 資料目錄")
-        finally:
-            await candidate.close()
-        path = auth.root / "ha-token"
-        temp = path.with_suffix(".new")
-        with temp.open("w") as stream:
-            os.chmod(temp, 0o600)
-            stream.write(body.token)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temp, path)
-        ha.token = body.token
-        if ha.session:
-            ha.session.headers["Authorization"] = "Bearer " + body.token
-        store.set_setting("owner", user["id"])
-        store.set_setting("onboarding", {**store.setting("onboarding", {}), "owner_verified": True})
-        return {"connected": True, "principal": user["id"]}
+        return await connect_home_owner(auth, ha, store, body.token)
 
     @app.post("/api/host/pair")
     async def pair():
-        path = Path("/pairing/runner.json")
-        if store.setting("runner"):
-            try:
-                await runner.call("GET", "/status")
-                return {"paired": True}
-            except RunnerError:
-                pass
-        if not path.exists():
-            raise HTTPException(409, "Runner 配對資料尚未備妥；若已重設 Controller，需同時重設 Runner 配對")
-        data = json.loads(path.read_text())
-        result = await runner.pair(data, "host-owner", controller_id)
-        store.set_setting("onboarding", {**store.setting("onboarding", {}), "runner_paired": True})
-        return result
+        return await pair_runner(store, runner, controller_id)
 
     @app.get("/api/host/diagnosis")
     async def diagnosis():

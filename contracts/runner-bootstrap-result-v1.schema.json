@@ -1,0 +1,49 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "decision": {
+      "enum": [
+        "continue",
+        "needs_input",
+        "blocked"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "next_step": {
+      "enum": [
+        "install_hermes",
+        "authenticate_hermes",
+        "connect_channel",
+        "start_home_assistant",
+        "review_network"
+      ],
+      "title": "Next Step",
+      "type": "string"
+    },
+    "reason_codes": {
+      "items": {
+        "enum": [
+          "network_unavailable",
+          "runtime_missing",
+          "hermes_login_required",
+          "channel_setup_required",
+          "ha_setup_required",
+          "ready_for_next_stage"
+        ],
+        "type": "string"
+      },
+      "maxItems": 6,
+      "minItems": 1,
+      "title": "Reason Codes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "decision",
+    "next_step",
+    "reason_codes"
+  ],
+  "title": "BootstrapResult",
+  "type": "object"
+}

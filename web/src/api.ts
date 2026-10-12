@@ -1,8 +1,28 @@
 let csrf = '';
 let hostMode = false;
 let loginGeneration = 0;
+// Consume the desktop handoff before React mounts or any API reads begin.
+let desktopTicket = /^#desktop-login=([A-Za-z0-9_-]{43})$/.exec(location.hash)?.[1] || '';
+const desktopAttempted = location.hash.startsWith('#desktop-login');
+if (desktopAttempted) history.replaceState(null, '', `${location.pathname}${location.search}#onboarding`);
+let desktopResult: Promise<'none'|'connected'|'failed'> | null = null;
+export function desktopLogin() {
+  if (!desktopResult) {
+    if (!desktopAttempted) desktopResult = Promise.resolve('none');
+    else if (!desktopTicket) desktopResult = Promise.resolve('failed');
+    else {
+      const ticket = desktopTicket;
+      desktopTicket = '';
+      desktopResult = api('host/desktop-login', {ticket}).then(() => 'connected' as const, () => 'failed' as const);
+    }
+  }
+  return desktopResult;
+}
 export function configureDeployment(mode: string) { hostMode = mode === 'host'; }
-export function haPath(path = '/') { return hostMode ? `http://localhost:8123${path}` : path; }
+export function haPath(path = '/') {
+  const hostname = ['localhost', '127.0.0.1'].includes(location.hostname) ? location.hostname : 'localhost';
+  return hostMode ? `http://${hostname}:8123${path}` : path;
+}
 export function haTarget() { return hostMode ? '_blank' : '_top'; }
 export class ApiError extends Error {
   constructor(message: string, public status: number) { super(message); }
@@ -28,10 +48,10 @@ export async function api(path: string, data?: unknown, raw = false, key = reque
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({detail:'服務暫時無法回應'}));
-      if (response.status === 401 && hostMode && path !== 'host/login' && generation === loginGeneration) window.dispatchEvent(new Event('agentic-session-expired'));
+      if (response.status === 401 && hostMode && !['host/login','host/desktop-login'].includes(path) && generation === loginGeneration) window.dispatchEvent(new Event('agentic-session-expired'));
       throw new ApiError(typeof error.detail === 'string' ? error.detail : '操作未完成，請檢查填寫內容後再試。', response.status);
     }
-    if (path === 'host/login') loginGeneration++;
+    if (['host/login','host/desktop-login'].includes(path)) loginGeneration++;
     return raw ? response.blob() : response.json();
   } catch (error) {
     if (error instanceof ApiError) throw error;

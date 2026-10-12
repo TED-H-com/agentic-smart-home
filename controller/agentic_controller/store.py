@@ -62,8 +62,13 @@ class Store:
         return json.loads(row[0]) if row else default
 
     def set_setting(self, key, value):
+        self.set_settings({key: value})
+
+    def set_settings(self, values):
+        """Commit related authorization settings atomically."""
         with self.db:
-            self.db.execute("INSERT OR REPLACE INTO settings VALUES (?,?)", (key, canonical(value)))
+            self.db.executemany("INSERT OR REPLACE INTO settings VALUES (?,?)",
+                                [(key, canonical(value)) for key, value in values.items()])
 
     def get(self, kind, id):
         row = self.db.execute("SELECT body FROM records WHERE kind=? AND id=?", (kind, id)).fetchone()

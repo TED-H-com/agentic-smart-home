@@ -11,17 +11,19 @@ import contextlib
 import hashlib
 import json
 import os
+import re
 import secrets
 import time
 import uuid
 from pathlib import Path
+from typing import get_args
 
 import aiohttp
 from fastapi import HTTPException, Request
 
 from . import VERSION
 from .host import host_call
-from .models import digest, utcnow
+from .models import BootstrapRetry, BootstrapStepId, HermesDeviceAuth, digest, utcnow
 from .work import HermesAuth
 
 TERMINAL = {"succeeded", "failed", "cancelled", "interrupted", "needs_auth", "needs_reauth"}
@@ -195,12 +197,29 @@ class Coordinator:
                     and isinstance(v, (bool, int))}
             if raw.get("vm") in {"running", "shut off", "paused", "not_created", "unknown"}:
                 data["vm"] = raw["vm"]
+            platform = raw.get("bootstrap", {})
+            native = platform.get("ha", {}) if isinstance(platform, dict) else {}
+            if isinstance(native, dict) and type(native.get("reachable")) is bool:
+                setup = {key: native[key] for key in ("reachable", "onboarding_available", "onboarding_complete")
+                         if type(native.get(key)) is bool}
+                setup["observed_from"] = "outer_host_to_core_onboarding_api"
+                setup["steps"] = [{"step": item["step"], "done": item["done"]}
+                    for item in native.get("steps", [])[:10] if isinstance(item, dict)
+                    and isinstance(item.get("step"), str)
+                    and item.get("step") in {"user", "core_config", "integration", "analytics"}
+                    and type(item.get("done")) is bool] if isinstance(native.get("steps"), list) else []
+                if type(native.get("http_status")) is int and native["http_status"] in {200, 401, 404}:
+                    setup["http_status"] = native["http_status"]
+                data["ha_onboarding"] = setup
+            bootstrap = self.store.get("bootstrap_v1", "setup") or {}
+            if bootstrap.get("current_step") in get_args(BootstrapStepId):
+                data["setup_step"] = bootstrap["current_step"]
         evidence_id = uuid.uuid4().hex
         evidence = {"id": evidence_id, "evidence_id": evidence_id, "data_contract": 1, "case_id": grant["case_id"],
             "observed_from": "host_broker", "target_component": "host_and_managed_vm",
             "collection_method": "fixed_broker_status", "observed_at": utcnow(),
             "version_refs": {"controller": VERSION}, "content_digest": digest(data),
-            "redaction": "field_allowlist", "limitations": ["Does not establish HA Core or physical device health."],
+            "redaction": "field_allowlist", "limitations": ["Native onboarding observations do not establish HA owner authority or physical device health."],
             "facts": data}
         self.store.put("case_evidence", evidence)
         return evidence
@@ -210,6 +229,39 @@ def routes(app, coordinator, store):
     @app.get("/api/hermes")
     async def status():
         return await coordinator.capabilities()
+
+    @app.post("/api/hermes/auth/device", status_code=202)
+    async def device_auth(body: HermesDeviceAuth, request: Request):
+        key = request.headers.get("idempotency-key", "")
+        if not key or len(key) > 200:
+            raise HTTPException(400, "缺少有效的 Idempotency-Key")
+        previous = store.request("hermes_device_auth", key, digest(body.model_dump()))
+        if not previous:
+            store.set_setting("hermes_auth_epoch", uuid.uuid4().hex)
+            store.request("hermes_device_auth", key, digest(body.model_dump()), "started")
+            await coordinator.recover()
+        try:
+            return await coordinator.client.call("POST", "/v1/auth/device", body.model_dump(), key)
+        except HermesError as exc:
+            raise HTTPException(503, "Hermes 官方登入服務尚未就緒；重試請沿用同一識別碼") from exc
+
+    @app.get("/api/hermes/auth/device/{auth_id}")
+    async def device_auth_status(auth_id: str):
+        if not re.fullmatch(r"[a-f0-9]{32}", auth_id):
+            raise HTTPException(422, "無效登入 ID")
+        try:
+            return await coordinator.client.call("GET", "/v1/auth/device/" + auth_id)
+        except HermesError as exc:
+            raise HTTPException(503, "Hermes 登入狀態暫時無法確認") from exc
+
+    @app.post("/api/hermes/auth/device/{auth_id}/cancel")
+    async def device_auth_cancel(auth_id: str, body: BootstrapRetry):
+        if not re.fullmatch(r"[a-f0-9]{32}", auth_id):
+            raise HTTPException(422, "無效登入 ID")
+        try:
+            return await coordinator.client.call("POST", "/v1/auth/device/" + auth_id + "/cancel", {})
+        except HermesError as exc:
+            raise HTTPException(503, "Hermes 登入停止尚未確認") from exc
 
     @app.post("/api/hermes/auth")
     async def auth(body: HermesAuth):

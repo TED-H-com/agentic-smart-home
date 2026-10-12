@@ -130,7 +130,7 @@ def test_host_login_offline_management_and_responsive_layout():
         elif path == 'session':
             result = {'principal': 'host-owner', 'csrf': 'fixture-host-csrf', 'mode': 'host'}
         elif path == 'status':
-            result = {'version': '0.4.0', 'ha': {'status': 'unavailable'}, 'runner': {'status': 'unpaired'}}
+            result = {'version': '0.5.0', 'ha': {'status': 'unavailable'}, 'runner': {'status': 'unpaired'}}
         elif path == 'tasks':
             result = {'tasks': []}
         elif path == 'host/status':
@@ -207,7 +207,7 @@ def test_setup_links_session_recovery_and_login_resume():
             authenticated = True
             result = {'authenticated':True}
         elif path == 'status':
-            result = {'version':'0.4.0','ha':{'status':'connected' if connected else 'unavailable', 'location_name':'介面測試家庭'},
+            result = {'version':'0.5.0','ha':{'status':'connected' if connected else 'unavailable', 'location_name':'介面測試家庭'},
                       'runner':{'protocol':1,'providers':[{'provider':'codex','status':'connected' if agent_connected else 'needs_reauth'}]},
                       'onboarding':{'policy_confirmed':False},'policy_entities':0}
         elif path == 'tasks':
@@ -250,8 +250,8 @@ def test_setup_links_session_recovery_and_login_resume():
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
                 page.screenshot(path=str(root/f'evidence/ui/setup-{width}.png'), full_page=True)
             page.get_by_role('button', name='Linux 主機').click()
-            assert page.get_by_role('link', name='開啟 Home Assistant').get_attribute('href') == 'http://localhost:8123/'
-            assert page.get_by_role('link', name='個人資料 → 安全性').get_attribute('href') == 'http://localhost:8123/profile/security'
+            assert page.get_by_role('link', name='開啟 Home Assistant').get_attribute('href') == 'http://127.0.0.1:8123/'
+            assert page.get_by_role('link', name='個人資料 → 安全性').get_attribute('href') == 'http://127.0.0.1:8123/profile/security'
             page.get_by_label('HA owner 權杖').fill('fixture-owner-token')
             page.get_by_role('button', name='驗證並連接').click()
             page.get_by_role('button', name='設定 Agent →', exact=True).wait_for()
@@ -266,11 +266,11 @@ def test_setup_links_session_recovery_and_login_resume():
             links = page.get_by_role('link', name='開啟原生設定')
             assert links.count() == 3
             for link in links.all():
-                assert link.get_attribute('href').startswith('http://localhost:8123/')
+                assert link.get_attribute('href').startswith('http://127.0.0.1:8123/')
                 assert link.get_attribute('target') == '_blank'
-            assert page.get_by_role('link', name='HA 備份管理').get_attribute('href') == 'http://localhost:8123/config/backup/overview'
+            assert page.get_by_role('link', name='HA 備份管理').get_attribute('href') == 'http://127.0.0.1:8123/config/backup/overview'
             page.get_by_role('button', name='家庭自動化').click()
-            assert page.get_by_role('link', name='開啟 HA 原生自動化').get_attribute('href') == 'http://localhost:8123/config/automation/dashboard'
+            assert page.get_by_role('link', name='開啟 HA 原生自動化').get_attribute('href') == 'http://127.0.0.1:8123/config/automation/dashboard'
             page.reload()
             page.get_by_role('heading', name='家庭自動化', exact=True).wait_for()
             page.get_by_role('button', name='工作台').click()

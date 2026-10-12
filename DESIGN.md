@@ -35,3 +35,15 @@
 - 既有 Button／Notice／Status 與 tokens 沿用。主操作是儲存或送出，重新檢查／登出／新對話是次要操作；狀態不只靠顏色。
 - worker 尚未啟用時明確顯示不可用；blocked handle 或成功登入不能呈現為 coding 已執行。一般操作頁不顯示虛構進度、費用或已完成產品驗收。
 - 1440／768／390 px 檢查鍵盤表單送出、認證失敗／服務斷線、刷新續接與進階切換。`evidence/ui/hermes-*` 是協定 fixture 畫面，不冒充真帳號或家庭現場證據。
+
+## CLI-first 自動初始化
+
+- Linux 桌面啟動使用 120 秒單次登入票據，載入 JavaScript 時立即清除 fragment，再於記憶體送出一次登入；不寫入 storage、不自動重送。失敗時提示重新開啟桌面入口，主機金鑰保留為手動備援。
+- 首頁只選一個 CLI；Codex／Grok 提供官方 device code，Claude Code 明示 setup-token，Antigravity 明示 Google 訂閱登入尚未整合。沿用 Button／Notice／Status 與既有 tokens，不呈現四張登入卡。
+- 五段進度由 Controller 的九個固定步驟彙整：網路與主機 → CLI → Hermes → 通訊 → 家庭。只有後端實際確認才完成；關閉頁面後從持久化工作續接，回應遺失先讀回既有工作。
+- 每次只展開必要的人工操作：CLI OAuth、Hermes 獨立 OAuth／API key、LINE 掃碼／Telegram 設定、HA 原生帳號與 owner 授權。登入憑證不在兩服務間複製，configured 不能當 ready。
+- LINE 為預設，Telegram 可選，明確選擇 Web 表示略過外部通道。網路先採有線 LAN／DHCP；遠端接入不在本步驟擅自配置。
+- 通訊主要流程使用三分鐘一次性配對碼：LINE 掃碼後選聊天室，Telegram 貼 bot token，從自己的帳號傳送配對訊息。手動 IDs 放在進階區；配對成功仍等待服務確認通道真實連線。配對碼只從服務讀回，不保存到瀏覽器 storage。
+- HA 原生設定在同一個 loopback hostname 的 8123 開啟；完成帳號建立後，透過「授權連接家庭」到 HA 確認本人授權。返回只讀安全狀態，不把憑證放入 URL 或模型；明示專用一年授權可在 HA 撤銷，手貼 owner 權杖僅作進階備援。
+- 一般画面顯示目前動作和下一步；安裝 revision、診斷代碼與每步證據時間在 details。原有手動設定與受控 CLI 登入可從進階區開啟。
+- 安裝與 HA 啟動自動續跑，OAuth／QR／原生帳號仍由本人完成。錯誤／斷線保留實際進度且停用新操作；未知狀態不補成成功。1440／768／390 px 的截圖與行為測試使用 protocol fixtures。

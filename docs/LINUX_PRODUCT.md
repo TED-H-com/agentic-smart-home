@@ -1,6 +1,6 @@
-# Linux 產品架構 · 0.4.0 技術預覽
+# Linux 產品架構 · 0.5.0 技術預覽
 
-外層 Linux 先啟動 Web／Hermes／固定診斷，HAOS VM 由 Owner 稍後建立。Plan v3 的完整 Host/Home coding 仍待啟用；本頁描述當前部署，完整設計與缺口見 [v3 文件](v3/README.md) 和 [進度](v3/PROGRESS.md)。
+外層 Linux 先啟動 Web／Hermes／固定診斷，HAOS VM 由持久 onboarding 在 CLI／Hermes／通道就緒後自動建立。Plan v3 的完整 Host/Home coding 仍待啟用；本頁描述當前部署，完整設計與缺口見 [v3 文件](v3/README.md) 和 [進度](v3/PROGRESS.md)。
 
 ## 建置與首次開機
 
@@ -8,7 +8,7 @@
 
 `scripts/build_host.py` 打包四個 runtime images（Controller、Runner、LINE.js、Hermes）、產品檔案與 HAOS 官方映像，再按需加入 NoCloud seed／GRUB 入口。xorriso boot replay 保留原映像 boot records。網路、磁碟與 Linux 帳號仍由官方安裝畫面選擇，公開 ISO 不內建預選磁碟、固定密碼或 SSH key。
 
-firstboot 安裝套件、載入已驗 hash 的 images、啟動外層服務、產生每台主機自己的登入／服務秘密並配對受控 Runner。**它不執行 HAOS provision**；沒有家庭 VM 或雲端帳號也可開 Web，Hermes 初始為 `needs_auth`。需要家庭功能時，Owner 在 Web 按「建立 HAOS」，或 local console 執行 `sudo agentic-home provision`。
+firstboot 安裝套件、載入已驗 hash 的 images、啟動外層服務、產生每台主機自己的登入／服務秘密並配對受控 Runner。**它不執行 HAOS provision**；沒有家庭 VM 或雲端帳號也可開 Web，Hermes 初始為 `needs_auth`。Web 設定流程在 CLI／Hermes／通道就緒後自動 provision；固定手動入口仍保留。未完成授權前可先使用外層。
 
 `BUNDLE.sha256.json` 驗證檔案，`images.lock.json` 核對 Docker image ID，外部 `SHA256SUMS` 記錄媒體 digest。Hash 本身不是 publisher 身份。Ubuntu apt 取得安裝當時套件，因此整個 rootfs 並非位元可重現或完全離線；媒體建置、一次性 VM 安裝與 Owner laptop 是不同證據，見 [VERIFICATION](VERIFICATION.md)。
 
@@ -17,19 +17,19 @@ firstboot 安裝套件、載入已驗 hash 的 images、啟動外層服務、產
 | 元件 | 位置／權限 | 當前工作 |
 |---|---|---|
 | Controller/Gateway | Docker UID 1000，loopback Web 8099、私有 MCP 8097 | UI、通道 receiver、Owner／scope、case/run、HA policy／approval、固定 host API |
-| Hermes | 獨立 Docker UID 10003，loopback 8096；read-only root、drop capabilities、CPU/memory/PID limits | 真 pinned AIAgent、OpenRouter 私有認證、session history、固定 Controller MCP 工具 |
+| Hermes | 獨立 Docker UID 10003，loopback 8096；read-only root、drop capabilities、CPU/memory/PID limits | 真 AIAgent、獨立 Codex OAuth／OpenRouter 私有認證、session history、固定 Controller MCP 工具 |
 | 受控 Runner | Docker broker＋各 provider UID，loopback TLS 8443 | 舊 `home_operator` 結構化 CLI 問答／登入，不含通用 coding 權限 |
 | LINE.js | 獨立本機 sidecar，loopback 3789 | 可選 LINE 登入及 typed 通道連線 |
-| Host broker | systemd root，固定 Unix socket | 指定 ownership VM 的 provision／start／shutdown／snapshot／restore |
+| Host broker | systemd root，固定 Unix socket | 首次 Hermes 固定安裝、指定 ownership VM 的 provision／start／shutdown／snapshot／restore |
 | Local support CLI | Owner console 執行，無需 Web／模型 | 固定狀態與去密 bundle，無模型任意程式 |
 
-Hermes 使用 [commit 835c3dd…](https://github.com/NousResearch/hermes-agent/tree/835c3dd038d903182a66ecc45e34bf5e0de65f00)，版本／來源／Python 3.14／依賴各自 lock，見 [Hermes README](../hermes/README.md)。它不啟動第二個 bot Gateway，也不開內建 terminal、filesystem、browser、delegate 或 Live approve/apply。新 cloud coding 任務仍 blocked，不能把 coordinator 容器當成執行任意候選程式的 sandbox。
+Hermes 安裝包回復基線使用 [commit 835c3dd…](https://github.com/NousResearch/hermes-agent/tree/835c3dd038d903182a66ecc45e34bf5e0de65f00)，版本／來源／Python 3.14／依賴各自 lock，見 [Hermes README](../hermes/README.md)。首次引導解析官方最新來源，通過建置與相容性 probe 後才按 digest 啟動；結果寫入 host/runtime.env，重啟不自行追更新。它不啟動第二個 bot Gateway，也不開內建 terminal、filesystem、browser、delegate 或 Live approve/apply。新 cloud coding 任務仍 blocked，不能把 coordinator 容器當成執行任意候選程式的 sandbox。
 
 MCP 使用專用短期 case/run capability。固定工具僅 `host.status`、`worker.capabilities`、`worker.submit/status/cancel/result`、`case.evidence.read`；submit 現在記錄 blocked handle 而不啟動 worker。Controller 不執行 CLI／shell。產品容器不掛 Docker socket；Host coding 的 trusted launcher prototype 另見 [隔離基礎](../host/worker/README.md)，尚未接入可用派工。
 
-主機 access-key 換取 12 小時 HttpOnly／SameSite cookie；mutation 驗 Origin／CSRF，Host allowlist 防 DNS rebinding，遠端管理用 SSH tunnel。Hermes service token 是每台安裝生成的独立秘密；8096／8097 拒絕 browser Origin，瀏覽器不能直接取得服務 bearer。
+桌面主要 Owner 可透過 120 秒單次票據換取 session；票據經家目錄0700私有目錄的0600暫時 HTML 導向傳遞，xdg-open 程序參數不含 bearer，120 秒後清除該暫存檔。Web 立即移除 fragment 再兌換，server 只保存 hash 並先消耗票據。手動主機 access-key 亦可換取 12 小時 HttpOnly／SameSite cookie；mutation 驗 Origin／CSRF，Host allowlist 防 DNS rebinding，遠端管理用 SSH tunnel。Hermes service token 是每台安裝生成的独立秘密；8096／8097 拒絕 browser Origin，瀏覽器不能直接取得服務 bearer。
 
-家庭授權仍使用 HA active owner 長效權杖，保存在 Controller 的 mode-0600 檔案。Core WebSocket `supervisor/api` 以 owner 代理 Supervisor backup，管理 token 不進 Hermes／CLI。主機登入不會冒充家庭 owner，每次家庭 mutation 重新查核。
+家庭授權透過官方 HA 瀏覽器 OAuth 回呼，自動核對 active owner、建立專用長效授權並撤銷臨時 grant，保存在 Controller 的 mode-0600 檔案；手動 token 是進階備援。Core WebSocket `supervisor/api` 以 owner 代理 Supervisor backup，管理 token 不進 Hermes／CLI。主機登入不會冒充家庭 owner，每次家庭 mutation 重新查核。
 
 ## 可選 HAOS VM 與恢復
 

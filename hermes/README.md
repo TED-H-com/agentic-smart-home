@@ -8,7 +8,7 @@ tokens, run coding workers, or acquire household approval authority.
 Build from the product root:
 
 ```sh
-docker build -t agentic-home-hermes:0.4.0 hermes
+docker build -t agentic-home-hermes:0.5.0 hermes
 pytest-disktmp uv run pytest -q tests/test_hermes_runtime.py --containers
 ```
 
@@ -61,6 +61,9 @@ filesystem, dropped capabilities, and CPU/memory/PID limits.
 | --- | --- |
 | `GET /v1/capabilities` | Runtime commit, selected model, auth state, execution state (`idle`, `busy`, `stop_unconfirmed`), fixed tools and adapter features |
 | `POST /v1/auth` | `{provider:"openrouter",model,api_key}`; configured until an actual inference succeeds |
+| `POST /v1/auth/device` | `{provider:"openai-codex",model}` and `Idempotency-Key`; asynchronous, separate Hermes device login |
+| `GET /v1/auth/device/{auth_id}` | Fixed device URL, user code, expiry and durable login state; no token material |
+| `POST /v1/auth/device/{auth_id}/cancel` | Fences the login process before marking cancelled or removing its store |
 | `POST /v1/auth/logout` | Stops active run, removes credentials and all session history |
 | `POST /v1/retention` | `{context_days:1..7}`; saves the limit and prunes expired context; returns `{context_days}` |
 | `POST /v1/sessions` | `{scope_id}` plus `Idempotency-Key`; returns `session_id`, `scope_id`, `created_at` |
@@ -85,6 +88,24 @@ Configured means a key was stored, not that the account was tested. Logout and
 model/key rotation cancel work before revoking old sessions. There is no fallback
 to another account/provider.
 
+Codex device login uses the pinned upstream Hermes request/poll/exchange and
+credential-store helpers. The verification page is fixed to
+`https://auth.openai.com/codex/device`. Handles report `pending`, `configured`,
+`failed`, `cancelled`, `expired`, `interrupted` or `stop_unconfirmed`. URL/code
+may initially be null; the code is removed on completion. Starting a login
+writes only provider/model/epoch metadata to `provider.json`, revokes old
+contexts and uses a new private `/data/oauth/<epoch>/auth.json`. The adapter
+does not import a CLI credential, copy refresh tokens, or share a writable home
+with the Runner. `auth.adopt_external_logins` is disabled. Upstream token expiry,
+revocation or model/account limits can still require a fresh sign-in.
+
+This is a separate Hermes login after coding CLI sign-in. Completing its OAuth
+exchange means `configured`; only a successful inference sets `ready` and
+`auth_verified_at`. Capabilities advertises supported `auth_methods` and
+`default_models`; `gpt-6-astra` follows the packaged Codex model catalog, and actual
+account availability remains subject to inference verification. Other CLI
+providers do not implicitly grant Hermes an account.
+
 One run is admitted at a time, with a five-minute deadline, 12 model iterations,
 32 KiB answer limit, 192 KiB retained context limit, and bounded process output.
 Sessions expire at the configured context limit (default seven days, configurable
@@ -105,13 +126,18 @@ dies; an unconfirmed group retains its scratch for later reconciliation.
 
 ## MCP and authority
 
-Each turn starts a fresh process with a fresh private `HOME`/`HERMES_HOME`; only
+Each turn starts a fresh process with a fresh private `HOME`; only
 that session's bounded history is passed. API key and per-run MCP grant enter via
 stdin, never argv or bridge records. The child uses the pinned Hermes official
 HTTP MCP client against fixed `http://127.0.0.1:8097/mcp`. A deployment-time
 `AGENTIC_MCP_URL` override is available to the trusted installer only. Controller
 implements stateless JSON MCP `initialize`, `tools/list`, `tools/call`, and
 `notifications/initialized`; standard optional `_meta` is permitted by MCP.
+OpenRouter also gets a fresh `HERMES_HOME`. Native Codex uses its role-owned
+OAuth home so upstream refreshes update one authoritative store without copying
+single-use grants; inference remains serialized and memory/session persistence
+is disabled. Hermes owns the reasoning loop through `codex_responses`, not the
+optional Codex app-server runtime with its separate native tool authority.
 
 Allowed tools are exactly `host.status`, `worker.capabilities`, `worker.submit`,
 `worker.status`, `worker.cancel`, `worker.result`, and `case.evidence.read`.
@@ -141,14 +167,33 @@ Service tests verify identity scope, deduplication, continuation, retention,
 secret-safe validation, auth revocation, restart interruption and actual local
 subprocess cancellation.
 
-No real cloud account, household device, HAOS App, laptop installation or E1/E2
-coding acceptance is established by these tests. OpenRouter API-key onboarding is
-the first supported model route; a real Owner inference is still required to
-verify the account. Independent auth/session behavior is intentional; existing
-coding CLI subscriptions are not silently reused.
+The native Codex test uses the real Hermes Responses path and official credential
+store with synthetic grants and a loopback model/MCP fixture. A separate offline
+device-flow probe exercises actual upstream OAuth helpers through an HTTP mock,
+checks 0600 auth storage and ensures device identifiers, verifier and tokens
+never enter the public protocol. No real cloud account, household device, HAOS
+App, laptop installation or E1/E2 coding acceptance is established by these
+tests. A real Owner inference is still required to verify an account.
+
+The trusted initial installer can run `/app/compatibility_probe.py` in an image
+containing a candidate upstream tree. Supply a disk-backed writable `/work`,
+UID 10003, read-only root, no capabilities, no external network, and
+`HOME=/work HERMES_HOME=/work TMPDIR=/work PYTHONPATH=/opt/hermes:/app`.
+The probe checks required upstream interfaces and completes a real AIAgent
+tool roundtrip through the official MCP client and loopback protocol fixtures.
+It does not authenticate an account or approve a deployment. Upstream changes
+that fail the existing dependency lock, tool boundary or fixture stop activation.
+
+The Host Runner's fixed bootstrap adapter is documented in
+[BOOTSTRAP.md](../runner/agentic_runner/BOOTSTRAP.md). It invokes the selected
+packaged CLI and returns validated advice; only trusted installation operations
+may alter the runtime or Home Assistant.
 
 Official references: [Hermes source](https://github.com/NousResearch/hermes-agent/tree/835c3dd038d903182a66ecc45e34bf5e0de65f00),
 [MCP integration](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp),
 [upstream API server](https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server).
+[Native provider authentication](https://hermes-agent.nousresearch.com/docs/integrations/providers)
+and [Codex login](https://learn.chatgpt.com/docs/developer-commands#codex-login)
+document the separate login flows.
 The product API above wraps AIAgent directly; it does not claim to be the
 upstream Gateway API or a remote implementation of `delegate_task`.

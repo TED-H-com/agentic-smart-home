@@ -1,6 +1,9 @@
 # Plan v3 進度與驗收帳本（團隊維護）
 
-更新：2026-10-12。Owner 原稿基準為 0.3.1／`3ad476a712009469521c3f9838a44ef35ba29f76`。本檔獨立記錄實作狀態，不修改六份原稿；目前為 **0.4.0 v3 技術預覽，CI 145 passed／2 skipped，精確 ISO 完整 VM 測試 1 passed；完成 E0 工程媒體與獨立救援範圍，Owner laptop／真帳號及 E1、E2 尚未完成**。
+更新：2026-10-12。Owner 原稿基準為 0.3.1／`3ad476a712009469521c3f9838a44ef35ba29f76`。本檔獨立記錄實作狀態，不修改六份原稿；前版為 **0.4.0 v3 技術預覽，CI 145 passed／2 skipped，精確 ISO 完整 VM 測試 1 passed；完成 E0 工程媒體與獨立救援範圍，Owner laptop／真帳號及 E1、E2 尚未完成**。
+
+
+0.5.0 開發新增 CLI 先行的自動 onboarding：持久九步流程、桌面單次登入、官方最新 Hermes 相容性檢查、Hermes 原生 Codex OAuth、LINE／Telegram 配對碼、自動 HAOS 啟動及 HA 官方瀏覽器授權。這是 Owner 的新流程，不改六份原稿。最新工程結果見 [版本驗證](../VERIFICATION.md)；下表原0.4.0通過證據保留精確版本，32項不批次升級。通用 Host／Home coding、真雲端家庭與固定產品更新／退版仍未完成。
 
 ## 記錄規則
 
@@ -17,8 +20,8 @@
 | V3-01 | P0 / E0 / 整合 | implemented | 六原稿 hash 核對、history 與根文件同步；見 IMPORT.json |
 | V3-02 | P0 / E0 / A | in_progress | 真 pinned AIAgent／官方 MCP 及獨立 bridge 已實作、真容器 needs_auth 啟動已測；模型端點 fixture，Owner 真帳號未驗 |
 | V3-03 | P0 / E0→E1 / A | in_progress | Hermes Gateway→case/session/run、scope續接、撤權及UI已實作／測試；真 bot／現場身份重送未驗 |
-| V3-04 | P0 / E0 / B | implemented | E0工程救援範圍：精確ISO安裝後停止Controller，非sudo diagnostics/support可用、每筆版本0.4.0；E2 updater擴充未做。見[rescue](../../evidence/installed-rescue-laptop-amd64.json) |
-| V3-05 | P0 / E0 / C | implemented | E0工程媒體範圍：cb11ffd精確ISO完整VM安裝／外層firstboot／四image IDs／救援通過；Owner實體laptop未驗。見[安裝](../../evidence/linux-install.json) |
+| V3-04 | P0 / E0 / B | implemented | E0工程救援範圍：精確ISO安裝後停止Controller，非sudo diagnostics/support可用、每筆版本0.4.0；E2 updater擴充未做。見[rescue](../../evidence/installed-rescue-laptop-amd64-0.4.0.json) |
+| V3-05 | P0 / E0 / C | implemented | E0工程媒體範圍：cb11ffd精確ISO完整VM安裝／外層firstboot／四image IDs／救援通過；Owner實體laptop未驗。見[安裝](../../evidence/linux-install-0.4.0-final.json) |
 | V3-06 | P0 / E1 / A | in_progress | 固定MCP七tools、case ACL、短期能力、blocked job handle／去重已實作；沒有接上可執行cloud worker |
 | V3-07 | P0 / E1 / B | in_progress | 19項sandbox回歸與真安裝VM的ext4 quota／獨立clone／patch-test／取消清理通過；仍為離線Python，provider egress／真cloud CLI未交付，能力blocked |
 | V3-08 | P0 / E1 / A+B | in_progress | bridge真程序停止、stop_unconfirmed、重啟／dispatch撤權、sandbox writer fencing及去重有測試；Owner/BAT真接手未做 |
@@ -37,11 +40,11 @@
 
 | ID | 案例 | 階段 | 結果 | 驗收證據 |
 |---|---|---|---|---|
-| T3-01 | 一次性 VM 安裝待交付媒體 | E0 交付前 | passed | cb11ffd／ISO 44d163db…完整VM 1 passed／1566.81s，安裝版本／四images／outer-only firstboot／Web／診斷可用；一次性磁碟與key，未觸其他磁碟。見[結果](../../evidence/linux-install.json)及[JUnit](../../evidence/linux-install-0.4.0.xml) |
+| T3-01 | 一次性 VM 安裝待交付媒體 | E0 交付前 | passed | cb11ffd／ISO 44d163db…完整VM 1 passed／1566.81s，安裝版本／四images／outer-only firstboot／Web／診斷可用；一次性磁碟與key，未觸其他磁碟。見[結果](../../evidence/linux-install-0.4.0-final.json)及[JUnit](../../evidence/linux-install-0.4.0.xml) |
 | T3-02 | Owner laptop 真安裝與只選外層 | E0 現場 | not_run | — |
 | T3-03 | Hermes 真實登入並回答一個工具查詢 | E1 | not_run | — |
 | T3-04 | 保持 HAOS 未啟動，問主機狀態 | E1 | not_run | — |
-| T3-05 | 關閉或故障 Controller 的測試實例 | E0 救援，E2 擴充 | passed | E0独立救援範圍：Controller停止時非sudo diagnostics與support可用，每筆版本0.4.0、無模型。見[rescue](../../evidence/installed-rescue-laptop-amd64.json)；E2 updater／退版擴充未做 |
+| T3-05 | 關閉或故障 Controller 的測試實例 | E0 救援，E2 擴充 | passed | E0独立救援範圍：Controller停止時非sudo diagnostics與support可用，每筆版本0.4.0、無模型。見[rescue](../../evidence/installed-rescue-laptop-amd64-0.4.0.json)；E2 updater／退版擴充未做 |
 | T3-06 | 同一 Web／bot 的身份與訊息重送 | E1 | not_run | — |
 | T3-07 | Hermes 派 Host Worker 研究 | E1 | not_run | — |
 | T3-08 | Host Worker 修實際 UI 問題 | E1 | not_run | — |
@@ -70,13 +73,13 @@
 | T3-31 | 在使用中觀察 72h | E3 | not_run | — |
 | T3-32 | 三個案例對照單協調者與雙 workers | E3，非早期阻擋 | not_run | — |
 
-## 本輪工程證據
+## 0.4.0 工程證據（歷史）
 
 **GitHub CI：145 passed、2 skipped，152.424 秒**，受測與媒體 source commit 均為 `cb11ffd8c0d3eb48a9854fd51add030a1df936e9`；[CI](https://github.com/teddashh/agentic-smart-home/actions/runs/38202961564)、[JUnit](../../evidence/pytest-0.4.0-github.xml)及[詳細環境／限制](../VERIFICATION.md)。包含 `--real-ha --containers`；CI跳過獨立大型HAOS KVM與Linux ISO安裝，後者已另行通過 **1 passed／1566.81秒**，见[ISO JUnit](../../evidence/linux-install-0.4.0.xml)。CI與安裝證據分開記錄。
 
-ISO SHA-256：`44d163dba7ff629cc287213cbbb9a4836381d24e45531533efa0051ca9625868`（5387124736 bytes）；Linux TAR SHA-256：`12d4426978674706810dcc4be73de40ea26542a15f869e032b864d3879f04229`（1307658240 bytes）。媒體 source為 `cb11ffd`，见 [release](../../evidence/release.json)；精確ISO完整VM通過、四個安裝後image IDs完全符合。TAR沒有另做既有主機就地安裝驗收。前輪 `69a1a24`／ISO `21b4d9a0…` 失敗媒體及[封存release](../../evidence/release-0.4.0-before-sandbox-fix.json)仍保留。
+ISO SHA-256：`44d163dba7ff629cc287213cbbb9a4836381d24e45531533efa0051ca9625868`（5387124736 bytes）；Linux TAR SHA-256：`12d4426978674706810dcc4be73de40ea26542a15f869e032b864d3879f04229`（1307658240 bytes）。媒體 source為 `cb11ffd`，见 [release](../../evidence/release-0.4.0-final.json)；精確ISO完整VM通過、四個安裝後image IDs完全符合。TAR沒有另做既有主機就地安裝驗收。前輪 `69a1a24`／ISO `21b4d9a0…` 失敗媒體及[封存release](../../evidence/release-0.4.0-before-sandbox-fix.json)仍保留。
 
-最終VM為Ubuntu24.04.5、`runtime_location=disposable_outer_linux_vm`、`model_backend=none`、`ha_backend=nested_official_haos`、`device_kind=none`。外層firstboot時HAOS未建立，真[Owner HTTP與Runner配對](../../evidence/installed-auth-laptop-amd64.json)成功；四CLI均needs_reauth、Hermes needs_auth，未登入雲端。Controller停止仍有版本0.4.0的獨立救援。可選HAOS首次啟動、冷快照restore、外層reboot／autostart後均讀到真Core onboarding JSON list，見[安裝結果](../../evidence/linux-install.json)。這不是Home App coding或T3-27完整re-pair／helpers驗收。
+最終VM為Ubuntu24.04.5、`runtime_location=disposable_outer_linux_vm`、`model_backend=none`、`ha_backend=nested_official_haos`、`device_kind=none`。外層firstboot時HAOS未建立，真[Owner HTTP與Runner配對](../../evidence/installed-auth-laptop-amd64-0.4.0.json)成功；四CLI均needs_reauth、Hermes needs_auth，未登入雲端。Controller停止仍有版本0.4.0的獨立救援。可選HAOS首次啟動、冷快照restore、外層reboot／autostart後均讀到真Core onboarding JSON list，見[安裝結果](../../evidence/linux-install-0.4.0-final.json)。這不是Home App coding或T3-27完整re-pair／helpers驗收。
 
 舊ISO第二輪曾為 **1 failed／1764.31秒**：Docker preflight誤用`CPUCfsQuota`，正確JSON欄位為`CpuCfsQuota`，因此在任何sandbox工作前拒絕；[失敗摘要](../../evidence/linux-install-0.4.0-sandbox-preflight-failure.json)與[JUnit](../../evidence/linux-install-0.4.0-sandbox-preflight-failure.xml)已封存。另修非秘密installed.json讀取權限，新增非sudo診斷版本斷言；新媒體已驗證兩項修正，未放寬sandbox限制或秘密檔案權限。
 
@@ -88,8 +91,8 @@ ISO SHA-256：`44d163dba7ff629cc287213cbbb9a4836381d24e45531533efa0051ca9625868`
 | 相依安全更新 | PyJWT2.15.0／httpx2與httpcore2 2.12.0；真wheel pip check與JWT負向回歸、16項runtime/container通過；公開後重查open Dependabot alerts=0，見[記錄](../../evidence/hermes-security-update.json) |
 | Controller權威 | 固定工具allowlist，拒Live／偽造權限；case evidence ACL、scope/audience撤回、串流中重驗權、取消後拒晚到成功；worker始終blocked且execution_started=false |
 | 資料格式 | 2個schema migration tests；Controller格式2，先私有一致snapshot再向前遷移，保留settings/audit/去重；舊binary拒讀2，無原地降版承諾 |
-| Sandbox foundation | 19項回歸＋[安裝後離線probe](../../evidence/installed-sandbox-laptop-amd64.json)通過；獨立clone產出patch／成功測試、原Git不變；ext4容量62869504 bytes，總寫入60252160 bytes得到ENOSPC；取消／程序樹停止／fencing／清理通過，probe共2.1s。沒有cloud CLI或HAOS App |
-| 固定support | Host／support20項回歸＋精確ISO[Controller停止救援](../../evidence/installed-rescue-laptop-amd64.json)通過；非sudo diagnostic及support bundle可用、每筆installed_application為0.4.0 |
+| Sandbox foundation | 19項回歸＋[安裝後離線probe](../../evidence/installed-sandbox-laptop-amd64-0.4.0.json)通過；獨立clone產出patch／成功測試、原Git不變；ext4容量62869504 bytes，總寫入60252160 bytes得到ENOSPC；取消／程序樹停止／fencing／清理通過，probe共2.1s。沒有cloud CLI或HAOS App |
+| 固定support | Host／support20項回歸＋精確ISO[Controller停止救援](../../evidence/installed-rescue-laptop-amd64-0.4.0.json)通過；非sudo diagnostic及support bundle可用、每筆installed_application為0.4.0 |
 | Browser | 真Chromium＋API fixtures，1440/768/390無水平overflow；Hermes五種状态、Enter表單、credential不入storage、scope續接／刷新／新case與direct Grok/HAOS切換；九張hermes截圖，桌機／手機已檢視 |
 | 既有路徑 | 真Core原生helper／觸發／重啟；真受控CLI／LINE.js／Supervisor package，模型及部分平台端點仍fixture；不是Owner家庭或雲端帳號試跑 |
 

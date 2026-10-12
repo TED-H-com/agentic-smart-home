@@ -1,3 +1,9 @@
+# 0.5.0 technical preview
+
+- Add durable CLI-first onboarding, one-use local desktop login, verified first-install latest Hermes, native Codex OAuth and automatic HAOS startup.
+- Pair LINE/Telegram audiences with short-lived codes; use official HA browser authorization with revocation and scope checks at credential commit.
+- Preserve schema 2 and existing household approval controls. General coding workers and product updater/rollback remain incomplete.
+
 # 0.4.0 technical preview
 
 - Adopt Plan v3 and add the separate pinned Hermes runtime, Web onboarding, scoped cases and private MCP tools.

@@ -20,6 +20,12 @@ class Jobs:
         for job in self.items.values():
             if job["state"] == "running":
                 job.update(state="needs_reconcile", message="主機重啟；檢查實際狀態後重新操作")
+                if job.get("request", {}).get("action") == "bootstrap_hermes":
+                    path = manager.root / "bootstrap-hermes.json"
+                    if path.exists():
+                        record = json.loads(path.read_text())
+                        if record.get("state") == "installing":
+                            atomic(path, {**record, "state": "needs_reconcile", "error_code": "hermes_install_interrupted"})
         atomic(self.path, self.items)
 
     def start(self, body):
@@ -28,7 +34,7 @@ class Jobs:
         id, action = body.get("id", ""), body.get("action")
         if not re.fullmatch(r"[a-zA-Z0-9_-]{8,100}", id):
             raise HostError("Invalid operation id")
-        if action not in {"provision", "start", "shutdown", "snapshot", "restore"}:
+        if action not in {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes"}:
             raise HostError("Unknown lifecycle action")
         if action != "restore" and body.get("snapshot"):
             raise HostError("Unexpected snapshot")

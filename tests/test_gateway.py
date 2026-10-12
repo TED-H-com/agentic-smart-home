@@ -55,6 +55,154 @@ async def drain(app):
     await asyncio.gather(*list(app.state.running.values()))
 
 
+async def test_pairing_receiver_binds_one_verified_sender_without_pre_auth_model_work(system, store, monkeypatch):
+    app, client, outer, _ = system
+    gateway = app.state.gateway
+    ready, hold = asyncio.Event(), asyncio.Event()
+    receiver = None
+    class Transport:
+        def __init__(self, store, config):
+            self.config = config
+        async def run(self, receive, state):
+            nonlocal receiver
+            receiver = receive
+            state("connected")
+            ready.set()
+            await hold.wait()
+        async def send(self, chat, text):
+            assert chat == '-10001' and text == 'host reply'
+    monkeypatch.setitem(__import__('agentic_controller.gateway', fromlist=['TRANSPORTS']).TRANSPORTS, 'telegram', Transport)
+    store.set_setting('gateway', {'primary': 'telegram', 'runtime': 'host', 'provider': 'codex', 'coordinator': 'direct'})
+    response = await client.post('/api/gateway/channels/telegram/pairing', json={'secret': '12345:fixture-private-token'})
+    assert response.status_code == 202
+    pairing = response.json()
+    await ready.wait()
+    assert pairing['state'] == 'pending' and len(pairing['code']) >= 24
+    before = store.db.total_changes
+    assert (await client.get('/api/gateway/channels/telegram/pairing')).json() == pairing
+    assert store.db.total_changes == before
+    await receiver('event1', '-10001', '42', 'untrusted pre-authorization request')
+    await receiver('event2', '-10001', '42', '/pair wrong-code')
+    await receiver('event3', '-10001', '42', '/pair 非ASCII')
+    assert not store.list('conversation') and not outer.jobs
+    await receiver('event4', '-10001', '42', '/pair ' + pairing['code'])
+    assert gateway.pairing('telegram')['state'] == 'paired'
+    assert gateway.config('telegram')['chats'] == ['-10001'] and gateway.config('telegram')['senders'] == ['42']
+    await receiver('event4', '-10002', '43', '/pair ' + pairing['code'])
+    assert gateway.config('telegram')['senders'] == ['42']
+    await receiver('event5', '-10001', '43', 'unauthorized sender')
+    assert not store.list('conversation')
+    await receiver('event6', '-10001', '42', 'authorized request')
+    await drain(app)
+    assert len(outer.jobs) == 1
+    assert pairing['code'] not in outer.jobs[0]['prompt'] and 'fixture-private-token' not in outer.jobs[0]['prompt']
+    assert pairing['code'] not in (await client.get('/api/gateway')).text
+    # A replay on the old credential must never cause its receiver to adopt a
+    # newly configured credential/audience before that transport is replaced.
+    store.set_setting('channel_telegram', {**gateway.config('telegram'), 'secret': '12345:rotated'})
+    await receiver('event7', '-10001', '42', '/pair ' + pairing['code'])
+    await receiver('event8', '-10001', '42', 'stale transport after token rotation')
+    assert len(outer.jobs) == 1 and len(store.list('conversation')) == 1
+
+
+async def test_pairing_expiry_timer_stops_receiver_and_clears_code(system, store, monkeypatch):
+    import time
+    app, client, _, _ = system
+    gateway = app.state.gateway
+    restarts = []
+    async def restart(name):
+        restarts.append(name)
+    monkeypatch.setattr(gateway, 'restart', restart)
+    pairing = (await client.post('/api/gateway/channels/telegram/pairing', json={'secret': '12345:fixture'})).json()
+    pending = store.setting('channel_pairing_telegram')
+    store.set_setting('channel_pairing_telegram', {**pending, 'expires_at': time.time() + .01})
+    gateway.pair_timer('telegram')
+    await gateway.pairing_timers['telegram']
+    assert gateway.pairing('telegram')['state'] == 'expired'
+    assert store.setting('channel_pairing_telegram')['code'] is None
+    assert restarts == ['telegram', 'telegram']
+    assert gateway.consume_pairing('telegram', 'late', '123', '456', '/pair ' + pairing['code'], gateway.config('telegram')) == 'ignored'
+
+
+async def test_pending_pairing_survives_gateway_restart_without_authorizing_messages(system, store, monkeypatch):
+    from agentic_controller.gateway import Gateway
+    from agentic_controller.models import ChannelPairingInput
+    app, _, _, _ = system
+    gateway = app.state.gateway
+    ready = asyncio.Event()
+    class Transport:
+        def __init__(self, store, config):
+            self.config = config
+        async def run(self, receive, state):
+            state('connected')
+            ready.set()
+            await asyncio.Event().wait()
+    monkeypatch.setitem(__import__('agentic_controller.gateway', fromlist=['TRANSPORTS']).TRANSPORTS, 'telegram', Transport)
+    first = await gateway.begin_pairing('telegram', ChannelPairingInput(secret='12345:fixture'), 'restart-key')
+    await gateway.close()
+    ready.clear()
+    restored = Gateway(store, gateway.runners, gateway.engine, gateway.plan_home, {}, None)
+    try:
+        await restored.start()
+        async with asyncio.timeout(1):
+            await ready.wait()
+        assert restored.pairing('telegram') == first
+        assert not restored.config('telegram')['enabled'] and not restored.config('telegram')['senders']
+        assert 'telegram' in restored.workers and not store.list('conversation')
+    finally:
+        await restored.close()
+
+
+async def test_pairing_reset_expiry_and_preferences_revoke_old_code(system, store, monkeypatch):
+    import time
+    app, client, _, _ = system
+    gateway = app.state.gateway
+    async def no_transport(name):
+        return None
+    monkeypatch.setattr(gateway, 'restart', no_transport)
+    first = (await client.post('/api/gateway/channels/telegram/pairing', json={'secret': '12345:fixture'})).json()
+    config = gateway.config('telegram')
+    assert (await client.post('/api/gateway/channels/telegram/pairing', json={'secret': '12345:fixture'})).json() == first
+    second = (await client.post('/api/gateway/channels/telegram/pairing', json={},
+                               headers={'Idempotency-Key': 'replacement'})).json()
+    assert second['code'] != first['code']
+    assert gateway.consume_pairing('telegram', 'a', '123', '4', '/pair ' + first['code'], config) == 'ignored'
+    pending = store.setting('channel_pairing_telegram')
+    store.set_setting('channel_pairing_telegram', {**pending, 'expires_at': time.time() - 1})
+    before = store.db.total_changes
+    assert (await client.get('/api/gateway/channels/telegram/pairing')).json()['state'] == 'expired'
+    assert store.db.total_changes == before
+    assert gateway.consume_pairing('telegram', 'b', '123', '4', '/pair ' + second['code'], config) == 'ignored'
+    await client.post('/api/gateway/channels/telegram/pairing', json={}, headers={'Idempotency-Key': 'fresh'})
+    store.set_setting('gateway', {'primary': 'telegram'})
+    await client.post('/api/gateway/preferences', json={'primary': 'web'})
+    assert gateway.pairing('telegram')['state'] == 'cancelled'
+    assert gateway.config('telegram')['enabled'] is False
+
+
+async def test_line_pairing_requires_observed_chat_and_never_widens_upstream_allowlist(system, store, monkeypatch, tmp_path):
+    app, client, _, _ = system
+    gateway = app.state.gateway
+    chat, sender = 'c' + '1' * 32, 'u' + '2' * 32
+    async def no_transport(name):
+        return None
+    async def token():
+        return 'fixture-private-line-token'
+    monkeypatch.setattr(gateway, 'restart', no_transport)
+    monkeypatch.setattr(gateway, 'line_token', token)
+    assert (await client.post('/api/gateway/channels/line/pairing', json={'chat': chat})).status_code == 422
+    gateway.line_login = {'status': 'ready', 'channels': [{'channelId': chat, 'name': 'Owner selected chat'}]}
+    assert (await client.post('/api/gateway/channels/line/pairing', json={'chat': 'c' + '9' * 32})).status_code == 422
+    pairing = (await client.post('/api/gateway/channels/line/pairing', json={'chat': chat})).json()
+    assert json.loads((tmp_path/'line-config/gateway.json').read_text()) == {'enabled': True, 'chats': [chat]}
+    config = gateway.config('line')
+    assert gateway.consume_pairing('line', '1', 'c' + '9' * 32, sender, '/pair ' + pairing['code'], config) == 'ignored'
+    assert gateway.consume_pairing('line', '2', chat, sender, '/pair ' + pairing['code'], config) == 'paired'
+    assert gateway.config('line')['senders'] == [sender]
+    assert gateway.pairing('line')['code'] is None
+    assert not store.list('conversation')
+
+
 def context(job):
     return json.loads(job['prompt'].rsplit('\n', 1)[1])
 

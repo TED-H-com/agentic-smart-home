@@ -1,3 +1,7 @@
+# 0.5.0 technical preview
+
+Add a separate host-only, tools-disabled bootstrap advisor using the selected official CLI, typed observations and durable idempotent jobs. Retain the existing household restrictions and pinned provider versions; this does not enable the v3 general coding workers.
+
 # 0.4.0 technical preview
 
 Package with the v3 outer Controller and Hermes coordinator. The existing restricted home_operator execution and four pinned CLI versions remain in place. The offline coding sandbox prototype is separate and is not enabled as an HAOS coding worker.

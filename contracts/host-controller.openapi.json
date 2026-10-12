@@ -41,6 +41,12 @@
         "title": "ApprovalInput",
         "type": "object"
       },
+      "Authorize": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "Authorize",
+        "type": "object"
+      },
       "BackupInput": {
         "additionalProperties": false,
         "properties": {
@@ -55,6 +61,321 @@
           "passphrase"
         ],
         "title": "BackupInput",
+        "type": "object"
+      },
+      "BootstrapHumanAction": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "anyOf": [
+              {
+                "enum": [
+                  "line",
+                  "telegram",
+                  "discord",
+                  "web"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "kind": {
+            "enum": [
+              "cli_login",
+              "hermes_login",
+              "channel_setup",
+              "ha_native_onboarding",
+              "retry"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "enum": [
+                  "codex",
+                  "claude",
+                  "agy",
+                  "grok"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "kind",
+          "message"
+        ],
+        "title": "BootstrapHumanAction",
+        "type": "object"
+      },
+      "BootstrapPreferences": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "enum": [
+              "line",
+              "telegram",
+              "discord",
+              "web"
+            ],
+            "title": "Channel",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel"
+        ],
+        "title": "BootstrapPreferences",
+        "type": "object"
+      },
+      "BootstrapRetry": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "BootstrapRetry",
+        "type": "object"
+      },
+      "BootstrapStart": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "default": "line",
+            "enum": [
+              "line",
+              "telegram",
+              "discord",
+              "web"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "codex",
+              "claude",
+              "agy",
+              "grok"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider"
+        ],
+        "title": "BootstrapStart",
+        "type": "object"
+      },
+      "BootstrapStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "default": "line",
+            "enum": [
+              "line",
+              "telegram",
+              "discord",
+              "web"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "contract": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract",
+            "type": "integer"
+          },
+          "current_step": {
+            "anyOf": [
+              {
+                "enum": [
+                  "network",
+                  "runner_pairing",
+                  "cli_auth",
+                  "cli_assist",
+                  "hermes_install",
+                  "hermes_auth",
+                  "channel",
+                  "ha_provision",
+                  "ha_native"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Step"
+          },
+          "human_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BootstrapHumanAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "enum": [
+                  "codex",
+                  "claude",
+                  "agy",
+                  "grok"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "state": {
+            "default": "idle",
+            "enum": [
+              "idle",
+              "running",
+              "waiting_input",
+              "blocked",
+              "completed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "steps": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BootstrapStep"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "title": "BootstrapStatus",
+        "type": "object"
+      },
+      "BootstrapStep": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]{0,80}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "id": {
+            "enum": [
+              "network",
+              "runner_pairing",
+              "cli_auth",
+              "cli_assist",
+              "hermes_install",
+              "hermes_auth",
+              "channel",
+              "ha_provision",
+              "ha_native"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "state": {
+            "default": "pending",
+            "enum": [
+              "pending",
+              "running",
+              "waiting_input",
+              "blocked",
+              "completed",
+              "skipped"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "BootstrapStep",
         "type": "object"
       },
       "ChannelConfig": {
@@ -93,6 +414,31 @@
           }
         },
         "title": "ChannelConfig",
+        "type": "object"
+      },
+      "ChannelPairingInput": {
+        "additionalProperties": false,
+        "properties": {
+          "chat": {
+            "anyOf": [
+              {
+                "pattern": "^[ucrs][0-9a-f]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat"
+          },
+          "secret": {
+            "default": "",
+            "maxLength": 16384,
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "title": "ChannelPairingInput",
         "type": "object"
       },
       "ChatInput": {
@@ -190,6 +536,21 @@
           "action"
         ],
         "title": "ControlInput",
+        "type": "object"
+      },
+      "DesktopLogin": {
+        "additionalProperties": false,
+        "properties": {
+          "ticket": {
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "title": "Ticket",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket"
+        ],
+        "title": "DesktopLogin",
         "type": "object"
       },
       "EntityPermission": {
@@ -320,6 +681,29 @@
           "api_key"
         ],
         "title": "HermesAuth",
+        "type": "object"
+      },
+      "HermesDeviceAuth": {
+        "additionalProperties": false,
+        "properties": {
+          "model": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9_./:@-]+$",
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "const": "openai-codex",
+            "default": "openai-codex",
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model"
+        ],
+        "title": "HermesDeviceAuth",
         "type": "object"
       },
       "HostAction": {
@@ -793,6 +1177,138 @@
         "summary": "Export"
       }
     },
+    "/api/bootstrap": {
+      "get": {
+        "operationId": "status_api_bootstrap_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BootstrapStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Status"
+      }
+    },
+    "/api/bootstrap/preferences": {
+      "post": {
+        "operationId": "preferences_api_bootstrap_preferences_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BootstrapPreferences"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BootstrapStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preferences"
+      }
+    },
+    "/api/bootstrap/retry": {
+      "post": {
+        "operationId": "retry_api_bootstrap_retry_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BootstrapRetry"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BootstrapStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry"
+      }
+    },
+    "/api/bootstrap/start": {
+      "post": {
+        "operationId": "start_api_bootstrap_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BootstrapStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BootstrapStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start"
+      }
+    },
     "/api/deployment": {
       "get": {
         "operationId": "deployment_api_deployment_get",
@@ -891,6 +1407,147 @@
           }
         },
         "summary": "Configure"
+      }
+    },
+    "/api/gateway/channels/{channel}/pairing": {
+      "get": {
+        "operationId": "pairing_status_api_gateway_channels__channel__pairing_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel",
+            "required": true,
+            "schema": {
+              "enum": [
+                "line",
+                "telegram"
+              ],
+              "title": "Channel",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pairing Status"
+      },
+      "post": {
+        "operationId": "pairing_start_api_gateway_channels__channel__pairing_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel",
+            "required": true,
+            "schema": {
+              "enum": [
+                "line",
+                "telegram"
+              ],
+              "title": "Channel",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelPairingInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pairing Start"
+      }
+    },
+    "/api/gateway/channels/{channel}/pairing/cancel": {
+      "post": {
+        "operationId": "pairing_cancel_api_gateway_channels__channel__pairing_cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel",
+            "required": true,
+            "schema": {
+              "enum": [
+                "line",
+                "telegram"
+              ],
+              "title": "Channel",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BootstrapRetry"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pairing Cancel"
       }
     },
     "/api/gateway/line/login": {
@@ -1097,6 +1754,126 @@
         "summary": "Auth"
       }
     },
+    "/api/hermes/auth/device": {
+      "post": {
+        "operationId": "device_auth_api_hermes_auth_device_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HermesDeviceAuth"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Device Auth"
+      }
+    },
+    "/api/hermes/auth/device/{auth_id}": {
+      "get": {
+        "operationId": "device_auth_status_api_hermes_auth_device__auth_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "auth_id",
+            "required": true,
+            "schema": {
+              "title": "Auth Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Device Auth Status"
+      }
+    },
+    "/api/hermes/auth/device/{auth_id}/cancel": {
+      "post": {
+        "operationId": "device_auth_cancel_api_hermes_auth_device__auth_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "auth_id",
+            "required": true,
+            "schema": {
+              "title": "Auth Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BootstrapRetry"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Device Auth Cancel"
+      }
+    },
     "/api/hermes/auth/logout": {
       "post": {
         "operationId": "logout_api_hermes_auth_logout_post",
@@ -1238,6 +2015,74 @@
         "summary": "Ask"
       }
     },
+    "/api/host/authorization": {
+      "get": {
+        "operationId": "authorization_status_api_host_authorization_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Authorization Status"
+      }
+    },
+    "/api/host/authorize": {
+      "post": {
+        "operationId": "authorize_api_host_authorize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Authorize"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Authorize"
+      }
+    },
+    "/api/host/authorized": {
+      "get": {
+        "operationId": "authorized_api_host_authorized_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Authorized"
+      }
+    },
     "/api/host/connect": {
       "post": {
         "operationId": "connect_api_host_connect_post",
@@ -1272,6 +2117,42 @@
           }
         },
         "summary": "Connect"
+      }
+    },
+    "/api/host/desktop-login": {
+      "post": {
+        "operationId": "desktop_login_api_host_desktop_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesktopLogin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Desktop Login"
       }
     },
     "/api/host/diagnosis": {
