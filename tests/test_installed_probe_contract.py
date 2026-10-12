@@ -86,3 +86,16 @@ def test_installed_probe_refuses_execution_without_credentials(installed_probe):
                "execution_started": True, "stop_confirmed": True, "artifacts": [], "evidence_ids": []}
     with pytest.raises(AssertionError, match="coding_without_login_blocked"):
         installed_probe.verify_auth_blocked(receipt)
+
+
+def test_bootstrap_cli_diagnostics_preserve_only_fixed_status_and_error_codes():
+    from test_linux_install import bootstrap_job_diagnostics
+
+    known = 'Operation fixture\n{"state":"failed","message":"candidate_environment_invalid","private":"not-exported"}'
+    assert bootstrap_job_diagnostics(known) == {"state": "failed", "error_code": "candidate_environment_invalid"}
+    for output in ('Operation fixture\n{"state":"failed","message":"private_credential_like_value"}',
+                   '{"state":"private_state","message":"private message"}', 'not JSON', 'x' * 65537):
+        result = bootstrap_job_diagnostics(output)
+        assert set(result) == {"state", "error_code"}
+        assert result["state"] in {"failed", "unknown"}
+        assert result["error_code"] == "unclassified_host_error"

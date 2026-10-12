@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="1082.781" timestamp="2026-10-12T08:05:59.860771-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_linux_install" name="test_full_linux_install_with_nested_haos" time="1082.759"><failure message="AssertionError: {'state': 'bundled', 'commit': '835c3dd038d903182a66ecc45e34bf5e0de65f00', 'source': 'bundled'}&#10;assert (1 == 0)&#10; +  where 1 = CompletedProcess(args=['ssh', '-i', '/home/ted-h/agent-work/tmp/pytest/20261012-080559-PP2H2W/bt/test_full_linux_insta...at&quot;: 1791807835.6233742\n}\n', stderr=&quot;Warning: Permanently added '127.0.0.1' (ED25519) to the list of known hosts.\n&quot;).returncode">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-080559-PP2H2W/bt/test_full_linux_install_with_n0')
+request = &lt;FixtureRequest for &lt;Function test_full_linux_install_with_nested_haos&gt;&gt;
+
+    def test_full_linux_install_with_nested_haos(tmp_path, request):
+        if not request.config.getoption("--linux-install"):
+            pytest.skip("Use --linux-install to install onto a disposable virtual disk")
+        assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
+        profile = os.environ.get("AGENTIC_INSTALL_TEST_PROFILE", "laptop-amd64")
+        assert profile in {"laptop-amd64", "server-amd64"}
+        iso = ROOT / "dist" / ("agentic-home-0.6.0-" + profile + ".iso")
+        assert iso.exists()
+        with iso.open("rb") as stream:
+            iso_hash = hashlib.file_digest(stream, "sha256").hexdigest()
+        spec = importlib.util.spec_from_file_location("builder", ROOT / "scripts/build_host.py")
+        build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build)
+        command("ssh-keygen", "-t", "ed25519", "-N", "", "-f", str(tmp_path / "test-key"))
+        config = build.autoinstall({"id": profile})
+        autoinstall = config["autoinstall"]
+        autoinstall.pop("interactive-sections")
+        autoinstall["identity"] = {"hostname": "agentic-disposable", "username": "tester", "password": "!"}
+        autoinstall["ssh"] = {"install-server": True, "allow-pw": False,
+                              "authorized-keys": [(tmp_path / "test-key.pub").read_text().strip()]}
+        autoinstall["storage"] = {"layout": {"name": "direct", "match": {"serial": "AGENTIC_TEST_ONLY"}}}
+        autoinstall["shutdown"] = "poweroff"
+        autoinstall["late-commands"] += [
+            "printf 'tester ALL=(root) NOPASSWD: ALL\\n' &gt; /target/etc/sudoers.d/90-agentic-test",
+            "chmod 440 /target/etc/sudoers.d/90-agentic-test"]
+        (tmp_path / "user-data").write_text("#cloud-config\n" + json.dumps(config, indent=2))
+        # Connect from QEMU's loopback: Docker's outer 172.17/16 otherwise overlaps
+        # Docker inside the guest after firstboot and breaks the return route.
+        (tmp_path / "ssh-proxy.py").write_text('''import socket,sys,threading
+    s=socket.create_connection(('127.0.0.1',2222))
+    def forward():
+     while data:=sys.stdin.buffer.read1(65536): s.sendall(data)
+     s.shutdown(socket.SHUT_WR)
+    threading.Thread(target=forward,daemon=True).start()
+    while data:=s.recv(65536):
+     sys.stdout.buffer.write(data);sys.stdout.buffer.flush()
+    ''')
+        name = "agentic-linux-install-test-" + uuid.uuid4().hex[:10]
+        started = time.time()
+        try:
+            command("docker", "run", "--rm", "-u", f"{os.getuid()}:{os.getgid()}", "-v", f"{tmp_path}:/lab",
+                    "-v", f"{iso}:/source.iso:ro", "agentic-home-builder:0.2.0", "xorriso",
+                    "-indev", "/source.iso", "-outdev", "/lab/test.iso", "-boot_image", "any", "replay",
+                    "-map", "/lab/user-data", "/agentic-seed/user-data", "-commit")
+            command("docker", "run", "--rm", "-u", f"{os.getuid()}:{os.getgid()}", "-v", f"{tmp_path}:/lab",
+                    "agentic-home-builder:0.2.0", "qemu-img", "create", "-f", "qcow2", "/lab/linux.qcow2", "120G")
+            qemu = ["qemu-system-x86_64", "-enable-kvm", "-cpu", "host", "-machine", "q35", "-m", "10240", "-smp", "4",
+                    "-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd",
+                    "-drive", "if=pflash,format=raw,file=/lab/nvram.fd",
+                    "-drive", "file=/lab/linux.qcow2,format=qcow2,if=none,id=disk",
+                    "-device", "virtio-blk-pci,drive=disk,serial=AGENTIC_TEST_ONLY",
+                    "-netdev", "user,id=net,hostfwd=tcp:0.0.0.0:2222-:22", "-device", "virtio-net-pci,netdev=net",
+                    "-display", "none", "-serial", "file:/lab/serial.log", "-monitor", "unix:/lab/monitor.sock,server,nowait"]
+            command("docker", "run", "--rm", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0",
+                    "cp", "/usr/share/OVMF/OVMF_VARS_4M.fd", "/lab/nvram.fd")
+            common = ["docker", "run", "-d", "--name", name, "--device", "/dev/kvm", "--memory", "12g", "--cpus", "4",
+                      "-p", "127.0.0.1::2222", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0"]
+            command(*common, *qemu, "-cdrom", "/lab/test.iso", "-boot", "d")
+            for _ in range(180):
+                state = json.loads(command("docker", "inspect", name))[0]["State"]
+                if not state["Running"]:
+                    assert state["ExitCode"] == 0 and not state["OOMKilled"]
+                    break
+                time.sleep(5)
+            else:
+                raise AssertionError("Linux installer did not power off within 15 minutes")
+            command("docker", "rm", "-fv", name)
+            command(*common, *qemu)
+            ssh = ["ssh", "-i", str(tmp_path / "test-key"), "-o", "BatchMode=yes",
+                   "-o", f"ProxyCommand=docker exec -i {name} python3 /lab/ssh-proxy.py",
+                   "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5",
+                   "tester@127.0.0.1"]
+            for _ in range(240):
+                result = subprocess.run([*ssh, "test -f /var/lib/agentic-home/installed.json"], capture_output=True)
+                if result.returncode == 0:
+                    break
+                time.sleep(5)
+            else:
+                logs = subprocess.run([*ssh, "journalctl -u agentic-home-firstboot --no-pager -n 50"], capture_output=True, text=True)
+                raise AssertionError("Firstboot did not complete: " + logs.stdout[-4000:])
+            host = json.loads(command(*ssh, "agentic-home status"))
+            assert not host["provisioned"] and host["kvm"]
+            installed = json.loads(command(*ssh, "sudo cat /var/lib/agentic-home/installed.json"))
+            assert installed["version"] == "0.6.0" and installed["profile"] == profile
+            image_lock = json.loads(command(*ssh, "cat /opt/agentic-home/images.lock.json"))
+            expected_tags = {f"agentic-home-{service}:0.6.0" for service in ("controller", "runner", "linejs", "hermes", "preview")}
+            assert set(image_lock) == expected_tags
+            for tag, digest in image_lock.items():
+                assert command(*ssh, "sudo docker image inspect --format '{{.Id}}' " + tag) == digest
+            source_lock = json.loads(command(*ssh, "sudo cat /var/lib/agentic-home/coding/source.json"))
+            assert source_lock == json.loads(command(*ssh, "cat /opt/agentic-home/assets/coding-source.json"))
+            assert command(*ssh, "sudo git -C /var/lib/agentic-home/coding/source rev-parse HEAD") == source_lock["commit"]
+            assert command(*ssh, "tailscale version").splitlines()[0] == "1.104.1"
+            assert json.loads(command(*ssh, "sudo tailscale status --json"))["BackendState"] == "NeedsLogin"
+            assert command(*ssh, "systemctl is-active agentic-home agentic-home-host agentic-home-proxy") == "active\nactive\nactive"
+            assert command(*ssh, "curl -fsS http://localhost:8099/api/deployment")
+            auth_result = subprocess.run([*ssh, "python3 -"], capture_output=True, text=True, timeout=120,
+                                         input=(ROOT / "tests/installed_probe.py").read_text())
+            auth_probe = json.loads(auth_result.stdout)
+            (ROOT / "evidence" / ("installed-auth-" + profile + ".json")).write_text(
+                json.dumps(auth_probe, indent=2) + "\n")
+            assert auth_result.returncode == 0 and auth_probe.get("result") != "failed", auth_probe
+            # Exercise independent console recovery before adding any household VM.
+            diagnostics = json.loads(command(*ssh, "agentic-home diagnostics"))
+            assert diagnostics["observations"]
+            assert all(item["version_refs"]["installed_application"] == installed["version"]
+                       for item in diagnostics["observations"])
+            installation = next(item for item in diagnostics["observations"] if item["target_component"] == "installation")
+            assert installation["status"] == "collected" and installation["data"]["profile"] == profile
+            compose = ("sudo docker compose --env-file /var/lib/agentic-home/host/runtime.env "
+                       "-f /opt/agentic-home/host/compose.yaml")
+            command(*ssh, compose + " stop controller")
+            try:
+                unavailable = subprocess.run([*ssh, "curl --max-time 3 -fsS http://localhost:8099/health"], capture_output=True)
+                assert unavailable.returncode != 0
+                rescue = json.loads(command(*ssh, "agentic-home diagnostics"))
+                assert rescue["observations"]
+                assert all(item["version_refs"]["installed_application"] == installed["version"]
+                           for item in rescue["observations"])
+                command(*ssh, "agentic-home support-bundle --output /home/tester/support-probe.json")
+                support = json.loads(command(*ssh, "cat /home/tester/support-probe.json"))
+                assert support["format"] == "agentic-support-bundle-v1"
+                (ROOT / "evidence" / ("installed-rescue-" + profile + ".json")).write_text(json.dumps({
+                    "runtime_location": "disposable_outer_linux_vm", "controller_stopped": True,
+                    "diagnostics": rescue, "support_bundle": "created", "cloud_login": "not_run"}, indent=2) + "\n")
+            finally:
+                command(*ssh, compose + " up -d --wait controller")
+            sandbox_result = subprocess.run([*ssh, "sudo python3 -"], capture_output=True, text=True,
+                                           input=(ROOT / "tests/installed_sandbox_probe.py").read_text(), timeout=120)
+            # Preserve the probe's allowlisted diagnostics before asserting a failure;
+            # never publish arbitrary SSH stderr or workspace contents.
+            sandbox_probe = json.loads(sandbox_result.stdout)
+            (ROOT / "evidence" / ("installed-sandbox-" + profile + ".json")).write_text(
+                json.dumps(sandbox_probe, indent=2) + "\n")
+            assert sandbox_result.returncode == 0 and sandbox_probe["result"] == "passed", sandbox_probe
+            coding_result = subprocess.run([*ssh, "sudo python3 -"], capture_output=True, text=True,
+                                          input=(ROOT / "tests/installed_coding_probe.py").read_text(), timeout=150)
+            coding_probe = json.loads(coding_result.stdout)
+            coding_probe["installed_source"] = source_lock["commit"]
+            (ROOT / "evidence" / ("installed-coding-" + profile + ".json")).write_text(json.dumps(coding_probe, indent=2) + "\n")
+            assert coding_result.returncode == 0 and coding_probe["status"] == "passed", coding_probe
+            # Exercise the real first-install latest-source build/probe/activation
+            # on this disposable OS, without logging into any model account.
+            latest_result = subprocess.run([*ssh, "agentic-home bootstrap_hermes"], capture_output=True,
+                                           text=True, timeout=1500)
+            bootstrap_hermes = json.loads(command(*ssh, "agentic-home status"))["bootstrap"]["hermes"]
+            (ROOT / "evidence" / ("installed-hermes-" + profile + ".json")).write_text(json.dumps({
+                "runtime_location": "disposable_outer_linux_vm", "iso_sha256": iso_hash,
+                "cli_exit": latest_result.returncode, "observed": bootstrap_hermes,
+                "cloud_login": "not_run"}, indent=2) + "\n")
+&gt;           assert latest_result.returncode == 0 and bootstrap_hermes["state"] == "ready", bootstrap_hermes
+E           AssertionError: {'state': 'bundled', 'commit': '835c3dd038d903182a66ecc45e34bf5e0de65f00', 'source': 'bundled'}
+E           assert (1 == 0)
+E            +  where 1 = CompletedProcess(args=['ssh', '-i', '/home/ted-h/agent-work/tmp/pytest/20261012-080559-PP2H2W/bt/test_full_linux_insta...at": 1791807835.6233742\n}\n', stderr="Warning: Permanently added '127.0.0.1' (ED25519) to the list of known hosts.\n").returncode
+
+tests/test_linux_install.py:172: AssertionError</failure></testcase></testsuite></testsuites>

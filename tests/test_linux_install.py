@@ -13,6 +13,32 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).parents[1]
+SAFE_SETUP_ERRORS = {
+    "upstream_redirect_refused", "upstream_origin_refused", "upstream_metadata_invalid",
+    "upstream_revision_invalid", "upstream_archive_limit", "upstream_archive_path",
+    "upstream_archive_special_file", "existing_hermes_account", "existing_hermes_state",
+    "existing_hermes_sessions", "candidate_image_invalid", "candidate_environment_invalid",
+    "hermes_install_needs_reconcile", "hermes_install_disk_space", "bundled_image_invalid",
+    "hermes_install_failed", "hermes_fallback_unconfirmed", "hermes_install_interrupted",
+}
+
+
+def bootstrap_job_diagnostics(output):
+    """Keep only fixed job status and known codes, never CLI text or paths."""
+    result = {"state": "unknown", "error_code": "unclassified_host_error"}
+    try:
+        if len(output.encode()) > 65536:
+            return result
+        value = json.loads(output[output.index("{"):])
+        if value.get("state") in {"running", "succeeded", "failed", "needs_reconcile"}:
+            result["state"] = value["state"]
+        if value.get("message") in SAFE_SETUP_ERRORS:
+            result["error_code"] = value["message"]
+        elif result["state"] == "succeeded":
+            result["error_code"] = None
+    except (ValueError, TypeError, AttributeError):
+        pass
+    return result
 
 
 def command(*args, **kwargs):
@@ -58,7 +84,16 @@ while data:=s.recv(65536):
 ''')
     name = "agentic-linux-install-test-" + uuid.uuid4().hex[:10]
     started = time.time()
+    progress = {"runtime_location": "disposable_outer_linux_vm", "iso_sha256": iso_hash,
+                "result": "running", "cloud_login": "not_run"}
+    progress_path = ROOT / "evidence" / ("installed-progress-" + profile + ".json")
+
+    def phase(name):
+        progress.update(phase=name, duration_seconds=round(time.time() - started))
+        progress_path.write_text(json.dumps(progress, indent=2) + "\n")
+
     try:
+        phase("prepare_disposable_media")
         command("docker", "run", "--rm", "-u", f"{os.getuid()}:{os.getgid()}", "-v", f"{tmp_path}:/lab",
                 "-v", f"{iso}:/source.iso:ro", "agentic-home-builder:0.2.0", "xorriso",
                 "-indev", "/source.iso", "-outdev", "/lab/test.iso", "-boot_image", "any", "replay",
@@ -76,6 +111,7 @@ while data:=s.recv(65536):
                 "cp", "/usr/share/OVMF/OVMF_VARS_4M.fd", "/lab/nvram.fd")
         common = ["docker", "run", "-d", "--name", name, "--device", "/dev/kvm", "--memory", "12g", "--cpus", "4",
                   "-p", "127.0.0.1::2222", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0"]
+        phase("ubuntu_installation")
         command(*common, *qemu, "-cdrom", "/lab/test.iso", "-boot", "d")
         for _ in range(180):
             state = json.loads(command("docker", "inspect", name))[0]["State"]
@@ -86,6 +122,7 @@ while data:=s.recv(65536):
         else:
             raise AssertionError("Linux installer did not power off within 15 minutes")
         command("docker", "rm", "-fv", name)
+        phase("installed_firstboot")
         command(*common, *qemu)
         ssh = ["ssh", "-i", str(tmp_path / "test-key"), "-o", "BatchMode=yes",
                "-o", f"ProxyCommand=docker exec -i {name} python3 /lab/ssh-proxy.py",
@@ -99,6 +136,7 @@ while data:=s.recv(65536):
         else:
             logs = subprocess.run([*ssh, "journalctl -u agentic-home-firstboot --no-pager -n 50"], capture_output=True, text=True)
             raise AssertionError("Firstboot did not complete: " + logs.stdout[-4000:])
+        phase("installed_identity_and_images")
         host = json.loads(command(*ssh, "agentic-home status"))
         assert not host["provisioned"] and host["kvm"]
         installed = json.loads(command(*ssh, "sudo cat /var/lib/agentic-home/installed.json"))
@@ -115,6 +153,7 @@ while data:=s.recv(65536):
         assert json.loads(command(*ssh, "sudo tailscale status --json"))["BackendState"] == "NeedsLogin"
         assert command(*ssh, "systemctl is-active agentic-home agentic-home-host agentic-home-proxy") == "active\nactive\nactive"
         assert command(*ssh, "curl -fsS http://localhost:8099/api/deployment")
+        phase("installed_owner_and_role_auth")
         auth_result = subprocess.run([*ssh, "python3 -"], capture_output=True, text=True, timeout=120,
                                      input=(ROOT / "tests/installed_probe.py").read_text())
         auth_probe = json.loads(auth_result.stdout)
@@ -122,6 +161,7 @@ while data:=s.recv(65536):
             json.dumps(auth_probe, indent=2) + "\n")
         assert auth_result.returncode == 0 and auth_probe.get("result") != "failed", auth_probe
         # Exercise independent console recovery before adding any household VM.
+        phase("controller_stopped_console_recovery")
         diagnostics = json.loads(command(*ssh, "agentic-home diagnostics"))
         assert diagnostics["observations"]
         assert all(item["version_refs"]["installed_application"] == installed["version"]
@@ -146,6 +186,7 @@ while data:=s.recv(65536):
                 "diagnostics": rescue, "support_bundle": "created", "cloud_login": "not_run"}, indent=2) + "\n")
         finally:
             command(*ssh, compose + " up -d --wait controller")
+        phase("installed_sandbox_quota_and_fencing")
         sandbox_result = subprocess.run([*ssh, "sudo python3 -"], capture_output=True, text=True,
                                        input=(ROOT / "tests/installed_sandbox_probe.py").read_text(), timeout=120)
         # Preserve the probe's allowlisted diagnostics before asserting a failure;
@@ -154,6 +195,7 @@ while data:=s.recv(65536):
         (ROOT / "evidence" / ("installed-sandbox-" + profile + ".json")).write_text(
             json.dumps(sandbox_probe, indent=2) + "\n")
         assert sandbox_result.returncode == 0 and sandbox_probe["result"] == "passed", sandbox_probe
+        phase("installed_coding_and_independent_verifier")
         coding_result = subprocess.run([*ssh, "sudo python3 -"], capture_output=True, text=True,
                                       input=(ROOT / "tests/installed_coding_probe.py").read_text(), timeout=150)
         coding_probe = json.loads(coding_result.stdout)
@@ -162,15 +204,18 @@ while data:=s.recv(65536):
         assert coding_result.returncode == 0 and coding_probe["status"] == "passed", coding_probe
         # Exercise the real first-install latest-source build/probe/activation
         # on this disposable OS, without logging into any model account.
+        phase("latest_hermes_build_and_activation")
         latest_result = subprocess.run([*ssh, "agentic-home bootstrap_hermes"], capture_output=True,
                                        text=True, timeout=1500)
         bootstrap_hermes = json.loads(command(*ssh, "agentic-home status"))["bootstrap"]["hermes"]
         (ROOT / "evidence" / ("installed-hermes-" + profile + ".json")).write_text(json.dumps({
             "runtime_location": "disposable_outer_linux_vm", "iso_sha256": iso_hash,
-            "cli_exit": latest_result.returncode, "observed": bootstrap_hermes,
+            "cli_exit": latest_result.returncode, "job": bootstrap_job_diagnostics(latest_result.stdout),
+            "observed": bootstrap_hermes,
             "cloud_login": "not_run"}, indent=2) + "\n")
         assert latest_result.returncode == 0 and bootstrap_hermes["state"] == "ready", bootstrap_hermes
         assert bootstrap_hermes["source"] == "latest"
+        phase("latest_hermes_runtime_revision_readback")
         def hermes_image():
             identifier = command(*ssh, compose + " images -q hermes")
             assert re.fullmatch(r"(?:sha256:)?[a-f0-9]{12,64}", identifier)
@@ -186,10 +231,12 @@ o.open(r).close()
 print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_commit']))
 '''))
         assert runtime_revision == bootstrap_hermes["commit"]
+        phase("nested_haos_provision")
         command(*ssh, "agentic-home provision")
         host = json.loads(command(*ssh, "agentic-home status"))
         assert host["vm"] == "running" and host["provisioned"]
-        def wait_ha():
+        def wait_ha(stage):
+            phase(stage)
             for _ in range(180):
                 response = subprocess.run([*ssh, "curl --max-time 3 -fsS http://localhost:8123/api/onboarding"],
                                           capture_output=True)
@@ -201,7 +248,8 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
                 time.sleep(5)
             raise AssertionError("Nested HAOS HTTP did not become ready")
 
-        wait_ha()
+        wait_ha("nested_haos_first_boot")
+        phase("nested_haos_shutdown_snapshot_restore")
         command(*ssh, "agentic-home shutdown")
         assert json.loads(command(*ssh, "agentic-home status"))["vm"] == "shut off"
         assert command(*ssh, "curl -fsS http://localhost:8099/api/deployment")
@@ -209,7 +257,8 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
         snapshot = json.loads(command(*ssh, "agentic-home status"))["snapshots"][0]["id"]
         command(*ssh, "agentic-home restore --snapshot " + snapshot)
         command(*ssh, "agentic-home start")
-        wait_ha()
+        wait_ha("nested_haos_restored_boot")
+        phase("outer_reboot_and_haos_autostart")
         subprocess.run([*ssh, "sudo systemctl reboot"], capture_output=True)
         time.sleep(15)
         for _ in range(120):
@@ -221,7 +270,8 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
             raise AssertionError("Outer product did not restart")
         assert json.loads(command(*ssh, "agentic-home status"))["vm"] == "running"
         assert hermes_image() == candidate_id
-        wait_ha()
+        wait_ha("nested_haos_after_outer_reboot")
+        phase("installed_controller_update_rollback")
         update_result = subprocess.run([*ssh, "sudo env AGENTIC_DISPOSABLE_VM=1 python3 -"], capture_output=True, text=True,
                                       input=(ROOT / "tests/installed_update_probe.py").read_text(), timeout=600)
         update_probe = json.loads(update_result.stdout)
@@ -249,6 +299,12 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
                     "physical_laptop": "not_run", "cloud_login": "not_run"}
         report_name = "linux-install-server.json" if profile == "server-amd64" else "linux-install.json"
         (ROOT / "evidence" / report_name).write_text(json.dumps(evidence, indent=2) + "\n")
+        progress["result"] = "passed"
+        phase("completed")
+    except Exception as exc:
+        progress.update(result="failed", error_type=type(exc).__name__)
+        phase(progress["phase"])
+        raise
     finally:
         subprocess.run(["docker", "stop", "-t", "10", name], capture_output=True)
         # Keep only the nonsecret failure console when useful; all keys and virtual disks are removed.

@@ -146,8 +146,10 @@ def write_environment(path, image, variable="AGENTIC_HERMES_IMAGE"):
     values = {}
     if path.exists():
         for line in path.read_text().splitlines():
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
             key, separator, value = line.partition("=")
-            if not separator or key not in allowed or not re.fullmatch(r"sha256:[a-f0-9]{64}", value):
+            if not separator or key not in allowed or key in values or not re.fullmatch(r"sha256:[a-f0-9]{64}", value):
                 raise SetupError("candidate_environment_invalid")
             values[key] = value
     values[variable] = image

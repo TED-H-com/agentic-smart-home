@@ -1,0 +1,41 @@
+{
+  "version": "0.6.0",
+  "source_commit": "ead5a3051a9b87f0e81295c8d3ca1e79455883c2",
+  "iso_sha256": "870012115a1ae88f291b56f9e12449014be6a8eb89b7cd2686b30b0ca07fcc1c",
+  "result": "failed",
+  "pytest": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "1",
+    "skipped": "0",
+    "tests": "1",
+    "time": "1082.781",
+    "timestamp": "2026-10-12T08:05:59.860771-04:00",
+    "hostname": "castleridge-ai1"
+  },
+  "failed_stage": "latest_hermes_build_and_activation",
+  "completed": [
+    "Linux installation and firstboot",
+    "five image IDs and source bundle",
+    "Owner ticket/login and role auth separation",
+    "Controller-stopped console recovery",
+    "offline sandbox and real ext4 ENOSPC",
+    "actual Codex tools and independent verifier (2 completed tests)",
+    "coding stop/handoff/cleanup"
+  ],
+  "not_reached": [
+    "latest Hermes runtime revision readback",
+    "HAOS provision/snapshot/restore/reboot",
+    "Controller update/rollback"
+  ],
+  "observation": "bootstrap CLI exit 1; observed Hermes state remained bundled",
+  "root_cause_evidence": "bootstrap-env-reproduction.json",
+  "root_cause": "Exact installer initial runtime.env comment rejected by write_environment before bootstrap state creation; independently reproduced after installed failure",
+  "fix": "Accept blank and standalone comment lines; retain key/digest allowlist and reject duplicates",
+  "fix_tests": "bootstrap-initial-environment.xml: 56 passed",
+  "limitations": [
+    "original bootstrap CLI output was not exported; cause is subsequent independent reproduction",
+    "no real cloud accounts or physical laptop"
+  ],
+  "cleanup": "VM, container and test disk removed"
+}

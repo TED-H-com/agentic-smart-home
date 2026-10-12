@@ -1,0 +1,8 @@
+{
+  "source": "actual_installer_literal_and_product_write_environment",
+  "installer_comment_sha256": "8ac1b95a7242dc3d751d1da5544fcf422f6a571924a70541c124f757c5df8374",
+  "error_code": "candidate_environment_invalid",
+  "phase": "before_bootstrap_state_file",
+  "tmp_cleanup": "temporary_directory_finally",
+  "credentials_used": false
+}

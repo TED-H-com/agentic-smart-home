@@ -43,6 +43,8 @@
 
 精確安裝又發現正式 broker 的 `umask 0077` 使可信測試目錄變成 root-only，獨立 verifier 因無法讀取而失敗。修正只將複製完成的目錄明確設為 root-owned 0555，測試檔案仍為 0444；真正的 prepare／UID 10000／固定 Runner 回歸確認可讀、不可寫並完成兩項測試。安裝 probe 另改為區分 Host 隔離環境就緒與角色未登入，要求未登入派工拒絕執行、無 lease 且重送不重複。兩次失敗和修正證據保留於 [版本驗證](../VERIFICATION.md)，修正後媒體須另行完整安裝。
 
+重新安裝後，真 Codex 與兩項獨立測試已通過；接著發現安裝器的初始環境檔含註解，而 Hermes／updater 共用 writer 原本拒絕註解。修正只接受空白與獨立註解，保持固定欄位和 digest 驗證並拒絕重複欄位。直接取安裝器 literal 的契約回歸與 bootstrap／updater suite 共 56 項通過；最新媒體仍須完整安裝。
+
 ## 仍需獨立完成
 
 - 真 HAOS App 診斷已證明受限 SYS_ADMIN 與自訂 AppArmor 設定可建立 App 專屬 cgroup，並實際觸發記憶體限制；完整 Home launcher、出站／憑證／磁碟界線與真 Codex tools 流程仍未交付，維持 blocked。App、Core 容器和整個 HAOS 的觀測不可混稱。

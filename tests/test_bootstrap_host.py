@@ -1,5 +1,6 @@
 """Fixed host initial setup, using disk fixtures and no real host changes."""
 
+import ast
 import io
 import json
 import sqlite3
@@ -27,6 +28,42 @@ from agentic_host.manager import Manager, atomic  # noqa: E402
 COMMIT = "a" * 40
 ORIGINAL = "sha256:" + "1" * 64
 CANDIDATE = "sha256:" + "2" * 64
+
+
+def test_real_installer_environment_accepts_only_comments_and_locked_image_values(tmp_path):
+    # Use the exact fresh-install literal, not a hand-maintained lookalike.
+    tree = ast.parse((Path(__file__).parents[1] / "host/install.py").read_text())
+    values = [node.args[0].value for node in ast.walk(tree)
+              if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+              and node.func.attr == "write_text" and node.args and isinstance(node.args[0], ast.Constant)
+              and isinstance(node.args[0].value, str) and node.args[0].value.startswith("# Initial Hermes")]
+    assert len(values) == 1
+    path = tmp_path / "runtime.env"
+    path.write_text(values[0] + "\n  # permitted standalone comment\n\t\n")
+    write_environment(path, CANDIDATE)
+    assert path.read_text() == "AGENTIC_HERMES_IMAGE=" + CANDIDATE + "\n"
+    # The updater imports and uses the same writer for Controller activation.
+    from agentic_host.updater import write_environment as updater_write_environment
+    assert updater_write_environment is write_environment
+    updater_write_environment(path, ORIGINAL, "AGENTIC_CONTROLLER_IMAGE")
+    assert path.read_text() == "AGENTIC_CONTROLLER_IMAGE=" + ORIGINAL + "\nAGENTIC_HERMES_IMAGE=" + CANDIDATE + "\n"
+    assert path.stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.parametrize("content", [
+    "UNKNOWN_IMAGE=" + ORIGINAL + "\n",
+    "AGENTIC_HERMES_IMAGE=" + ORIGINAL + "\nAGENTIC_HERMES_IMAGE=" + ORIGINAL + "\n",
+    "AGENTIC_CONTROLLER_IMAGE=" + ORIGINAL + "\nAGENTIC_CONTROLLER_IMAGE=" + CANDIDATE + "\n",
+    "AGENTIC_HERMES_IMAGE=untrusted:latest\n",
+    "AGENTIC_HERMES_IMAGE=" + ORIGINAL + " # inline data is not accepted\n",
+    "not-an-environment-assignment\n",
+])
+def test_environment_writer_still_rejects_unknown_duplicates_and_invalid_digests(tmp_path, content):
+    path = tmp_path / "runtime.env"
+    path.write_text(content)
+    with pytest.raises(SetupError, match="candidate_environment_invalid"):
+        write_environment(path, CANDIDATE)
+    assert path.read_text() == content
 
 
 def archive(name=None):
