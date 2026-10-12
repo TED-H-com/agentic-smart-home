@@ -1,0 +1,38 @@
+{
+  "run_id": 38289550827,
+  "headSha": "1e671e6d92fd9cb23fc4c0db6eead5b23d1c2d0b",
+  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38289550827",
+  "conclusion": "failure",
+  "failed_step": "Locked dependencies and UI",
+  "error": "setuptools namespace discovery mapped controller/static/downloads into bridge/static/downloads",
+  "tests_executed": false,
+  "fix": "Restrict setuptools package discovery to agentic_controller*, agentic_runner*, agentic_bridge*",
+  "validation": {
+    "before": {
+      "command": "uv build",
+      "exit_code": 2,
+      "clean_git_archive": "1e671e6d92fd9cb23fc4c0db6eead5b23d1c2d0b"
+    },
+    "build": {
+      "command": "uv build",
+      "exit_code": 0,
+      "clean_git_archive": "1e671e6d92fd9cb23fc4c0db6eead5b23d1c2d0b",
+      "wheel_packages": [
+        "agentic_bridge",
+        "agentic_controller",
+        "agentic_runner"
+      ],
+      "wheel_sha256": "a87a675bbc6b2bce2eb0366f0995f8a5632dc99be14412404edf3e031c5bd386"
+    },
+    "sync": {
+      "command": "uv sync --frozen",
+      "exit_code": 0,
+      "clean_git_archive": "1e671e6d92fd9cb23fc4c0db6eead5b23d1c2d0b"
+    }
+  },
+  "limitations": [
+    "No product container or runtime changes; verification is Python packaging only."
+  ],
+  "validated_at": "2026-10-12T18:16:23.061762+00:00",
+  "temporary_directories_removed": true
+}
