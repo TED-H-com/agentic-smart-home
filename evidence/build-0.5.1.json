@@ -1,7 +1,7 @@
 {
   "version": "0.5.1",
-  "built_at": "2026-10-12T08:13:49.004457+00:00",
-  "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+  "built_at": "2026-10-12T08:31:03.816599+00:00",
+  "source_commit": "c6735fe79c80a669f55e3f119c6f48d5e1e6fed7",
   "platform": "linux/amd64",
   "images": {
     "agentic-home-controller:0.5.1": "sha256:f28395fec7319c351f070181efdce523afbf1e4d82f3dfa9ecbdee0add364dfc",
@@ -66,12 +66,12 @@
     "docs/ONBOARDING.md": "87535b388d67b68184a237079e131f54a1e31f48077a08ea548c961e7ee4ef69",
     "docs/OPERATIONS.md": "fe848a4cb5fee3e2b07c0868ff2704f5af9b8e28cbbb7f45bdc72d0c1b452021",
     "docs/SOURCES.md": "2787ced5c5d8f39b97f9792b30bd88c8ef7d83d2be554eab5a28407b241333f4",
-    "docs/VERIFICATION.md": "a0d8c83a44be260dac3f7c992783b2c634ac21c3e998d52e490e2540fcb612e5",
+    "docs/VERIFICATION.md": "94df213a8e6a320b6fec42e24b1b5ab20eaa3d7300b25cf49a48bb8124b3edc3",
     "docs/history/pre-v3-0.3.1/AGENTS.md": "20b1f25d248db6233ed9331f31bf80b83bff6cf38abf8dd2f8ce17925aa55f2d",
     "docs/history/pre-v3-0.3.1/PROJECT_PLAN.md": "0e0519be684da4b069c54ce6a065963356b19cd397a39345ff4077e90acdd034",
     "docs/history/pre-v3-0.3.1/PROJECT_SPEC.md": "9f6547f5ad604719d22440fbb59f90ab8ee3c0626795404244c116a94edfdc67",
     "docs/history/pre-v3-0.3.1/README.md": "bea4cd7f2e785b5303c5620e2821bf87680e206ac701ac990ded04df8252b998",
-    "docs/reviews/2026-10-12-E2E-ARCHITECTURE.md": "9f7e765b9e7c42d2a02777a834293c5267f7863782bfd62983720da327bb96bf",
+    "docs/reviews/2026-10-12-E2E-ARCHITECTURE.md": "8a2e7bca9f3b9293b96d4f59e32f35454fd63a10b9e1701e8572f04bd12b1db9",
     "docs/reviews/2026-10-12-bootstrap.md": "4238b58d8b6eaa4261a619b709b49786d08e47932ad05447b762fcc03c07bce5",
     "docs/reviews/2026-10-12-runtime.md": "edf8353587f7488ebf1e40834d82b486ea0ba2e09daad513ad1afa7f9dd5b118",
     "docs/reviews/2026-10-12-ui.md": "f6953ad8f0616ec164f5508414cb9846b9a6536d718c7a11fc1ac325a2d728aa",
@@ -114,7 +114,7 @@
     "host/bases.lock.json": "e6a7cc057bb57889f9a2aedd82efc3478ad682ed7cf7c1e57fef56b546b0871a",
     "host/compose.yaml": "93f1b569ce4633697b541105e2afb1fd07e5c72b200c92610a987d5a87053e94",
     "host/desktop/agentic-home.desktop": "b6fa976dcbf1aeeed9cbc0546187e45f554d011c144610dcaa8212e7c5d2b124",
-    "host/install.py": "b25f386fb3ac8fd212fb9a2d5b4d1ede167cae323f3b954a3cf9162695aacfbc",
+    "host/install.py": "5295371de28c9b3898551cb50f9f32672ef50c9b4add75d075c83bae95aaf2b5",
     "host/linejs/Dockerfile": "8806bb6e040521cc44df25968a66b229484f10497c9e1e56350a0ef1f2510249",
     "host/linejs/patch-local-host.mjs": "bd200c9594f1eab75ea796b683141336eabc35dbaf24ddfd4616594f9c79d5c7",
     "host/linejs/start.mjs": "7eb62553aea0c98b6fc43ca210c84173a1ae9aa6a1bcc120b78218119db48c40",
@@ -146,22 +146,22 @@
     "runner/package-lock.json": "fe7b8b1d0cca68a0dc9352542d50c82f1b5196029c21044f415f728da65eba0b",
     "runner/package.json": "64aee172d48001c161640e7fc2b7851c146d582a950b3e002681b79d98dc6b94",
     "runner/requirements.txt": "370a4907ffce372d60aebc5bfa83b372fa07a767849c3034e01e5decd9413818",
-    "scripts/build_host.py": "56c2638766125aec6d95a7875f3c9f7d6d48571bec4a6fa2b8dffd1a0081de58",
+    "scripts/build_host.py": "5c5d48abe342b7b8a4b2739f49c8bc434839e1297961390b08a4f75004eacfc5",
     "scripts/contracts.py": "ed4db3a1a9810c8829e931b703d685972ccebafb7f6e9d7830f8f2da63009997",
     "scripts/package.py": "67de3ee9e5e6231e546780d3be728aea8100f8edd7c0000af4e0e3ef6b361ddf",
     "scripts/restore_controller.py": "b300f90382ac3502c3ee1d78b4251ebb936811fbce963164843c579eea638f08",
     "scripts/upstreams.py": "a7faffd23dee055677f8a1a10c169355e132d8ceed5f97336e4f3bf828450919",
-    "scripts/validate_kit.py": "5f4e86cd73bee008f51021eacd5d750755c9f33dbeac806195269767c4420193",
+    "scripts/validate_kit.py": "6bc89e89d996a8d56ae65afe4e7a40b69a9566e6e98cab0d5340ca23d1c48941",
     "upstream.lock.json": "d518c523695514a122d7428b66b40d6c8204dff2d0ba8523e60ef4960130a7b8"
   },
   "artifacts": {
     "agentic-home-0.5.1-laptop-amd64.iso": {
       "bytes": 5387517952,
-      "sha256": "1b8ddb6c11233a2b714583b06403dd1db6819b47e80693bc9a441de7dab54cdd"
+      "sha256": "5363f9e9b96dcfe7f7e3516b7533a2f70d18b8e63f5102a1569b01de070a7477"
     },
     "agentic-home-0.5.1-linux-amd64.tar": {
       "bytes": 1308037120,
-      "sha256": "7c2b2cc9ed0394ba54837c3e15f9a36a95e6e368ddaadc7dba02f24e57daa57d"
+      "sha256": "89be112be7bbfd5cfb9857783cc5d70eec7abce35e9f2519832b25d49cbb6560"
     }
   },
   "runner_zip": {
@@ -169,8 +169,9 @@
     "sha256": "3bac9e91b3494595764ce9d69e16a9f8471813c6e0a84d2a20c44e274447759a",
     "files": 18
   },
-  "installed_validation": "failed",
+  "installed_validation": "passed",
   "cloud_login": "not_run",
-  "failure": "installed manifest0.5.0 does not match0.5.1 release",
-  "junit": "evidence/linux-install-0.5.1-version-failure.xml"
+  "installed_evidence": "evidence/linux-install-0.5.1.json",
+  "junit": "evidence/linux-install-0.5.1.xml",
+  "previous_install_attempt": "evidence/build-0.5.1-before-version-fix.json"
 }

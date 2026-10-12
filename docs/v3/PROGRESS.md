@@ -3,9 +3,9 @@
 更新：2026-10-12。Owner 原稿基準為 0.3.1／`3ad476a712009469521c3f9838a44ef35ba29f76`。本檔獨立記錄實作狀態，不修改六份原稿；前版為 **0.4.0 v3 技術預覽，CI 145 passed／2 skipped，精確 ISO 完整 VM 測試 1 passed；完成 E0 工程媒體與獨立救援範圍，Owner laptop／真帳號及 E1、E2 尚未完成**。
 
 
-0.5.0 開發新增 CLI 先行的自動 onboarding：持久九步流程、桌面單次登入、官方最新 Hermes 相容性檢查、Hermes 原生 Codex OAuth、LINE／Telegram 配對碼、自動 HAOS 啟動及 HA 官方瀏覽器授權。這是 Owner 的新流程，不改六份原稿。最新CI為210 passed／3 skipped；精確0.5.0 ISO在一次性VM為1 passed／1310.79秒。T3-01與T3-05的E0工程範圍已重驗，其他30項不批次升級，詳見 [版本驗證](../VERIFICATION.md)。通用 Host／Home coding、真雲端家庭與固定產品更新／退版仍未完成。
+0.5.0 開發新增 CLI 先行的自動 onboarding：持久九步流程、桌面單次登入、官方最新 Hermes 相容性檢查、Hermes 原生 Codex OAuth、LINE／Telegram 配對碼、自動 HAOS 啟動及 HA 官方瀏覽器授權。這是 Owner 的新流程，不改六份原稿。當版CI為210 passed／3 skipped；精確0.5.0 ISO在一次性VM為1 passed／1310.79秒。T3-01與T3-05的E0工程範圍已重驗，其他30項不批次升級，詳見 [版本驗證](../VERIFICATION.md)。通用 Host／Home coding、真雲端家庭與固定產品更新／退版仍未完成。
 
-0.5.1 本輪補上跨服務 E2E 與恢復修正，本機完整回歸 **271 passed／2 skipped**；真 HAOS 另為 **1 passed**。測試含實際服務／CLI／MCP／Core 瀏覽器授權，但模型及 Host 副作用為 fixture，見 [審查](../reviews/2026-10-12-E2E-ARCHITECTURE.md)。新版 ISO 待獨立驗證，不覆蓋下列已通過的 0.5.0 精確媒體；32 案不批次升級。下一輪先補 Runner retention／停止恢復與真正 Host coding 修正交付。
+0.5.1 本輪補上跨服務 E2E 與恢復修正，本機完整回歸 **271 passed／2 skipped**；真 HAOS 另為 **1 passed**。測試含實際服務／CLI／MCP／Core 瀏覽器授權，但模型及 Host 副作用為 fixture，見 [審查](../reviews/2026-10-12-E2E-ARCHITECTURE.md)。最終 CI **271 passed／3 skipped**；修正版精確 ISO **1 passed／1493.94 秒**，完成最新版 Hermes、HAOS 冷還原與重啟。下列兩案僅更新 E0 工程證據；其餘 30 案不批次升級。下一輪先補 Runner retention／停止恢復與真正 Host coding 修正交付。
 
 ## 記錄規則
 
@@ -22,8 +22,8 @@
 | V3-01 | P0 / E0 / 整合 | implemented | 六原稿 hash 核對、history 與根文件同步；見 IMPORT.json |
 | V3-02 | P0 / E0 / A | in_progress | 真 pinned AIAgent／官方 MCP 及獨立 bridge 已實作、真容器 needs_auth 啟動已測；模型端點 fixture，Owner 真帳號未驗 |
 | V3-03 | P0 / E0→E1 / A | in_progress | Hermes Gateway→case/session/run、scope續接、撤權及UI已實作／測試；真 bot／現場身份重送未驗 |
-| V3-04 | P0 / E0 / B | implemented | E0工程救援範圍：精確ISO安裝後停止Controller，非sudo diagnostics/support可用、每筆版本0.5.0；E2 updater擴充未做。見[rescue](../../evidence/installed-rescue-laptop-amd64-0.5.0.json) |
-| V3-05 | P0 / E0 / C | implemented | E0工程媒體範圍：1bc2ed0精確ISO完整VM安裝／外層firstboot／四image IDs／救援／最新Hermes啟用與重啟通過；Owner實體laptop未驗。見[安裝](../../evidence/linux-install-0.5.0.json) |
+| V3-04 | P0 / E0 / B | implemented | E0工程救援範圍：精確ISO安裝後停止Controller，非sudo diagnostics/support可用、每筆版本0.5.1；E2 updater擴充未做。見[rescue](../../evidence/installed-rescue-laptop-amd64-0.5.1.json) |
+| V3-05 | P0 / E0 / C | implemented | E0工程媒體範圍：c6735fe精確ISO完整VM安裝／外層firstboot／四image IDs／救援／最新Hermes啟用與重啟通過；Owner實體laptop未驗。見[安裝](../../evidence/linux-install-0.5.1.json) |
 | V3-06 | P0 / E1 / A | in_progress | 固定MCP七tools、case ACL、短期能力、blocked job handle／去重已實作；沒有接上可執行cloud worker |
 | V3-07 | P0 / E1 / B | in_progress | 19項sandbox回歸與真安裝VM的ext4 quota／獨立clone／patch-test／取消清理通過；仍為離線Python，provider egress／真cloud CLI未交付，能力blocked |
 | V3-08 | P0 / E1 / A+B | in_progress | bridge真程序停止、stop_unconfirmed、重啟／dispatch撤權、sandbox writer fencing及去重有測試；Owner/BAT真接手未做 |
@@ -42,11 +42,11 @@
 
 | ID | 案例 | 階段 | 結果 | 驗收證據 |
 |---|---|---|---|---|
-| T3-01 | 一次性 VM 安裝待交付媒體 | E0 交付前 | passed | 1bc2ed0／ISO 5d798868…完整VM 1 passed／1310.79s，安裝版本／四images／outer-only firstboot／桌面單次登入／Web／診斷可用；一次性磁碟與key，未觸其他磁碟。見[結果](../../evidence/linux-install-0.5.0.json)及[JUnit](../../evidence/linux-install-0.5.0.xml) |
+| T3-01 | 一次性 VM 安裝待交付媒體 | E0 交付前 | passed | c6735fe／ISO 5363f9e9…完整VM 1 passed／1493.94s，安裝版本／四images／outer-only firstboot／桌面單次登入／Web／診斷可用；一次性磁碟與key，未觸其他磁碟。見[結果](../../evidence/linux-install-0.5.1.json)及[JUnit](../../evidence/linux-install-0.5.1.xml) |
 | T3-02 | Owner laptop 真安裝與只選外層 | E0 現場 | not_run | — |
 | T3-03 | Hermes 真實登入並回答一個工具查詢 | E1 | not_run | — |
 | T3-04 | 保持 HAOS 未啟動，問主機狀態 | E1 | not_run | — |
-| T3-05 | 關閉或故障 Controller 的測試實例 | E0 救援，E2 擴充 | passed | E0独立救援範圍：Controller停止時非sudo diagnostics與support可用，每筆版本0.5.0、無模型。見[rescue](../../evidence/installed-rescue-laptop-amd64-0.5.0.json)；E2 updater／退版擴充未做 |
+| T3-05 | 關閉或故障 Controller 的測試實例 | E0 救援，E2 擴充 | passed | E0独立救援範圍：Controller停止時非sudo diagnostics與support可用，每筆版本0.5.1、無模型。見[rescue](../../evidence/installed-rescue-laptop-amd64-0.5.1.json)；E2 updater／退版擴充未做 |
 | T3-06 | 同一 Web／bot 的身份與訊息重送 | E1 | not_run | — |
 | T3-07 | Hermes 派 Host Worker 研究 | E1 | not_run | — |
 | T3-08 | Host Worker 修實際 UI 問題 | E1 | not_run | — |

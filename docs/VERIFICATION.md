@@ -1,12 +1,29 @@
 # Agentic Smart Home 0.5.1 E2E 與恢復驗證
 
-2026-10-12，本機完整 `pytest-disktmp uv run pytest -q --real-ha --containers` 回歸 **271 passed、2 skipped，194.16 秒**，見 [JUnit](../evidence/pytest-0.5.1.xml)。兩個獨立大型案例未在此命令啟動：真 HAOS 已另跑 **1 passed／84.78 秒**；首輪新版 ISO 安裝因 installed.json 仍寫舊版而失敗，已修正並待重建媒體重新驗證。0.5.0 媒體證據保留於下方，不轉記成新版驗收。
+2026-10-12，本機完整 `pytest-disktmp uv run pytest -q --real-ha --containers` 回歸 **271 passed、2 skipped，194.16 秒**，見 [JUnit](../evidence/pytest-0.5.1.xml)。兩個獨立大型案例另外執行：真 HAOS **1 passed／84.78 秒**；修正版 0.5.1 精確 ISO 安裝 **1 passed／1493.94 秒**。首輪媒體版本標記失敗保留於本頁末；修正後使用新 digest 完整重驗。
 
-GitHub [CI 38222178550](https://github.com/teddashh/agentic-smart-home/actions/runs/38222178550) 在同一 source commit `9ae7afcdc7436bb5352d1021d17456c2761a14cc` 通過 **270 passed／3 skipped／313.453 秒**，見 [CI 記錄](../evidence/github-ci-0.5.1.json) 和 [JUnit](../evidence/pytest-0.5.1-github.xml)。CI 另外跳過 UID1000 專用桌面單元案例；實際跨程序票據及新增 composed E2E 均通過，後者 **59.64 秒**，見 [CI E2E](../evidence/onboarding-e2e-0.5.1-github.json)。CI ZIP 的 395 檔 manifest 全數驗證，與媒體來源的 141 份檔案全部相同，見 [核對](../evidence/ci-media-match-0.5.1.json)。
+GitHub [CI 38223849292](https://github.com/teddashh/agentic-smart-home/actions/runs/38223849292) 在同一 source commit `c6735fe79c80a669f55e3f119c6f48d5e1e6fed7` 通過 **271 passed／3 skipped／319.254 秒**，見 [CI 記錄](../evidence/github-ci-0.5.1.json) 和 [JUnit](../evidence/pytest-0.5.1-github.xml)。CI 另外跳過 UID1000 專用桌面單元案例；實際跨程序票據及新增 composed E2E 均通過，後者 **60.44 秒**，見 [CI E2E](../evidence/onboarding-e2e-0.5.1-github.json)。CI ZIP 的 405 檔 manifest 全數驗證，與媒體來源的 141 份檔案全部相同，見 [核對](../evidence/ci-media-match-0.5.1.json)。
 
 新增的 [跨服務 E2E](../evidence/onboarding-e2e.json) 使用真正 Chromium、Controller HTTP、TLS Runner、真 Codex、Hermes AIAgent／MCP、隔離 Core 與原生瀏覽器 OAuth；涵蓋 CLI 選擇／登入、Hermes 獨立驗證、Web 通道、HA 引導、Controller 重啟不重派、家庭授權，以及同 case 的 MCP 證據／對話刷新。最後將 Controller／Runner／Hermes 資源限制對齊正式 compose 後，該條 E2E 另跑 **1 passed／45.37 秒**，並記錄實際 image IDs、記憶體／CPU／PID 限制及 OOM 狀態。沒有 browser API interception。模型回覆、Host 安裝／VM effects 是明示 fixture，原生 HA wizard 的初始化透過真 Core API 完成；真雲端同意、實體 laptop／設備、真 bot 仍未執行。
 
 修正涵蓋整組 CLI 停止確認、重複取消／斷線、停止未確認的 Controller／Gateway 呈現、配對回覆遺失、異常 FIFO、pause／HA owner 競爭、登入表單、Hermes readback 期限、HA callback 與 Telegram 初始配對。完整缺陷與未完成功能見 [E2E／架構審查](reviews/2026-10-12-E2E-ARCHITECTURE.md)。Runner idle retention 與可信 quarantine 解除仍是已知缺口；Host／Home coding、preview、固定更新／退版尚未完成，E1／E2 未升級。
+
+## 0.5.1 精確媒體與安裝
+
+媒體與最終 CI 來源均為 `c6735fe79c80a669f55e3f119c6f48d5e1e6fed7`。後續文件／證據提交不重建已驗證媒體；[build](../evidence/build-0.5.1.json) 與 [release](../evidence/release-0.5.1.json) 保存 digest、四個 image IDs 與驗收限制。
+
+| 媒體 | Bytes | SHA-256 |
+|---|---|---|
+| `agentic-home-0.5.1-laptop-amd64.iso` | 5387517952 | `5363f9e9b96dcfe7f7e3516b7533a2f70d18b8e63f5102a1569b01de070a7477` |
+| `agentic-home-0.5.1-linux-amd64.tar` | 1308037120 | `89be112be7bbfd5cfb9857783cc5d70eec7abce35e9f2519832b25d49cbb6560` |
+
+一次性 VM 實際完成 Ubuntu 24.04.5 安裝、外層 firstboot、四映像核對、桌面單次登入／重播拒絕、Controller 停止時的非 sudo 救援、離線 sandbox、最新版 Hermes 安裝、HAOS 啟動、冷快照還原與外層重啟。三次都讀到真 Core onboarding JSON list；重開後 Hermes image 不變。見 [安裝結果](../evidence/linux-install-0.5.1.json)、[JUnit](../evidence/linux-install-0.5.1.xml)、[救援](../evidence/installed-rescue-laptop-amd64-0.5.1.json)。
+
+官方來源在本次安裝解析為 Hermes `3569e8461ea721623fa16e6f01fb636157989fe6`，完成下載、建置、相容性檢查、啟用與 runtime 版本讀回，見 [安裝 Hermes](../evidence/installed-hermes-laptop-amd64-0.5.1.json)。同一上游 commit 獨立建置後，原始 runtime／MCP／OAuth helper suite **21 passed／29.805 秒**，見 [候選記錄](../evidence/latest-hermes-3569.json) 及 [JUnit](../evidence/latest-hermes-3569.xml)；兩次 image IDs 各自記錄，模型／OAuth HTTP 為 fixture。獨立驗證首次改測試埠被 Controller 固定 Host allowlist 拒絕，原失敗保留；同 image 改回未修改的測試即通過，未修改產品。這是初次安裝流程，尚非使用中產品的通用候選更新／退版。
+
+安裝測試無真帳號，直接呼叫固定 Host 動作；跨服務 Web 測試另外驗證自動串接，不能合稱真雲端端到端 onboarding。公共 ISO 保留網路、磁碟與 Linux 身份選擇，沒有預選清除磁碟或內嵌測試 key，見 [seed](../evidence/public-seed-0.5.1.json)。TAR 未另測既有主機就地安裝；大型媒體位於本機 `dist/`，不存入 Git。測試 VM、臨時 key 與磁碟 basetemp 已移除。
+
+T3-01 與 T3-05 僅更新 E0 工程媒體／救援證據；其餘 30 案仍為 `not_run`，見 [Plan v3 帳本](v3/PROGRESS.md)。Owner laptop、真雲端 OAuth／bot、HAOS App coding、實體設備與 72 小時觀察未執行。
 
 # 0.5.0 自動 onboarding 驗證（歷史）
 
@@ -201,4 +218,4 @@ pytest-disktmp uv run pytest -q tests/test_linux_install.py --linux-install
 
 ## 0.5.1 首輪媒體版本紀錄失敗
 
-首輪 ISO `1b8ddb6c…` 在 Ubuntu 安裝及 firstboot 完成後，installed.json 回報0.5.0；**1 failed／659.01 秒**，[原始 JUnit](../evidence/linux-install-0.5.1-version-failure.xml)、[失敗 build](../evidence/build-0.5.1-before-version-fix.json)。服務 image tags 為0.5.1，但版本 manifest 不能宣称成功。Installer 已改用 Host VERSION，ISO label 由版本導出，kit check 核對 Python／App／Web／compose／packager 版本；30 項 Host／bootstrap／support 回歸通過。此後必須使用新 digest 重跑完整安裝，不能沿用舊 ISO。
+首輪 ISO `1b8ddb6c…` 在 Ubuntu 安裝及 firstboot 完成後，installed.json 回報0.5.0；**1 failed／659.01 秒**，[原始 JUnit](../evidence/linux-install-0.5.1-version-failure.xml)、[失敗 build](../evidence/build-0.5.1-before-version-fix.json)。服務 image tags 為0.5.1，但版本 manifest 不能宣稱成功。Installer 已改用 Host VERSION，ISO label 由版本導出，kit check 核對 Python／App／Web／compose／packager 版本；30 項 Host／bootstrap／support 回歸通過。修正版新 ISO `5363f9e9…` 隨後完整重跑通過 **1 passed／1493.94 秒**，未沿用失敗媒體的驗收。

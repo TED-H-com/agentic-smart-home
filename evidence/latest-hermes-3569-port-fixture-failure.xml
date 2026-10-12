@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="21" time="40.687" timestamp="2026-10-12T04:55:37.597295-04:00" hostname="castleridge-ai1"><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_native_oauth_is_separate_idempotent_and_requires_real_run" time="0.074" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_native_oauth_cancel_fences_before_erasing_store" time="0.017" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_native_oauth_uncertain_stop_quarantines_login_and_store" time="0.018" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_runtime_auth_and_no_secret_echo" time="0.019" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_runtime_session_idempotency_scope_and_history" time="0.154" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_runtime_cancel_fences_before_account_change[logout]" time="0.029" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_runtime_cancel_fences_before_account_change[retention]" time="0.048" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_runtime_restart_never_replays_and_environment_has_no_ambient_secrets" time="0.016" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_runtime_context_expires_even_when_recently_used" time="0.018" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_runtime_reducing_retention_deletes_history_and_preserves_tombstones" time="0.032" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_runtime_stops_real_subprocess_before_cancelled" time="0.146" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_runtime_kills_term_ignoring_descendant_after_leader_exit" time="0.088" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_unconfirmed_stop_blocks_replacement_and_survives_restart" time="0.056" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_runtime_revoked_credentials_cannot_resume_or_leak" time="0.031" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_hermes_builtin_dispatch_is_refused_even_if_model_invents_tools" time="0.000" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_real_pinned_hermes_uses_only_controller_mcp[mcp_roundtrip]" time="7.551" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_real_pinned_hermes_uses_only_controller_mcp[provider_401]" time="5.314" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_real_pinned_hermes_uses_only_controller_mcp[actual_controller_mcp]" time="10.513"><failure message="AssertionError: ({'answer': '', 'history': [], 'error': 'runtime_unavailable', 'usage': None}, '')&#10;assert 'runtime_unavailable' is None">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-045537-6DknuJ/bt/test_real_pinned_hermes_uses_o2')
+request = &lt;FixtureRequest for &lt;Function test_real_pinned_hermes_uses_only_controller_mcp[actual_controller_mcp]&gt;&gt;
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x77d6b2738a60&gt;
+auth_error = False, controller = True, native = False
+
+    @pytest.mark.parametrize("auth_error,controller,native", [(False, False, False), (True, False, False), (False, True, False), (False, False, True)], ids=["mcp_roundtrip", "provider_401", "actual_controller_mcp", "native_codex_oauth"])
+    def test_real_pinned_hermes_uses_only_controller_mcp(tmp_path, request, monkeypatch, auth_error, controller, native):
+        if not request.config.getoption("--containers") and not os.environ.get("AGENTIC_HERMES_TEST_PYTHON"):
+            pytest.skip("Real pinned Hermes requires --containers or explicit isolated test interpreter/source")
+        home = tmp_path / "hermes-home"
+        home.mkdir()
+        (home / ".hermes").mkdir()
+        (home / "tmp").mkdir()
+        payload = {"run_id": uuid.uuid4().hex, "session_id": uuid.uuid4().hex, "message": "Use host.status to diagnose the host", "history": [], "model": "fixture/model", "api_key": API_KEY, "mcp_token": MCP_TOKEN}
+        with protocol_server(auth_error, controller, native) as (url, observed), controller_mcp_server(tmp_path, monkeypatch) if controller else nullcontext({"url": url + "/mcp", "token": MCP_TOKEN}) as mcp:
+            payload["mcp_token"] = mcp["token"]
+            name = "agentic-hermes-test-" + uuid.uuid4().hex[:12]
+            if python := os.environ.get("AGENTIC_HERMES_TEST_PYTHON"):
+                command = [python, "-m", "agentic_hermes.child"]
+                env = {"PATH": "/usr/bin:/bin", "HOME": str(home), "HERMES_HOME": str(home / ".hermes"), "TMPDIR": str(home / "tmp"), "PYTHONPATH": str(Path(__file__).parents[1] / "hermes") + ":" + os.environ["AGENTIC_HERMES_TEST_UPSTREAM"], "AGENTIC_MCP_URL": mcp["url"], "AGENTIC_PROVIDER_URL": url + "/v1"}
+            else:
+                command = ["docker", "run", "--rm", "--name", name, "-i", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "--network=host", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{home}:/scratch", "-e", "HOME=/scratch", "-e", "HERMES_HOME=/scratch/.hermes", "-e", "TMPDIR=/scratch/tmp", "-e", "PYTHONPATH=/app:/opt/hermes", "-e", "AGENTIC_MCP_URL=" + mcp["url"], "-e", "AGENTIC_PROVIDER_URL=" + url + "/v1", "--entrypoint=python", os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.5.1"), "-m", "agentic_hermes.child"]
+                env = None
+            if native:
+                payload.update(provider="openai-codex", model="gpt-6-astra", api_key="")
+                command[-2:] = ["-c", "from hermes_cli.auth_codex import _save_codex_tokens; "
+                    f"_save_codex_tokens({{'access_token':{CODEX_TOKEN!r},'refresh_token':'synthetic-native-refresh'}}); "
+                    "from agentic_hermes.child import main; main()"]
+            try:
+                result = subprocess.run(command, input=json.dumps(payload), text=True, capture_output=True, env=env, timeout=90)
+            finally:
+                if not python:
+                    subprocess.run(["docker", "rm", "-fv", name], capture_output=True, check=False)
+            assert result.returncode == 0, result.stderr[-3000:]
+            body = json.loads(result.stdout)
+            if auth_error:
+                assert body["error"] == "needs_reauth", (body, result.stderr[-2000:])
+                assert body["answer"] == "" and body["history"] == []
+                assert observed["model_calls"] and not observed["tool_calls"]
+                assert API_KEY not in json.dumps(body)
+                return
+&gt;           assert body["error"] is None, (body, result.stderr[-3000:])
+E           AssertionError: ({'answer': '', 'history': [], 'error': 'runtime_unavailable', 'usage': None}, '')
+E           assert 'runtime_unavailable' is None
+
+build/hermes-verify-3569-1aa571f6ded5/verification/test_hermes_runtime.py:651: AssertionError</failure></testcase><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_real_pinned_hermes_uses_only_controller_mcp[native_codex_oauth]" time="5.232" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_packaged_runtime_starts_nonroot_without_cloud_credentials" time="2.307" /><testcase classname="build.hermes-verify-3569-1aa571f6ded5.verification.test_hermes_runtime" name="test_offline_candidate_gate_and_real_upstream_device_flow" time="8.879" /></testsuite></testsuites>

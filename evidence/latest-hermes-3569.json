@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "kind": "hermes_exact_upstream_candidate_verification",
+  "product_version": "0.5.1",
+  "product_source_commit": "c6735fe79c80a669f55e3f119c6f48d5e1e6fed7",
+  "verified_at": "2026-10-12T08:58:10.288887+00:00",
+  "source": {
+    "repository": "https://github.com/NousResearch/hermes-agent",
+    "commit": "3569e8461ea721623fa16e6f01fb636157989fe6",
+    "archive_url": "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/3569e8461ea721623fa16e6f01fb636157989fe6",
+    "sha256": "91c35e9245d565d59da50185d1d9d03baf5419fd5ebb187f3b313da61e7322b1"
+  },
+  "image": {
+    "tag": "agentic-hermes-verification:3569-1aa571f6ded5",
+    "id": "sha256:3eba13026eb71d27b16e71b60cf657ee10c7686e778b966af19aa034c98e4be1",
+    "embedded_commit": "3569e8461ea721623fa16e6f01fb636157989fe6"
+  },
+  "build": {
+    "context_files": 15,
+    "context_manifest_sha256": "0656429cf7697d85ab2b1719e24f2ee6f5d94a526474acf5a28bc7ac0f809fc2",
+    "context_manifest": {
+      ".dockerignore": "87ff6b6bd915e44c20b674ff1b478b0637ad02ba5135da1a9d27dae99c85c791",
+      "Dockerfile": "229e7cc0a1d811116b3ff297cdbd370e2a6b7ff80a8bdafbd9713689bae6c2c7",
+      "HERMES-LICENSE": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6",
+      "README.md": "2786b4599b7cdf60f443f5c226661921ebb1249c7a9294355aa665e641ca3c91",
+      "agentic_hermes/__init__.py": "a1e6e77ff2aacf71e428db739e81a78f5b0095086a8e49d4d8d21ee6c5265fcb",
+      "agentic_hermes/app.py": "c1a68afb7c29853b4815e5c721367079192178ef68834d46b59edad525638930",
+      "agentic_hermes/child.py": "e0942598407449006f6caf68fc5df92507f3210d3d465b6e36f39d83963bb629",
+      "agentic_hermes/models.py": "2231785f382a6e603c10bf7203519c96b4ef17425857cbffdd4affa6c8a4a10c",
+      "agentic_hermes/oauth.py": "a7cf74501dd1535d5cc5fc9ccbbaee7858a6b700962d0781d797f7fdedf2edb2",
+      "agentic_hermes/oauth_child.py": "1190fedce3a16ad7b4c28d0712cc02ebe05ac965514a654fdac5a75c3819dca3",
+      "compatibility_probe.py": "54f4b91120d9fe18e4e02d25079730d3dbfbf31a76f29d089a289bc19b6dd53e",
+      "fetch_upstream.py": "5ca58043b59dad0589d2e89c7c3269ecd659955ba1bcbd3294b24c140b66f8cb",
+      "hermes.lock.json": "6b1b89b593efd51247eb08f5b1eebd9ff31b9cc56d39c4f324da9312545b73e6",
+      "requirements.in": "4cf7915c1a2b150f85186668aa3bbb585e273e251a10b2590605563d86791a39",
+      "requirements.txt": "e3a114f9181cc94128f4ed29b8cd405b8d0c5ce477d1d3c6c050180da27240d6"
+    },
+    "requirements_sha256": "e3a114f9181cc94128f4ed29b8cd405b8d0c5ce477d1d3c6c050180da27240d6",
+    "baseline_lock_sha256": "d2db4cf2b4984ca3a1418d59113fcd827336009cfc998ed23ff1638158d8c4fa",
+    "baseline_lock_unchanged": true,
+    "dependency_changes": false,
+    "context_differences": [
+      "hermes.lock.json commit/archive_url/sha256 only"
+    ],
+    "archive_bytes": 81193500
+  },
+  "test": {
+    "command": "AGENTIC_HERMES_IMAGE=agentic-hermes-verification:3569-1aa571f6ded5 pytest-disktmp uv run pytest -q tests/test_hermes_runtime.py --containers --junitxml=evidence/latest-hermes-3569.xml",
+    "tests": 21,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "duration_seconds": 29.805,
+    "junit": "evidence/latest-hermes-3569.xml",
+    "junit_sha256": "b8303dd789c5f1cd277ae4c4eef7de47a73d324fdbe353f4c6374c95169da367",
+    "test_source_sha256": "78eb88303ef2987ba47a31cd7fd2d18d71956a37eac80d1d0c3dc91f2d171e0a",
+    "test_source_unchanged": true,
+    "container_cases": 6,
+    "local_bridge_cases": 15
+  },
+  "scope": {
+    "runtime_location": "independent_candidate_containers_and_disk_local_bridge_fixtures",
+    "real_hermes_sdk": "passed",
+    "actual_controller_mcp_protocol": "passed",
+    "openrouter_compatible_model_transport": "local_protocol_fixture",
+    "native_codex_responses_transport": "local_protocol_fixture",
+    "native_device_oauth_helpers": "official_upstream_helpers_mock_http_transport",
+    "provider_401_failure": "passed",
+    "offline_compatibility_probe": "passed",
+    "nonroot_start_without_cloud_credentials": "passed",
+    "process_group_fencing": "passed",
+    "credential_epoch_and_retention_isolation": "passed",
+    "installed_security_dependency_probes": "passed",
+    "real_cloud_account": "not_run",
+    "real_user_login": "not_run",
+    "physical_household": "not_run",
+    "iso_install_and_activation": "not_run_by_this_verification"
+  },
+  "earlier_harness_attempt": {
+    "tests": 21,
+    "passed": 20,
+    "failed": 1,
+    "junit": "evidence/latest-hermes-3569-port-fixture-failure.xml",
+    "reason": "Copied fixture changed MCP listener and URL from8097 to48209; actual Controller intentionally rejected the Host header because its allowlist is fixed to8097. Rerun used unchanged tests after confirming8097 free. No product source fix or image rebuild was needed.",
+    "not_an_upstream_regression": true
+  },
+  "cleanup": {
+    "candidate_containers_remaining": 0,
+    "test_volumes_remaining": 0,
+    "temporary_build_context_removed": true,
+    "candidate_image_retained_for_review": true
+  }
+}

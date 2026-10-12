@@ -2,13 +2,13 @@
   "kind": "real_linux_install_nested_kvm",
   "profile": "laptop-amd64",
   "base": "Ubuntu 24.04.5",
-  "iso_sha256": "5d79886885253a0799d2d21a244ba79648e4c4a570fe2b7e701c2a07057d6430",
-  "installed_version": "0.5.0",
+  "iso_sha256": "5363f9e9b96dcfe7f7e3516b7533a2f70d18b8e63f5102a1569b01de070a7477",
+  "installed_version": "0.5.1",
   "images": {
-    "agentic-home-controller:0.5.0": "sha256:028e6b4aeb5765e48a149be1ff5e68b3244a5c8b752b1b266424b7381da71add",
-    "agentic-home-runner:0.5.0": "sha256:e419cb4884b19190e1719fa3467ed42641d661fbfd36f9c625b3bd8f9c7fdd8b",
-    "agentic-home-linejs:0.5.0": "sha256:e7e8d9a14aea3469880f6d1178dca72f1edc2bd815c1ef69ed5fd20f30a5d30b",
-    "agentic-home-hermes:0.5.0": "sha256:b8953a4c04126afc69c9685127499f389daa607e37420a686899ef552a1a80e8"
+    "agentic-home-controller:0.5.1": "sha256:f28395fec7319c351f070181efdce523afbf1e4d82f3dfa9ecbdee0add364dfc",
+    "agentic-home-runner:0.5.1": "sha256:1bed46cb269af63ce705248a0981ee7545be3ec2d7c6e4feab0f103a36994c39",
+    "agentic-home-linejs:0.5.1": "sha256:7c78ad868d301c4af9c287c87a0e2513c9b45cbf2dd59443d1ec4881fdfb3b54",
+    "agentic-home-hermes:0.5.1": "sha256:f19207c64956aa8931cc836fb5d6608fc026c5e9d896acc4fcd9f05d87149f91"
   },
   "runtime_location": "disposable_outer_linux_vm",
   "model_backend": "none",
@@ -26,15 +26,15 @@
   "bootstrap_get_has_no_side_effect": "passed",
   "latest_hermes": {
     "state": "ready",
-    "commit": "41cd7b649d0980c57620035af736f91be10dae79",
+    "commit": "3569e8461ea721623fa16e6f01fb636157989fe6",
     "source": "latest",
-    "image_id": "sha256:c8a9c5371a280debd91dd1d562d6bde520a04deeafc841b9d60e7408941425a7",
+    "image_id": "sha256:9ffa506f091b1965b48466be380da50467dff3c7a328c0a4a634497820256788",
     "runtime_revision_readback": "passed",
     "persists_after_reboot": true
   },
   "outer_reboot_haos_autostart": "passed",
   "ha_readiness_check": "real Core onboarding API JSON list after startup, restore and outer reboot",
-  "duration_seconds": 1306,
+  "duration_seconds": 1491,
   "installer_inputs": "Disposable disk serial + ephemeral SSH key supplied by fixture",
   "physical_laptop": "not_run",
   "cloud_login": "not_run"

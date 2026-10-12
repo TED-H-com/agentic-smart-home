@@ -1,0 +1,63 @@
+{
+  "version": "0.5.1",
+  "source_commit": "c6735fe79c80a669f55e3f119c6f48d5e1e6fed7",
+  "profile": "laptop-amd64",
+  "artifacts": {
+    "agentic-home-0.5.1-laptop-amd64.iso": {
+      "bytes": 5387517952,
+      "sha256": "5363f9e9b96dcfe7f7e3516b7533a2f70d18b8e63f5102a1569b01de070a7477"
+    },
+    "agentic-home-0.5.1-linux-amd64.tar": {
+      "bytes": 1308037120,
+      "sha256": "89be112be7bbfd5cfb9857783cc5d70eec7abce35e9f2519832b25d49cbb6560"
+    }
+  },
+  "images": {
+    "agentic-home-controller:0.5.1": "sha256:f28395fec7319c351f070181efdce523afbf1e4d82f3dfa9ecbdee0add364dfc",
+    "agentic-home-runner:0.5.1": "sha256:1bed46cb269af63ce705248a0981ee7545be3ec2d7c6e4feab0f103a36994c39",
+    "agentic-home-linejs:0.5.1": "sha256:7c78ad868d301c4af9c287c87a0e2513c9b45cbf2dd59443d1ec4881fdfb3b54",
+    "agentic-home-hermes:0.5.1": "sha256:f19207c64956aa8931cc836fb5d6608fc026c5e9d896acc4fcd9f05d87149f91"
+  },
+  "installed_validation": "passed",
+  "installed_evidence": "evidence/linux-install-0.5.1.json",
+  "junit": "evidence/linux-install-0.5.1.xml",
+  "junit_result": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "1",
+    "time": "1493.934",
+    "timestamp": "2026-10-12T04:31:02.835135-04:00",
+    "hostname": "castleridge-ai1"
+  },
+  "latest_hermes": {
+    "state": "ready",
+    "commit": "3569e8461ea721623fa16e6f01fb636157989fe6",
+    "source": "latest",
+    "image_id": "sha256:9ffa506f091b1965b48466be380da50467dff3c7a328c0a4a634497820256788",
+    "runtime_revision_readback": "passed",
+    "persists_after_reboot": true
+  },
+  "ci": "evidence/github-ci-0.5.1.json",
+  "ci_media_match": "evidence/ci-media-match-0.5.1.json",
+  "composed_e2e": "evidence/onboarding-e2e-0.5.1-github.json",
+  "architecture_review": "docs/reviews/2026-10-12-E2E-ARCHITECTURE.md",
+  "accepted_product_cases": {
+    "T3-01": "engineering disposable VM media only",
+    "T3-05": "E0 console rescue only; E2 updater recovery incomplete"
+  },
+  "remaining_product_cases": 30,
+  "not_run": [
+    "physical laptop",
+    "real cloud OAuth",
+    "real LINE/Telegram/Discord accounts",
+    "Host/Home autonomous coding",
+    "native HA setup wizard clicks",
+    "physical devices",
+    "candidate updater/rollback",
+    "72h observation"
+  ],
+  "latest_hermes_independent_verification": "evidence/latest-hermes-3569.json",
+  "source_audit": "evidence/source-audit-0.5.1.json"
+}
