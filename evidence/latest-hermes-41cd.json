@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "kind": "hermes_exact_upstream_candidate_verification",
+  "product_version": "0.5.0",
+  "verified_at": "2026-10-12T06:21:50.416183+00:00",
+  "source": {
+    "repository": "https://github.com/NousResearch/hermes-agent",
+    "commit": "41cd7b649d0980c57620035af736f91be10dae79",
+    "archive_url": "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/41cd7b649d0980c57620035af736f91be10dae79",
+    "sha256": "d3a66090c4c371ae5c2062aa756c79a68397d7a1601119d8fc4f25a3eacc1b4c"
+  },
+  "image": {
+    "tag": "agentic-hermes-verification:41cd-6ebae20e4872",
+    "id": "sha256:99b9d2684ef9c4c5e1ab5c6d21f8163e22b749f9f3ddbef2e728f6f5cd8dba79",
+    "embedded_commit": "41cd7b649d0980c57620035af736f91be10dae79"
+  },
+  "build": {
+    "context_files": 15,
+    "context_manifest_sha256": "8995abc019ff0711f0581af61d0fb4b672f584a6ad65dff6fbbcbe2da9868113",
+    "requirements_sha256": "e3a114f9181cc94128f4ed29b8cd405b8d0c5ce477d1d3c6c050180da27240d6",
+    "baseline_lock_sha256": "d2db4cf2b4984ca3a1418d59113fcd827336009cfc998ed23ff1638158d8c4fa",
+    "baseline_lock_unchanged": true,
+    "dependency_changes": false
+  },
+  "test": {
+    "command": "AGENTIC_HERMES_IMAGE=agentic-hermes-verification:41cd-6ebae20e4872 pytest-disktmp uv run pytest -q tests/test_hermes_runtime.py --containers --junitxml=evidence/latest-hermes-41cd.xml",
+    "tests": 21,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "duration_seconds": 74.716,
+    "junit": "evidence/latest-hermes-41cd.xml",
+    "junit_sha256": "97640cf27bd1c8b218a61bb1364ae12ea6251db3415aaab1a1ab072404b25b12",
+    "container_cases": 6,
+    "local_bridge_cases": 15
+  },
+  "scope": {
+    "runtime_location": "independent_candidate_containers_and_disk_local_bridge_fixtures",
+    "real_hermes_sdk": "passed",
+    "actual_controller_mcp_protocol": "passed",
+    "openrouter_compatible_model_transport": "local_protocol_fixture",
+    "native_codex_responses_transport": "local_protocol_fixture",
+    "native_device_oauth_helpers": "official_upstream_helpers_mock_http_transport",
+    "provider_401_failure": "passed",
+    "offline_compatibility_probe": "passed",
+    "nonroot_start_without_cloud_credentials": "passed",
+    "process_group_fencing": "passed",
+    "credential_epoch_and_retention_isolation": "passed",
+    "installed_security_dependency_probes": "passed",
+    "real_cloud_account": "not_run",
+    "real_user_login": "not_run",
+    "physical_household": "not_run",
+    "iso_install_and_activation": "not_run_by_this_verification"
+  },
+  "cleanup": {
+    "candidate_containers_remaining": 0,
+    "test_volumes_remaining": 0,
+    "temporary_build_context_removed": true,
+    "candidate_image_retained_for_review": true
+  }
+}

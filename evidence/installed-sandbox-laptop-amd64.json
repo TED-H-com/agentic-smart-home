@@ -10,8 +10,8 @@
   "E1": "not_run",
   "E2": "not_run",
   "result": "passed",
-  "installed_release": "0.4.0",
-  "runner_image_id": "sha256:669d1474ab8083186b282a3dd785093a7ac1de24c42d4121f5afac0a17ee75d3",
+  "installed_release": "0.5.0",
+  "runner_image_id": "sha256:e419cb4884b19190e1719fa3467ed42641d661fbfd36f9c625b3bd8f9c7fdd8b",
   "quota_job": {
     "state": "succeeded",
     "exit_code": 0,
@@ -25,7 +25,7 @@
     "test_exit_code": 0,
     "errno": 28,
     "filesystem_capacity_bytes": 62869504,
-    "written_bytes": 60252160,
+    "written_bytes": 60248064,
     "largest_file_bytes": 1048576,
     "individual_file_limit_bytes": 16777216,
     "observed_from": "host_container_in_disposable_outer_vm",
@@ -44,7 +44,7 @@
     },
     {
       "name": "result.json",
-      "sha256": "5d10dc0f6089e402426d6be9ffc414660851846d217dd93925c6866471ed3971",
+      "sha256": "b3cf1a81c617453c34af36b7666e92da22f95ad94669185fa6f5e14c58bf771d",
       "size": 255
     }
   ],
@@ -61,5 +61,5 @@
     "Outer disposable VM only; no HAOS App, hardware or household validation."
   ],
   "cleanup": "passed",
-  "duration_seconds": 2.1
+  "duration_seconds": 2.7
 }

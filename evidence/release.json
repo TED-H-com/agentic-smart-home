@@ -1,172 +1,113 @@
 {
-  "version": "0.4.0",
+  "version": "0.5.0",
   "stage": "technical_preview",
   "media": "verified_in_disposable_vm",
-  "regression": {
-    "passed": 145,
-    "skipped": 2,
-    "environment": "GitHub ubuntu-24.04",
-    "source_commit": "cb11ffd8c0d3eb48a9854fd51add030a1df936e9",
-    "evidence": "github-ci.json",
-    "seconds": 152.424,
-    "junit": "pytest-0.4.0-github.xml"
-  },
-  "cloud_login": "not_run",
-  "external_channel_messages": "not_run",
-  "physical_hardware": "not_run",
-  "host_cloud_coding": "disabled_pending_egress_adapter",
-  "home_app_coding": "not_implemented",
-  "fixed_update_rollback": "not_implemented",
-  "database_schema": 2,
-  "code_commit": "cb11ffd8c0d3eb48a9854fd51add030a1df936e9",
-  "recorded_at": "2026-10-12T04:50:46.666782+00:00",
+  "recorded_at": "2026-10-12T06:24:50.379015+00:00",
+  "media_source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+  "verification_commit": "5d99ea80a04ff19a530d438f68e64e83716df71a",
+  "source_difference": "Tests and documentation only; packaged runtime matches both CI and media source.",
   "artifacts": {
-    "agentic-home-0.4.0-laptop-amd64.iso": {
-      "sha256": "44d163dba7ff629cc287213cbbb9a4836381d24e45531533efa0051ca9625868",
-      "bytes": 5387124736
+    "agentic-home-0.5.0-laptop-amd64.iso": {
+      "sha256": "5d79886885253a0799d2d21a244ba79648e4c4a570fe2b7e701c2a07057d6430",
+      "bytes": 5387452416
     },
-    "agentic-home-0.4.0-linux-amd64.tar": {
-      "sha256": "12d4426978674706810dcc4be73de40ea26542a15f869e032b864d3879f04229",
-      "bytes": 1307658240
+    "agentic-home-0.5.0-linux-amd64.tar": {
+      "sha256": "3cca4f664e6dc55549956981071aec434b70f400ccf4127d8aa0f52e6a7eea75",
+      "bytes": 1307934720
     }
   },
   "runner_zip": {
-    "sha256": "1e0636ef2d00e875050a0973a107fc31087caf26190408b29bb0eb24db5d129a",
-    "manifest_files": 16
+    "sha256": "1baef983fbeba54f79c230a5bad84a8c860ac8cdb223cf2ea6506169629b5f26",
+    "manifest_files": 18
   },
-  "github_ci": {
-    "conclusion": "success",
-    "createdAt": "2026-10-12T04:14:16Z",
-    "headSha": "cb11ffd8c0d3eb48a9854fd51add030a1df936e9",
-    "status": "completed",
-    "updatedAt": "2026-10-12T04:19:44Z",
-    "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38202961564",
-    "version": "0.4.0",
-    "test_result": "145 passed, 2 skipped",
-    "scope": "Corrected installed sandbox Docker JSON checks, bounded stop diagnostics and owner-readable installation metadata; same source used for rebuilt media.",
-    "skipped": "Large standalone HAOS VM and Linux installation. Installed Linux case verified separately.",
-    "junit": "pytest-0.4.0-github.xml",
-    "seconds": 152.424
+  "database_schema": 2,
+  "regression": {
+    "passed": 210,
+    "skipped": 3,
+    "seconds": 245.25,
+    "environment": "GitHub ubuntu-24.04",
+    "evidence": "github-ci-0.5.0-final.json",
+    "junit": "pytest-0.5.0-github-final.xml",
+    "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38210802532"
   },
-  "local_initial_regression": {
-    "passed": 141,
+  "local_regression": {
+    "passed": 210,
     "skipped": 2,
-    "evidence": "pytest-0.4.0.xml",
-    "skipped_cases": "Large HAOS VM and full Linux installation; Linux candidate validation is run separately.",
-    "source_commit": "a973a0782d138bb1e6bbd50ad3645b27872a3bf0"
+    "seconds": 188.68,
+    "junit": "pytest-0.5.0.xml"
   },
-  "hermes_security_regression": {
-    "passed": 16,
-    "evidence": "hermes-security-update.json"
-  },
-  "verification_commit": "cb11ffd8c0d3eb48a9854fd51add030a1df936e9",
-  "superseded_candidate": "release-0.4.0-before-sandbox-fix.json",
   "installed_validation": {
     "result": "passed",
-    "evidence": "linux-install.json",
-    "junit": "linux-install-0.4.0.xml",
-    "source_commit": "cb11ffd8c0d3eb48a9854fd51add030a1df936e9",
-    "seconds": 1566.791,
+    "evidence": "linux-install-0.5.0.json",
+    "junit": "linux-install-0.5.0.xml",
+    "seconds": 1310.767,
     "profile": "laptop-amd64",
-    "cleanup": "Test VM and unique disk basetemp removed",
-    "superseded_failures": [
-      "linux-install-0.4.0-support-fixture-failure.json",
-      "linux-install-0.4.0-sandbox-preflight-failure.json"
-    ]
+    "cleanup": "Owned VM container, ephemeral SSH key and unique disk basetemp removed",
+    "prior_attempt": "linux-install-0.5.0-auth-fixture-failure.json"
   },
-  "installed_fix_regression": {
-    "host_and_support": {
-      "passed": 20,
-      "seconds": 39.55,
-      "evidence": "installed-metadata-regression.xml"
-    },
-    "sandbox": {
-      "passed": 19,
-      "seconds": 31.95,
-      "evidence": "coding-sandbox-foundation.xml"
-    },
-    "previous_cancel_failure": "coding-sandbox-cancel-pressure.json",
-    "installed_ext4_quota": "passed"
+  "latest_hermes": {
+    "state": "ready",
+    "commit": "41cd7b649d0980c57620035af736f91be10dae79",
+    "source": "latest",
+    "image_id": "sha256:c8a9c5371a280debd91dd1d562d6bde520a04deeafc841b9d60e7408941425a7",
+    "runtime_revision_readback": "passed",
+    "persists_after_reboot": true,
+    "independent_compatibility_tests": 21,
+    "compatibility_evidence": "latest-hermes-41cd.json",
+    "model_backend": "loopback protocol fixture; installed lifecycle has no cloud account"
   },
   "bundle_verification": {
     "result": "passed",
-    "manifest_files": 126,
-    "runtime_files": 78,
-    "images": {
-      "agentic-home-controller:0.4.0": "sha256:e26625326972cc2f84dd08066459a5df74849cca097999a8145cbb2d10787b3e",
-      "agentic-home-runner:0.4.0": "sha256:669d1474ab8083186b282a3dd785093a7ac1de24c42d4121f5afac0a17ee75d3",
-      "agentic-home-linejs:0.4.0": "sha256:db23d533e59e9f9d4f37dff666724b5edc994600d81bdf5e0c838e5578a31014",
-      "agentic-home-hermes:0.4.0": "sha256:b201bb13052e4306b7dd5d1cafe16adcab540a074512bd6c498bb4b717e3c124"
-    }
+    "manifest_files": 140,
+    "source_files": 137,
+    "evidence": "build-0.5.0.json"
   },
-  "runtime_source_verification": {
+  "ci_runtime_source_verification": {
     "result": "passed",
-    "files": 78,
-    "evidence": "build.json",
-    "source_commit": "cb11ffd8c0d3eb48a9854fd51add030a1df936e9"
+    "files": 93,
+    "evidence": "ci-media-match-0.5.0-final.json"
   },
   "public_iso_seed": {
     "result": "passed",
+    "iso_sha256": "5d79886885253a0799d2d21a244ba79648e4c4a570fe2b7e701c2a07057d6430",
     "interactive_sections": [
       "network",
       "storage",
       "identity"
     ],
-    "has_embedded_identity": false,
-    "has_authorized_ssh_keys": false,
-    "has_test_disk_serial": false,
-    "has_test_sudoers": false
-  },
-  "offline_coding_sandbox": {
-    "result": "passed",
-    "evidence": "installed-sandbox-laptop-amd64.json",
-    "source_commit": "cb11ffd8c0d3eb48a9854fd51add030a1df936e9",
-    "candidate_iso_sha256": "44d163dba7ff629cc287213cbbb9a4836381d24e45531533efa0051ca9625868",
-    "runtime_location": "disposable_outer_linux_vm",
-    "model_backend": "none",
-    "home_app": "not_run",
-    "coding_cli": "not_run",
-    "scope": "Real fixed ext4 disk exhaustion, isolated clone/code/test/artifacts and confirmed process-tree cancellation in the disposable installed outer VM; does not enable cloud coding."
+    "embedded_identity": false,
+    "authorized_ssh_keys": false,
+    "test_disk_serial": false,
+    "test_sudoers": false
   },
   "acceptance": {
     "T3-01": {
       "result": "passed",
-      "scope": "Exact candidate installed in a disposable VM; outer-only firstboot, Web, diagnostics and public seed checked"
+      "scope": "Exact ISO installation, outer-only firstboot, Web, desktop one-use login, diagnostics and public seed in disposable VM"
     },
     "T3-05": {
       "result": "passed",
-      "scope": "E0 independent console rescue with Controller stopped and no model account; E2 updater/rollback extension remains not_run"
+      "scope": "E0 independent console rescue with Controller stopped and no model account; E2 updater extension not_run"
     },
     "remaining_30_cases": "not_run",
     "E0_owner_laptop": "not_run",
     "E1": "not_run",
     "E2": "not_run"
   },
-  "verification_environment": {
-    "performer": "development team automated verification",
-    "test_id": "tests/test_linux_install.py::test_full_linux_install_with_nested_haos",
-    "case_ids": [
-      "T3-01",
-      "T3-05 (E0 scope)"
-    ],
-    "worker_job_ids": [],
-    "runtime_location": "disposable_outer_linux_vm",
-    "observed_from": "outer host console and HTTP plus isolated worker container",
-    "model_backend": "none",
-    "ha_backend": "nested_official_haos",
-    "device_kind": "none",
-    "installed_release": "0.4.0",
-    "os_base": "Ubuntu 24.04.5",
-    "hermes_commit": "835c3dd038d903182a66ecc45e34bf5e0de65f00",
-    "cli_versions": {
-      "@anthropic-ai/claude-code": "2.1.296",
-      "@openai/codex": "0.157.1",
-      "@xai-official/grok": "1.0.50"
-    },
-    "agy_version": "1.3.3",
-    "haos_image_source": "host/bases.lock.json",
-    "core_supervisor_versions": "Not independently queried by this install scenario; readiness is the real Core onboarding API JSON response.",
-    "approved_live_effects": [],
-    "test_effects": "Only disposable outer installation, isolated sandbox fixture and owned nested HAOS lifecycle operations."
-  }
+  "runtime_location": "disposable_outer_linux_vm",
+  "ha_backend": "nested_official_haos",
+  "model_backend": "none for installed lifecycle; separate CLI/Hermes tests use loopback fixtures",
+  "cloud_login": "not_run",
+  "external_channel_messages": "not_run",
+  "physical_hardware": "not_run",
+  "host_cloud_coding": "disabled_pending_egress_adapter",
+  "home_app_coding": "not_implemented",
+  "fixed_update_rollback": "not_implemented",
+  "source_audit": "source-audit-0.5.0-final.json",
+  "limitations": [
+    "The VM invokes the fixed Hermes/HA host actions directly because no real provider/channel account is used. The automatic Web sequence has separate Controller and browser fixtures.",
+    "Native HA code exchange is tested with isolated real Core; real household browser consent is not executed.",
+    "TAR has no separate existing-host in-place install acceptance.",
+    "No complete model-to-household onboarding or physical laptop acceptance."
+  ]
 }

@@ -1,22 +1,30 @@
 # Agentic Smart Home 0.5.0 自動 onboarding 驗證
 
-2026-10-12，本機完整回歸 **210 passed、2 skipped／188.68秒**，見 [0.5.0 JUnit](../evidence/pytest-0.5.0.xml)。包含 `--real-ha --containers`；兩個跳過案例為大型獨立 HAOS VM 與完整 Linux ISO 安裝。0.5.0精確媒體安裝另行驗證；以下0.4.0歷史通過結果不能代替新版驗收。真雲端帳號、LINE／Telegram真實收發與Owner laptop仍未執行。
+2026-10-12，0.5.0 精確 laptop ISO 在一次性 VM 完成安裝與生命週期測試，**1 passed／1310.79秒**。最新 [GitHub CI](https://github.com/teddashh/agentic-smart-home/actions/runs/38210802532) **210 passed／3 skipped／245.250秒**，見 [CI記錄](../evidence/github-ci-0.5.0-final.json)及 [JUnit](../evidence/pytest-0.5.0-github-final.xml)。本機完整 `--real-ha --containers` 回歸 **210 passed／2 skipped／188.68秒**，見 [本機JUnit](../evidence/pytest-0.5.0.xml)。CI跳過獨立大型HAOS VM、完整ISO安裝與UID1000專用本機桌面單元測試；後兩項另有安裝及本機證據，跨程序桌面票據測試已在CI通過。
 
-新版針對桌面單次授權、設定中斷／重試、最新版Hermes、原生CodexOAuth、通道配對、HA原生授權及多種畫面進行測試。CLI設定助手是受限bootstrap模式；兩個通用research/development workers仍blocked，不能當成E1/E2完成。
+媒體來源固定為 `1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172`；最終CI／安裝harness來源為 `5d99ea80a04ff19a530d438f68e64e83716df71a`。兩者差異只有測試和文件，93份runtime／契約／配置檔案與CI來源產物、媒體hash完全一致，見 [核對](../evidence/ci-media-match-0.5.0-final.json)。本頁後續證據更新不重建已驗證媒體；[release](../evidence/release-0.5.0.json)記錄精確版本與限制。
+
+| 媒體 | Bytes | SHA-256 |
+|---|---|---|
+| `agentic-home-0.5.0-laptop-amd64.iso` | 5387452416 | `5d79886885253a0799d2d21a244ba79648e4c4a570fe2b7e701c2a07057d6430` |
+| `agentic-home-0.5.0-linux-amd64.tar` | 1307934720 | `3cca4f664e6dc55549956981071aec434b70f400ccf4127d8aa0f52e6a7eea75` |
+
+TAR是封裝產物，未另外測既有主機就地安裝。公共ISO保留網路、磁碟、Linux身份選擇，沒有預選清除磁碟或內嵌測試key，見 [seed檢查](../evidence/public-seed-0.5.0.json)。大型媒體保留在本機dist，不存入Git。
 
 | 新版範圍 | 實際證據與限制 |
 |---|---|
-| CLI bootstrap | 真封裝 Codex binary，tools-disabled 與本機模型 fixture；typed 觀測、持久去重與取消，不是通用 coding worker |
-| 官方最新 Hermes | commit `8a7a5a905fc66ed82b922587a8e3c011e819dbb5` 成功建置，21項 runtime／OAuth helper／MCP／容器相容性測試通過；[來源及 image](../evidence/latest-hermes.json)、[JUnit](../evidence/latest-hermes-compatibility.xml)，未用真雲端帳號 |
-| HA 官方授權 | 真隔離 Core2026.10.1 code交換→owner核對→專用LLT→撤銷臨時grant，另測登出／替代授權與等待中權限失效；[Core記錄](../evidence/ha-onboarding-oauth.json) |
-| 設定恢復／通道 | Controller協定fixtures驗證重試、回應遺失、真observations的HA404、配對到期與sender綁定；沒有真LINE／Telegram外部收發 |
-| 桌面／Web | 一次性本機票據、私有launcher不洩漏程序參數，真Chromium+APIfixtures測引導、刷新、斷線、三種螢幕及既有操作；[画面](../evidence/ui/bootstrap-choose-1440.png) |
+| 精確ISO／HAOS | Ubuntu24.04.5安裝、outer-only firstboot、四image IDs、真桌面單次登入與拒絕重播、停止Controller後非sudo救援、離線sandbox、HAOS啟動／冷快照還原／外層重開自動啟動；三次讀到真Core onboarding JSON list。[安裝](../evidence/linux-install-0.5.0.json)、[JUnit](../evidence/linux-install-0.5.0.xml) |
+| 官方最新Hermes | 安裝當下解析到 `41cd7b649d0980c57620035af736f91be10dae79`，真下載／建置／離線相容性gate／按digest啟用，runtime回讀版本正確，重開後維持相同image。獨立候選另有21項runtime／OAuth helper／MCP測試通過，[候選證據](../evidence/latest-hermes-41cd.json)、[JUnit](../evidence/latest-hermes-41cd.xml)。兩次獨立建置image ID不同，各自記錄；沒有真雲端登入 |
+| CLI bootstrap | 真封裝Codex binary、tools-disabled與本機模型fixture；typed觀測、持久去重與取消。這是受限設定助手，通用Host／Home research/development仍blocked |
+| HA官方授權 | 真隔離Core2026.10.1 code交換→owner核對→專用LLT→撤銷臨時grant；21項授權測試包含登出／替代授權／等待中權限失效。見 [Core記錄](../evidence/ha-onboarding-oauth.json)與完整回歸；未執行Owner家庭瀏覽器授權 |
+| 設定恢復／通道 | Controller協定fixtures驗證九步排程、重試、回應遺失、HA404獨立owner證據、配對到期及sender綁定。真實LINE／Telegram外部收發仍not_run |
+| 桌面／Web | 真Host ticket writer→封裝Controller跨程序單次登入通過；私有launcher不洩漏程序參數。真Chromium＋API fixtures測引導、刷新、斷線、1440／768／390px，[畫面](../evidence/ui/bootstrap-choose-1440.png) |
 
+安裝測試沒有provider／通道帳號，透過固定Host CLI直接觸發Hermes安裝及HAOS建立；Web自動串接則由Controller與瀏覽器fixture驗證。不能把這兩類證據合併稱為真雲端端到端onboarding。OAuth同意、LINE QR／配對、Telegram bot token及HA管理者帳號仍需使用者操作。Owner laptop、真帳號、E1/E2 coding與固定產品更新／退版仍未完成。
 
+初次ISO測試在Linux／firstboot／映像核對後，因驗證腳本誤把重播拒絕403預期為401而停止。原harness未保存HTTP狀態，[失敗紀錄](../evidence/linux-install-0.5.0-auth-fixture-failure.json)原樣保留。修正harness後重跑相同ISO通過，產品拒絕重播行為沒有修改。先前 `8a7a5a9…` 的 [21項相容性測試](../evidence/latest-hermes.json)保留為前一上游候選，實際安裝使用上述41cd版本。
 
-0.5.0 初次 [GitHub CI](https://github.com/teddashh/agentic-smart-home/actions/runs/38209360594) **209 passed／3 skipped／222.678秒**，見 [CI記錄](../evidence/github-ci-0.5.0.json)。CI的UID不同，另略過只供安裝後UID1000的桌面單元測試；本機已驗。新增跨程序的真Host writer→封裝Controller票據測試另通過，見 [desktop handoff](../evidence/desktop-handoff-0.5.0.xml)。
-
-新版 ISO 第一輪完成 Linux／outer firstboot／四個映像核對，但安裝後驗證腳本錯把重播票據的403預期為401而停止。原harness未保存HTTP狀態，因此完整失敗點依 [紀錄](../evidence/linux-install-0.5.0-auth-fixture-failure.json)保留，不宣稱整機通過。已修正預期並加入只有固定路徑／狀態碼的失敗觀測；使用相同ISO重跑，不改產品拒絕重播的行為。
+測試VM、容器、臨時SSH key及磁碟basetemp均已清理。T3-01與T3-05的E0工程範圍已在本版重驗，其他30項產品案例維持not_run，見 [Plan v3帳本](v3/PROGRESS.md)。公開檔案掃描與封裝檢查見 [source audit](../evidence/source-audit-0.5.0-final.json)及 [build](../evidence/build-0.5.0.json)。
 
 ## 0.4.0 技術預覽驗證（歷史）
 

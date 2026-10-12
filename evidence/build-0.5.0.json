@@ -184,7 +184,8 @@
     "sha256": "1baef983fbeba54f79c230a5bad84a8c860ac8cdb223cf2ea6506169629b5f26",
     "manifest_files": 18
   },
-  "installed_validation": "same ISO retry after installed auth harness correction",
+  "installed_validation": "passed; exact ISO installed in disposable outer Linux VM",
   "cloud_login": "not_run",
-  "previous_install_attempt": "linux-install-0.5.0-auth-fixture-failure.json"
+  "previous_install_attempt": "linux-install-0.5.0-auth-fixture-failure.json",
+  "installed_evidence": "linux-install-0.5.0.json"
 }

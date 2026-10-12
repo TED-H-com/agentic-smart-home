@@ -1,0 +1,9 @@
+{
+  "media_source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+  "ci_source_commit": "5d99ea80a04ff19a530d438f68e64e83716df71a",
+  "ci_runtime_source_matches_media": true,
+  "working_runtime_matches_media": true,
+  "files": 93,
+  "source_artifact_sha256": "8309f55b5ac24206cc06e6c867b2b8fc0b94aef6deb86dd31e01a7923a1e2802",
+  "scope": "Runtime, contracts and distribution configuration are identical. Later verification source adds tests and documentation only; installed source remains the immutable media commit."
+}

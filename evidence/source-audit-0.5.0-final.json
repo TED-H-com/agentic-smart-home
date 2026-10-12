@@ -1,0 +1,184 @@
+{
+  "version": "0.5.0",
+  "date": "2026-10-12",
+  "scope": "Current Git publication allowlist; private parent and ignored runtime excluded",
+  "scanner": "Gitleaks 8.30.1",
+  "status": "passed_after_review",
+  "files": 365,
+  "raw_findings": 28,
+  "verified_public_source_digest_false_positives": 28,
+  "unreviewed_findings": 0,
+  "credential_findings": 0,
+  "review_method": "Each finding must be a complete JSON source-path to SHA256 entry, match the frozen build manifest and equal the SHA256 of that file from immutable media source commit. No broad exclusions.",
+  "verified_source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+  "reviewed": [
+    {
+      "file": "evidence/linux-tested-build.json",
+      "line": 45,
+      "source_file": "contracts/controller.openapi.json",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build.json",
+      "line": 46,
+      "source_file": "contracts/hermes-auth.schema.json",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build.json",
+      "line": 47,
+      "source_file": "contracts/host-controller.openapi.json",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build.json",
+      "line": 67,
+      "source_file": "controller/agentic_controller/ha_oauth.py",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build.json",
+      "line": 82,
+      "source_file": "docs/API_CONTRACT.md",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build.json",
+      "line": 112,
+      "source_file": "hermes/agentic_hermes/oauth.py",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build.json",
+      "line": 113,
+      "source_file": "hermes/agentic_hermes/oauth_child.py",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 45,
+      "source_file": "contracts/controller.openapi.json",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 46,
+      "source_file": "contracts/hermes-auth.schema.json",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 47,
+      "source_file": "contracts/host-controller.openapi.json",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 67,
+      "source_file": "controller/agentic_controller/ha_oauth.py",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 82,
+      "source_file": "docs/API_CONTRACT.md",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 112,
+      "source_file": "hermes/agentic_hermes/oauth.py",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 113,
+      "source_file": "hermes/agentic_hermes/oauth_child.py",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.0.json",
+      "line": 45,
+      "source_file": "contracts/controller.openapi.json",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.0.json",
+      "line": 46,
+      "source_file": "contracts/hermes-auth.schema.json",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.0.json",
+      "line": 47,
+      "source_file": "contracts/host-controller.openapi.json",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.0.json",
+      "line": 67,
+      "source_file": "controller/agentic_controller/ha_oauth.py",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build.json",
+      "line": 45,
+      "source_file": "contracts/controller.openapi.json",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.0.json",
+      "line": 82,
+      "source_file": "docs/API_CONTRACT.md",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build.json",
+      "line": 46,
+      "source_file": "contracts/hermes-auth.schema.json",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.0.json",
+      "line": 112,
+      "source_file": "hermes/agentic_hermes/oauth.py",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build.json",
+      "line": 47,
+      "source_file": "contracts/host-controller.openapi.json",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.0.json",
+      "line": 113,
+      "source_file": "hermes/agentic_hermes/oauth_child.py",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build.json",
+      "line": 67,
+      "source_file": "controller/agentic_controller/ha_oauth.py",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build.json",
+      "line": 82,
+      "source_file": "docs/API_CONTRACT.md",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build.json",
+      "line": 112,
+      "source_file": "hermes/agentic_hermes/oauth.py",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build.json",
+      "line": 113,
+      "source_file": "hermes/agentic_hermes/oauth_child.py",
+      "classification": "verified_public_source_sha256"
+    }
+  ]
+}

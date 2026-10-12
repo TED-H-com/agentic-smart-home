@@ -21,5 +21,6 @@
   "result": "21 passed",
   "junit": "latest-hermes-compatibility.xml",
   "cloud_account": "not_run",
-  "initial_install_activation": "awaiting disposable Linux VM validation"
+  "initial_install_activation": "not_run_for_this_candidate; upstream advanced to 41cd7b649d0980c57620035af736f91be10dae79 before installation",
+  "installed_candidate_evidence": "linux-install-0.5.0.json"
 }

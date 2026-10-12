@@ -16,7 +16,7 @@ Owner：Ted Huang。方向版本：Steering v3.0，2026-10-11。匯入時應用�
 
 | 階段 | 可使用的成果 | 必須另外取得的證據 |
 |---|---|---|
-| E0 | 既有 laptop profile 的工程 bundle/ISO；Hermes 接點／明確登入狀態；可跳過 HA/通道；固定診斷及不靠 Web 的救援 | 待交付媒體在一次性 VM 的安裝；Owner laptop 現場硬體／磁碟選擇 |
+| E0 | 既有 laptop profile 的工程 bundle/ISO；Hermes 接點／明確登入狀態；可跳過 HA/通道；固定診斷及不靠 Web 的救援 | 0.5.0 精確媒體在一次性 VM 安裝已通過；Owner laptop 現場硬體／磁碟選擇仍待驗 |
 | E1 | Hermes 派 Host Worker 真正修一個問題，交 diff、測試及隔離 preview；可取消／接手 | 真實模型與 CLI、工具執行、隔離負向測試、舊 writer 確實停止 |
 | E2 | HAOS App 內真實研究／小型程式驗證；內外互補證據；helpers 提案→批准→觸發；固定同 schema 更新／退版 | 真正 inner runtime、家庭流程、候選故障回復與整機重啟 |
 | E3 | 逐台實體設備、相鄰 Core 版本、72h 運作、離機恢復和三個單／雙 worker 對照案例 | 逐項現場紀錄；不阻擋先用 E0/E1 |

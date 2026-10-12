@@ -1,0 +1,41 @@
+{
+  "kind": "real_linux_install_nested_kvm",
+  "profile": "laptop-amd64",
+  "base": "Ubuntu 24.04.5",
+  "iso_sha256": "5d79886885253a0799d2d21a244ba79648e4c4a570fe2b7e701c2a07057d6430",
+  "installed_version": "0.5.0",
+  "images": {
+    "agentic-home-controller:0.5.0": "sha256:028e6b4aeb5765e48a149be1ff5e68b3244a5c8b752b1b266424b7381da71add",
+    "agentic-home-runner:0.5.0": "sha256:e419cb4884b19190e1719fa3467ed42641d661fbfd36f9c625b3bd8f9c7fdd8b",
+    "agentic-home-linejs:0.5.0": "sha256:e7e8d9a14aea3469880f6d1178dca72f1edc2bd815c1ef69ed5fd20f30a5d30b",
+    "agentic-home-hermes:0.5.0": "sha256:b8953a4c04126afc69c9685127499f389daa607e37420a686899ef552a1a80e8"
+  },
+  "runtime_location": "disposable_outer_linux_vm",
+  "model_backend": "none",
+  "ha_backend": "nested_official_haos",
+  "device_kind": "none",
+  "installation": "passed",
+  "firstboot": "passed",
+  "haos_vm_running": true,
+  "outer_ui_with_haos_off": true,
+  "cold_snapshot_restore": "passed",
+  "firstboot_without_haos": true,
+  "hermes_service_without_account": "needs_auth",
+  "console_rescue_with_controller_stopped": "passed",
+  "desktop_single_use_login": "passed",
+  "bootstrap_get_has_no_side_effect": "passed",
+  "latest_hermes": {
+    "state": "ready",
+    "commit": "41cd7b649d0980c57620035af736f91be10dae79",
+    "source": "latest",
+    "image_id": "sha256:c8a9c5371a280debd91dd1d562d6bde520a04deeafc841b9d60e7408941425a7",
+    "runtime_revision_readback": "passed",
+    "persists_after_reboot": true
+  },
+  "outer_reboot_haos_autostart": "passed",
+  "ha_readiness_check": "real Core onboarding API JSON list after startup, restore and outer reboot",
+  "duration_seconds": 1306,
+  "installer_inputs": "Disposable disk serial + ephemeral SSH key supplied by fixture",
+  "physical_laptop": "not_run",
+  "cloud_login": "not_run"
+}

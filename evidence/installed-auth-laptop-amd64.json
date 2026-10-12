@@ -2,6 +2,8 @@
   "host_login": "passed",
   "authenticated_host_api": "passed",
   "automatic_runner_pairing": "passed",
+  "desktop_single_use_login": "passed",
+  "bootstrap_get_has_no_side_effect": "passed",
   "vm_observed": "not_created",
   "providers": [
     {
@@ -23,5 +25,39 @@
   ],
   "hermes_service": "needs_auth",
   "coding_workers": "blocked",
-  "cloud_login": "not_run"
+  "cloud_login": "not_run",
+  "http_observations": [
+    {
+      "path": "/api/host/desktop-login",
+      "status": 200
+    },
+    {
+      "path": "/api/host/desktop-login",
+      "status": 403
+    },
+    {
+      "path": "/api/host/login",
+      "status": 200
+    },
+    {
+      "path": "/api/session",
+      "status": 200
+    },
+    {
+      "path": "/api/host/status",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/hermes",
+      "status": 200
+    },
+    {
+      "path": "/api/bootstrap",
+      "status": 200
+    }
+  ]
 }

@@ -1,14 +1,18 @@
 {
   "conclusion": "success",
-  "createdAt": "2026-10-12T04:14:16Z",
-  "headSha": "cb11ffd8c0d3eb48a9854fd51add030a1df936e9",
+  "createdAt": "2026-10-12T06:04:40Z",
+  "headSha": "5d99ea80a04ff19a530d438f68e64e83716df71a",
   "status": "completed",
-  "updatedAt": "2026-10-12T04:19:44Z",
-  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38202961564",
-  "version": "0.4.0",
-  "test_result": "145 passed, 2 skipped",
-  "scope": "Corrected installed sandbox Docker JSON checks, bounded stop diagnostics and owner-readable installation metadata; same source used for rebuilt media.",
-  "skipped": "Large standalone HAOS VM and Linux installation. Installed Linux case verified separately.",
-  "junit": "pytest-0.4.0-github.xml",
-  "seconds": 152.424
+  "updatedAt": "2026-10-12T06:11:56Z",
+  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38210802532",
+  "version": "0.5.0",
+  "junit": "pytest-0.5.0-github-final.xml",
+  "tests": {
+    "tests": "213",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "3",
+    "time": "245.250"
+  },
+  "scope": "Full Core/container/browser regression including real Host ticket writer to packaged Controller. Skips large HAOS VM, Linux ISO test and UID1000-only local launcher unit; these have separate evidence."
 }

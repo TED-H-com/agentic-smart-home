@@ -1,0 +1,113 @@
+{
+  "version": "0.5.0",
+  "stage": "technical_preview",
+  "media": "verified_in_disposable_vm",
+  "recorded_at": "2026-10-12T06:24:50.379015+00:00",
+  "media_source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+  "verification_commit": "5d99ea80a04ff19a530d438f68e64e83716df71a",
+  "source_difference": "Tests and documentation only; packaged runtime matches both CI and media source.",
+  "artifacts": {
+    "agentic-home-0.5.0-laptop-amd64.iso": {
+      "sha256": "5d79886885253a0799d2d21a244ba79648e4c4a570fe2b7e701c2a07057d6430",
+      "bytes": 5387452416
+    },
+    "agentic-home-0.5.0-linux-amd64.tar": {
+      "sha256": "3cca4f664e6dc55549956981071aec434b70f400ccf4127d8aa0f52e6a7eea75",
+      "bytes": 1307934720
+    }
+  },
+  "runner_zip": {
+    "sha256": "1baef983fbeba54f79c230a5bad84a8c860ac8cdb223cf2ea6506169629b5f26",
+    "manifest_files": 18
+  },
+  "database_schema": 2,
+  "regression": {
+    "passed": 210,
+    "skipped": 3,
+    "seconds": 245.25,
+    "environment": "GitHub ubuntu-24.04",
+    "evidence": "github-ci-0.5.0-final.json",
+    "junit": "pytest-0.5.0-github-final.xml",
+    "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38210802532"
+  },
+  "local_regression": {
+    "passed": 210,
+    "skipped": 2,
+    "seconds": 188.68,
+    "junit": "pytest-0.5.0.xml"
+  },
+  "installed_validation": {
+    "result": "passed",
+    "evidence": "linux-install-0.5.0.json",
+    "junit": "linux-install-0.5.0.xml",
+    "seconds": 1310.767,
+    "profile": "laptop-amd64",
+    "cleanup": "Owned VM container, ephemeral SSH key and unique disk basetemp removed",
+    "prior_attempt": "linux-install-0.5.0-auth-fixture-failure.json"
+  },
+  "latest_hermes": {
+    "state": "ready",
+    "commit": "41cd7b649d0980c57620035af736f91be10dae79",
+    "source": "latest",
+    "image_id": "sha256:c8a9c5371a280debd91dd1d562d6bde520a04deeafc841b9d60e7408941425a7",
+    "runtime_revision_readback": "passed",
+    "persists_after_reboot": true,
+    "independent_compatibility_tests": 21,
+    "compatibility_evidence": "latest-hermes-41cd.json",
+    "model_backend": "loopback protocol fixture; installed lifecycle has no cloud account"
+  },
+  "bundle_verification": {
+    "result": "passed",
+    "manifest_files": 140,
+    "source_files": 137,
+    "evidence": "build-0.5.0.json"
+  },
+  "ci_runtime_source_verification": {
+    "result": "passed",
+    "files": 93,
+    "evidence": "ci-media-match-0.5.0-final.json"
+  },
+  "public_iso_seed": {
+    "result": "passed",
+    "iso_sha256": "5d79886885253a0799d2d21a244ba79648e4c4a570fe2b7e701c2a07057d6430",
+    "interactive_sections": [
+      "network",
+      "storage",
+      "identity"
+    ],
+    "embedded_identity": false,
+    "authorized_ssh_keys": false,
+    "test_disk_serial": false,
+    "test_sudoers": false
+  },
+  "acceptance": {
+    "T3-01": {
+      "result": "passed",
+      "scope": "Exact ISO installation, outer-only firstboot, Web, desktop one-use login, diagnostics and public seed in disposable VM"
+    },
+    "T3-05": {
+      "result": "passed",
+      "scope": "E0 independent console rescue with Controller stopped and no model account; E2 updater extension not_run"
+    },
+    "remaining_30_cases": "not_run",
+    "E0_owner_laptop": "not_run",
+    "E1": "not_run",
+    "E2": "not_run"
+  },
+  "runtime_location": "disposable_outer_linux_vm",
+  "ha_backend": "nested_official_haos",
+  "model_backend": "none for installed lifecycle; separate CLI/Hermes tests use loopback fixtures",
+  "cloud_login": "not_run",
+  "external_channel_messages": "not_run",
+  "physical_hardware": "not_run",
+  "host_cloud_coding": "disabled_pending_egress_adapter",
+  "home_app_coding": "not_implemented",
+  "fixed_update_rollback": "not_implemented",
+  "source_audit": "source-audit-0.5.0-final.json",
+  "limitations": [
+    "The VM invokes the fixed Hermes/HA host actions directly because no real provider/channel account is used. The automatic Web sequence has separate Controller and browser fixtures.",
+    "Native HA code exchange is tested with isolated real Core; real household browser consent is not executed.",
+    "TAR has no separate existing-host in-place install acceptance.",
+    "No complete model-to-household onboarding or physical laptop acceptance."
+  ]
+}
