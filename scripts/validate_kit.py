@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Validate packaged inputs and dependency locks without touching hardware."""
+import ast
 import hashlib
 import json
 import re
+import tomllib
 from pathlib import Path
 
 import yaml
@@ -11,6 +13,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
+    release = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
+    for name in ("host/agentic_host/__init__.py", "controller/agentic_controller/__init__.py",
+                 "runner/agentic_runner/__init__.py", "scripts/build_host.py", "scripts/package.py"):
+        assignments = {target.id: ast.literal_eval(node.value) for node in ast.parse((ROOT / name).read_text()).body
+                       if isinstance(node, ast.Assign) for target in node.targets
+                       if isinstance(target, ast.Name) and target.id == "VERSION"}
+        assert assignments.get("VERSION") == release, "Release version drift: " + name
+    assert json.loads((ROOT / "web/package.json").read_text())["version"] == release
+    compose = yaml.safe_load((ROOT / "host/compose.yaml").read_text())
+    for service in ("controller", "runner", "linejs", "hermes"):
+        expected = f"agentic-home-{service}:{release}"
+        if service == "hermes":
+            expected = "${AGENTIC_HERMES_IMAGE:-" + expected + "}"
+        assert compose["services"][service]["image"] == expected
     lock = json.loads((ROOT / "providers.lock.json").read_text())
     dependencies = json.loads((ROOT / "runner/package.json").read_text())["dependencies"]
     for item in lock["providers"].values():
@@ -24,6 +40,7 @@ def main():
         assert model["apply_patch_tool_type"] is None and not model["experimental_supported_tools"]
     for app in ("controller", "runner"):
         config = yaml.safe_load((ROOT / app / "config.yaml").read_text())
+        assert config["version"] == release, "App release version drift: " + app
         assert config["arch"] == ["amd64"] and config["ingress"] and config["apparmor"]
         assert not any(config.get(flag) for flag in ("host_network", "host_pid", "host_dbus", "full_access", "docker_api"))
         assert "map" not in config

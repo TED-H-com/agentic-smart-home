@@ -4,9 +4,9 @@
   "scope": "git tracked + untracked nonignored public product files; excludes private parent and ignored runtime/build data",
   "scanner": "Gitleaks 8.30.1",
   "status": "passed",
-  "files": 395,
-  "raw_findings": 31,
-  "verified_public_source_digest_false_positives": 31,
+  "files": 405,
+  "raw_findings": 48,
+  "verified_public_source_digest_false_positives": 48,
   "unreviewed_findings": 0,
   "credential_findings": 0,
   "review_method": "Each accepted digest equals manifest value and independently hashed source blob at the recorded Git commit (or current file for explicitly working-tree evidence); no blanket rule suppression.",
@@ -36,62 +36,6 @@
       "classification": "verified_current_public_source_sha256"
     },
     {
-      "file": "evidence/linux-tested-build.json",
-      "line": 45,
-      "rule": "generic-api-key",
-      "source_file": "contracts/controller.openapi.json",
-      "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-      "classification": "verified_public_source_sha256"
-    },
-    {
-      "file": "evidence/linux-tested-build.json",
-      "line": 46,
-      "rule": "generic-api-key",
-      "source_file": "contracts/hermes-auth.schema.json",
-      "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-      "classification": "verified_public_source_sha256"
-    },
-    {
-      "file": "evidence/linux-tested-build.json",
-      "line": 47,
-      "rule": "generic-api-key",
-      "source_file": "contracts/host-controller.openapi.json",
-      "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-      "classification": "verified_public_source_sha256"
-    },
-    {
-      "file": "evidence/linux-tested-build.json",
-      "line": 67,
-      "rule": "generic-api-key",
-      "source_file": "controller/agentic_controller/ha_oauth.py",
-      "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-      "classification": "verified_public_source_sha256"
-    },
-    {
-      "file": "evidence/linux-tested-build.json",
-      "line": 82,
-      "rule": "generic-api-key",
-      "source_file": "docs/API_CONTRACT.md",
-      "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-      "classification": "verified_public_source_sha256"
-    },
-    {
-      "file": "evidence/linux-tested-build.json",
-      "line": 112,
-      "rule": "generic-api-key",
-      "source_file": "hermes/agentic_hermes/oauth.py",
-      "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-      "classification": "verified_public_source_sha256"
-    },
-    {
-      "file": "evidence/linux-tested-build.json",
-      "line": 113,
-      "rule": "generic-api-key",
-      "source_file": "hermes/agentic_hermes/oauth_child.py",
-      "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
-      "classification": "verified_public_source_sha256"
-    },
-    {
       "file": "evidence/build-0.5.0.json",
       "line": 45,
       "rule": "generic-api-key",
@@ -148,6 +92,142 @@
       "classification": "verified_public_source_sha256"
     },
     {
+      "file": "evidence/onboarding-e2e-0.5.1-github.json",
+      "line": 140,
+      "rule": "generic-api-key",
+      "source_file": "controller/agentic_controller/ha_oauth.py",
+      "source_commit": null,
+      "classification": "verified_current_public_source_sha256"
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.5.1-github.json",
+      "line": 156,
+      "rule": "generic-api-key",
+      "source_file": "hermes/agentic_hermes/oauth.py",
+      "source_commit": null,
+      "classification": "verified_current_public_source_sha256"
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.5.1-github.json",
+      "line": 157,
+      "rule": "generic-api-key",
+      "source_file": "hermes/agentic_hermes/oauth_child.py",
+      "source_commit": null,
+      "classification": "verified_current_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 25,
+      "rule": "generic-api-key",
+      "source_file": "contracts/controller.openapi.json",
+      "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 26,
+      "rule": "generic-api-key",
+      "source_file": "contracts/hermes-auth.schema.json",
+      "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 27,
+      "rule": "generic-api-key",
+      "source_file": "contracts/host-controller.openapi.json",
+      "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 47,
+      "rule": "generic-api-key",
+      "source_file": "controller/agentic_controller/ha_oauth.py",
+      "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 62,
+      "rule": "generic-api-key",
+      "source_file": "docs/API_CONTRACT.md",
+      "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 96,
+      "rule": "generic-api-key",
+      "source_file": "hermes/agentic_hermes/oauth.py",
+      "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 97,
+      "rule": "generic-api-key",
+      "source_file": "hermes/agentic_hermes/oauth_child.py",
+      "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 45,
+      "rule": "generic-api-key",
+      "source_file": "contracts/controller.openapi.json",
+      "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 46,
+      "rule": "generic-api-key",
+      "source_file": "contracts/hermes-auth.schema.json",
+      "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 47,
+      "rule": "generic-api-key",
+      "source_file": "contracts/host-controller.openapi.json",
+      "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 67,
+      "rule": "generic-api-key",
+      "source_file": "controller/agentic_controller/ha_oauth.py",
+      "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 82,
+      "rule": "generic-api-key",
+      "source_file": "docs/API_CONTRACT.md",
+      "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 112,
+      "rule": "generic-api-key",
+      "source_file": "hermes/agentic_hermes/oauth.py",
+      "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 113,
+      "rule": "generic-api-key",
+      "source_file": "hermes/agentic_hermes/oauth_child.py",
+      "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+      "classification": "verified_public_source_sha256"
+    },
+    {
       "file": "evidence/build.json",
       "line": 45,
       "rule": "generic-api-key",
@@ -204,7 +284,63 @@
       "classification": "verified_public_source_sha256"
     },
     {
-      "file": "evidence/linux-tested-build-0.5.0.json",
+      "file": "evidence/build-0.5.1.json",
+      "line": 25,
+      "rule": "generic-api-key",
+      "source_file": "contracts/controller.openapi.json",
+      "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.1.json",
+      "line": 26,
+      "rule": "generic-api-key",
+      "source_file": "contracts/hermes-auth.schema.json",
+      "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.1.json",
+      "line": 27,
+      "rule": "generic-api-key",
+      "source_file": "contracts/host-controller.openapi.json",
+      "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.1.json",
+      "line": 47,
+      "rule": "generic-api-key",
+      "source_file": "controller/agentic_controller/ha_oauth.py",
+      "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.1.json",
+      "line": 62,
+      "rule": "generic-api-key",
+      "source_file": "docs/API_CONTRACT.md",
+      "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.1.json",
+      "line": 96,
+      "rule": "generic-api-key",
+      "source_file": "hermes/agentic_hermes/oauth.py",
+      "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/build-0.5.1.json",
+      "line": 97,
+      "rule": "generic-api-key",
+      "source_file": "hermes/agentic_hermes/oauth_child.py",
+      "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+      "classification": "verified_public_source_sha256"
+    },
+    {
+      "file": "evidence/linux-tested-build.json",
       "line": 45,
       "rule": "generic-api-key",
       "source_file": "contracts/controller.openapi.json",
@@ -212,7 +348,7 @@
       "classification": "verified_public_source_sha256"
     },
     {
-      "file": "evidence/linux-tested-build-0.5.0.json",
+      "file": "evidence/linux-tested-build.json",
       "line": 46,
       "rule": "generic-api-key",
       "source_file": "contracts/hermes-auth.schema.json",
@@ -220,7 +356,7 @@
       "classification": "verified_public_source_sha256"
     },
     {
-      "file": "evidence/linux-tested-build-0.5.0.json",
+      "file": "evidence/linux-tested-build.json",
       "line": 47,
       "rule": "generic-api-key",
       "source_file": "contracts/host-controller.openapi.json",
@@ -228,7 +364,7 @@
       "classification": "verified_public_source_sha256"
     },
     {
-      "file": "evidence/linux-tested-build-0.5.0.json",
+      "file": "evidence/linux-tested-build.json",
       "line": 67,
       "rule": "generic-api-key",
       "source_file": "controller/agentic_controller/ha_oauth.py",
@@ -236,7 +372,7 @@
       "classification": "verified_public_source_sha256"
     },
     {
-      "file": "evidence/linux-tested-build-0.5.0.json",
+      "file": "evidence/linux-tested-build.json",
       "line": 82,
       "rule": "generic-api-key",
       "source_file": "docs/API_CONTRACT.md",
@@ -244,7 +380,7 @@
       "classification": "verified_public_source_sha256"
     },
     {
-      "file": "evidence/linux-tested-build-0.5.0.json",
+      "file": "evidence/linux-tested-build.json",
       "line": 112,
       "rule": "generic-api-key",
       "source_file": "hermes/agentic_hermes/oauth.py",
@@ -252,7 +388,7 @@
       "classification": "verified_public_source_sha256"
     },
     {
-      "file": "evidence/linux-tested-build-0.5.0.json",
+      "file": "evidence/linux-tested-build.json",
       "line": 113,
       "rule": "generic-api-key",
       "source_file": "hermes/agentic_hermes/oauth_child.py",

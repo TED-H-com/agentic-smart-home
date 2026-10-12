@@ -1,0 +1,159 @@
+{
+  "kind": "composed_onboarding_e2e",
+  "result": "passed",
+  "duration_seconds": 59.64,
+  "real": [
+    "Chromium and compiled Web without API interception",
+    "Controller HTTP/session/CSRF",
+    "Runner TLS pairing and broker",
+    "packaged Codex binary",
+    "Hermes bridge and AIAgent",
+    "official MCP to actual Controller",
+    "isolated Core 2026.10.1",
+    "native HA browser login and OAuth callback",
+    "Controller restart and operation deduplication",
+    "Web conversation reload"
+  ],
+  "fixtures": [
+    "CLI and Hermes cloud model responses",
+    "root Host network/install/VM lifecycle effects",
+    "synthetic model API credentials"
+  ],
+  "not_run": [
+    "real cloud OAuth",
+    "LINE/Telegram external messages",
+    "physical laptop",
+    "HAOS App coding",
+    "complete native HA setup wizard clicks"
+  ],
+  "cli_inference_calls": 1,
+  "hermes_model_calls": 3,
+  "host_actions": [
+    "bootstrap_hermes",
+    "provision"
+  ],
+  "mcp_evidence": {
+    "case_id": "21e3f7a422c647b5a0b892c60b341785",
+    "collection_method": "fixed_broker_status",
+    "content_digest": "75ff4cbf49c5feea6e572c24166483d4e7a33c965c7a2a80fab5a72d4119be5f",
+    "data_contract": 1,
+    "evidence_id": "d3a538ee22764b90a755e20f2dbb9d4f",
+    "facts": {
+      "ha_onboarding": {
+        "http_status": 200,
+        "observed_from": "outer_host_to_core_onboarding_api",
+        "onboarding_complete": true,
+        "reachable": true,
+        "steps": [
+          {
+            "done": true,
+            "step": "user"
+          },
+          {
+            "done": true,
+            "step": "core_config"
+          },
+          {
+            "done": true,
+            "step": "analytics"
+          },
+          {
+            "done": true,
+            "step": "integration"
+          }
+        ]
+      },
+      "kvm": true,
+      "provisioned": true,
+      "vm": "running"
+    },
+    "id": "d3a538ee22764b90a755e20f2dbb9d4f",
+    "limitations": [
+      "Native onboarding observations do not establish HA owner authority or physical device health."
+    ],
+    "observed_at": "2026-10-12T08:19:16.989686+00:00",
+    "observed_from": "host_broker",
+    "redaction": "field_allowlist",
+    "target_component": "host_and_managed_vm",
+    "version_refs": {
+      "controller": "0.5.1"
+    }
+  },
+  "mcp_case_run_message_verified": true,
+  "runtime_images": {
+    "core": {
+      "image_id": "sha256:f649ee2bf13aede5f822273c3dea95c63d98d6d3651d7394c1620b7034238aaf",
+      "image_ref": "ghcr.io/home-assistant/home-assistant:2026.10.1",
+      "memory_bytes": 1610612736,
+      "pids_limit": 256,
+      "nano_cpus": 2000000000,
+      "oom_killed": false,
+      "restart_count": 0
+    },
+    "runner": {
+      "image_id": "sha256:9a388f487f1202fea49ef9c5792d9a814e0e535c522dac492f83b9560b3d9c3a",
+      "image_ref": "agentic-home-runner:0.5.1",
+      "memory_bytes": 1610612736,
+      "pids_limit": 256,
+      "nano_cpus": 0,
+      "oom_killed": false,
+      "restart_count": 0
+    },
+    "hermes": {
+      "image_id": "sha256:2f4fb8f2f9b4f1a5c8c3303cc0ca8893f34ecf340600aaf580a458cf0817c3de",
+      "image_ref": "agentic-home-hermes:0.5.1",
+      "memory_bytes": 805306368,
+      "pids_limit": 64,
+      "nano_cpus": 1000000000,
+      "oom_killed": false,
+      "restart_count": 0
+    },
+    "controller": {
+      "image_id": "sha256:8aa9de59ead52ac266092ec70cc81b1160c51696c6d6e463983d5c7604a06312",
+      "image_ref": "agentic-home-controller:0.5.1",
+      "memory_bytes": 805306368,
+      "pids_limit": 128,
+      "nano_cpus": 0,
+      "oom_killed": false,
+      "restart_count": 0
+    }
+  },
+  "product_service_resource_limits": "match host/compose.yaml; Core is an isolated fixture",
+  "mount_access_probes": {
+    "host_uid": 1001,
+    "controller_uid": 1000,
+    "hermes_uid": 10003,
+    "shared_gid": 1000,
+    "fixed_modes_verified": true
+  },
+  "hermes_commit": "835c3dd038d903182a66ecc45e34bf5e0de65f00",
+  "runtime_location": "isolated_containers_on_loopback",
+  "device_kind": "none",
+  "source_hashes": {
+    "controller/agentic_controller/__init__.py": "1190c6aeae5d87b10db3b615972d399e9c48334c07c8019b6c2c0d3fc44f0ff8",
+    "controller/agentic_controller/app.py": "fec12cf9dee29d37773b9e30db29b776f19d20a9bead37955c2fdfe5dddc2e6c",
+    "controller/agentic_controller/bootstrap.py": "8e8954fb02288b9d1b8c8e7101e90fd9bab02adf13dd3ef702a185d2c7240e31",
+    "controller/agentic_controller/channels.py": "d2869655c2f96cbe73374300de6ec4ce64507981cfb6d88d318baebc8bbfab75",
+    "controller/agentic_controller/engine.py": "eb7287501041737d905e5575fce18ca159289b6621624f5b4cfbcb664dd06b0c",
+    "controller/agentic_controller/gateway.py": "9ec7bb9419ba148f739c86d5641124e594eeb3e28ac60a68842697a8af0c00e4",
+    "controller/agentic_controller/ha.py": "a4fa1a9a49a865104d17b641e57649063a42ea0dffc2aff61f5151a5623a93aa",
+    "controller/agentic_controller/ha_oauth.py": "508af18b8f5d2c2b332856c78dee481a791ebbf7dd2e34592b11a8dd92e2cf10",
+    "controller/agentic_controller/hermes.py": "93cb642b18027eb2fdf94fbc7ab8fee4a627a384edf07dd7d7953ec9ba55939d",
+    "controller/agentic_controller/host.py": "c165901a366589a0d0c81c21b9ed7ff692278efa6698b186092dc1efc1a8bedb",
+    "controller/agentic_controller/mcp.py": "b1b0ed824cd1841b2075be7576d2604ec174bbe062a9c8356b158fb963feb399",
+    "controller/agentic_controller/models.py": "4a677ff28a5c3c849185aa977ab4311307906baeff3e04bf444335e5878b9483",
+    "controller/agentic_controller/runner.py": "9c9a2f19f6a0d77fd40d19dac977daa3564d606c0f7326ed0a2a714c0122c610",
+    "controller/agentic_controller/store.py": "c80e08c1b3fe04ba1f1302fbc8fea2194ea0d4606829d1a33eaefcb7f9dab8ca",
+    "controller/agentic_controller/work.py": "a7699b120313226f5197eda74fff10a3d9731e841e531fce823f90033b4508ca",
+    "runner/agentic_runner/__init__.py": "0b609b682295d26717cd54293e8f2c9c3dd90156f2e65003443dcea73a60475c",
+    "runner/agentic_runner/app.py": "e4ff57f08bd25a8497e57274af026b66e3e99696a1fc71021cc7a09fd78dbd17",
+    "runner/agentic_runner/bootstrap.py": "d53b9d4cc15ac6ac1b4675924291e5edd0ec2a4733c75d925fb7d6c0e7f2b50f",
+    "runner/agentic_runner/providers.py": "49e0bf6f0fdaa182661ece66cca3136dfcdc7a8cc23a1e84f5a8e4db0b706ef5",
+    "hermes/agentic_hermes/__init__.py": "a1e6e77ff2aacf71e428db739e81a78f5b0095086a8e49d4d8d21ee6c5265fcb",
+    "hermes/agentic_hermes/app.py": "c1a68afb7c29853b4815e5c721367079192178ef68834d46b59edad525638930",
+    "hermes/agentic_hermes/child.py": "e0942598407449006f6caf68fc5df92507f3210d3d465b6e36f39d83963bb629",
+    "hermes/agentic_hermes/models.py": "2231785f382a6e603c10bf7203519c96b4ef17425857cbffdd4affa6c8a4a10c",
+    "hermes/agentic_hermes/oauth.py": "a7cf74501dd1535d5cc5fc9ccbbaee7858a6b700962d0781d797f7fdedf2edb2",
+    "hermes/agentic_hermes/oauth_child.py": "1190fedce3a16ad7b4c28d0712cc02ebe05ac965514a654fdac5a75c3819dca3"
+  }
+}

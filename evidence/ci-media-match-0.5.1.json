@@ -1,0 +1,9 @@
+{
+  "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+  "media_source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+  "source_files_verified": 141,
+  "ci_archive_files_verified": 395,
+  "all_media_source_hashes_match_ci_archive": true,
+  "runtime_artifacts_compared_by_source": "CI and local images are independent builds; immutable image IDs recorded in separate evidence",
+  "run_url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38222178550"
+}

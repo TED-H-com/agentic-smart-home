@@ -9,6 +9,7 @@
 - 跨服務瀏覽器測試：[test_onboarding_e2e.py](../../tests/test_onboarding_e2e.py)。真 Chromium → 編譯 Web → Controller session／CSRF → TLS Runner／真 Codex → 真 Hermes AIAgent／官方 MCP → 隔離 Core／原生 OAuth。沒有攔截瀏覽器 API；模型回覆與 Host 安裝／VM effects 是明確 fixture。真 Core 初始化使用其 onboarding API，不能稱為逐畫面操作了所有 HA native wizard。
 - 獨立實際 HAOS：本輪 **1 passed，84.78 秒**，官方 HAOS 18.3、Core 2026.10.1、Supervisor 2026.09.3，在一次性 KVM guest 完成 owner 驗證及 Supervisor backup 讀回。[JUnit](../../evidence/review-haos.xml)、[平台記錄](../../evidence/haos-vm.json)。沒有 Home Worker 或實體設備。
 - 取消／配對、Controller 時序及通道邊界的原始失敗與修正後記錄，分別見 [Runtime](2026-10-12-runtime.md)、[Bootstrap](2026-10-12-bootstrap.md)、[Web／Gateway](2026-10-12-ui.md)。部分失敗由 deterministic asyncio barrier 控制，避免只重跑到偶然成功。
+- GitHub CI **270 passed／3 skipped**，包含真服務 E2E；[CI](https://github.com/teddashh/agentic-smart-home/actions/runs/38222178550)／[JUnit](../../evidence/pytest-0.5.1-github.xml)。服務資源限制與正式 compose 相符，image IDs 與限制另記在 [CI E2E](../../evidence/onboarding-e2e-0.5.1-github.json)。
 - 本機完整回歸 **271 passed、2 skipped／194.16 秒**，見 [JUnit](../../evidence/pytest-0.5.1.xml)。最終修正版安裝媒體結果記錄在 [版本驗證](../VERIFICATION.md)。0.5.0 的精確媒體證據保留原版本，不代表已驗證 0.5.1。
 
 模型 fixture 驗證的是協定、資料流與權限邊界；不證明 OAuth 供應商實際同意、模型推論品質、真 bot 收發或家庭現場可用。真帳號、Owner laptop、HAOS App coding、設備、長期觀察皆需各自的證據。
@@ -17,6 +18,7 @@
 
 | 缺陷 | 修正及驗證重點 |
 |---|---|
+| 0.5.1 發行版本紀錄漂移 | 第一份新版 ISO 安裝後仍寫舊的 0.5.0；已改為讀 Host VERSION，補上真 manifest 寫入／Owner 權限測試和 kit 版本一致性檢查；失敗媒體與 JUnit 保留 |
 | 取消只等 CLI leader，仍有子程序寫入 | 以 UID／PID start time／pidfd 核對身份並停止整組；無法確認時持久隔離，不開下一個 writer；真正忽略 TERM 的子程序回歸 |
 | 重複取消中斷自己的停止清理 | 同一 task 只要求取消一次；重複 HTTP 請求等待同一清理，client 斷線不打斷；真正 TERM-ignoring 子程序及斷線案例 |
 | Controller／Gateway 誤報停止成功 | 一般家庭、Host 查詢、Gateway 都核對 Runner 停止回覆；回覆遺失／stop_unconfirmed 保存 needs_reconcile，不引導立即重送 |

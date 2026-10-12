@@ -1,0 +1,14 @@
+{
+  "version": "0.5.1",
+  "iso_sha256": "1b8ddb6c11233a2b714583b06403dd1db6819b47e80693bc9a441de7dab54cdd",
+  "seed_sha256": "7465beff2e5599ae28cefeab8862625a2dc63f3c62de1a962bfc4621c425bf48",
+  "interactive_sections": [
+    "network",
+    "storage",
+    "identity"
+  ],
+  "preselected_disk": false,
+  "embedded_password": false,
+  "embedded_ssh_key": false,
+  "result": "passed"
+}

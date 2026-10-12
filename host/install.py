@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from agentic_host import VERSION  # noqa: E402
 from agentic_host.artifacts import sha256  # noqa: E402
 from agentic_host.manager import HostError, atomic, validate_profile  # noqa: E402
 
@@ -189,14 +190,17 @@ asyncio.run(main())
                     "controller", "python", "-c", script], input=json.dumps(payload), text=True, check=True)
     # Firstboot starts the outer services. The durable Web onboarding creates
     # HAOS automatically after CLI, Hermes and channel setup, or an explicit skip.
-    atomic(STATE / "installed.json", {"version": "0.5.0", "profile": profile["id"], "installed_at": time.time()})
-    # The fixed owner console needs these nonsecret release fields even when
-    # Controller is unavailable. Other state and credential files stay private.
-    os.chown(STATE / "installed.json", 0, 1000)
-    os.chmod(STATE / "installed.json", 0o640)
+    record_installation(profile)
     print("Agentic Home installed. Open http://localhost:8099; view local login key: sudo agentic-home access-key")
     if profile["desktop"]:
         run("systemctl", "start", "gdm3")
+
+
+def record_installation(profile):
+    atomic(STATE / "installed.json", {"version": VERSION, "profile": profile["id"], "installed_at": time.time()})
+    # Nonsecret release metadata remains available to the fixed owner console.
+    os.chown(STATE / "installed.json", 0, 1000)
+    os.chmod(STATE / "installed.json", 0o640)
 
 
 def main():

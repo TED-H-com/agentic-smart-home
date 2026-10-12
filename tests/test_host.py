@@ -220,3 +220,20 @@ def test_desktop_key_is_not_distributed_to_additional_linux_accounts(tmp_path, m
     assert stat.S_IMODE((tmp_path / "1000/Agentic-Home.txt").stat().st_mode) == 0o600
     assert not (tmp_path / "1001/Agentic-Home.txt").exists()
     assert not (tmp_path / "1002/Agentic-Home.txt").exists()
+
+
+def test_installed_manifest_matches_release_and_owner_console_permissions(tmp_path, monkeypatch):
+    import stat
+    import tomllib
+    install = module("host/install.py")
+    monkeypatch.setattr(install, "STATE", tmp_path)
+    ownership = []
+    monkeypatch.setattr(install.os, "chown", lambda path, uid, gid: ownership.append((path, uid, gid)))
+    install.record_installation({"id": "laptop-amd64"})
+    path = tmp_path / "installed.json"
+    metadata = json.loads(path.read_text())
+    release = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
+    assert metadata["version"] == release
+    assert metadata["profile"] == "laptop-amd64" and metadata["installed_at"] > 0
+    assert stat.S_IMODE(path.stat().st_mode) == 0o640
+    assert ownership == [(path, 0, 1000)]

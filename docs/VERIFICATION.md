@@ -1,6 +1,8 @@
 # Agentic Smart Home 0.5.1 E2E 與恢復驗證
 
-2026-10-12，本機完整 `pytest-disktmp uv run pytest -q --real-ha --containers` 回歸 **271 passed、2 skipped，194.16 秒**，見 [JUnit](../evidence/pytest-0.5.1.xml)。兩個獨立大型案例未在此命令啟動：真 HAOS 已另跑 **1 passed／84.78 秒**；新版 Linux ISO 安裝待本輪媒體凍結後執行。0.5.0 媒體證據保留於下方，不轉記成新版驗收。
+2026-10-12，本機完整 `pytest-disktmp uv run pytest -q --real-ha --containers` 回歸 **271 passed、2 skipped，194.16 秒**，見 [JUnit](../evidence/pytest-0.5.1.xml)。兩個獨立大型案例未在此命令啟動：真 HAOS 已另跑 **1 passed／84.78 秒**；首輪新版 ISO 安裝因 installed.json 仍寫舊版而失敗，已修正並待重建媒體重新驗證。0.5.0 媒體證據保留於下方，不轉記成新版驗收。
+
+GitHub [CI 38222178550](https://github.com/teddashh/agentic-smart-home/actions/runs/38222178550) 在同一 source commit `9ae7afcdc7436bb5352d1021d17456c2761a14cc` 通過 **270 passed／3 skipped／313.453 秒**，見 [CI 記錄](../evidence/github-ci-0.5.1.json) 和 [JUnit](../evidence/pytest-0.5.1-github.xml)。CI 另外跳過 UID1000 專用桌面單元案例；實際跨程序票據及新增 composed E2E 均通過，後者 **59.64 秒**，見 [CI E2E](../evidence/onboarding-e2e-0.5.1-github.json)。CI ZIP 的 395 檔 manifest 全數驗證，與媒體來源的 141 份檔案全部相同，見 [核對](../evidence/ci-media-match-0.5.1.json)。
 
 新增的 [跨服務 E2E](../evidence/onboarding-e2e.json) 使用真正 Chromium、Controller HTTP、TLS Runner、真 Codex、Hermes AIAgent／MCP、隔離 Core 與原生瀏覽器 OAuth；涵蓋 CLI 選擇／登入、Hermes 獨立驗證、Web 通道、HA 引導、Controller 重啟不重派、家庭授權，以及同 case 的 MCP 證據／對話刷新。最後將 Controller／Runner／Hermes 資源限制對齊正式 compose 後，該條 E2E 另跑 **1 passed／45.37 秒**，並記錄實際 image IDs、記憶體／CPU／PID 限制及 OOM 狀態。沒有 browser API interception。模型回覆、Host 安裝／VM effects 是明示 fixture，原生 HA wizard 的初始化透過真 Core API 完成；真雲端同意、實體 laptop／設備、真 bot 仍未執行。
 
@@ -196,3 +198,7 @@ pytest-disktmp uv run pytest -q tests/test_linux_install.py --linux-install
 - 筆電測試映像與最後交付版只差 `host/install.py` 的桌面金鑰帳號範圍修正；該修改已通過多帳號檔案權限回歸。最終筆電 ISO 沒有再重跑整機安裝。完整差異與兩份 ISO hash 見 `evidence/release-0.2.0.json`。
 
 測試 VM／磁碟／臨時登入資料均已移除。第一次實機部署完成後，建議再重開一次 Linux，載入合蓋設定；雲端帳號與家庭 onboarding 由使用者在成品中登入。
+
+## 0.5.1 首輪媒體版本紀錄失敗
+
+首輪 ISO `1b8ddb6c…` 在 Ubuntu 安裝及 firstboot 完成後，installed.json 回報0.5.0；**1 failed／659.01 秒**，[原始 JUnit](../evidence/linux-install-0.5.1-version-failure.xml)、[失敗 build](../evidence/build-0.5.1-before-version-fix.json)。服務 image tags 為0.5.1，但版本 manifest 不能宣称成功。Installer 已改用 Host VERSION，ISO label 由版本導出，kit check 核對 Python／App／Web／compose／packager 版本；30 項 Host／bootstrap／support 回歸通過。此後必須使用新 digest 重跑完整安裝，不能沿用舊 ISO。
