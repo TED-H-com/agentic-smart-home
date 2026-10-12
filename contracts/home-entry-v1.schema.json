@@ -1,0 +1,53 @@
+{
+  "additionalProperties": false,
+  "description": "Product-owned navigation contract; never accepts an upstream redirect URL.",
+  "properties": {
+    "contract_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Contract Version",
+      "type": "integer"
+    },
+    "native_path": {
+      "const": "/",
+      "default": "/",
+      "title": "Native Path",
+      "type": "string"
+    },
+    "reason_code": {
+      "anyOf": [
+        {
+          "enum": [
+            "setup_incomplete",
+            "home_not_bound",
+            "home_unavailable",
+            "home_identity_changed",
+            "home_contract_changed",
+            "maintenance"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason Code"
+    },
+    "state": {
+      "enum": [
+        "ready",
+        "setup",
+        "unavailable",
+        "unsupported"
+      ],
+      "title": "State",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state"
+  ],
+  "title": "HomeEntry",
+  "type": "object"
+}

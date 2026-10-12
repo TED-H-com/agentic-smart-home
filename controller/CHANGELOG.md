@@ -1,3 +1,9 @@
+# 0.6.1 native home and upstream boundaries
+
+- Make native HA the completed household daily entry, retain explicit conversations and independent rescue, and prevent Back/reload redirect loops.
+- Add fresh native-entry contract, private Hermes facade and behavior gate, per-operation Linux capability checks, and an isolated candidate workflow.
+- Preserve schema 3 and existing approval/update controls. HA sidebar bridge and full OS/HAOS rollback remain separate work.
+
 # 0.6.0 isolated coding and delivery
 
 - Add persistent Host coding dispatch, independent role login, bounded provider/source relay, exact source commit and stopped-writer reconciliation; retained household mode stays restricted.

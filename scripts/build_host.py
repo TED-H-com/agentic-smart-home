@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "host"))
 from agentic_host.artifacts import fetch, sha256  # noqa: E402
 from agentic_host.manager import validate_profile  # noqa: E402
 
-VERSION = "0.6.0"
+VERSION = "0.6.1"
 SKIP = {"__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", "test-results"}
 
 

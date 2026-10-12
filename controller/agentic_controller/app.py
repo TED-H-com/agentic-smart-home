@@ -184,6 +184,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     if host_mode:
         host_routes(app, host_session, ha, store, runner, controller_id)
         ha_oauth_routes(app, host_session, ha, store)
+        from .home_entry import routes as home_entry_routes
+        home_entry_routes(app, store, ha)
 
     def csrf(principal, expires):
         payload = f"{principal}:{expires}"

@@ -1,12 +1,13 @@
 import { StrictMode, useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { api, desktopLogin, download, session, configureDeployment, haPath, haTarget } from './api';
+import { api, desktopLogin, consumeDesktopEntry, download, session, configureDeployment, haPath, haTarget } from './api';
 import {SetupGuide,currentRoute,type View} from './setup';
 import './style.css';
 import {Status,Notice,Button,Empty,timestamp,labels} from './ui';
 import {Provider} from './providers';
 import {GatewayPanel,RuntimePanel} from './gateway';
 import {Onboarding} from './bootstrap';
+import {HomeEntry} from './home-entry';
 import {HermesPanel} from './hermes';
 import {WorkerPanel} from './workers';
 import {HostLogin,HostPanel} from './host';
@@ -15,14 +16,16 @@ type Entity = {entity_id:string; name:string; domain:string; area:string|null; s
 type Permission = {entity_id:string; read:boolean; write:string; purpose:string};
 type Task = {id:string; request:string; provider:string; state:string; message:string; created_at:string; updated_at:string; proposal_id?:string; proposal?:any; evidence?:any; events?:any[]; sources?:any[]};
 
-function App({hostMode=false,active=true,onLogout}:{hostMode?:boolean;active?:boolean;onLogout:()=>void}) {
-  const [route,setRoute] = useState(()=>currentRoute(hostMode));
+function App({hostMode=false,active=true,desktopEntry=false,onLogout}:{hostMode?:boolean;active?:boolean;desktopEntry?:boolean;onLogout:()=>void}) {
+  const [dailyEntry]=useState(()=>hostMode&&(!location.hash||(desktopEntry&&location.hash==='#onboarding')));
+  const [route,setRoute] = useState(()=>dailyEntry?{view:'entry' as View,task:null}:currentRoute(hostMode));
   const {view,task:selected}=route;
   const [status,setStatus] = useState<any>(null), [tasks,setTasks] = useState<Task[]>([]);
   const [detail,setDetail] = useState<Task|null>(null), [error,setError] = useState('');
   const [ready,setReady] = useState(false), [draft,setDraft] = useState(''), [refreshing,setRefreshing]=useState(false);
   const [dirty,setDirty]=useState(false), [pendingView,setPendingView]=useState<View|null>(null);
-  const [menuOpen,setMenuOpen]=useState(false);
+  const [menuOpen,setMenuOpen]=useState(false),[gatewayMounted,setGatewayMounted]=useState(view==='gateway');
+  useEffect(()=>{if(view==='gateway')setGatewayMounted(true)},[view]);
   useEffect(()=>setMenuOpen(false),[view]);
   const load = useCallback(async () => {const data = await api('tasks'); setTasks(data.tasks);}, []);
   const refreshStatus = useCallback(async () => setStatus(await api('status')), []);
@@ -30,18 +33,17 @@ function App({hostMode=false,active=true,onLogout}:{hostMode?:boolean;active?:bo
   useEffect(()=>{const update=()=>{const next=currentRoute(hostMode);if(dirty&&next.view!==view){setPendingView(next.view);history.replaceState(null,'',`#${view}`);return}setRoute(next)};window.addEventListener('hashchange',update);return()=>window.removeEventListener('hashchange',update)},[hostMode,dirty,view]);
   useEffect(()=>{if(!active)return;refresh();let alive=true;let timer:ReturnType<typeof setTimeout>;const poll=async()=>{try{await Promise.all([load(),refreshStatus()])}catch(e){if(alive)setError((e as Error).message)}if(alive)timer=setTimeout(poll,10000)};timer=setTimeout(poll,10000);const auth=setInterval(()=>session().catch(()=>{}),1800000);return()=>{alive=false;clearTimeout(timer);clearInterval(auth)}},[active,refresh,load,refreshStatus]);
   useEffect(()=>{if(!selected||!active){setDetail(null);return}let alive=true;let timer:ReturnType<typeof setTimeout>;setDetail(null);const update=async()=>{try{const d=await api(`tasks/${selected}`);if(alive)setDetail(d)}catch(e){if(alive)setError((e as Error).message)}if(alive)timer=setTimeout(update,2500)};update();return()=>{alive=false;clearTimeout(timer)}},[selected,active]);
-  useEffect(()=>{if(!hostMode||!active||!ready||location.hash)return;let alive=true;api('bootstrap').then(value=>{if(alive&&!location.hash&&value.state==='completed'){history.replaceState(null,'','#gateway');setRoute({view:'gateway',task:null})}}).catch(()=>{});return()=>{alive=false}},[hostMode,active,ready]);
   function navigate(next:View){setMenuOpen(false);if(dirty&&next!==view){setPendingView(next);return}location.hash=next;setRoute({view:next,task:null})}
   function openTask(task:Task){location.hash=`home/${task.id}`;setRoute({view:'home',task:task.id});load().catch(()=>{})}
   const nav:[View,string,string][]=hostMode
-    ? [['gateway','智能管家','01'],['inventory','設備','02'],['automations','自動化','03'],['history','紀錄','04'],['settings','設定','05']]
+    ? [['entry','家庭','01'],['gateway','智能管家','02'],['inventory','設備','03'],['automations','自動化','04'],['history','紀錄','05'],['settings','設定','06']]
     : [['home','工作台','01'],['inventory','設備與權限','02'],['automations','家庭自動化','03'],['history','任務紀錄','04'],['settings','連線與設定','05']];
   const hiddenTitles:Partial<Record<View,string>>={home:'家庭提案',agents:'助手帳號',host:'主機維護',onboarding:'開始設定',workers:'進階工具'};
   const activeNav=hostMode?(view==='home'?'gateway':['agents','host','onboarding','workers'].includes(view)?'settings':view):view;
   useEffect(()=>{const reveal=()=>{const button=document.querySelector<HTMLElement>('nav button[aria-current="page"]');const nav=button?.parentElement;if(button&&nav)nav.scrollLeft+=button.getBoundingClientRect().left-nav.getBoundingClientRect().left-(nav.clientWidth-button.clientWidth)/2};reveal();window.addEventListener('resize',reveal);return()=>window.removeEventListener('resize',reveal)},[view]);
   const connected=status?.ha?.status==='connected';
-  return <div className={`app-shell ${view==='onboarding'?'setup-shell':''}`}><a className="skip-link" href="#main-content" onClick={e=>{e.preventDefault();document.getElementById('main-content')?.focus()}}>跳到主要內容</a><aside className="sidebar"><a className="brand" href={hostMode?'#gateway':'#home'} onClick={e=>{e.preventDefault();navigate(hostMode?'gateway':'home')}}><span className="brand-mark">a<span>h</span></span><span>Agentic<br/><b>Smart Home</b></span></a><button className="nav-toggle" aria-controls="main-navigation" aria-expanded={menuOpen} onClick={()=>setMenuOpen(!menuOpen)}>{menuOpen?'收起選單':'選單'} <span aria-hidden>{menuOpen?'−':'+'}</span></button><p className="nav-label">家庭控制中心</p><nav id="main-navigation" className={menuOpen?'is-open':''} aria-label="主選單">{nav.map(([id,label,index])=><button className={activeNav===id?'active':''} aria-current={activeNav===id?'page':undefined} onClick={()=>navigate(id)} key={id}><span>{index}</span>{label}</button>)}</nav><div className="sidebar-foot"><small>Agentic Home {status?.version || '讀取中'}</small></div></aside>
-  <main id="main-content" tabIndex={-1}><header className="topbar"><div><span className="eyebrow">{status?.ha?.location_name || 'AGENTIC HOME · LINUX'}</span><h1>{nav.find(n=>n[0]===view)?.[1]||hiddenTitles[view]||'智能管家'}</h1></div><div className="top-actions"><span className="ha-status">{view==='onboarding'&&!connected?<span className="subtle">家庭尚未連接</span>:<>HA <Status value={status?status.ha?.status:'loading'}/></>}</span>{ready&&<Button secondary disabled={!status} onClick={async()=>{try{await api('pause',{paused:!status?.paused});await refreshStatus()}catch(e){setError((e as Error).message)}}}>{status?.paused?'恢復 AI':'暫停 AI'}</Button>}{hostMode&&<button className="text-button" onClick={async()=>{try{await api('host/logout',{});onLogout()}catch(e){setError((e as Error).message)}}}>登出</button>}</div></header>
+  return <div className={`app-shell ${view==='onboarding'?'setup-shell':''}`}><a className="skip-link" href="#main-content" onClick={e=>{e.preventDefault();document.getElementById('main-content')?.focus()}}>跳到主要內容</a><aside className="sidebar"><a className="brand" href={hostMode?'#entry':'#home'} onClick={e=>{e.preventDefault();navigate(hostMode?'entry':'home')}}><span className="brand-mark">a<span>h</span></span><span>Agentic<br/><b>Smart Home</b></span></a><button className="nav-toggle" aria-controls="main-navigation" aria-expanded={menuOpen} onClick={()=>setMenuOpen(!menuOpen)}>{menuOpen?'收起選單':'選單'} <span aria-hidden>{menuOpen?'−':'+'}</span></button><p className="nav-label">家庭控制中心</p><nav id="main-navigation" className={menuOpen?'is-open':''} aria-label="主選單">{nav.map(([id,label,index])=><button className={activeNav===id?'active':''} aria-current={activeNav===id?'page':undefined} onClick={()=>navigate(id)} key={id}><span>{index}</span>{label}</button>)}</nav><div className="sidebar-foot"><small>Agentic Home {status?.version || '讀取中'}</small></div></aside>
+  <main id="main-content" tabIndex={-1}><header className="topbar"><div><span className="eyebrow">{status?.ha?.location_name || 'AGENTIC HOME · LINUX'}</span><h1>{nav.find(n=>n[0]===view)?.[1]||hiddenTitles[view]||'智能管家'}</h1></div><div className="top-actions">{!['entry','onboarding'].includes(view)&&<span className="ha-status">HA <Status value={status?status.ha?.status:'loading'}/></span>}{ready&&<Button secondary disabled={!status} onClick={async()=>{try{await api('pause',{paused:!status?.paused});await refreshStatus()}catch(e){setError((e as Error).message)}}}>{status?.paused?'恢復 AI':'暫停 AI'}</Button>}{hostMode&&<button className="text-button" onClick={async()=>{try{await api('host/logout',{});onLogout()}catch(e){setError((e as Error).message)}}}>登出</button>}</div></header>
   {error&&<div className="global-error"><Notice error>{error}<div className="row-actions"><Button secondary disabled={refreshing} onClick={refresh}>{refreshing?'重新連線中…':'重新連線'}</Button><button className="text-button" onClick={()=>setError('')}>關閉提示</button></div></Notice></div>}
   {pendingView&&<div className="global-error"><Notice>設備授權尚未儲存。可以留在本頁儲存，或捨棄這次修改。<div className="row-actions"><Button secondary onClick={()=>setPendingView(null)}>繼續編輯</Button><button className="text-button" onClick={()=>{setDirty(false);location.hash=pendingView;setRoute({view:pendingView,task:null});setPendingView(null)}}>捨棄修改並離開</button></div></Notice></div>}
   {!ready?<div className="content"><Empty title={error?'目前無法開啟管理中心':'正在建立管理連線'}>{hostMode?'請確認本機管理服務正在運作。':'請使用 HA owner 從 App 側欄開啟。'}</Empty></div>:<div className="content">
@@ -53,7 +55,8 @@ function App({hostMode=false,active=true,onLogout}:{hostMode?:boolean;active?:bo
   {view==='automations'&&<Automations onTask={openTask} onEdit={(id)=>{setDraft(`修改自動化 ${id}：`);navigate('home')}}/>}
   {view==='history'&&<><div className="section-intro"><p>回看每個需求、批准和執行結果。</p><Button secondary onClick={async()=>{try{download(new Blob([JSON.stringify(await api('evidence'),null,2)],{type:'application/json'}),'agentic-home-evidence.json')}catch(e){setError((e as Error).message)}}}>匯出執行證據</Button></div><div className="history-table"><div className="history-head"><span>需求</span><span>Agent</span><span>狀態</span><span>時間</span></div>{tasks.map(t=><button key={t.id} onClick={()=>openTask(t)}><strong>{t.request}</strong><span>{t.provider==='codex'?'Codex':'Claude Code'}</span><Status value={t.state}/><time>{timestamp(t.created_at)}</time></button>)}</div>{!tasks.length&&<Empty title="還沒有任務">送出第一個需求後，這裡會保留處理與操作紀錄。</Empty>}</>}
   {view==='settings'&&<Settings hostMode={hostMode} status={status} onChange={refreshStatus}/>}
-  {view==='gateway'&&<GatewayPanel/>}
+  {view==='entry'&&<HomeEntry automatic={dailyEntry&&active} navigate={navigate}/>}
+  {(view==='gateway'||gatewayMounted)&&<div hidden={view!=='gateway'}><GatewayPanel visible={view==='gateway'&&active}/></div>}
   {view==='workers'&&<WorkerPanel/>}
   {view==='agents'&&<><HermesPanel/><RuntimePanel/></>}
   {view==='onboarding'&&<Onboarding status={status} onChange={refreshStatus} navigate={navigate}/>}
@@ -156,11 +159,11 @@ function Retention({compact=false}:{compact?:boolean}){
 
 
 function Root(){
-  const [deployment,setDeployment]=useState<any>(null),[error,setError]=useState(''),[mounted,setMounted]=useState(false),[desktopError,setDesktopError]=useState(false);
-  const load=useCallback(async()=>{setError('');try{setDesktopError(await desktopLogin()==='failed');const result=await api('deployment');configureDeployment(result.mode);setDeployment(result);if(result.mode!=='host'||result.authenticated)setMounted(true)}catch(e){setError((e as Error).message)}},[]);
+  const [deployment,setDeployment]=useState<any>(null),[error,setError]=useState(''),[mounted,setMounted]=useState(false),[desktopError,setDesktopError]=useState(false),[desktopEntry,setDesktopEntry]=useState(false);
+  const load=useCallback(async()=>{setError('');try{setDesktopError(await desktopLogin()==='failed');if(consumeDesktopEntry())setDesktopEntry(true);const result=await api('deployment');configureDeployment(result.mode);setDeployment(result);if(result.mode!=='host'||result.authenticated)setMounted(true)}catch(e){setError((e as Error).message)}},[]);
   useEffect(()=>{load();const expire=()=>setDeployment((d:any)=>({...d,authenticated:false}));window.addEventListener('agentic-session-expired',expire);return()=>window.removeEventListener('agentic-session-expired',expire)},[load]);
   if(!deployment)return <main className="host-login"><span className="eyebrow">AGENTIC HOME</span><h1>{error?'管理中心尚未回應':'正在開啟你的家庭主機…'}</h1>{error&&<><p role="alert">{error}</p><Button onClick={load}>重試連線</Button></>}</main>;
   const loggedIn=deployment.mode!=='host'||deployment.authenticated;
-  return <>{!loggedIn&&<HostLogin expired={mounted} desktopError={desktopError} onLogin={()=>{setDeployment({...deployment,authenticated:true});setMounted(true)}}/>}{mounted&&<div hidden={!loggedIn}><App hostMode={deployment.mode==='host'} active={loggedIn} onLogout={()=>{Object.keys(sessionStorage).filter(key=>key.startsWith('agentic-auth-')||key==='agentic-host-task').forEach(key=>sessionStorage.removeItem(key));setMounted(false);setDeployment({...deployment,authenticated:false})}}/></div>}</>;
+  return <>{!loggedIn&&<HostLogin expired={mounted} desktopError={desktopError} onLogin={()=>{setDeployment({...deployment,authenticated:true});setMounted(true)}}/>}{mounted&&<div hidden={!loggedIn}><App hostMode={deployment.mode==='host'} active={loggedIn} desktopEntry={desktopEntry} onLogout={()=>{setDesktopEntry(false);Object.keys(sessionStorage).filter(key=>key.startsWith('agentic-auth-')||key==='agentic-host-task').forEach(key=>sessionStorage.removeItem(key));setMounted(false);setDeployment({...deployment,authenticated:false})}}/></div>}</>;
 }
 createRoot(document.getElementById('root')!).render(<StrictMode><Root/></StrictMode>);

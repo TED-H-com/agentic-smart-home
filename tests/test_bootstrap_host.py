@@ -132,10 +132,23 @@ def installer(tmp_path, monkeypatch):
 
     def run(*args, **kwargs):
         calls.append(args)
+        if args[:2] == ("ip", "-json"):
+            return SimpleNamespace(stdout='[{"dst":"default","dev":"eth0","flags":[]}]', returncode=0)
+        if args[:2] == ("docker", "info"):
+            return SimpleNamespace(stdout=json.dumps({"MemoryLimit": True, "SwapLimit": True, "PidsLimit": True,
+                                   "CpuCfsQuota": True, "CgroupVersion": "2", "SecurityOptions": ["name=seccomp", "name=apparmor"]}), returncode=0)
+        if args[:3] == ("docker", "compose", "version"):
+            return SimpleNamespace(stdout='{"version":"future-compatible"}', returncode=0)
+        if args == ("docker", "compose", "up", "--help"):
+            return SimpleNamespace(stdout="--wait --no-deps", returncode=0)
         if args[:3] == ("docker", "image", "inspect"):
             return SimpleNamespace(stdout=CANDIDATE, returncode=0)
-        if args[:2] == ("docker", "run") and flags["probe_fails"]:
-            raise RuntimeError("sensitive build detail must never escape")
+        if args[:2] == ("docker", "run"):
+            if flags["probe_fails"]:
+                raise RuntimeError("sensitive build detail must never escape")
+            return SimpleNamespace(stdout=flags.get("probe_output", json.dumps({
+                "compatible": True, "adapter_contract": 1,
+                "observed_from": "runtime_container", "cloud_account_verified": False})), returncode=0)
         if "stop" in args and flags["race_account"]:
             data = tmp_path / "hermes"
             data.mkdir()
@@ -179,7 +192,23 @@ def test_failed_candidate_preserves_original_and_rechecks_auth(installer, failur
     assert not list(setup.root.glob("hermes-install-*"))
     assert any(c[:3] == ("docker", "rm", "-f") for c in calls)
     if failure == "probe_fails":
-        assert not any("stop" in c or "up" in c for c in calls)
+        assert not any("stop" in c or ("up" in c and "--help" not in c) for c in calls)
+
+
+@pytest.mark.parametrize("output", ["", "[]", "null", "{" , "x" * 65537,
+    json.dumps({"compatible": True}),
+    *[json.dumps({"compatible": True, "adapter_contract": version,
+        "observed_from": "runtime_container", "cloud_account_verified": False}) for version in (True, 2)],
+    json.dumps({"compatible": True, "adapter_contract": 1,
+        "observed_from": "runtime_container", "cloud_account_verified": True})])
+def test_success_exit_without_valid_adapter_contract_never_activates(installer, output):
+    setup, calls, flags = installer
+    flags["probe_output"] = output
+    with pytest.raises(SetupError, match="hermes_adapter_contract_unavailable"):
+        setup.install()
+    assert setup.state()["state"] == "failed"
+    assert ORIGINAL in setup.environment.read_text()
+    assert not any("stop" in call or ("up" in call and "--help" not in call) for call in calls)
 
 
 def test_failed_fallback_and_restart_never_blindly_replay(installer):

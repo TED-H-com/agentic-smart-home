@@ -29,6 +29,15 @@ class Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
 
+class HomeEntry(Strict):
+    """Product-owned navigation contract; never accepts an upstream redirect URL."""
+    contract_version: Literal[1] = 1
+    state: Literal["ready", "setup", "unavailable", "unsupported"]
+    native_path: Literal["/"] = "/"
+    reason_code: Literal["setup_incomplete", "home_not_bound", "home_unavailable",
+                         "home_identity_changed", "home_contract_changed", "maintenance"] | None = None
+
+
 Runtime = Literal["host", "haos"]
 Provider = Literal["codex", "claude", "agy", "grok"]
 Channel = Literal["line", "discord", "telegram"]

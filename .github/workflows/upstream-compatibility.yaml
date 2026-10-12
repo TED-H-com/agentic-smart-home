@@ -1,0 +1,31 @@
+name: Upstream compatibility candidate
+'on':
+  workflow_dispatch:
+    inputs:
+      hermes:
+        description: Hermes source to test without activating
+        required: true
+        default: latest
+        type: choice
+        options: [locked, latest]
+permissions:
+  contents: read
+jobs:
+  hermes-adapter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+      - name: Test isolated upstream with product adapter and locked dependencies
+        env:
+          AGENTIC_CANDIDATE: ${{ inputs.hermes }}
+        run: python3 scripts/check_upstream.py --hermes "$AGENTIC_CANDIDATE" --report evidence/upstream-candidate.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: upstream-compatibility
+          retention-days: 14
+          path: evidence/upstream-candidate.json

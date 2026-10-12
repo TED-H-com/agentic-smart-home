@@ -127,7 +127,7 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
             page.set_viewport_size({"width": width, "height": 900 if width == 1440 else 844})
             page.wait_for_timeout(100)
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-            page.screenshot(path=str(root / f"evidence/ui/{name}-{width}.png"), full_page=True)
+            page.screenshot(path=str(root / f"evidence/ui/native-home/{name}-{width}.png"), full_page=True)
 
     try:
         with sync_playwright() as p:
@@ -135,7 +135,7 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
             page = browser.new_page(viewport={"width": 1440, "height": 900})
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.route("**/api/**", route)
-            page.goto(f"http://127.0.0.1:{server.server_port}/")
+            page.goto(f"http://127.0.0.1:{server.server_port}/#onboarding")
             page.get_by_text("其他設定方式", exact=True).click()
             page.get_by_role("heading", name="你的家庭管理入口已經就緒").wait_for()
             screenshots(page, "onboarding-web")
@@ -193,13 +193,13 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
             assert json.loads(saved) == {'host-codex': messages[0]['id']}
             page.get_by_text('進階對話設定', exact=True).click()
             page.get_by_label('執行環境', exact=True).select_option('haos')
-            page.get_by_role('heading', name='今天想處理什麼？', exact=True).wait_for()
+            page.get_by_text('需要協助時，直接告訴管家。', exact=True).wait_for()
             page.get_by_label('執行環境', exact=True).select_option('host')
             page.get_by_text('接續這段對話', exact=True).wait_for()
             page.get_by_text('進階對話設定', exact=True).click()
             screenshots(page, "gateway")
             page.get_by_role('button', name='開始新對話', exact=True).click()
-            page.get_by_role('heading', name='今天想處理什麼？', exact=True).wait_for()
+            page.get_by_text('需要協助時，直接告訴管家。', exact=True).wait_for()
             page.get_by_label('對話訊息').fill('另一個問題')
             page.get_by_role('button', name='送出訊息', exact=True).click()
             page.get_by_role('heading', name='另一個問題', exact=True).wait_for()

@@ -140,6 +140,23 @@ class Manager:
     def virsh(self, *args, **kwargs):
         return self.run("virsh", "--connect", "qemu:///system", *args, **kwargs)
 
+    def compatibility(self):
+        # GET observes only the last attempted mutation's bounded report.
+        from .support import _object
+        value = _object(self.root / "compatibility.json")
+        return value if value and value.get("scope") == "required_fixed_host_contracts" else {
+            "state": "not_checked", "action": None, "observed_at": None, "checks": [],
+            "scope": "required_fixed_host_contracts", "reuse_for_mutations": False}
+
+    def require_compatibility(self, action):
+        from .compatibility import inspect
+        report = inspect(self.run, action)
+        atomic(self.root / "compatibility.json", report)
+        if report["state"] != "supported":
+            first = next(check["id"] for check in report["checks"] if check["state"] == "blocked")
+            raise HostError("host_contract_" + first + "_unavailable")
+        return report
+
     @contextmanager
     def locked(self):
         with (self.root / "operation.lock").open("a") as lock:
@@ -168,8 +185,13 @@ class Manager:
         from .bootstrap import InitialSetup
 
         state = self.state()
-        result = self.virsh("domstate", NAME, check=False)
-        vm = result.stdout.strip() if result.returncode == 0 else "not_created"
+        try:
+            result = self.virsh("domstate", NAME, check=False, timeout=3)
+            vm = result.stdout.strip() if result.returncode == 0 else "not_created"
+            if vm not in {"running", "blocked", "paused", "in shutdown", "shut off", "crashed", "pmsuspended", "not_created"}:
+                vm = "unknown"
+        except (OSError, HostError, subprocess.TimeoutExpired):
+            vm = "unknown"
         snapshots = []
         for path in sorted((self.root / "snapshots").glob("*/manifest.json"), reverse=True):
             value = json.loads(path.read_text())
@@ -179,7 +201,7 @@ class Manager:
                 "kvm": os.access("/dev/kvm", os.R_OK | os.W_OK),
                 "storage_free_bytes": shutil.disk_usage(self.root).free,
                 "provisioned": bool(state.get("complete")), "restore_pending": state.get("restore_pending"),
-                "bootstrap": InitialSetup(self).status()}
+                "bootstrap": InitialSetup(self).status(), "compatibility": self.compatibility()}
 
     def refresh_forwarding(self):
         """Restore scoped forwarding after Linux/Docker restarts, only for our network."""
@@ -201,18 +223,19 @@ class Manager:
         validate_profile(profile, bases)
         if not os.access("/dev/kvm", os.R_OK | os.W_OK):
             raise HostError("KVM unavailable; enable Intel VT-x / AMD-V in firmware")
+        self.require_compatibility("provision")
         state = self.state()
         if not state:
             if self.virsh("dominfo", NAME, check=False).returncode == 0 or self.images.exists():
                 raise HostError("Existing VM or image directory has no ownership record; refusing to replace")
             # No global networking changes: reserve a new, non-overlapping product subnet.
-            import ipaddress
-            routes = json.loads(self.run("ip", "-json", "route", "show", "table", "all").stdout)
-            subnet = ipaddress.ip_network("192.168.177.0/24")
-            for route in routes:
-                dst = route.get("dst", "default")
-                if dst != "default" and subnet.overlaps(ipaddress.ip_network(dst, strict=False)):
-                    raise HostError("192.168.177.0/24 overlaps an existing route")
+            from .compatibility import output, route_overlap, routes
+            try:
+                overlap = route_overlap(routes(output(self.run, "ip", "-json", "route", "show", "table", "all")))
+            except (OSError, ValueError, TypeError, subprocess.TimeoutExpired):
+                raise HostError("host_contract_route_json_unavailable") from None
+            if overlap:
+                raise HostError("192.168.177.0/24 overlaps an existing route")
             state = {"owner": str(uuid.uuid4()), "profile": profile, "complete": False}
             atomic(self.state_file, state)
         elif state["profile"] != profile:
@@ -227,6 +250,11 @@ class Manager:
             try:
                 with lzma.open(artifact, "rb") as source, temporary.open("wb") as target:
                     shutil.copyfileobj(source, target, 1024 * 1024)
+                from .compatibility import check_image
+                try:
+                    check_image(self.run, temporary)
+                except (OSError, ValueError, TypeError, subprocess.TimeoutExpired):
+                    raise HostError("host_contract_qemu_image_unavailable") from None
                 self.run("qemu-img", "check", str(temporary), timeout=300)
                 self.run("qemu-img", "resize", str(temporary), str(profile["disk_gib"]) + "G")
                 sync_path(temporary)
@@ -269,6 +297,7 @@ class Manager:
             raise HostError("Interrupted restore: re-run restore with the recorded snapshot id")
         if self.owned() is None:
             raise HostError("VM definition is missing; run provision")
+        self.require_compatibility("start")
         state = self.virsh("domstate", NAME).stdout.strip()
         if state == "shut off":
             self.virsh("start", NAME)
@@ -279,6 +308,7 @@ class Manager:
     def shutdown(self):
         if self.owned() is None:
             raise HostError("VM definition is missing")
+        self.require_compatibility("shutdown")
         state = self.virsh("domstate", NAME).stdout.strip()
         if state == "shut off":
             return {"vm": state}
@@ -293,6 +323,7 @@ class Manager:
 
     def snapshot(self):
         self.owned()
+        self.require_compatibility("snapshot")
         was_running = self.virsh("domstate", NAME).stdout.strip() == "running"
         self.shutdown()
         id = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-" + uuid.uuid4().hex[:8]
@@ -316,6 +347,7 @@ class Manager:
         if not isinstance(id, str) or not re.fullmatch(r"[0-9]{8}T[0-9]{6}Z-[a-f0-9]{8}", id):
             raise HostError("Invalid snapshot id")
         self.owned()
+        self.require_compatibility("restore")
         if self.virsh("domstate", NAME).stdout.strip() != "shut off":
             raise HostError("Shut down HAOS before restoring")
         source = self.root / "snapshots" / id

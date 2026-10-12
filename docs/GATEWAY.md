@@ -1,4 +1,4 @@
-# 統一通訊、Hermes 與受控 Agent · 0.6.0 技術預覽
+# 統一通訊、Hermes 與受控 Agent · 0.6.1 技術預覽
 
 外層 Controller/Gateway 維持唯一通訊 receiver。Web 一直可用，onboarding 預設 LINE，亦可選 Discord／Telegram／Web；Hermes 不啟動自己的 bot Gateway，也不取得通道 token。首次開機不建立 HAOS，不影響外層 Web、Hermes 登入或固定主機查詢。
 

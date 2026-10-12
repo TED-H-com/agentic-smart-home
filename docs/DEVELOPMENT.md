@@ -1,4 +1,4 @@
-# 開發與自動化測試 · 0.6.0 技術預覽
+# 開發與自動化測試 · 0.6.1 技術預覽
 
 先讀根 [AGENTS](../AGENTS.md)、[Plan](../PROJECT_PLAN.md) 和 [v3 原稿／進度](v3/README.md)。A Hermes/Controller、B worker isolation、C Web/preview/delivery 三線可並行，共用契約由整合者維護，同一檔案／workspace 維持一個 writer。工程測試和 32 個產品驗收分開記。
 
@@ -12,11 +12,11 @@ npm ci --prefix web
 npm run build --prefix web
 uv run playwright install --with-deps chromium
 uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner; package_runner()"
-docker build -t agentic-home-controller:0.6.0 controller
-docker build -t agentic-home-runner:0.6.0 runner
-docker build -t agentic-home-linejs:0.6.0 host/linejs
-docker build -t agentic-home-hermes:0.6.0 hermes
-docker build -t agentic-home-preview:0.6.0 host/preview
+docker build -t agentic-home-controller:0.6.1 controller
+docker build -t agentic-home-runner:0.6.1 runner
+docker build -t agentic-home-linejs:0.6.1 host/linejs
+docker build -t agentic-home-hermes:0.6.1 hermes
+docker build -t agentic-home-preview:0.6.1 host/preview
 docker pull ghcr.io/home-assistant/amd64-hassio-supervisor:2026.09.3
 ```
 
@@ -65,7 +65,7 @@ python3 scripts/build_host.py
 uv run python scripts/package.py
 ```
 
-先改 Pydantic models 再產生 contracts。Runner `protocol=1` 與 `work_contract_major=1` 分開。0.6.0 的 Controller 使用 schema 3，因舊 worker cancel 語意不兼容新 lease；從 1／2 開啟先留 0600 SQLite 一致快照，交易更新 marker，保留 audit／去重。restore 接受 1／2／3 並保持格式。固定 updater 只允許同 schema 3 Controller image；不盲目回復舊 Live DB。
+先改 Pydantic models 再產生 contracts。Runner `protocol=1` 與 `work_contract_major=1` 分開。0.6.1 的 Controller 使用 schema 3，因舊 worker cancel 語意不兼容新 lease；從 1／2 開啟先留 0600 SQLite 一致快照，交易更新 marker，保留 audit／去重。restore 接受 1／2／3 並保持格式。固定 updater 只允許同 schema 3 Controller image；不盲目回復舊 Live DB。
 
 Hermes 工具 allowlist 由 runtime 和 Controller 同時限制，沒有 Live approval、arbitrary shell 或原生 delegate；新的 research/development launcher 不可修改受控 `home_operator` 的工具限制。模型回傳 passed／approved 沒有測試或人類批准效力。
 

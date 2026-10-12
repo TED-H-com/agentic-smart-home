@@ -10,6 +10,8 @@ Owner：Ted Huang。方向版本：Steering v3.0，2026-10-11。匯入時應用�
 
 ## 固定角色
 
+2026-10-12 後續介面方向：完成家庭建置後以原生 Home Assistant 作為日常首頁，智能管家作為協助入口，外層保留初始化與救援。Hermes／HAOS／Linux 的相依集中在獨立 adapter，以固定契約、能力探針及候選驗證處理上游變動；不保證任意未來版本相容。實作與限制見 [adapter 邊界](docs/ADAPTERS.md)。
+
 外層 Linux 上的一個 Hermes 是唯一主要協調者，管理需求、case、分工與證據。Host Coding Worker 研究產品／上游、修改隔離 checkout、跑 tests 與 preview；Home Coding Worker 在真正的 HAOS App 內自主追加現場查證、寫 scratch／重現程式、跑輕量測試並提出 patch。兩者可使用同一 provider，認證、session、workspace 和能力分開。
 
 保留 Ubuntu＋KVM＋官方 HAOS、現有 Web/Gateway、Controller、Runner 的 `host/haos` 路由、TLS/pairing/jobs、家庭 Engine 和 Host broker。新增薄 Hermes/MCP adapter 與工作契約，不建立第二套通訊 receiver、家庭政策或遠端派工平台。簡單查詢由 Hermes 使用固定工具；有互補研究價值時才派 worker。

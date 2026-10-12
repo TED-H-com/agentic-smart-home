@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 
 from .models import TOOLS
+from .upstream import HermesAdapter
+from .upstream import guarded_dispatch as guarded_dispatch
 
 SYSTEM = """You are Hermes, the sole coordinator for Agentic Smart Home.
 Use only the provided Controller MCP tools. Controller authorizes scope, workers,
@@ -30,15 +32,6 @@ home.propose for a precise reviewed action or automation. A proposal remains
 awaiting Owner approval in the Web task; never describe it as already executed.
 Respond in the user's language. Budget at most 12 model iterations per run.
 """
-
-
-def guarded_dispatch(dispatch, allowed):
-    """Enforce the exact tool grant even if upstream dispatch is called directly."""
-    def call(name, *args, **kwargs):
-        if name not in allowed:
-            return json.dumps({"error": "tool_not_authorized"})
-        return dispatch(name, *args, **kwargs)
-    return call
 
 
 def main():
@@ -77,57 +70,20 @@ def main():
     (home / "config.yaml").write_text(json.dumps(config))
     os.environ["AGENTIC_MCP_TOKEN"] = payload.pop("mcp_token")
     credentials = [payload.get("api_key", ""), os.environ["AGENTIC_MCP_TOKEN"]]
+    adapter = HermesAdapter()
     try:
-        from run_agent import AIAgent
-        from tools.mcp_tool_discovery import discover_mcp_tools
-        from tools.mcp_tool_schema import mcp_prefixed_tool_name
-
-        discovered = set(discover_mcp_tools(allowed_mcp_names=["agentic"]))
-        allowed = {mcp_prefixed_tool_name("agentic", name) for name in TOOLS}
-        if not discovered or not discovered <= allowed:
-            raise RuntimeError("mcp_unavailable")
-        import model_tools
-        model_tools.handle_function_call = guarded_dispatch(model_tools.handle_function_call, allowed)
         if provider == "openai-codex":
-            from hermes_cli.auth_codex import _read_codex_tokens, resolve_codex_runtime_credentials
-            runtime = resolve_codex_runtime_credentials()
-            api_key, base_url = runtime["api_key"], runtime["base_url"]
-            credentials.extend(_read_codex_tokens()["tokens"].values())
+            api_key, base_url = adapter.credentials()
+            credentials.extend(adapter.read_tokens().values())
         elif provider == "openrouter":
             api_key, base_url = payload.pop("api_key"), "https://openrouter.ai/api/v1"
         else:
             raise ValueError("provider_not_supported")
-        agent = AIAgent(
-            provider=provider, api_key=api_key,
-            api_mode="codex_responses" if provider == "openai-codex" else "chat_completions",
-            base_url=os.environ.get("AGENTIC_PROVIDER_URL", base_url),
-            model=payload["model"], enabled_toolsets=["mcp-agentic"],
-            session_id=payload["session_id"], max_iterations=12, max_tokens=4096,
-            quiet_mode=True, save_trajectories=False, verbose_logging=False,
-            skip_context_files=True, skip_memory=True, skip_background_review=True,
-            load_soul_identity=False, fallback_model=None, checkpoints_enabled=False,
-            run_budget_seconds=290,
+        safe = adapter.turn(
+            provider=provider, api_key=api_key, base_url=os.environ.get("AGENTIC_PROVIDER_URL", base_url),
+            model=payload["model"], session_id=payload["session_id"], message=payload["message"],
+            history=payload["history"], run_id=payload["run_id"], system=SYSTEM,
         )
-        agent._skip_mcp_refresh = True
-        if not agent.valid_tool_names or not agent.valid_tool_names <= allowed:
-            raise RuntimeError("tool_grant_mismatch")
-        result = agent.run_conversation(
-            payload["message"], system_message=SYSTEM,
-            conversation_history=payload["history"], task_id=payload["run_id"],
-        )
-        # Raw reasoning, provider errors and credentials never cross this pipe.
-        error = None
-        if result.get("failed") or not result.get("completed") or result.get("interrupted"):
-            reason = str(result.get("error", "")) + str(result.get("turn_exit_reason", ""))
-            error = "needs_reauth" if any(x in reason.lower() for x in ("401", "unauthorized", "authentication", "invalid api key")) else "inference_failed"
-        safe = {
-            "answer": result.get("final_response", "") if error is None else "",
-            "history": result.get("messages", []) if error is None else [],
-            "error": error,
-            "usage": {key: result.get(key) for key in ("input_tokens", "output_tokens", "total_tokens")},
-            "tools": sorted(agent.valid_tool_names),
-        }
-        agent.close()
     except Exception as exc:
         # Exception bodies can contain provider headers; never expose them.
         error = "needs_reauth" if getattr(exc, "status_code", None) in {401, 403} or getattr(exc, "relogin_required", False) else "runtime_unavailable"
@@ -136,7 +92,7 @@ def main():
         # Refresh can rotate during inference. Only this role's own store is read,
         # and neither access nor refresh tokens leave the private process boundary.
         try:
-            credentials.extend(_read_codex_tokens()["tokens"].values())
+            credentials.extend(adapter.read_tokens().values())
         except Exception:
             pass
     from .app import scrub

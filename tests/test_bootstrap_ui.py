@@ -5,6 +5,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import pytest
 from playwright.sync_api import expect, sync_playwright
 
 STEPS = ['network', 'runner_pairing', 'cli_auth', 'cli_assist', 'hermes_install',
@@ -60,6 +61,8 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             calls.append((path, body, request.headers['idempotency-key']))
         if path == 'deployment':
             result = {'mode': 'host', 'authenticated': True}
+        elif path == 'host/home-entry':
+            result = {'contract_version': 1, 'state': 'ready' if flow['state'] == 'completed' else 'setup', 'native_path': '/', 'reason_code': None}
         elif path == 'session':
             result = {'principal': 'host-owner', 'csrf': 'fixture-csrf'}
         elif path == 'status':
@@ -146,12 +149,17 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
         route.fulfill(status=200, content_type='application/json', body=json.dumps(result))
 
     def shots(page, name):
+        if name == 'complete':
+            primary = page.get_by_role('region', name='家庭入口').get_by_role('link', name='進入家庭')
+            expect(primary).to_have_css('background-color', 'rgb(33, 100, 83)')
+            expect(primary).to_have_css('color', 'rgb(255, 254, 250)')
+            expect(primary).to_have_css('opacity', '1')
         for width in [1440, 768, 390]:
             page.set_viewport_size({'width': width, 'height': 900 if width == 1440 else 844})
             page.evaluate('window.scrollTo(0,0)')
             page.wait_for_timeout(100)
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-            page.screenshot(path=str(root / f'evidence/ui/bootstrap-{name}-{width}.png'), full_page=True)
+            page.screenshot(path=str(root / f'evidence/ui/native-home/bootstrap-{name}-{width}.png'), full_page=True)
 
     def stored(page):
         return page.evaluate('JSON.stringify({session:{...sessionStorage},local:{...localStorage}})')
@@ -166,6 +174,7 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             page.get_by_role('heading', name='先選一個 AI 助手', exact=True).wait_for()
             assert page.locator('article.provider').count() == 0
             expect(page.locator('.onboarding-body').get_by_role('heading')).to_have_count(1)
+            expect(page.locator('.topbar .ha-status')).to_have_count(0)
             expect(page.get_by_role('list', name='自動設定進度').locator('li')).to_have_count(5)
             expect(page.get_by_label('使用的助手')).to_have_value('codex')
             page.get_by_label('使用的助手').select_option('claude')
@@ -322,7 +331,8 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
                 step['state'] = 'skipped' if step['id'] == 'channel' else 'completed'
             page.get_by_role('heading', name='設定完成', exact=True).wait_for()
             shots(page, 'complete')
-            expect(page.get_by_role('button', name='和智能管家聊天', exact=True)).to_be_visible()
+            expect(page.get_by_role('link', name='進入家庭')).to_have_attribute('href', 'http://127.0.0.1:8123/')
+            expect(page.get_by_role('region', name='家庭入口').get_by_role('button', name='智能管家', exact=True)).to_be_visible()
             expect(page.get_by_role('list', name='自動設定進度').get_by_text('已略過', exact=True)).to_be_visible()
             assert all('fixture-private-' not in url for url in urls)
             assert all(not any(key in body for key in ['step', 'completed', 'succeeded']) for _, body, _ in calls)
@@ -371,6 +381,8 @@ def test_desktop_ticket_is_consumed_once_and_never_persisted():
                         result = {'authenticated': True}
                     elif path == 'deployment':
                         result = {'mode': 'host', 'authenticated': authenticated}
+                    elif path == 'host/home-entry':
+                        result = {'contract_version': 1, 'state': 'setup', 'native_path': '/', 'reason_code': 'bootstrap_incomplete'}
                     elif path == 'session':
                         assert authenticated
                         result = {'principal': 'host-owner', 'csrf': 'fixture-csrf'}
@@ -401,7 +413,7 @@ def test_desktop_ticket_is_consumed_once_and_never_persisted():
                             page.set_viewport_size({'width': width, 'height': 900 if width == 1440 else 844})
                             page.wait_for_timeout(100)
                             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-                            page.screenshot(path=str(root / f'evidence/ui/bootstrap-desktop-retry-{width}.png'), full_page=True)
+                            page.screenshot(path=str(root / f'evidence/ui/native-home/bootstrap-desktop-retry-{width}.png'), full_page=True)
                 assert page.url.endswith('/#onboarding')
                 assert ticket not in page.locator('body').inner_text()
                 assert ticket not in page.evaluate('JSON.stringify({session:{...sessionStorage},local:{...localStorage}})')
@@ -420,3 +432,214 @@ def test_desktop_ticket_is_consumed_once_and_never_persisted():
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+
+@pytest.fixture
+def native_entry_ui():
+    """Actual compiled browser UI; Controller and native HA pages are explicit fixtures."""
+    root = Path(__file__).parents[1]
+    server = ThreadingHTTPServer(('127.0.0.1', 0),
+        partial(SimpleHTTPRequestHandler, directory=str(root / 'controller/static')))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    state = {'authenticated': True, 'entry': {'contract_version': 1, 'state': 'ready', 'native_path': '/', 'reason_code': None},
+             'failure': False, 'held': False, 'pending': [], 'calls': [], 'native_visits': 0}
+    task = {'id': 'pending-approval', 'request': '待批准的家庭操作', 'state': 'awaiting_approval',
+            'provider': 'codex', 'message': '尚未執行', 'created_at': '2026-10-12T09:00:00Z',
+            'updated_at': '2026-10-12T09:00:00Z',
+            'proposal': {'id': 'proposal-fixture', 'mode': 'action', 'digest': 'd' * 64,
+                         'expires': 4102444800, 'action': {'entity_id': 'light.fixture', 'action': 'turn_on'}}}
+    def handle(route):
+        request = route.request
+        path = request.url.split('/api/')[1]
+        state['calls'].append((request.method, path))
+        if path == 'host/home-entry':
+            if state['held']:
+                state['pending'].append(route)
+                return
+            route.fulfill(status=503 if state['failure'] else 200, content_type='application/json',
+                          body=json.dumps({'detail': '無法取得家庭入口'} if state['failure'] else state['entry']))
+            return
+        if path in ('host/login', 'host/desktop-login'):
+            state['authenticated'] = True
+            value = {'authenticated': True}
+        elif path == 'host/logout':
+            state['authenticated'] = False
+            value = {'authenticated': False}
+        elif path == 'deployment':
+            value = {'mode': 'host', 'authenticated': state['authenticated']}
+        elif path == 'session':
+            value = {'principal': 'host-owner', 'csrf': 'fixture-csrf'}
+        elif path == 'status':
+            value = {'ha': {'status': 'connected', 'location_name': '測試家庭'},
+                     'runner': {'protocol': 1, 'providers': []}, 'version': 'fixture', 'paused': False}
+        elif path == 'tasks':
+            value = {'tasks': [task]}
+        elif path == 'tasks/' + task['id']:
+            value = task
+        elif path == 'bootstrap':
+            value = {'contract': 1, 'id': None, 'state': 'idle', 'provider': None, 'channel': 'line',
+                     'current_step': None, 'human_action': None,
+                     'steps': [{'id': step, 'state': 'pending'} for step in STEPS]}
+        elif path == 'gateway':
+            value = {'preferences': {'runtime': 'host', 'provider': 'codex', 'coordinator': 'hermes'}, 'channels': []}
+        elif path == 'gateway/messages':
+            value = {'messages': []}
+        elif path == 'host/status':
+            value = {'vm': 'shut off', 'profile': {'label': '救援主機', 'memory_mib': 4096, 'vcpus': 2},
+                     'jobs': [], 'snapshots': [], 'provisioned': True}
+        else:
+            raise AssertionError('Unexpected native entry API: ' + path)
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            context = browser.new_context(viewport={'width': 1440, 'height': 900})
+            page = context.new_page()
+            errors = []
+            page.on('pageerror', lambda error: errors.append(str(error)))
+            context.route('**/api/**', handle)
+            def native(route):
+                state['native_visits'] += 1
+                route.fulfill(content_type='text/html', body='<h1>Native Home Assistant fixture</h1>')
+            context.route('http://127.0.0.1:8123/**', native)
+            yield page, f'http://127.0.0.1:{server.server_port}', state
+            assert not errors, errors
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
+
+def test_bare_login_enters_native_home_once_and_back_reload_stay_outer(native_entry_ui):
+    page, origin, state = native_entry_ui
+    state['authenticated'] = False
+    page.goto(origin + '/')
+    page.get_by_label('主機登入金鑰').fill('synthetic-local-login')
+    page.get_by_role('button', name='開啟管理中心').click()
+    page.wait_for_url('http://127.0.0.1:8123/')
+    assert state['calls'].count(('GET', 'host/home-entry')) == 1
+    assert state['native_visits'] == 1
+    page.go_back()
+    page.wait_for_url(origin + '/#entry')
+    page.get_by_role('heading', name='家庭已就緒').wait_for()
+    page.reload()
+    page.get_by_role('heading', name='家庭已就緒').wait_for()
+    assert page.url == origin + '/#entry'
+    assert state['native_visits'] == 1
+    primary = page.get_by_role('region', name='家庭入口').get_by_role('link', name='進入家庭')
+    # Wait for the existing 150 ms secondary-to-primary transition before capture.
+    expect(primary).to_have_css('background-color', 'rgb(33, 100, 83)')
+    expect(primary).to_have_css('color', 'rgb(255, 254, 250)')
+    expect(primary).to_have_css('opacity', '1')
+    for width in (1440, 768, 390):
+        page.set_viewport_size({'width': width, 'height': 900 if width == 1440 else 844})
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        page.screenshot(path=str(Path(__file__).parents[1] / f'evidence/ui/native-home/ready-{width}.png'), full_page=True)
+    assert not any(method == 'POST' and path != 'host/login' for method, path in state['calls'])
+
+
+@pytest.mark.parametrize('entry_state', ['unavailable', 'unsupported', 'invalid_path', 'invalid_contract', 'http_error'])
+def test_native_entry_failures_keep_rescue_and_never_restart_setup(native_entry_ui, entry_state):
+    page, origin, state = native_entry_ui
+    if entry_state == 'http_error':
+        state['failure'] = True
+    elif entry_state == 'invalid_path':
+        state['entry']['native_path'] = 'https://untrusted.invalid/'
+    elif entry_state == 'invalid_contract':
+        state['entry']['contract_version'] = 2
+    else:
+        state['entry']['state'] = entry_state
+    page.goto(origin + '/')
+    page.get_by_role('heading', name='家庭暫時無法連接').wait_for()
+    expect(page.locator('.topbar .ha-status')).to_have_count(0)
+    fallback = page.get_by_role('region', name='家庭入口')
+    expect(fallback.get_by_role('link', name='手動開啟 Home Assistant')).to_have_attribute('href', 'http://127.0.0.1:8123/')
+    expect(fallback.get_by_role('button', name='智能管家', exact=True)).to_be_enabled()
+    expect(fallback.get_by_role('button', name='主機維護', exact=True)).to_be_enabled()
+    assert page.url == origin + '/#entry' and state['native_visits'] == 0
+    assert ('GET', 'bootstrap') not in state['calls']
+    assert not any(method == 'POST' for method, _ in state['calls'])
+    if entry_state == 'unavailable':
+        for width in (1440, 768, 390):
+            page.set_viewport_size({'width': width, 'height': 900 if width == 1440 else 844})
+            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+            page.screenshot(path=str(Path(__file__).parents[1] / f'evidence/ui/native-home/unavailable-{width}.png'), full_page=True)
+    state['failure'] = False
+    state['entry'] = {'contract_version': 1, 'state': 'ready', 'native_path': '/', 'reason_code': None}
+    fallback.get_by_role('button', name='重新檢查').click()
+    page.get_by_role('heading', name='家庭已就緒').wait_for()
+    assert state['native_visits'] == 0  # A retry requires an explicit entry action.
+    with page.expect_popup() as opened:
+        fallback.get_by_role('link', name='進入家庭').click()
+    opened.value.get_by_role('heading', name='Native Home Assistant fixture').wait_for()
+    assert page.url == origin + '/#entry'
+    opened.value.close()
+
+
+@pytest.mark.parametrize('fragment,heading', [('#gateway', '智能管家'), ('#host', '主機維護'), ('#home/pending-approval', '家庭提案')])
+def test_explicit_links_and_pending_approval_never_redirect(native_entry_ui, fragment, heading):
+    page, origin, state = native_entry_ui
+    page.goto(origin + '/' + fragment)
+    page.get_by_role('heading', name=heading, exact=True).first.wait_for()
+    assert ('GET', 'host/home-entry') not in state['calls']
+    assert state['native_visits'] == 0 and page.url.endswith(fragment)
+    if fragment.startswith('#home/'):
+        expect(page.get_by_role('button', name='批准並執行', exact=True)).to_be_enabled()
+        assert not any(method == 'POST' for method, _ in state['calls'])
+
+
+def test_late_entry_probe_cannot_replace_explicit_chat_and_draft_survives(native_entry_ui):
+    page, origin, state = native_entry_ui
+    state['held'] = True
+    page.goto(origin + '/')
+    page.get_by_role('heading', name='正在確認家庭入口').wait_for()
+    page.get_by_role('region', name='家庭入口').get_by_role('button', name='智能管家', exact=True).click()
+    page.get_by_label('對話訊息').fill('保留這份尚未送出的草稿')
+    assert state['pending']
+    for route in state['pending']:
+        route.fulfill(content_type='application/json', body=json.dumps(state['entry']))
+    state['held'] = False
+    assert page.url.endswith('#gateway') and state['native_visits'] == 0
+    page.get_by_role('navigation', name='主選單').get_by_role('button', name='家庭', exact=False).first.click()
+    page.get_by_role('heading', name='家庭已就緒').wait_for()
+    page.get_by_role('region', name='家庭入口').get_by_role('button', name='智能管家', exact=True).click()
+    expect(page.get_by_label('對話訊息')).to_have_value('保留這份尚未送出的草稿')
+    assert '保留這份尚未送出的草稿' not in page.evaluate('JSON.stringify({session:{...sessionStorage},local:{...localStorage}})')
+    assert not any(method == 'POST' for method, _ in state['calls'])
+
+
+def test_desktop_daily_entry_is_not_inherited_after_logout(native_entry_ui):
+    page, origin, state = native_entry_ui
+    ticket = 'FixtureDesktopTicket' + 'A' * 23
+    state['authenticated'] = False
+    page.goto(origin + '/#desktop-login=' + ticket)
+    page.wait_for_url('http://127.0.0.1:8123/')
+    assert state['calls'].count(('POST', 'host/desktop-login')) == 1
+    page.go_back()
+    page.wait_for_url(origin + '/#entry')
+    page.get_by_role('heading', name='家庭已就緒').wait_for()
+    page.get_by_role('button', name='登出', exact=True).click()
+    page.get_by_label('主機登入金鑰').fill('synthetic-second-login')
+    page.get_by_role('button', name='開啟管理中心').click()
+    page.get_by_role('heading', name='家庭已就緒').wait_for()
+    assert page.url.endswith('#entry') and state['native_visits'] == 1
+    assert ticket not in page.url and ticket not in page.evaluate('JSON.stringify({session:{...sessionStorage},local:{...localStorage}})')
+
+
+def test_expired_outer_session_cancels_pending_automatic_entry(native_entry_ui):
+    page, origin, state = native_entry_ui
+    state['held'] = True
+    page.goto(origin + '/')
+    page.get_by_role('heading', name='正在確認家庭入口').wait_for()
+    assert state['pending']
+    page.evaluate("window.dispatchEvent(new Event('agentic-session-expired'))")
+    page.get_by_label('主機登入金鑰').wait_for()
+    for route in state['pending']:
+        route.fulfill(content_type='application/json', body=json.dumps(state['entry']))
+    state['held'] = False
+    page.get_by_label('主機登入金鑰').fill('synthetic-return-login')
+    page.get_by_role('button', name='開啟管理中心').click()
+    page.get_by_role('heading', name='家庭已就緒').wait_for()
+    assert page.url.endswith('#entry') and state['native_visits'] == 0

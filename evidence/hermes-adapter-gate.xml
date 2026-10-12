@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="22.098" timestamp="2026-10-12T11:49:17.191037-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_hermes_runtime" name="test_offline_candidate_gate_and_real_upstream_device_flow" time="22.034" /></testsuite></testsuites>

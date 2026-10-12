@@ -47,24 +47,22 @@ LINE 為預設選项；Web 一直可用，選 Web 是明確略過外部通道。
 程式測試、官方最新來源下載、真封裝 CLI／Hermes 與本機協定 fixture、一次性 VM 安裝、真雲端登入和 Owner 家庭分開記錄。0.5.1 精確ISO已在一次性VM驗證最新版Hermes安裝、HAOS啟動／還原／重啟；無帳號的安裝案例直接呼叫固定Host動作，自動Web流程另有真服務／CLI／MCP／Core瀏覽器整合，但模型及Host副作用為fixture，不能合稱真雲端端到端onboarding。最新結果見 [驗證紀錄](VERIFICATION.md)，Plan v3 原有 32 案不因新增 onboarding 測試自動改為 passed。
 
 
-## 原生家庭首頁與智能管家：2026-10-12 介面方向評估
+## 原生家庭首頁與智能管家
 
-Owner 指出聊天首頁的「今天想處理什麼」不自然，並要求評估完成建置後銜接 Home Assistant 原生 Web。這是下一輪介面方向評估；目前 0.6.0 已交付的聊天入口、截圖及受測 ISO 尚未實作下述切換，不能將提案寫成已完成。
-
-Home Assistant 已有家庭儀表板、設備控制、自動化與設定介面；原生 onboarding 結束後即進入其 dashboard。產品應優先使用這個日常家庭入口。外層 Web 負責安裝、AI／通道連接及故障恢復；智能管家負責對話、研究、提案和結果。這三個用途可以有清楚的入口，不必複製一套家庭控制介面。[原生 dashboards](https://www.home-assistant.io/dashboards/)、[原生 onboarding](https://www.home-assistant.io/getting-started/onboarding)。
-
-建議流程如下，尚待實作與專項驗證：
+完成設定後，日常啟動進 Home Assistant 原生 dashboard；外層 Web 保留安裝、智能管家與維護入口。產品不複製家庭儀表板，也不修改上游前端。原生設備控制維持 HA 自己的身份與權限。[原生 dashboards](https://www.home-assistant.io/dashboards/)、[原生 onboarding](https://www.home-assistant.io/getting-started/onboarding)。
 
 | 狀態 | 預設體驗 |
 |---|---|
-| 外層尚未設定／主動選擇只用外層 | 繼續安裝引導，或使用外層助手；HA 尚未建立不阻擋使用 |
-| HA 正在準備或原生設定未完成 | 顯示真實準備進度；就緒後進原生設定，必要的 Owner 帳號與授權仍由本人完成 |
-| HA 已完成且可用 | 日常啟動進 Home Assistant 原生 dashboard；聊天成為可隨時開啟的智能管家入口 |
-| 有提案、進行中的對話或尚未儲存的修改 | 保留明確深連結與當前工作，不因預設首頁變更強制跳走 |
-| HA 無法開啟 | 外層獨立入口仍可診斷與修復；避免自動跳轉迴圈，也不把故障誤判為需要重新初始化 |
+| 尚未完成外層設定 | 接續原進度，亦可先用外層助手 |
+| HA 正在準備或原生設定未完成 | 顯示實際進度，Owner 完成原生帳號與授權 |
+| 本產品設定完成、Owner 有效且 HA 可用 | 無明確頁面的日常入口進原生 HA；完成頁亦提供「進入家庭」 |
+| 明確開啟對話、提案、設定或維護 | 留在指定頁面，保留工作與草稿 |
+| HA 斷線、身份失效或介面不相容 | 留在外層，提供智能管家、主機維護與手動開啟 HA |
 
-第一個切片應先完成正常頁面導向、原生登入及返回智能管家的可用路徑。第二個切片再將管家入口整合到 HA 側欄；官方 App Ingress 可承接 HA 登入，但現有 Controller App 是另一個部署模式，不能直接宣稱它已連到外層 Hermes。目前 `create_app` 僅在 host mode 建立外層 Coordinator 與 gateway／Hermes／worker API；Ingress 模式是自己的 DB／Engine，不能以側欄可見推論同一個 Hermes 已接通。需要薄型、經驗證的外層 bridge、使用者身份對應、家庭授權、登出／撤權、對話 scope 與故障 fallback，並沿用同一外層 case／proposal store；不得把 HA 的所有登入者都當成外層 Owner，也不直接轉送瀏覽器提供的身份 header 或共享 Host cookie。[官方 Ingress](https://developers.home-assistant.io/docs/apps/presentation/#ingress)。
+跳轉之前使用獨立的 `home-entry` 契約，即時讀回 Owner 及 Core 配置；不能只看 VM running 或舊的已連線徽章。離開前保存 `#entry` 返回點，Back／reload 不再自動前進。新的 Core 版本字串與額外欄位不阻擋原生使用；Agent 家庭寫入仍有自己的相容性與批准檢查。詳見 [adapter 邊界及候選驗證](ADAPTERS.md)。
 
-原生設備控制維持 HA 自己的身份及權限。由 Agent 提出的家庭變更仍走既有精確提案／Owner 批准；HA 側欄入口不能繞過該流程。HA Assist／Conversation 可另作後續接點評估，並非已完成的 Hermes adapter。
+目前使用本機 8099／8123 的正常頁面導向。完成頁手動開啟原生 HA 使用新分頁，外層管家入口保留；日常自動進入則在同一分頁，可返回外層。遠端仍須同時轉送兩個端口，不宣稱已完成公開網路／單一網域代理。HA cookie／bearer 不搬到 Host origin。首次開啟原生 Web 若尚無原生登入狀態，仍依 HA 畫面登入；Controller 的家庭連接授權不等於另一個瀏覽器 client 已登入。
 
-實作前須核对本機、LAN 與遠端的受信任 URL／登入路徑。既有 Host Web 使用 localhost:8099 與本機 HA :8123，不能只改首頁字串就宣稱遠端銜接也可用。專項驗收至少包含首次設定、後續啟動、HA 不可用、外層救援、非 Owner、登出撤權、待批准提案／草稿保留，以及返回管家的完整瀏覽器流程。
+HA 側欄的外層 Hermes bridge 是下一個整合項目，尚未交付。現有 Controller App 的 Ingress 模式有另一份 DB／Engine，不能把側欄可見當成同一個 Hermes 已接通。需以薄型 Ingress adapter 驗證身份、對應有效 Owner，沿用同一外層 case／proposal store，並完成撤權、斷線恢復和家庭批准測試；不直接轉送瀏覽器身份 header 或共享 Host cookie。[官方 Ingress](https://developers.home-assistant.io/docs/apps/presentation/#ingress)。
+
+HA Assist／語音接入另行驗收。真家庭、雲端帳號與實體 laptop 的驗收狀態見 [v3 帳本](v3/PROGRESS.md)，不由瀏覽器 fixture 自動推定完成。

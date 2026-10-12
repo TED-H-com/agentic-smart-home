@@ -1,0 +1,2550 @@
+{
+  "version": "0.6.1",
+  "date": "2026-10-12",
+  "started_at": "2026-10-12T16:06:49.759541+00:00",
+  "completed_at": "2026-10-12T16:06:50.340458+00:00",
+  "source_head": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+  "scope": "Copied snapshot of git tracked + untracked nonignored public product files; excludes private parent, ignored build/runtime data and this generated report.",
+  "scanner": "Gitleaks 8.30.1",
+  "status": "passed",
+  "files": 799,
+  "raw_findings": 120,
+  "verified_public_source_digest_false_positives": 86,
+  "verified_public_evidence_digest_false_positives": 34,
+  "unreviewed_findings": 0,
+  "credential_findings": 0,
+  "review_method": "Each finding independently matches an evidence source-hash field, archived-file manifest or prior public snapshot manifest and the SHA-256 of the exact recorded Git blob, copied current public file, or individually identified historical public Git blob. No blanket suppression.",
+  "scope_limitations": [
+    "A clean scanner result does not prove absence of all secrets.",
+    "This pre-publication frozen snapshot includes current native-entry/adapter sources, regression evidence, initial failure records and documentation. New 0.6.1 CI, installer VM, release/media records and subsequent final documentation are pending and require a final rescan before publication.",
+    "Private household/runtime files and ignored build/media data were not collected."
+  ],
+  "tracked_deletions_excluded": [
+    "controller/static/assets/index-Gj0Io2Id.js"
+  ],
+  "files_changed_after_copy": [],
+  "reviewed": [
+    {
+      "file": "evidence/installed-0.6.0-run5-prior-stages/manifest.json",
+      "line": 7,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/installed-0.6.0-run5-prior-stages/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "independently_hashed_copied_archive_bytes"
+        }
+      ]
+    },
+    {
+      "file": "evidence/installed-0.6.0-run4-prior-stages/manifest.json",
+      "line": 6,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/installed-0.6.0-run4-prior-stages/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "independently_hashed_copied_archive_bytes"
+        }
+      ]
+    },
+    {
+      "file": "evidence/installed-0.6.0-run6-prior-stages/manifest.json",
+      "line": 7,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/installed-0.6.0-run6-prior-stages/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "independently_hashed_copied_archive_bytes"
+        }
+      ]
+    },
+    {
+      "file": "evidence/installed-0.6.0-run6-prior-stages/manifest.json",
+      "line": 12,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/installed-0.6.0-run6-prior-stages/installed-process-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "independently_hashed_copied_archive_bytes"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.5.1-github-initial.json",
+      "line": 140,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.5.1-github-initial.json",
+      "line": 156,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.5.1-github-initial.json",
+      "line": 157,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1.json",
+      "line": 25,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/controller.openapi.json",
+          "source_commit": "c6735fe79c80a669f55e3f119c6f48d5e1e6fed7",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1.json",
+      "line": 26,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/hermes-auth.schema.json",
+          "source_commit": "c6735fe79c80a669f55e3f119c6f48d5e1e6fed7",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1.json",
+      "line": 27,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/host-controller.openapi.json",
+          "source_commit": "c6735fe79c80a669f55e3f119c6f48d5e1e6fed7",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1.json",
+      "line": 47,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "c6735fe79c80a669f55e3f119c6f48d5e1e6fed7",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1.json",
+      "line": 62,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "docs/API_CONTRACT.md",
+          "source_commit": "c6735fe79c80a669f55e3f119c6f48d5e1e6fed7",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1.json",
+      "line": 96,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "c6735fe79c80a669f55e3f119c6f48d5e1e6fed7",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1.json",
+      "line": 97,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "c6735fe79c80a669f55e3f119c6f48d5e1e6fed7",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github.json",
+      "line": 140,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github.json",
+      "line": 162,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github.json",
+      "line": 163,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build.json",
+      "line": 45,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/controller.openapi.json",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build.json",
+      "line": 46,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/hermes-auth.schema.json",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build.json",
+      "line": 47,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/host-controller.openapi.json",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build.json",
+      "line": 67,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build.json",
+      "line": 82,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "docs/API_CONTRACT.md",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build.json",
+      "line": 112,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build.json",
+      "line": 113,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/latest-hermes-3569.json",
+      "line": 30,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "c6735fe79c80a669f55e3f119c6f48d5e1e6fed7",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/latest-hermes-3569.json",
+      "line": 31,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "c6735fe79c80a669f55e3f119c6f48d5e1e6fed7",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/linux-tested-build.json",
+      "line": 45,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/controller.openapi.json",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/linux-tested-build.json",
+      "line": 46,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/hermes-auth.schema.json",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/linux-tested-build.json",
+      "line": 47,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/host-controller.openapi.json",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/linux-tested-build.json",
+      "line": 67,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/linux-tested-build.json",
+      "line": 82,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "docs/API_CONTRACT.md",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/linux-tested-build.json",
+      "line": 112,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/linux-tested-build.json",
+      "line": 113,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 45,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/controller.openapi.json",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 46,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/hermes-auth.schema.json",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 47,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/host-controller.openapi.json",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 67,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 82,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "docs/API_CONTRACT.md",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 112,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/linux-tested-build-0.5.0.json",
+      "line": 113,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 25,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/controller.openapi.json",
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 26,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/hermes-auth.schema.json",
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 27,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/host-controller.openapi.json",
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 47,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 62,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "docs/API_CONTRACT.md",
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 96,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.1-before-version-fix.json",
+      "line": 97,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-update-harness.json",
+      "line": 140,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-update-harness.json",
+      "line": 162,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-update-harness.json",
+      "line": 163,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-updater-probe.json",
+      "line": 140,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-updater-probe.json",
+      "line": 162,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-updater-probe.json",
+      "line": 163,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e.json",
+      "line": 143,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e.json",
+      "line": 166,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e.json",
+      "line": 167,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-lifecycle-diagnostics.json",
+      "line": 140,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-lifecycle-diagnostics.json",
+      "line": 162,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-lifecycle-diagnostics.json",
+      "line": 163,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.5.1-github.json",
+      "line": 140,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "9ae7afcdc7436bb5352d1021d17456c2761a14cc",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.5.1-github.json",
+      "line": 156,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.5.1-github.json",
+      "line": 157,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.0.json",
+      "line": 45,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/controller.openapi.json",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.0.json",
+      "line": 46,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/hermes-auth.schema.json",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.0.json",
+      "line": 47,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/host-controller.openapi.json",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.0.json",
+      "line": 67,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.0.json",
+      "line": 82,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "docs/API_CONTRACT.md",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.0.json",
+      "line": 112,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/build-0.5.0.json",
+      "line": 113,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "recorded_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-bootstrap-env.json",
+      "line": 140,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-bootstrap-env.json",
+      "line": 162,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/onboarding-e2e-0.6.0-github-before-bootstrap-env.json",
+      "line": 163,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-candidate-0.6.1.json",
+      "line": 24,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-candidate-0.6.1.json",
+      "line": 25,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-candidate-0.6.1.json",
+      "line": 42,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-candidate-0.6.1.json",
+      "line": 43,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-locked-0.6.1.json",
+      "line": 24,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-locked-0.6.1.json",
+      "line": 25,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-locked-0.6.1.json",
+      "line": 42,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/upstream-locked-0.6.1.json",
+      "line": 43,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 978,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/controller.openapi.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 979,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/hermes-auth.schema.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 980,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "contracts/host-controller.openapi.json",
+          "source_commit": "bc2c32928dcd6a68933b8780d842c8658f1abb17",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1003,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "controller/agentic_controller/ha_oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1021,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "docs/API_CONTRACT.md",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1057,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/bootstrap-host-oauth.xml",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1124,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ha-onboarding-oauth.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1125,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ha-onboarding-oauth.xml",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1141,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/installed-0.6.0-run4-prior-stages/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-0.6.0-run5-prior-stages/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-0.6.0-run6-prior-stages/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-auth-laptop-amd64-0.6.0.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1147,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/installed-0.6.0-run4-prior-stages/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-0.6.0-run5-prior-stages/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-0.6.0-run6-prior-stages/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-auth-laptop-amd64-0.6.0.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1153,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/installed-0.6.0-run4-prior-stages/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-0.6.0-run5-prior-stages/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-0.6.0-run6-prior-stages/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-auth-laptop-amd64-0.6.0.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1156,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/installed-0.6.0-run6-prior-stages/installed-process-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-process-auth-laptop-amd64-0.6.0.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-process-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1168,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/installed-0.6.0-run4-prior-stages/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-0.6.0-run5-prior-stages/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-0.6.0-run6-prior-stages/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-auth-laptop-amd64-0.6.0.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1169,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/installed-auth-server-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1184,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/installed-0.6.0-run6-prior-stages/installed-process-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-process-auth-laptop-amd64-0.6.0.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/installed-process-auth-laptop-amd64.json",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1228,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/linux-install-0.5.0-auth-fixture-failure.xml",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1238,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/linux-install-0.6.0-initial-auth-failure.xml",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1344,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/0.6.0/bootstrap-cli-auth-1440.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/ui/bootstrap-cli-auth-1440.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1345,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/0.6.0/bootstrap-cli-auth-390.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/ui/bootstrap-cli-auth-390.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1346,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/0.6.0/bootstrap-cli-auth-768.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/ui/bootstrap-cli-auth-768.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1350,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/0.6.0/bootstrap-hermes-auth-1440.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/ui/bootstrap-hermes-auth-1440.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1351,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/0.6.0/bootstrap-hermes-auth-390.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/ui/bootstrap-hermes-auth-390.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1352,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/0.6.0/bootstrap-hermes-auth-768.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/ui/bootstrap-hermes-auth-768.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1379,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/0.6.0/bootstrap-cli-auth-1440.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/ui/bootstrap-cli-auth-1440.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1380,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/0.6.0/bootstrap-cli-auth-390.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/ui/bootstrap-cli-auth-390.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1381,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/0.6.0/bootstrap-cli-auth-768.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/ui/bootstrap-cli-auth-768.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1391,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/0.6.0/bootstrap-hermes-auth-1440.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/ui/bootstrap-hermes-auth-1440.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1392,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/0.6.0/bootstrap-hermes-auth-390.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/ui/bootstrap-hermes-auth-390.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1393,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/0.6.0/bootstrap-hermes-auth-768.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        },
+        {
+          "file": "evidence/ui/bootstrap-hermes-auth-768.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1419,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/chat-first/bootstrap-cli-auth-1440.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1420,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/chat-first/bootstrap-cli-auth-390.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1421,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/chat-first/bootstrap-cli-auth-768.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1446,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/hermes-needs-auth-1440.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1447,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/hermes-needs-auth-390.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1448,
+      "rule": "generic-api-key",
+      "classification": "verified_public_evidence_sha256",
+      "artifact_matches": [
+        {
+          "file": "evidence/ui/hermes-needs-auth-768.png",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1490,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1491,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "hermes/agentic_hermes/oauth_child.py",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1582,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "tests/test_api.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1595,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "tests/test_ha_oauth.py",
+          "source_commit": "97050c0482f0b9a1f73fe9804c6a6312fbbffd04",
+          "verification": "current_copied_source"
+        }
+      ]
+    },
+    {
+      "file": "evidence/source-audit-0.6.0.json",
+      "line": 1632,
+      "rule": "generic-api-key",
+      "classification": "verified_public_source_sha256",
+      "source_matches": [
+        {
+          "source_file": "web/src/api.ts",
+          "source_commit": "1bc2ed0a27f8f0d1e9c03fc5c5f591aed89a4172",
+          "verification": "historical_git_blob"
+        }
+      ]
+    }
+  ],
+  "unreviewed": [],
+  "scanned_files_sha256": {
+    ".github/workflows/ci.yml": "182d10aaef9ffe58a7441e4bf8aa45135fefb0b33fad1fde91ed3a8620f7b97f",
+    ".github/workflows/upstream-compatibility.yaml": "5565f9bbaa5f2501d7d7f026399242decd4710ec6ffb7445683e3d7499c0512c",
+    ".gitignore": "9698250b296a42703a66eb943f62fff709f61500f309ae2447153c91d9b1d80d",
+    "AGENTS.md": "41800eed3c81e00ce955a92e7affc48f46f8121d420b3fc572671d20ee95aaf5",
+    "DESIGN.md": "ad5a3ea127868e59909925ac10553cf4bc5acbec981da69b39485a7bae3a3c53",
+    "INSTALL.md": "4a9e2b40bc269685e54b009224fe7b40e26467f60b1ced1609a28f366295cadb",
+    "PROJECT_PLAN.md": "cc018eed720b667e5ef9428f318ac4a5e9f2bd3beff0dca8caa3841b6dcaa39c",
+    "PROJECT_SPEC.md": "c53de7cd40301de37d79e498029122b2ae0a0646688f0283f88dadc053a0afde",
+    "README.md": "05e209231e65d29e3befd484b5042d71e9eb3d1650a4ceb5787488454f22e922",
+    "channels.lock.json": "ff3ad98442d9b97e5ffdf50b8d199da1932156ed52d35c413366d29f27b6ae35",
+    "contracts/agent-decision.schema.json": "73a36baf4551de9a99c44542ede8aec003dc85e717d5be4bc672ce5a162f267f",
+    "contracts/automation-intent.schema.json": "b51c759dde0c5a955acf0e541d6ac6cedc6fef5ea55b3d6dbeded479a4142df8",
+    "contracts/bootstrap-start-v1.schema.json": "bf80b1c4a9beae3202b85f4ea46353d5ebfe083775c3449d7cdd628cc9e39bd4",
+    "contracts/bootstrap-status-v1.schema.json": "e3487f398887a2e8da63c7be1f37cbe7a8042f8eac2581e868b5aabf174dcf9e",
+    "contracts/case-evidence-query-v1.schema.json": "e45277ff468c3a04a05073706bfc48b5609f333f4103794dca03865e6fa05631",
+    "contracts/controller-update-v1.schema.json": "13d3ca087eff5a5a85e0cc46739c809ee2cf6d13e281e2847e22343ff3e596a5",
+    "contracts/controller.openapi.json": "72442ea6bfcc96cd715f3285a338395394f50a2961f9b539dee2f5100a5f19e1",
+    "contracts/hermes-auth.schema.json": "6864adff1126f4c74c1ec542d5ed81ff89cc68e285cc62abbc57ba14e28c5762",
+    "contracts/home-entry-v1.schema.json": "e2234815f4149a92cd380f4200c63dc03db0db881ed8988a6d8c2df87ea748ed",
+    "contracts/host-controller.openapi.json": "06ce7b49b2ff83d281fcced99c5099a68fe35f30fff39f564b38448194df0934",
+    "contracts/network-preferences-v1.schema.json": "c59011fe2ebd901aee25801f37a9cfde412943730d3ad475cac19ec4e30fb8e3",
+    "contracts/policy.schema.json": "9c0651880af1d383bdb62bacca1bab4c4d279b41ee474db19100317a866df275",
+    "contracts/runner-bootstrap-job-v1.schema.json": "3cd79734e8c656b6a99b8cb846f07708265a5b1db9771f6860c2ed2d108e5a99",
+    "contracts/runner-bootstrap-result-v1.schema.json": "71f6cbf3a7e0abc792ca836a6058b53cf7e4a16abb2b30c1fb84bc0aaecb186c",
+    "contracts/runner-job.schema.json": "574dd9ceb6563651448c1d227b6da3b39bbc6dd3f5090def97685988fa849f99",
+    "contracts/runner-pair.schema.json": "917de79f4e3516796443e50394da06169fc9656e0ccc8e3b4d240f93aff3883a",
+    "contracts/worker-preview-v1.schema.json": "b24678ac99948f2c0a2f901a2dba3eb606427fd6c4b34099a4c99ab581d65524",
+    "contracts/worker-query-v1.schema.json": "2a77c9e1acfeec93fd44318cbe40e0e59eef0d32e3e829f5cf01bc103339f181",
+    "contracts/worker-start-v1.schema.json": "a4be13f1afc3d3b318ffe5a788ff7e6800831b05e1f676ec92251bed4ddec572",
+    "contracts/worker-submit-v1.schema.json": "2ba113de74c15825527d0629a662b59106838817881c4b8124ad16f609684ccd",
+    "controller/.dockerignore": "aa30caa271ff708927889cad93f91a629ab3f730b813da8a540e35394b5aedd9",
+    "controller/CHANGELOG.md": "92a57fde7f3738c40372395ce9be464583a1521aab97ca23e3c5ac3d5b5f17bd",
+    "controller/DOCS.md": "470ef210b777c44ae21968d64d7ee04f236efd57e1f1e20b82e71cfab090acd4",
+    "controller/Dockerfile": "582784eff1704c0979f1ae3195078ccfd6566bab7440d1228841a5ec766f08fe",
+    "controller/README.md": "6676d2451cef32efb4e2d135e5727b96b4a57281675893d71966646a1f523c79",
+    "controller/agentic_controller/__init__.py": "621406dc7d2eed0403ef6c2228cef1c8c6c433ba695745ea7acd5ef6a902f711",
+    "controller/agentic_controller/app.py": "c25aed04133798df091320bcbffaf6a2984e2653b22c0aeba8cdce086e0bc090",
+    "controller/agentic_controller/bootstrap.py": "8e8954fb02288b9d1b8c8e7101e90fd9bab02adf13dd3ef702a185d2c7240e31",
+    "controller/agentic_controller/channels.py": "d2869655c2f96cbe73374300de6ec4ce64507981cfb6d88d318baebc8bbfab75",
+    "controller/agentic_controller/engine.py": "b160eaf3026c7a2d06a0d38a1862fe565bbc5ce4b87d7d9d4d46a11f64719e18",
+    "controller/agentic_controller/gateway.py": "9ec7bb9419ba148f739c86d5641124e594eeb3e28ac60a68842697a8af0c00e4",
+    "controller/agentic_controller/ha.py": "a4fa1a9a49a865104d17b641e57649063a42ea0dffc2aff61f5151a5623a93aa",
+    "controller/agentic_controller/ha_oauth.py": "dd269d26c00361b0c98c8fdf2ef47497196f176684f16de7a9810351eb52d7d1",
+    "controller/agentic_controller/hermes.py": "67aba4b233e7d2b00553d9ff1aab758ddeb6c8ebd214072418c8c533e950640a",
+    "controller/agentic_controller/home_entry.py": "a161411641608cd5d6cdca5a9a433d68e5b34acee080200b7d289fed0ecce3df",
+    "controller/agentic_controller/host.py": "c165901a366589a0d0c81c21b9ed7ff692278efa6698b186092dc1efc1a8bedb",
+    "controller/agentic_controller/household.py": "312803306ff7e0888a6478c6a6241c151ca628973174e29491508142679a79c3",
+    "controller/agentic_controller/mcp.py": "8d6f78fa4bcf3b52f248525972f1ea92dfaa04395b1205eff8714cc54f4df040",
+    "controller/agentic_controller/models.py": "a8799781c7b4f4802148cb9f3b140bf793c16f4cf8e668fac3540dabc2f209dd",
+    "controller/agentic_controller/operations.py": "aba5146f3e3529f852c257af1378303a3c692e932212004359cf6d8e638dff94",
+    "controller/agentic_controller/runner.py": "022c4be9fadad3a18cb1288492d497987c9d57490d5a67e16d6e7fee5778c829",
+    "controller/agentic_controller/store.py": "75f8bca5e29f3cb92ff5c908616c6db65748e108dc5e64010a92d4cc55f69e6c",
+    "controller/agentic_controller/work.py": "a8b9a080e1643a382b7714e6e191864f391d93e5f34485628ddca000c2f178a6",
+    "controller/agentic_controller/workers.py": "632654d5f5cbcc9d2674d3c55b50267d6022a9bba01d2105ddefadaa4e52153f",
+    "controller/config.yaml": "3e97f82ebd6f7de2e6f15504cc17ab9b9d615a4401783d1d31a0170cfcb5a911",
+    "controller/requirements.txt": "370a4907ffce372d60aebc5bfa83b372fa07a767849c3034e01e5decd9413818",
+    "controller/start.py": "06f74433bf07708edd7ee7ca0a1fa8d1cfb481154e6cd6731d82147c52f1add1",
+    "controller/static/assets/index-BtrTn-2s.js": "9d1266470d0990d631ffed5296bb76299a50bd36f58ca305ef50f1ece3560f07",
+    "controller/static/assets/index-KaGyIs1v.css": "7d5efebd30184f455eaabc214c32dce1c935bbd9a4ceb70c334f7a43076e92db",
+    "controller/static/downloads/agentic-runner.zip": "7f214a090fd15670ae7c2aece6e5760a13ef29274b239df54c7e01aeabd594b9",
+    "controller/static/index.html": "5194eef9445867b184155b9635fb83b36246874b033e9cc36637efebfea4216a",
+    "docs/ADAPTERS.md": "3ae35adc1dfb3bbbacf260966ca8bf28e7ebb7df4757f58428f1266b58938db9",
+    "docs/API_CONTRACT.md": "3d3adb14f01fa57a5271ff160e34dc20b9a975af7742ff7d6d2f251dc91bef02",
+    "docs/DEVELOPMENT.md": "b34b5a0840d865f6efef4b258928d263ded45b22070bd5962268134cbab17095",
+    "docs/GATEWAY.md": "b8a4072760415e5b2499c7dde5cff03d48b251abcfb11075aea63546961eea85",
+    "docs/LINUX_PRODUCT.md": "2b0969e55ae8b0723f488689412fe9a25c04c8bb8cc53e3924c1acd6fe659451",
+    "docs/ONBOARDING.md": "8a8515b9f34486b726b114a0112294e24943f2b60f0a116631c109a5ec6a766a",
+    "docs/OPERATIONS.md": "8536c8f5afe72df2b576593e69ad10eb0403c77f604a213e4826d56d353674aa",
+    "docs/SOURCES.md": "2787ced5c5d8f39b97f9792b30bd88c8ef7d83d2be554eab5a28407b241333f4",
+    "docs/UPDATES.md": "b6f0e3c395859992d93b71a1f854c6b6f89e4a437f4bebcbe8799c6e3a8596bb",
+    "docs/VERIFICATION.md": "8baf0cae6d1e952f6bc9a490ced6fbcbc328bda85c886b7d6a5dfee23e83c5b7",
+    "docs/WORKERS.md": "87dd0dea9585d313ceb97d5924189b3489376839af7e467972cc0543a69310d3",
+    "docs/history/pre-v3-0.3.1/AGENTS.md": "20b1f25d248db6233ed9331f31bf80b83bff6cf38abf8dd2f8ce17925aa55f2d",
+    "docs/history/pre-v3-0.3.1/PROJECT_PLAN.md": "0e0519be684da4b069c54ce6a065963356b19cd397a39345ff4077e90acdd034",
+    "docs/history/pre-v3-0.3.1/PROJECT_SPEC.md": "9f6547f5ad604719d22440fbb59f90ab8ee3c0626795404244c116a94edfdc67",
+    "docs/history/pre-v3-0.3.1/README.md": "bea4cd7f2e785b5303c5620e2821bf87680e206ac701ac990ded04df8252b998",
+    "docs/reviews/2026-10-12-E2E-ARCHITECTURE.md": "36af461e7ca5ff9fdb57232a22a652d343b6e9cf5a01be58ff5ae5ed3cfc750f",
+    "docs/reviews/2026-10-12-NATIVE-HOME-ADAPTERS.md": "a0e054c10fa0ac8fd8e683d2d2e68951933886c438e8a529ded1b729d0b41c0a",
+    "docs/reviews/2026-10-12-UI-WORKER-DELIVERY.md": "6c16dcb2f6118b87c16fc4f2ba7e4b7f66b1b626cc86d0429bab7fa0696cd849",
+    "docs/reviews/2026-10-12-bootstrap.md": "4238b58d8b6eaa4261a619b709b49786d08e47932ad05447b762fcc03c07bce5",
+    "docs/reviews/2026-10-12-runtime.md": "edf8353587f7488ebf1e40834d82b486ea0ba2e09daad513ad1afa7f9dd5b118",
+    "docs/reviews/2026-10-12-ui.md": "f6953ad8f0616ec164f5508414cb9846b9a6536d718c7a11fc1ac325a2d728aa",
+    "docs/v3/BACKLOG_V3.md": "9d349bea6746b0c559d57c9a09cd4788fe14d4710e8109af4e0ca0d062cd6dd2",
+    "docs/v3/DEV_TEAM_BRIEF.md": "86450e716261a331618386e17f01b55f153078cc06f865c83abb1e5271ff52b9",
+    "docs/v3/IMPORT.json": "4de8ed383d01e02ee310a4ecf9c9d2b8a4392cadaee1b331febe060834093cf7",
+    "docs/v3/PILOT_ACCEPTANCE.md": "9e3266b9e68b363cb41b6d155c77d0d375b49db14a36874fb01c56d5dff715f5",
+    "docs/v3/PROGRESS.md": "8deec0f1246c61ceeefa9d8cad26338f67d49af22afc3b029297d6133532297f",
+    "docs/v3/PROJECT_PLAN_V3.md": "1ccdb41280306386664e4312bacd680bde386b27a1c8fa2b462b29dc12f16a1c",
+    "docs/v3/PROJECT_SPEC_V3.md": "16bd5177eb6b0bb009271c1f6ae8a4216f5bb2500dc6e32526c616635a3c3259",
+    "docs/v3/README.md": "b85a609da1eb324a3ccda1be574efe9e8984defb1021e58ef66a1db692c86614",
+    "docs/v3/SOURCES.md": "e8c67e7fd30230f883cbc8cc5c3b7fa3a2cd4befbb45889cd57a6fd975a025fa",
+    "docs/v3/WORKER_PROTOCOL_V1.md": "88625d3c56334c4ce2bfa88d8567840111fda056147b94b9327dd9bb8cf7719f",
+    "evidence/assistant-browser-final.xml": "04237830ab6912b41c0cecf6108f7a7da234e0d3dd849f81b0d2625473d60b2e",
+    "evidence/assistant-ui-final.xml": "78a0d316f8a699e6e31ed554219eeda115e64da59523f1407211f465ebe8c02c",
+    "evidence/assistant-ui-first.xml": "39cb452847dd538943e39307a20c47e1785687d98a799916dea89a1035b5955c",
+    "evidence/assistant-ui.xml": "46006ec34f8286878a4d43ed331c885bec481d173a8b7f51583f81333c2adb9e",
+    "evidence/bootstrap-before-simplify.xml": "b00efc667b688be59afa6213df4646818e2bd9c3bc82c476331c0854a99c7c68",
+    "evidence/bootstrap-controller.xml": "808a3f0c82e16df14e9eca1b9c0f9850cc0e37e21e8d82e4e8a39721e53c8e26",
+    "evidence/bootstrap-env-reproduction.json": "a4b7aa282ba08b03caeee6d8c85c80553e2ae8c0136869b456cde0b5bad1e369",
+    "evidence/bootstrap-host-oauth.xml": "a22a87cd31faab061802798c34520dd20fe261a08046311bd79e92c8972389b0",
+    "evidence/bootstrap-host.xml": "6a4df2911fe3df69524c7b8d2e632cacf567c076a5757a3b7aa45297fd3f8f14",
+    "evidence/bootstrap-initial-environment.xml": "3ac77b7fd4c478db92aabbc0afb06010c33b6317d7c92b72b142bf818aaf6d09",
+    "evidence/bootstrap-simple.xml": "d1eb9f51becb4b536ba3461a8c84d4e936367f23b737a98282853b107c5a5815",
+    "evidence/bootstrap-ui.xml": "788f3982ec853c7f31231e6e9e75b53ae97eeea1d94cfeb79cd1178186412d0a",
+    "evidence/build-0.2.0.json": "9a86a2596eba4f688b5160c86cc705a2d1f18ea66f1d8e18cd56f1cd2944d246",
+    "evidence/build-0.2.1.json": "2e996f1fd78e1b42d5e0b48704c5343dbaa3bd80fb3858e9f385fe953b5a53c0",
+    "evidence/build-0.3.0.json": "58d2d6ca4e1507f93737b6207583512c0be3de74056903b84e117bfa71c3e2f4",
+    "evidence/build-0.3.1.json": "b3c46bd6f4afa3a62035678d99e8df34fc4d825769995ba0be3a553549b92524",
+    "evidence/build-0.4.0-before-sandbox-fix.json": "88e47400d54ad042b2cc4a882b0557a583a1f0a560a29859d0a11c31f4bd6cca",
+    "evidence/build-0.4.0-final.json": "7395d01dbb61647b5ea32999875563a3953d0de442d75300b8212c08e09d1218",
+    "evidence/build-0.4.0-initial.json": "6346119da0f4cfec5fdf3ed5eedc72aac137d06c870918077f54e6ae900b9aed",
+    "evidence/build-0.5.0.json": "a0fcefac4bea1002ec5c806792fb72c5811728d584300691bc3a75eca7010798",
+    "evidence/build-0.5.1-before-version-fix.json": "c16b3577f5d4a80e2940fedfe18602739f84cb642a8497ce57f657f91b9e66e3",
+    "evidence/build-0.5.1.json": "81465d0bde31649f68b50f72cd8040670d50ac307032a349e015a3614507f779",
+    "evidence/build-0.6.0-before-bootstrap-env.json": "5560761bb00c2f3088d3fd9113ff6edabeed2f570184440acf8b50b63bd17abb",
+    "evidence/build-0.6.0-before-doc-alignment.json": "7ecdd8e1959004bfde253c9e26c30ebec5dd38ada342c4d38c8dd4d538f80c51",
+    "evidence/build-0.6.0-before-trusted-test-permissions.json": "9140b7e3942694fc1626ec016ad2d6b80c8cff987de79a34b086e571e2346c27",
+    "evidence/build-0.6.0-before-update-harness.json": "8cb589d532edbd2fb772a053d61af0802554237c75b87c16ba46deb814e87809",
+    "evidence/build-0.6.0-before-updater-probe.json": "6169a9ac1eb527ac5f165f87099de11a6ad5995f94e41d7bc9b48dfdb6aa093a",
+    "evidence/build-0.6.0-before-verifier-completion-fix.json": "1315c4059ee623d7ebd8d77509ed1402927c8869b546643df7f38a00e9f60226",
+    "evidence/build-0.6.0.json": "96f979596f85938f8ac58b8aca6da763175bfb0f4bfa37afeb7d04fe36a4ca71",
+    "evidence/build.json": "a0fcefac4bea1002ec5c806792fb72c5811728d584300691bc3a75eca7010798",
+    "evidence/ci-media-match-0.5.0-final.json": "6dbe758113de014065721a400a71ead2a6c6af926b0d8c0e2a440f1cc6edbe81",
+    "evidence/ci-media-match-0.5.0.json": "0342558b2215a1e2084606f1cc9f7cf630a36945aa3875ac689fd01162edfc04",
+    "evidence/ci-media-match-0.5.1-initial.json": "777aa640374498b86c29f154872653c3f1916707a8c15097e2c2ae58b09bb178",
+    "evidence/ci-media-match-0.5.1.json": "1c422f75d6a36bccada8e7537ca488a7d113ea9b68ebf2466efd90a6e391dacf",
+    "evidence/ci-media-match-0.6.0-before-bootstrap-env.json": "46bf986c7a4c571f764d5821f3ce1ee841fdeb83f267925d76cbcd6a4e914d73",
+    "evidence/ci-media-match-0.6.0-before-lifecycle-diagnostics.json": "e23b807412939b1e11659a173ebbb5d65a03de34f33238c00f46eb8e5d0d842e",
+    "evidence/ci-media-match-0.6.0-before-trusted-test-permissions.json": "b0925b7c98aac8bd4285d1d02ce65d3005c1f8d1998d1f8b8d9af8e051281b2b",
+    "evidence/ci-media-match-0.6.0-before-update-harness.json": "6bb5c162604ced3898b5dd5585d51bce26448e80fff24274c499397154b8d747",
+    "evidence/ci-media-match-0.6.0-before-updater-probe.json": "0d0d959a69d7fc9f8dbe5926d1bd20927373483190fda590bf0d3d8eef022511",
+    "evidence/ci-media-match-0.6.0.json": "4aa4582712f4771a985eef38e2bb8e00ba2f46b423a1e46f1939f7902659e694",
+    "evidence/coding-completion-hook-order-failure.xml": "bbcf13936ca40a0d623f1aa9fb3cdf7802aaad5aca8e2b3804273abb291c31b9",
+    "evidence/coding-no-recursion.xml": "4d5878ab5b05bc6b463816a0413882ce02b564fc387f7b87135d8fdff9629d7d",
+    "evidence/coding-prepare-permissions.json": "aa04d402cb0353e7ba8af3c2c469d374462252e9f0b3ac1f55b78a51cc973dec",
+    "evidence/coding-prepare-permissions.xml": "6f529d5cb41390592f21892c416d49d925dea0847b2dc49eab383c73483d8f73",
+    "evidence/coding-sandbox-cancel-pressure-failure.xml": "43394160736b7d4df0ffd5fda3075f019f1eca26af3fb320cf9c85592995a4fb",
+    "evidence/coding-sandbox-cancel-pressure.json": "cd6b866188f306aad9ed536fb1233531eeeb417e58c71d3a6f8fd57130284959",
+    "evidence/coding-sandbox-foundation.xml": "ead1ea074c7c271aa2cf55a334323cd73640b1a6d0382cb47d505cbb77c47eea",
+    "evidence/coding-sandbox-private-directory.json": "5b16f004eecbbc91524fd3de0dc0b754adc15bd0ac146b73d9699780f9c69f6c",
+    "evidence/coding-tools-initial.xml": "cdd24e3b9a1d4709c3ed3f451583d80c38d5724cc7d570ffc02ca82a822bf630",
+    "evidence/coding-verifier-umask-reproduction.json": "33adf70945debb064a81a3198bae4ee2347afab31131a43b2eb9d359cb832003",
+    "evidence/coding-worker-completion.xml": "77bd2acbaa0df0730cffee0d27402727376c2779b9fee8492e1593afba65c845",
+    "evidence/coding-worker-final.xml": "c68b21ca58f81ec6a5870ee13fc62da819e38732b961e3226855064fdfccb4c8",
+    "evidence/coding-worker-focused.xml": "ddbf29502afb4543143e1b4c3a920700fc47edc7bcee3745404147f5f82e58db",
+    "evidence/coding-worker-runner.xml": "88edd11d1d6836bc073abf239a45fef287847cc0084edc7acfc04fe62237a00f",
+    "evidence/desktop-handoff-0.5.0.xml": "c83145b27586dea463c996af73037ac5515d86dfcb6b15442abbf114c7340448",
+    "evidence/github-ci-0.3.0.json": "0b9b78bbd2653f6d2e2efbbfc2f28119b9fb5806394c1b09b81eabac41f911b2",
+    "evidence/github-ci-0.3.1.json": "85e72fc421f1fb45162707b8813efff1e0fb12843ecccc8eb632c7d892ad6c43",
+    "evidence/github-ci-0.4.0-before-sandbox-fix.json": "5a6e9283ba07190e9ba6ef8800db54d8770cac2b7c969c64f1848109a181dc3c",
+    "evidence/github-ci-0.4.0-final.json": "29404ce9219ecb31fe95a0b497a52ab36f2cbdafe2b4697452de439e5fdfa42a",
+    "evidence/github-ci-0.4.0-initial-failure.json": "82decd0c275771159063cbd0886d3a80d60023bef2ed58ad040d0140e2636392",
+    "evidence/github-ci-0.4.0-pre-security.json": "bb1b88b629ea7d1473529f0841a8e59d87bc572af3afb16b5c6bc0ae8ce122b6",
+    "evidence/github-ci-0.4.0-security.json": "833eaa189fce68a32017035cb248fbd67aecfb0c8f53ee0c895156d0d434a73c",
+    "evidence/github-ci-0.5.0-final.json": "a541a18b95a7062d8d4a2d4e7905143fd69ada232ac97fd8a072cb50e2cc6b77",
+    "evidence/github-ci-0.5.0.json": "056804c98d04a1a061792da1ac5ee3259e0afe174d59f1f1fc1fc9b854d1a005",
+    "evidence/github-ci-0.5.1-initial.json": "0e4b21e23acd91c682b64fcba2a9f4d14aca91aca21e7b8eb09093ccb9a5c646",
+    "evidence/github-ci-0.5.1.json": "08037a14ff83a70e943373c0fb20220168f8a96a7ff5b183f9f9bc454f604325",
+    "evidence/github-ci-0.6.0-before-bootstrap-env.json": "5acf0b7b6bfde89453753df96d2b5aac114defbeaf4f0348667b317097196161",
+    "evidence/github-ci-0.6.0-before-lifecycle-diagnostics.json": "fbea6a881ab5672a76672f7582ba9aeaf0d820c615b2c96b56a19a1069179533",
+    "evidence/github-ci-0.6.0-before-trusted-test-permissions.json": "cf10ca5c307837703a4f907f02ca44fa6f6f37118f5378e14865ff47dc870991",
+    "evidence/github-ci-0.6.0-before-update-harness.json": "8dcb00d5e66b9bf6c723d3b09b37722f5182953bcb7c02c7491cb5c02d708d11",
+    "evidence/github-ci-0.6.0-before-updater-probe.json": "f034735f68c84638b539dc2ca56217142060c8972feca1dfcd85264a3a999441",
+    "evidence/github-ci-0.6.0-probe-fixture-failure.json": "b82ce3937cbd2c87dc40b05093c717b5e9ef02bb7d4e9883b401fc4155a222d7",
+    "evidence/github-ci-0.6.0.json": "58802bc2da8513172d34a06f3fedfb4b3a251736670b4f07e2e58997dfe14567",
+    "evidence/github-ci.json": "a541a18b95a7062d8d4a2d4e7905143fd69ada232ac97fd8a072cb50e2cc6b77",
+    "evidence/ha-onboarding-oauth.json": "fee97eff417120d99a6fea39a57254ffea657af536fdb407db470578363df4e5",
+    "evidence/ha-onboarding-oauth.xml": "9f1f35addcf0d2f961e682ef1629a6f4ecde48059db80a9e9a29caede8b4554e",
+    "evidence/haos-app-boundary.json": "847e003da648f73e374577d74b2437d29c6f563823d753703669d2d94249c9ac",
+    "evidence/haos-app-boundary.xml": "caa06ed14fa6a801662070c79b2267fe36b36a4afabbc2afd4c5c92c06d683d0",
+    "evidence/haos-app-build-pull-failure.xml": "e6dafc0ae616c055b1e8a739a46f0e124c6b66bd43f2a675ffe3cdf01d90dfd9",
+    "evidence/haos-app-builder-timeout.xml": "f1e53a4179f46ebe5cd20b1f54a842f2614c59a60502cb258d29459cc1db3a09",
+    "evidence/haos-app-console-failure.xml": "fb6d91c0a1e73df7b0be2ef65744c928c11d061291e7828d16d48a6503648c04",
+    "evidence/haos-app-context-transfer-failure.xml": "6f99003765d1dbfff37497ba3addf5a638aecfa2ec2e7ce489a43abf296dfdb7",
+    "evidence/haos-app-local-path-failure.xml": "7854a8c5501644aa29f0c1a100647111e52f90868c2fee7136c3504f096c92d5",
+    "evidence/haos-app-store-refresh-failure.xml": "51b5ce21613b2e59253b907649bb192f0167d5e329a1c88d0dc1fa7f6979ad65",
+    "evidence/haos-app-supervisor-update-gate.xml": "599d8c75222085dc1d42fb2ba7243407f3e5aa61738f365da4f747333da3b922",
+    "evidence/haos-app-update-restart-failure.xml": "c8778e120a1c6511243679f529f751eb725b96379b270b67df90ac95bcb6cf0c",
+    "evidence/haos-vm-pytest.xml": "f1871f22ab3a8ad7b0e6a753aa8297f151088aadda419d1ed23724dfd8dc9fc0",
+    "evidence/haos-vm.json": "66a8a6439f887f83376fc68d0f9381c62112908da639f8be0a0a2d898e0c175a",
+    "evidence/hermes-adapter-contract.xml": "40f6cef1228952b80c5aa5a966e554cf38b75f887a6a5825d2250252d2ebb8bf",
+    "evidence/hermes-adapter-first.xml": "f7c2ca9e5e29a02cbfd852c6852d953612b2db82f3c20d8e2edb53e99e1a6fba",
+    "evidence/hermes-adapter-gate.xml": "41ffa8e768db558a722f06ab5e8e2b4527dd3e1e5a7548e4f86193927732bb7e",
+    "evidence/hermes-adapter-negative.xml": "5eaae69c417138ce313c3c3bb6fe7ae64363ce50b98d22a460c0889c0d442880",
+    "evidence/hermes-security-update.json": "4d95c0d8b4717047d11e3885e2abe2d6ddc75e5156a3e44da8fc305f4672a739",
+    "evidence/home-entry-contract.xml": "49b5a26b7c93048cb682b5b90443f9505da724baba587f88e26d1aef343aee93",
+    "evidence/host-broker-roles.xml": "d4d7608f6a25055ef3d4669b16e082e82e4c425819c69cb3b4501ab90c5e5e24",
+    "evidence/host-compatibility.xml": "4492231080215c3e713bd7e25e2d200fae46047436d11a428cca43ca6413b474",
+    "evidence/host-delivery-tests.xml": "0e5290f3fa6b626e82a1b19c0fcc5b55782c71cd2ffc5c350755ca0977fca423",
+    "evidence/installed-0.6.0-run4-prior-stages/installed-auth-laptop-amd64.json": "9803e70c185bb776fd6befb1a71925138ed4b67446c6fa3919d6e29731ea13d5",
+    "evidence/installed-0.6.0-run4-prior-stages/installed-coding-laptop-amd64.json": "ecdbaa2fcdd0da908ecb9bfcfade9b7c97fe5d0aa47d8ba49bda3af8decd90a5",
+    "evidence/installed-0.6.0-run4-prior-stages/installed-hermes-laptop-amd64.json": "c424cc99c2a179f9970824547b59096397927f3c1b8e23c6cc18b41cf7c7e324",
+    "evidence/installed-0.6.0-run4-prior-stages/installed-rescue-laptop-amd64.json": "a3e2462ab3f608668b266f7c2514cd952a7ea31c25f3e23065a2805150ad06f0",
+    "evidence/installed-0.6.0-run4-prior-stages/installed-sandbox-laptop-amd64.json": "0298e8caeedf5af8de3ef478c55db0858045fceac5da80876d30286cfb4565f9",
+    "evidence/installed-0.6.0-run4-prior-stages/manifest.json": "84a3482321fd0b24cfbfc21143e8191b0035f4a3b0a2d6764db09a1184b8a074",
+    "evidence/installed-0.6.0-run5-prior-stages/installed-auth-laptop-amd64.json": "9803e70c185bb776fd6befb1a71925138ed4b67446c6fa3919d6e29731ea13d5",
+    "evidence/installed-0.6.0-run5-prior-stages/installed-coding-laptop-amd64.json": "6b2cb244e467b3cf77f5afc34d6e2f4d42a9567600127f2c96abf74dca671980",
+    "evidence/installed-0.6.0-run5-prior-stages/installed-hermes-laptop-amd64.json": "c4c5ecf186fc88df642520a6e318472badec08bda2eb247533d6b7f43f0b2ef9",
+    "evidence/installed-0.6.0-run5-prior-stages/installed-rescue-laptop-amd64.json": "009836e611587b26e75ae40446ce159d8b2eb4b1b6ff8ea97e0e284cad803bb7",
+    "evidence/installed-0.6.0-run5-prior-stages/installed-sandbox-laptop-amd64.json": "21ed7b95060c3c41f3e9368008f8cf7e6cd93eb24347b2edd550eabcd0407fc2",
+    "evidence/installed-0.6.0-run5-prior-stages/manifest.json": "69db65459dd34dbbef79ea838a092456f90da8339cbce61cd68048ad72163b91",
+    "evidence/installed-0.6.0-run6-prior-stages/installed-auth-laptop-amd64.json": "9803e70c185bb776fd6befb1a71925138ed4b67446c6fa3919d6e29731ea13d5",
+    "evidence/installed-0.6.0-run6-prior-stages/installed-coding-laptop-amd64.json": "e0a517c6cbf479626510d509951f4bb3400d459c7cf4652c87a91e98af01b041",
+    "evidence/installed-0.6.0-run6-prior-stages/installed-hermes-laptop-amd64.json": "169d2a12753e3b1b7415f9f08cc61751229181659685b5c9128d1b05378cb84c",
+    "evidence/installed-0.6.0-run6-prior-stages/installed-process-auth-laptop-amd64.json": "1095168247730926de2f984e1a37044105d31316096864e9c2c90cdc7375b5dc",
+    "evidence/installed-0.6.0-run6-prior-stages/installed-process-coding-laptop-amd64.json": "af8ccc9524b6b997a91170b0cced0618de626117ced84e4f507f29dac18e0a44",
+    "evidence/installed-0.6.0-run6-prior-stages/installed-process-sandbox-laptop-amd64.json": "d61db2bb5ec3b83aac920fb046c1c362c0bfdd78e4ba05001b1e7485647e912f",
+    "evidence/installed-0.6.0-run6-prior-stages/installed-rescue-laptop-amd64.json": "adfa3f7551c6bd7240c4781daad382bbe77242b2ccfc3cee973577cbbe21ee46",
+    "evidence/installed-0.6.0-run6-prior-stages/installed-sandbox-laptop-amd64.json": "882646be63733b6cd6abb064a7d8b8f488c1dbf95ee740d1bf6e72be09cbc2a3",
+    "evidence/installed-0.6.0-run6-prior-stages/manifest.json": "148b7926961de7368276445334e470e0be91c91fbb3a1439a527ae317570ab2e",
+    "evidence/installed-auth-0.6.0-initial-failure.json": "d2b2846e12961ad6f5edc7fb5b7b9b019f97e353059922bc5fa4e381232a8ee6",
+    "evidence/installed-auth-laptop-amd64-0.4.0.json": "8f893cf3d33e5d4fd5d5aded01a4b0cacec6588f428242c880d256860bc8ce4a",
+    "evidence/installed-auth-laptop-amd64-0.5.0.json": "5db94e53209502d4d7627838f94d5e27ac448c8eaafa3002a93bf10d5dea0d0d",
+    "evidence/installed-auth-laptop-amd64-0.5.1.json": "5db94e53209502d4d7627838f94d5e27ac448c8eaafa3002a93bf10d5dea0d0d",
+    "evidence/installed-auth-laptop-amd64-0.6.0.json": "9803e70c185bb776fd6befb1a71925138ed4b67446c6fa3919d6e29731ea13d5",
+    "evidence/installed-auth-laptop-amd64-first-attempt.json": "8f893cf3d33e5d4fd5d5aded01a4b0cacec6588f428242c880d256860bc8ce4a",
+    "evidence/installed-auth-laptop-amd64.json": "9803e70c185bb776fd6befb1a71925138ed4b67446c6fa3919d6e29731ea13d5",
+    "evidence/installed-auth-server-amd64.json": "d6782fd7e15514a0d8bba6daf7f98cf162c9442865097e92347d20470e1c4724",
+    "evidence/installed-coding-0.6.0-before-bootstrap-env.json": "8b87c93b4fd0720c9b7bdd720cb08a789c85344893e0eb05884b225f69ca860e",
+    "evidence/installed-coding-0.6.0-initial-verifier-failure.json": "ddd5bffb2f5dd2b9c8565498be6b4abe4fea733c3e6dd6cb47ac85b0035c7f8a",
+    "evidence/installed-coding-laptop-amd64-0.6.0.json": "504ee02d22909712f79382a53e6e65200d866235416d4f111868effbd73fa017",
+    "evidence/installed-coding-laptop-amd64.json": "504ee02d22909712f79382a53e6e65200d866235416d4f111868effbd73fa017",
+    "evidence/installed-failure-0.6.0-run6.json": "d51162e340d6e6267ac03fa88662e66c485d2218ba2c9f32c7eb3027f5059061",
+    "evidence/installed-global-diagnostics.xml": "9c2c08c0bffc2b344f141925347ecac2cd4a097550917a585d574782240bf2d2",
+    "evidence/installed-hermes-0.6.0-initial-failure.json": "fd405b4d22b22897dff8cde488c7bd24f2c1e0cac3270238a52408917d3c60fe",
+    "evidence/installed-hermes-laptop-amd64-0.5.0.json": "db1eee6ebad0ea73a50a6c1c70dce62835faae1322612614c1d1c416fd621733",
+    "evidence/installed-hermes-laptop-amd64-0.5.1.json": "79a68c1c2791087925bf0908d05efdc82843d259fde84bc88a332e6768d36c9b",
+    "evidence/installed-hermes-laptop-amd64-0.6.0.json": "cd08f4f5aa6ed46361723e4cf4d2461bda9dbc8549707c30de20ba31fe525639",
+    "evidence/installed-hermes-laptop-amd64.json": "cd08f4f5aa6ed46361723e4cf4d2461bda9dbc8549707c30de20ba31fe525639",
+    "evidence/installed-metadata-regression.xml": "1030926f3b0f2e6123f3794d9e7b854a949967698c39994158af30bbafd95893",
+    "evidence/installed-probe-contract-0.6.0.xml": "6f94f557f89f8d330ab0774cfb3dcf79b22f4da017ebc925c9f82a823a426d98",
+    "evidence/installed-process-auth-laptop-amd64-0.6.0.json": "1095168247730926de2f984e1a37044105d31316096864e9c2c90cdc7375b5dc",
+    "evidence/installed-process-auth-laptop-amd64.json": "1095168247730926de2f984e1a37044105d31316096864e9c2c90cdc7375b5dc",
+    "evidence/installed-process-coding-laptop-amd64-0.6.0.json": "847afaf2bf8cc81afe3ea532cde49de4e59f0288a0ccd867d5b40df5d090df33",
+    "evidence/installed-process-coding-laptop-amd64.json": "847afaf2bf8cc81afe3ea532cde49de4e59f0288a0ccd867d5b40df5d090df33",
+    "evidence/installed-process-sandbox-laptop-amd64-0.6.0.json": "f981c8ce04698ab326802bc759ec72e2f53a037841dab8e177cbec3f081a9392",
+    "evidence/installed-process-sandbox-laptop-amd64.json": "f981c8ce04698ab326802bc759ec72e2f53a037841dab8e177cbec3f081a9392",
+    "evidence/installed-progress-0.6.0-run5-snapshot-failure.json": "25a6f0687ace491a45671e59473ea6f5d4ea04502288191132a3aee3c6a8c002",
+    "evidence/installed-progress-0.6.0-run6-update-activation-failure.json": "a98ba99eec172cbd4706eb40412a50872af94a856b9502aadf912e536bba8b34",
+    "evidence/installed-progress-0.6.0-update-probe-failure.json": "4d974c88a7e48f9894db315d610aaeff27d6b4860794e9acd4ed9c580400aea0",
+    "evidence/installed-progress-laptop-amd64-0.6.0.json": "15aebc6190225afad90b3e67f2c95a83e0e3909b3df7847a3b12f807b04f939a",
+    "evidence/installed-progress-laptop-amd64.json": "15aebc6190225afad90b3e67f2c95a83e0e3909b3df7847a3b12f807b04f939a",
+    "evidence/installed-rescue-before-metadata-fix.json": "c57a89a8b5a9192ca859f230138b3fd31a2d6f8e3fb4c5ec690c22d6b0a4a6b9",
+    "evidence/installed-rescue-laptop-amd64-0.4.0.json": "5af311c498e3f2b8bc431efb18cd5d8c469da0cea6050a36b4e108712b34792b",
+    "evidence/installed-rescue-laptop-amd64-0.5.0.json": "dec3366dbb64136c8945af5a6dbb55bc355b13f0a1e8f022847f7e793daf423e",
+    "evidence/installed-rescue-laptop-amd64-0.5.1.json": "e222a73068b3283d0eaa01d6bfdb10f22663fb37d4ef51349c6d227032d5b9c6",
+    "evidence/installed-rescue-laptop-amd64-0.6.0.json": "13dd9ebfc01e9bcffff9ad169a704c420b1f80405572d8662c97a02e6ff71b6a",
+    "evidence/installed-rescue-laptop-amd64.json": "13dd9ebfc01e9bcffff9ad169a704c420b1f80405572d8662c97a02e6ff71b6a",
+    "evidence/installed-sandbox-laptop-amd64-0.4.0.json": "10832d01b961503716808604e289cbd36eb514898c3f58fb2c23f24d6ce1f6ad",
+    "evidence/installed-sandbox-laptop-amd64-0.5.0.json": "a1fc2084fd24107b07ee137cf205a4835aa6ba14bdf87c61e0778c0a900d04b8",
+    "evidence/installed-sandbox-laptop-amd64-0.5.1.json": "6f3638ac81da7b61b559df2e1dbd7edd1f4bd40a713ccd4da5da80797f98cbd5",
+    "evidence/installed-sandbox-laptop-amd64-0.6.0.json": "36196d3bfa53e50df2ddb6ab04b89c2523a2918b269c63d5e49f0602dc45289f",
+    "evidence/installed-sandbox-laptop-amd64.json": "36196d3bfa53e50df2ddb6ab04b89c2523a2918b269c63d5e49f0602dc45289f",
+    "evidence/installed-sandbox-preflight-failure.json": "5c3c61ced77ccf2a3fef3bf5e13bc92fc269f014628d0b3d98094ca9eafa8531",
+    "evidence/installed-update-0.6.0-run6-failure.json": "a7981dc9308d097d8ba3042b9c552ca6dd1340965d2a636a9edc9ae72510bada",
+    "evidence/installed-update-harness.xml": "b6a6b251e0162c94774607dd4d0a8349a930a205419cb25b92017cfe5f6065eb",
+    "evidence/installed-update-laptop-amd64-0.6.0.json": "f60597e042c359d78dce61d7d35776dbd504926c12e187c913264084aa5fa59f",
+    "evidence/installed-update-laptop-amd64.json": "f60597e042c359d78dce61d7d35776dbd504926c12e187c913264084aa5fa59f",
+    "evidence/latest-hermes-3569-port-fixture-failure.xml": "8f7389dd8f1175586670954c37685e99296ce0752a5edad58e6de5955b72ff78",
+    "evidence/latest-hermes-3569.json": "afd656f68c7a7df710db99ffb959b303e75af215ed3f015232a2f098c9681ce0",
+    "evidence/latest-hermes-3569.xml": "b8303dd789c5f1cd277ae4c4eef7de47a73d324fdbe353f4c6374c95169da367",
+    "evidence/latest-hermes-41cd.json": "73ec847c353f0ccf127d8e03eeff80d7e6c44554fd4de385ad1f9ea9a44bb646",
+    "evidence/latest-hermes-41cd.xml": "97640cf27bd1c8b218a61bb1364ae12ea6251db3415aaab1a1ab072404b25b12",
+    "evidence/latest-hermes-compatibility.xml": "6b87f9fcbc8d78083e79cd47cd53c33c0d47db2b741269ad7cc763618241540a",
+    "evidence/latest-hermes.json": "668ae4373c9ee8995e1e18c9c0b4b7bbca9403c0e0d31726295a32d26e843493",
+    "evidence/linejs-container.json": "a4a73dedd8127e591b3b0280345dde0285f6049f6fc0bd7d749d51d005dc17b6",
+    "evidence/linux-install-0.2.0.json": "413ec69e6dae459897f8d215c28964abfb44e1f05be832a3deb37a5a2464c39d",
+    "evidence/linux-install-0.4.0-final.json": "e7fdde511f0d305733d1bb480affee0869ea92bc0cc266139d013a0a75adcc0a",
+    "evidence/linux-install-0.4.0-initial-interrupted.json": "ec13512b2ec7efb94e904939bd4474b08dcc9e9eb6ebc77741d0b73426908e58",
+    "evidence/linux-install-0.4.0-initial-interrupted.xml": "032602768acddd465ced7902dd8e2d9d30912adab386a81e11b5796818873305",
+    "evidence/linux-install-0.4.0-sandbox-preflight-failure.json": "022778f2480bd509956f69c763563afa5859cc46adb63f56cd706bb65dcc2996",
+    "evidence/linux-install-0.4.0-sandbox-preflight-failure.xml": "e1e468ff6b1f84422f1e7ce8219caaaceacbe146f7f6ca5e3e0cde5c7e10e77c",
+    "evidence/linux-install-0.4.0-support-fixture-failure.json": "702501c147f1b746cc592df769849ddb58e18d623a0adc3b701904fd74ced35f",
+    "evidence/linux-install-0.4.0-support-fixture-failure.xml": "33ee206ffbaefa9ad2ce7427c75976ccc3cf9e73e74f6e90672ed5c574f51ccc",
+    "evidence/linux-install-0.4.0.xml": "8f255a4f031c100785aefb39bdf599793ebbd6baeca31a14910600219f997bb1",
+    "evidence/linux-install-0.5.0-auth-fixture-failure.json": "901e70ce50b137bb09dc7ae8376af49c97f69922ee5aad8c4238b85c8f682053",
+    "evidence/linux-install-0.5.0-auth-fixture-failure.xml": "90feebd37abaad8f62f72cf304b71f9535dc1432c3d315e2075d8c6a753dcf8f",
+    "evidence/linux-install-0.5.0.json": "9fc631055fa25ec931956e2ff14eee96b29853d472cc98ba3594bc79c984c268",
+    "evidence/linux-install-0.5.0.xml": "13a134563548d934963b78b96e02750f642908a21abcf7308f21695a28b80c8d",
+    "evidence/linux-install-0.5.1-version-failure.xml": "26d863f199833f05e0e73dd22048040e7a1dc3bd4c9d870d03d02e1add8e660c",
+    "evidence/linux-install-0.5.1.json": "1c7dbd1199d46b35cf8aff386c12dff67087cd26d5b611ef4e8a97ce5c643cc3",
+    "evidence/linux-install-0.5.1.xml": "25597d451e88e19f71f50e76f71ee12983e2cffcf20a33468623d3df8e7e1cbf",
+    "evidence/linux-install-0.6.0-coding-verifier-failure.json": "4fdff40746480b4bb0294022c1173727af98c788f80baf411de0e18e9f632a3d",
+    "evidence/linux-install-0.6.0-coding-verifier-failure.xml": "16c0f134d2863c8b5fd60e53fad9e25e406f25cbff384206ca34c15c21398c31",
+    "evidence/linux-install-0.6.0-hermes-bootstrap-failure.json": "33f4f1337b4517a40d8a1a60f8a699ce0088006b8af6c9cd79eb6f2484ac57a4",
+    "evidence/linux-install-0.6.0-hermes-bootstrap-failure.xml": "2cec99d3b71cb5c15ad6128e4ba0cc6a6422cfa28e55c187833322904cb80311",
+    "evidence/linux-install-0.6.0-initial-auth-failure.xml": "b2f4932cdba1305ef409e0b62fecb350633b24adb1de2a60fda6a86d597ed228",
+    "evidence/linux-install-0.6.0-initial-failure.json": "d1848cf91499b41579a891b50236f34a381c5cfb4143d38e11b23de0ee279669",
+    "evidence/linux-install-0.6.0-run5-snapshot-failure.json": "2e530ea797967101a91c3fee44f26657202d20e26a7f0379ee42b09d13ccc281",
+    "evidence/linux-install-0.6.0-run5-snapshot-failure.xml": "9f63d7614c7e79a4461f4b4b20b02e2920a9bdd8b86befc6e21e2191a010e03f",
+    "evidence/linux-install-0.6.0-run6-update-activation-failure.json": "8222bfc7617794d33e9d09e4e45946207261d74445a8ce0cc97c9e996afb0c52",
+    "evidence/linux-install-0.6.0-run6-update-activation-failure.xml": "a5e571caa94fb797f6564ded897b93a0669a11e1a3664bc14cd49535c1c074b5",
+    "evidence/linux-install-0.6.0-update-probe-failure.json": "ce7100c312e574e376ec42d67f3975c1193035fd08fc46e33cd51d55c2428f20",
+    "evidence/linux-install-0.6.0-update-probe-failure.xml": "9dac7e0f84f12c00f81983841bc227db402321f9f2e1050884083e2290da8872",
+    "evidence/linux-install-0.6.0.json": "8e7395d12236598a8f4e6e478abf934399eaf72d0f2c341cdf122aaf652c94a9",
+    "evidence/linux-install-0.6.0.xml": "4d9acd0cc90b55a421ad78daa2a52694cdf8f22607c245fd89c3ca20b64731a0",
+    "evidence/linux-install-pytest.xml": "48c74a4e50236ad1d979d3ed7eaa928e1d4d95bd711217444676cf201dfe6ac2",
+    "evidence/linux-install-server-pytest.xml": "105099f99ff960b452a37b114bd28fd02ceb27da1a90c216b2edb6cdbf2aa843",
+    "evidence/linux-install-server.json": "34f2438b5df849a4c98ee6615975aad2e1f05cc2032063ba48916eb36367d996",
+    "evidence/linux-install.json": "8e7395d12236598a8f4e6e478abf934399eaf72d0f2c341cdf122aaf652c94a9",
+    "evidence/linux-platform.json": "4576acaa91c26a0be1c3aee8275ec8cceabf3221dd971714aed248734aa6403c",
+    "evidence/linux-tested-build-0.2.0.json": "432a785f86e63e9653361e26213e7252187aa1ec9e70a39dece49f72a23442c3",
+    "evidence/linux-tested-build-0.4.0-final.json": "569999a72d35c42a0215b87a89c5154264d24aae83a7e7330a310e187aa67e8a",
+    "evidence/linux-tested-build-0.5.0.json": "8b6d604f2a437f7f5eccdd180fdf5aa44d6e871004009dba3f856a808320dca2",
+    "evidence/linux-tested-build.json": "8b6d604f2a437f7f5eccdd180fdf5aa44d6e871004009dba3f856a808320dca2",
+    "evidence/native-adapters-focused.xml": "47669660f2d73c791325413ae8292c4d5d4b93a5a48d14cfa01d7f058df2bd33",
+    "evidence/native-entry-initial-checks.json": "2efea9c3f10071eb4d6f917d96935e7a1dd4a2e4c9313b6dc2d73f15a645888f",
+    "evidence/network-upstream.json": "f4952ab64720c03323fa8942943a279f58dbd56aa44a95ac6d409cfdbff42bf4",
+    "evidence/onboarding-e2e-0.5.1-github-initial.json": "b670e6eb546c17ffd189c662b50326147432d01e8152da27b8d01b2254ed5e8a",
+    "evidence/onboarding-e2e-0.5.1-github.json": "2a74ad539897ff96d7d9209bc6f544b10872c59d78459e079cf9dedcff54f6c9",
+    "evidence/onboarding-e2e-0.6.0-github-before-bootstrap-env.json": "1182817de525cb8c1ea5045c771a3cadee8ce41a03820726936378803e134a4e",
+    "evidence/onboarding-e2e-0.6.0-github-before-lifecycle-diagnostics.json": "e95230ce360e6b9adbe374541b754ce3b4f512d1dc8b10f839c6fa9a833816a1",
+    "evidence/onboarding-e2e-0.6.0-github-before-update-harness.json": "41fd4895ab45773355eaa099a08a255dadd87e7af31fd84b4ea7017da83a8423",
+    "evidence/onboarding-e2e-0.6.0-github-before-updater-probe.json": "0cf769fea9b5a6cc0a5845e27723c6cb027c3a66456e4fec27874217bfe42cf0",
+    "evidence/onboarding-e2e-0.6.0-github.json": "7d85315c0d91ad1596b8d65ca739cd6116d6453cbf9454f807f2ee0e91e2b12d",
+    "evidence/onboarding-e2e-native-0.6.1.xml": "783b7eaa6ef94336e369abb160112aa94277ed4aa5d02f37ff6944a831048553",
+    "evidence/onboarding-e2e-native-incomplete-fixture.xml": "251d3305800d4a44809c36d9b5e68f41f4b47c1ea376a276262a524cb1960f70",
+    "evidence/onboarding-e2e-selector-failure.xml": "8ebbfe87aeb4c747b2e31819e159a59ff2ed7a18cdd67fd1d6032d0646a24366",
+    "evidence/onboarding-e2e.json": "e8e34f0aa44558997ea7839b016a826766c3d326f4a963ffac265db57a106651",
+    "evidence/onboarding-e2e.xml": "72d069957d89e04b5d88b1b16fd4797c314c6308d151e7058c35f5186c723ddb",
+    "evidence/package-0.5.0.xml": "0141141c55b518736bc9684ed154490085b77a5e05095faf46fe741b91e49bb0",
+    "evidence/preview-renderer.json": "32927e402f20456a57b37c1fb462742ace1de407767c8ef6a0747103b9f53ba5",
+    "evidence/preview-tests.xml": "47f5e06384082f8f7541a941eda3fefd93b552c6d4a66047657fd0baf7b5dffc",
+    "evidence/public-seed-0.5.0.json": "487653731b2bfce5de01c1cebc1e3128918983eef76a4a7d954a85928259d5e2",
+    "evidence/public-seed-0.5.1.json": "107dae7fe7f5eabdec0e3427cce44cfefa2217c652b638796d06cb3b56e3bb79",
+    "evidence/public-seed-0.6.0-before-bootstrap-env.json": "5b8200fed82f468a84d4c2cb26e6a446c1c4d018920421aff08d6857f5951de4",
+    "evidence/public-seed-0.6.0-before-updater-probe.json": "886d3dbf9e1dc2602e0c91879f65ddfc4349de8efe582fc7cb12fe1682bf0010",
+    "evidence/public-seed-0.6.0.json": "46209beeb649c0e5a781e370dfcc8b20247cad038e6be8ceb0bbb94d56bc65ba",
+    "evidence/publisher-enrollment.json": "9f1f9927bc8e89160da6a743bc2ead0718d7cb31e5e97b13ae754dfd868124fb",
+    "evidence/publisher-tests.xml": "f73184e0ef5bce00ce80d3f85caf14f21295579d0178d1732c14222921947987",
+    "evidence/pytest-0.2.1.xml": "d2fcc35b448c8dfc9ff3fcff9967d8321db7d6d4c5ea640ca1be2d38062b9423",
+    "evidence/pytest-0.3.0.xml": "cff1ff62b55eb64b1f4411fb981bafd8b37bc734ab46e1bbf1875dc6076987ad",
+    "evidence/pytest-0.3.1-screenshot-failure.xml": "d64d037f09c26a4685fbfcec85cb1af68b61041bb57b96aacdc61a66b39cd629",
+    "evidence/pytest-0.3.1.xml": "295d441195f3df1c8d2bd9ead363dd4f2d02fc8cd7b21600e91850061ecba12f",
+    "evidence/pytest-0.4.0-github-before-sandbox-fix.xml": "1cfcab25dae98d9236ed4bb052df663f47de2e1f9f2ad729fb7086135a486757",
+    "evidence/pytest-0.4.0-github-security.xml": "f1cdef804cae55587832d7e92e26080b78fde7737683e7b280764055900ff6b8",
+    "evidence/pytest-0.4.0-github.xml": "2f45dc6bd07b11d163b99783661a99f042e17de7318df643e72b0f70a9be1d8d",
+    "evidence/pytest-0.4.0.xml": "c4c8d5c699771ee094fc923a687afef72d8b96efca8a18cddf36bcf573d79957",
+    "evidence/pytest-0.5.0-github-final.xml": "601538c7bb4d1647e06f0438218af1f545ca5bd9b8c5b0396494257fc529cd6a",
+    "evidence/pytest-0.5.0-github.xml": "5ea173c7100922361b6e0f94c90ae72d85a7c4bb9aa1e5994001435fabc5ac5d",
+    "evidence/pytest-0.5.0.xml": "1d70b1b3afba1aa922bc75ba773c7c73ae8f4299faf368a8656b1ecec37f63eb",
+    "evidence/pytest-0.5.1-github-initial.xml": "e0db9f78e44d3513123a01f49c256ff772b7b89a8aaf0740e40d5f2bcc4b3713",
+    "evidence/pytest-0.5.1-github.xml": "f884be9fdcd8a6e501f5e5508c666ad7ccc5ccd2f20098ee04a251638870987e",
+    "evidence/pytest-0.5.1.xml": "69fc807b07379354668512de09efb773e8d4292313eef71576728853536893c4",
+    "evidence/pytest-0.6.0-github-before-bootstrap-env.xml": "9c13e576a95cad64d7d1461ac892e89180a1011c01390ada601e7f6efe153b60",
+    "evidence/pytest-0.6.0-github-before-lifecycle-diagnostics.xml": "dc63dea69a649af0ed4d556336c6dd0b63b8f87945093c18b704917674222d62",
+    "evidence/pytest-0.6.0-github-before-trusted-test-permissions.xml": "7525cc7e99471aac8992ba858aa7bf221aa00a369c4076513a7aa9a3c9e94e5d",
+    "evidence/pytest-0.6.0-github-before-update-harness.xml": "d7f95a41884686a5df35ac64792a7fbf08e1d5924ec94145a6fc0b134afd06c5",
+    "evidence/pytest-0.6.0-github-before-updater-probe.xml": "1b9b50ed47f847217f6942285311c12cbefed286c0a0d1a7705d781ee4f76bc9",
+    "evidence/pytest-0.6.0-github.xml": "7947ee8d55008fb12d507f1d55cf9ee77f0aeee2ea32385e95fb86b0dc95061d",
+    "evidence/pytest-0.6.0.xml": "6eb9677040d12491fa8c2f3ad05c39aeeaa4f6f9b577da2cc85c1f737ce3beb4",
+    "evidence/pytest-0.6.1-native-login-initial.xml": "7014c45b9f5e4d263a14838cb246b894a437cb2964358b1ce2956057202d919b",
+    "evidence/pytest-chat-first-build-contention.xml": "7e3ede79e26a1a8c6d19e670481073782c6c64d3328658b62e5e1d49391b7ad3",
+    "evidence/pytest-chat-first-final.xml": "799262b771043665873401cd7e4b3ff7c91c0ae07220a29143f21421c1d7a948",
+    "evidence/pytest-chat-first.xml": "f08cb4241eacd130a7092fc768d4fb2fce0ea44434b9fb347872551bb07442b8",
+    "evidence/pytest.xml": "de3cef27ec3dccf7dc11bfdfd84529794f898f401fbaa16f43e35a8dc805b9bd",
+    "evidence/real-core-integration.json": "cbb310419842a3bd1a5a9b0e44646d090676793764c2efbb3529ddb00aed4c87",
+    "evidence/release-0.2.0.json": "96809ce7b34acc29f633486348fa3a65f053a3030e8f08bd59302ad38a7f3cde",
+    "evidence/release-0.2.1.json": "5ab1a8ed54618aafd9e603e07be82f8fa55658bfa601e843c3e2c470e3211488",
+    "evidence/release-0.3.0.json": "f0c570ec7bf92c8869faa8a2eb553937de6455113f538d1e9ca266730e218f57",
+    "evidence/release-0.3.1.json": "cf53421b88118bf779514166312fc406ddb6a57bb8c77d4f3b51d400ecf7c654",
+    "evidence/release-0.4.0-before-sandbox-fix.json": "0f9dc6413d92eafa4fdff9c4390f0a38ca2168c7b4ba011c91968627de9b61dc",
+    "evidence/release-0.4.0-final.json": "a2418b73f3a0d90b7992799f69572bc0c4e635ffc1261f28d6d17c5af25fb54c",
+    "evidence/release-0.4.0-initial.json": "36efcddef04c8a92dd4cd24acc37cc78d1956838f14ec17124c778b06c770e17",
+    "evidence/release-0.5.0.json": "886b5dd98df323f324066cdc5938060764f995a60cc1fee79164ebf5e06923e8",
+    "evidence/release-0.5.1.json": "07683594f0bddc06fb280a7821f702884bea516bd35b274115b28b9a2ae153aa",
+    "evidence/release-0.6.0.json": "6b38deaf647c8aebac67da8ce86cdee890e53367b1552b24f5fc4f69455bc162",
+    "evidence/release.json": "886b5dd98df323f324066cdc5938060764f995a60cc1fee79164ebf5e06923e8",
+    "evidence/review-bootstrap-controller-fixes.xml": "898c072f082c7fa43752017f01ef32d11fcf3ddb2a2da45563e3b65b6be285e3",
+    "evidence/review-bootstrap-form-before.xml": "2289bea79261275d311274741495cff2fa13544200fe0588f2636bedb516f1e3",
+    "evidence/review-bootstrap-initial.xml": "ccc3c0d2925f72c008cdbb2e477fb4dd65661317640fc2d08a21a029ce3c3cb5",
+    "evidence/review-controller-cancellation.xml": "506f04791b8b7ac26b3b54cf02505e76171987c94d6f071553767f3a19955aa4",
+    "evidence/review-haos.xml": "71d6b75c9481f888d280a0aafe8d139b7db24169ec418c88f89e960ce7daf7db",
+    "evidence/review-installed-version.xml": "d8969d08da9bf40caee811ca2d58950eb9c0947a87f7fd47b3630c69e988a3b2",
+    "evidence/review-runtime-cross.xml": "f6610b5764429cf9e69ac8c5b851a349b5934cb53133f29e9a68c737344b8203",
+    "evidence/review-runtime-duplicate-cancel-before.xml": "e9a29ec5a535bfd849dcaf733318f56f39a78618e2b07e3ffbb85ffa95b6eafc",
+    "evidence/review-runtime-duplicate-cancel.xml": "6b8e7404fd4a7d16dbb56e6a64499368c221fbdba2d1af0688479c658b103b66",
+    "evidence/review-runtime-fifo-before.xml": "b6184be2eb5758d93e4b0693397c0ad8ae9f6243329964b145b3cb20d0f196a4",
+    "evidence/review-runtime-final.xml": "34f749a174e68d95ea8f223d8658dc8c300a436f6326c26045951b43bc77ece8",
+    "evidence/review-runtime.xml": "ac972a747d752b5de2a56674b87ea4978cc9ce58a7e646b81dd94bef3b21b2b5",
+    "evidence/review-ui-before.xml": "a1680000e0a821862dbb269bedd722d476205b3316828fa07e360d533acec546",
+    "evidence/review-ui-regression.xml": "55ffb5c21ef6b5bb0da72e4a44529e8c220997f794d4c45f2bf5f163d0f7e88b",
+    "evidence/runner-container.json": "2ee57f8cef8f80669af57cba95ab8da2952a3df772a00becb996424582bde787",
+    "evidence/source-audit-0.3.1.json": "2fb5c8cf7e1a273cfbf7dd6488edfbceda598479d626f7058dc0a9a1b664eea4",
+    "evidence/source-audit-0.4.0-final.json": "c911a7c1532bfad8eb559d7c54f91dabd2db5bab589308dc1dd891a392b0413b",
+    "evidence/source-audit-0.5.0-final.json": "f7be960b0b3eb4adc4ada0681cf47a3bce95907fdb23e0f2e0278732b46b9bc1",
+    "evidence/source-audit-0.5.0.json": "23d769941102f6b8a9c826ff798a1baabc1a23a890a8794b2d3bece797d0dd41",
+    "evidence/source-audit-0.5.1.json": "690a7d70186ecbcdf741c73edc0ec340f9503d6cef4b56ddcf2f74106a4ca514",
+    "evidence/source-audit-0.6.0.json": "8163ae7e13105aeaaaefbbed68f684f41e2286180143761236a7dc2e14a8e798",
+    "evidence/source-audit.json": "f7be960b0b3eb4adc4ada0681cf47a3bce95907fdb23e0f2e0278732b46b9bc1",
+    "evidence/supervisor-package.json": "26e0601dc6ef2b52cb62349ad3e134a0dc1ea3b3c8ba3eb4732bba0185680791",
+    "evidence/ui-0.2.1.xml": "90d23f849b7a8f367df087db5ce00540f7e0e2e351ae826b6218923b9e7f8cdb",
+    "evidence/ui-navigation-final.xml": "e6ecf04d83a88280678359514aa84b1b8587e8b9155c8b2b8cff191c29b1fc19",
+    "evidence/ui-navigation-simplified.xml": "657aa5777d0feb589b51d8d064c7917dfd0c7f5b40120850e3a97f2b260a129d",
+    "evidence/ui/0.6.0/README.md": "4fb27eb5e66718c22a0b48e7ea5824cd6cdf1c0da1c4281d46270f9b6c010d7d",
+    "evidence/ui/0.6.0/bootstrap-choose-1440.png": "a9327ab6804e51c61cc1c9bbc48882ca95637bf4687783b50e71bdb318d5ad62",
+    "evidence/ui/0.6.0/bootstrap-choose-390.png": "a7f1b9aefbbd9f3a009f65be118919c6f46793748936a166f42ea535a120c732",
+    "evidence/ui/0.6.0/bootstrap-choose-768.png": "66e4a7036fd1cd2d409e5ceed1aae15ebc6fa2d476b64efae1de648ef91400fd",
+    "evidence/ui/0.6.0/bootstrap-cli-auth-1440.png": "7f0ff46f53e969e9c45991c0111efea8c2b54dcb26d504fd251f09bc6b167704",
+    "evidence/ui/0.6.0/bootstrap-cli-auth-390.png": "69e9b0e8518aa07357542456b41c1e9c29531eb91ec42dbaf6e61acab25dcc28",
+    "evidence/ui/0.6.0/bootstrap-cli-auth-768.png": "00e6d71c1952020ce629e8fd9f742356e0182af5ef98f881111cc3aa819d2fb5",
+    "evidence/ui/0.6.0/bootstrap-complete-1440.png": "f9d2fe120d71b4e4ae888b7b8e332412d83dc22cad1476b2b4ddf27a8513ae13",
+    "evidence/ui/0.6.0/bootstrap-complete-390.png": "dcc61c1fc0a70e3e37d144e7c457d304539428a16323f36e0206d1ed8c96d897",
+    "evidence/ui/0.6.0/bootstrap-complete-768.png": "f4c75f12ccc0651ced0c017f4c2d528e913ad5f084da7ea45042e05602ebecb8",
+    "evidence/ui/0.6.0/bootstrap-hermes-auth-1440.png": "09f6f945df5461b0aab5f791c94b0ffe002fbad40865f6aa398c71f9930c818f",
+    "evidence/ui/0.6.0/bootstrap-hermes-auth-390.png": "499f0fc07c9bd916c2671f00c133a3cf25fd9a86caaab07e1513e614192b3af6",
+    "evidence/ui/0.6.0/bootstrap-hermes-auth-768.png": "8d7165f521009fd1aa78a50a65f3f69294bab4c95a63b07ca6f5cf39b686f2f1",
+    "evidence/ui/0.6.0/bootstrap-line-1440.png": "04859822acf5b1908428389bc6ba5107ac7a3ef89c0b6d34665120b0e7a59896",
+    "evidence/ui/0.6.0/bootstrap-line-390.png": "1fb977520eb0f46140d56d9037554d80af4503234786f69fa8f487678cda2d3d",
+    "evidence/ui/0.6.0/bootstrap-line-768.png": "43d005472b33347ef89324a8fd79cbd38dcc65fd5756eff2b4df4e73927da06f",
+    "evidence/ui/0.6.0/bootstrap-line-pairing-1440.png": "143a8bcb734d22ad8e5feafd30ef784e6417ccfea34738637bc25b44d33456e9",
+    "evidence/ui/0.6.0/bootstrap-line-pairing-390.png": "91e939b6cc3118851aedb8e30bde14d6193d76b49212f311c7382e3719efcc5d",
+    "evidence/ui/0.6.0/bootstrap-line-pairing-768.png": "59702648f04318c34e1b204ba1ea3526d86695b1b015888defe9bff3ebb0c50c",
+    "evidence/ui/0.6.0/bootstrap-native-home-1440.png": "0afa7a700ede526a3706c8af12953164cdaa473244e13b524b9a1c7d4d62c55f",
+    "evidence/ui/0.6.0/bootstrap-native-home-390.png": "3b8d7cf74d01afe800e1f3cd6b1599f5fdee8a75af570c33952fbe05df16bca7",
+    "evidence/ui/0.6.0/bootstrap-native-home-768.png": "c6d9e32e56cd3584526194a01bada27cfb5d0de32152ba143ad980be7f306729",
+    "evidence/ui/0.6.0/coding-results-1440.png": "5d40d1620f51f8f87bf8083445c5cb008bacb2f518a12c774a16c06aea2e1782",
+    "evidence/ui/0.6.0/coding-results-390.png": "551478841dc15a2249b1745e500c4651878479079c4dc6f5d1244b3b8ed483d5",
+    "evidence/ui/0.6.0/coding-results-768.png": "1912dde9ff72d44e49e5508e0e336ada638302a4447aaa50238a689d31b48b52",
+    "evidence/ui/0.6.0/conversation-work-1440.png": "ec42c69e965315f97010b642a6fc20904c94743336a48e8c83840ada661f064c",
+    "evidence/ui/0.6.0/conversation-work-390.png": "09f1c594096369588e13e4b365d531a54be0180b2f4d086a058523b8229e8a22",
+    "evidence/ui/0.6.0/conversation-work-768.png": "1e2cff06a6df587d430f2de2571a30d314aed8a160268f72d34ece8c2bd36a35",
+    "evidence/ui/0.6.0/host-maintenance-1440.png": "37ac05f973e586ce48e7335a0009f13d31732bd2de9dd9abc2ee3c3b1edd9a8a",
+    "evidence/ui/0.6.0/host-maintenance-390.png": "748bd110850ae5a1751e2afbe513ce079553ca274eaa695bba48495960b7725e",
+    "evidence/ui/0.6.0/host-maintenance-768.png": "9d753e1ccf7ffec7e793330fdaee05a865ce768789747c8da170667b88c98dd1",
+    "evidence/ui/0.6.0/screenshots.json": "e1d86c8aad1bedde87a7e3592d587a371775184672ff77f1217ca621a1f006a5",
+    "evidence/ui/bootstrap-before-1440.png": "5ea37a060201749b008aa3731dbb7d1e4b5cc384cb46b8a85002a8dae3e50531",
+    "evidence/ui/bootstrap-before-390.png": "42be502c9ce43ae6960d406e09b9f6c6c6d26672e6ceb516f0a38615a680ae4b",
+    "evidence/ui/bootstrap-before-simple-1440.png": "a9327ab6804e51c61cc1c9bbc48882ca95637bf4687783b50e71bdb318d5ad62",
+    "evidence/ui/bootstrap-before-simple-390.png": "a7f1b9aefbbd9f3a009f65be118919c6f46793748936a166f42ea535a120c732",
+    "evidence/ui/bootstrap-choose-1440.png": "a9327ab6804e51c61cc1c9bbc48882ca95637bf4687783b50e71bdb318d5ad62",
+    "evidence/ui/bootstrap-choose-390.png": "a7f1b9aefbbd9f3a009f65be118919c6f46793748936a166f42ea535a120c732",
+    "evidence/ui/bootstrap-choose-768.png": "66e4a7036fd1cd2d409e5ceed1aae15ebc6fa2d476b64efae1de648ef91400fd",
+    "evidence/ui/bootstrap-cli-auth-1440.png": "7f0ff46f53e969e9c45991c0111efea8c2b54dcb26d504fd251f09bc6b167704",
+    "evidence/ui/bootstrap-cli-auth-390.png": "69e9b0e8518aa07357542456b41c1e9c29531eb91ec42dbaf6e61acab25dcc28",
+    "evidence/ui/bootstrap-cli-auth-768.png": "00e6d71c1952020ce629e8fd9f742356e0182af5ef98f881111cc3aa819d2fb5",
+    "evidence/ui/bootstrap-complete-1440.png": "f9d2fe120d71b4e4ae888b7b8e332412d83dc22cad1476b2b4ddf27a8513ae13",
+    "evidence/ui/bootstrap-complete-390.png": "dcc61c1fc0a70e3e37d144e7c457d304539428a16323f36e0206d1ed8c96d897",
+    "evidence/ui/bootstrap-complete-768.png": "f4c75f12ccc0651ced0c017f4c2d528e913ad5f084da7ea45042e05602ebecb8",
+    "evidence/ui/bootstrap-desktop-retry-1440.png": "a7c6420971f63e9757ba479d0a6a544a81d6726d5a6f510343fb7a6d246481de",
+    "evidence/ui/bootstrap-desktop-retry-390.png": "c85d5fb39beddf5f439b7404a6cff5d5abe9d51e59b6db88bb21734e66067309",
+    "evidence/ui/bootstrap-desktop-retry-768.png": "91646bb15d9cc2ce781359336240b84fc4a73ba812317fe337222fb754f08995",
+    "evidence/ui/bootstrap-disconnected-1440.png": "4334c65ee50113a80a3f1619b266b8a9861419d5a21078abae670c299472281f",
+    "evidence/ui/bootstrap-disconnected-390.png": "28a565d9767d8822b8f5e472776d77534596a659a2700a868d7f660c0f161bbc",
+    "evidence/ui/bootstrap-disconnected-768.png": "cfa5e171540cefa18c3af7b145d5ff1f0b1471d7508bfde159c8d9c174c7191c",
+    "evidence/ui/bootstrap-hermes-auth-1440.png": "09f6f945df5461b0aab5f791c94b0ffe002fbad40865f6aa398c71f9930c818f",
+    "evidence/ui/bootstrap-hermes-auth-390.png": "499f0fc07c9bd916c2671f00c133a3cf25fd9a86caaab07e1513e614192b3af6",
+    "evidence/ui/bootstrap-hermes-auth-768.png": "8d7165f521009fd1aa78a50a65f3f69294bab4c95a63b07ca6f5cf39b686f2f1",
+    "evidence/ui/bootstrap-install-1440.png": "58982d6a04d80e8a7aca2b7ef9295d8dc6377cb6e15ae6c0c05f6657c921c51f",
+    "evidence/ui/bootstrap-install-390.png": "b998acc521d0dde4e2147f3dccf5a93f39f856a08436b3e0f442994c401b0ba9",
+    "evidence/ui/bootstrap-install-768.png": "ff2f0f3db8791a9c178a4c19bc5892f47a459d6e20ada2b1878843873d115a8e",
+    "evidence/ui/bootstrap-line-1440.png": "04859822acf5b1908428389bc6ba5107ac7a3ef89c0b6d34665120b0e7a59896",
+    "evidence/ui/bootstrap-line-390.png": "1fb977520eb0f46140d56d9037554d80af4503234786f69fa8f487678cda2d3d",
+    "evidence/ui/bootstrap-line-768.png": "43d005472b33347ef89324a8fd79cbd38dcc65fd5756eff2b4df4e73927da06f",
+    "evidence/ui/bootstrap-line-pairing-1440.png": "143a8bcb734d22ad8e5feafd30ef784e6417ccfea34738637bc25b44d33456e9",
+    "evidence/ui/bootstrap-line-pairing-390.png": "91e939b6cc3118851aedb8e30bde14d6193d76b49212f311c7382e3719efcc5d",
+    "evidence/ui/bootstrap-line-pairing-768.png": "59702648f04318c34e1b204ba1ea3526d86695b1b015888defe9bff3ebb0c50c",
+    "evidence/ui/bootstrap-native-home-1440.png": "0afa7a700ede526a3706c8af12953164cdaa473244e13b524b9a1c7d4d62c55f",
+    "evidence/ui/bootstrap-native-home-390.png": "3b8d7cf74d01afe800e1f3cd6b1599f5fdee8a75af570c33952fbe05df16bca7",
+    "evidence/ui/bootstrap-native-home-768.png": "c6d9e32e56cd3584526194a01bada27cfb5d0de32152ba143ad980be7f306729",
+    "evidence/ui/bootstrap-native-owner-1440.png": "5bd6f780e2d5c376b593eec3447725b92cf4d464eeec9dc60c972d896ea865d0",
+    "evidence/ui/bootstrap-native-owner-390.png": "9ffc324f494d7655221384bf1759b3ff730c77cf3108adf0c9485512a86bed27",
+    "evidence/ui/bootstrap-native-owner-768.png": "0e5a912cb4224194ba1ee007f45e9a51c87150d342c026699684bfad4fc2f095",
+    "evidence/ui/chat-first/README.md": "dedbe51e057bb554a0191e0c547ed2310c5299f98430c9c1f90e7357a10e361a",
+    "evidence/ui/chat-first/assistant-results-1440.png": "9809b1daf2920d92634165b8e1cec57dd39d84fd1272d0a3b86a27c89b8fd84c",
+    "evidence/ui/chat-first/assistant-results-390.png": "167c8a2b532eb20ecaaa9c0ca5ada648ec1c7418d674ba2a0d936bff2a77e8b9",
+    "evidence/ui/chat-first/assistant-results-768.png": "081c092bd411ca2494ff4d3184b1952dc4f5763d4816b7e571385a814208f44d",
+    "evidence/ui/chat-first/assistant-welcome-1440.png": "732c5993143ca3b5200bd5c59d4401ea8a7d7ecd47b5ee48d0993e541dfb0ddf",
+    "evidence/ui/chat-first/assistant-welcome-390.png": "c722ba51bf1000e3dfee5eac7e78c7d6d5f39d0f336f0ca40986e8be2a1ef6b5",
+    "evidence/ui/chat-first/assistant-welcome-768.png": "a1fafca75b1fdcada9bfda394da9b9ebe24da0e9e184ce27c547687cd16cc135",
+    "evidence/ui/chat-first/bootstrap-choose-1440.png": "89ea92e0658e1e9075256feb3484933c44b71da236be698af8b261db5f70aa90",
+    "evidence/ui/chat-first/bootstrap-choose-390.png": "2817672ac54b90ebc517c4ae1aa585b26dae097374ebc00553d7389e1fc1346c",
+    "evidence/ui/chat-first/bootstrap-choose-768.png": "0d7449919e0d5c459e697b7693b1ec4c3fa94bf63e923d959678afae977c0b5d",
+    "evidence/ui/chat-first/bootstrap-cli-auth-1440.png": "e7b70e241bd57da4460cf8100310e74fe40ab518f571d1d5c3cbaff16e7ca2c6",
+    "evidence/ui/chat-first/bootstrap-cli-auth-390.png": "59165ca0b56b0dba2a17b2c42968f45526e80dfc280059d7f01a9a37fe7b1aa7",
+    "evidence/ui/chat-first/bootstrap-cli-auth-768.png": "b23797c230b466bcfd775e031f74eed9f42e63808ec323cca5031e0a41bc188e",
+    "evidence/ui/chat-first/bootstrap-complete-1440.png": "a0a899e8839263b97d19fab14e4f15c0d1cc2c73707edb397a7d9366475920f5",
+    "evidence/ui/chat-first/bootstrap-complete-390.png": "5ab811d042d251fcbcbf10506040f9b823ee8503fab33af5fc764e9aad0e6899",
+    "evidence/ui/chat-first/bootstrap-complete-768.png": "fc20ad6353f116babd073e18b09a92e99e5b0840bd2cfa6c5c034f376951d37d",
+    "evidence/ui/chat-first/bootstrap-native-home-1440.png": "7d2f8b2f7fa2c7790e25094b0abc0c3b764000d475433657791fa00fc0e95102",
+    "evidence/ui/chat-first/bootstrap-native-home-390.png": "a991e4aa0d887889333eb8088dfeac4763d9374b8ec4f16d45d98a0d9e79b85a",
+    "evidence/ui/chat-first/bootstrap-native-home-768.png": "bc9b1ec44e6104339f8163cb809f611ee47b14f5a434bb5c636256c1aec86704",
+    "evidence/ui/chat-first/conversation-work-1440.png": "a6ccb589d94e7bf39434043d7585ba1ae457ef576e3f1f820521fa1d01ba56f3",
+    "evidence/ui/chat-first/conversation-work-390.png": "3020ffaee0f239f7ab2757257c5aab57fb0178746550df449e0223e165df1143",
+    "evidence/ui/chat-first/conversation-work-768.png": "208131a171de1bfa9666bae9a143b7947d7fc823eec9600ab392d82c5bbcf061",
+    "evidence/ui/chat-first/screenshots.json": "772ce736f262bdaaf8b0796128d7fac7e5bf3bee48c94b695e2b4f310d8fd641",
+    "evidence/ui/chat-first/settings-host-1440.png": "86c118442880a7025df764de07553705035daa8743247162c97a01fef790f770",
+    "evidence/ui/chat-first/settings-host-390.png": "9800ac32f26904a85ca12f49632958d2a5211976c3ee4219e00168729093569c",
+    "evidence/ui/chat-first/settings-host-768.png": "a2638d03a5b45b2cc21d845f119eb7baaf4cc4ba47b1e5232b6cca7e1f8aadfa",
+    "evidence/ui/e2e-complete.png": "e4f03642c690352638eb27165a005ef00f28d9ce52fae1f855017abbc7468a16",
+    "evidence/ui/e2e-native-dashboard.png": "ebeb8a9118afb74ea96dab7a8b77ec346ad6b4577190e9b901cbe928525cdd9f",
+    "evidence/ui/e2e-native-home.png": "10790714c90ad2014f40ec32ff9fa83e7c998d1e39a0757da93d75f679f4d19a",
+    "evidence/ui/e2e-native-initial-loading.png": "254b023c2dee7a178e443f734db53bcda678dcb6195411940e5f993c9261de67",
+    "evidence/ui/e2e-native-login.png": "c473a50e28cfaf6cbf682da8d50df9ab296ce91b5d383241707fb60b9683b007",
+    "evidence/ui/gateway-1440.png": "c0410ea94935153b61769fdcdff262363c907dd84e2851a14f90a65ff329cecd",
+    "evidence/ui/gateway-390.png": "fe9771c595221aebab62f9b4791b42e8a4eba954b767e7d4fb008e7f136f1e0f",
+    "evidence/ui/gateway-768.png": "cfa60e858636a2619e8ea3908688eb540fa9d7a7ec42f6e1b22a0bac54f618e9",
+    "evidence/ui/hermes-configured-1440.png": "adbe18c4a96c24903fab15c31bf6f43196c92651fb86b557b80dd70208ba1bd2",
+    "evidence/ui/hermes-configured-390.png": "42dd1cffaef636eb01554e73b61ba0d3feeb9a23e4b0f950d998ab575ba7ffdb",
+    "evidence/ui/hermes-configured-768.png": "ee91907335d590c9090203a96003f6b86045156811c7a9259cf2cb2e0e62d319",
+    "evidence/ui/hermes-gateway-1440.png": "9d73fa36783d8a7a513ce865be051aaad20e1a4e0346080c071f8052131239df",
+    "evidence/ui/hermes-gateway-390.png": "6dbf9b9ee3184469aecfcaf023b5243cb3222ac608a0a36c719461aaa1a288ac",
+    "evidence/ui/hermes-gateway-768.png": "b4293ca55171ad6ffd584e44f5e79eeea52780927e0646afb9c6c73161837f86",
+    "evidence/ui/hermes-needs-auth-1440.png": "66fe2e8d2eabd250f9a9132cbe17da7d53f87216a049a578b50b16caad4c00c1",
+    "evidence/ui/hermes-needs-auth-390.png": "1daec08952fcd621a2fb593255af4002dd43984003a010a2b2510583774e7d90",
+    "evidence/ui/hermes-needs-auth-768.png": "ff83e55320fc9fde67e333b723979e91a0fa137606038dfcacfaa5b15373e70a",
+    "evidence/ui/host-1440.png": "a0b20f87eff9f96fb1c995a5d5a1db9087edfcba4d3083356097e20166b79b94",
+    "evidence/ui/host-390.png": "271022b1a0f2d75843c4ca59f55d8ed9bc33fd8e3ccdbe1bfe1c4949f81bb238",
+    "evidence/ui/host-768.png": "78064aa6b06b023b7bbf41c16f1038811e2747dbeab3fbda59395c94b0bffef0",
+    "evidence/ui/host-login-1440.png": "0b5d971403d656cff7752a1fd02aa2ef699cb604875615104b1d2396d19fa252",
+    "evidence/ui/inventory-390.png": "26df432a33562050e72dda8e226b10f5d8f7c18b9c3ff52e2201d3fd3c08ece0",
+    "evidence/ui/linux-login.png": "fa66970a816b0a6d1d57f1ebb545748f936c2ab15838fc0dff14c3b4266b03e6",
+    "evidence/ui/native-home/README.md": "9b17807bb20d93a73be9e0b34036f148dd208101c5eae59889f156f316df5bbd",
+    "evidence/ui/native-home/assistant-results-1440.png": "f2767a74a92347fa77d66eef8e999ed4f71d0a1590690f7041e898a0ff91859e",
+    "evidence/ui/native-home/assistant-results-390.png": "167c8a2b532eb20ecaaa9c0ca5ada648ec1c7418d674ba2a0d936bff2a77e8b9",
+    "evidence/ui/native-home/assistant-results-768.png": "081c092bd411ca2494ff4d3184b1952dc4f5763d4816b7e571385a814208f44d",
+    "evidence/ui/native-home/assistant-welcome-1440.png": "01bf09a69ab7f8a57a105c1354c5ca1ac34e490ecda05208a3b253280146a1f8",
+    "evidence/ui/native-home/assistant-welcome-390.png": "7258ec24573e83d05e1809d3e2cf02682058ba5e26f15fd6d3769b9758544880",
+    "evidence/ui/native-home/assistant-welcome-768.png": "d580df7272d6f642f7cd38dfb8684127f7898bd06fa5e840ecaf651738110e37",
+    "evidence/ui/native-home/before-assistant-1440.png": "732c5993143ca3b5200bd5c59d4401ea8a7d7ecd47b5ee48d0993e541dfb0ddf",
+    "evidence/ui/native-home/before-assistant-390.png": "c722ba51bf1000e3dfee5eac7e78c7d6d5f39d0f336f0ca40986e8be2a1ef6b5",
+    "evidence/ui/native-home/bootstrap-choose-1440.png": "84e01c7d95ea087fea76ff9689b1cd79b6c857359d88be7c491095dedc487b58",
+    "evidence/ui/native-home/bootstrap-choose-390.png": "2817672ac54b90ebc517c4ae1aa585b26dae097374ebc00553d7389e1fc1346c",
+    "evidence/ui/native-home/bootstrap-choose-768.png": "0d7449919e0d5c459e697b7693b1ec4c3fa94bf63e923d959678afae977c0b5d",
+    "evidence/ui/native-home/bootstrap-cli-auth-1440.png": "da1a647a2619d1ad2b15dd21671554b0f2293be1ac829bb466c80911b8b91846",
+    "evidence/ui/native-home/bootstrap-cli-auth-390.png": "59165ca0b56b0dba2a17b2c42968f45526e80dfc280059d7f01a9a37fe7b1aa7",
+    "evidence/ui/native-home/bootstrap-cli-auth-768.png": "b23797c230b466bcfd775e031f74eed9f42e63808ec323cca5031e0a41bc188e",
+    "evidence/ui/native-home/bootstrap-complete-1440.png": "6d1f977764c499e831665f1570c31ed2deb40478532847a21f53edde53beced2",
+    "evidence/ui/native-home/bootstrap-complete-390.png": "1b9bb2a555434a7efa09cc3ddd3f4428354fa65251d8c5703b17dea667d25b05",
+    "evidence/ui/native-home/bootstrap-complete-768.png": "73a3de98912f2ad2842a6d2bea840d0ccea20771dae843c048faa92db86f3d6d",
+    "evidence/ui/native-home/bootstrap-desktop-retry-1440.png": "a7c6420971f63e9757ba479d0a6a544a81d6726d5a6f510343fb7a6d246481de",
+    "evidence/ui/native-home/bootstrap-desktop-retry-390.png": "c85d5fb39beddf5f439b7404a6cff5d5abe9d51e59b6db88bb21734e66067309",
+    "evidence/ui/native-home/bootstrap-desktop-retry-768.png": "91646bb15d9cc2ce781359336240b84fc4a73ba812317fe337222fb754f08995",
+    "evidence/ui/native-home/bootstrap-disconnected-1440.png": "9cc3fab7b9e5cc965562aa79be09821452f84f82fee9d3816e6a7cfdcc31659a",
+    "evidence/ui/native-home/bootstrap-disconnected-390.png": "5d890749fec5d841fd67befb0614f162c4b55f6f29172463707c6abb20098355",
+    "evidence/ui/native-home/bootstrap-disconnected-768.png": "0cd9aa131037f7dcd9fdd7dc7a21113d1f77dc0791ac0d2438b90365ca7c944b",
+    "evidence/ui/native-home/bootstrap-hermes-auth-1440.png": "e0ad0512fc0228efa5efb2c88c750b4092b309c74048641ac256705e7b97a008",
+    "evidence/ui/native-home/bootstrap-hermes-auth-390.png": "3175b4ff602e03fc4c130a6a778519973c6fb7ae916de50304e5641aa445ff89",
+    "evidence/ui/native-home/bootstrap-hermes-auth-768.png": "32a9f660fc43ee7d75ce0236148a559b3bcc032687dc8e5d02e57de82a2e87e6",
+    "evidence/ui/native-home/bootstrap-install-1440.png": "32419a101ec87ed154c5396dadf38bc52f3f4d9a838c823160e3592ea106a3f0",
+    "evidence/ui/native-home/bootstrap-install-390.png": "ae5b5152a024f4b68fa566a8ce59a005d11daf565634df91afb54aad09d99112",
+    "evidence/ui/native-home/bootstrap-install-768.png": "cf334cd552de4dbbbe74e107089fc9356ef09ce39376aa43884e7d9fa905b92f",
+    "evidence/ui/native-home/bootstrap-line-1440.png": "cca08e4d057cd153277db9ef700386ae4678d76ea53d64f5a3a6d671d24f843b",
+    "evidence/ui/native-home/bootstrap-line-390.png": "a325dd2336c9e8fc2f1f802c2cf2964841a26c10ec95c3f1c114f89c69f0eeed",
+    "evidence/ui/native-home/bootstrap-line-768.png": "edca65699b6b7f6b3ab42ccf5c281b63018e1cc7d5d08ea27ef301845966704c",
+    "evidence/ui/native-home/bootstrap-line-pairing-1440.png": "c4ae235cf99db2cc5292325ed082e6ceb730ac8efdf54007f71df01082b9a29f",
+    "evidence/ui/native-home/bootstrap-line-pairing-390.png": "91bd884ecc8539b3179d4a9d6c31f246d36847a447fec7fe6c58f7a246348106",
+    "evidence/ui/native-home/bootstrap-line-pairing-768.png": "3e1092b014759bdaab5719bee886b9e6ba24724dcb754873bad55fcb263e2a0e",
+    "evidence/ui/native-home/bootstrap-native-home-1440.png": "c91259cbc481f89568440a0a09bfeb789f3a2b1fedfc5f3205159ff401a71767",
+    "evidence/ui/native-home/bootstrap-native-home-390.png": "a991e4aa0d887889333eb8088dfeac4763d9374b8ec4f16d45d98a0d9e79b85a",
+    "evidence/ui/native-home/bootstrap-native-home-768.png": "bc9b1ec44e6104339f8163cb809f611ee47b14f5a434bb5c636256c1aec86704",
+    "evidence/ui/native-home/bootstrap-native-owner-1440.png": "bb9eacc5767f96aa9909209f86393e5c5ae98dc36d53f0f7f70f27c095546396",
+    "evidence/ui/native-home/bootstrap-native-owner-390.png": "a6d3cfe9813bf0329c1dab50273d35fb1581a68871a12057099e5294df846b4f",
+    "evidence/ui/native-home/bootstrap-native-owner-768.png": "9aabac9c5830c3eccf4ce771d773b74ac3f6b7ca437c33a6397636e47da4d4a6",
+    "evidence/ui/native-home/coding-results-1440.png": "e5dd005aa11d8ef9f85303ebf462f0160925a7dea57295415bd60f25b85d2dcd",
+    "evidence/ui/native-home/coding-results-390.png": "e6648347a7c49938d9b5d1a0ae5bd8795e2173e3ec040082a53befd47b9c2e23",
+    "evidence/ui/native-home/coding-results-768.png": "b515ba01936fdeffbf6484c83ef954a8b9086fa68bf65b17c7c343f8caa9cca9",
+    "evidence/ui/native-home/conversation-work-1440.png": "aaa699909d74b5d0caa5bc4ad22fbb31d563411ebf703b40df7d6eed27588521",
+    "evidence/ui/native-home/conversation-work-390.png": "3020ffaee0f239f7ab2757257c5aab57fb0178746550df449e0223e165df1143",
+    "evidence/ui/native-home/conversation-work-768.png": "208131a171de1bfa9666bae9a143b7947d7fc823eec9600ab392d82c5bbcf061",
+    "evidence/ui/native-home/gateway-1440.png": "8e7243c58c9da4b6fdbca61e480452436f1101f059e9813fd344cf543ab3a0dd",
+    "evidence/ui/native-home/gateway-390.png": "7463de013762d0a2da225621840b5a21908b845f686c9c55c2c0c69701f66a00",
+    "evidence/ui/native-home/gateway-768.png": "d05cdedb2544e58000edbefa8efa7725368bc2b60ae67974d1f389c50b97d3b3",
+    "evidence/ui/native-home/hermes-configured-1440.png": "aea3ee4bc322570c6d258855fd723c5bf191a921a9ff726e0b7124fcf82c79d3",
+    "evidence/ui/native-home/hermes-configured-390.png": "e4408bca64daf5e2cc240706183a7ae705397503652c7b709eaa5fc7cf2f7837",
+    "evidence/ui/native-home/hermes-configured-768.png": "eb5f402f55d95fb5fb3d40fa4288333ae6bd6ba3cac21f242360b2d988f55c8a",
+    "evidence/ui/native-home/hermes-gateway-1440.png": "8cc86eeaeb43d1d5fd3fc05f7d16c77c213865771e08768bfa4f6e492920c3f6",
+    "evidence/ui/native-home/hermes-gateway-390.png": "8b5e6bcd84532bac76deb0acfe7d7f864cb7a51765f93bfea0088d085dd4ff44",
+    "evidence/ui/native-home/hermes-gateway-768.png": "fa877e896bf1c592b5307366a7b0581cb79a3875061e7d19a29f8021b7d2dbcc",
+    "evidence/ui/native-home/hermes-needs-auth-1440.png": "0ee1e0f5d6a31e7a4bc05496327e35bd7ca9ae3e7c3c93a179d4f41a4b6b9b84",
+    "evidence/ui/native-home/hermes-needs-auth-390.png": "32c6c1b495f14f4eef7a499c894955503af848578932853c21423244b85752c9",
+    "evidence/ui/native-home/hermes-needs-auth-768.png": "9d05299e2f4491721e6f3370c23bb439970e69139af2b70d2057e80269900785",
+    "evidence/ui/native-home/host-1440.png": "8b5e6b03916b207462017f95cf41bbc36b2f1da5545593224ffdb6a98afbaa77",
+    "evidence/ui/native-home/host-390.png": "55b675a58d0a8ec2c3b1d7194ece46f28be4e8a87560087dffa24d751ddeacca",
+    "evidence/ui/native-home/host-768.png": "d55f9aafa5efd43adb3c5391b20c6971444798e15b6905ff0f701adb61972134",
+    "evidence/ui/native-home/host-login-1440.png": "e4013b555861ca08db6d645a28269234c4697578d9aa12c7c68a8acb6f3736de",
+    "evidence/ui/native-home/host-maintenance-1440.png": "3b5e44757bdded32329e8eb01ffdbc6e90fe7af2b4846bc759bdaa91e4a78641",
+    "evidence/ui/native-home/host-maintenance-390.png": "593e89308af971b36cfea14e66c92dc9ae3d54aceff0e91c58e0d8ea1bd887b4",
+    "evidence/ui/native-home/host-maintenance-768.png": "d65173d3a6210410ead3af0e6780716f92ae96c499ff14b666a172b60fad8b90",
+    "evidence/ui/native-home/onboarding-line-1440.png": "5e9327bd1be73744a6cc9a619900fb141b36081af5d25a81f58b35c67bbc92bb",
+    "evidence/ui/native-home/onboarding-line-390.png": "ff1169851490928da3c2025d02b6891d69036ad9ac6f985095ebead69ecb3def",
+    "evidence/ui/native-home/onboarding-line-768.png": "86cf5c71c32b5dc6612ef5f58c76a8150b40cdf3fe190476110934eabf358e7f",
+    "evidence/ui/native-home/onboarding-web-1440.png": "ed6604918817009c01b29b6fedaed09ae7946ed50eebd713b112e55d691d9ca7",
+    "evidence/ui/native-home/onboarding-web-390.png": "27e5ce596fb071dfbc226aeb4b94dd38d36c912e7aebb2afde5c5bfb537e6711",
+    "evidence/ui/native-home/onboarding-web-768.png": "695eb0a3527ebbe3b511491cb8902fc049b2bcb37a88a6a4b85ad93509addc01",
+    "evidence/ui/native-home/ready-1440.png": "e1da304f6ca53214ff7207e25b729fb71a3b26b2961d12e13a1141865a8c29fa",
+    "evidence/ui/native-home/ready-390.png": "45069234cee84b25dda5d2bb19c596299b86107f81d7b88cc5c576adb27e39ac",
+    "evidence/ui/native-home/ready-768.png": "779473bfe6ed832156e60be7c2764ba8fae087514dd44a3f692b2d558457b148",
+    "evidence/ui/native-home/settings-host-1440.png": "5f299ad2d8bb0b477e2be7e7825c53b114b97e73d73f5662f28a1031f8f3736d",
+    "evidence/ui/native-home/settings-host-390.png": "9800ac32f26904a85ca12f49632958d2a5211976c3ee4219e00168729093569c",
+    "evidence/ui/native-home/settings-host-768.png": "a2638d03a5b45b2cc21d845f119eb7baaf4cc4ba47b1e5232b6cca7e1f8aadfa",
+    "evidence/ui/native-home/setup-1440.png": "6cc5b3c11c707ef74c91453ee5403950fe52e62c2f25185746ed2e1b2f7d4888",
+    "evidence/ui/native-home/setup-390.png": "eaf7937197f4b46b10a47927f0085fa5d915b8bf47df85fc2ae9e0fff6a16cb3",
+    "evidence/ui/native-home/setup-768.png": "820e4117c50450bb6e19ab117cec049bde2ed95c90016973f6ac9d2d8e664ede",
+    "evidence/ui/native-home/unavailable-1440.png": "f966bde2904b9ccbd0e991758972a81c89e66f880ff67c9e5deecf8df161f449",
+    "evidence/ui/native-home/unavailable-390.png": "b5660c94e2f3d9ab470bd05928eab07e959b085df62414d244fe9093ed215bc2",
+    "evidence/ui/native-home/unavailable-768.png": "cc9b4cf5c01fa32819c3f834b72ac28f5cd34221b817a15de4593dac70c672eb",
+    "evidence/ui/offline-preview-1440.png": "52f528b505df32e7ccd12c889654853f23ebc00770b021b1b0a440f1cecdcc27",
+    "evidence/ui/offline-preview-390.png": "2500b3881d7f7ac673cc56460d27c9e2f0a8922ce95915a7c880a7a470a14022",
+    "evidence/ui/offline-preview-768.png": "e1d3e6792b362440e37bf81670feb19a07aa89fbe5225058a27f87530989f392",
+    "evidence/ui/onboarding-line-1440.png": "8cc241a503586f5e4138d540b9e148c47759c29a475c7be21bf6f5d6bf735bf1",
+    "evidence/ui/onboarding-line-390.png": "c40d2b9bc98ef973a0ff8fcbfb427b695724c714cb32f5e5fd74e2f98dacee21",
+    "evidence/ui/onboarding-line-768.png": "fe3cb14209e42b5caade26ba644870595dcbe7d7b7f2af392b0151e9e34e57f5",
+    "evidence/ui/onboarding-web-1440.png": "030d7ad389cffd630d7f207f02ed8ae282438e4ab4be61aa1bd9b90fb5db33b0",
+    "evidence/ui/onboarding-web-390.png": "d039d0144ae85b9d3928f8b7b3526322d231fc3c3a19b87a77d64eec20e66253",
+    "evidence/ui/onboarding-web-768.png": "fa19144268c3ffacb9a2ab4042e15013f60e5507919998944db19e21ca0f9b3f",
+    "evidence/ui/settings-390.png": "d4ec4f0231635eb649587588b1bf2016a96befa564e641c32de33e2a4abc0a49",
+    "evidence/ui/setup-1440.png": "f761abd9a644dfabf7a08e0f60b37867482d4287346e25bd5b71a6bab77296d8",
+    "evidence/ui/setup-390.png": "653e7bdb08002c75bfed90b5d202333a18eec5ad7673fc26f0abf73e6960b29f",
+    "evidence/ui/setup-768.png": "45ac4535de08e2633ba3cb093c1cb5f3f01db36f7d88f3b62dd0bfc419257dc7",
+    "evidence/ui/workbench-1440.png": "7ad6adf67093edc66ad5dc08fe1c9d6d2453555d55fed63f09ec6a802f662f79",
+    "evidence/ui/workbench-390.png": "226e026e0d004fcbf18e5359e59a5af0b38f888c2545345128bfa5a6679af2b1",
+    "evidence/ui/workbench-768.png": "c445a6b06201ee04813f8a7904d35430f7fa87c2ece00b19bd7efc101710aaec",
+    "evidence/updater-probe-ci-owner-before.xml": "09b26b5a348fbee0f22728b39f0921f8e3e31a8cb4a6b135204a411ace1147b3",
+    "evidence/updater-probe-ci-owner-fixed.xml": "c6804fd18225c946fcb2c6399c1f762a5b881cfce63c9dabd4791b643b224c05",
+    "evidence/updater-probe-ci-owner.json": "fbbc7a816f07c4adae36163c9df5ff8fe65d57f9649162ca2c3b6b46c52b9ac1",
+    "evidence/updater-probe-fixed.xml": "0fc52c5dbd28c177fdf4056fd60568ad1782ee7d1d081dcc54ad2b5bebfed195",
+    "evidence/updater-probe-prefixed-failure.xml": "111de9358342e487534f5d2700bf6dd570fc43f968a391d0ede0ccc87d77441f",
+    "evidence/updater-probe-regression.xml": "d0d892c286f5bf0ed1ef442f3e66b9721c327f4fd560cdce6ed05a4fd724eca8",
+    "evidence/updater-probe-reproduction.json": "bdfb22b4a31995b4f6b9d9a84d7665442d79cb9915b6ff37fefdbc6673355e55",
+    "evidence/updater-retention-tests.xml": "d208680c69c269337f6d3370b4a2928d9c1bf8a9de5e6740218ffb2592a56881",
+    "evidence/upstream-candidate-0.6.1.json": "c58f73a147eb5adde22f6ab0cc06960295f995d89dcefaf0708c867f86972033",
+    "evidence/upstream-check-contract.xml": "39edc28ce754949f00b7d8c83dc9743ffb66d6bbd7261fb347d78d0e7cb40e97",
+    "evidence/upstream-locked-0.6.1.json": "de6e3d4f4bdebdaf306c7263812eb9045f79c438eadc21fe1dbff685da29f27b",
+    "evidence/worker-controller.xml": "fa757bb16f84b0182fedb7d0452696a76e027808306c017cc5c5d2b0f8fc2f7b",
+    "evidence/worker-hermes-runtime.xml": "6289d88e377bb5b4b4af1fc79c2108c131c6acfc72d70c3ced929791d066fbcf",
+    "evidence/worker-migration-retention.xml": "1322f69b1b3485ee3e1950cbbe09b1c6054827394b6b6ce7e5554e2dba598539",
+    "hermes/.dockerignore": "87ff6b6bd915e44c20b674ff1b478b0637ad02ba5135da1a9d27dae99c85c791",
+    "hermes/Dockerfile": "229e7cc0a1d811116b3ff297cdbd370e2a6b7ff80a8bdafbd9713689bae6c2c7",
+    "hermes/HERMES-LICENSE": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6",
+    "hermes/README.md": "00d1b5b35a8ead8d165f00a589ff209774bc26bfab0858418d3ba311c1449603",
+    "hermes/agentic_hermes/__init__.py": "a1e6e77ff2aacf71e428db739e81a78f5b0095086a8e49d4d8d21ee6c5265fcb",
+    "hermes/agentic_hermes/app.py": "54d8a7b8f2d608ef6f8c20ca44fe58ffb01349d99584576f069960c82623b04d",
+    "hermes/agentic_hermes/child.py": "57516c7a4461b189b4647ff53f41a357320044ea350393560f59abb3eb039958",
+    "hermes/agentic_hermes/models.py": "dc97e56333ef7e86d409027dd0a86513d0be0e09b563672e04e4d8c021229947",
+    "hermes/agentic_hermes/oauth.py": "a7cf74501dd1535d5cc5fc9ccbbaee7858a6b700962d0781d797f7fdedf2edb2",
+    "hermes/agentic_hermes/oauth_child.py": "4a05588fb3a97e20bf2644c9d8484138cc0aa565a36bddc9a531c587cc375d7b",
+    "hermes/agentic_hermes/upstream.py": "167ec907193b979146787f9b37c6313706665cfac8a5022afa7a42cbc31d24cb",
+    "hermes/compatibility_probe.py": "c8af82ac0744e2e606f68fdd7e28485ce5ee7fed06a8a2b9d3926b9d63da466b",
+    "hermes/fetch_upstream.py": "5ca58043b59dad0589d2e89c7c3269ecd659955ba1bcbd3294b24c140b66f8cb",
+    "hermes/hermes.lock.json": "d2db4cf2b4984ca3a1418d59113fcd827336009cfc998ed23ff1638158d8c4fa",
+    "hermes/requirements.in": "4cf7915c1a2b150f85186668aa3bbb585e273e251a10b2590605563d86791a39",
+    "hermes/requirements.txt": "e3a114f9181cc94128f4ed29b8cd405b8d0c5ce477d1d3c6c050180da27240d6",
+    "host/Builder.Dockerfile": "e2a0c8d41323d87d5e57230110361c91133f141ec93c3b08b173b26ba80371a2",
+    "host/agentic_host/__init__.py": "411a7cc00076d6edf6c93c26b81f4e9ddc14e4aacc026daf3c1f4d7ae7ea1fe3",
+    "host/agentic_host/artifacts.py": "62ed70cc0cce036d13e70a7620abf25161340663aeb6eb8b666e7f6f80e58514",
+    "host/agentic_host/bootstrap.py": "e429f50ab777a1694430c29c519d2681e988886a8c8341ab9e612587acc77242",
+    "host/agentic_host/cli.py": "e8371445fa10c830129df339083948ae1f5c17fdd47ec0427e14071b6024d2a4",
+    "host/agentic_host/coding_program.py": "d22775a825af62d08ae74aa9a13a249cb876c6efbaf9217efef2da9c82624031",
+    "host/agentic_host/coding_relay.py": "ad5f095de358199e2a12da512eb68ae3f092f8ba4c4ed8387837fa63ed989412",
+    "host/agentic_host/coding_sandbox.py": "bc3f2ccbd293f61273d0e6d304164e55653dab5fcd339380bfbb80ccd894080d",
+    "host/agentic_host/coding_service.py": "81849aa39ecfc6dc6cebd1f09cfe417036c7555f8c10d943b965bb470f03f7dc",
+    "host/agentic_host/coding_volume.py": "74df243725bc57df3a88f29915a1f2b76170aea8cf6dc373859112013a543701",
+    "host/agentic_host/compatibility.py": "7d23e86c9bf7f78dad8c31675f23759fcfcd682ffa1ad83d26affe587210ead2",
+    "host/agentic_host/daemon.py": "3e69bc21955df193ce96f8a17b120c41f60148c0ed0c4026dc4f0ce246f0471c",
+    "host/agentic_host/desktop.py": "4da4ea5fdb13057356ddf1157ef0c162f74bed473539f49716591c47d96627e4",
+    "host/agentic_host/fence.py": "2828f677c5b6ef768726d6a4827ad1bab842367e03c0df526375ec0f1d4d2ce7",
+    "host/agentic_host/manager.py": "f4537b262e6834256adb0cc958844225c7f4f6d71687bfa9223f1f6d54d228a5",
+    "host/agentic_host/network.py": "92cb4cef24f2248af6b6199d0498adfbc035d6497d2dfa0df0fd7853b8ffd91e",
+    "host/agentic_host/preview.py": "c06327373bc0bcd0590c868ed83860f884968eb6968440ad75cbd65251c1089b",
+    "host/agentic_host/proxy.py": "d307b950017e3daa2d041cbce3369133a90cd65f0580eba92db9b166f5b16c8d",
+    "host/agentic_host/publisher.py": "f7bb178d18104f8fb7c6c12be07f127b8d236a12d231b0505e04945d412a2df4",
+    "host/agentic_host/resources.py": "e75637f41d19c9613b05c1bcef947b664a3e7789c7bad85b2645e5912619e42d",
+    "host/agentic_host/source.py": "6096b05bc09dca912f68ff8c6f8550573e6c0e64ae2f509502d47806f24bcf6a",
+    "host/agentic_host/support.py": "d292fff3a7fd7d5ecc64c942e359866738f8152527739d5a466660a6dfc14376",
+    "host/agentic_host/update_probe.py": "7419fbd3d825b78ef35252a70044044f84c5a5c62f29ad6f89ff7d394ce93fe0",
+    "host/agentic_host/updater.py": "a603e28950217227e22428f14e2986e38fb2e2f66613814845f068c8d1c10398",
+    "host/bases.lock.json": "e6a7cc057bb57889f9a2aedd82efc3478ad682ed7cf7c1e57fef56b546b0871a",
+    "host/compose.yaml": "fe174f801f43a9ee4764428dd67a901fdbc94281079e0b1e0a47c2650e362448",
+    "host/desktop/agentic-home.desktop": "b6fa976dcbf1aeeed9cbc0546187e45f554d011c144610dcaa8212e7c5d2b124",
+    "host/install.py": "5503a1d6ffc11b534b489a6caa77fc3b8870e05626f44903e357b0022a850728",
+    "host/linejs/Dockerfile": "8806bb6e040521cc44df25968a66b229484f10497c9e1e56350a0ef1f2510249",
+    "host/linejs/patch-local-host.mjs": "bd200c9594f1eab75ea796b683141336eabc35dbaf24ddfd4616594f9c79d5c7",
+    "host/linejs/start.mjs": "7eb62553aea0c98b6fc43ca210c84173a1ae9aa6a1bcc120b78218119db48c40",
+    "host/network.lock.json": "a40bd26bee9aebcd52e0afd51623eb770be0771884755f6dd57d565272ed2b6c",
+    "host/preview/Dockerfile": "f850242ccca8511add03241df456c334ab512671d11a828e622a1aa426fdfc30",
+    "host/preview/render.py": "2b6f4f8f9989729c7a584c8ba44853dfef7052229a2c1abb270189cdbe40d6f3",
+    "host/preview/requirements.lock": "404290984e7d077051148b03a6313974b4994aecd19c0238821181982478948c",
+    "host/profile.schema.json": "a9f09d26fd0a6cd4e6a28aaed0d5f60d94159c40d078d961c67f5ee706c30a40",
+    "host/profiles/laptop-amd64.json": "04bc59d9c1519eae063176a179e45f73203e3a5f7d1754fab74b58cea31627e9",
+    "host/profiles/laptop-new-amd64.json": "4e2041ff6d3ed97dce1c8e39da998989f5076936e89ce4bff162a2e571062e82",
+    "host/profiles/server-amd64.json": "28e4e0890779b504a80d2cbbc0a16bebb3dd8ce42ab00fd8fb261e13dbb8995e",
+    "host/systemd/agentic-home-firstboot.service": "f3d5e72d28e8197dcbfe15abfe9dfba3c4a185b43c03187ee36dbc0970919073",
+    "host/systemd/agentic-home-host.service": "243e3ad7685abb0d59388c5016bba8d03a8d935530dd9f2a055b3b2b48b3693b",
+    "host/systemd/agentic-home-proxy.service": "84f87cdfaddf052ff0ca192e2cd5f1f4e9daabf192b694030a1780ecc6c7745f",
+    "host/systemd/agentic-home.service": "197a77ba41cec5972970c457409804f0e27e5e55ba579cd6eb03defece72209d",
+    "host/update-publishers.json": "94ad03d81da042ce75d66775e379a02ea3433768d87a2a5f53f375e424920a27",
+    "host/worker/README.md": "091dd8eeb11bbc2fbe58d1583a988b8762fd6331b388d4f8be41cefdd6d05f46",
+    "providers.lock.json": "a8a65a6d7de2512010683c5c68ab17735af7ff56c1d177d4c961d292d620f171",
+    "pyproject.toml": "c3ff126b0df5b5086d89ea87474234549c4a72ff200a1cc698d088dcc80a13ea",
+    "repository.yaml": "62cc0f1fc75c8d5303ef969a499e5e7c5174f6b7554f32966953758d31a9c410",
+    "runner/.dockerignore": "7a36af6322a4919bb510899b46139218b4cbf5d72e53df8336b7451854c08587",
+    "runner/CHANGELOG.md": "bbf063944b4385262476f1fc44a606eb516628addd86b804d00f42d3c2c45d27",
+    "runner/DOCS.md": "377dfb2f0dad3a44517914f82116034f8ac21f824b9b0eaaba0c4098da305c7b",
+    "runner/Dockerfile": "811cb86785f8b6def21ccf93a62645a42a401f86a75f6642d155172c14e10bf4",
+    "runner/README.md": "beecce53bc76bce89391d1f6e66afae770fc127fa87d472a5320f74ce0d185bf",
+    "runner/agentic_runner/BOOTSTRAP.md": "27efbe230efb02a292c9e303f852b98cd1bed24595126bf0b255ab880368d5a7",
+    "runner/agentic_runner/CODEX-LICENSE": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc",
+    "runner/agentic_runner/__init__.py": "7a90b38649e5c8db4231861ee6841685ea67b30e83239fcb879d334a99b765fc",
+    "runner/agentic_runner/app.py": "a6c73e15db4e63f2b54519968aaab71125e930102bd07070b18ff7c2fb328d59",
+    "runner/agentic_runner/bootstrap.py": "d53b9d4cc15ac6ac1b4675924291e5edd0ec2a4733c75d925fb7d6c0e7f2b50f",
+    "runner/agentic_runner/codex-models.json": "17bbd690183e9267a446d1351ea738d6f38a87310f3530d0ec1e6b273823210f",
+    "runner/agentic_runner/coding.py": "b14d0901c4d737a3652d827421e7b916b12be1287bd59f0642218d35e128d025",
+    "runner/agentic_runner/providers.py": "9fe8e6fa013c876bde7fe124d6e41374469934d06fefa5a2fe7ee6fa730bbf4a",
+    "runner/agentic_runner/reconcile.py": "4e59aeff06ea1a945a624d90ac71929eec72244b35f237f5460764d2290331f6",
+    "runner/agentic_runner/retention.py": "60154a31c2988fc21280cc09dac3012c985e6a23248dbd48303acaa92b8965a9",
+    "runner/agy.lock.json": "d7e73799f7c5e4cc53dc3c75ba58eb5e68b5ae51ab2734f32005dec9f62cf2f4",
+    "runner/config.yaml": "c16c89566614d358663914576283a6b1b257499f4aab3c8b82269a7fe6f51847",
+    "runner/fetch_agy.py": "88972053a3cc7b0624e1c128660443584d4a517102e4d45cbd376f5d9f5e9a39",
+    "runner/package-lock.json": "fe7b8b1d0cca68a0dc9352542d50c82f1b5196029c21044f415f728da65eba0b",
+    "runner/package.json": "64aee172d48001c161640e7fc2b7851c146d582a950b3e002681b79d98dc6b94",
+    "runner/requirements-coding.txt": "588fb12922dd9fbdde81912268394612e3a88292db95232fa00e6553cf221852",
+    "runner/requirements.txt": "370a4907ffce372d60aebc5bfa83b372fa07a767849c3034e01e5decd9413818",
+    "scripts/build_host.py": "effacb565879febfb8c5590adb0fe9fd4f3ffee53ca5f85492d161d2416a0ddc",
+    "scripts/check_upstream.py": "476901662627d6613d9c4a3635438e13122e875df0f70a5049aa18d94465377e",
+    "scripts/contracts.py": "c950acf652ca63255c9eed6e69f3044911ac1f61fec5e8c28e8f88797ace4d0b",
+    "scripts/package.py": "c49eab752c43f3a3262e71a7033e4fc45e6e273877528b6916fb990bcf035327",
+    "scripts/restore_controller.py": "d6d2f4d9ff96c2af964635690a1bc44b311fe038730163fe01fa205c0ba35da8",
+    "scripts/upstreams.py": "a7faffd23dee055677f8a1a10c169355e132d8ceed5f97336e4f3bf828450919",
+    "scripts/validate_kit.py": "01c73c81f07e68c1b8d6253463e8237f2746f50506b1389d34e583b84366b92d",
+    "tests/conftest.py": "c4e9cdfe278d094588e7d90aa3b4011ce0d5a5623feb3b628266341367d0b0f0",
+    "tests/container_probe.py": "59aae59d589bb0f4449fc53b59affd116c6ff833af675e0c77bf87edd0a1652e",
+    "tests/e2e_runtime_fixture.py": "a32806783341e1947ee95f093392fac3dc0b696a8e02af43e7153dd291ef0b7e",
+    "tests/haos_boundary_probe.py": "65bf6aa9ede7bcaa91aa00a1c4499602e1ef567e5fe1f6b4097220c0048bca2c",
+    "tests/installed_coding_probe.py": "f22b9fade1e2808671cd18dd63cf91393a87389a58155de465e92a71a003d1db",
+    "tests/installed_probe.py": "08bce0dd42636ac2333b3f1f1da65b0200f0e627e719266938b1a804adc0c8f3",
+    "tests/installed_sandbox_probe.py": "076ec5a03f4a64864a5de959b7b2a2d2318e6b84a28eb3d79af6c21d1f97396e",
+    "tests/installed_update_probe.py": "26ddca7e03f0995c4092b37833c7b77ad36ed82bf6be312a7390866e50e2e48b",
+    "tests/linejs_probe.mjs": "33d66a3eaca7f450e134857d494769f28fcbf62b4b4611f8c9f0f9a3b51e21a6",
+    "tests/supervisor_probe.py": "924290a917fcb8ccdf739c623efb2f7259675bfd1dccb13e324081e26072d689",
+    "tests/test_api.py": "6fbd46ad238839e10c1110b82b72d78354ff51e770245edbbe14bf11cee83ffb",
+    "tests/test_bootstrap.py": "98a10b15328dc976e76b6a52398be25a9a43ed82c4983700eaa447d1b7275e60",
+    "tests/test_bootstrap_host.py": "ae8e18e22b27f44e2cfec856615681bfe5194f81e75e5e3576976ba2847d413a",
+    "tests/test_bootstrap_runner.py": "e176464774cd7c0b38603ce22deb95320fcba0325efc56a88f64264f80b08df3",
+    "tests/test_bootstrap_ui.py": "82387d7800b6110a95ef217d5b2c0254e66396a7a722c5f367e1b819dde277be",
+    "tests/test_coding_permissions.py": "7414e51b9333dba643852e3bcbc18763b0519f1a8ce44d59a77a1c97360c8f36",
+    "tests/test_coding_sandbox.py": "c8aa9f9e0f16b529828c4bde2c4b3b55233deb19028bf8db7ed509ba7d5af202",
+    "tests/test_coding_source.py": "985f145fd09214d7e0ed66a3a2f315f05a1a60cf513d25ac8802197d48e1d33c",
+    "tests/test_container.py": "0694badb783f2aee294af8ea068b78a2d00e94d5825aeb3a6a8963586b557bff",
+    "tests/test_desktop_login.py": "4ba71fcb74b3fbce74637c104ed459162c9b91a327dfb26b1bb150baff2f64d9",
+    "tests/test_engine.py": "3ebff80290b59cc6c4bb471b33c8929db59efa1fc0169c0d1f02f13573fd1cf7",
+    "tests/test_gateway.py": "b5e065539da3294ae4fb80dbb5f94fd0a33b34dd5827c333085cf9ae28d767a5",
+    "tests/test_gateway_ui.py": "223aa2906fedea87bee2dc27bf822d4324a3d3a8ec4c92ea954923fde6cc7dd9",
+    "tests/test_ha_oauth.py": "73853622196a315daa8263ba0ce50ef77a9bef6902e05c49e39bf8d685a591e7",
+    "tests/test_haos_boundary.py": "1aa34aa245d2f4f4b85b37179a59a6756e821e42580dde2b27081455259a2f1a",
+    "tests/test_haos_vm.py": "a57d16cbc07a7b0ef160c45e561f26b9f0c36987cc269b329e71bcfa0accfd10",
+    "tests/test_hermes_compatibility.py": "8729e6c00aa9f780d0f741bbbb5636085a76ebbd533b5dac96b7511cb4f3913b",
+    "tests/test_hermes_controller.py": "ec99c7ed941235f3e21cb1da8c4598994d2a99b6a203ee11b5115b9b96f567fa",
+    "tests/test_hermes_runtime.py": "48974343f9d8f4d5244ae0880e70d6580487d45fa2aed820764eefc1d867160b",
+    "tests/test_hermes_ui.py": "492c358ae29f486f14ebefa5cf11e42e9169b6c13f98af2e81f03c52c52dfb0b",
+    "tests/test_home_entry.py": "d83131a2db3821fecc644aadf363cabc2a63d2e21e844e348fd7961c63cf1c4b",
+    "tests/test_host.py": "a5a1c02c6f21845ca886e47d54d493db4489df5284041ba5d73a81be33dbe278",
+    "tests/test_host_broker_roles.py": "b21c9c2921340dc3c2d980c4cc19ec077e7eb6e643c3ab06a105fee99baa973e",
+    "tests/test_host_compatibility.py": "e641a3cf0d5ec6d44cfab3fedc85e62dae1f491553405a9aba8b6e980e343084",
+    "tests/test_host_network.py": "5cde824899c493ce8d5309e763be47e6e40d3f22110b1e22c7cd2ce84ef4194f",
+    "tests/test_installed_probe_contract.py": "899e352c0981ab254f974d63dd4ee061593374738d975887e7e8d1cd856d711c",
+    "tests/test_linux_install.py": "f25ccb1c3fe1c6469921c8d3b6726f80b4872387bdc6247859f402b720b6a46a",
+    "tests/test_new_providers.py": "1ae1a10eae4c74fb835276c459b251abfad00dc2f312609c366d1d9d2c23cf1b",
+    "tests/test_onboarding_e2e.py": "dbbc66a65e5d2dba419d43517e5b1336b91e2d8f7ccddbb51e782f4b5b273b65",
+    "tests/test_preview.py": "924c9e36d65b34c23fff96ad79670a7d497d9191f8fe0d33e175e984e2d16a8b",
+    "tests/test_publisher.py": "1dfe2d4ece1082f1dea862c92cacfcc0cfe44d83c46a13c88af3aa3feb9bd14f",
+    "tests/test_real_ha.py": "fa4d81dab4d07e64f3fa9bc0ca3463b0ed71998bb5dc8146ee4483a6928a780c",
+    "tests/test_review_bootstrap.py": "c3b800def0a6ae0c414cfa514f2bfaff68cef31c2029856cb2ca8b61161b569b",
+    "tests/test_review_cancellation.py": "803756cfefe1d47dc5a952c542f1504c9f624541261647ca7adb88e04a2c2f74",
+    "tests/test_review_runtime.py": "0860fd3c3c025c68f32f52a908ecc1ac92346b311463689c74a29ddb2c439b07",
+    "tests/test_review_ui.py": "de4c0b1294cfd77e2f132c2a73c50b04ac82e70f848fe169d1e6e83975d80885",
+    "tests/test_runner.py": "8fc1a2d1ab232921f1f0e905f9a35b4d0dbcddc4e03bedf9730dfe6b2a694677",
+    "tests/test_runner_lifecycle.py": "1c6519c8b9d222d5f2fcaac7deabba549080fbad7bde36786c13db7eeca7fc6e",
+    "tests/test_store_migration.py": "d276891d8c33b9aee82e0ce7bc8eabb3a9f7765c9ac27f1e0d25680003d87b7a",
+    "tests/test_support.py": "e6ff54666ecadec4f33a7d810de1078310a8214ebc7bbeae74ffd8ad13a10c0b",
+    "tests/test_ui.py": "fc1ceb46252c74d7d534f67ae00e01cead109f9d3d6d51b2d33c75b3d4944e46",
+    "tests/test_updater.py": "709085cf879250f608387b76d19b888997aefa9ff4fe936b5799643b141a571b",
+    "tests/test_upstream_check.py": "fdf4dedd36927eed0594b3271bdd1e287c7baf0cef3bcb3b9a10a66e535b145a",
+    "tests/test_worker_controller.py": "2f3b7cd9ab97080e402779551f87a39f0fbce8c5117858af077bf4753a8a2e5a",
+    "tests/test_worker_execution.py": "b8060b3608edd55f7d979071e3544c0b333cf57e83da7148d2682fc7a747a1dc",
+    "tests/test_worker_household.py": "e9be22ac69399a9c0d27a7f4edac82e63d22ecc5519441c62bb91821591f6b5c",
+    "tests/test_worker_operations.py": "f5ec60fc63a03927c653f4395be906ff1f0e0a81f2c5b5157fc320258681c77f",
+    "tests/test_worker_ui.py": "39afe0df81cb462ea5c8e62212272e074e98dcd4070da497068642142da5109e",
+    "tests/ui_helpers.py": "313c2e400f224071d2910d9a13bb0a085119b2cdc899692c2f95b31ead02d2f9",
+    "upstream.lock.json": "d518c523695514a122d7428b66b40d6c8204dff2d0ba8523e60ef4960130a7b8",
+    "uv.lock": "236105d19495efca025611c5c28e2c3bd5fb3aa0e9ded45350d20702c80fadc1",
+    "web/index.html": "d761600ddf1c703de714428fb94701408c3ad8c4d075683b98e4383162298acd",
+    "web/package-lock.json": "ab8235dae6d58155540bdf6562ec505a34b5ad8114b59dc7d414c07a042ccf02",
+    "web/package.json": "cc4ad72bf47cae98ac5920ddaede99537e979d60b80c2eb67e68e7e1d9cc7f19",
+    "web/src/api.ts": "a878f62eb8020933d65167ec9a1b3fc2e59f5ce3745b35bdde79c9615584cb37",
+    "web/src/bootstrap.tsx": "7989457a50ce84af7e6f5c95da23c6449adf433832a6a29bdb07f4280a397355",
+    "web/src/gateway.tsx": "6b1d6446c45af01b208cf9383278dd84b62e3407aec950fcb69b2f6a54c08605",
+    "web/src/hermes.tsx": "9822f8bd6a39d38d15b44058190bea8d6ff484b0b55b2b58a7e720ab6c6a4c39",
+    "web/src/home-entry.tsx": "0c1e9487149447c238b2ee8324d1e7d2ebffb1ac3c4f0a33ab60fb08703ec8ab",
+    "web/src/host.tsx": "85ba2cfb03d6089ee9b204ecf029b024e8a0f775f34453b0049a18320a9c596e",
+    "web/src/main.tsx": "abae3087b6dfe0adfe268258e530e8ba7b7b41dd53e924990f11e326d02b8516",
+    "web/src/maintenance.tsx": "5e746daa1d60f4d592cd537aa7200c909d5bf5b1632e8b14efe745f8e4c123d4",
+    "web/src/providers.tsx": "8d1a251c94933d0b02652282c4f449a1dc6598c35a21bffe3923c8ead5623931",
+    "web/src/setup.tsx": "d416ab61e44aa97186a1c0b2617cf2b398c22bfe61a9849fe66cbdc436c86970",
+    "web/src/style.css": "17460f36ca683f20e8907361962c32caf4cc6730858cc8c1ab3b3cadcdeb3a1f",
+    "web/src/ui.tsx": "24306dae55b10d2ce6bc25c119e78a2f98b30db9289e52fbf708682481926572",
+    "web/src/workers.tsx": "49637c72e592d4943a672ce938ab323dcf2a0d8b4ed56e92089bb895224f5da1",
+    "web/tsconfig.json": "505dca3bc684ee3ec928e6d8594b5d514e951e737628f52fde4faf41b94f3c68",
+    "web/vite.config.ts": "4ed8f2a0e50abab384b410b4e610e3fc08f19f068f96c96403f12d4b404e91e1"
+  }
+}

@@ -3,10 +3,11 @@
 import json
 import logging
 import os
-import re
 import signal
 import sys
 from pathlib import Path
+
+from .upstream import VERIFICATION_URI, HermesAdapter
 
 
 def main():
@@ -23,30 +24,13 @@ def main():
         output.flush()
 
     try:
-        from hermes_cli.auth_codex import (
-            CODEX_OAUTH_CLIENT_ID,
-            _codex_exchange_authorization_code,
-            _codex_poll_authorization_code,
-            _codex_request_device_code,
-            _save_codex_tokens,
-        )
+        adapter = HermesAdapter()
         # No endpoint overrides, borrowed CLI grants or interactive token import.
         home = Path(os.environ["HERMES_HOME"])
         (home / "config.yaml").write_text(json.dumps({"auth": {"adopt_external_logins": False}}))
-        issuer = "https://auth.openai.com"
-        device = _codex_request_device_code(issuer, CODEX_OAUTH_CLIENT_ID)
-        user_code = device["user_code"]
-        if not re.fullmatch(r"[A-Z0-9]{4,8}-[A-Z0-9]{4,8}", user_code):
-            raise ValueError("invalid_user_code")
-        emit({"state": "pending", "verification_uri": issuer + "/codex/device", "user_code": user_code})
-        authorization = _codex_poll_authorization_code(
-            issuer, device_auth_id=device["device_auth_id"], user_code=user_code,
-            poll_interval=max(3, min(30, int(device["interval"]))),
-        )
-        tokens = _codex_exchange_authorization_code(issuer, CODEX_OAUTH_CLIENT_ID, authorization)
-        if not all(isinstance(tokens.get(key), str) and tokens[key] for key in ("access_token", "refresh_token")):
-            raise ValueError("incomplete_grant")
-        _save_codex_tokens({key: tokens[key] for key in ("access_token", "refresh_token")})
+        device = adapter.request_device()
+        emit({"state": "pending", "verification_uri": VERIFICATION_URI, "user_code": device["user_code"]})
+        adapter.finish_device(device)
         emit({"state": "configured"})
     except Exception as exc:
         code = str(getattr(exc, "code", ""))

@@ -6,6 +6,12 @@ let desktopTicket = /^#desktop-login=([A-Za-z0-9_-]{43})$/.exec(location.hash)?.
 const desktopAttempted = location.hash.startsWith('#desktop-login');
 if (desktopAttempted) history.replaceState(null, '', `${location.pathname}${location.search}#onboarding`);
 let desktopResult: Promise<'none'|'connected'|'failed'> | null = null;
+let desktopEntryAvailable = false;
+export function consumeDesktopEntry() {
+  const available = desktopEntryAvailable;
+  desktopEntryAvailable = false;
+  return available;
+}
 export function desktopLogin() {
   if (!desktopResult) {
     if (!desktopAttempted) desktopResult = Promise.resolve('none');
@@ -13,7 +19,7 @@ export function desktopLogin() {
     else {
       const ticket = desktopTicket;
       desktopTicket = '';
-      desktopResult = api('host/desktop-login', {ticket}).then(() => 'connected' as const, () => 'failed' as const);
+      desktopResult = api('host/desktop-login', {ticket}).then(() => {desktopEntryAvailable = true;return 'connected' as const}, () => 'failed' as const);
     }
   }
   return desktopResult;

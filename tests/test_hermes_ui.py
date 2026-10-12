@@ -93,7 +93,7 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             page.set_viewport_size({"width": width, "height": 900 if width == 1440 else 844})
             page.wait_for_timeout(100)
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-            page.screenshot(path=str(root / f"evidence/ui/hermes-{name}-{width}.png"), full_page=True)
+            page.screenshot(path=str(root / f"evidence/ui/native-home/hermes-{name}-{width}.png"), full_page=True)
 
     def stored(page):
         return page.evaluate("JSON.stringify({session: {...sessionStorage}, local: {...localStorage}})")
@@ -169,7 +169,7 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
 
             page.get_by_text("進階對話設定", exact=True).click()
             mode.select_option("direct")
-            page.get_by_role("heading", name="今天想處理什麼？", exact=True).wait_for()
+            page.get_by_text("需要協助時，直接告訴管家。", exact=True).wait_for()
             expect(page.get_by_label("Agent", exact=True)).to_have_value("codex")
             page.get_by_label("Agent", exact=True).select_option("grok")
             expect(page.get_by_label("Agent", exact=True)).to_have_value("grok")
@@ -190,7 +190,7 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             assert calls[-1][1]["runtime"] == "host" and calls[-1][1]["provider"] == "codex"
             assert messages[0]["case_id"] == first["case_id"]
             page.get_by_role("button", name="開始新對話", exact=True).click()
-            page.get_by_role("heading", name="今天想處理什麼？", exact=True).wait_for()
+            page.get_by_text("需要協助時，直接告訴管家。", exact=True).wait_for()
             page.get_by_label("對話訊息", exact=True).fill("另一個 Hermes case")
             page.get_by_role("button", name="送出訊息", exact=True).click()
             page.get_by_role("heading", name="另一個 Hermes case", exact=True).wait_for()

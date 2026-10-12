@@ -1,0 +1,20 @@
+{
+  "kind": "native_entry_test_iteration",
+  "initial_full_suite": {
+    "passed": 599,
+    "failed": 1,
+    "skipped": 3,
+    "seconds": 297.07,
+    "failure": "Native browser login was not completed by the harness after Controller OAuth",
+    "junit": "pytest-0.6.1-native-login-initial.xml"
+  },
+  "second_focused_run": {
+    "passed": 0,
+    "failed": 1,
+    "seconds": 42.66,
+    "failure": "Navigation and assistant roundtrip completed, but native browser emitted an error; the minimal Core fixture had no Lovelace and a pending loopback HTTP configuration dialog",
+    "junit": "onboarding-e2e-native-incomplete-fixture.xml",
+    "screenshot": "ui/e2e-native-initial-loading.png"
+  },
+  "correction_scope": "Test harness only: follow native login, enable the real Lovelace integration and confirm the synthetic loopback binding through native UI. Do not copy tokens or alter product frontend."
+}

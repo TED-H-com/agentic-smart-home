@@ -45,7 +45,7 @@ def screenshot(page, name):
         page.evaluate('window.scrollTo(0,0)')
         page.wait_for_timeout(100)
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-        page.screenshot(path=str(ROOT / f'evidence/ui/{name}-{width}.png'), full_page=True)
+        page.screenshot(path=str(ROOT / f'evidence/ui/native-home/{name}-{width}.png'), full_page=True)
 
 
 def test_coding_role_login_lost_reply_stop_fence_and_artifact_preview(ui_page):
@@ -286,11 +286,12 @@ def test_same_case_results_open_inline_without_dispatch(ui_page):
             raise AssertionError(path)
         route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
     page.route('**/api/**', route)
-    page.goto(origin + '/')
-    page.get_by_role('heading', name='今天想處理什麼？').wait_for()
+    page.goto(origin + '/#gateway')
+    page.get_by_text('需要協助時，直接告訴管家。', exact=True).wait_for()
     assert page.url.endswith('#gateway')
     screenshot(page, 'assistant-welcome')
-    page.get_by_role('button', name='看看家裡目前的狀態').click()
+    assert page.get_by_role('heading', name='今天想處理什麼？').count() == 0
+    page.get_by_label('對話訊息').fill('看看家裡目前的狀態')
     expect(page.get_by_label('對話訊息')).to_have_value('看看家裡目前的狀態')
     assert not posts
     page.get_by_label('對話訊息').fill('')

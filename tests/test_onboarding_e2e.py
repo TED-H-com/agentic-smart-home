@@ -163,6 +163,7 @@ async def test_composed_onboarding_browser_services_and_native_home(tmp_path, re
   unit_system: metric
   time_zone: UTC
 frontend:
+lovelace:
 api:
 websocket_api:
 config:
@@ -219,7 +220,7 @@ for path,uid,gid,mode in items:
  assert (stat.st_uid,stat.st_gid,stat.st_mode&0o777)==(uid,gid,mode)
 """
         await docker("run", "--rm", "--network=none", *mounted, "--entrypoint", "python",
-                     "agentic-home-runner:0.6.0", "-c", preparation, str(os.getuid()))
+                     "agentic-home-runner:0.6.1", "-c", preparation, str(os.getuid()))
         controller_access = """import asyncio,os,pathlib,aiohttp
 assert (os.getuid(),os.getgid())==(1000,1000)
 assert pathlib.Path('/controller/access-key').read_text().strip()
@@ -238,9 +239,9 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
 """
         await asyncio.gather(
             docker("run", "--rm", "--network=none", "--user", "1000:1000", *mounted,
-                   "--entrypoint", "python", "agentic-home-controller:0.6.0", "-c", controller_access),
+                   "--entrypoint", "python", "agentic-home-controller:0.6.1", "-c", controller_access),
             docker("run", "--rm", "--network=none", "--user", "10003:10003", "--group-add", "1000", *mounted,
-                   "--entrypoint", "python", "agentic-home-hermes:0.6.0", "-c", hermes_access))
+                   "--entrypoint", "python", "agentic-home-hermes:0.6.1", "-c", hermes_access))
         runtime_args = ["-v", str(ROOT / "tests/e2e_runtime_fixture.py") + ":/e2e.py:ro", "-e", "E2E_MODEL_URL=" + model_url, "-e", "PYTHONPATH=/app", "--entrypoint", "python"]
         # Docker commands below use fixture-only entrypoints, with source mounted
         # read-only. No test hook or provider URL option is added to product code.
@@ -255,8 +256,8 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
             else:
                 extra += ["--group-add", "1000", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "-v", str(dirs["hermes-link"]) + ":/hermes-link:ro"]
             caps = ["--memory=1536m", "--pids-limit=256"] if role == "runner" else ["--memory=768m", "--pids-limit=64", "--cpus=1"]
-            await docker("run", "-d", "--name", name, "--network=host", *caps, *extra, "agentic-home-" + role + ":0.6.0", "/e2e.py")
-        controller = await launch("controller", "agentic-home-controller:0.6.0", [
+            await docker("run", "-d", "--name", name, "--network=host", *caps, *extra, "agentic-home-" + role + ":0.6.1", "/e2e.py")
+        controller = await launch("controller", "agentic-home-controller:0.6.1", [
             "-e", "AGENTIC_HOST_MODE=1", "-e", "AGENTIC_HERMES_MCP=1", "-e", "AGENTIC_HA_URL=" + CORE,
             "-v", str(dirs["controller"]) + ":/data", "-v", str(dirs["pairing"]) + ":/pairing:ro",
             "-v", str(dirs["hermes-link"]) + ":/hermes-link:ro", "-v", str(dirs["host-socket"]) + ":/run/agentic-home",
@@ -271,7 +272,16 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
             browser = await playwright.chromium.launch(headless=True)
             context = await browser.new_context(viewport={"width": 1440, "height": 960})
             page = await context.new_page()
-            page.on("pageerror", lambda e: errors.append(e.name))
+            def browser_error(source, error):
+                detail = {"origin": urlsplit(source.url).netloc, "name": error.name}
+                try:
+                    value = json.loads(error.message)
+                    if isinstance(value, dict) and value.get("code") in {"unknown_command", "not_found", "unauthorized", "invalid_format"}:
+                        detail["code"] = value["code"]
+                except (ValueError, TypeError):
+                    pass
+                errors.append(detail)
+            page.on("pageerror", lambda e: browser_error(page, e))
             page.on("response", lambda response: responses.append({
                 "path": urlsplit(response.url).path, "status": response.status})
                 if urlsplit(response.url).path in {"/api/bootstrap", "/api/bootstrap/start", "/api/runtimes", "/api/status"} else None)
@@ -331,7 +341,47 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
             await page.get_by_role("heading", name="設定完成").wait_for()
             assert "code=" not in page.url and "state=" not in page.url
             await page.screenshot(path=str(ROOT / "evidence/ui/e2e-complete.png"), full_page=True)
-            await page.get_by_role("button", name="和智能管家聊天").click()
+            entry = await page.request.get(BASE + "/api/host/home-entry")
+            assert entry.status == 200 and (await entry.json())["state"] == "ready"
+            async with context.expect_page() as opened:
+                await page.get_by_role("link", name="進入家庭 ↗", exact=True).click()
+            native = await opened.value
+            native.set_default_timeout(60000)
+            native.on("pageerror", lambda e: browser_error(native, e))
+            await native.wait_for_url(CORE + "/**")
+            # Authorizing Controller does not log the native browser into its
+            # separate OAuth client. Follow HA's own login when it is needed;
+            # never copy Controller's bearer into frontend storage.
+            username = native.get_by_label("Username", exact=True)
+            await username.or_(native.locator("home-assistant-main")).first.wait_for()
+            native_login_required = await username.is_visible()
+            if native_login_required:
+                await native.screenshot(path=str(ROOT / "evidence/ui/e2e-native-login.png"), full_page=True)
+                await username.fill("e2e-owner")
+                await native.get_by_label("Password", exact=True).fill(password)
+                await native.get_by_role("button", name="Log in", exact=True).click()
+            await native.locator("home-assistant-main").wait_for()
+            # This fixture binds Core to loopback; confirm HA's own pending HTTP
+            # settings dialog before judging the native dashboard ready.
+            await native.get_by_role("button", name="Confirm", exact=True).click()
+            await native.get_by_role("button", name="Confirm", exact=True).wait_for(state="hidden")
+            await native.locator("hui-root").wait_for()
+            await native.screenshot(path=str(ROOT / "evidence/ui/e2e-native-dashboard.png"), full_page=True)
+            await native.close()
+            await page.get_by_role("button", name="智能管家", exact=True).click()
+            await page.get_by_label("對話訊息").wait_for()
+            # Daily startup reaches the actual native frontend; browser Back and
+            # reload preserve the outer rescue/assistant entry without a loop.
+            await page.goto(BASE + "/")
+            await page.wait_for_url(CORE + "/**")
+            await page.locator("hui-root").wait_for()
+            await page.go_back()
+            await page.wait_for_url(BASE + "/#entry")
+            await page.get_by_role("heading", name="家庭已就緒").wait_for()
+            await page.reload()
+            await page.get_by_role("heading", name="家庭已就緒").wait_for()
+            assert page.url == BASE + "/#entry"
+            await page.goto(BASE + "/#gateway")
             await page.get_by_label("對話訊息").fill("請使用工具查主機狀態。")
             await page.get_by_role("button", name="送出訊息", exact=True).click()
             await page.get_by_text("E2E 主機證據已取得；此為隔離測試。", exact=True).wait_for()
@@ -386,11 +436,12 @@ print(json.dumps({'evidence':records('case_evidence'),
                     "memory_bytes": limits["Memory"], "pids_limit": limits["PidsLimit"], "nano_cpus": limits["NanoCpus"],
                     "oom_killed": info["State"]["OOMKilled"], "restart_count": info["RestartCount"]}
             report = {"kind": "composed_onboarding_e2e", "result": "passed", "duration_seconds": round(time.monotonic() - started, 2),
-                "real": ["Chromium and compiled Web without API interception", "Controller HTTP/session/CSRF", "Runner TLS pairing and broker", "packaged Codex binary", "Hermes bridge and AIAgent", "official MCP to actual Controller", "isolated Core 2026.10.1", "native HA browser login and OAuth callback", "Controller restart and operation deduplication", "Web conversation reload"],
+                "real": ["Chromium and compiled Web without API interception", "Controller HTTP/session/CSRF", "Runner TLS pairing and broker", "packaged Codex binary", "Hermes bridge and AIAgent", "official MCP to actual Controller", "isolated Core 2026.10.1", "native HA browser login and OAuth callback", "native dashboard entry and daily startup", "Back/reload rescue entry and explicit assistant link", "Controller restart and operation deduplication", "Web conversation reload"],
                 "fixtures": ["CLI and Hermes cloud model responses", "root Host network/install/VM lifecycle effects", "synthetic model API credentials"],
                 "not_run": ["real cloud OAuth", "LINE/Telegram external messages", "physical laptop", "HAOS App coding", "complete native HA setup wizard clicks"],
                 "cli_inference_calls": len(fixtures.cli_requests), "hermes_model_calls": len(fixtures.hermes_requests), "host_actions": fixtures.calls,
                 "mcp_evidence": evidence, "mcp_case_run_message_verified": True, "runtime_images": runtime_images,
+                "native_browser_login_required": native_login_required,
                 "product_service_resource_limits": "match host/compose.yaml; Core is an isolated fixture",
                 "mount_access_probes": {"host_uid": os.getuid(), "controller_uid": 1000, "hermes_uid": 10003,
                                         "shared_gid": 1000, "fixed_modes_verified": True},
@@ -424,4 +475,4 @@ print(json.dumps({'evidence':records('case_evidence'),
         await host_server.cleanup()
         await models_server.cleanup()
         await docker("run", "--rm", "-v", str(tmp_path) + ":/lab", "-v", str(dirs["host-socket"]) + ":/host-socket",
-                     "--entrypoint", "chown", "agentic-home-runner:0.6.0", "-R", f"{os.getuid()}:{os.getgid()}", "/lab", "/host-socket")
+                     "--entrypoint", "chown", "agentic-home-runner:0.6.1", "-R", f"{os.getuid()}:{os.getgid()}", "/lab", "/host-socket")

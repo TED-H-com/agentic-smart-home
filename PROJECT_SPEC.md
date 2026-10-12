@@ -8,6 +8,8 @@ Steering v3.0；匯入基準是應用 `0.3.1`、commit `3ad476a712009469521c3f98
 
 ## 路徑與權威
 
+日常入口使用原生 HA；外層 Web 保留智能管家、設定與救援。新增 `home-entry` contract 1 只允許固定原生路徑，需重新驗有效 Owner 與必要 HA 能力；明確對話、提案或救援連結不得被自動跳轉。Hermes 上游私有接點集中在 adapter facade，Linux 固定操作執行前重驗必要能力。HA 側欄到外層 Hermes 的身份 bridge 尚未交付，不共用管理 cookie 或新增另一個協調者。詳見 [adapter 邊界與候選策略](docs/ADAPTERS.md)。
+
 ```text
 Owner → 既有 Web/Gateway → conversation adapter → 外層 Hermes
                                                 ↓ MCP 工具

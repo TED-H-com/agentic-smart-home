@@ -1,3 +1,7 @@
+# 0.6.1 native home and upstream boundaries
+
+- Align the distribution version with native HA entry and upstream adapter checks; retain Runner protocol 1 and worker contract 1.
+
 # 0.6.0 isolated coding and delivery
 
 - Add persistent Host coding dispatch, independent role login, bounded provider/source relay, exact source commit and stopped-writer reconciliation; retained household mode stays restricted.

@@ -35,6 +35,15 @@ CODEX_TOKEN = CODEX_HEADER + "." + base64.urlsafe_b64encode(json.dumps({
 }).encode()).rstrip(b"=").decode() + ".AA"
 
 
+def source_mounts():
+    """Opt-in development evidence; default container tests inspect packaged code."""
+    if os.environ.get("AGENTIC_HERMES_TEST_SOURCE") != "1":
+        return []
+    root = Path(__file__).parents[1] / "hermes"
+    return ["-v", f"{root / 'agentic_hermes'}:/app/agentic_hermes:ro",
+            "-v", f"{root / 'compatibility_probe.py'}:/app/compatibility_probe.py:ro"]
+
+
 @pytest.fixture
 async def runtime(tmp_path):
     upstream = tmp_path / "upstream"
@@ -628,12 +637,12 @@ def test_real_pinned_hermes_uses_only_controller_mcp(tmp_path, request, monkeypa
             command = [python, "-m", "agentic_hermes.child"]
             env = {"PATH": "/usr/bin:/bin", "HOME": str(home), "HERMES_HOME": str(home / ".hermes"), "TMPDIR": str(home / "tmp"), "PYTHONPATH": str(Path(__file__).parents[1] / "hermes") + ":" + os.environ["AGENTIC_HERMES_TEST_UPSTREAM"], "AGENTIC_MCP_URL": mcp["url"], "AGENTIC_PROVIDER_URL": url + "/v1"}
         else:
-            command = ["docker", "run", "--rm", "--name", name, "-i", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "--network=host", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{home}:/scratch", "-e", "HOME=/scratch", "-e", "HERMES_HOME=/scratch/.hermes", "-e", "TMPDIR=/scratch/tmp", "-e", "PYTHONPATH=/app:/opt/hermes", "-e", "AGENTIC_MCP_URL=" + mcp["url"], "-e", "AGENTIC_PROVIDER_URL=" + url + "/v1", "--entrypoint=python", os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.6.0"), "-m", "agentic_hermes.child"]
+            command = ["docker", "run", *source_mounts(), "--rm", "--name", name, "-i", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "--network=host", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{home}:/scratch", "-e", "HOME=/scratch", "-e", "HERMES_HOME=/scratch/.hermes", "-e", "TMPDIR=/scratch/tmp", "-e", "PYTHONPATH=/app:/opt/hermes", "-e", "AGENTIC_MCP_URL=" + mcp["url"], "-e", "AGENTIC_PROVIDER_URL=" + url + "/v1", "--entrypoint=python", os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.6.1"), "-m", "agentic_hermes.child"]
             env = None
         if native:
             payload.update(provider="openai-codex", model="gpt-6-astra", api_key="")
-            command[-2:] = ["-c", "from hermes_cli.auth_codex import _save_codex_tokens; "
-                f"_save_codex_tokens({{'access_token':{CODEX_TOKEN!r},'refresh_token':'synthetic-native-refresh'}}); "
+            command[-2:] = ["-c", "from agentic_hermes.upstream import HermesAdapter; "
+                f"HermesAdapter().save_tokens({{'access_token':{CODEX_TOKEN!r},'refresh_token':'synthetic-native-refresh'}}); "
                 "from agentic_hermes.child import main; main()"]
         try:
             result = subprocess.run(command, input=json.dumps(payload), text=True, capture_output=True, env=env, timeout=90)
@@ -677,7 +686,7 @@ def test_packaged_runtime_starts_nonroot_without_cloud_credentials(tmp_path, req
     token_path = tmp_path / "service-token"
     token_path.write_text(TOKEN)
     token_path.chmod(0o644)  # Dedicated synthetic credential, mounted as a file.
-    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.6.0")
+    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.6.1")
     probe = (
         "import json,os,urllib.request; "
         "r=urllib.request.Request('http://127.0.0.1:8096/v1/capabilities',"
@@ -685,7 +694,7 @@ def test_packaged_runtime_starts_nonroot_without_cloud_credentials(tmp_path, req
         "print(json.dumps({'uid':os.getuid(),'capabilities':json.load(urllib.request.urlopen(r,timeout=2))}))"
     )
     try:
-        subprocess.run(["docker", "run", "-d", "--name", name, "--network=none", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--pids-limit=64", "--memory=512m", "-v", volume + ":/data", "-v", str(token_path) + ":/hermes-link/service-token:ro", image], check=True, capture_output=True, text=True)
+        subprocess.run(["docker", "run", *source_mounts(), "-d", "--name", name, "--network=none", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--pids-limit=64", "--memory=512m", "-v", volume + ":/data", "-v", str(token_path) + ":/hermes-link/service-token:ro", image], check=True, capture_output=True, text=True)
         result = None
         for _ in range(40):
             result = subprocess.run(["docker", "exec", name, "python", "-c", probe], capture_output=True, text=True)
@@ -766,58 +775,21 @@ def test_offline_candidate_gate_and_real_upstream_device_flow(request):
         pytest.skip("Candidate and native device-flow probes require --containers")
     name = "agentic-hermes-oauth-" + uuid.uuid4().hex[:12]
     volume = name + "-data"
-    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.6.0")
-    common = ["docker", "run", "--rm", "--name", name, "--network=none", "--read-only", "--cap-drop=ALL",
+    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.6.1")
+    common = ["docker", "run", *source_mounts(), "--rm", "--name", name, "--network=none", "--read-only", "--cap-drop=ALL",
               "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "-v", volume + ":/data",
               "-e", "HOME=/data", "-e", "HERMES_HOME=/data", "-e", "TMPDIR=/data",
               "-e", "PYTHONPATH=/app:/opt/hermes", "--entrypoint=python", image]
-    script = r'''
-import contextlib,io,json,os
-from pathlib import Path
-import httpx
-os.environ['HERMES_HOME']='/data/native-login'
-os.environ['AGENTIC_PARENT_PID']=str(os.getppid())
-Path(os.environ['HERMES_HOME']).mkdir(mode=0o700)
-from hermes_cli import auth_codex
-from agentic_hermes.oauth_child import main
-observed=[]
-def endpoint(request):
-    observed.append(request.url.path)
-    assert request.url.host=='auth.openai.com'
-    if request.url.path.endswith('/usercode'):
-        data={'device_auth_id':'synthetic-private-device','user_code':'ABCD-EFGH','interval':3}
-    elif request.url.path.endswith('/deviceauth/token'):
-        data={'authorization_code':'synthetic-private-code','code_verifier':'synthetic-private-verifier'}
-    elif request.url.path=='/oauth/token':
-        data={'access_token':'synthetic-access','refresh_token':'synthetic-refresh'}
-    else:
-        raise AssertionError(str(request.url))
-    return httpx.Response(200,json=data)
-auth_codex._codex_http_client=lambda **kw: httpx.Client(transport=httpx.MockTransport(endpoint),**kw)
-auth_codex.time.sleep=lambda _:None
-output=io.StringIO()
-with contextlib.redirect_stdout(output):
-    main()
-public=output.getvalue()
-events=[json.loads(line) for line in public.splitlines()]
-assert events==[{'state':'pending','verification_uri':'https://auth.openai.com/codex/device','user_code':'ABCD-EFGH'},{'state':'configured'}],events
-assert all(secret not in public for secret in ('synthetic-access','synthetic-refresh','synthetic-private-device','synthetic-private-code','synthetic-private-verifier'))
-auth=Path(os.environ['HERMES_HOME'])/'auth.json'
-assert auth.stat().st_mode & 0o777 == 0o600
-tokens=json.loads(auth.read_text())['providers']['openai-codex']['tokens']
-assert tokens=={'access_token':'synthetic-access','refresh_token':'synthetic-refresh'}
-assert not (Path('/data')/'.codex').exists()
-assert len(observed)==3
-assert json.loads((auth.parent/'config.yaml').read_text())['auth']['adopt_external_logins'] is False
-print(json.dumps({'oauth':'real_upstream_helpers','transport':'mock_http','account_verified':False}))
-'''
     try:
         gate = subprocess.run(common + ["/app/compatibility_probe.py"], capture_output=True, text=True, timeout=90)
         assert gate.returncode == 0, gate.stdout[-3000:] + gate.stderr[-3000:]
-        assert json.loads(gate.stdout)["compatible"] is True
-        oauth = subprocess.run(common + ["-c", script], capture_output=True, text=True, timeout=45)
-        assert oauth.returncode == 0, oauth.stdout[-3000:] + oauth.stderr[-3000:]
-        assert json.loads(oauth.stdout)["oauth"] == "real_upstream_helpers"
+        receipt = json.loads(gate.stdout)
+        assert receipt["compatible"] is True and receipt["adapter_contract"] == 1
+        assert receipt["cloud_account_verified"] is False
+        assert set(receipt["checks"]) >= {
+            "consumed_signatures", "continued_history", "builtin_tool_refused", "provider_401",
+            "native_device_oauth", "private_token_store", "native_responses_tool_roundtrip",
+        }
     finally:
         subprocess.run(["docker", "rm", "-fv", name], capture_output=True, check=False)
         subprocess.run(["docker", "volume", "rm", volume], capture_output=True, check=False)

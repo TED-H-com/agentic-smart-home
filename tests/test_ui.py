@@ -158,7 +158,7 @@ def test_host_login_offline_management_and_responsive_layout():
             page.route('**/api/**', route)
             page.goto(f'http://127.0.0.1:{server.server_port}/#home')
             page.get_by_label('主機登入金鑰').fill('fixture-local-machine-key')
-            page.screenshot(path=str(root / 'evidence/ui/host-login-1440.png'), full_page=True)
+            page.screenshot(path=str(root / 'evidence/ui/native-home/host-login-1440.png'), full_page=True)
             page.get_by_role('button', name='開啟管理中心').click()
             page.get_by_role('region', name='開始使用').wait_for()
             click_navigation(page, 'Linux 主機')
@@ -168,7 +168,7 @@ def test_host_login_offline_management_and_responsive_layout():
                 page.set_viewport_size({'width': width, 'height': 900 if width == 1440 else 844})
                 page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
                 assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
-                page.screenshot(path=str(root / f'evidence/ui/host-{width}.png'), full_page=True)
+                page.screenshot(path=str(root / f'evidence/ui/native-home/host-{width}.png'), full_page=True)
             page.get_by_role('button', name='啟動 HAOS', exact=True).click()
             page.get_by_role('status').filter(has_text='操作已交給主機處理').wait_for()
             assert actions == [{'action': 'start', 'snapshot': None}]
@@ -259,15 +259,15 @@ def test_setup_links_session_recovery_and_login_resume():
             guide.get_by_text('設定尚未完成', exact=True).wait_for()
             expect(guide.get_by_role('button', name='繼續設定', exact=True)).to_be_visible()
             navigation = page.get_by_role('navigation', name='主選單')
-            expect(navigation.get_by_role('button')).to_have_count(5)
-            for label in ('智能管家', '設備', '自動化', '紀錄', '設定'):
+            expect(navigation.get_by_role('button')).to_have_count(6)
+            for label in ('家庭', '智能管家', '設備', '自動化', '紀錄', '設定'):
                 expect(navigation.get_by_role('button', name=label)).to_have_count(1)
-            assert page.locator('.brand').get_attribute('href') == '#gateway'
+            assert page.locator('.brand').get_attribute('href') == '#entry'
             for width in (1440,768,390):
                 page.set_viewport_size({'width':width,'height':900 if width==1440 else 844})
                 page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-                page.screenshot(path=str(root/f'evidence/ui/setup-{width}.png'), full_page=True)
+                page.screenshot(path=str(root/f'evidence/ui/native-home/setup-{width}.png'), full_page=True)
             click_navigation(page, 'Linux 主機')
             assert page.get_by_role('link', name='開啟 Home Assistant').get_attribute('href') == 'http://127.0.0.1:8123/'
             assert page.get_by_role('link', name='個人資料 → 安全性').get_attribute('href') == 'http://127.0.0.1:8123/profile/security'
@@ -282,7 +282,7 @@ def test_setup_links_session_recovery_and_login_resume():
                 page.set_viewport_size({'width':width,'height':900 if width==1440 else 844})
                 page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-                page.screenshot(path=str(root/f'evidence/ui/settings-host-{width}.png'), full_page=True)
+                page.screenshot(path=str(root/f'evidence/ui/native-home/settings-host-{width}.png'), full_page=True)
             hub.get_by_role('link', name='助手帳號').click()
             runtime = page.get_by_role('region', name='Agent 執行環境', exact=True)
             runtime.get_by_role('heading', name='登入外層 Agent', exact=True).wait_for()

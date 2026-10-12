@@ -1,8 +1,8 @@
-export type View = 'home'|'inventory'|'automations'|'history'|'settings'|'host'|'onboarding'|'gateway'|'agents'|'workers';
+export type View = 'entry'|'home'|'inventory'|'automations'|'history'|'settings'|'host'|'onboarding'|'gateway'|'agents'|'workers';
 export function currentRoute(hostMode: boolean): {view:View; task:string|null} {
   const [view, task] = location.hash.slice(1).split('/');
-  const allowed = ['home','inventory','automations','history','settings', ...(hostMode?['host','onboarding','gateway','agents','workers']:[])];
-  return {view: allowed.includes(view) ? view as View : hostMode?(view?'gateway':'onboarding'):'home', task: view==='home' && /^[a-zA-Z0-9_-]{1,100}$/.test(task||'') ? task : null};
+  const allowed = ['home','inventory','automations','history','settings', ...(hostMode?['entry','host','onboarding','gateway','agents','workers']:[])];
+  return {view: allowed.includes(view) ? view as View : hostMode?(view?'gateway':'entry'):'home', task: view==='home' && /^[a-zA-Z0-9_-]{1,100}$/.test(task||'') ? task : null};
 }
 export function SetupGuide({status,hostMode,navigate,view}:{status:any;hostMode:boolean;navigate:(view:View)=>void;view:View}) {
   if (!status) return <div className="setup-loading" role="status">正在讀取家庭與 Agent 的連線狀態…</div>;

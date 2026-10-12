@@ -86,13 +86,20 @@ def latest_source(directory, opener=open_public):
 
 def native_ha_status(opener=None):
     result = {"reachable": False, "onboarding_available": False, "onboarding_complete": False,
-              "steps": [], "native_path": "/onboarding.html", "http_status": None}
+              "steps": [], "native_path": "/onboarding.html", "http_status": None,
+              "contract": {"state": "unreachable", "error_code": "ha_onboarding_unavailable",
+                           "observed_from": "outer_host_to_core_onboarding_api", "stability": "upstream_private_volatile"}}
     try:
         if opener is None:
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect()).open
         with opener(HA_URL, timeout=2) as response:
+            status = getattr(response, "status", 200)
+            if status != 200:
+                result["contract"].update(state="unsupported", error_code="ha_onboarding_contract_changed")
+                return result
             body = response.read(16385)
         result["http_status"] = 200
+        result["contract"].update(state="unsupported", error_code="ha_onboarding_contract_changed")
         if len(body) > 16384:
             return result
         steps = json.loads(body)
@@ -107,9 +114,12 @@ def native_ha_status(opener=None):
             return result
         complete = all(s["done"] for s in clean)
         result.update(reachable=True, onboarding_available=not complete, onboarding_complete=complete, steps=clean)
+        result["contract"].update(state="supported", error_code=None)
     except urllib.error.HTTPError as exc:
         if exc.code in {401, 403, 404, 502, 503}:
             result["http_status"] = exc.code
+        if exc.code == 404:
+            result["contract"].update(state="route_absent", error_code="ha_onboarding_route_absent")
     except Exception:
         pass
     return result
@@ -181,18 +191,8 @@ class InitialSetup:
         return {"state": "bundled", "commit": commit, "source": "bundled"}
 
     def status(self):
-        ready = False
-        try:
-            result = self.run("ip", "-json", "route", "show", "default", timeout=3, check=False)
-            routes = json.loads(result.stdout)
-            ready = result.returncode == 0 and isinstance(routes, list) and any(
-                isinstance(r, dict) and r.get("dev") and r.get("type", "unicast") == "unicast"
-                for r in routes
-            )
-        except Exception:
-            pass
-        return {"network": {"ready": bool(ready), "mode": "automatic", "remote_access": "deferred",
-                            "observation": "outer_host_default_route", "internet_verified": False},
+        from .compatibility import network_status
+        return {"network": network_status(self.run),
                 "hermes": self.state(), "ha": native_ha_status()}
 
     def compose(self, *args, **kwargs):
@@ -206,6 +206,7 @@ class InitialSetup:
         if previous["state"] in {"installing", "needs_reconcile"}:
             raise SetupError("hermes_install_needs_reconcile")
         initial_state(self.data)
+        self.manager.require_compatibility("bootstrap_hermes")
         if shutil.disk_usage(self.root).free < 5 * 1024**3:
             raise SetupError("hermes_install_disk_space")
         images = json.loads((self.product / "images.lock.json").read_text())
@@ -243,13 +244,26 @@ class InitialSetup:
                 scratch.mkdir()
                 os.chown(scratch, 10003, 10003)
                 os.chmod(scratch, 0o700)
-                self.run("docker", "run", "--rm", "--name", container, "--network", "none", "--read-only",
+                probe = self.run("docker", "run", "--rm", "--name", container, "--network", "none", "--read-only",
                          "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--memory", "512m",
                          "--pids-limit", "64", "--cpus", "1", "--user", "10003:10003",
                          "--mount", f"type=bind,src={scratch},dst=/work", "--workdir", "/work",
                          "--env", "HOME=/work", "--env", "HERMES_HOME=/work", "--env", "TMPDIR=/work",
                          "--env", "PYTHONPATH=/opt/hermes:/app", image,
                          "python", "/app/compatibility_probe.py", timeout=90)
+                try:
+                    if len(probe.stdout) > 65536:
+                        raise ValueError
+                    result = json.loads(probe.stdout)
+                    valid = (isinstance(result, dict) and result.get("compatible") is True
+                             and type(result.get("adapter_contract")) is int
+                             and result["adapter_contract"] == 1
+                             and result.get("observed_from") == "runtime_container"
+                             and result.get("cloud_account_verified") is False)
+                except (ValueError, TypeError):
+                    valid = False
+                if not valid:
+                    raise SetupError("hermes_adapter_contract_unavailable")
                 # Stop then re-check: a second browser might have begun auth
                 # during the build. Never replace an authenticated runtime.
                 self.compose("stop", "hermes", timeout=60)

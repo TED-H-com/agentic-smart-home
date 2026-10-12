@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="5" time="26.655" timestamp="2026-10-12T11:43:13.718010-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_hermes_runtime" name="test_real_pinned_hermes_uses_only_controller_mcp[mcp_roundtrip]" time="5.647" /><testcase classname="tests.test_hermes_runtime" name="test_real_pinned_hermes_uses_only_controller_mcp[provider_401]" time="4.395" /><testcase classname="tests.test_hermes_runtime" name="test_real_pinned_hermes_uses_only_controller_mcp[actual_controller_mcp]" time="4.992" /><testcase classname="tests.test_hermes_runtime" name="test_real_pinned_hermes_uses_only_controller_mcp[native_codex_oauth]" time="5.082" /><testcase classname="tests.test_hermes_runtime" name="test_offline_candidate_gate_and_real_upstream_device_flow" time="6.415"><failure message="AssertionError: {&quot;compatible&quot;: false, &quot;adapter_contract&quot;: 1, &quot;error&quot;: &quot;upstream_contract_incompatible&quot;, &quot;cloud_account_verified&quot;: false}&#10;  &#10;assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['docker', 'run', '-v', '/home/ted-h/castle-smarthome/agentic-home/hermes/agentic_hermes:/app/ag...alse, &quot;adapter_contract&quot;: 1, &quot;error&quot;: &quot;upstream_contract_incompatible&quot;, &quot;cloud_account_verified&quot;: false}\n', stderr='').returncode">request = &lt;FixtureRequest for &lt;Function test_offline_candidate_gate_and_real_upstream_device_flow&gt;&gt;
+
+    def test_offline_candidate_gate_and_real_upstream_device_flow(request):
+        if not request.config.getoption("--containers"):
+            pytest.skip("Candidate and native device-flow probes require --containers")
+        name = "agentic-hermes-oauth-" + uuid.uuid4().hex[:12]
+        volume = name + "-data"
+        image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.6.0")
+        common = ["docker", "run", *source_mounts(), "--rm", "--name", name, "--network=none", "--read-only", "--cap-drop=ALL",
+                  "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "-v", volume + ":/data",
+                  "-e", "HOME=/data", "-e", "HERMES_HOME=/data", "-e", "TMPDIR=/data",
+                  "-e", "PYTHONPATH=/app:/opt/hermes", "--entrypoint=python", image]
+        try:
+            gate = subprocess.run(common + ["/app/compatibility_probe.py"], capture_output=True, text=True, timeout=90)
+&gt;           assert gate.returncode == 0, gate.stdout[-3000:] + gate.stderr[-3000:]
+E           AssertionError: {"compatible": false, "adapter_contract": 1, "error": "upstream_contract_incompatible", "cloud_account_verified": false}
+E             
+E           assert 1 == 0
+E            +  where 1 = CompletedProcess(args=['docker', 'run', '-v', '/home/ted-h/castle-smarthome/agentic-home/hermes/agentic_hermes:/app/ag...alse, "adapter_contract": 1, "error": "upstream_contract_incompatible", "cloud_account_verified": false}\n', stderr='').returncode
+
+tests/test_hermes_runtime.py:785: AssertionError</failure></testcase></testsuite></testsuites>

@@ -41,7 +41,7 @@ def updater(tmp_path):
     private = Ed25519PrivateKey.generate()
     public = private.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()
     service.publishers = lambda: {"fixture": {"public_key_pem": public, "image_repository": "ghcr.io/fixture/controller"}}
-    manifest = {"format": 1, "publisher": "fixture", "version": "0.6.0", "source_commit": "b" * 40,
+    manifest = {"format": 1, "publisher": "fixture", "version": "0.6.1", "source_commit": "b" * 40,
                 "image": "ghcr.io/fixture/controller@sha256:" + "c" * 64, "image_id": "sha256:" + "d" * 64,
                 "compatibility": {"schema": 3, "worker_contract": 1, "runner_protocol": 1, "runtime_digest": service.runtime_digest(), "ha_core_versions": ["2026.10.1"]},
                 "tests": [{"name": "regression", "result": "passed", "sha256": "e" * 64}], "issued_at": time.time() - 1, "expires_at": time.time() + 1000}
@@ -258,7 +258,7 @@ def test_fixed_probe_launch_and_database_handles_close_before_volume_release(
 
     monkeypatch.setattr(module, "DiskVolume", DiskFixture)
     monkeypatch.setattr(module, "os", SimpleNamespace(chown=test_chown))
-    image = "agentic-home-controller:0.6.0"
+    image = "agentic-home-controller:0.6.1"
 
     def execute(*args, **kwargs):
         if args[:2] == ("docker", "run"):

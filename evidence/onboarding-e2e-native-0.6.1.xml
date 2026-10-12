@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="43.051" timestamp="2026-10-12T12:02:58.088431-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_onboarding_e2e" name="test_composed_onboarding_browser_services_and_native_home" time="43.012" /></testsuite></testsuites>

@@ -9,9 +9,11 @@
 
 0.6.0 本輪新增真正 tools-enabled Codex Host coding、獨立角色登入／受控出站、可信停止恢復、全鏈保存期限、成果與隔離截圖預覽、同 case 工作追蹤、家庭精確提案橋接、簽名候選 Controller 更新／退版，以及 Tailscale 選項。UI 已按 1440／768／390 px 截圖調整。這是程式交付；真帳號、Owner laptop、Home App coding 與完整 E1／E2 仍需要各自驗收。技術邊界見 [Workers](../WORKERS.md) 與 [Updates](../UPDATES.md)，本輪結果見 [驗證](../VERIFICATION.md)。
 
-0.6.0 最終 CI **469 passed／4 skipped**；精確 ISO／harness `6847a03` 完整安裝 **1 passed／1789.412 秒**，含真 Codex 工具／固定模型 transport、最新版 Hermes、官方 HAOS、同 schema Controller 更新／退版、快照恢復與外層重啟。只更新 T3-01／T3-05 的 E0 工程證據，其餘 30 案仍為 `not_run`；真家庭與雲端整案不得以 fixture 代替。使用者提出的 HA 原生首頁方向仍在 [介面評估](../ONBOARDING.md#原生家庭首頁與智能管家2026-10-12-介面方向評估)，尚未實作。
+0.6.0 最終 CI **469 passed／4 skipped**；精確 ISO／harness `6847a03` 完整安裝 **1 passed／1789.412 秒**，含真 Codex 工具／固定模型 transport、最新版 Hermes、官方 HAOS、同 schema Controller 更新／退版、快照恢復與外層重啟。只更新 T3-01／T3-05 的 E0 工程證據，其餘 30 案仍為 `not_run`；真家庭與雲端整案不得以 fixture 代替。後續原生首頁與上游 adapter 整合見 [入口流程](../ONBOARDING.md#原生家庭首頁與智能管家)及 [相容邊界](../ADAPTERS.md)；HA 側欄外層 bridge 仍待整合。
 
 Home 隔離基礎已有 [真 HAOS 18.3 App 證據](../../evidence/haos-app-boundary.json)：預設設定無法建立 mount namespace；增加 `SYS_ADMIN` 與限定 cgroup2 掛載位置的 AppArmor 診斷設定後，可在獨立 App cgroup namespace 委派資源限制並實際觸發記憶體 OOM kill。這修正了「平台無可行隔離路徑」的假設，尚未交付 Home coding launcher、模型憑證／出站／工作區完整隔離或真雲端執行。32 個案例的狀態不變。
+
+0.6.1 接續原生 HA 日常入口、返回救援／管家、Hermes 私有接點 facade、候選 contract gate 與 Linux 固定動作能力檢查。真 Core 導向與對話接續已在隔離 E2E 通過，完整媒體驗證另見 [最新紀錄](../VERIFICATION.md)；這些工程能力不新增真家庭驗收 passed 案例。
 
 ## 記錄規則
 

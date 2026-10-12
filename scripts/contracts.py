@@ -10,6 +10,7 @@ from agentic_controller.models import (
     AutomationIntent,
     BootstrapStart,
     BootstrapStatus,
+    HomeEntry,
     Policy,
     provider_schema,
 )
@@ -52,6 +53,7 @@ def main():
                        "hermes-auth": HermesAuth.model_json_schema(),
                        "bootstrap-start-v1": BootstrapStart.model_json_schema(),
                        "bootstrap-status-v1": BootstrapStatus.model_json_schema(),
+                       "home-entry-v1": HomeEntry.model_json_schema(),
                        "runner-bootstrap-job-v1": BootstrapJob.model_json_schema(),
                        "runner-bootstrap-result-v1": BootstrapResult.model_json_schema(),
                        "controller.openapi": app.openapi(),

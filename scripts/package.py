@@ -7,7 +7,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.6.0"
+VERSION = "0.6.1"
 EXCLUDED = {"__pycache__", "node_modules", "test-results", ".pytest_cache", ".ruff_cache"}
 
 

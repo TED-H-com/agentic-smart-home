@@ -1,4 +1,16 @@
-# Agentic Smart Home 0.6.0 驗證
+# Agentic Smart Home 0.6.1 驗證
+
+本輪交付原生 HA 日常入口與上游 adapter 邊界，詳細見 [整合審查](reviews/2026-10-12-NATIVE-HOME-ADAPTERS.md)。資料格式仍為 schema 3；HA 側欄外層 bridge、Home coding、真帳號與完整 OS 更新／退版未由本輪測試建立。
+
+本機全套首次為 **599 passed、1 failed、3 skipped／297.07 秒**；失敗為新增原生頁面測試漏走 HA 自己的瀏覽器登入。補上登入後另發現最小 Core fixture 未啟用 Lovelace，且有 loopback HTTP 設定待確認；測試現依原生畫面完成確認並等待真正 dashboard。修正僅在 harness，未搬移 token 或修改 HA 前端。保留 [初次結果](../evidence/pytest-0.6.1-native-login-initial.xml)及 [迭代範圍](../evidence/native-entry-initial-checks.json)。
+
+修正後真服務 composed E2E **1 passed／43.05 秒**，完成原生登入、真 Core dashboard、裸入口導向、Back／reload 外層返回、明確管家入口及同 case MCP 對話接續，見 [JUnit](../evidence/onboarding-e2e-native-0.6.1.xml)、[服務證據](../evidence/onboarding-e2e.json)及 [真 Core 截圖](../evidence/ui/e2e-native-dashboard.png)。模型與 Host 副作用仍為合成 fixture；不是實體家庭或雲端帳號驗收。
+
+Hermes 的封裝基準 `835c3dd…` 和當時官方最新 `7cc3fb8…` 均完成獨立候選建置與 contract 1 測試，沒有啟用候選，清理已確認。見 [locked](../evidence/upstream-locked-0.6.1.json)、[latest](../evidence/upstream-candidate-0.6.1.json)。負向測試涵蓋上游符號缺失、必要參數改變、壞回應、契約版本不合與下載失敗。UI 的 [三尺寸截圖](../evidence/ui/native-home/README.md) 使用 Chromium／合成 API 狀態，與真 Core 截圖分開標示。
+
+0.6.1 的 GitHub 完整 CI 及精確 ISO 安裝尚在本輪交付流程中；下列 0.6.0 成果保留為歷史，不算新版媒體通過。
+
+## 0.6.0 歷史驗證
 
 使用者要求對話優先後，主選單已改為五项，進度與成果留在智能管家同一段對話，技術設定收起。[新版24張截圖](../evidence/ui/chat-first/README.md) 已檢视桌面／平板／手機。
 **最新 GitHub [CI 38266420366](https://github.com/teddashh/agentic-smart-home/actions/runs/38266420366)：469 passed、4 skipped／392.548 秒**，測試來源 `c6cff8fbebf087665a592484dd5587227a3e62f4`，見 [CI 記錄](../evidence/github-ci-0.6.0.json)及 [JUnit](../evidence/pytest-0.6.0-github.xml)。包含真 Core、CLI 容器與瀏覽器回歸；四項跳過為 UID1000 桌面單元案例和三個獨立大型 VM 案例。媒體來源為 `6847a03c8f5d1ad2a100df76eaaf8f3eca323794`；兩者差異只有測試 fixture、文件與證據。CI ZIP 的 680 檔 manifest 全部核對，精確媒體內 131 份執行來源／編譯資產完全一致，僅驗證文件新增後續紀錄，見 [來源核對](../evidence/ci-media-match-0.6.0.json)。
