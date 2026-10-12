@@ -1,8 +1,8 @@
 {
   "version": "0.4.0",
-  "scope": "Git publication allowlist including installed failure and cancellation reports; private parent and ignored runtime data excluded",
+  "scope": "Git publication allowlist including final installed validation, CI and archived failure reports; private parent and ignored runtime data excluded",
   "scanner": "Gitleaks 8.30.1",
   "findings": 0,
-  "files": 262,
+  "files": 266,
   "date": "2026-10-12"
 }

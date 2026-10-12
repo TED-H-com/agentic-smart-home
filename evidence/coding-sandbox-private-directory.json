@@ -1,0 +1,38 @@
+{
+  "kind": "fixed_launcher_private_directory_probe",
+  "runtime_location": "development_host_docker",
+  "source_commit": "cb11ffd",
+  "result": "passed",
+  "image_id": "sha256:669d1474ab8083186b282a3dd785093a7ac1de24c42d4121f5afac0a17ee75d3",
+  "method": "Launch the unchanged container_command with a UID 10000 private source directory. A disposable setup container prepares ownership only inside the unique disk-backed fixture bind mount.",
+  "fixture_modes": {
+    "workspace": {"uid": 0, "mode": "0755"},
+    "source": {"uid": 10000, "mode": "0700"},
+    "source/sample.py": {"uid": 10000, "mode": "0600"},
+    "profile": {"uid": 10000, "mode": "0700"},
+    "scratch": {"uid": 10000, "mode": "0700"},
+    "artifacts": {"uid": 10000, "mode": "0700"},
+    "task.py": {"uid": 0, "mode": "0444"}
+  },
+  "launch_profile": "Unchanged fixed root watchdog, workdir /work/source, capability drop ALL plus SETUID/SETGID/SETPCAP/KILL, followed by UID 10000 with no capabilities.",
+  "checks": {
+    "docker_create_exit": 0,
+    "docker_start_exit": 0,
+    "container_exit": 0,
+    "container_pid_after_exit": 0,
+    "task_euid": 10000,
+    "read_private_source_file": "passed",
+    "write_private_artifact_directory": "passed",
+    "start_stderr_empty": true,
+    "task_stderr_empty": true,
+    "temporary_directory_removed": true,
+    "test_containers_removed": true
+  },
+  "loop_mounts_used": false,
+  "privileged_containers_used": false,
+  "model_backend": "none",
+  "limitations": [
+    "Tests the frozen launcher and exact restrictive ownership modes using an ordinary disk-backed directory, without invoking the root prepare method or its ext4 loop mount.",
+    "No evidence of installed-VM disk quota, HAOS App operation or cloud coding capability."
+  ]
+}

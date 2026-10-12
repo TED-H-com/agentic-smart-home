@@ -22,6 +22,7 @@
   "cloud_login": "not_run",
   "remote_alert_rescan": "completed",
   "open_alerts": 0,
-  "checked_at": "2026-10-12T02:48:07.104471+00:00",
-  "commit": "69a1a2470988a47f3520cf7081a3435b3e19fdae"
+  "checked_at": "2026-10-12T04:51:36.577176+00:00",
+  "commit": "69a1a2470988a47f3520cf7081a3435b3e19fdae",
+  "rescan_commit": "cb11ffd8c0d3eb48a9854fd51add030a1df936e9"
 }
