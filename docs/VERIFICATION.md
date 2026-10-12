@@ -8,15 +8,23 @@
 
 Host gate 修正後，本機產品回歸 **790 passed、3 skipped／346.04 秒**，見 [JUnit](../evidence/pytest-0.7.0-host-gate.xml)，包含 `--real-ha --containers`。這輪排除同步補強的兩個安裝測試檔；兩檔另行 **74 passed、1 skipped／1.02 秒**，見 [安裝驗證腳本](../evidence/installed-bridge-contract-unit.xml)。合計範圍涵蓋全部本機回歸；四個 VM 案例需另行執行。
 
+來源 `9146b38`、ISO `44aaa2ba…` 的首輪完整安裝為 **1 failed／1116.21 秒**，失敗於建立 HAOS。Ubuntu、真正 Host 能力握手、角色登入、Controller 停止救援、sandbox、真 Codex 工具與隨附 Hermes 準備已通過；更新／退版與後續 HAOS 檢查尚未執行。見 [失敗 JUnit](../evidence/linux-install-0.7.0-provision-failure.xml)及 [保留階段](../evidence/installed-0.7.0-run1-prior-stages/manifest.json)。原診斷未辨識固定 Host 錯誤、也未保存最後相容性檢查，不能據此判定原因。一次性 VM 與磁碟目錄已清除；補強診斷後沿用相同媒體重驗，不放寬產品或測試期限。
+
+補強後的 [安裝診斷回歸](../evidence/installed-failure-diagnostics-unit.xml)為 **101 passed、1 skipped／1.178 秒**。保留固定 Host 錯誤、各相容性檢查的原因與最後 action，唯讀核對產品 VM／網路 ownership 和固定磁碟狀態；不公開原始日誌、XML、路徑或帳號資料。最後 action 可能為 `start`，因為 provision 後段會執行啟動檢查；診斷不重跑檢查覆蓋原證據。這輪只改 harness，不改 ISO 或產品程式。
+
 Host gate 前的完整回歸為 **814 passed、4 skipped／424.07 秒**，見 [封存 JUnit](../evidence/pytest-0.7.0-before-host-gate.xml)。四個 skipped 是需另行啟用的 HAOS App boundary、HAOS 備份、薄 App、Linux ISO VM 案例。協定 fixture 與真服務分別標記；本節不沿用下方 0.6.1 的 passed 或 ISO 證據充當新版結果。
 
 第一輪為 **802 passed、4 skipped、1 failed／497.01 秒**；sandbox deadline 案例等待 Docker 結束逾時，見 [原始結果](../evidence/pytest-0.7.0-deadline-failure.xml)。原次沒有保存容器停止狀態，原因未確定。新增有界診斷後定向測試 **23 passed**，最終全套也通過；[deadline](../evidence/coding-boundary-deadline.json) 實測約 10 秒退出、所有子程序消失、清理完成，沒有放寬 10 秒 watchdog 或 20 秒控制等待限制。
 
 定向證據另有 [薄 App](../evidence/bridge-app.xml)、[Controller／修復](../evidence/bridge-controller-repair.xml)、[維護](../evidence/bridge-maintenance.xml)、[UI](../evidence/bridge-ui.xml)、[官方 Supervisor schema](../evidence/bridge-supervisor-schema.xml)及 [App 容器生命週期](../evidence/bridge-container.xml)。
 
-GitHub 首次乾淨安裝揭露 setuptools 將 `static` 目錄誤認成 namespace package。已限制為三個真正的 `agentic_*` 模組；兩份獨立 git archive 的 build／frozen sync 均通過，見 [失敗與修正](../evidence/github-ci-0.7.0-packaging-failure.json)。修正版來源為 `5bf6babab1b9f23923c8352bd3d497288dd5c3fe`，GitHub [CI 38289833372](https://github.com/teddashh/agentic-smart-home/actions/runs/38289833372) **812 passed、6 skipped／486.541 秒**，見 [記錄](../evidence/github-ci-0.7.0.json)與 [JUnit](../evidence/pytest-0.7.0-github.xml)。CI 另跳過 UID 1000 專項桌面測試及需本機 builder 的 QEMU 磁碟探針。來源 ZIP 的 918 個 manifest 檔案均核對通過；映像由 CI 獨立建置，不宣稱與本機 digest 相同。
+GitHub 首次乾淨安裝揭露 setuptools 將 `static` 目錄誤認成 namespace package。已限制為三個真正的 `agentic_*` 模組；兩份獨立 git archive 的 build／frozen sync 均通過，見 [失敗與修正](../evidence/github-ci-0.7.0-packaging-failure.json)。gate 前的修正版來源為 `5bf6babab1b9f23923c8352bd3d497288dd5c3fe`，GitHub [CI 38289833372](https://github.com/teddashh/agentic-smart-home/actions/runs/38289833372) **812 passed、6 skipped／486.541 秒**，見 [封存記錄](../evidence/github-ci-0.7.0-candidate.json)與 [JUnit](../evidence/pytest-0.7.0-github-candidate.xml)。CI 另跳過 UID 1000 專項桌面測試及需本機 builder 的 QEMU 磁碟探針。來源 ZIP 的 918 個 manifest 檔案均核對通過；映像由 CI 獨立建置，不宣稱與本機 digest 相同。
+
+最新來源 `9146b38f6cbe04c0d3cfdc221b7b397a4f40261f` 的 GitHub [CI 38295508318](https://github.com/teddashh/agentic-smart-home/actions/runs/38295508318) **862 passed、6 skipped／486.682 秒**，見 [記錄](../evidence/github-ci-0.7.0.json)與 [JUnit](../evidence/pytest-0.7.0-github.xml)。947 個 source ZIP manifest 項目與 artifact digest 全部核對。ISO bundle 中全部可與來源對應的 **149 份執行／設定檔與 49 份文件**也逐檔吻合 CI，見 [完整來源比對](../evidence/ci-media-match-0.7.0.json)；六份生成資產另由 build manifest 核對，CI 映像 ID 不宣稱與本機相同。
 
 真正 **HAOS 18.3／Core 2026.10.1／Supervisor 2026.09.3** 第三輪本地來源安裝 **7 passed／295.10 秒**，見 [結果](../evidence/bridge-haos-local.json)、[JUnit](../evidence/bridge-haos-local.xml)及 [原生側欄截圖](../evidence/ui/bridge-native-haos-local.png)。包含真 Supervisor 安裝、TLS 指紋錯誤拒絕、偽造身份拒絕、Owner 瀏覽器登入、CSRF、重送去重、同 case 續聊、App 重啟保留與人工停止不復活。模型使用明示協定 fixture，沒有雲端帳號；公開 GitHub source delivery 見下方；新版完整 ISO 安裝接著另驗。
+
+Host gate 修正後的公開 GitHub source delivery 在全新 HAOS 為 **18 passed／291.89 秒**，見 [結果](../evidence/bridge-haos-public.json)、[JUnit](../evidence/bridge-haos-public.xml)及 [原生側欄截圖](../evidence/ui/bridge-native-haos-public.png)。來源 `9146b38f6cbe04c0d3cfdc221b7b397a4f40261f` 無未提交執行碼，Controller 映像為 `sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60`。正式 `host_call` 經真 Unix socket 讀取能力 34 次；Host 回應與模型為明示 fixture，並非已安裝 Host 或雲端驗收。公開 App 安裝、真 Owner／Ingress、CSRF、同 case、原生 browser reload、重啟及人工停止均通過，測試資源已清理。
 
 Host gate 前的公開 GitHub source delivery 以全新 HAOS 完成 **17 passed／253.98 秒**，見 [封存結果](../evidence/bridge-haos-public-before-host-gate.json)、[JUnit](../evidence/bridge-haos-public-before-host-gate.xml)與 [原生側欄截圖](../evidence/ui/bridge-native-haos-public-before-host-gate.png)。正式管理器從 `release/0.7.0` 安裝 `0.7.0` 薄 App，讀回實際 repo／ref／版本及權限；未拷入本機 App source 或預載 App 映像。真 Owner／Ingress／CSRF／對話接續／App 重啟／人工停止通過；模型仍為 fixture，外層使用乾淨 `5bf6bab` 來源及本機候選映像。Supervisor 信任來源分支，不提供原子 commit/digest 安裝保證。
 

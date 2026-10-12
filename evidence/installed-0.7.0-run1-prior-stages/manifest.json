@@ -1,0 +1,22 @@
+{
+  "source_commit": "9146b38f6cbe04c0d3cfdc221b7b397a4f40261f",
+  "iso_sha256": "44aaa2baea15ee0ba80bd3291fd0dcdd5e790823995514c8ff7857ba05d76a95",
+  "status": "failed_at_nested_haos_provision",
+  "retained_stages_do_not_mean_complete_install_passed": true,
+  "cleanup": {
+    "owned_vm_removed": true,
+    "disk_basetemp_removed": true
+  },
+  "files": {
+    "installed-auth-laptop-amd64.json": "66fdc90b339d02c527946481d200c04016e486b4ea08b3f40bc44c0d9fb68fde",
+    "installed-process-auth-laptop-amd64.json": "7c1a363b0e735238b508dcd94cd5c06d7d67fa19e6d796a53c93da7d40703fa8",
+    "installed-rescue-laptop-amd64.json": "c710ffe7619a315231eb234871c3d8825991993601e61e9714f32ca5c821eb3f",
+    "installed-sandbox-laptop-amd64.json": "04b0a1846d9c97afe07e3703c08d7be8aaeac7aeb9057bd86cdf4e3710e1ca0f",
+    "installed-process-sandbox-laptop-amd64.json": "c9700540c783a24bb90bc7f9388c4c5a2e1fe470b3dbaf57d54740a5c052e4b4",
+    "installed-coding-laptop-amd64.json": "443878111d5d7ae2c900ea2007052c9a191dbea41b94eb17c1659c88a74806f3",
+    "installed-process-coding-laptop-amd64.json": "847afaf2bf8cc81afe3ea532cde49de4e59f0288a0ccd867d5b40df5d090df33",
+    "installed-hermes-laptop-amd64.json": "8dc8c05f713c127cbeb1d245ef97f5d935081e3ffbcc8840c4a127a31e6ddfa7",
+    "installed-progress-laptop-amd64.json": "2282b6625e1326f73fe218f27ed93edbc24f6344e53c12c3e167d94cc808fd3c",
+    "installed-failure-laptop-amd64.json": "f61167c8307e90b0d43c9d58057aab6f724075d03e9d38b35574ddf2d53cd427"
+  }
+}

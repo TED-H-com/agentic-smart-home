@@ -7,14 +7,18 @@ activation, authenticated smoke, SQLite snapshots and rollback execute for real.
 import base64
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
 import sqlite3
+import stat
 import subprocess
 import sys
 import time
 import uuid
+import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from pathlib import Path
 from types import SimpleNamespace
@@ -61,20 +65,123 @@ ERROR_TYPES = {"RuntimeError", "AssertionError", "HostError", "UpdateError", "OS
                "PermissionError", "ImportError", "ModuleNotFoundError", "TimeoutExpired", "CalledProcessError",
                "ValueError", "KeyError", "TypeError", "JSONDecodeError", "OperationalError", "SandboxError"}
 LIFECYCLE_ACTIONS = {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes"}
+HOST_CONTRACT_CHECKS = {"linux_runtime", "libvirt_connection", "libvirt_kvm", "route_json", "default_route",
+                        "sparse_copy", "qemu_image", "docker_limits", "compose_api"}
+HOST_CONTRACT_ERRORS = {"command_missing", "permission_denied", "probe_timeout", "command_failed",
+                        "response_invalid", "required_capability_missing"}
+HOST_COMMANDS = {"cp", "virsh", "qemu-img", "chmod", "chown", "iptables", "ip", "docker"}
+HOST_VM_STATES = {"running", "blocked", "paused", "in shutdown", "shut off", "crashed", "pmsuspended"}
+HOST_SETUP_ERRORS = {
+    "upstream_redirect_refused", "upstream_origin_refused", "upstream_metadata_invalid", "upstream_revision_invalid",
+    "upstream_archive_limit", "upstream_archive_path", "upstream_archive_special_file", "existing_hermes_account",
+    "existing_hermes_state", "existing_hermes_sessions", "candidate_image_invalid", "candidate_environment_invalid",
+    "hermes_install_needs_reconcile", "hermes_install_disk_space", "bundled_image_invalid", "hermes_adapter_contract_unavailable",
+    "hermes_install_failed", "hermes_fallback_unconfirmed", "hermes_install_interrupted",
+}
 LIFECYCLE_ERRORS = {
+    "Profile fields do not match schema 1": "host_profile_schema_invalid",
+    "Unknown Linux base": "host_linux_base_unknown", "Invalid profile id": "host_profile_id_invalid",
+    "Invalid profile label": "host_profile_label_invalid", "Invalid profile flags": "host_profile_flags_invalid",
+    "Reserve at least 2 GiB for the outer Linux": "host_memory_reserve_required",
+    "This release provisions the dedicated NAT network only": "host_profile_network_unsupported",
+    **{"Invalid profile " + key: "host_profile_" + key + "_invalid" for key in ("memory_mib", "vcpus", "disk_gib")},
+    **{"host_contract_" + key + "_unavailable": "host_contract_" + key + "_unavailable" for key in HOST_CONTRACT_CHECKS},
     "Another host operation is running": "host_operation_busy",
     "HAOS has not been provisioned by this product": "haos_not_provisioned",
     "Existing VM is not owned by Agentic Home": "haos_ownership_mismatch",
     "VM disk was changed outside Agentic Home": "haos_disk_changed",
+    "KVM unavailable; enable Intel VT-x / AMD-V in firmware": "host_kvm_unavailable",
+    "Existing VM or image directory has no ownership record; refusing to replace": "haos_existing_resource_unowned",
+    "192.168.177.0/24 overlaps an existing route": "host_network_route_overlap",
+    "Installed profile differs from VM ownership record; no implicit replacement": "haos_profile_changed",
+    "Finish the recorded restore before starting the VM": "haos_restore_pending",
+    "Existing network is not owned by Agentic Home": "host_network_unowned",
+    "Interrupted restore: re-run restore with the recorded snapshot id": "haos_restore_interrupted",
+    "VM definition is missing; run provision": "haos_definition_missing",
+    "VM definition is missing": "haos_definition_missing",
     "HAOS has not shut down; no forced power-off was performed": "haos_shutdown_unconfirmed",
     "Shut down HAOS before restoring": "restore_requires_shutdown",
     "Invalid snapshot id": "snapshot_id_invalid",
     "Snapshot ownership mismatch": "snapshot_ownership_mismatch",
     "Snapshot checksum mismatch": "snapshot_checksum_mismatch",
     "A different restore must be completed first": "restore_conflict",
+    "Unknown lifecycle operation": "host_lifecycle_unknown", "Unknown lifecycle action": "host_lifecycle_unknown",
+    "Unknown job fields": "host_job_fields_invalid", "Invalid operation id": "host_operation_id_invalid",
+    "Unexpected snapshot": "host_snapshot_unexpected",
+    "Idempotency key reused with different operation": "host_operation_id_conflict",
+    "Invalid locked artifact": "host_artifact_lock_invalid", "Refusing symlink in artifact cache": "host_artifact_symlink_refused",
+    "Artifact redirected away from HTTPS": "host_artifact_https_required",
     "host_service_unavailable": "host_service_unavailable",
     "broker_role_forbidden": "broker_role_forbidden",
 }
+HOST_MECHANISM_ERRORS = {"host_command_failed", "host_artifact_cached_checksum_mismatch", "host_artifact_download_checksum_mismatch",
+                         "host_vm_state_unexpected", "host_file_missing", "host_permission_denied", "host_disk_full",
+                         "host_readonly_filesystem", "host_io_error"}
+
+
+def lifecycle_error(message):
+    """Classify bounded mechanisms, never return any part of exception prose."""
+    if not isinstance(message, str) or len(message) > 4096:
+        return None
+    if message in LIFECYCLE_ERRORS:
+        return LIFECYCLE_ERRORS[message]
+    if message in HOST_SETUP_ERRORS | SAFE_ERRORS:
+        return message
+    if any(message.startswith(name + ":") for name in HOST_COMMANDS):
+        return "host_command_failed"
+    if message.startswith("Cached checksum mismatch: ") and message.endswith("; remove corrupt file explicitly"):
+        return "host_artifact_cached_checksum_mismatch"
+    if message.startswith("Downloaded artifact checksum mismatch: "):
+        return "host_artifact_download_checksum_mismatch"
+    if message.startswith("VM is "):
+        return "host_vm_state_unexpected"
+    for number, code in ((2, "host_file_missing"), (13, "host_permission_denied"), (28, "host_disk_full"),
+                         (30, "host_readonly_filesystem"), (5, "host_io_error")):
+        if message.startswith(f"[Errno {number}] "):
+            return code
+    return None
+
+
+def compatibility_receipt(value, action=None):
+    """Project the last stored check; never rerun compatibility after a failure."""
+    action = action if isinstance(action, str) and action in LIFECYCLE_ACTIONS else None
+    result = {"observation": "missing_or_unreadable" if value is None else "invalid", "state": "unknown",
+              "scope": "required_fixed_host_contracts", "reuse_for_mutations": False, "action": None,
+              "requested_action": action, "matches_lifecycle_action": None, "observed_at": None, "checks": []}
+    if not isinstance(value, dict):
+        return result
+    if action is None and isinstance(value.get("requested_action"), str) and value["requested_action"] in LIFECYCLE_ACTIONS:
+        result["requested_action"] = action = value["requested_action"]
+    if isinstance(value.get("observation"), str) and value["observation"] in {"missing_or_unreadable", "invalid"} and not value.get("checks"):
+        result["observation"] = value["observation"]
+        return result
+    checks = value.get("checks")
+    if value.get("scope") != result["scope"] or not isinstance(checks, list) or len(checks) > 16:
+        return result
+    result["action"] = value.get("action") if isinstance(value.get("action"), str) and value["action"] in LIFECYCLE_ACTIONS else None
+    result["matches_lifecycle_action"] = result["action"] == action if action is not None else None
+    timestamp = value.get("observed_at")
+    if type(timestamp) in {int, float} and 0 <= timestamp <= 4102444800 and math.isfinite(timestamp):
+        result["observed_at"] = timestamp
+    known, invalid = set(), False
+    for check in checks:
+        if not isinstance(check, dict) or not isinstance(check.get("id"), str) or check["id"] not in HOST_CONTRACT_CHECKS or check["id"] in known:
+            invalid = True
+            continue
+        known.add(check["id"])
+        state, code = check.get("state"), check.get("error_code")
+        valid = (state == "supported" and code is None) or (state == "blocked" and isinstance(code, str) and code in HOST_CONTRACT_ERRORS)
+        invalid |= not valid
+        affected = check.get("affected_actions", [])
+        result["checks"].append({"id": check["id"], "state": state if valid else "unknown",
+            "error_code": code if valid else "unknown", "observed_from": "outer_host_fixed_probe",
+            "affected_actions": sorted({item for item in affected if isinstance(item, str) and item in LIFECYCLE_ACTIONS})
+                if isinstance(affected, list) and len(affected) <= 6 else []})
+    state = value.get("state")
+    if isinstance(state, str) and state in {"supported", "blocked"} and result["checks"] and not invalid and result["action"] and result["observed_at"] is not None:
+        result["state"] = state
+        result["observation"] = "ok"
+    return result
 
 
 def validate_guard(uid, marker, hostname, serials, virtualization, installed):
@@ -187,6 +294,14 @@ def process_diagnostics(result):
                 "timeout": ("timed out", "timeoutexpired", "timeout error"),
                 "disk_full": ("no space left on device",), "read_only_filesystem": ("read-only file system",),
                 "io_error": ("input/output error",), "oom": ("out of memory", "oom-kill", "killed process"),
+                "file_missing": ("no such file or directory", "cannot find the file"),
+                "kvm_unavailable": ("failed to initialize kvm", "kvm is not supported", "kvm unavailable", "could not access kvm"),
+                "libvirt_connection": ("failed to connect to the hypervisor", "failed to connect socket"),
+                "firmware_unavailable": ("unable to find any master var store", "could not find any firmware", "unable to find 'ovmf"),
+                "network_conflict": ("overlaps an existing route", "network is already in use", "address already in use"),
+                "checksum_mismatch": ("checksum mismatch",), "image_invalid": ("image is corrupt", "not in qcow2 format", "unsupported image format"),
+                "security_policy_denied": ("apparmor=\"denied\"", "avc:  denied", "operation not permitted"),
+                "resource_unavailable": ("cannot allocate memory", "resource temporarily unavailable", "too many open files"),
             }.items()}}
 
 
@@ -345,19 +460,50 @@ def lifecycle_receipt(value):
     message = value.get("message", "")
     if not isinstance(message, str):
         message = ""
-    known = LIFECYCLE_ERRORS.get(message)
+    known = lifecycle_error(message)
     supplied = value.get("error_code")
     if not isinstance(supplied, str):
         supplied = None
-    result["error_code"] = (known or supplied) if (known or supplied) in set(LIFECYCLE_ERRORS.values()) | SAFE_ERRORS else "unclassified_host_error"
+    result["error_code"] = (known or supplied) if (known or supplied) in set(LIFECYCLE_ERRORS.values()) | SAFE_ERRORS | HOST_SETUP_ERRORS | HOST_MECHANISM_ERRORS else "unclassified_host_error"
     if result["state"] == "succeeded":
         result["error_code"] = None
-    result["operation"] = next((name for name in ("cp", "virsh", "qemu-img", "chmod", "chown") if message.startswith(name + ":")), None)
-    if result["operation"] is None and value.get("operation") in ("cp", "virsh", "qemu-img", "chmod", "chown"):
+    result["operation"] = next((name for name in sorted(HOST_COMMANDS) if message.startswith(name + ":")), None)
+    if result["operation"] is None and isinstance(value.get("operation"), str) and value["operation"] in HOST_COMMANDS:
         result["operation"] = value["operation"]
     result["message_signatures"] = process_diagnostics(subprocess.CompletedProcess([], None, "", message))["stderr_signatures"]
     if isinstance(value.get("message_signatures"), dict):
         result["message_signatures"] = {key: value["message_signatures"].get(key) is True for key in result["message_signatures"]}
+    return result
+
+
+def product_file_metadata(path):
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        return {"kind": "absent"}
+    except OSError:
+        return {"kind": "unreadable"}
+    kind = "regular" if stat.S_ISREG(info.st_mode) else "directory" if stat.S_ISDIR(info.st_mode) else "symlink" if stat.S_ISLNK(info.st_mode) else "other"
+    return {"kind": kind, **({"bytes": info.st_size} if kind == "regular" and 0 <= info.st_size <= 2**63 else {})}
+
+
+def libvirt_receipt(status, text, kind, owner):
+    result = {"observation": status, "xml_valid": False, "name_matches": None, "ownership_matches": None}
+    try:
+        if status != "ok" or not isinstance(text, str) or len(text.encode()) > 65536:
+            return result
+        value = ET.fromstring(text)
+        if value.tag != kind:
+            return result
+        result["xml_valid"] = True
+        result["name_matches"] = value.findtext("name") == ("agentic-home-haos" if kind == "domain" else "agentic-home")
+        actual = value.findtext("metadata/{https://agentic-home.local/managed/v1}owner")
+        result["ownership_matches"] = (actual == owner and (kind != "domain" or value.findtext("uuid") == owner)) if owner else None
+        if kind == "domain":
+            disks = value.findall("devices/disk/source")
+            result["disk_matches"] = len(disks) == 1 and disks[0].get("file") == "/var/lib/libvirt/images/agentic-home/haos.qcow2"
+    except (ValueError, ET.ParseError, RecursionError):
+        pass
     return result
 
 
@@ -376,8 +522,26 @@ def failure_observation(identifier=None, action=None):
             if receipt and ((identifier and receipt["id"] == identifier) or (not identifier and receipt["action"] == action)):
                 result["jobs"].append(receipt)
         result["jobs"] = result["jobs"][-5:]
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError, RecursionError):
         result["job_read_failed"] = True
+    try:
+        raw = _read(Path("/var/lib/agentic-home/host/compatibility.json"), limit=16384)
+        value = json.loads(raw) if raw is not None else None
+    except (ValueError, RecursionError):
+        value = False
+    result["compatibility"] = compatibility_receipt(value, action)
+    try:
+        raw = _read(Path("/var/lib/agentic-home/host/state.json"), limit=16384)
+        state = json.loads(raw) if raw is not None else None
+    except (ValueError, RecursionError):
+        state = None
+    owner = state.get("owner") if isinstance(state, dict) else None
+    owner = owner if isinstance(owner, str) and re.fullmatch(r"[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}", owner) else None
+    result["provision_state"] = {"record_readable": isinstance(state, dict), "owner_reference_valid": owner is not None,
+        "complete": state.get("complete") if isinstance(state, dict) and type(state.get("complete")) is bool else None,
+        "restore_pending": bool(state.get("restore_pending")) if isinstance(state, dict) else None,
+        "files": {name: product_file_metadata(Path("/var/lib/libvirt/images/agentic-home") / filename) for name, filename in
+                  (("disk", "haos.qcow2"), ("partial_disk", "haos.partial"), ("nvram", "nvram.fd"))}}
     capacity = shutil.disk_usage("/var/lib/agentic-home")
     result["filesystem"] = {"total_bytes": capacity.total, "used_bytes": capacity.used, "free_bytes": capacity.free}
     fixed = {
@@ -386,13 +550,26 @@ def failure_observation(identifier=None, action=None):
         "journal": ["/usr/bin/journalctl", "--no-pager", "--lines=100", "--unit=agentic-home-host.service",
                     "--unit=agentic-home-firstboot.service", "--unit=docker.service", "--unit=libvirtd.service"],
         "kernel": ["/usr/bin/journalctl", "--no-pager", "--dmesg", "--lines=100"],
+        "domain": ["/usr/bin/virsh", "--readonly", "--connect", "qemu:///system", "dumpxml", "agentic-home-haos", "--inactive"],
+        "network": ["/usr/bin/virsh", "--readonly", "--connect", "qemu:///system", "net-dumpxml", "agentic-home"],
     }
-    for name, args in fixed.items():
-        status, text = _capture(args)
+    def capture(args):
+        try:
+            return _capture(args)
+        except Exception:
+            return "probe_failed", ""
+    # Six fixed read-only captures, each bounded by support._capture (3s/64KiB),
+    # run in two batches within the existing SSH observation deadline.
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        observations = list(pool.map(capture, fixed.values()))
+    for name, (status, text) in zip(fixed, observations, strict=True):
+        if name in {"domain", "network"}:
+            result[name] = libvirt_receipt(status, text, name, owner)
+            continue
         result[name] = {"observation": status,
                         "signatures": process_diagnostics(subprocess.CompletedProcess([], None, "", text))["stderr_signatures"]}
         if name == "vm":
-            result[name]["state"] = text.strip() if text.strip() in {"running", "paused", "shut off", "in shutdown", "crashed"} else "unknown"
+            result[name]["state"] = text.strip() if text.strip() in HOST_VM_STATES else "unknown"
         if name == "broker_unit":
             fields = dict(line.split("=", 1) for line in text.splitlines() if "=" in line)
             result[name]["active"] = fields.get("ActiveState") if fields.get("ActiveState") in {"active", "inactive", "failed", "activating", "deactivating"} else "unknown"

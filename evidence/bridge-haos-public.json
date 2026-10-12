@@ -16,12 +16,12 @@
     "app_restart_preserves_options_and_outer_case": true,
     "manual_stop_remains_stopped": true
   },
-  "outer_source_commit": "5bf6babab1b9f23923c8352bd3d497288dd5c3fe",
+  "outer_source_commit": "9146b38f6cbe04c0d3cfdc221b7b397a4f40261f",
   "outer_source_uncommitted": false,
   "phase": "native_stop_respected",
   "core": "2026.10.1",
   "supervisor": "2026.09.3",
-  "outer_dependency_image": "sha256:7824f39d1ae4d16a50b3c9ad2d1052e74e86c010a67d079bc593f10551cfed03",
+  "outer_dependency_image": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
   "public_repository": {
     "source": "https://github.com/teddashh/agentic-smart-home#release/0.7.0",
     "reference": "release/0.7.0",
@@ -48,15 +48,20 @@
     },
     "entry_method": "native_sidebar_link",
     "compiled_js_sha256": "02d3e8f51fecf71b6cdb99aa09517ff3beae409e93ec69d4a276819c3ccbdfe8",
-    "case_id": "2a1c84a25e1740a3b646b4ec7417e94b",
+    "case_id": "680d8abdbfea49458a3d3a45c3d9f17d",
     "thread_id": "c41c6d9acca9d67bdaa12f81830ed1a7ebca448a89ed63b462cb1013d96ea6bb",
     "message_ids": [
-      "44479c1bb7ea4f32568e8e1a5d72c0f972d8a89eb95c20c11e2f1cc6dd4e5554",
-      "34fb905e3ab9782ef328d26865820048656867a5f9ceafa4f887d219a7627ab4"
+      "c1649e5163fc44c2a25036461046fec007f14e5c5abcf3d4396073f2d787b850",
+      "b9ad28a362adc1bfa35a81ef21e07a325d79310a6b2a32d488d65ad94f913d5b"
     ],
     "browser_error_types": [],
-    "duration_seconds": 12.208
+    "duration_seconds": 12.526
+  },
+  "host_capability": {
+    "kind": "unix_host_contract_fixture_not_installed_host",
+    "ingress_bridge_contract": 1,
+    "status_reads": 34
   },
   "cleanup": true,
-  "duration_seconds": 254
+  "duration_seconds": 292
 }

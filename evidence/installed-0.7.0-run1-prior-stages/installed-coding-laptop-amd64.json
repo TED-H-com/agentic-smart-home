@@ -1,0 +1,50 @@
+{
+  "observed_from": "disposable_installed_linux_vm",
+  "cloud_account": "not_used",
+  "disk_volume": {
+    "capacity_bytes": 62869504,
+    "written_bytes": 61505536,
+    "errno": 28,
+    "cleaned": true
+  },
+  "job": {
+    "state": "succeeded",
+    "stop_confirmed": true,
+    "error_code": null,
+    "exit_code": 0,
+    "verification": {
+      "state": "passed",
+      "patch_sha256": "69b232d6245bd92e846690eb5259eda28d2bb6df1eda78d3f4e15949b9a415e6",
+      "observed_from": "independent_host_verifier",
+      "exit_code": 0,
+      "stop_confirmed": true,
+      "trusted_tests": "pinned_baseline",
+      "test_command_sha256": "dfded52e7ff4ff20155a69260dfab23b1988a55ba9573ecbffa38a58358c69e8",
+      "network": "none"
+    }
+  },
+  "verifier_completion": {
+    "completion_verified": true,
+    "tests_executed": 2,
+    "exit_code": 0
+  },
+  "verifier_log_summary": {
+    "bytes": 933,
+    "scanned_bytes": 933,
+    "permission_error": true,
+    "collection_error": false,
+    "no_tests_ran": false,
+    "import_error": false
+  },
+  "status": "passed",
+  "actual_cli": "0.157.1",
+  "independent_verifier": "passed",
+  "tool_calls": 1,
+  "source_unchanged": true,
+  "private_credentials_not_exposed": true,
+  "handoff": "fenced_checkpoint",
+  "stopped_workspaces_reclaimed": true,
+  "cleanup": "passed",
+  "duration_seconds": 9.17,
+  "installed_source": "9146b38f6cbe04c0d3cfdc221b7b397a4f40261f"
+}

@@ -36,7 +36,7 @@ Home coding：App 資源隔離已探測，完整 coding 執行器尚未啟用
 4. CLI 讀取固定設定觀測，程式驗證隨本產品版本交付的 Hermes，按鎖定 digest 啟動。完成 Hermes 的獨立 Codex OAuth 或 OpenRouter 設定後，自動驗證一次模型回覆。
 5. LINE 掃碼後選聊天室並輸入配對碼；Telegram 貼上 BotFather token 並傳送配對碼。也可明確選 Web 略過外部通道。
 6. 流程自動建立／啟動 HAOS。完成原生家庭帳號設定後，按官方授權連接家庭，不需手動複製 HA 長效權杖。
-7. 新設定完成後自動安裝智能管家側欄，進入原生 Home Assistant；既有安裝可在外層設定啟用。桌面的 Agentic Home 保留救援與維護返回路徑。
+7. 新設定完成後自動安裝智能管家側欄，進入原生 Home Assistant；已有新版 Host 的安裝可在外層設定啟用。桌面的 Agentic Home 保留救援與維護返回路徑。
 
 詳細行為、仍需人的步驟與中斷恢復見 [自動 onboarding](docs/ONBOARDING.md)。
 一般對話預設 Hermes；「受控 Agent（進階）」保留原來的 runtime／CLI 選擇與家庭提案流程。Web 可接續或開始新對話；外部通道的 `/new 新需求` 開始新對話，`/host`／`/home` 明確切至受控 Runner。家庭變更仍需 Owner 在 Web 批准，Hermes 沒有 Live approve/apply 工具。
@@ -44,6 +44,8 @@ Home coding：App 資源隔離已探測，完整 coding 執行器尚未啟用
 ## 現在可用的範圍
 
 依 [發行與上游追版](docs/RELEASE_POLICY.md)，HA 保留官方更新；外層只檢查並有限次修復已授權的智能管家 App。手動停止、移除或改設定會停止自動修復。外層 CLI／Hermes 隨產品釘版，固定在線 updater 目前仍限 Controller；原生 Assist／語音尚未整合。
+
+側欄會確認 Host 已具備相應更新保護；舊 0.6.x Host 只升 Controller 不能啟用它。0.7.0 新安裝媒體包含完整保護，舊 Host 的受控就地升級、App 跨版本更新與退版仍待交付，詳見 [更新邊界](docs/UPDATES.md)。
 
 安裝包的 Hermes 使用上游 commit [`835c3dd…`](https://github.com/NousResearch/hermes-agent/tree/835c3dd038d903182a66ecc45e34bf5e0de65f00)，來源 archive hash、Python 3.14 與依賴見 [lock](hermes/hermes.lock.json)。首次設定直接驗證與啟用隨附 image digest，不在家庭機器追 HEAD 或重新建置；開發端另有候選追版工具。實際 commit／digest 可追蹤，之後重啟維持同一映像。它在獨立服務中執行真實 `AIAgent`，不啟動第二套 Hermes Gateway。
 

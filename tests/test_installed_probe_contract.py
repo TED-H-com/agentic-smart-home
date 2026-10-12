@@ -599,16 +599,160 @@ def test_remote_failure_observation_is_readonly_bounded_and_redacted(update_prob
             return "ok", "shut off\n"
         return "ok", "kernel: Out of memory: Killed process private process details"
     monkeypatch.setitem(sys.modules, "agentic_host.support", SimpleNamespace(
-        _capture=capture, _read=lambda path, limit: json.dumps(jobs)))
+        _capture=capture, _read=lambda path, limit: json.dumps(jobs) if path.name == "jobs.json" else None))
     monkeypatch.setattr(update_probe.shutil, "disk_usage", lambda _: SimpleNamespace(total=120, used=119, free=1))
     value = update_probe.failure_observation("f" * 32, "snapshot")
-    assert len(calls) == 4
+    assert len(calls) == 6
     assert all(any(command in args[0] for command in ("systemctl", "virsh", "journalctl")) for args in calls)
-    assert "--readonly" in calls[1]
-    assert all("--lines=100" in args for args in calls[2:])
+    assert all("--readonly" in args for args in calls if "virsh" in args[0])
+    assert all("--lines=100" in args for args in calls if "journalctl" in args[0])
     assert value["broker_unit"]["oom_killed"] and value["kernel"]["signatures"]["oom"]
     assert value["jobs"][0]["operation"] == "cp" and value["jobs"][0]["message_signatures"]["disk_full"]
     assert "private" not in json.dumps(value)
+
+
+def test_lifecycle_diagnostics_cover_actual_fixed_host_errors_and_checks(update_probe):
+    import ast
+
+    root = Path(__file__).parents[1] / "host/agentic_host"
+    for file, exception in (("manager.py", "HostError"), ("daemon.py", "HostError"), ("bootstrap.py", "SetupError")):
+        tree = ast.parse((root / file).read_text())
+        messages = [node.args[0].value for node in ast.walk(tree) if isinstance(node, ast.Call) and
+                    isinstance(node.func, ast.Name) and node.func.id == exception and node.args and
+                    isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)]
+        assert messages
+        for message in messages:
+            assert update_probe.lifecycle_error(message), (file, message)
+    tree = ast.parse((root / "compatibility.py").read_text())
+    names = next({key.value for key in node.value.keys} for node in tree.body if isinstance(node, ast.Assign) and
+                 any(isinstance(target, ast.Name) and target.id == "REQUIRES" for target in node.targets))
+    assert names == update_probe.HOST_CONTRACT_CHECKS
+    for name in names:
+        code = "host_contract_" + name + "_unavailable"
+        raw = {"id": "e" * 32, "request": {"action": "provision"}, "state": "failed", "message": code}
+        first = update_probe.lifecycle_receipt(raw)
+        assert first["error_code"] == code and update_probe.lifecycle_receipt(first) == first
+
+
+@pytest.mark.parametrize("message,expected,operation", [
+    ("KVM unavailable; enable Intel VT-x / AMD-V in firmware", "host_kvm_unavailable", None),
+    ("192.168.177.0/24 overlaps an existing route", "host_network_route_overlap", None),
+    ("iptables: private firewall chain: Operation not permitted", "host_command_failed", "iptables"),
+    ("qemu-img: private disk: image is corrupt", "host_command_failed", "qemu-img"),
+    ("virsh: private domain: could not access KVM", "host_command_failed", "virsh"),
+    ("Cached checksum mismatch: private.qcow2; remove corrupt file explicitly", "host_artifact_cached_checksum_mismatch", None),
+    ("Downloaded artifact checksum mismatch: private.qcow2", "host_artifact_download_checksum_mismatch", None),
+    ("VM is private state; inspect it before changing state", "host_vm_state_unexpected", None),
+    ("[Errno 2] No such file or directory: private/path", "host_file_missing", None),
+    ("host_contract_private_unavailable", "unclassified_host_error", None),
+    ("host_contract_route_json_unavailable private trailing text", "unclassified_host_error", None),
+    ("secret-command: private data", "unclassified_host_error", None),
+])
+def test_lifecycle_diagnostics_only_export_fixed_mechanisms(update_probe, message, expected, operation):
+    from test_linux_install import failure_observation_public
+
+    raw = {"id": "e" * 32, "action": "provision", "state": "failed", "message": message, "private": "secret"}
+    receipt = update_probe.lifecycle_receipt(raw)
+    assert receipt["error_code"] == expected and receipt["operation"] == operation
+    observed = failure_observation_public({"jobs": [receipt]})["jobs"][0]
+    assert observed == receipt and "private" not in json.dumps(observed) and "secret" not in json.dumps(observed)
+
+
+def compatibility_fixture(action="start"):
+    return {"state": "blocked", "action": action, "observed_at": 1791837000.0,
+            "scope": "required_fixed_host_contracts", "reuse_for_mutations": False,
+            "checks": [{"id": "libvirt_connection", "state": "blocked", "error_code": "probe_timeout",
+                        "affected_actions": ["provision", "start"], "observed_from": "outer_host_fixed_probe"}]}
+
+
+@pytest.mark.parametrize("fault", [None, "unknown_id", "unknown_code", "wrong_type", "duplicate", "oversized_checks", "invalid_time", "bad_scope"])
+def test_compatibility_projection_preserves_exact_check_and_start_within_provision(update_probe, fault):
+    from test_linux_install import failure_observation_public
+
+    raw = compatibility_fixture()
+    raw["private"] = "private snapshot path"
+    raw["checks"][0]["private"] = "private command output"
+    if fault == "unknown_id":
+        raw["checks"][0]["id"] = "private"
+    elif fault == "unknown_code":
+        raw["checks"][0]["error_code"] = "private"
+    elif fault == "wrong_type":
+        raw["checks"][0]["error_code"] = {"private": True}
+    elif fault == "duplicate":
+        raw["checks"] *= 2
+    elif fault == "oversized_checks":
+        raw["checks"] *= 17
+    elif fault == "invalid_time":
+        raw["observed_at"] = float("inf")
+    elif fault == "bad_scope":
+        raw["scope"] = "private"
+    first = update_probe.compatibility_receipt(raw, "provision")
+    projected = failure_observation_public({"compatibility": first})["compatibility"]
+    assert "private" not in json.dumps(projected)
+    assert projected["observation"] == ("ok" if fault is None else "invalid")
+    if fault is None:
+        assert projected == first
+        assert projected["action"] == "start" and projected["requested_action"] == "provision"
+        assert projected["matches_lifecycle_action"] is False
+        assert projected["checks"][0]["error_code"] == "probe_timeout"
+
+
+def test_failure_observation_collects_stored_contract_and_live_ownership_without_effects(update_probe, monkeypatch):
+    import sys
+
+    from test_linux_install import failure_observation_public
+
+    monkeypatch.setattr(update_probe, "guard", lambda: None)
+    owner = "12345678-abcd-abcd-abcd-123456789012"
+    calls, reads = [], []
+    def read(path, limit):
+        reads.append((path, limit))
+        assert path.parent == Path("/var/lib/agentic-home/host") and limit <= 65536
+        return json.dumps({"compatibility.json": compatibility_fixture(), "jobs.json": {},
+            "state.json": {"owner": owner, "complete": False, "restore_pending": None, "private": "secret"}}[path.name])
+    def capture(args):
+        calls.append(args)
+        if "dumpxml" in args or "net-dumpxml" in args:
+            domain = "dumpxml" in args
+            kind, name = ("domain", "agentic-home-haos") if domain else ("network", "agentic-home")
+            text = f'<{kind}><name>{name}</name><uuid>{owner}</uuid><metadata><owner xmlns="https://agentic-home.local/managed/v1">{owner}</owner></metadata>'
+            return "ok", text + '<devices><disk><source file="/var/lib/libvirt/images/agentic-home/haos.qcow2"/></disk></devices><private>secret</private></' + kind + '>'
+        if "domstate" in args:
+            return "ok", "shut off"
+        return "ok", ""
+    monkeypatch.setitem(sys.modules, "agentic_host.support", SimpleNamespace(_capture=capture, _read=read))
+    monkeypatch.setattr(update_probe, "product_file_metadata", lambda path: {"kind": "regular", "bytes": 4096})
+    monkeypatch.setattr(update_probe.shutil, "disk_usage", lambda _: SimpleNamespace(total=120, used=19, free=101))
+    observed = failure_observation_public(update_probe.failure_observation("f" * 32, "provision"))
+    assert len(calls) == 6 and len(reads) == 3
+    assert all("--readonly" in args for args in calls if "virsh" in args[0])
+    assert all(not any(arg in {"start", "net-start", "provision", "capabilities", "info"} for arg in args) for args in calls)
+    assert observed["compatibility"]["checks"][0]["error_code"] == "probe_timeout"
+    assert observed["compatibility"]["action"] == "start" and observed["compatibility"]["requested_action"] == "provision"
+    assert observed["domain"]["ownership_matches"] and observed["domain"]["disk_matches"]
+    assert observed["network"]["ownership_matches"] and observed["provision_state"]["owner_reference_valid"]
+    assert "secret" not in json.dumps(observed) and owner not in json.dumps(observed)
+
+
+@pytest.mark.parametrize("xml,status", [("<private>secret</private>", "ok"), ("not xml private", "ok"), ("x" * 65537, "ok"), ("private", "timeout")])
+def test_libvirt_diagnostics_do_not_infer_ownership_from_unknown_xml(update_probe, xml, status):
+    value = update_probe.libvirt_receipt(status, xml, "domain", "fixture-owner")
+    assert value["xml_valid"] is False and value["ownership_matches"] is None
+    assert "private" not in json.dumps(value) and "secret" not in json.dumps(value)
+
+
+def test_provision_metadata_public_projection_discards_private_and_invalid_types():
+    from test_linux_install import failure_observation_public
+
+    value = {"provision_state": {"private": "secret", "owner_reference_valid": "private", "complete": 1, "restore_pending": [],
+        "files": {"disk": {"kind": "regular", "bytes": 1, "path": "private"},
+                  "partial_disk": {"kind": [], "bytes": -1}, "nvram": {"kind": "regular", "bytes": True}, "private": "secret"}},
+        "domain": {"observation": "ok", "ownership_matches": {"private": True}, "disk_matches": "private", "xml": "private"}}
+    result = failure_observation_public(value)
+    assert "private" not in json.dumps(result) and "secret" not in json.dumps(result)
+    assert result["provision_state"]["complete"] is None and result["domain"]["ownership_matches"] is None
+    assert result["provision_state"]["files"]["disk"] == {"kind": "regular", "bytes": 1}
+    assert "bytes" not in result["provision_state"]["files"]["nvram"]
 
 
 @pytest.mark.parametrize("progress_write_fails", [False, True])

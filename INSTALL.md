@@ -21,6 +21,7 @@
 8. 開始後 CLI 執行固定設定 prompt，程式檢查隨產品版本交付的 Hermes 相容性，再按固定映像 digest 啟動。完成 Hermes 自己的 Codex OAuth 或 OpenRouter 設定；此認證與 CLI 各自保存，不共用 refresh token。流程自動做一次實際推論驗證，可能使用供應商額度。
 9. LINE 是預設入口：掃 QR、選聊天室、從預定操作帳號傳送畫面的短效配對碼。Telegram 使用 BotFather token 加配對碼；Discord 保留頻道／使用者設定；也可選 Web。配對完成後才允許該 sender／聊天室使用助手。
 10. 通道就緒後自動建立／啟動 HAOS，等待真 Core onboarding API。進入 HA 原生設定頁，建立家庭與管理者帳號，再回到引導按 **授權連接家庭**；官方 HA 授權頁同意後自動驗證 active owner 並保存專用授權，不需貼長效權杖。
+11. 新設定完成後自動加入 **智能管家** 側欄，日常使用原生 HA。側欄沿用外層對話，桌面入口保留設定及救援。系統會檢查 Host 的更新保護；舊 Host 只更新 Controller 不會取得這項能力，不能當成已完成整套升級。
 
 流程保存進度；關閉頁面不取消工作，重新開啟會接續。需要真人授權時等待，不把僅保存金鑰當作推論成功。等待通道或家庭授權時可以先開外層對話；離開頁面不會停止已開始的自動安裝。預設使用 DHCP 與本機 Web；「Linux 主機 → 網路與系統維護」可選路由器 DHCP reservation 偏好或完成 Tailscale 官方登入，詳見 [網路與更新](docs/UPDATES.md)。
 

@@ -14,18 +14,10 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).parents[1]
-SAFE_SETUP_ERRORS = {
-    "upstream_redirect_refused", "upstream_origin_refused", "upstream_metadata_invalid",
-    "upstream_revision_invalid", "upstream_archive_limit", "upstream_archive_path",
-    "upstream_archive_special_file", "existing_hermes_account", "existing_hermes_state",
-    "existing_hermes_sessions", "candidate_image_invalid", "candidate_environment_invalid",
-    "hermes_install_needs_reconcile", "hermes_install_disk_space", "bundled_image_invalid",
-    "hermes_install_failed", "hermes_fallback_unconfirmed", "hermes_install_interrupted",
-}
-
-
 def bootstrap_job_diagnostics(output):
     """Keep only fixed job status and known codes, never CLI text or paths."""
+    from installed_update_probe import lifecycle_error
+
     result = {"state": "unknown", "error_code": "unclassified_host_error"}
     try:
         if len(output.encode()) > 65536:
@@ -33,8 +25,8 @@ def bootstrap_job_diagnostics(output):
         value = json.loads(output[output.index("{"):])
         if value.get("state") in {"running", "succeeded", "failed", "needs_reconcile"}:
             result["state"] = value["state"]
-        if value.get("message") in SAFE_SETUP_ERRORS:
-            result["error_code"] = value["message"]
+        if code := lifecycle_error(value.get("message")):
+            result["error_code"] = code
         elif result["state"] == "succeeded":
             result["error_code"] = None
     except (ValueError, TypeError, AttributeError):
@@ -60,7 +52,12 @@ def probe_json(result, diagnostic_path):
 
 
 def failure_observation_public(value):
-    from installed_update_probe import lifecycle_receipt, process_diagnostics
+    from installed_update_probe import (
+        HOST_VM_STATES,
+        compatibility_receipt,
+        lifecycle_receipt,
+        process_diagnostics,
+    )
 
     if not isinstance(value, dict):
         raise ValueError("invalid_failure_observation")
@@ -72,6 +69,29 @@ def failure_observation_public(value):
     if isinstance(value.get("filesystem"), dict):
         result["filesystem"] = {key: number for key in ("total_bytes", "used_bytes", "free_bytes")
                                 if type(number := value["filesystem"].get(key)) is int and 0 <= number <= 2**63}
+    result["compatibility"] = compatibility_receipt(value.get("compatibility"))
+    state = value.get("provision_state")
+    if isinstance(state, dict):
+        result["provision_state"] = {**{key: state.get(key) is True for key in ("record_readable", "owner_reference_valid")},
+            **{key: state.get(key) if type(state.get(key)) is bool else None for key in ("complete", "restore_pending")}, "files": {}}
+        files = state.get("files") if isinstance(state.get("files"), dict) else {}
+        for name in ("disk", "partial_disk", "nvram"):
+            item = files.get(name) if isinstance(files.get(name), dict) else {}
+            kind = item.get("kind")
+            result["provision_state"]["files"][name] = {
+                "kind": kind if isinstance(kind, str) and kind in {"absent", "unreadable", "regular", "directory", "symlink", "other"} else "unknown"}
+            if kind == "regular" and type(item.get("bytes")) is int and 0 <= item["bytes"] <= 2**63:
+                result["provision_state"]["files"][name]["bytes"] = item["bytes"]
+    for name in ("domain", "network"):
+        item = value.get(name)
+        if isinstance(item, dict):
+            status = item.get("observation")
+            result[name] = {"observation": status if isinstance(status, str) and status in {
+                "ok", "timeout", "output_limit", "probe_failed", "command_missing", "permission_denied"} else "unknown",
+                "xml_valid": item.get("xml_valid") is True,
+                **{key: item.get(key) if type(item.get(key)) is bool else None for key in ("name_matches", "ownership_matches")}}
+            if name == "domain" and "disk_matches" in item:
+                result[name]["disk_matches"] = item["disk_matches"] if type(item["disk_matches"]) is bool else None
     for name in ("broker_unit", "vm", "journal", "kernel"):
         item = value.get(name, {})
         if not isinstance(item, dict):
@@ -83,7 +103,7 @@ def failure_observation_public(value):
             "ok", "timeout", "output_limit", "probe_failed", "command_missing", "permission_denied"} else "unknown",
             "signatures": {key: signatures.get(key) is True for key in flags}}
         if name == "vm":
-            result[name]["state"] = item.get("state") if item.get("state") in {"running", "paused", "shut off", "in shutdown", "crashed"} else "unknown"
+            result[name]["state"] = item.get("state") if isinstance(item.get("state"), str) and item["state"] in HOST_VM_STATES else "unknown"
         if name == "broker_unit":
             result[name]["active"] = item.get("active") if item.get("active") in {"active", "inactive", "failed", "activating", "deactivating"} else "unknown"
             result[name]["oom_killed"] = item.get("oom_killed") is True

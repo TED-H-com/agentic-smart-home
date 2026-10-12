@@ -1,11 +1,16 @@
 {
-  "observed_at": 1791829863.7253087,
+  "observed_at": 1791832246.015901,
   "state": "running",
-  "stage": "start",
+  "stage": "configure",
   "code": null,
   "managed": true,
   "slug": "9b5f5116_agentic_bridge",
-  "version": "0.7.0",
+  "version": null,
   "repair_count": 0,
-  "install_confirmation": "app_postcondition_job_unavailable"
+  "install_confirmation": "app_postcondition_job_unavailable",
+  "host_capability_fixture": {
+    "kind": "unix_host_contract_fixture_not_installed_host",
+    "ingress_bridge_contract": 1,
+    "status_reads": 14
+  }
 }

@@ -2,6 +2,7 @@
   "host_login": "passed",
   "authenticated_host_api": "passed",
   "automatic_runner_pairing": "passed",
+  "fixed_host_bridge_update_contract": 1,
   "desktop_single_use_login": "passed",
   "bootstrap_get_has_no_side_effect": "passed",
   "vm_observed": "not_created",
