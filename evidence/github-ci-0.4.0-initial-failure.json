@@ -1,0 +1,10 @@
+{
+  "version": "0.4.0",
+  "headSha": "a973a0782d138bb1e6bbd50ad3645b27872a3bf0",
+  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38195944885",
+  "conclusion": "failure",
+  "test_result": "1 failed, 140 passed, 2 skipped",
+  "cause": "Test readiness race: descendant.pid existed before write_text completed; parent read an empty string. Atomic readiness fixture publication required. Product assertions unchanged.",
+  "failing_test": "test_runtime_kills_term_ignoring_descendant_after_leader_exit",
+  "runtime_source_changed": false
+}

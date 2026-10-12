@@ -247,7 +247,10 @@ async def test_runtime_kills_term_ignoring_descendant_after_leader_exit(runtime,
         "from pathlib import Path\n"
         "if os.fork() == 0:\n"
         " signal.signal(signal.SIGTERM,signal.SIG_IGN)\n"
-        f" Path({str(child_path)!r}).write_text(str(os.getpid()))\n"
+        f" child_path = Path({str(child_path)!r})\n"
+        " pending_path = child_path.with_suffix('.pending')\n"
+        " pending_path.write_text(str(os.getpid()))\n"
+        " pending_path.replace(child_path)\n"
         "while True: time.sleep(1)\n"
     )
     proc = await asyncio.create_subprocess_exec(sys.executable, "-c", source, start_new_session=True)
