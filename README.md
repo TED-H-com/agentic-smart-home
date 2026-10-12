@@ -42,6 +42,8 @@ Home coding：App 資源隔離已探測，完整 coding 執行器尚未啟用
 
 ## 現在可用的範圍
 
+後續採 [統一發行與上游追版](docs/RELEASE_POLICY.md)：一般使用者跟隨我們的受測版本組合，維護者產生上游候選。這項政策尚未改動 0.6.1；下述首次 Hermes latest 準備及 Controller-only updater 仍是現行能力。
+
 安裝包的 Hermes 回復基線使用上游 commit [`835c3dd…`](https://github.com/NousResearch/hermes-agent/tree/835c3dd038d903182a66ecc45e34bf5e0de65f00)，來源 archive hash、Python 3.14 與依賴見 [lock](hermes/hermes.lock.json)。首次設定會解析官方預設分支的最新 commit，以產品鎖定的依賴建置並通過離線相容性檢查後啟用；實際 commit／digest 可追蹤，之後重啟維持同一映像。它在獨立服務中執行真實 `AIAgent`，不啟動第二套 Hermes Gateway。
 
 MCP 可查 Host、worker capabilities、派工／取消／讀結果與 case 證據，也可使用 `home.observe`、`home.propose`、`home.proposal_status` 走既有家庭 Engine。沒有任意主機 shell 或 approve/apply 工具。隔離 coding 目前明確支援 Codex；其他 CLI 的家庭模式與初始化支援保持不變。使用與邊界見 [Workers](docs/WORKERS.md)，固定更新與網路見 [Updates](docs/UPDATES.md)。

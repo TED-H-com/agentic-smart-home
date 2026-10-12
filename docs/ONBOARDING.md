@@ -24,7 +24,9 @@ USB 開機 → Linux 安裝／連網 → Web
 
 Hermes 的 OAuth 與 CLI 登入由各自的受信任接點管理，不複製可輪換 refresh token、不共用可寫 HOME。Codex 可使用官方 device-code 流程；其他 CLI 依實際 adapter 支援呈現，未支援的訂閱登入不冒充可用。Hermes 仍須真實推論成功才標示 ready，僅保存憑證為 configured。相關官方文件：[Codex 登入](https://learn.chatgpt.com/docs/auth)、[Hermes 認證池](https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools)。
 
-## 首次準備最新版 Hermes
+## 0.6.1 首次準備最新版 Hermes
+
+Owner 後續改採 [統一發行策略](RELEASE_POLICY.md)：下一版應安裝產品發行已驗證的 Hermes image，追上游 HEAD 留在開發端。以下是仍在 0.6.1 中的現行行為，尚未改成發行鎖定模式；本頁頂端流程也描述該受測版本。
 
 固定 `bootstrap_hermes` 操作只用於從未配置或使用的 Hermes 安裝：
 

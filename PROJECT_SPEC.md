@@ -52,6 +52,8 @@ Ingress／host 管理身份、Controller／Runner 私有 bearer 及 credentials 
 
 ## 證據、preview、更新
 
+後續更新採 [統一發行策略](docs/RELEASE_POLICY.md)：發行 manifest 約束受測組合，首次安裝使用已驗證的 Hermes artifact，追上游留在維護者候選環境。各組件升級／恢復分層、持久記錄中斷與版本偏移；Supervisor 支援及外部雲端不能當成可永久釘住的相依。此目標尚未取代下述 0.6.1 Controller-only updater，也不代表已釘住 Linux 全套件。
+
 每份 observation 帶 `observed_from`、`target_component`、`observed_at`、`version_refs`、`collection_method`、`evidence_id`、digest、redaction 及 limitations。App probe 與透過 Controller 的 Core API 是不同來源，不能由 App 連線正常推論整個 Core／HAOS 正常。Fixture、真 CLI、real cloud、Core、HAOS、helper 和 physical device 分開記。
 
 Artifact 經 broker 檢查大小、路徑、symlink、特殊檔案及 secrets；HTML 和 findings 當作不可信內容。Preview 不能使用正式 cookies、管理 origin、HA 登入備份或連正式設備；只換 localhost port 不等於隔離。UI 依 `DESIGN.md` 與既有元件演進。

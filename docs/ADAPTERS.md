@@ -28,6 +28,8 @@ HA 側欄的完整外層 Hermes bridge 尚未交付。目前 Controller Ingress 
 
 ## 候選與發行
 
+維護者追上游、使用者跟隨受測產品版本的後續規格見 [統一發行策略](RELEASE_POLICY.md)。首次安裝將改用發行已驗證的 Hermes digest；目前 0.6.1 首次準備 latest 的路徑仍是待修改項。Supervisor 最新版支援、安全修補與雲端服務是釘版的明示邊界。
+
 1. 保留產品及各上游鎖定來源。新候選解析一次 revision／digest，測試過程不修改正式 lock、帳號或已安裝版本。
 2. 先驗產品 protocol/schema 與實際使用的能力，再跑隔離行為測試；不以版本字串或 import 成功取代完整握手。
 3. Hermes 必須通過真上游模型迴圈、MCP、登入 helper 與負向路徑的離線 transport 測試。真 OAuth 同意與雲端研究另列，不能由 fixture 宣稱完成。

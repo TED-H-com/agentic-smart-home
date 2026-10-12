@@ -17,6 +17,8 @@ Home 隔離基礎已有 [真 HAOS 18.3 App 證據](../../evidence/haos-app-bound
 
 ## 記錄規則
 
+2026-10-12 後續新增 [統一發行規格](../RELEASE_POLICY.md)：產品版本矩陣、改用受測 Hermes 初始化、版本偏移偵測、維護者候選流程及 HA／Linux 分層更新。此次僅同步方向文件；runtime、0.6.1 ISO／TAR 與 32 案狀態未變。現有首次 latest／未完全鎖定 apt／Supervisor 支援例外均列為缺口，不因已有 lock 檔而當成完成。
+
 開發狀態 `not_run / in_progress / implemented` 只描述程式交付；案例結果使用 `not_run / blocked / passed / failed`。新增案例預設 `not_run`，不得因舊測試或相關 unit test 通過而批次改為 passed。具體功能因隔離不足 disabled，可在開發備註記錄原因；未實際執行整個案例仍保留 not_run。
 
 每次驗收另附 test/case/job IDs、時間、執行者、source commit、candidate digest、安裝版本、runtime_location、model_backend、ha_backend、device_kind、CLI/Hermes/Core/Supervisor/OS 版本、觀測位置／方法、evidence refs、限制與批准的 Live 副作用。不得用單一 real=true 取代多維環境。

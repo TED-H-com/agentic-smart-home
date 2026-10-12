@@ -1,5 +1,7 @@
 # 管理中心更新、退版與遠端連線
 
+後續目標是一般使用者跟隨我們的受測發行，由團隊追蹤上游；完整設計及交付順序見 [統一發行策略](RELEASE_POLICY.md)。建議不要自行混升受管理元件。下文仍描述 **0.6.1 已實作能力**，不是全系統釘版／更新聲明；本次政策文件沒有停用 Linux 安全更新或改動任何已安裝系統。
+
 上游 adapter 與產品 image 更新分開處理，見 [相容邊界與候選測試](ADAPTERS.md)。候選測試不會自動部署；目前也沒有 Linux／HAOS／Core／Hermes 全套自動退版承諾。
 
 0.6.1 的固定 updater 只更新 **外層 Controller image**，相同 Controller schema 3、Runner protocol 1、worker contract 1。manifest 另綁目前 CLI／Hermes／Core／網路 runtime 指紋；不在同次升級 OS、HAOS、Core、Runner、Hermes 或網路。較舊 schema 的向前遷移與同 schema 的 image 退版分開處理。
