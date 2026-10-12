@@ -61,5 +61,5 @@
     "Outer disposable VM only; no HAOS App, hardware or household validation."
   ],
   "cleanup": "passed",
-  "duration_seconds": 5.74
+  "duration_seconds": 3.29
 }

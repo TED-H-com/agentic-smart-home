@@ -30,7 +30,7 @@
         "resource_unavailable": false
       }
     },
-    "observation_attempts": 14,
+    "observation_attempts": 15,
     "observation": {
       "returncode": 0,
       "stdout_bytes": 3056,
@@ -93,8 +93,8 @@
         "cleanup_started": true,
         "cleanup_completed": true,
         "probe_resources": {
-          "free_disk_bytes": 91325337600,
-          "available_memory_bytes": 4741353472
+          "free_disk_bytes": 91330224128,
+          "available_memory_bytes": 4758519808
         }
       },
       "observed_from": "disposable_installed_linux_vm_root",
@@ -126,7 +126,7 @@
       "rollback_restored_backup": false,
       "registry_delivery_calls": 1,
       "original_image": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
-      "candidate_image": "sha256:304682548c8edc032de15a940ac2dbd87392204c2fb8a98ce8b5a193fd45c114",
+      "candidate_image": "sha256:758b8883ceebab19023c41492fc7b02cb5a64a3735976d66e545ecf200112740",
       "bridge_update_contract": {
         "contract": 1,
         "observed_from": "installed_host_fixed_probe",
@@ -136,7 +136,7 @@
         "synthetic_missing_contract_image": true,
         "real_historical_release": false,
         "supporting_image": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
-        "missing_contract_image": "sha256:d8692e294c94ab42fa035bc5566b650e3dc9b946eb49650b6f66f9fba1efbbe6",
+        "missing_contract_image": "sha256:de8f2f4faeb979400dd76d3b4b83f7370791a4a35009e3d365ea96c12836b9dd",
         "fixed_script_sha256": "868d5260adfeae4e43bbbdf06b5db8f5624187396db08bef76781062b4ccfa70",
         "checks": {
           "revoked_history_marker_copied": true,
@@ -162,8 +162,8 @@
     "cleanup_started": true,
     "cleanup_completed": true,
     "probe_resources": {
-      "free_disk_bytes": 91325337600,
-      "available_memory_bytes": 4741353472
+      "free_disk_bytes": 91330224128,
+      "available_memory_bytes": 4758519808
     }
   },
   "observed_from": "disposable_installed_linux_vm_root",
@@ -195,7 +195,7 @@
   "rollback_restored_backup": false,
   "registry_delivery_calls": 1,
   "original_image": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
-  "candidate_image": "sha256:304682548c8edc032de15a940ac2dbd87392204c2fb8a98ce8b5a193fd45c114",
+  "candidate_image": "sha256:758b8883ceebab19023c41492fc7b02cb5a64a3735976d66e545ecf200112740",
   "bridge_update_contract": {
     "contract": 1,
     "observed_from": "installed_host_fixed_probe",
@@ -205,7 +205,7 @@
     "synthetic_missing_contract_image": true,
     "real_historical_release": false,
     "supporting_image": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
-    "missing_contract_image": "sha256:d8692e294c94ab42fa035bc5566b650e3dc9b946eb49650b6f66f9fba1efbbe6",
+    "missing_contract_image": "sha256:de8f2f4faeb979400dd76d3b4b83f7370791a4a35009e3d365ea96c12836b9dd",
     "fixed_script_sha256": "868d5260adfeae4e43bbbdf06b5db8f5624187396db08bef76781062b4ccfa70",
     "checks": {
       "revoked_history_marker_copied": true,

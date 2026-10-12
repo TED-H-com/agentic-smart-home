@@ -4,6 +4,19 @@
 
 本輪新增薄 HAOS Ingress App、同一外層對話／case、即時 Owner 驗證、有限維護與配對恢復；首次 Hermes 改用隨附 digest。工程與產品範圍見 [整合審查](reviews/2026-10-12-INGRESS-BRIDGE.md)。HA 保留官方更新，Home coding、原生 Assist、App 跨版本 migration 與真帳號仍需另驗。
 
+目前受測產品來源為 `cd0fe57725138da00bf67537f68f3fb9a0d7b150`。GitHub [CI 38304072611](https://github.com/teddashh/agentic-smart-home/actions/runs/38304072611) **942 passed、6 skipped／413.130 秒**，見 [CI 記錄](../evidence/github-ci-0.7.0.json)及 [JUnit](../evidence/pytest-0.7.0-github.xml)。Artifact digest 與 source ZIP 的 990 個 manifest 項目均已核對；新 ISO bundle 的 **149 份執行／設定檔及 49 份文件**逐檔吻合 CI，六份生成資產另由 build manifest 核對，見 [來源比對](../evidence/ci-media-match-0.7.0.json)。獨立 CI 的 image IDs 不宣稱與本機相同，六個跳過項仍需各自實測。
+
+**精確 0.7.0 ISO 完整安裝：1 passed／2288.830 秒**。媒體、安裝 harness 與上述 CI 的產品來源均為 `cd0fe57725138da00bf67537f68f3fb9a0d7b150`。一次性 VM 完成 Ubuntu 安裝、outer-only firstboot、五映像與來源核對、桌面單次登入／角色權限、Controller 停止救援、sandbox、真 Codex 工具與獨立 verifier、隨附 Hermes 相容性檢查／啟用、HAOS 真 Core 就緒、Controller 更新／保留新資料退版、冷快照還原與整機重啟。見 [安裝結果](../evidence/linux-install-0.7.0.json)、[JUnit](../evidence/linux-install-0.7.0.xml)及 [交付記錄](../evidence/release-0.7.0.json)。VM 容器及磁碟 basetemp 已確認移除，未在開發主機安裝產品。
+
+| 媒體 | Bytes | SHA-256 |
+|---|---|---|
+| `agentic-home-0.7.0-laptop-amd64.iso` | 6568214528 | `9c6f6d3e54a89454137a8db4760208d856cdfbb07d8bc7322d18bac5b2928c94` |
+| `agentic-home-0.7.0-linux-amd64.tar` | 2488709120 | `c91cc1cda95b3257bd88c94abd49ac5208c40d72dca9a4149fc3194755ac31bd` |
+
+[已安裝 Host 的角色驗證](../evidence/installed-auth-laptop-amd64-0.7.0.json)讀回真正固定更新契約 1；[更新／退版](../evidence/installed-update-laptop-amd64-0.7.0.json)在真安裝環境執行三次固定 bridge probe，支援候選通過、缺契約候選拒絕、無 bridge 歷史控制組通過，清理均完成。缺契約候選是當前映像的測試衍生版，資料是隔離的合成 revoked bridge 歷史；不是歷史發行版。另有實際 0.6.1 映像的拒絕測試，見下文。Controller 更新使用合成發行者／registry delivery，不能當成全產品或 Linux／App 跨版本更新驗收。
+
+[安裝 Hermes](../evidence/installed-hermes-laptop-amd64-0.7.0.json)以隨附 digest 啟用並在重啟後維持；[Codex coding](../evidence/installed-coding-laptop-amd64-0.7.0.json)使用真 CLI／工具與固定模型 transport，沒有真雲端帳號。[公共 ISO seed](../evidence/public-seed-0.7.0.json)保留網路、磁碟和 Linux 身份選擇，沒有內嵌密碼／SSH key。TAR 未另驗既有主機就地安裝，大型媒體保留於本機 `dist/`。T3-01／T3-05 只更新 E0 工程安裝／救援證據，另外 30 個產品案例維持 `not_run`；實體 laptop、真 OAuth／bot、Home App coding、原生 Assist、App 跨版本切換和受控舊 Host 就地更新仍未完成。
+
 最終更新審查另發現 **舊 Host＋新 Controller** 的能力落差：舊固定更新器不知道 bridge 授權，因此 Controller 必須先驗證真正 Host 的更新契約。下文標示 gate 前的結果不能視為新 gate 已驗證。第一份 0.7.0 ISO 在 Ubuntu 安裝完成、firstboot 階段由整合者主動中止，準備以修正後媒體重驗；[中止記錄](../evidence/linux-install-0.7.0-before-host-gate.json)保存原因、原媒體 hash 與清理結果，沒有標記 passed。
 
 Host gate 修正後，本機產品回歸 **790 passed、3 skipped／346.04 秒**，見 [JUnit](../evidence/pytest-0.7.0-host-gate.xml)，包含 `--real-ha --containers`。這輪排除同步補強的兩個安裝測試檔；兩檔另行 **74 passed、1 skipped／1.02 秒**，見 [安裝驗證腳本](../evidence/installed-bridge-contract-unit.xml)。合計範圍涵蓋全部本機回歸；四個 VM 案例需另行執行。
@@ -28,7 +41,7 @@ Host 工作續查修正前的媒體來源 `9146b38f6cbe04c0d3cfdc221b7b397a4f402
 
 診斷 harness `2f83845117cd1ebd90273c67e0e75fb3a10241d0` 的 [CI 38299730431](https://github.com/teddashh/agentic-smart-home/actions/runs/38299730431) 為 **889 passed、6 skipped／538.456 秒**，見 [獨立記錄](../evidence/github-ci-0.7.0-diagnostics.json)及 [JUnit](../evidence/pytest-0.7.0-diagnostics-github.xml)。Artifact digest 與 source ZIP 的 965 個 manifest 項目均吻合。產品程式／前端與 `9146b38` 媒體一致，差異只在測試、文件與證據；六個跳過項仍需各自實測。
 
-真正 **HAOS 18.3／Core 2026.10.1／Supervisor 2026.09.3** 第三輪本地來源安裝 **7 passed／295.10 秒**，見 [結果](../evidence/bridge-haos-local.json)、[JUnit](../evidence/bridge-haos-local.xml)及 [原生側欄截圖](../evidence/ui/bridge-native-haos-local.png)。包含真 Supervisor 安裝、TLS 指紋錯誤拒絕、偽造身份拒絕、Owner 瀏覽器登入、CSRF、重送去重、同 case 續聊、App 重啟保留與人工停止不復活。模型使用明示協定 fixture，沒有雲端帳號；公開 GitHub source delivery 見下方；新版完整 ISO 安裝接著另驗。
+真正 **HAOS 18.3／Core 2026.10.1／Supervisor 2026.09.3** 第三輪本地來源安裝 **7 passed／295.10 秒**，見 [結果](../evidence/bridge-haos-local.json)、[JUnit](../evidence/bridge-haos-local.xml)及 [原生側欄截圖](../evidence/ui/bridge-native-haos-local.png)。包含真 Supervisor 安裝、TLS 指紋錯誤拒絕、偽造身份拒絕、Owner 瀏覽器登入、CSRF、重送去重、同 case 續聊、App 重啟保留與人工停止不復活。模型使用明示協定 fixture，沒有雲端帳號；公開 GitHub source delivery 見下方；新版完整 ISO 安裝結果見本節開頭。
 
 Host gate 修正後的公開 GitHub source delivery 在全新 HAOS 為 **18 passed／291.89 秒**，見 [結果](../evidence/bridge-haos-public.json)、[JUnit](../evidence/bridge-haos-public.xml)及 [原生側欄截圖](../evidence/ui/bridge-native-haos-public.png)。來源 `9146b38f6cbe04c0d3cfdc221b7b397a4f40261f` 無未提交執行碼，Controller 映像為 `sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60`。正式 `host_call` 經真 Unix socket 讀取能力 34 次；Host 回應與模型為明示 fixture，並非已安裝 Host 或雲端驗收。公開 App 安裝、真 Owner／Ingress、CSRF、同 case、原生 browser reload、重啟及人工停止均通過，測試資源已清理。
 

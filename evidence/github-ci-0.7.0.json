@@ -1,18 +1,18 @@
 {
-  "headSha": "9146b38f6cbe04c0d3cfdc221b7b397a4f40261f",
+  "headSha": "cd0fe57725138da00bf67537f68f3fb9a0d7b150",
   "conclusion": "success",
-  "createdAt": "2026-10-12T19:07:12Z",
-  "updatedAt": "2026-10-12T19:19:23Z",
-  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38295508318",
-  "run_id": 38295508318,
+  "createdAt": "2026-10-12T20:25:02Z",
+  "updatedAt": "2026-10-12T20:36:19Z",
+  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38304072611",
+  "run_id": 38304072611,
   "branch": "main",
   "pytest": {
-    "tests": 868,
+    "tests": 948,
     "failures": 0,
     "errors": 0,
     "skipped": 6,
-    "passed": 862,
-    "seconds": 486.682
+    "passed": 942,
+    "seconds": 413.13
   },
   "skips": [
     {
@@ -47,17 +47,17 @@
     }
   ],
   "artifact": {
-    "id": 11767619123,
+    "id": 11771952088,
     "name": "agentic-home-0.7.0",
-    "bytes": 51390352,
-    "sha256": "922424ad7592466f6eead5a2c5975a2444012e80df741a3e543d2c1e422383e7",
+    "bytes": 51692416,
+    "sha256": "40d4505b7c8c411bac3b293125cf8dddb65a204104140aac9ac27b7d469b430e",
     "github_digest_verified": true
   },
   "source_archive": {
     "path": "dist/agentic-home-0.7.0-source.zip",
-    "bytes": 26602210,
-    "sha256": "06d3d50d146704a4e4f8222b5262a89002e97dcfceef863a8e6b6bc6cfa6fcfe",
-    "manifest_files": 947,
+    "bytes": 26776833,
+    "sha256": "450d085bf273c1ba150d48308251be18407d0642a2bbf03e419cb10509747fcd",
+    "manifest_files": 990,
     "all_manifest_entries_verified": true,
     "tracked_runtime_paths_checked": 128,
     "tracked_runtime_matches_exact_head": true,
@@ -71,7 +71,7 @@
   },
   "product_stage_comparison": {
     "path": "build/product/agentic-home",
-    "source_commit": "9146b38f6cbe04c0d3cfdc221b7b397a4f40261f",
+    "source_commit": "cd0fe57725138da00bf67537f68f3fb9a0d7b150",
     "runtime_and_compiled_files_checked": 128,
     "matches_ci_source_and_stage_manifest": true,
     "checked_paths": {
@@ -140,14 +140,14 @@
       "host/agentic_host/__init__.py": "dd67c10202cb63ca49025ffed3de3a0f13c97a19239e6a1d790effb765e0f85f",
       "host/agentic_host/artifacts.py": "62ed70cc0cce036d13e70a7620abf25161340663aeb6eb8b666e7f6f80e58514",
       "host/agentic_host/bootstrap.py": "97c8251b478d2be7236158bb879821e72a531a70ad287b519b27a0dce611e341",
-      "host/agentic_host/cli.py": "e8371445fa10c830129df339083948ae1f5c17fdd47ec0427e14071b6024d2a4",
+      "host/agentic_host/cli.py": "2ceefb27d848d92f985c9f5d17f3b8414cde9ff451ee4251a1cb9d6412ddec38",
       "host/agentic_host/coding_program.py": "d22775a825af62d08ae74aa9a13a249cb876c6efbaf9217efef2da9c82624031",
       "host/agentic_host/coding_relay.py": "ad5f095de358199e2a12da512eb68ae3f092f8ba4c4ed8387837fa63ed989412",
       "host/agentic_host/coding_sandbox.py": "bc3f2ccbd293f61273d0e6d304164e55653dab5fcd339380bfbb80ccd894080d",
       "host/agentic_host/coding_service.py": "81849aa39ecfc6dc6cebd1f09cfe417036c7555f8c10d943b965bb470f03f7dc",
       "host/agentic_host/coding_volume.py": "74df243725bc57df3a88f29915a1f2b76170aea8cf6dc373859112013a543701",
       "host/agentic_host/compatibility.py": "7d23e86c9bf7f78dad8c31675f23759fcfcd682ffa1ad83d26affe587210ead2",
-      "host/agentic_host/daemon.py": "3e69bc21955df193ce96f8a17b120c41f60148c0ed0c4026dc4f0ce246f0471c",
+      "host/agentic_host/daemon.py": "e868c10e400ac992ad0a08bd3237d5c8458d616b42d96cbd63951cc96e45b2af",
       "host/agentic_host/desktop.py": "4da4ea5fdb13057356ddf1157ef0c162f74bed473539f49716591c47d96627e4",
       "host/agentic_host/fence.py": "2828f677c5b6ef768726d6a4827ad1bab842367e03c0df526375ec0f1d4d2ce7",
       "host/agentic_host/manager.py": "c3ab7c7bfbd5d87c534ef715ebb26f7485688b1dc49c3f00eb40ebb62efbfbe8",
@@ -204,9 +204,12 @@
       "runner/requirements-coding.txt": "588fb12922dd9fbdde81912268394612e3a88292db95232fa00e6553cf221852",
       "runner/requirements.txt": "370a4907ffce372d60aebc5bfa83b372fa07a767849c3034e01e5decd9413818"
     },
-    "documentation_files_checked": 50,
+    "documentation_files_checked": 49,
     "documentation_differences": [],
-    "large_media_rehashed": false
+    "large_media_rehashed": false,
+    "all_shared_bundle_entries_checked": 198,
+    "runtime_config_files_checked": 149,
+    "complete_comparison_receipt": "evidence/ci-media-match-0.7.0.json"
   },
   "scope": [
     "GitHub ubuntu-24.04: clean frozen dependency installation, UI build, Ruff and contract checks.",
@@ -223,5 +226,5 @@
     "Large local image archives and ISO/TAR media were not rehashed in this comparison; their separate build receipt is maintained by the media workline."
   ],
   "prior_failed_run": 38289550827,
-  "verified_at": "2026-10-12T19:19:59.807493+00:00"
+  "verified_at": "2026-10-12T20:36:49.476659+00:00"
 }

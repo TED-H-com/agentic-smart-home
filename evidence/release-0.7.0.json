@@ -1,0 +1,127 @@
+{
+  "version": "0.7.0",
+  "source_commit": "cd0fe57725138da00bf67537f68f3fb9a0d7b150",
+  "installed_test_harness_commit": "cd0fe57725138da00bf67537f68f3fb9a0d7b150",
+  "profile": "laptop-amd64",
+  "artifacts": {
+    "agentic-home-0.7.0-laptop-amd64.iso": {
+      "bytes": 6568214528,
+      "sha256": "9c6f6d3e54a89454137a8db4760208d856cdfbb07d8bc7322d18bac5b2928c94"
+    },
+    "agentic-home-0.7.0-linux-amd64.tar": {
+      "bytes": 2488709120,
+      "sha256": "c91cc1cda95b3257bd88c94abd49ac5208c40d72dca9a4149fc3194755ac31bd"
+    }
+  },
+  "images": {
+    "agentic-home-controller:0.7.0": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
+    "agentic-home-runner:0.7.0": "sha256:9a64fef60148e840b884aee668dd5c08b769177f4fc54558037cd39fef109535",
+    "agentic-home-linejs:0.7.0": "sha256:032f1d0c0c4d9bc2ab0fc223c18846e2a9da916822a05f895e912b9d3af6d63d",
+    "agentic-home-hermes:0.7.0": "sha256:f079b29d969fc134e935430182c51f096be538a9c4a5fbc4776719f35a3686e3",
+    "agentic-home-preview:0.7.0": "sha256:7f404a8fd02aa4fe9ef5eb96fcebdc5eaf0191995c549144cf228f6d1afda777"
+  },
+  "installed_validation": "passed",
+  "installed_evidence": "evidence/linux-install-0.7.0.json",
+  "prior_failed_attempts": [
+    {
+      "manifest": "evidence/installed-0.7.0-run1-prior-stages/manifest.json",
+      "root_cause": "unclassified provision failure"
+    },
+    {
+      "manifest": "evidence/installed-0.7.0-run2-prior-stages/manifest.json",
+      "observation": "CLI status read timed out while exact snapshot job remained running; Host job polling fixed in new media"
+    }
+  ],
+  "cleanup": {
+    "owned_vm_removed": true,
+    "disk_basetemp_removed": true
+  },
+  "junit": "evidence/linux-install-0.7.0.xml",
+  "junit_result": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "1",
+    "time": "2288.830",
+    "timestamp": "2026-10-12T16:30:09.460593-04:00",
+    "hostname": "castleridge-ai1"
+  },
+  "release_hermes": {
+    "state": "ready",
+    "commit": "835c3dd038d903182a66ecc45e34bf5e0de65f00",
+    "source": "release",
+    "image_id": "sha256:f079b29d969fc134e935430182c51f096be538a9c4a5fbc4776719f35a3686e3",
+    "runtime_revision_readback": "passed",
+    "persists_after_reboot": true
+  },
+  "fixed_host_bridge_update_contract": 1,
+  "installed_bridge_enforcement": {
+    "contract": 1,
+    "observed_from": "installed_host_fixed_probe",
+    "schema": 3,
+    "database_fixture": "isolated_structure_only_revoked_bridge",
+    "fixed_probe_executions": 3,
+    "synthetic_missing_contract_image": true,
+    "real_historical_release": false,
+    "supporting_image": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
+    "missing_contract_image": "sha256:de8f2f4faeb979400dd76d3b4b83f7370791a4a35009e3d365ea96c12836b9dd",
+    "fixed_script_sha256": "868d5260adfeae4e43bbbdf06b5db8f5624187396db08bef76781062b4ccfa70",
+    "checks": {
+      "revoked_history_marker_copied": true,
+      "supporting_fixed_probe_passed": true,
+      "missing_contract_fixed_probe_rejected": true,
+      "missing_contract_import_error": true,
+      "missing_contract_without_history_passed": true,
+      "revoked_database_unchanged": true,
+      "pending_maintenance_rejected": true,
+      "pending_maintenance_readonly": true
+    },
+    "cleanup": {
+      "probe_containers_absent": true,
+      "quota_volumes_absent": true,
+      "probe_journal_absent": true,
+      "fixture_image_absent": true,
+      "scratch_database_absent": true
+    }
+  },
+  "ci": "evidence/github-ci-0.7.0.json",
+  "ci_media_match": "evidence/ci-media-match-0.7.0.json",
+  "public_app": "evidence/bridge-haos-public.json",
+  "native_sidebar_screenshot": "evidence/ui/bridge-native-haos-public.png",
+  "architecture_review": "docs/reviews/2026-10-12-INGRESS-BRIDGE.md",
+  "installed_coding": "evidence/installed-coding-laptop-amd64-0.7.0.json",
+  "installed_updater": "evidence/installed-update-laptop-amd64-0.7.0.json",
+  "standalone_host_compatibility_observation": "not_collected_this_run; older generic receipt is not part of this release",
+  "accepted_product_cases": {
+    "T3-01": "engineering disposable VM media only",
+    "T3-05": "E0 console rescue; installed Controller updater mechanics separately verified, not complete E2 pilot"
+  },
+  "remaining_product_cases": 30,
+  "not_run": [
+    "physical laptop",
+    "real cloud OAuth",
+    "real LINE/Telegram/Discord accounts",
+    "real Tailscale account",
+    "Home HAOS App coding launcher",
+    "Host autonomous real cloud case",
+    "Claude/Antigravity/Grok tools-enabled coding",
+    "native HA setup wizard clicks",
+    "physical devices",
+    "interactive candidate website",
+    "same live BAT/CLI session handoff",
+    "public publisher release",
+    "full product or cross-schema update/rollback",
+    "72h observation",
+    "single-versus-dual-worker comparison",
+    "native Assist/voice adapter",
+    "App cross-version migration/rollback",
+    "controlled in-place upgrade of old Host components"
+  ],
+  "fixture_scope": [
+    "Public HAOS App installation, native Owner browser/Ingress and same case are real; inference and Unix Host capability response are fixtures.",
+    "Installed ISO has a real fixed Host broker and updater; coding model transport and publisher/registry delivery are synthetic.",
+    "Missing-contract candidate is a current-image derivative, not a historical release; isolated structural DB contains synthetic revoked bridge history."
+  ],
+  "source_audit": "evidence/source-audit-0.7.0.json"
+}

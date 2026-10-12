@@ -1,7 +1,7 @@
 {
   "version": "0.7.0",
-  "source_commit": "9146b38f6cbe04c0d3cfdc221b7b397a4f40261f",
-  "iso_sha256": "44aaa2baea15ee0ba80bd3291fd0dcdd5e790823995514c8ff7857ba05d76a95",
+  "source_commit": "cd0fe57725138da00bf67537f68f3fb9a0d7b150",
+  "iso_sha256": "9c6f6d3e54a89454137a8db4760208d856cdfbb07d8bc7322d18bac5b2928c94",
   "seed_sha256": "7465beff2e5599ae28cefeab8862625a2dc63f3c62de1a962bfc4621c425bf48",
   "interactive_sections": [
     "network",
@@ -14,5 +14,5 @@
   "embedded_product_checksum_matches": true,
   "result": "passed",
   "method": "Extract seed and product checksum from exact ISO with xorriso; parse installation choices and compare TAR digest",
-  "extracted_from": "build/public-seed-070-host-gate/user-data"
+  "extracted_from": "build/public-seed-070-job-polling/user-data"
 }

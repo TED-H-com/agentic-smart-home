@@ -2,16 +2,16 @@
   "kind": "real_linux_install_nested_kvm",
   "profile": "laptop-amd64",
   "base": "Ubuntu 24.04.5",
-  "iso_sha256": "ac434f55bfa66be57fd86dbd52772894189b0e0a2778dd93e5ec8c9d461e6a60",
-  "installed_version": "0.6.1",
+  "iso_sha256": "9c6f6d3e54a89454137a8db4760208d856cdfbb07d8bc7322d18bac5b2928c94",
+  "installed_version": "0.7.0",
   "images": {
-    "agentic-home-controller:0.6.1": "sha256:6ff6cad9730eea9b9172fa173f0d8a8ae7c36954839486048f48f478fd47e456",
-    "agentic-home-runner:0.6.1": "sha256:1d45b6f570e70bb977792e8ab44de3888f414beaf665bc9d5e46637ab235fbc8",
-    "agentic-home-linejs:0.6.1": "sha256:4ff137d5a95055b1350ccf793ea541857238360344c7149d84877ff878fb6f83",
-    "agentic-home-hermes:0.6.1": "sha256:1aa24f3d0a31c04ebdc78d32ad5b4612e2d1d33b84c0c76edf891fa6e65dcc9d",
-    "agentic-home-preview:0.6.1": "sha256:2c3378d529cd46e74416164053742234f1b36d0fb32aa8f990a2544424445ec6"
+    "agentic-home-controller:0.7.0": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
+    "agentic-home-runner:0.7.0": "sha256:9a64fef60148e840b884aee668dd5c08b769177f4fc54558037cd39fef109535",
+    "agentic-home-linejs:0.7.0": "sha256:032f1d0c0c4d9bc2ab0fc223c18846e2a9da916822a05f895e912b9d3af6d63d",
+    "agentic-home-hermes:0.7.0": "sha256:f079b29d969fc134e935430182c51f096be538a9c4a5fbc4776719f35a3686e3",
+    "agentic-home-preview:0.7.0": "sha256:7f404a8fd02aa4fe9ef5eb96fcebdc5eaf0191995c549144cf228f6d1afda777"
   },
-  "source_commit": "083b80eaa64510a6882b6c33096b0efcb852ba65",
+  "source_commit": "cd0fe57725138da00bf67537f68f3fb9a0d7b150",
   "host_coding": "passed",
   "controller_update_rollback": "passed",
   "tailscale_installed_without_account": "1.104.1",
@@ -29,17 +29,17 @@
   "console_rescue_with_controller_stopped": "passed",
   "desktop_single_use_login": "passed",
   "bootstrap_get_has_no_side_effect": "passed",
-  "latest_hermes": {
+  "release_hermes": {
     "state": "ready",
-    "commit": "7cc3fb8cb55898747dd1dfa56fda3e16ebba028e",
-    "source": "latest",
-    "image_id": "sha256:6f2ea896f6535102a5fbeaa533429d81709787efdb822dd65665fe19af37ff52",
+    "commit": "835c3dd038d903182a66ecc45e34bf5e0de65f00",
+    "source": "release",
+    "image_id": "sha256:f079b29d969fc134e935430182c51f096be538a9c4a5fbc4776719f35a3686e3",
     "runtime_revision_readback": "passed",
     "persists_after_reboot": true
   },
   "outer_reboot_haos_autostart": "passed",
   "ha_readiness_check": "real Core onboarding API JSON list after startup, restore and outer reboot",
-  "duration_seconds": 1562,
+  "duration_seconds": 2274,
   "installer_inputs": "Disposable disk serial + ephemeral SSH key supplied by fixture",
   "physical_laptop": "not_run",
   "cloud_login": "not_run"

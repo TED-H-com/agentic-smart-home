@@ -1,9 +1,8 @@
 {
   "runtime_location": "disposable_outer_linux_vm",
-  "iso_sha256": "44aaa2baea15ee0ba80bd3291fd0dcdd5e790823995514c8ff7857ba05d76a95",
-  "result": "failed",
+  "iso_sha256": "9c6f6d3e54a89454137a8db4760208d856cdfbb07d8bc7322d18bac5b2928c94",
+  "result": "passed",
   "cloud_login": "not_run",
-  "phase": "nested_haos_shutdown_snapshot_restore",
-  "duration_seconds": 1495,
-  "error_type": "CalledProcessError"
+  "phase": "completed",
+  "duration_seconds": 2274
 }

@@ -1,10 +1,10 @@
 {
   "version": "0.7.0",
-  "source_commit": "9146b38f6cbe04c0d3cfdc221b7b397a4f40261f",
+  "source_commit": "cd0fe57725138da00bf67537f68f3fb9a0d7b150",
   "coding_source": {
     "repo_id": "agentic-home",
-    "commit": "9146b38f6cbe04c0d3cfdc221b7b397a4f40261f",
-    "bundle_sha256": "4a34fdb52b84771b8f45fdc4c00117b47f5290c6e6d9c46ef0be361e004485d7"
+    "commit": "cd0fe57725138da00bf67537f68f3fb9a0d7b150",
+    "bundle_sha256": "e6a4019d8348d8854202ffaac532b1a6be311ed7f36c968cc6f34638c5749022"
   },
   "images": {
     "agentic-home-controller:0.7.0": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
@@ -15,16 +15,16 @@
   },
   "media": {
     "agentic-home-0.7.0-laptop-amd64.iso": {
-      "bytes": 6568017920,
-      "sha256": "44aaa2baea15ee0ba80bd3291fd0dcdd5e790823995514c8ff7857ba05d76a95"
+      "bytes": 6568214528,
+      "sha256": "9c6f6d3e54a89454137a8db4760208d856cdfbb07d8bc7322d18bac5b2928c94"
     },
     "agentic-home-0.7.0-linux-amd64.tar": {
-      "bytes": 2488555520,
-      "sha256": "2d122835874e5c7b0b5db7d96a9fe1a4acb1445d76f0bf8fd7ade24756093262"
+      "bytes": 2488709120,
+      "sha256": "c91cc1cda95b3257bd88c94abd49ac5208c40d72dca9a4149fc3194755ac31bd"
     }
   },
   "bundle_manifest_verified_files": 204,
-  "installed_media": "failed_at_snapshot_status_read",
+  "installed_media": "passed",
   "cloud_accounts": "not_run",
   "source_exclusions": "Public product allowlist; no private parent, runtime credentials, live workspaces or build cache",
   "app_delivery": "Official Supervisor installs public fixed release/0.7.0 source separately; not one of the five outer images",
@@ -110,14 +110,14 @@
     "host/agentic_host/__init__.py": "dd67c10202cb63ca49025ffed3de3a0f13c97a19239e6a1d790effb765e0f85f",
     "host/agentic_host/artifacts.py": "62ed70cc0cce036d13e70a7620abf25161340663aeb6eb8b666e7f6f80e58514",
     "host/agentic_host/bootstrap.py": "97c8251b478d2be7236158bb879821e72a531a70ad287b519b27a0dce611e341",
-    "host/agentic_host/cli.py": "e8371445fa10c830129df339083948ae1f5c17fdd47ec0427e14071b6024d2a4",
+    "host/agentic_host/cli.py": "2ceefb27d848d92f985c9f5d17f3b8414cde9ff451ee4251a1cb9d6412ddec38",
     "host/agentic_host/coding_program.py": "d22775a825af62d08ae74aa9a13a249cb876c6efbaf9217efef2da9c82624031",
     "host/agentic_host/coding_relay.py": "ad5f095de358199e2a12da512eb68ae3f092f8ba4c4ed8387837fa63ed989412",
     "host/agentic_host/coding_sandbox.py": "bc3f2ccbd293f61273d0e6d304164e55653dab5fcd339380bfbb80ccd894080d",
     "host/agentic_host/coding_service.py": "81849aa39ecfc6dc6cebd1f09cfe417036c7555f8c10d943b965bb470f03f7dc",
     "host/agentic_host/coding_volume.py": "74df243725bc57df3a88f29915a1f2b76170aea8cf6dc373859112013a543701",
     "host/agentic_host/compatibility.py": "7d23e86c9bf7f78dad8c31675f23759fcfcd682ffa1ad83d26affe587210ead2",
-    "host/agentic_host/daemon.py": "3e69bc21955df193ce96f8a17b120c41f60148c0ed0c4026dc4f0ce246f0471c",
+    "host/agentic_host/daemon.py": "e868c10e400ac992ad0a08bd3237d5c8458d616b42d96cbd63951cc96e45b2af",
     "host/agentic_host/desktop.py": "4da4ea5fdb13057356ddf1157ef0c162f74bed473539f49716591c47d96627e4",
     "host/agentic_host/fence.py": "2828f677c5b6ef768726d6a4827ad1bab842367e03c0df526375ec0f1d4d2ce7",
     "host/agentic_host/manager.py": "c3ab7c7bfbd5d87c534ef715ebb26f7485688b1dc49c3f00eb40ebb62efbfbe8",
@@ -176,5 +176,5 @@
     "scripts/upstreams.py": "a7faffd23dee055677f8a1a10c169355e132d8ceed5f97336e4f3bf828450919",
     "scripts/validate_kit.py": "e9841d42cb2f024a833450847e272c6ef4630f627557156adb60ba4937430955"
   },
-  "installed_failure_evidence": "evidence/installed-0.7.0-run2-prior-stages/manifest.json"
+  "installed_evidence": "evidence/linux-install-0.7.0.json"
 }
