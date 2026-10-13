@@ -13,7 +13,7 @@
 
 ## Repo 與精確來源
 
-公開 repo：[teddashh/agentic-smart-home](https://github.com/teddashh/agentic-smart-home)。本機工作目錄為 `/home/ted-h/castle-smarthome/agentic-home`；外層父目錄是另一個私人 repo，不得打包或發布。
+公開 repo：[teddashh/agentic-smart-home](https://github.com/teddashh/agentic-smart-home)。本機工作目錄是私人父 repo 內的 `agentic-home/`；外層父目錄不得打包或發布。
 
 | 用途 | 來源 |
 | --- | --- |
@@ -61,7 +61,7 @@ Workers、Plan v3 帳本、版本驗證與本交接已同步，原三條工作�
 接手先執行以下唯讀命令。若三個遠端分支均已包含本交接提交、working tree 乾淨，直接處理下一節的產品缺口。若最後 Git push 被中斷，只補齊尚未完成的 fast-forward 發布，不重跑已通過的 VM／CI；先確認遠端沒有其他人的新提交。
 
 ```bash
-cd /home/ted-h/castle-smarthome/agentic-home
+cd agentic-home   # 私人父 repo 內的產品 repo
 git status --short
 git log -4 --oneline
 git ls-remote origin refs/heads/main refs/heads/feat/home-coding-worker-0.8 refs/heads/release/0.8.0
