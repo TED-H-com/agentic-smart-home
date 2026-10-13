@@ -176,7 +176,6 @@ def outer_script(public):
     from test_bridge_haos import OUTER
     text = OUTER.replace("        options = app.state.ingress_bridge.prepare_pairing()\n        Path('/lab/pairing.json').write_text(json.dumps(options))\n", '')
     text = text.replace("        if settings['public']:\n            store.put", '        store.put')
-    text = text.replace("        await uvicorn.Server", "        Path('/lab/outer-ready').write_text('ready')\n        await uvicorn.Server")
     if not public:
         text = text.replace('async def main():',
             "from agentic_controller.bridge_maintenance import BridgeRelease\n"
@@ -391,6 +390,26 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
         state = raw.get('state')
         return state if state in ('started', 'stopped', 'startup', 'error') else 'unknown'
 
+    def outer_alive():
+        # The Controller under test: its exit fails now instead of after a long wait on a stale database.
+        inspected = json.loads(docker('inspect', outer))[0]
+        check_ok = bool(inspected['State']['Running'] is True)
+        assert check_ok, 'outer_controller_exited'
+        return inspected
+
+    async def outer_ready():
+        # Serving means the lifespan, with both maintenance loops, started; the host port changes on restart.
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as probe:
+            for _ in range(120):
+                ports = outer_alive()['NetworkSettings']['Ports']
+                address = 'http://127.0.0.1:' + ports['8099/tcp'][0]['HostPort']
+                with contextlib.suppress(aiohttp.ClientError, TimeoutError, ValueError):
+                    async with probe.get(address + '/api/deployment', headers={'Host': 'localhost:8099'}) as response:
+                        if response.status == 200 and (await response.json()).get('mode') == 'host':
+                            return address
+                await asyncio.sleep(1)
+        raise AssertionError('outer_controller_not_ready')
+
     try:
         phase('prepare_exact_head')
         head = git('rev-parse', 'HEAD').decode().strip()
@@ -565,15 +584,11 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             '-v', f'{tmp_path / "host-socket"}:/run/agentic-home',
             '-v', f'{ROOT / "controller/agentic_controller"}:/app/agentic_controller:ro',
             '-v', f'{ROOT / "controller/static"}:/app/static:ro', CONTROLLER, 'python', '/lab/outer.py')
+        outer_url = await outer_ready()
         database = tmp_path / 'outer-data/controller.sqlite3'
-        for _ in range(60):
-            if (tmp_path / 'outer-ready').exists():
-                break
-            await asyncio.sleep(1)
-        else:
-            raise AssertionError('outer_controller_not_ready')
         phase('bridge_auto_enroll')
         for _ in range((JOB_TIMEOUT + 600) // 5):
+            outer_alive()
             record = setting(database, 'bridge_maintenance')
             stage, state = record.get('stage'), record.get('state')
             check_ok = bool(state not in FAILED)
@@ -588,6 +603,7 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
         delivery_contract(repositories, info, record, url)
         evidence['checks']['bridge_auto_enroll'] = True
         for _ in range(45):
+            outer_alive()
             seen = setting(database, 'ingress_bridge').get('service_last_seen')
             if seen:
                 break
@@ -595,8 +611,6 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
         check_ok = bool(bool(seen))
         assert check_ok, 'bridge_heartbeat_timeout'
         evidence['checks']['bridge_heartbeat'] = True
-        port = json.loads(docker('inspect', outer))[0]['NetworkSettings']['Ports']['8099/tcp'][0]['HostPort']
-        outer_url = 'http://127.0.0.1:' + port
         headers = {'Host': 'localhost:8099', 'Origin': 'http://localhost:8099', 'Sec-Fetch-Site': 'same-origin'}
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15),
                 cookie_jar=aiohttp.CookieJar(unsafe=True), headers=headers) as client:
@@ -635,6 +649,7 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
                 check_ok = bool(time.monotonic() < deadline)
                 assert check_ok, 'home_worker_enable_timeout'
                 await asyncio.sleep(5)
+                outer_alive()
                 current = await status()
             evidence['enable_seconds'] = round(time.monotonic() - enable_started, 3)
             evidence['checks']['home_worker_enable'] = True
@@ -684,6 +699,7 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
                 bridges = evidence.setdefault('bridge_' + name + '_transitions', [])
                 deadline = time.monotonic() + seconds
                 while True:
+                    outer_alive()
                     home, bridge = setting(database, 'home_worker_maintenance'), setting(database, 'bridge_maintenance')
                     transition(homes, home)
                     transition(bridges, bridge, 'bridge_')
@@ -749,10 +765,10 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             check_ok = bool(down)
             assert check_ok, 'core_reboot_down_not_observed'
             docker('restart', outer)
-            port = json.loads(docker('inspect', outer))[0]['NetworkSettings']['Ports']['8099/tcp'][0]['HostPort']
-            outer_url = 'http://127.0.0.1:' + port
+            outer_url = await outer_ready()
             deadline = time.monotonic() + 600
             while True:
+                outer_alive()
                 try:
                     await ha.request('GET', '/config', timeout=3)
                     break
@@ -766,6 +782,7 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             bridges = evidence['bridge_recovery_transitions'] = []
             deadline = time.monotonic() + 600
             while True:
+                outer_alive()
                 transition(homes, setting(database, 'home_worker_maintenance'))
                 transition(bridges, setting(database, 'bridge_maintenance'), 'bridge_')
                 try:
@@ -999,7 +1016,7 @@ def test_projection_rejects_malformed_nested_and_unhashable_values():
 def test_failure_receipt_recognizes_enable_assertion_codes():
     for code in ('home_worker_failed_after_disruption', 'bridge_not_recovered', 'app_restarted_after_reboot',
                  'maintenance_changed_apps_after_cold_backup', 'home_worker_status_ownership',
-                 'owned_enable_resources_not_removed'):
+                 'owned_enable_resources_not_removed', 'outer_controller_exited', 'outer_controller_not_ready'):
         receipt = failure_receipt(AssertionError(code), source_files=CODE_SOURCES)
         assert receipt['error_code'] == code
         assert evidence_projection(receipt)['error_code'] == code
