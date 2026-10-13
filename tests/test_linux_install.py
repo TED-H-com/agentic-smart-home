@@ -266,8 +266,9 @@ def decode_update_observation(output):
     else:
         actual = ["ed25519_signature_verification", "bounded_candidate_probe", "compose_activation", "authenticated_owner_smoke",
                   "consistent_snapshot", "schema3", "maintenance_gate", "same_database_rollback", "post_deployment_row_preserved",
-                  "revoked_bridge_fixed_probe_enforced", "pending_bridge_operation_blocked", "isolated_probe_cleanup_verified"]
-        fixtures = ["ephemeral_publisher", "preloaded_registry_delivery", "candidate_changes_only_image_label", "synthetic_post_deployment_record",
+                  "revoked_bridge_fixed_probe_enforced", "pending_bridge_operation_blocked", "isolated_probe_cleanup_verified",
+                  "coding_source_moved_with_image_and_rolled_back"]
+        fixtures = ["ephemeral_publisher", "preloaded_registry_delivery", "candidate_changes_label_and_source_bundle", "synthetic_post_deployment_record",
                     "synthetic_missing_bridge_contract_image", "isolated_structure_only_revoked_bridge"]
         if (result.get("actual") != actual or result.get("fixtures") != fixtures or result.get("final_schema") != 3 or
                 result.get("real_cloud") is not False or result.get("real_publisher_release") is not False or
