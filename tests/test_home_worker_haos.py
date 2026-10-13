@@ -45,8 +45,8 @@ from test_bridge_haos import BUILDER, ProbeHA, docker, lifecycle_observation, pr
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / 'host'))
 TERMINAL = {'succeeded', 'failed', 'cancelled', 'blocked', 'expired', 'interrupted'}
-STATES = TERMINAL | {'accepted', 'queued', 'dispatching', 'running', 'waiting_for_user', 'cancel_requested',
-                     'stop_unconfirmed', 'needs_reconcile'}
+STATES = TERMINAL | {'accepted', 'queued', 'launching', 'dispatching', 'running', 'waiting_for_user',
+                     'cancel_requested', 'stop_unconfirmed', 'needs_reconcile'}
 HEX32 = re.compile(r'^[a-f0-9]{32}$')
 HEX64 = re.compile(r'^[a-f0-9]{64}$')
 REGISTRY = 'registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e'
@@ -269,7 +269,9 @@ def job_projection(raw):
         if raw.get(key) in {'coding_needs_auth', 'worker_unavailable', 'hard_boundary_unavailable',
                 'coding_source_unavailable', 'execution_failed', 'verification_failed', 'writer_stop_unconfirmed',
                 'broker_restarted', 'source_or_image_unavailable', 'checkpoint_export_failed',
-                'coding_operation_rejected', 'verification_deadline_exhausted', 'worker_contract_mismatch'}:
+                'coding_operation_rejected', 'verification_deadline_exhausted', 'worker_contract_mismatch',
+                'setup_timeout', 'execution_timeout', 'verification_timeout', 'authorization_expired',
+                'owner_cancelled'}:
             value[key] = raw[key]
     verification = raw.get('verification', {})
     if isinstance(verification, dict):

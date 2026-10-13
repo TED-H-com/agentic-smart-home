@@ -9,6 +9,7 @@ import asyncio
 import base64
 import contextlib
 import hashlib
+import math
 import re
 import time
 import uuid
@@ -26,7 +27,9 @@ from .work import WorkerAction, WorkerAuth, WorkerId, WorkerPreference, WorkerSt
 WORKER_SCOPES = {"host-coder": "host", "home-coder": "haos"}
 LOCATIONS = {"host-coder": "host_container", "home-coder": "haos_app"}
 TERMINAL = {"succeeded", "failed", "cancelled", "blocked", "expired", "interrupted"}
-RUNNER_STATES = TERMINAL | {"accepted", "queued", "running", "waiting_for_user", "cancel_requested", "stop_unconfirmed", "interrupted", "needs_reconcile"}
+RUNNER_STATES = TERMINAL | {"accepted", "queued", "launching", "running", "waiting_for_user", "cancel_requested", "stop_unconfirmed", "interrupted", "needs_reconcile"}
+HEARTBEAT_FRESH_SECONDS = 45
+LIVE_PHASES = {"launching", "running", "verifying", "collecting"}
 IDENTIFIER = re.compile(r"^[a-f0-9]{32}$")
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
 MAX_ARTIFACT = 180 * 1024
@@ -41,6 +44,23 @@ class WorkerError(Exception):
 
 def code(value, fallback="worker_unavailable"):
     return value if isinstance(value, str) and re.fullmatch(r"[a-z][a-z0-9_]{0,80}", value) else fallback
+
+
+def commit_sha(value):
+    return value if isinstance(value, str) and re.fullmatch(r"[a-f0-9]{40}", value) else None
+
+
+def heartbeat_fresh(item, now=None):
+    """True while the broker reports a live phase and a recent heartbeat.
+
+    heartbeat_at is the broker's wall clock. Allow a little skew in either direction.
+    A missing or stale beat still means the job may be lost.
+    """
+    beat = item.get("heartbeat_at")
+    if item.get("phase") not in LIVE_PHASES or type(beat) not in {int, float} or isinstance(beat, bool):
+        return False
+    delta = (time.time() if now is None else now) - float(beat)
+    return -30 <= delta <= HEARTBEAT_FRESH_SECONDS
 
 
 def relative_name(value):
@@ -65,7 +85,8 @@ class Workers:
     def unavailable(worker, reason):
         return {"worker_id": worker, "work_contract_major": 1, "available": False, "supported": False,
                 "state": "blocked", "reason": reason, "runtime_location": LOCATIONS[worker],
-                "observed_from": "controller", "modes": [], "providers": []}
+                "observed_from": "controller", "source_commit": None, "install_commit": None,
+                "modes": [], "providers": []}
 
     def runner(self, worker):
         return self.runners[WORKER_SCOPES[worker]]
@@ -98,6 +119,8 @@ class Workers:
                     "supported": any(p["supported"] for p in providers), "state": code(raw.get("state"), "blocked"),
                     "reason": code(raw.get("reason")) if raw.get("reason") else None,
                     "runtime_location": raw["runtime_location"], "observed_from": "paired_runner",
+                    "source_commit": commit_sha(raw.get("source_commit")),
+                    "install_commit": commit_sha(raw.get("install_commit")),
                     "modes": [m for m in raw.get("modes", []) if m in {"research", "development"}],
                     "providers": providers, "selected_provider": self.preference(worker)["provider"],
                     "selected_model": self.preference(worker)["model"], "observed_at": utcnow()}
@@ -259,7 +282,7 @@ class Workers:
             identifier, now = uuid.uuid4().hex, time.time()
             envelope = WorkerWireJob(id=identifier, case_id=case_id, worker_id=worker, mode=body.mode,
                 provider=provider, model=model, repo_id=body.repo_id, goal=body.goal,
-                questions=body.questions, expires=min(now + 300, authority["expires"]), lease_epoch=1,
+                questions=body.questions, expires=float(authority["expires"]), lease_epoch=1,
                 context_days=self.context_days()).model_dump()
             peer_key = "runner" if worker == "host-coder" else "runner_haos"
             peer = self.store.setting(peer_key, {})
@@ -359,7 +382,12 @@ class Workers:
                     self.store.set_setting("worker_lease", None)
                     self.event.set()
                     return
-                item = self.save(item, cancel_requested=True, state="cancel_requested", reason="authority_revoked")
+                # A grant that only ran out is not a revocation. Judge the scope without its expiry.
+                authority = item.get("authority", {})
+                grant_over = min(item.get("request", {}).get("expires", 0), authority.get("expires", 0)) <= time.time()
+                scope_revoked = item.get("content_expired") or not self.authorized({**authority, "expires": math.inf})
+                reason = "authorization_expired" if grant_over and not scope_revoked else "authority_revoked"
+                item = self.save(item, cancel_requested=True, state="cancel_requested", reason=reason)
             runner = self.runner(item["worker_id"])
             try:
                 if item.get("cancel_requested"):
@@ -384,6 +412,11 @@ class Workers:
                 current = self.get(item["id"])
                 if current["state"] in TERMINAL and current.get("stop_confirmed"):
                     return
+                # A fresh launching/running heartbeat means the broker is alive. 404 and a bad receipt do not.
+                transport = isinstance(exc, (OSError, TimeoutError)) or (
+                    isinstance(exc, RunnerError) and exc.status_code != 404)
+                if transport and heartbeat_fresh(current):
+                    return
                 self.save(current, state="stop_unconfirmed" if current.get("cancel_requested") else "needs_reconcile",
                           reason=exc.code if isinstance(exc, WorkerError) else "runner_response_unconfirmed")
 
@@ -399,6 +432,15 @@ class Workers:
             raise WorkerError("worker_stop_unconfirmed", 502)
         updates = {"state": state, "execution_started": item.get("execution_started", False) or raw.get("execution_started") is True,
                    "stop_confirmed": stopped, "reason": code(raw["error_code"]) if raw.get("error_code") else None}
+        if (item.get("cancel_requested") and item.get("reason") in {"authority_revoked", "authorization_expired"}
+                and updates["reason"] in {None, "owner_cancelled"}):
+            updates["reason"] = item["reason"]
+        phase = raw.get("phase")
+        if phase in LIVE_PHASES | {"queued"} | TERMINAL:
+            updates["phase"] = phase
+        beat = raw.get("heartbeat_at")
+        if type(beat) in {int, float} and not isinstance(beat, bool):
+            updates["heartbeat_at"] = beat
         location = raw.get("runtime_location")
         if location is not None or updates["execution_started"]:
             if location != LOCATIONS[item["worker_id"]]:
