@@ -186,7 +186,7 @@ def public_delivery_contract(repositories, info, record):
             record.get("repository_id") == repository_id and
             record.get("release") == {"repository": expected.repository, "app": expected.app,
                                       "version": expected.version}), "public_manager_identity_not_verified"
-    return {"source": sources[0], "reference": "release/0.8.0", "repository_id": repository_id,
+    return {"source": sources[0], "reference": expected.repository.split("#", 1)[1], "repository_id": repository_id,
             "app_slug": info["slug"], "version": info["version"], "source_build": True,
             "commit_digest_pinned_by_supervisor": False}
 
@@ -617,7 +617,7 @@ def test_public_delivery_evidence_requires_actual_exact_repository(change):
             public_delivery_contract(repositories, info, record)
     else:
         result = public_delivery_contract(repositories, info, record)
-        assert result["source"] == release.repository and result["reference"] == "release/0.8.0"
+        assert result["source"] == release.repository and result["reference"] == release.repository.split("#", 1)[1]
         assert result["commit_digest_pinned_by_supervisor"] is False
         assert set(result) == {"source", "reference", "repository_id", "app_slug", "version", "source_build",
                                "commit_digest_pinned_by_supervisor"}
