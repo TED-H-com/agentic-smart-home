@@ -18,6 +18,10 @@ Drift ``update`` at ``monitor`` while not reconnecting offers the Owner update a
 does not restart or repair. An install already sent, and configure, start and
 reconnect, finish at the pinned release; monitor then offers the update.
 Re-enabling a disabled sidebar reconnects at the release that is installed.
+
+HAOS boot and backups stop and restart Apps: App states other than ``started`` decide
+nothing and no effect is posted unless Supervisor ``/info`` is ``running``. A stop must
+persist ``STOP_CONFIRM_SECONDS``; heartbeat repair waits for a fresh in-memory started run.
 """
 from __future__ import annotations
 
@@ -38,6 +42,7 @@ STARTUP_GRACE = 120
 OPERATION_TIMEOUT = 600
 JOB_TIMEOUT = 3600  # A running Supervisor job, such as the local image build, is progress.
 HEARTBEAT_MAX_AGE = 90
+STOP_CONFIRM_SECONDS = 30  # A boot, backup or restart passes through stopped; an Owner stop persists.
 MAX_RESTARTS = 2
 RESTART_WINDOW = 86400
 SAFE_FLAGS = ("hassio_api", "homeassistant_api", "auth_api", "docker_api", "full_access",
@@ -135,6 +140,9 @@ class BridgeMaintenance:
         self.store, self.ha, self.bridge = store, ha, bridge
         self.release, self.clock = release or BridgeRelease(), clock
         self.lock, self.task = asyncio.Lock(), None
+        # (App state, first seen) of the current uninterrupted run. Never persisted: a
+        # Controller restart or HAOS reboot cannot prove the App kept running meanwhile.
+        self.run, self.app_read = None, False
 
     def record(self):
         return self.store.setting(KEY)
@@ -367,6 +375,28 @@ class BridgeMaintenance:
         self.guard(record, token)
         return result
 
+    async def supervisor_running(self, record, token):
+        """Only a Supervisor in ``running`` lets an App state decide. Boot and backups move Apps themselves."""
+        raw = await self.request(record, token, "GET", "/info")
+        state = raw.get("state") if isinstance(raw, dict) else None
+        if not isinstance(state, str):
+            raise BridgeFault("bridge_observation_unavailable", "unavailable")
+        if state != "running":
+            # The App may be stopped and restarted inside this window: start every grace again.
+            self.run = None
+            self.save(record, stopped_since=None)
+            raise BridgeFault("bridge_supervisor_busy", "waiting")
+
+    def confirm_stop(self, record):
+        """Disable only a stop seen again STOP_CONFIRM_SECONDS later with nothing else in between."""
+        since, now = record.get("stopped_since"), self.clock()
+        if type(since) not in (int, float) or since > now:
+            since = now
+        if now - since < STOP_CONFIRM_SECONDS:
+            self.save(record, stopped_since=since, state="waiting", code="bridge_app_stop_pending")
+            return
+        self.save(record, enabled=False, state="user_disabled", code="bridge_app_stopped", stopped_since=None)
+
     @staticmethod
     def validate_options(options):
         if (not isinstance(options, dict) or
@@ -445,6 +475,8 @@ class BridgeMaintenance:
         supervisor = await self.request(record, token, "GET", "/supervisor/info")
         if not isinstance(supervisor, dict) or supervisor.get("healthy") is not True:
             raise BridgeFault("bridge_supervisor_not_healthy", "unavailable")
+        # Before the readbacks below: a boot or cold backup can show the App stopped mid-transition.
+        await self.supervisor_running(record, token)
         await self.owner(record, token)
         if kind in {"configure", "start", "restart"}:
             # Narrow the native UI race after validation/owner awaits. Supervisor
@@ -518,16 +550,21 @@ class BridgeMaintenance:
             if not record or not record["enabled"] or record["state"] in TERMINAL:
                 return self.status()
             token = self.ha.token
+            self.app_read = False
             try:
                 await self.owner(record, token)
                 await self.advance(record, token)
             except asyncio.CancelledError:
                 raise  # Persisted intent remains available to exact readback after restart.
             except BridgeFault as exc:
+                if not self.app_read:
+                    self.run = None  # A gap in observation is not an uninterrupted run.
                 current = self.record()
                 if current and current["id"] == record["id"] and current["enabled"]:
                     self.save(current, state=exc.state, code=exc.code)
             except Exception:
+                if not self.app_read:
+                    self.run = None
                 # A failed read is not proof of absence, stopped state or an unhealthy App.
                 current = self.record()
                 if current and current["id"] == record["id"] and current["enabled"]:
@@ -625,7 +662,12 @@ class BridgeMaintenance:
         if app is None:
             self.save(record, enabled=False, state="user_removed", code="bridge_app_removed")
             return
-        self.save(record, app_state=app["state"], version=app["version"], observed_at=utcnow())
+        self.app_read = True
+        if self.run is None or self.run[0] != app["state"]:
+            self.run = (app["state"], self.clock())
+        # Any other observation interrupts a pending stop confirmation.
+        self.save(record, app_state=app["state"], version=app["version"], observed_at=utcnow(),
+                  stopped_since=record.get("stopped_since") if app["state"] == "stopped" else None)
         if stage == "configure":
             if self.configured(app, record):
                 self.save(record, stage="reconnect" if record.get("reconnecting") else "start",
@@ -661,10 +703,12 @@ class BridgeMaintenance:
                 kind = "restart" if app["state"] == "started" else "start"
                 await self.effect(record, token, kind, f"/addons/{record['slug']}/{kind}")
             else:
+                await self.supervisor_running(record, token)
                 raise BridgeFault("bridge_app_state_unconfirmed", "needs_reconcile")
             return
         if stage == "start":
             if app["state"] in {"error", "unknown"}:
+                await self.supervisor_running(record, token)
                 raise BridgeFault("bridge_app_state_unconfirmed", "needs_reconcile")
             if app["state"] == "startup":
                 self.waiting(record)
@@ -677,14 +721,18 @@ class BridgeMaintenance:
             else:
                 await self.effect(record, token, "start", f"/addons/{record['slug']}/start")
             return
+        if app["state"] != "started":
+            await self.supervisor_running(record, token)
         # Stopped is deliberately ambiguous: crash vs manual stop cannot be proved by state alone.
         if app["state"] == "stopped":
-            self.save(record, enabled=False, state="user_disabled", code="bridge_app_stopped")
+            self.confirm_stop(record)
             return
         if stage != "monitor":
             raise BridgeFault("bridge_state_invalid", "needs_reconcile")
+        # Both graces: the persisted one after our own effects, and this process's own observed run.
+        fresh = self.clock() < record.get("grace_until", 0) or self.clock() - self.run[1] < STARTUP_GRACE
         if app["state"] != "started":
-            if app["state"] == "startup" and self.clock() < record.get("grace_until", 0):
+            if app["state"] == "startup" and fresh:
                 self.save(record, state="starting", code="bridge_app_starting")
                 return
             raise BridgeFault("bridge_app_state_unconfirmed", "needs_reconcile")
@@ -698,9 +746,10 @@ class BridgeMaintenance:
         if operation:
             self.waiting(record)
             return
-        if self.clock() < record.get("grace_until", 0):
+        if fresh:
             self.save(record, state="starting", code="bridge_heartbeat_pending")
             return
+        await self.supervisor_running(record, token)
         if not record["auto_repair"]:
             self.save(record, state="degraded", code="bridge_heartbeat_missing")
             return
@@ -780,7 +829,7 @@ class BridgeMaintenance:
         self.save(record, release=asdict(self.release), operation=None, stage=kept,
                   grace_until=self.clock() + STARTUP_GRACE, state="running", code=None,
                   version=raw.get("version"), app_state=raw.get("state"), observed_at=utcnow(),
-                  release_store_reloaded=False)
+                  release_store_reloaded=False, stopped_since=None)
 
     def note_update_available(self, record, raw):
         # Heartbeat stays read-only. A missing listener does not restart or leave this state.
