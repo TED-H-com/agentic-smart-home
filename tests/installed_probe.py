@@ -33,7 +33,9 @@ def verify_workers(hermes):
     DIAGNOSTICS["host_role_needs_auth"] = provider.get("credential_state") == "needs_auth"
     require(provider["id"] == "codex" and provider["supported"] is True
             and set(provider["auth_methods"]) == {"device_code", "api_key"}
-            and set(provider["models"]) == {"gpt-6-astra", "gpt-6.1-sol", "gpt-6-sol"},
+            and set(provider["models"]) == {
+                "gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
+                "gpt-daybreak-blue-latest", "gpt-daybreak-red-latest", "gpt-5.5", "gpt-5.4", "codex-auto-review"},
             "host_worker_codex_contract")
     require(provider["credential_state"] == "needs_auth", "host_worker_requires_role_login")
     require(home["work_contract_major"] == 1 and home["runtime_location"] == "haos_app"

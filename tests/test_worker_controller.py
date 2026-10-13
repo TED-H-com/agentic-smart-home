@@ -297,6 +297,47 @@ async def test_retention_propagates_all_peers_and_failed_sync_is_not_saved(worke
     assert any(c[1] == '/retention' for c in workers.runners['haos'].calls)
 
 
+async def test_fresh_heartbeat_skips_needs_reconcile_until_stale_or_lost(workers):
+    first = await submit(workers)
+    await workers.advance()
+    host = workers.runners['host']
+    host.jobs[first['id']].update(state='launching', phase='launching', heartbeat_at=time.time())
+    await workers.advance()
+    assert workers.get(first['id'])['state'] == 'launching'
+    assert workers.get(first['id'])['phase'] == 'launching'
+    host.offline = True
+    await workers.advance()
+    assert workers.get(first['id'])['state'] == 'launching'
+    workers.save(workers.get(first['id']), heartbeat_at=time.time() - 120)
+    await workers.advance()
+    assert workers.get(first['id'])['state'] == 'needs_reconcile'
+    assert workers.get(first['id'])['reason'] == 'runner_response_unconfirmed'
+
+
+async def test_lost_job_reconciles_even_with_a_fresh_heartbeat(workers):
+    first = await submit(workers)
+    await workers.advance()
+    host = workers.runners['host']
+    host.jobs[first['id']].update(state='running', phase='running', heartbeat_at=time.time())
+    await workers.advance()
+    assert workers.get(first['id'])['phase'] == 'running'
+    del host.jobs[first['id']]
+    await workers.advance()
+    lost = workers.get(first['id'])
+    assert lost['state'] == 'needs_reconcile' and lost['reason'] == 'worker_job_unconfirmed'
+
+
+async def test_running_grant_expiry_is_authorization_expired(workers):
+    first = await submit(workers)
+    await workers.advance()
+    item = workers.get(first['id'])
+    item['request']['expires'] = time.time() - 1
+    workers.store.put('work_job', item)
+    await workers.advance()
+    result = workers.get(first['id'])
+    assert result['state'] == 'cancelled' and result['reason'] == 'authorization_expired'
+
+
 async def test_cancel_while_lookup_is_waiting_cannot_dispatch_after_local_stop(workers):
     first = await submit(workers)
     entered, release = asyncio.Event(), asyncio.Event()
