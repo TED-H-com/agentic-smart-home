@@ -31,7 +31,7 @@
 
 Manager 只處理本產品指定 App。使用者手動停止、移除或改變 App 設定時，保留該選擇；不能循環重裝或重新啟動來抵銷人工操作。有限重啟最多兩次／24 小時，超限及效果不明時需核對；按重新檢查不重設次數。相同版本的來源重建尚未自動化，不能把「自動維護」解讀為任意修 code 或任意更新。[Supervisor 官方 API](https://developers.home-assistant.io/docs/api/supervisor/endpoints/)。
 
-目前維護範圍限首次安裝、同版本有限重啟，以及 Owner 明確要求的重新連接。指定的 release branch 或 App 版本改變時，會進入 `needs_reconcile`；跨版本 App 遷移與來源重建尚未實作。因此不能宣稱 HA 上游更新後都能自動恢復側欄，仍需查證實際相容性。
+目前維護範圍限首次安裝、同版本有限重啟，以及 Owner 明確要求的重新連接。同一 `#stable` 頻道上較舊的側欄或 Home worker App 由 Owner 更新到恰好這一版。舊的 `#release/X.Y.Z` 進入 `*_release_channel_changed`，須在 Home Assistant 手動移除。Home Assistant 本身仍透過官方流程更新，見 [Updates](UPDATES.md)。因此不能宣稱 HA 上游更新後都能自動恢復側欄，仍需查證實際相容性。
 
 ## 維護端候選與發布
 
