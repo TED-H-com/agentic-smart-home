@@ -27,6 +27,24 @@ TOOLS = {
 }
 
 
+def tool_error(exc):
+    """A code the model can tell apart. Never echo validation text, entity ids, or HA bodies."""
+    if isinstance(exc, HAError):
+        if isinstance(exc.__cause__, TimeoutError) or getattr(exc, "status", None) == 504:
+            return "ha_timeout"
+        return "ha_unavailable"
+    if isinstance(exc, Rejected):
+        text = str(exc)
+        if text.startswith("尚未授權") or text in {
+            "household_owner_required", "household_authority_changed",
+            "無法重新確認 HA owner 身份", "無法確認 owner",
+        }:
+            return "not_permitted"
+    if isinstance(exc, WorkerError) and getattr(exc, "status", None) in {401, 403}:
+        return "not_permitted"
+    return "invalid_or_out_of_scope_request"
+
+
 def create_mcp(coordinator):
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     store = coordinator.store
@@ -121,9 +139,9 @@ def create_mcp(coordinator):
                     coordinator.authorize(auth[7:])
                 coordinator.authorize(auth[7:])
                 result = {"content": [{"type": "text", "text": canonical(value)}], "isError": False}
-            except (ValidationError, ValueError, Conflict, WorkerError, Rejected, HAError):
+            except (ValidationError, ValueError, Conflict, WorkerError, Rejected, HAError) as exc:
                 # Validation inputs may contain secrets; never echo Pydantic details to a model.
-                result = {"content": [{"type": "text", "text": "invalid_or_out_of_scope_request"}], "isError": True}
+                result = {"content": [{"type": "text", "text": tool_error(exc)}], "isError": True}
         if result is None:
             return JSONResponse({"jsonrpc": "2.0", "id": identifier,
                                  "error": {"code": -32601, "message": "Method not found"}})

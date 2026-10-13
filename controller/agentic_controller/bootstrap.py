@@ -149,7 +149,8 @@ class Bootstrap:
                     # Only terminal failed jobs get a new identity. Lost responses and
                     # unconfirmed side effects retain the old handle for reconciliation.
                     if current["code"] in {"cli_assist_failed", "cli_assist_expired", "hermes_verification_failed",
-                                            "hermes_install_failed", "ha_provision_failed"}:
+                                            "hermes_install_failed", "ha_provision_failed", "hermes_rate_limited",
+                                            "hermes_provider_unavailable", "hermes_verification_timeout"}:
                         record["attempts"][step] = record["attempts"].get(step, 0) + 1
                         if step == "cli_assist":
                             record.pop("assist_request", None)
@@ -286,7 +287,18 @@ class Bootstrap:
         elif item["state"] in {"failed", "cancelled", "interrupted", "succeeded"}:
             # Success text is not authority: wait for independently observed ready.
             if item["state"] != "succeeded":
-                self.block(record, "hermes_auth", "hermes_verification_failed", "Hermes 模型驗證未完成，請檢查登入後重試。")
+                code = item.get("error_code")
+                if code in {"needs_auth", "needs_reauth"}:
+                    self.checkpoint(record, "hermes_auth", "waiting_input", "hermes_login_required", self.human(
+                        "hermes_login", "請完成 Hermes 自己的官方登入；完成後會自動驗證模型連線。"))
+                elif code == "rate_limited":
+                    self.block(record, "hermes_auth", "hermes_rate_limited", "供應商暫時限制請求，請稍後再重試驗證。")
+                elif code == "provider_unavailable":
+                    self.block(record, "hermes_auth", "hermes_provider_unavailable", "模型服務暫時無法連線，請稍後再重試驗證。")
+                elif code == "timeout":
+                    self.block(record, "hermes_auth", "hermes_verification_timeout", "這次模型驗證逾時，請稍後再重試。")
+                else:
+                    self.block(record, "hermes_auth", "hermes_verification_failed", "Hermes 模型驗證未完成，請檢查登入後重試。")
             else:
                 self.wait_for_observation(record, "hermes_auth", "hermes_readback", "hermes_readback_pending",
                     "Hermes 回覆後仍未確認登入驗證；請查看診斷，重試只會核對原工作。", identity=verification["event"])

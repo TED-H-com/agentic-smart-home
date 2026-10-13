@@ -9,6 +9,34 @@ from pathlib import Path
 
 from .upstream import VERIFICATION_URI, HermesAdapter
 
+# Provider bodies stay in the child. Only these codes cross the pipe.
+LOGIN_ERRORS = {
+    "access_denied": ("failed", "access_denied"),
+    "slow_down": ("failed", "slow_down"),
+    "expired_token": ("expired", "expired_token"),
+    "device_code_timeout": ("expired", "expired_token"),
+}
+
+
+def classify_login(exc):
+    """Map a device-login failure to a stable reason. Never return provider text."""
+    code = str(getattr(exc, "code", "") or getattr(exc, "error", "") or "")
+    status = getattr(exc, "status_code", None)
+    if status is None:
+        status = getattr(exc, "status", None)
+    if code in LOGIN_ERRORS:
+        return LOGIN_ERRORS[code]
+    if status == 429 or code == "429":
+        return LOGIN_ERRORS["slow_down"]
+    text = code.lower()
+    if "access_denied" in text:
+        return LOGIN_ERRORS["access_denied"]
+    if "slow_down" in text:
+        return LOGIN_ERRORS["slow_down"]
+    if "expired_token" in text or "device_code_timeout" in text:
+        return LOGIN_ERRORS["expired_token"]
+    return "failed", "oauth_failed"
+
 
 def main():
     import ctypes
@@ -33,9 +61,8 @@ def main():
         adapter.finish_device(device)
         emit({"state": "configured"})
     except Exception as exc:
-        code = str(getattr(exc, "code", ""))
-        emit({"state": "expired" if code == "device_code_timeout" else "failed",
-              "error": "auth_expired" if code == "device_code_timeout" else "oauth_failed"})
+        state, reason = classify_login(exc)
+        emit({"state": state, "error": reason, "reason": reason})
 
 
 if __name__ == "__main__":

@@ -28,6 +28,7 @@ from .oauth import DeviceLogin
 from .oauth import public as public_auth
 
 TERMINAL = {"succeeded", "failed", "cancelled", "interrupted"}
+TURN_ERRORS = {"needs_reauth", "runtime_unavailable", "inference_failed", "rate_limited", "provider_unavailable", "timeout"}
 PRIVATE = {"scope_id", "digest", "key", "message", "auth_epoch"}
 MAX_HISTORY = 192 * 1024
 
@@ -206,7 +207,7 @@ class Runtime:
         self.put("run", run["run_id"], run)
 
     def capabilities(self):
-        return {
+        body = {
             "protocol": 1, "runtime": "hermes", "upstream_commit": self.lock["commit"],
             "state": self.auth.get("state", "needs_auth"), "provider": self.auth.get("provider", "openrouter"),
             "execution_state": "stop_unconfirmed" if self.unconfirmed else "busy" if self.tasks else "idle",
@@ -217,6 +218,11 @@ class Runtime:
             "auth_methods": ["openrouter_api_key", "openai_codex_device"],
             "default_models": {"openai-codex": "gpt-6-astra"},
         }
+        # A new tab resumes this login instead of minting another device code.
+        pending = self.device_login.active_pending()
+        if pending:
+            body["pending_auth"] = public_auth(pending)
+        return body
 
     async def set_retention(self, body):
         if self.unconfirmed:
@@ -455,7 +461,7 @@ class Runtime:
                 if error == "needs_reauth":
                     self.auth.update(state="needs_reauth", verified_at=None)
                     self.save_auth()
-                self.transition(run, "failed", error if error in {"needs_reauth", "runtime_unavailable", "inference_failed"} else "inference_failed")
+                self.transition(run, "failed", error if error in TURN_ERRORS else "inference_failed")
                 return
             if not isinstance(result.get("answer"), str) or len(result["answer"].encode()) > 32768:
                 raise ValueError("answer_limit")
@@ -476,7 +482,13 @@ class Runtime:
             except TimeoutError:
                 self.mark_unconfirmed(run)
             raise
-        except (OSError, ValueError, KeyError, TimeoutError):
+        except TimeoutError:
+            try:
+                await self.stop_process(body.run_id)
+                self.transition(run, "failed", "timeout")
+            except TimeoutError:
+                self.mark_unconfirmed(run)
+        except (OSError, ValueError, KeyError):
             try:
                 await self.stop_process(body.run_id)
                 self.transition(run, "failed", "runtime_unavailable")

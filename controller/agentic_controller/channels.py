@@ -11,7 +11,33 @@ import aiohttp
 
 
 class ChannelError(Exception):
-    pass
+    def __init__(self, message, code="unavailable", *, status=None, reason=None, detail=""):
+        super().__init__(message)
+        self.code = code
+        self.status = status
+        # `detail` is a bounded internal hint. Public clients only see `code` and `reason`.
+        self.reason = code if reason is None else reason
+        self.detail = detail
+
+
+def telegram_failure(status, description=""):
+    """Distinct Telegram connect codes. The provider description is not returned."""
+    text = str(description or "").lower()
+    try:
+        status = int(status)
+    except (TypeError, ValueError):
+        status = None
+    if status == 401:
+        return ChannelError("權杖無效，請向 BotFather 確認後重新貼上。", "invalid_token", reason="invalid_token")
+    if status == 429:
+        return ChannelError("Telegram 暫時限制請求，請稍後再試。", "rate_limited", reason="rate_limited")
+    if status == 409:
+        if "webhook" in text:
+            return ChannelError("這個 bot 已設定 webhook，請改用專用 bot 或先移除 webhook。",
+                                "webhook_conflict", reason="webhook_active")
+        return ChannelError("已有另一個程式在讀取這個 bot，請先停止它再連線。",
+                            "webhook_conflict", reason="poller_conflict")
+    return ChannelError("Telegram 暫時無法連線，請稍後再試。", "unavailable", reason="unavailable")
 
 
 @asynccontextmanager
@@ -32,7 +58,16 @@ async def json_request(session, method, url, **kwargs):
     async with session.request(method, url, allow_redirects=False, **kwargs) as response:
         if response.status >= 300:
             # URLs can contain Telegram credentials. Never surface raw HTTP exceptions.
-            raise ChannelError("通訊服務拒絕連線，請確認權杖、權限或速率限制")
+            detail = ""
+            try:
+                raw = await response.content.read(2048)
+                parsed = json.loads(raw.decode("utf-8", "replace")) if raw else {}
+                description = parsed.get("description") if isinstance(parsed, dict) else ""
+                if isinstance(description, str):
+                    detail = description[:180]
+            except (aiohttp.ClientError, TimeoutError, ValueError, UnicodeError):
+                detail = ""
+            raise ChannelError("通訊服務拒絕連線，請確認權杖、權限或速率限制", status=response.status, detail=detail)
         raw = bytearray()
         async for chunk in response.content.iter_chunked(16384):
             raw.extend(chunk)
@@ -99,15 +134,24 @@ class TelegramTransport:
         self.base = "https://api.telegram.org/bot" + config["secret"]
         self.session = None
 
+    async def _call(self, session, method, url, **kwargs):
+        try:
+            return await json_request(session, method, url, **kwargs)
+        except ChannelError as exc:
+            raise telegram_failure(exc.status, exc.detail) from exc
+
     async def run(self, receive, state):
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=40), trust_env=False) as session:
             self.session = session
-            result = await json_request(session, "POST", self.base + "/getMe")
+            result = await self._call(session, "POST", self.base + "/getMe")
             if not result.get("ok"):
-                raise ChannelError("Telegram 登入失敗")
-            hook = await json_request(session, "POST", self.base + "/getWebhookInfo")
+                raise ChannelError("權杖無效，請向 BotFather 確認後重新貼上。", "invalid_token", reason="invalid_token")
+            hook = await self._call(session, "POST", self.base + "/getWebhookInfo")
+            if not hook.get("ok"):
+                raise telegram_failure(hook.get("error_code"), str(hook.get("description") or "")[:180])
             if hook.get("result", {}).get("url"):
-                raise ChannelError("此 Telegram bot 已設定 webhook，請為家庭主機使用獨立 bot")
+                raise ChannelError("這個 bot 已設定 webhook，請改用專用 bot 或先移除 webhook。",
+                                   "webhook_conflict", reason="webhook_active")
             # Cursor is per credential so replacing a bot cannot inherit another bot's update IDs.
             from .models import digest
             key = "telegram_cursor_" + digest(self.config["secret"])
@@ -115,11 +159,11 @@ class TelegramTransport:
             if offset is None:
                 # Bound the initial history while retaining a fresh pairing that
                 # was followed by other messages before this poll completed.
-                initial = await json_request(session, "POST", self.base + "/getUpdates",
-                                             json={"offset": -100, "limit": 100, "timeout": 0,
-                                                   "allowed_updates": ["message"]})
+                initial = await self._call(session, "POST", self.base + "/getUpdates",
+                                           json={"offset": -100, "limit": 100, "timeout": 0,
+                                                 "allowed_updates": ["message"]})
                 if not initial.get("ok"):
-                    raise ChannelError("Telegram 暫時無法讀取訊息")
+                    raise telegram_failure(initial.get("error_code"), str(initial.get("description") or "")[:180])
                 # A fresh pairing code can arrive while getMe/webhook checks run.
                 # Preserve only this typed handshake for Gateway's current-code,
                 # expiry and audience checks; ordinary history is still skipped.
@@ -133,10 +177,10 @@ class TelegramTransport:
                 self.store.set_setting(key, offset)
             state("connected")
             while True:
-                result = await json_request(session, "POST", self.base + "/getUpdates", json={
+                result = await self._call(session, "POST", self.base + "/getUpdates", json={
                     "offset": offset, "timeout": 25, "allowed_updates": ["message"], "limit": 50})
                 if not result.get("ok"):
-                    raise ChannelError("Telegram 暫時無法讀取訊息")
+                    raise telegram_failure(result.get("error_code"), str(result.get("description") or "")[:180])
                 for update in result.get("result", []):
                     message = update.get("message", {})
                     sender = message.get("from", {})
@@ -147,9 +191,12 @@ class TelegramTransport:
                     self.store.set_setting(key, offset)
 
     async def send(self, chat, text):
-        result = await json_request(self.session, "POST", self.base + "/sendMessage", json={
+        result = await self._call(self.session, "POST", self.base + "/sendMessage", json={
             "chat_id": chat, "text": text[:1900], "link_preview_options": {"is_disabled": True}})
         if not result.get("ok"):
+            code = result.get("error_code")
+            if code:
+                raise telegram_failure(code, str(result.get("description") or "")[:180])
             raise ChannelError("Telegram 未確認訊息送達")
 
 

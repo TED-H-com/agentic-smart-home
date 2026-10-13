@@ -206,6 +206,31 @@ async def test_configured_or_model_success_never_substitutes_for_hermes_readines
     assert bootstrap.public()["current_step"] == "ha_provision"
 
 
+@pytest.mark.parametrize("error,code,state", [
+    ("timeout", "hermes_verification_timeout", "blocked"),
+    ("rate_limited", "hermes_rate_limited", "blocked"),
+    ("provider_unavailable", "hermes_provider_unavailable", "blocked"),
+    ("needs_reauth", "hermes_login_required", "waiting_input"),
+    ("mystery", "hermes_verification_failed", "blocked"),
+])
+async def test_hermes_verification_failure_codes_stay_distinct(setup, error, code, state):
+    bootstrap, backend, _, hermes, gateway = setup
+    await start_at_install(setup)
+    backend.finish("bootstrap_hermes")
+    hermes.runtime["state"] = "configured"
+    await bootstrap.advance()
+    event = next(iter(gateway.messages))
+    gateway.messages[event].update(state="failed", error_code=error)
+    await bootstrap.advance()
+    step = next(item for item in bootstrap.public()["steps"] if item["id"] == "hermes_auth")
+    assert step["code"] == code and step["state"] == state
+    assert bootstrap.public()["current_step"] == "hermes_auth"
+    if state == "blocked":
+        await bootstrap.retry("retry-" + error)
+        assert "verification" not in bootstrap.record()
+        assert bootstrap.record()["attempts"]["hermes_auth"] >= 1
+
+
 async def test_channel_must_be_live_or_explicitly_skipped_before_auto_ha(setup):
     bootstrap, backend, _, _, gateway = setup
     await ready_for_channel(setup)

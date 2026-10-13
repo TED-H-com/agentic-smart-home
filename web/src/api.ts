@@ -33,7 +33,7 @@ export function haPath(path = '/') {
 }
 export function haTarget() { return hostMode ? '_blank' : '_top'; }
 export class ApiError extends Error {
-  constructor(message: string, public status: number) { super(message); }
+  constructor(message: string, public status: number, public code?: string) { super(message); }
 }
 export async function session() {
   const result = await api('session');
@@ -59,7 +59,11 @@ export async function api(path: string, data?: unknown, raw = false, key = reque
       if (response.status === 401 && hostMode && !['host/login','host/desktop-login'].includes(path) && generation === loginGeneration) window.dispatchEvent(new Event('agentic-session-expired'));
       if ([401,403].includes(response.status) && bridgeMode && generation === loginGeneration) window.dispatchEvent(new Event('agentic-bridge-expired'));
       if (response.status >= 500 && bridgeMode) window.dispatchEvent(new Event('agentic-bridge-unavailable'));
-      throw new ApiError(typeof error.detail === 'string' ? error.detail : '操作未完成，請檢查填寫內容後再試。', response.status);
+      // Coded failures arrive as {code, message, reason}; show the message and keep the code.
+      const detail = error.detail;
+      const coded = detail && typeof detail === 'object' && typeof detail.message === 'string' ? detail : null;
+      throw new ApiError(typeof detail === 'string' ? detail : coded ? coded.message : '操作未完成，請檢查填寫內容後再試。',
+        response.status, coded && typeof coded.code === 'string' ? coded.code : undefined);
     }
     if (['host/login','host/desktop-login'].includes(path)) loginGeneration++;
     return raw ? response.blob() : response.json();

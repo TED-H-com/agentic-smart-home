@@ -1,6 +1,8 @@
 """Protocol fixtures: no real cloud logins or household changes are made by these tests."""
 import asyncio
 import json
+import threading
+import time
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
@@ -582,3 +584,293 @@ async def test_line_token_waits_for_reload_and_requests_only_once(system, monkey
     monkeypatch.setattr('agentic_controller.gateway.line_admin', admin)
     assert await app.state.gateway.line_token() == 'fixture-token'
     assert len(connections) == 2
+
+
+async def test_direct_chat_keeps_the_runner_category(system, store, monkeypatch):
+    app, client, outer, _ = system
+
+    async def confirmed(*args, **kwargs):
+        return True
+
+    monkeypatch.setattr('agentic_controller.gateway.cancel_and_confirm', confirmed)
+
+    async def limited(job):
+        raise RunnerError('rate_limited：quota secret sk-live')
+
+    outer.run = limited
+    response = await send(client, '限流', 'rate-limited')
+    await drain(app)
+    item = store.get('conversation', response.json()['id'])
+    assert item['state'] == 'failed' and item['error_code'] == 'rate_limited' and item['reason'] == 'rate_limited'
+    assert '稍後再送出' in item['answer'] and 'sk-live' not in item['answer'] and 'quota' not in item['answer']
+
+    async def timed_out(job):
+        raise TimeoutError
+
+    outer.run = timed_out
+    response = await send(client, '逾時', 'direct-timeout')
+    await drain(app)
+    item = store.get('conversation', response.json()['id'])
+    assert item['error_code'] == 'timeout' and '逾時' in item['answer']
+
+    async def cli_timeout(job):
+        raise RunnerError('CLI 超時或無法取得結構化結果 raw provider')
+
+    outer.run = cli_timeout
+    response = await send(client, '結構', 'cli-timeout')
+    await drain(app)
+    item = store.get('conversation', response.json()['id'])
+    assert item['error_code'] == 'timeout' and 'raw provider' not in item['answer']
+
+    async def unknown(job):
+        raise RunnerError('fixture failure sk-live')
+
+    outer.run = unknown
+    response = await send(client, '未知', 'unknown-runner')
+    await drain(app)
+    item = store.get('conversation', response.json()['id'])
+    assert item['error_code'] is None and '配對、登入與連線' in item['answer'] and 'sk-live' not in item['answer']
+
+    async def unconfirmed(job):
+        raise RunnerError('stop_unconfirmed')
+
+    outer.run = unconfirmed
+    response = await send(client, '未確認', 'stop-unconfirmed')
+    await drain(app)
+    item = store.get('conversation', response.json()['id'])
+    assert item['state'] == 'needs_reconcile' and item['error_code'] == 'stop_unconfirmed'
+
+
+async def test_line_qr_refresh_and_distinct_login_failures(system, monkeypatch):
+    app, client, _, _ = system
+    gateway = app.state.gateway
+    monkeypatch.setattr('agentic_controller.gateway.LINE_QR_SECONDS', 0.4)
+    frames, sent = asyncio.Queue(), []
+
+    class Socket:
+        async def receive(self):
+            return await frames.get()
+
+        async def send_json(self, payload):
+            sent.append(payload)
+
+    @asynccontextmanager
+    async def admin():
+        yield Socket()
+
+    def text(payload):
+        return SimpleNamespace(type=aiohttp.WSMsgType.TEXT, json=lambda: payload)
+
+    monkeypatch.setattr('agentic_controller.gateway.line_admin', admin)
+    await client.post('/api/gateway/line/login')
+    await frames.put(text({'type': 'auth:state', 'state': 'idle'}))
+    await asyncio.sleep(0.05)
+    assert sent and sent[-1] == {'type': 'auth:start'}
+    await frames.put(text({'type': 'auth:qr', 'url': 'https://line.example/qr/1'}))
+    await asyncio.sleep(0.05)
+    status = (await client.get('/api/gateway/line/login')).json()
+    assert status['qr'].endswith('/1') and status['qr_epoch'] == 1 and status['status'] == 'authenticating'
+    first_expires = status['expires']
+    await frames.put(text({'type': 'auth:qr', 'url': 'https://line.example/qr/2'}))
+    await asyncio.sleep(0.05)
+    status = (await client.get('/api/gateway/line/login')).json()
+    assert status['qr'].endswith('/2') and status['qr_epoch'] == 2 and status['expires'] > first_expires
+    await asyncio.wait_for(gateway.line_task, timeout=2)
+    status = (await client.get('/api/gateway/line/login')).json()
+    assert status['status'] == 'qr_expired' and status['reason'] == 'qr_expired' and status['qr'] is None
+    assert 'QR 已過期' in status['message'] and 'line.example' not in status['message']
+
+    monkeypatch.setattr('agentic_controller.gateway.LINE_QR_SECONDS', 5)
+    await client.post('/api/gateway/line/login')
+    await frames.put(text({'type': 'auth:state', 'state': 'idle'}))
+    await frames.put(text({'type': 'auth:pin', 'code': '123456'}))
+    await frames.put(text({'type': 'error', 'code': 'pin_mismatch', 'message': 'wrong pin from LINE'}))
+    await asyncio.wait_for(gateway.line_task, timeout=2)
+    status = (await client.get('/api/gateway/line/login')).json()
+    assert status['status'] == 'pin_failed' and status['pin'] is None
+    assert 'PIN' in status['message'] and 'wrong pin' not in status['message']
+
+    await client.post('/api/gateway/line/login')
+    await frames.put(text({'type': 'auth:state', 'state': 'idle'}))
+    await frames.put(text({'type': 'error', 'reason': 'unofficial client rejected'}))
+    await asyncio.wait_for(gateway.line_task, timeout=2)
+    status = (await client.get('/api/gateway/line/login')).json()
+    assert status['status'] == 'login_rejected' and 'unofficial' not in json.dumps(status)
+
+    class Closed:
+        async def receive(self):
+            raise aiohttp.ClientConnectionError
+        async def send_json(self, payload):
+            return None
+
+    @asynccontextmanager
+    async def down():
+        yield Closed()
+
+    monkeypatch.setattr('agentic_controller.gateway.line_admin', down)
+    await client.post('/api/gateway/line/login')
+    await asyncio.wait_for(gateway.line_task, timeout=2)
+    status = (await client.get('/api/gateway/line/login')).json()
+    assert status['status'] == 'service_unavailable' and status['reason'] == 'service_unavailable'
+
+
+async def test_telegram_and_discord_connect_errors_stay_distinct(system, store, monkeypatch):
+    from agentic_controller.channels import ChannelError, telegram_failure
+    from agentic_controller.gateway import TRANSPORTS
+
+    assert telegram_failure(401).code == 'invalid_token'
+    assert telegram_failure(409, 'terminated by other getUpdates request').reason == 'poller_conflict'
+    assert telegram_failure(409, 'webhook is set').reason == 'webhook_active'
+    assert telegram_failure(429).code == 'rate_limited'
+    assert telegram_failure(500).code == 'unavailable'
+    generic = ChannelError('通訊服務拒絕連線，請確認權杖、權限或速率限制', status=401, detail='Unauthorized secret')
+    assert generic.code == 'unavailable' and 'secret' not in str(generic)
+
+    app, _, _, _ = system
+    gateway = app.state.gateway
+    mode = {'name': 'invalid_token'}
+
+    async def replies(session, method, url, **kwargs):
+        operation = url.rsplit('/', 1)[-1]
+        if mode['name'] == 'invalid_token':
+            raise ChannelError('通訊服務拒絕連線，請確認權杖、權限或速率限制', status=401, detail='Unauthorized')
+        if operation == 'getMe':
+            return {'ok': True, 'result': {'id': 1, 'is_bot': True}}
+        if operation == 'getWebhookInfo':
+            url_value = 'https://example.invalid/hook' if mode['name'] == 'webhook' else ''
+            return {'ok': True, 'result': {'url': url_value}}
+        if mode['name'] == 'poller':
+            raise ChannelError('通訊服務拒絕連線，請確認權杖、權限或速率限制', status=409,
+                               detail='Conflict: terminated by other getUpdates request')
+        if mode['name'] == 'rate':
+            raise ChannelError('通訊服務拒絕連線，請確認權杖、權限或速率限制', status=429, detail='Too Many Requests')
+        return {'ok': True, 'result': []}
+
+    monkeypatch.setattr('agentic_controller.channels.json_request', replies)
+    store.set_setting('channel_telegram', {'enabled': True, 'secret': '12345:synthetic', 'chats': ['1'], 'senders': ['2']})
+
+    async def expect(name, reason):
+        mode['name'] = name
+        expected = {'webhook': 'webhook_conflict', 'poller': 'webhook_conflict', 'rate': 'rate_limited'}.get(name, name)
+        await gateway.restart('telegram')
+        for _ in range(40):
+            if gateway.states.get('telegram') == expected:
+                break
+            await asyncio.sleep(0.02)
+        assert gateway.states.get('telegram') == expected
+        assert gateway.reasons.get('telegram') == reason
+        channel = next(item for item in gateway.public()['channels'] if item['id'] == 'telegram')
+        assert channel['status'] == expected and channel['reason'] == reason
+        assert 'Unauthorized' not in json.dumps(channel) and 'getUpdates' not in json.dumps(channel)
+
+    await expect('invalid_token', 'invalid_token')
+    await expect('webhook', 'webhook_active')
+    await expect('poller', 'poller_conflict')
+    await expect('rate', 'rate_limited')
+
+    class DiscordBoom:
+        def __init__(self, store, config):
+            pass
+
+        async def run(self, receive, state):
+            raise ChannelError('通訊服務拒絕連線，請確認權杖、權限或速率限制', status=401, detail='discord-secret')
+
+        async def send(self, chat, text):
+            return None
+
+    monkeypatch.setitem(TRANSPORTS, 'discord', DiscordBoom)
+    store.set_setting('channel_discord', {'enabled': True, 'secret': 'bot', 'chats': ['1'], 'senders': ['2']})
+    await gateway.restart('discord')
+    await asyncio.sleep(0.05)
+    assert gateway.states.get('discord') == 'unavailable'
+    assert gateway.reasons.get('discord') is None
+    assert 'discord-secret' not in json.dumps(gateway.public())
+
+
+async def test_concurrent_submits_share_one_thread_and_one_execution(system):
+    app, _, _, _ = system
+    gateway = app.state.gateway
+    executed = []
+
+    class Store:
+        def __init__(self):
+            self.items = {}
+
+        def get(self, kind, identifier):
+            time.sleep(0.05)
+            return self.items.get(identifier)
+
+        def conversation(self, *, id=None, scope=None):
+            time.sleep(0.05)
+            if id:
+                return self.items.get(id)
+            matches = [item for item in self.items.values() if item.get('scope') == scope]
+            return matches[-1] if matches else None
+
+        def request(self, *args, **kwargs):
+            return None
+
+        def put(self, kind, item):
+            self.items[item['id']] = item
+            return item
+
+        def setting(self, key, default=None):
+            return False if key == 'paused' else ({} if default is None else default)
+
+    store = Store()
+    original = gateway.store, gateway.execute, gateway.scope
+
+    async def execute(item, config):
+        executed.append(item['id'])
+
+    def scope(*args, **kwargs):
+        return 'scope-fixed'
+
+    gateway.store, gateway.execute, gateway.scope = store, execute, scope
+    gateway._loop = asyncio.get_running_loop()
+    errors = []
+    try:
+        results = []
+
+        def work(event):
+            try:
+                results.append(gateway.submit(ChatInput(message=event), 'telegram', 'room', 'alice', event, config={'enabled': True}))
+            except Exception as exc:
+                errors.append(exc)
+
+        async def join(threads):
+            deadline = time.monotonic() + 3
+            for thread in threads:
+                while thread.is_alive():
+                    assert time.monotonic() < deadline
+                    await asyncio.sleep(0.01)
+
+        threads = [threading.Thread(target=work, args=(str(i),)) for i in range(2)]
+        for thread in threads:
+            thread.start()
+        await join(threads)
+        assert not errors and len(results) == 2
+        roots = [item for item in results if item['reply_to'] is None]
+        children = [item for item in results if item['reply_to']]
+        assert len(roots) == 1 and len(children) == 1
+        assert children[0]['reply_to'] == roots[0]['id']
+        assert children[0]['thread_id'] == roots[0]['thread_id'] == roots[0]['id']
+
+        same = []
+
+        def again():
+            try:
+                same.append(gateway.submit(ChatInput(message='same'), 'web', 'owner', 'owner', 'same-key'))
+            except Exception as exc:
+                errors.append(exc)
+
+        pair = [threading.Thread(target=again) for _ in range(2)]
+        for thread in pair:
+            thread.start()
+        await join(pair)
+        for _ in range(5):
+            await asyncio.sleep(0)
+        assert not errors and same[0]['id'] == same[1]['id']
+        assert executed.count(same[0]['id']) == 1
+    finally:
+        gateway.store, gateway.execute, gateway.scope = original
