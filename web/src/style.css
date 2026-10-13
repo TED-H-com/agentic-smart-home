@@ -636,3 +636,11 @@ main:focus{outline:none}
   .bridge-shell .assistant-page{min-height:calc(100dvh - 120px)}
 }
 .bridge-maintenance>p,.bridge-maintenance>.row-actions,.bridge-maintenance>.notice,.bridge-maintenance>details{margin-block:var(--s4)}
+
+/* ==== 1.0 shell, navigation, settings, home entry ==== */
+
+/* ==== 1.0 onboarding, accounts, channels ==== */
+
+/* ==== 1.0 conversation, case, sidebar bridge ==== */
+
+/* ==== 1.0 host, maintenance, workers ==== */
