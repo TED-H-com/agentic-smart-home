@@ -16,6 +16,7 @@ Web 會保留調查、差異、檔案指紋與實際程序觀測。worker 自己
 - 固定 Host broker 持有 Docker 與 ext4 volume。Runner 只有固定 Unix broker 接點；模型程序無 Docker socket、Controller／HA／Supervisor bearer、Owner cookies 或 provider bearer。
 - Host worker UID 10000、network none、read-only root、capabilities 限制、cgroups CPU／memory／PID 配额與固定 watchdog。所有可寫工作目錄在有界 ext4 磁碟；不能以輪詢資料夾大小代替 quota。
 - provider／公開文件出站經受控 Unix relay。上游 HTTPS 主機、IP、方法與路徑受限；拒私網 DNS 與任意 redirect／遠端 MCP，provider bearer 在 broker 加入。模型與公開來源的請求數、內容大小與期限受限。
+- 中繼把 provider 回應逐段轉給 sandbox（chunked，每段 flush）。位元組之間的閒置上限是 300 秒；工作 deadline 仍限制總時間。回應累計超過 8 MiB 就中止，不先緩衝整份本文。ChatGPT OAuth 只在 access token 的 JWT 將於 5 分鐘內到期，或 `last_refresh` 早於 8 天時，向固定的 `https://auth.openai.com/oauth/token` 更新。provider 在尚未送出任何回應位元組前回 401 時，只更新並重試該請求一次。更新失敗或第二次 401／403 仍記 `auth_failed`，並以 `needs_reauth` 回報。refresh token 與 id token 只留在憑證檔。API key 不呼叫該端點。這是程式行為，不是真帳號驗收。
 - 任務初期最多 300 秒、同時一個 coding job。writer 和 verifier 都必須證明停止，才釋出全域 lease。關頁或 HTTP 回覆遺失不表示取消。
 - 成果在確認停止後匯出，拒 symlink／hardlink／特殊檔案、越界、超量、非允許類型及可辨識的憑證格式。去密模式不能證明所有內容都適合公開；成果留在本機。
 
