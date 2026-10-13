@@ -71,6 +71,7 @@ class Supervisor:
         self.app, self.healthy, self.publish = None, True, True
         self.code, self.before, self.fail = CODE, None, None
         self.catalog_missing, self.corrupt_on_options = False, False
+        self.reload_version, self.update_state, self.lose = None, None, None
         self.catalog = {"slug": SLUG, "repository": REPO, "version_latest": RELEASE.version, "available": True,
                         "apparmor": "profile", "privileged": list(PRIVILEGED), "devices": list(DEVICES),
                         "network": dict(NETWORK), **{key: False for key in SAFE_FLAGS}}
@@ -109,6 +110,19 @@ class Supervisor:
             value = self.catalog
         elif path == f"/store/addons/{SLUG}/availability":
             value = None
+        elif path == "/store/reload":
+            assert method == "POST" and body is None
+            if self.reload_version:
+                self.catalog["version_latest"] = self.reload_version
+            value = None
+        elif path == f"/store/addons/{SLUG}/update":
+            assert method == "POST" and body == {"backup": False, "background": True}
+            assert self.app
+            value = {"job_id": JOB}
+            if self.lose != (method, path):
+                self.app["version"] = self.catalog["version_latest"]
+                if self.update_state:
+                    self.app["state"] = self.update_state
         elif path == f"/store/addons/{SLUG}/install":
             assert body == {"background": True}
             self.install_app()
@@ -134,6 +148,8 @@ class Supervisor:
             value = None
         else:
             raise AssertionError((method, path))
+        if self.lose == (method, path):
+            raise HAError("response lost after effect", 503)
         return copy.deepcopy(value)
 
     def posts(self, suffix=""):
@@ -542,8 +558,8 @@ def test_routes_are_owner_maintenance_endpoints(store):
     app = create_app(store=store, ha=Supervisor(), host_mode=True)
     paths = {getattr(route, "path", None) for route in app.routes}
     for path in ("/api/host/home-worker/maintenance", "/api/host/home-worker/maintenance/authorize",
-                 "/api/host/home-worker/maintenance/repair", "/api/host/home-worker/maintenance/disable",
-                 "/api/host/home-worker/maintenance/restart"):
+                 "/api/host/home-worker/maintenance/repair", "/api/host/home-worker/maintenance/update",
+                 "/api/host/home-worker/maintenance/disable", "/api/host/home-worker/maintenance/restart"):
         assert path in paths
 
 
