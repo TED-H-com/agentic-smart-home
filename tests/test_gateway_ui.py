@@ -360,8 +360,8 @@ def test_chat_composer_keys_typing_indicator_and_scroll_to_newest():
         thread.join(timeout=3)
 
 
-def test_interrupted_reply_can_be_sent_again_from_the_web_page_only():
-    """An interrupted web reply refills the composer. Bridge and needs_reconcile stay without that button."""
+def test_interrupted_reply_can_be_sent_again():
+    """An interrupted reply refills the composer on the Web page and in the sidebar. needs_reconcile has no button."""
     root = Path(__file__).parents[1]
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory=str(root / "controller/static"))
@@ -451,6 +451,9 @@ def test_interrupted_reply_can_be_sent_again_from_the_web_page_only():
                 expect(button).to_be_visible()
                 expect(page.get_by_role("heading", name=question, exact=True)).to_be_visible()
                 assert button.bounding_box()["height"] >= 44
+                # One sentence, one action: the chip is translated and no second notice competes with the button.
+                expect(page.locator(".status.s-interrupted")).to_have_text("已中斷")
+                expect(page.get_by_text("這段對話暫時無法接續", exact=False)).to_have_count(0)
                 shot(page, "gateway-resend", width)
                 before = len(posts)
                 button.click()
@@ -466,8 +469,15 @@ def test_interrupted_reply_can_be_sent_again_from_the_web_page_only():
                 expect(page.get_by_role("link", name="回到家庭", exact=True)).to_be_visible()
                 expect(page.locator(".sidebar")).to_have_count(0)
                 expect(page.get_by_text("處理已中斷，請重新送出。", exact=True)).to_be_visible()
-                expect(page.get_by_role("button", name="重新送出", exact=True)).to_have_count(0)
+                expect(page.get_by_text("這段對話暫時無法接續", exact=False)).to_have_count(0)
+                button = page.get_by_role("button", name="重新送出", exact=True)
+                expect(button).to_be_visible()
                 shot(page, "bridge/gateway-resend", width)
+                before = len(posts)
+                button.click()
+                expect(page.get_by_label("對話訊息", exact=True)).to_have_value(question)
+                page.wait_for_timeout(400)
+                assert len(posts) == before
                 show(page, "bridge", "reconcile", width)
                 expect(page.get_by_text(reconcile_answer, exact=True)).to_be_visible()
                 expect(page.get_by_role("button", name="重新送出", exact=True)).to_have_count(0)
