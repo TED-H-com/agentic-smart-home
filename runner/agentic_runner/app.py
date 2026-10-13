@@ -26,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .bootstrap import BootstrapJob, BootstrapResult
 from .bootstrap import prompt as bootstrap_prompt
-from .providers import ProviderError, Providers, StopUnconfirmed
+from .providers import AUTH_MESSAGES, ProviderError, Providers, StopUnconfirmed, auth_category, auth_error
 from .retention import MAX_IDENTITIES, retained
 
 
@@ -264,6 +264,9 @@ class Broker:
                 self.save_job({**job, "state": "running"})
                 health = await self.providers.health(request.provider)
                 if health["status"] != "connected":
+                    reason = health.get("reason")
+                    if reason in AUTH_MESSAGES:
+                        raise auth_error(reason)
                     raise ProviderError("needs_reauth")
                 result = await self.providers.run(request.id, request.provider, bootstrap_prompt(request),
                                                   BootstrapResult.model_json_schema(), request.model)
@@ -281,8 +284,11 @@ class Broker:
                 raise
             except (ProviderError, TimeoutError, OSError, ValueError) as exc:
                 # Neither CLI diagnostics nor rejected structured fields reach Controller.
-                error = "needs_reauth" if "needs_reauth" in str(exc) else "bootstrap_assistance_failed"
-                self.save_job({**job, "state": "failed", "error": error})
+                # A logged-out probe is exactly "needs_reauth"; other categories keep their token.
+                category = auth_category(exc)
+                if category is None and str(exc) == "needs_reauth":
+                    category = "needs_reauth"
+                self.save_job({**job, "state": "failed", "error": category or "bootstrap_assistance_failed"})
             finally:
                 self.providers.metrics.pop(request.id, None)
 
@@ -406,14 +412,30 @@ def create_api(broker):
             if provider not in {"codex", "grok"}:
                 raise HTTPException(422, "此 provider 未提供 device code 登入")
             return await broker.providers.begin_device_auth(uuid.uuid4().hex, provider)
-        return await broker.providers.secret_login(provider, body.method, body.secret)
+        session = await broker.providers.begin_secret_auth(uuid.uuid4().hex, provider, body.method, body.secret)
+        return JSONResponse(session, status_code=202)
 
     @app.get("/auth/{id}")
     async def auth_status(id: str):
+        if not (id.isascii() and id.isalnum()) or len(id) > 64:
+            raise HTTPException(422, "無效登入 ID")
         state = broker.providers.auth_sessions.get(id)
         if not state:
             raise HTTPException(404, "登入流程已不存在，請重新開始")
-        return {k: v for k, v in state.items() if not k.startswith("_")}
+        return broker.providers.public_auth(state)
+
+    @app.post("/providers/{provider}/auth/{id}/cancel")
+    async def cancel_auth(provider: Literal["codex", "claude", "agy", "grok"], id: str):
+        if not (id.isascii() and id.isalnum()) or len(id) > 64:
+            raise HTTPException(422, "無效登入 ID")
+        # A fenced login must stay visible. 409 only when this id is not that session.
+        state = broker.providers.auth_sessions.get(id)
+        if broker.providers.unconfirmed and not (state and state.get("provider") == provider):
+            raise HTTPException(409, "stop_unconfirmed")
+        result = await broker.providers.cancel_auth(provider, id)
+        if result is None:
+            raise HTTPException(404, "登入流程已不存在，請重新開始")
+        return result
 
     @app.post("/providers/{provider}/logout")
     async def logout(provider: Literal["codex", "claude", "agy", "grok"]):

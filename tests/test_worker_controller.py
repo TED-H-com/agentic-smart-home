@@ -337,6 +337,43 @@ async def test_role_auth_lost_reply_retrieves_same_id_without_relogin(workers):
     assert 'private-lost-key' not in workers.store.path.read_bytes().decode(errors='ignore')
 
 
+async def test_coding_login_resumes_pending_and_accepts_longer_codes(workers):
+    runner = workers.runners['host']
+    body = {'method': 'device_code', 'secret': ''}
+    first = await workers.role_auth('host-coder', 'POST', '/coding/providers/codex/auth', body, key='tab-a')
+    stored = runner.auth[first['id']]
+    stored['code'] = 'ABCD2345-EFGH6789'
+    stored['url'] = 'https://auth.openai.com/codex/device'
+    posts = sum(c[1] == '/coding/providers/codex/auth' for c in runner.calls)
+    second = await workers.role_auth('host-coder', 'POST', '/coding/providers/codex/auth', body, key='tab-b')
+    assert second['id'] == first['id'] and second['code'] == 'ABCD2345-EFGH6789'
+    assert second['url'] == 'https://auth.openai.com/codex/device'
+    assert sum(c[1] == '/coding/providers/codex/auth' for c in runner.calls) == posts
+    identity = workers.peer_identity('host-coder')
+    workers.store.set_setting('worker_auth_pending', {
+        'worker_id': 'host-coder', 'id': first['id'], 'state': 'pending', 'runner_identity': identity})
+    resumed = await workers.role_auth('host-coder', 'POST', '/coding/providers/codex/auth', body, key='tab-c')
+    assert resumed['id'] == first['id']
+    assert sum(c[1] == '/coding/providers/codex/auth' for c in runner.calls) == posts
+    runner.auth['wide'] = {'id': 'wide', 'status': 'pending', 'code': 'ABC-DEF', 'url': 'https://evil.example/device'}
+    stripped = await workers.role_auth('host-coder', 'GET', '/coding/auth/wide')
+    assert 'code' not in stripped and 'url' not in stripped
+    runner.auth['nine'] = {'id': 'nine', 'status': 'pending', 'code': 'ABCDEFGHI-ABCDEFGH',
+                           'url': 'https://auth.openai.com/device'}
+    nine = await workers.role_auth('host-coder', 'GET', '/coding/auth/nine')
+    assert 'code' not in nine and nine['url'] == 'https://auth.openai.com/device'
+    workers.store.set_setting('worker_auth_pending', {
+        'worker_id': 'home-coder', 'id': 'a' * 32, 'state': 'pending', 'kind': 'login', 'runner_identity': identity})
+    with pytest.raises(WorkerError, match='coding_auth_pending'):
+        await workers.role_auth('host-coder', 'POST', '/coding/providers/codex/auth', body, key='other-worker')
+    workers.store.set_setting('worker_auth_pending', {
+        'worker_id': 'host-coder', 'id': 'b' * 32, 'state': 'pending', 'kind': 'logout', 'runner_identity': identity})
+    with pytest.raises(WorkerError, match='coding_auth_pending'):
+        await workers.role_auth('host-coder', 'POST', '/coding/providers/codex/auth', body, key='during-logout')
+    with pytest.raises(Conflict, match='Idempotency-Key'):
+        await workers.role_auth('host-coder', 'POST', '/coding/providers/codex/auth', body, key='')
+
+
 async def test_commit_guard_rejects_revoked_mcp_grant_before_job_commit(workers):
     def revoked():
         raise WorkerError('revoked', 403)

@@ -33,6 +33,20 @@ STEPS = ("network", "runner_pairing", "cli_auth", "cli_assist", "hermes_install"
          "hermes_auth", "channel", "ha_provision", "ha_native")
 VERIFY_MESSAGE = "這是 Hermes 模型連線驗證。請僅回覆「Hermes 已可回應」，不要呼叫工具、修改設定或操作家庭。"
 OBSERVATION_TIMEOUT = 120
+# Same tokens as the Runner. The controller image does not import the runner package.
+AUTH_MESSAGES = {
+    "needs_reauth": "登入已失效，請重新登入。",
+    "rate_limited": "已達用量上限，請稍後再試。",
+    "invalid_credentials": "登入資訊無效，請重新輸入。",
+    "network": "無法連線到 AI 服務，請檢查網路後再試。",
+    "cli_output_unrecognized": "無法確認登入結果，請稍後再試。",
+    "timeout": "AI 帳號回應逾時，請稍後再試。",
+}
+RETRY_CODES = {
+    "cli_assist_failed", "cli_assist_expired", "hermes_verification_failed",
+    "hermes_install_failed", "ha_provision_failed", "hermes_rate_limited",
+    "hermes_provider_unavailable", "hermes_verification_timeout", *AUTH_MESSAGES,
+}
 
 
 class SetupPaused(Exception):
@@ -148,9 +162,7 @@ class Bootstrap:
                         record.get("observation_waits", {}).pop(current["code"].removesuffix("_timeout"), None)
                     # Only terminal failed jobs get a new identity. Lost responses and
                     # unconfirmed side effects retain the old handle for reconciliation.
-                    if current["code"] in {"cli_assist_failed", "cli_assist_expired", "hermes_verification_failed",
-                                            "hermes_install_failed", "ha_provision_failed", "hermes_rate_limited",
-                                            "hermes_provider_unavailable", "hermes_verification_timeout"}:
+                    if current["code"] in RETRY_CODES:
                         record["attempts"][step] = record["attempts"].get(step, 0) + 1
                         if step == "cli_assist":
                             record.pop("assist_request", None)
@@ -250,7 +262,11 @@ class Bootstrap:
         if state in {"queued", "running"}:
             self.checkpoint(record, "cli_assist", "running", "cli_assistance_running")
         else:
-            self.block(record, "cli_assist", "cli_assist_failed", "CLI 尚未完成實際模型查證；請檢查登入與供應商狀態後重試。")
+            code = result.get("error")
+            if code in AUTH_MESSAGES:
+                self.block(record, "cli_assist", code, AUTH_MESSAGES[code])
+            else:
+                self.block(record, "cli_assist", "cli_assist_failed", "CLI 尚未完成實際模型查證；請檢查登入與供應商狀態後重試。")
         return False
 
     async def hermes_auth(self, record):
@@ -357,8 +373,14 @@ class Bootstrap:
                             self.block(record, step, "cli_version_mismatch", "所選 CLI 尚未通過套件版本檢查。")
                             return
                         if provider.get("status") != "connected":
-                            self.checkpoint(record, step, "waiting_input", "cli_login_required", self.human(
-                                "cli_login", "請完成所選 CLI 的官方登入；完成後會自動繼續。", provider=record["provider"]))
+                            reason = provider.get("reason")
+                            if reason in AUTH_MESSAGES:
+                                message = AUTH_MESSAGES[reason]
+                                action = self.human("cli_login", message, provider=record["provider"], code=reason)
+                            else:
+                                action = self.human(
+                                    "cli_login", "請完成所選 CLI 的官方登入；完成後會自動繼續。", provider=record["provider"])
+                            self.checkpoint(record, step, "waiting_input", "cli_login_required", action)
                             return
                         self.checkpoint(record, step, "completed", "cli_login_observed")
                     elif step == "cli_assist":

@@ -636,17 +636,26 @@ class Workers:
                 scope = "coding_auth:" + worker
                 lookup = self.store.request(scope, key or "", fingerprint)
                 if not lookup:
-                    if self.store.setting("worker_auth_pending"):
-                        raise WorkerError("coding_auth_pending")
-                    if self.store.setting("worker_lease"):
+                    pending = self.store.setting("worker_auth_pending")
+                    if pending:
+                        # A new tab resumes this worker's login. Another worker, a logout,
+                        # or a different runner does not receive that device code.
+                        kind = pending.get("kind") or "login"
+                        same = (pending.get("worker_id") == worker and kind == "login" and
+                                pending.get("runner_identity", peer_identity) == peer_identity)
+                        if not same:
+                            raise WorkerError("coding_auth_pending")
+                        lookup = pending["id"]
+                    elif self.store.setting("worker_lease"):
                         raise WorkerError("coding_job_must_stop_before_auth")
-                    lookup = uuid.uuid4().hex
-                    settings = {"worker_auth_epoch": uuid.uuid4().hex,
-                        "worker_auth_pending": {"worker_id": worker, "id": lookup, "state": "dispatching", "kind": "login", "runner_identity": peer_identity}}
-                    with self.store.db:
-                        self.store.db.execute("INSERT INTO requests VALUES (?,?,?,?)", (scope, key, fingerprint, lookup))
-                        self.store.db.executemany("INSERT OR REPLACE INTO settings VALUES (?,?)",
-                                                 [(name, canonical(value)) for name, value in settings.items()])
+                    else:
+                        lookup = uuid.uuid4().hex
+                        settings = {"worker_auth_epoch": uuid.uuid4().hex,
+                            "worker_auth_pending": {"worker_id": worker, "id": lookup, "state": "dispatching", "kind": "login", "runner_identity": peer_identity}}
+                        with self.store.db:
+                            self.store.db.execute("INSERT INTO requests VALUES (?,?,?,?)", (scope, key, fingerprint, lookup))
+                            self.store.db.executemany("INSERT OR REPLACE INTO settings VALUES (?,?)",
+                                                     [(name, canonical(value)) for name, value in settings.items()])
             elif method == "POST":
                 if self.store.setting("worker_lease"):
                     raise WorkerError("coding_job_must_stop_before_auth")
@@ -684,7 +693,7 @@ class Workers:
             if isinstance(url, str) and url in {"https://auth.openai.com/codex/device", "https://auth.openai.com/device"}:
                 result["url"] = url
             pairing = response.get("code")
-            if isinstance(pairing, str) and re.fullmatch(r"[A-Z0-9]{4,5}-[A-Z0-9]{4,5}", pairing):
+            if isinstance(pairing, str) and re.fullmatch(r"[A-Z0-9]{4,8}-[A-Z0-9]{4,8}", pairing):
                 result["code"] = pairing
             pending = self.store.setting("worker_auth_pending")
             if (pending and pending.get("worker_id") == worker and

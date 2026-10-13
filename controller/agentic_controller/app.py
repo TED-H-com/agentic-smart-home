@@ -43,6 +43,7 @@ from .models import (
     Decision,
     Policy,
     Provider,
+    Runtime,
     Strict,
     canonical,
     digest,
@@ -383,11 +384,27 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
 
     @app.post("/api/providers/{provider}/auth")
     async def auth(provider: Provider, body: LoginInput):
-        return await runner.call("POST", f"/providers/{provider}/auth", body.model_dump())
+        result = await runner.call("POST", f"/providers/{provider}/auth", body.model_dump())
+        if body.method == "device_code":
+            return result
+        return JSONResponse(result, status_code=202)
+
+    @app.post("/api/providers/{provider}/auth/{id}/cancel")
+    async def cancel_auth(provider: Provider, id: str):
+        if not (id.isascii() and id.isalnum()) or len(id) > 64:
+            raise HTTPException(422, "無效登入 ID")
+        return await runner.call("POST", f"/providers/{provider}/auth/{id}/cancel")
+
+    @app.post("/api/runtimes/{runtime}/providers/{provider}/auth/{id}/cancel")
+    async def cancel_runtime_auth(runtime: Runtime, provider: Provider, id: str):
+        if not (id.isascii() and id.isalnum()) or len(id) > 64:
+            raise HTTPException(422, "無效登入 ID")
+        selected = inner_runner if runtime == "haos" else runner
+        return await selected.call("POST", f"/providers/{provider}/auth/{id}/cancel")
 
     @app.get("/api/auth/{id}")
     async def auth_state(id: str):
-        if not id.isalnum() or len(id) > 64:
+        if not (id.isascii() and id.isalnum()) or len(id) > 64:
             raise HTTPException(422, "無效登入 ID")
         result = await runner.call("GET", "/auth/" + id)
         if result.get("status") == "connected":
