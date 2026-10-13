@@ -9,6 +9,7 @@ import asyncio
 import base64
 import contextlib
 import hashlib
+import math
 import re
 import time
 import uuid
@@ -374,9 +375,10 @@ class Workers:
                     self.store.set_setting("worker_lease", None)
                     self.event.set()
                     return
-                # expires is the Owner grant. A live scope that only ran out of that grant is not a revocation.
-                grant_over = item.get("request", {}).get("expires", 0) <= time.time()
-                scope_revoked = item.get("content_expired") or not self.authorized(item.get("authority", {}))
+                # A grant that only ran out is not a revocation. Judge the scope without its expiry.
+                authority = item.get("authority", {})
+                grant_over = min(item.get("request", {}).get("expires", 0), authority.get("expires", 0)) <= time.time()
+                scope_revoked = item.get("content_expired") or not self.authorized({**authority, "expires": math.inf})
                 reason = "authorization_expired" if grant_over and not scope_revoked else "authority_revoked"
                 item = self.save(item, cancel_requested=True, state="cancel_requested", reason=reason)
             runner = self.runner(item["worker_id"])

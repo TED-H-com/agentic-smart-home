@@ -331,11 +331,24 @@ async def test_running_grant_expiry_is_authorization_expired(workers):
     first = await submit(workers)
     await workers.advance()
     item = workers.get(first['id'])
-    item['request']['expires'] = time.time() - 1
+    # The wire job carries the grant itself, so both run out together.
+    assert item['request']['expires'] == item['authority']['expires']
+    item['request']['expires'] = item['authority']['expires'] = time.time() - 1
     workers.store.put('work_job', item)
     await workers.advance()
     result = workers.get(first['id'])
     assert result['state'] == 'cancelled' and result['reason'] == 'authorization_expired'
+
+
+async def test_expired_grant_after_an_owner_change_is_a_revocation(workers):
+    first = await submit(workers)
+    await workers.advance()
+    item = workers.get(first['id'])
+    item['request']['expires'] = item['authority']['expires'] = time.time() - 1
+    workers.store.put('work_job', item)
+    workers.store.set_setting('owner', 'replacement-owner')
+    await workers.advance()
+    assert workers.get(first['id'])['reason'] == 'authority_revoked'
 
 
 async def test_cancel_while_lookup_is_waiting_cannot_dispatch_after_local_stop(workers):

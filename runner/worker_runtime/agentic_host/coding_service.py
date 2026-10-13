@@ -20,14 +20,12 @@ from .coding_relay import Relay, credentials
 from .coding_sandbox import CodingSandbox, Limits, SandboxError, command
 from .manager import atomic
 
-# Slugs in runner/agentic_runner/codex-models.json, catalog order. gpt-6-astra stays the default.
-MODELS = [
-    "gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
-    "gpt-daybreak-blue-latest", "gpt-daybreak-red-latest", "gpt-5.5", "gpt-5.4", "codex-auto-review",
-]
+# Slugs with visibility "list" in runner/agentic_runner/codex-models.json, catalog order.
+# Hidden catalog entries stay out of the picker. gpt-6-astra stays the default.
+MODELS = ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5"]
 DEFAULT_MODEL = "gpt-6-astra"
 TERMINAL = {"succeeded", "failed", "cancelled", "expired", "interrupted"}
-ACTIVE = TERMINAL | {"queued", "launching", "running", "stop_unconfirmed"}
+LEDGER_STATES = TERMINAL | {"queued", "launching", "running", "stop_unconfirmed"}
 ARTIFACT_LIMIT = 180 * 1024
 # Phase budgets are monotonic and do not extend Owner authorization (`expires`).
 SETUP_BUDGET_SECONDS = 300
@@ -42,7 +40,8 @@ FINDING_KEYS = ("facts", "inferences", "unknowns", "experiments", "next_steps")
 _FINDING_HEADING = re.compile(
     r"^(?:#{1,3}[ \t]+|\*\*)?(facts|inferences|unknowns|experiments|next_steps)(?:\*\*)?[ \t]*:?[ \t]*$")
 BUDGET_REASONS = {"setup_timeout", "execution_timeout", "verification_timeout", "authorization_expired"}
-HIDDEN = {"request", "digest", "retained_until", "sandbox_job_id", "sandbox_attempted", "results_collected"}
+HIDDEN = {"request", "digest", "retained_until", "sandbox_job_id", "sandbox_attempted", "results_collected",
+          "collect_failures"}
 
 
 def parse_findings(text):
@@ -103,7 +102,7 @@ def validate_ledger(value):
         if (not isinstance(identifier, str) or not re.fullmatch(r"[a-f0-9]{32}", identifier) or
             not isinstance(job, dict) or job.get("id") != identifier or
             not isinstance(job.get("state"), str) or
-            job["state"] not in ACTIVE or
+            job["state"] not in LEDGER_STATES or
             type(job.get("execution_started")) is not bool or type(job.get("stop_confirmed")) is not bool or
             "sandbox_attempted" in job and type(job["sandbox_attempted"]) is not bool or
             any(type(job.get(key)) not in {int, float} or not math.isfinite(job[key])
@@ -153,7 +152,11 @@ class CodingService:
         except (OSError, ValueError):
             pass
         for job in self.items.values():
-            if job["state"] not in TERMINAL:
+            if job["state"] not in TERMINAL and not job.get("sandbox_attempted"):
+                # The attempt is persisted before allocation: no container or workspace exists.
+                job.update(state="interrupted", stop_confirmed=True, phase="interrupted")
+                self.remember_error(job, "broker_restarted")
+            elif job["state"] not in TERMINAL:
                 job.update(state="stop_unconfirmed", stop_confirmed=False, phase="stop_unconfirmed")
                 self.remember_error(job, "broker_restarted")
                 # Exact persisted container identity is required; never replay the original goal.
@@ -245,7 +248,8 @@ class CodingService:
 
     def results_outstanding(self, job):
         """Keep a workspace until collect has copied the diff. A partial launch may still be disposed."""
-        if job.get("results_collected") or job.get("content_expired"):
+        if (job.get("results_collected") or job.get("content_expired") or job.get("collect_failures", 0) >= 3
+                or job.get("retained_until", 0) <= time.time()):
             return False
         if not (self.root / "work" / job["id"]).exists():
             return False
@@ -258,6 +262,7 @@ class CodingService:
             self.collect(job, sandbox)
             job["results_collected"] = True
         except (OSError, ValueError, SandboxError):
+            job["collect_failures"] = job.get("collect_failures", 0) + 1
             self.remember_error(job, "checkpoint_export_failed")
 
     def capabilities(self):
@@ -470,6 +475,7 @@ class CodingService:
                 patch = self.collect(job, sandbox)
                 job["results_collected"] = True
         except (OSError, ValueError, SandboxError):
+            job["collect_failures"] = job.get("collect_failures", 0) + 1
             self.remember_error(job, "checkpoint_export_failed")
             if outcome == "succeeded":
                 outcome = "failed"
@@ -619,11 +625,9 @@ class CodingService:
                 return
             stopped = isinstance(result, dict) and result.get("state") in TERMINAL
             if reason:
+                # The budget code was recorded above; a failed stop still reads as stop_unconfirmed.
                 job.update(state="failed" if stopped else "stop_unconfirmed", stop_confirmed=stopped,
                            phase="failed" if stopped else "stop_unconfirmed")
-                self.remember_error(job, reason if stopped or reason else "writer_stop_unconfirmed")
-                if not stopped:
-                    self.remember_error(job, "writer_stop_unconfirmed")
                 self.publish(job)
                 return
             job.update(state=result["state"], phase=result["state"], stop_confirmed=stopped)

@@ -15,6 +15,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "host"))
 from agentic_host import coding_service  # noqa: E402
+from agentic_host.coding_sandbox import SandboxError  # noqa: E402
 from agentic_host.coding_service import (  # noqa: E402
     EXECUTION_BUDGET_SECONDS,
     FINDING_KEYS,
@@ -100,6 +101,7 @@ class Spec:
         self.hold = None
         self.release = None
         self.launches = []
+        self.strict_cancel = False
 
 
 def boundary(clock, spec):
@@ -139,6 +141,9 @@ def boundary(clock, spec):
             return dict(spec.status)
 
         def cancel(self, id):
+            # The real ledger has no record of a job it never launched.
+            if spec.strict_cancel and all(item["id"] != id for item in spec.launches):
+                raise SandboxError("Unknown job")
             return {"state": "cancelled", "stop_confirmed": True, "exit_code": None}
 
         def artifacts(self, id):
@@ -201,8 +206,9 @@ def test_parse_findings_all_some_and_none():
 
 def test_models_match_packaged_catalog():
     catalog = json.loads(Path("runner/agentic_runner/codex-models.json").read_text())
-    slugs = [item["slug"] for item in catalog["models"]]
-    assert list(MODELS) == slugs
+    listed = [item["slug"] for item in catalog["models"] if item.get("visibility") == "list"]
+    hidden = {item["slug"] for item in catalog["models"] if item.get("visibility") != "list"}
+    assert list(MODELS) == listed and hidden and not hidden & set(MODELS)
     assert MODELS[0] == "gpt-6-astra"
     assert "gpt-6.1-sol" not in MODELS
 
@@ -384,6 +390,73 @@ def test_prune_skips_uncollected_execution_workspace(tmp_path, monkeypatch):
         job["results_collected"] = True
         service.prune()
         assert not workspace.exists()
+    finally:
+        service.close()
+
+
+@pytest.mark.parametrize("state", ["queued", "launching"])
+def test_restart_releases_a_job_that_never_reached_the_sandbox(tmp_path, monkeypatch, state):
+    clock, spec = Clock(), Spec()
+    spec.strict_cancel = True
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    service.close()
+    payload = request()
+    job = {key: payload[key] for key in ("id", "case_id", "worker_id", "mode", "provider", "lease_epoch",
+                                         "work_contract_major")}
+    # A crash before the persisted sandbox attempt: no container or workspace can exist.
+    job.update(state=state, phase=state, execution_started=False, stop_confirmed=False, results_collected=False,
+               runtime_location="haos_app", base_commit=None, findings={key: [] for key in FINDING_KEYS},
+               evidence=[], artifacts=[], error_code=None, request=payload, digest="0" * 64,
+               created=time.time(), retained_until=time.time() + 86400)
+    service.state_path.write_text(json.dumps({payload["id"]: job}))
+    restored = HomeService(tmp_path / "data", packaged_source=service.source, sandbox_factory=boundary(clock, spec),
+                           relay_factory=Relay)
+    try:
+        again = restored.items[payload["id"]]
+        assert again["state"] == "interrupted" and again["stop_confirmed"] is True
+        assert again["error_code"] == "broker_restarted" and not restored.active()
+        spec.make_workspace = True
+        fresh = request(id="c" * 32)
+        assert restored.submit(fresh)[1]["state"] == "queued"
+        wait_thread(restored, fresh["id"])
+        # Only the new job launched; the interrupted one was never replayed.
+        assert restored.items[fresh["id"]]["state"] == "succeeded"
+        assert spec.launches[0]["id"] == fresh["id"] and payload["id"] not in {item["id"] for item in spec.launches}
+    finally:
+        restored.close()
+
+
+@pytest.mark.parametrize("bound", ["collect_failures", "retention"])
+def test_uncollected_workspace_is_released_once_its_bound_is_reached(tmp_path, monkeypatch, bound):
+    clock, spec = Clock(), Spec()
+    spec.launch_mono = SETUP_BUDGET_SECONDS + 5
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        payload = request()
+        service.submit(payload)
+        wait_thread(service, payload["id"])
+        job = service.items[payload["id"]]
+        workspace = service.root / "work" / payload["id"]
+        workspace.mkdir(parents=True, exist_ok=True)
+        job.update(state="interrupted", phase="interrupted", stop_confirmed=True, execution_started=True,
+                   results_collected=False, collect_failures=0, error_code="broker_restarted",
+                   workspace_released=False)
+
+        def broken(job, sandbox):
+            raise OSError("workspace unreadable")
+        monkeypatch.setattr(service, "collect", broken)
+        if bound == "retention":
+            job["retained_until"] = time.time() - 1
+            service.prune()
+            assert not workspace.exists() and job["content_expired"] is True
+            return
+        for attempt in range(1, 3):
+            service.prune()
+            assert workspace.exists() and job["collect_failures"] == attempt
+        service.prune()
+        # Three failed exports end the wait; a 512 MiB workspace never lingers forever.
+        assert job["collect_failures"] == 3 and not workspace.exists()
+        assert job["error_code"] == "broker_restarted" and "collect_failures" not in service.view(payload["id"])
     finally:
         service.close()
 
