@@ -1,7 +1,7 @@
 """Interactive candidate preview: verifier build, bundle reader, and host-only serving.
 
-These cases use fixtures and a fake toolchain. They are not a Docker image build,
-a sandboxed UI compile, or an installed-VM acceptance run.
+Most cases use fixtures and a fake toolchain. One case runs the real tsc and vite build;
+the --containers case runs it inside the packaged Runner image. None is an installed-VM run.
 """
 import base64
 import hashlib
@@ -9,11 +9,13 @@ import http.client
 import json
 import os
 import re
+import shutil
 import stat
 import subprocess
 import sys
 import threading
 import time
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -23,6 +25,7 @@ from pydantic import ValidationError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "host"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from agentic_controller import VERSION  # noqa: E402
 from agentic_controller.models import WorkerPreview as ModelPreview  # noqa: E402
 from agentic_controller.operations import Operations  # noqa: E402
 from agentic_controller.store import Conflict  # noqa: E402
@@ -36,6 +39,7 @@ from agentic_host.coding_sandbox import (  # noqa: E402
     Limits,
     SandboxError,
     bundle_relative,
+    container_command,
     load_stored_bundle,
     read_artifacts,
     read_web_bundle,
@@ -145,7 +149,7 @@ def _run_program(tmp_path, *, location, touch, drift=False, budget=False):
         "log = Path(sys.argv[0]).with_suffix('.log')\n"
         "previous = json.loads(log.read_text()) if log.exists() else []\n"
         "previous.append({'argv': sys.argv[1:], 'env': {k: os.environ.get(k) for k in "
-        "('HOME','CI','GOMAXPROCS','UV_THREADPOOL_SIZE','NODE_OPTIONS','PATH')}})\n"
+        "('HOME','CI','GOMAXPROCS','UV_THREADPOOL_SIZE','NODE_OPTIONS','NO_COLOR','PATH')}})\n"
         "log.write_text(json.dumps(previous))\n"
         "if any('vite' in arg for arg in sys.argv):\n"
         "    out = Path(sys.argv[sys.argv.index('--outDir') + 1])\n"
@@ -208,14 +212,103 @@ def test_verifier_web_preview_states(tmp_path):
     assert (built / "web-fixtures.json").read_bytes().startswith(b'{"session"')
     calls = json.loads(log.read_text())
     assert calls[0]["argv"][1:] == ["-b"]
-    assert calls[1]["argv"][1:3] == ["build", "--outDir"]
+    assert calls[1]["argv"][1:5] == ["build", "--configLoader", "runner", "--outDir"]
     assert calls[1]["env"]["HOME"].endswith("/scratch")
     assert calls[1]["env"]["CI"] == "1"
     assert calls[1]["env"]["GOMAXPROCS"] == "2"
     assert calls[1]["env"]["UV_THREADPOOL_SIZE"] == "2"
     assert calls[1]["env"]["NODE_OPTIONS"] == "--max-old-space-size=512"
+    assert calls[1]["env"]["NO_COLOR"] == "1"
     assert (built / "web-build.log").stat().st_size <= 65536
 
+
+def _product_web_workspace(tmp_path):
+    """Verifier workspace: the product web/ tree plus a patch that adds one typed module."""
+    work = tmp_path / "work"
+    source = work / "source"
+    listed = _git(ROOT, "ls-files", "-z", "web").stdout.decode().split("\0")
+    _repo(source, {name: (ROOT / name).read_bytes() for name in listed if name})
+    def mutate():
+        (source / "web/src/preview-probe.ts").write_text("export const probe: number = 1;\n")
+    (work / "candidate.patch").write_bytes(_patch(source, mutate))
+    (work / "verification.ini").write_text("[pytest]\n")
+    tests = work / "trusted-tests"
+    tests.mkdir()
+    (tests / "test_ok.py").write_text("def test_ok():\n    assert True\n")
+    for name in ("scratch", "artifacts", "profile"):
+        (work / name).mkdir()
+    return work
+
+
+def test_real_web_build_never_writes_the_toolchain(tmp_path):
+    """Real tsc and vite. The image toolchain is read-only, so the build must not write into it."""
+    modules = ROOT / "web" / "node_modules"
+    node = shutil.which("node")
+    if node is None or not (modules / "vite" / "bin" / "vite.js").is_file():
+        pytest.skip("Run npm ci --prefix web before the real web build test")
+    toolchain = tmp_path / "toolchain"
+    (toolchain / "node_modules").mkdir(parents=True)
+    for entry in modules.iterdir():
+        if not entry.name.startswith(".vite"):
+            (toolchain / "node_modules" / entry.name).symlink_to(entry)
+    for name in ("package.json", "package-lock.json"):
+        (toolchain / name).write_bytes((ROOT / "web" / name).read_bytes())
+    before = sorted(os.listdir(toolchain / "node_modules"))
+    work = _product_web_workspace(tmp_path)
+    program = verification_program()
+    program = program.replace("'/usr/local/bin/node'", repr(node))
+    program = program.replace("/opt/web-toolchain", str(toolchain))
+    program = program.replace("/work", str(work))
+    env = os.environ.copy()
+    env["PATH"] = str(Path(sys.executable).parent) + os.pathsep + env.get("PATH", "")
+    env.pop("PYTEST_ADDOPTS", None)
+    env.pop("PYTEST_CURRENT_TEST", None)
+    completed = subprocess.run([sys.executable, "-I", "-c", program], cwd=work / "source", env=env,
+                               capture_output=True, timeout=300)
+    log = work / "artifacts" / "web-build.log"
+    detail = completed.stderr.decode(errors="replace") + (log.read_text() if log.is_file() else "")
+    status = json.loads((work / "artifacts" / "web-preview.json").read_text())
+    assert completed.returncode == 0 and status == {"state": "built", "reason": None}, detail
+    assert sorted(os.listdir(toolchain / "node_modules")) == before
+    assert "\x1b" not in log.read_text()
+    files, fixtures = read_web_bundle(work / "artifacts")
+    assert "index.html" in files and fixtures == (ROOT / "web" / "preview" / "fixtures.json").read_bytes()
+
+
+def test_real_runner_image_builds_the_product_web_preview(tmp_path, request):
+    if not request.config.getoption("--containers"):
+        pytest.skip("requires local packaged Runner image and Docker; foundation only")
+    image = subprocess.check_output(["docker", "image", "inspect", f"agentic-home-runner:{VERSION}",
+                                     "--format", "{{.Id}}"], text=True).strip()
+    work = _product_web_workspace(tmp_path)
+    # Plain files without .git: this harness runs as uid 1000, production chowns the workspace to UID 10000.
+    shutil.rmtree(work / "source" / ".git")
+    for path in (work, *work.rglob("*")):
+        if path.is_dir():
+            path.chmod(0o777)
+    (work / "task.py").write_text(verification_program())
+    name = "agentic-coding-" + uuid.uuid4().hex
+    limits = Limits(disk_mib=512, memory_mib=768, pids=128, wall_seconds=300)
+    try:
+        subprocess.run(container_command(name, image, work, limits), check=True, capture_output=True, timeout=60)
+        subprocess.run(["docker", "start", name], check=True, capture_output=True, timeout=60)
+        code = subprocess.run(["docker", "wait", name], check=True, capture_output=True, text=True,
+                              timeout=330).stdout.strip()
+        log = work / "artifacts" / "web-build.log"
+        detail = {name: (work / name).read_text(errors="replace")[-4000:]
+                  for name in ("stderr.txt", "artifacts/verification.log", "artifacts/web-build.log")
+                  if (work / name).is_file()}
+        status = json.loads((work / "artifacts" / "web-preview.json").read_text())
+        assert code == "0" and status == {"state": "built", "reason": None}, detail
+        assert "\x1b" not in log.read_text()
+        files, fixtures = read_web_bundle(work / "artifacts")
+        assert "index.html" in files and fixtures == (ROOT / "web" / "preview" / "fixtures.json").read_bytes()
+    finally:
+        subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=60)
+        # Files written by UID 10000 and root are returned to the test user so tmp cleanup works.
+        subprocess.run(["docker", "run", "--rm", "--network", "none", "--user", "0:0", "--entrypoint", "chown",
+                        "--mount", f"type=bind,src={work},dst=/w", image, "-R", f"{os.getuid()}:{os.getgid()}", "/w"],
+                       capture_output=True, timeout=60)
 
 def _preview_tree(tmp_path, files, fixtures=b'{"session":{"mode":"host"}}\n'):
     root = tmp_path / "artifacts"

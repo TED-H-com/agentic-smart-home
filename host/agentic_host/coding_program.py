@@ -311,7 +311,7 @@ def web_build_step_seconds(elapsed):
 
 
 VERIFY_PROGRAM = r'''
-import hashlib,json,os,shutil,subprocess,time
+import hashlib,json,os,re,shutil,subprocess,time
 from pathlib import Path
 _web_started=time.monotonic()
 def web_build_step_seconds(elapsed):
@@ -426,7 +426,7 @@ def _web_build(code):
             _web_status('failed','web_build_budget')
             return 'budget'
         env={'HOME':'/work/scratch','CI':'1','GOMAXPROCS':'2','UV_THREADPOOL_SIZE':'2',
-             'NODE_OPTIONS':'--max-old-space-size=512','PATH':'/usr/local/bin:/usr/bin:/bin'}
+             'NODE_OPTIONS':'--max-old-space-size=512','NO_COLOR':'1','PATH':'/usr/local/bin:/usr/bin:/bin'}
         try:
             result=subprocess.run(['/usr/local/bin/node',script,*extra],cwd=build,env=env,
                 stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=seconds,check=False)
@@ -439,7 +439,7 @@ def _web_build(code):
             ok=False
         log=Path('/work/artifacts/web-build.log')
         previous=log.read_bytes() if log.is_file() and not log.is_symlink() else b''
-        text=(previous+data)[-65536:].decode('utf-8','replace').replace('\x00','')
+        text=re.sub(r'\x1b\[[0-9;]*[A-Za-z]','',(previous+data)[-65536:].decode('utf-8','replace')).replace('\x00','')
         log.write_text(text)
         return 'ok' if ok else 'fail'
     tsc='/opt/web-toolchain/node_modules/typescript/bin/tsc'
@@ -450,7 +450,8 @@ def _web_build(code):
     if step!='ok':
         _web_status('failed','web_typecheck_failed')
         return
-    step=run_node(vite,['build','--outDir','/work/artifacts/web-preview','--emptyOutDir'])
+    # The image toolchain is read-only; the default config loader writes node_modules/.vite-temp.
+    step=run_node(vite,['build','--configLoader','runner','--outDir','/work/artifacts/web-preview','--emptyOutDir'])
     if step=='budget':
         return
     if step!='ok':

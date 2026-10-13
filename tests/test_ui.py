@@ -403,3 +403,115 @@ def test_bootstrap_failure_shows_retry_without_guessing_deployment():
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+
+def test_update_source_commit_and_sync_are_plain_and_short():
+    """Version fold shows a short deployed commit and a plain sync line. Fixture, not a release."""
+    root = Path(__file__).parents[1]
+    server = ThreadingHTTPServer(('127.0.0.1', 0), partial(SimpleHTTPRequestHandler, directory=str(root / 'controller/static')))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    deployed_sha = 'd1e5c0d' + 'a' * 33
+    manifest_sha = 'b' * 40
+    deployed = {'present': True, 'value': deployed_sha}
+    sync = {'value': 'moved'}
+    errors = []
+    labels = {'pending': '程式碼同步中', 'moved': '程式碼已同步', 'reverted': '程式碼已還原', 'needs_reconcile': '程式碼需要處理'}
+
+    def payload():
+        record = {'candidate_digest': 'c' * 64, 'state': 'deployed',
+                  'manifest': {'version': '0.8.0', 'source_commit': manifest_sha, 'tests': [{'name': 'browser', 'result': 'passed'}]}}
+        if sync['value'] is not None:
+            record['source_sync'] = sync['value']
+        body = {'trusted_publisher_configured': True, 'records': [record]}
+        if deployed['present']:
+            body['deployed_source_commit'] = deployed['value']
+        return body
+
+    def route(route):
+        path = route.request.url.split('/api/')[1]
+        if path == 'deployment':
+            result = {'mode': 'host', 'authenticated': True}
+        elif path == 'session':
+            result = {'principal': 'host-owner', 'csrf': 'fixture-csrf', 'mode': 'host'}
+        elif path == 'status':
+            result = {'version': 'fixture', 'paused': False, 'ha': {'status': 'connected'}, 'runner': {'protocol': 1, 'providers': []}}
+        elif path == 'tasks':
+            result = {'tasks': []}
+        elif path == 'host/status':
+            result = {'vm': 'running', 'provisioned': True, 'jobs': [], 'snapshots': [],
+                      'profile': {'label': '家庭筆電', 'memory_mib': 4096, 'vcpus': 2}}
+        elif path == 'updates':
+            result = payload()
+        else:
+            raise AssertionError(path)
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(result))
+
+    def refold():
+        summary = page.locator('summary').filter(has_text='版本')
+        summary.click()
+        expect(page.get_by_text('先檢查簽署的版本說明', exact=False)).to_have_count(0)
+        summary.click()
+        expect(page.get_by_text('先檢查簽署的版本說明', exact=False)).to_be_visible()
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={'width': 1440, 'height': 900})
+            page.on('pageerror', lambda error: errors.append(str(error)))
+            page.route('**/api/**', route)
+            page.goto(f'http://127.0.0.1:{server.server_port}/#host')
+            page.get_by_role('heading', name='主機維護', exact=True).wait_for()
+            page.locator('summary').filter(has_text='版本').click()
+            code = page.locator('p').filter(has_text='目前程式版本').locator('code')
+            expect(code).to_have_text(deployed_sha[:7])
+            expect(code).to_have_attribute('title', deployed_sha)
+            expect(page.get_by_text(labels['moved'], exact=True)).to_be_visible()
+            assert deployed_sha not in page.locator('body').inner_text()
+            assert manifest_sha not in page.locator('body').inner_text()
+            output = root / 'evidence/ui/host-source'
+            output.mkdir(parents=True, exist_ok=True)
+            for width in (1440, 390):
+                page.set_viewport_size({'width': width, 'height': 900 if width == 1440 else 844})
+                page.evaluate('window.scrollTo(0,0)')
+                page.wait_for_timeout(200)
+                expect(code).to_have_text(deployed_sha[:7])
+                expect(page.get_by_text(labels['moved'], exact=True)).to_be_visible()
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), width
+                page.screenshot(path=str(output / f'sync-moved-{width}.png'), full_page=True)
+            page.set_viewport_size({'width': 1440, 'height': 900})
+            for key in ('pending', 'reverted', 'needs_reconcile'):
+                sync['value'] = key
+                refold()
+                expect(page.get_by_text(labels[key], exact=True)).to_be_visible()
+                for other in labels.values():
+                    if other != labels[key]:
+                        expect(page.get_by_text(other, exact=True)).to_have_count(0)
+                visible = page.locator('details.host-fold').filter(has=page.locator('summary', has_text='版本')).inner_text()
+                assert key not in visible
+            expect(page.get_by_text('需要核對', exact=True)).to_have_count(0)
+            for omitted in ('unavailable', None):
+                sync['value'] = omitted
+                refold()
+                for text in labels.values():
+                    expect(page.get_by_text(text, exact=True)).to_have_count(0)
+                visible = page.locator('details.host-fold').filter(has=page.locator('summary', has_text='版本')).inner_text()
+                assert 'unavailable' not in visible and 'needs_reconcile' not in visible
+            deployed['value'] = None
+            refold()
+            expect(page.get_by_text('目前程式版本', exact=False)).to_have_count(0)
+            deployed['present'] = False
+            refold()
+            expect(page.get_by_text('目前程式版本', exact=False)).to_have_count(0)
+            deployed['present'] = True
+            deployed['value'] = 'g' * 40
+            refold()
+            expect(page.get_by_text('目前程式版本', exact=False)).to_have_count(0)
+            page.get_by_text('技術資料', exact=True).click()
+            expect(page.get_by_text(manifest_sha, exact=True)).to_be_visible()
+            assert not errors, errors
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)

@@ -5,7 +5,7 @@
     "host/agentic_host/artifacts.py": "62ed70cc0cce036d13e70a7620abf25161340663aeb6eb8b666e7f6f80e58514",
     "host/agentic_host/bootstrap.py": "97c8251b478d2be7236158bb879821e72a531a70ad287b519b27a0dce611e341",
     "host/agentic_host/cli.py": "2ceefb27d848d92f985c9f5d17f3b8414cde9ff451ee4251a1cb9d6412ddec38",
-    "host/agentic_host/coding_program.py": "ba0fa99463df7efbea763e673d68ce3f9b97c42d261ef4b60fd97fd95ba1d0c0",
+    "host/agentic_host/coding_program.py": "805694c59433695dcbf8205ddd3c30500a813c96ded77e7fd66399cac00420ec",
     "host/agentic_host/coding_relay.py": "5dcdeddff0175156a50126b2225973d6aad165913a82778f2b54ba6da71349e1",
     "host/agentic_host/coding_sandbox.py": "9aadec275ef0b43697f365281aa72cbb9800b2c504a92b9f38fe0a7e42821d1d",
     "host/agentic_host/coding_service.py": "3781bc2bf9d8d3abfd4cbc4295bd007df5e54b5ca0b44e4247c0525b45c30d72",
