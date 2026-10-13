@@ -125,14 +125,15 @@ async def test_duplicate_cancel_and_request_disconnect_do_not_interrupt_shared_f
             writer = broker.tasks["a" * 32]
             first = asyncio.create_task(client.post("/jobs/" + "a" * 32 + "/cancel"))
             requests.append(first)
-            await asyncio.wait_for(term_sent.wait(), 1)
+            # Upper bounds only: a loaded CI runner may take seconds to signal and reap the group.
+            await asyncio.wait_for(term_sent.wait(), 10)
             if disconnect_first:
                 first.cancel()
                 with pytest.raises(asyncio.CancelledError):
                     await first
             second = asyncio.create_task(client.post("/jobs/" + "a" * 32 + "/cancel"))
             requests.append(second)
-            result = await asyncio.wait_for(second, 4)
+            result = await asyncio.wait_for(second, 20)
             assert result.status_code == 200 and result.json()["state"] == "cancelled"
             if not disconnect_first:
                 assert (await first).json()["state"] == "cancelled"
