@@ -5,7 +5,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 from ui_helpers import click_navigation
 
 
@@ -353,6 +353,136 @@ def test_chat_composer_keys_typing_indicator_and_scroll_to_newest():
                 }"""
             )
             assert len(posts) == 1 and not errors, errors
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
+
+def test_interrupted_reply_can_be_sent_again():
+    """An interrupted reply refills the composer on the Web page and in the sidebar. needs_reconcile has no button."""
+    root = Path(__file__).parents[1]
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory=str(root / "controller/static"))
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    question = "請把走廊的燈關掉"
+    reconcile_question = "請看一下玄關的感應器"
+    reconcile_answer = "正在確認上一個回覆已停止，完成後可以重新送出。"
+    interrupted_id, reconcile_id = "a" * 64, "b" * 64
+    state = {"mode": "host", "focus": "interrupted"}
+    posts, errors = [], []
+    messages = {
+        "interrupted": {
+            "id": interrupted_id, "thread_id": interrupted_id, "source": "web", "runtime": "host",
+            "provider": "codex", "coordinator": "hermes", "state": "interrupted", "error_code": None,
+            "reason": "runtime_restarted", "message": question, "answer": "處理已中斷，請重新送出。",
+            "created_at": "2026-10-13T08:00:00Z",
+        },
+        "reconcile": {
+            "id": reconcile_id, "thread_id": reconcile_id, "source": "web", "runtime": "host",
+            "provider": "codex", "coordinator": "hermes", "state": "needs_reconcile",
+            "error_code": "stop_unconfirmed", "reason": "stop_unconfirmed", "message": reconcile_question,
+            "answer": reconcile_answer, "created_at": "2026-10-13T08:05:00Z",
+        },
+    }
+    gateway = {
+        "step": 0, "selected": True, "web": {"status": "connected"},
+        "preferences": {"primary": "web", "runtime": "host", "provider": "codex", "coordinator": "hermes"},
+        "channels": [],
+    }
+
+    def route(route):
+        path = route.request.url.split("/api/", 1)[1].split("?", 1)[0]
+        body = route.request.post_data_json if route.request.method == "POST" else None
+        if body is not None:
+            posts.append(path)
+        if path == "deployment":
+            result = {"mode": state["mode"], "authenticated": True, "bridge_state": "ready"}
+        elif path == "session":
+            message = messages[state["focus"]]
+            result = {
+                "principal": "host-owner", "csrf": "fixture-csrf", "mode": state["mode"],
+                "storage_scope": "1" * 64,
+                "resume": {"message_id": message["id"], "thread_id": message["thread_id"], "case_id": None},
+            }
+        elif path == "status":
+            result = {
+                "ha": {"status": "connected"}, "runner": {"protocol": 1, "providers": []},
+                "version": "fixture", "paused": False, "gateway": gateway,
+            }
+        elif path == "tasks":
+            result = {"tasks": []}
+        elif path == "gateway":
+            result = gateway
+        elif path == "gateway/messages" and body is None:
+            result = {"messages": [messages[state["focus"]]]}
+        elif path == "gateway/messages":
+            result = {}
+        else:
+            raise AssertionError("gateway UI requested an unanswered path: " + path)
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(result))
+
+    def show(page, mode, focus, width):
+        state["mode"] = mode
+        state["focus"] = focus
+        page.set_viewport_size({"width": width, "height": 900 if width == 1440 else 844})
+        page.evaluate("sessionStorage.clear()")
+        # The same hash does not navigate again; reload so the fixture's new reply is read.
+        page.reload()
+
+    def shot(page, name, width):
+        page.wait_for_timeout(100)
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        page.screenshot(path=str(root / f"evidence/ui/{name}-{width}.png"), full_page=True)
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.route("**/api/**", route)
+            page.goto(f"http://127.0.0.1:{server.server_port}/#gateway")
+            for width in (1440, 390):
+                show(page, "host", "interrupted", width)
+                button = page.get_by_role("button", name="重新送出", exact=True)
+                expect(button).to_be_visible()
+                expect(page.get_by_role("heading", name=question, exact=True)).to_be_visible()
+                assert button.bounding_box()["height"] >= 44
+                # One sentence, one action: the chip is translated and no second notice competes with the button.
+                expect(page.locator(".status.s-interrupted")).to_have_text("已中斷")
+                expect(page.get_by_text("這段對話暫時無法接續", exact=False)).to_have_count(0)
+                shot(page, "gateway-resend", width)
+                before = len(posts)
+                button.click()
+                expect(page.get_by_label("對話訊息", exact=True)).to_have_value(question)
+                page.wait_for_timeout(400)
+                assert len(posts) == before
+                show(page, "host", "reconcile", width)
+                expect(page.get_by_text(reconcile_answer, exact=True)).to_be_visible()
+                expect(page.get_by_role("button", name="重新送出", exact=True)).to_have_count(0)
+                expect(page.get_by_role("button", name="重試", exact=True)).to_have_count(0)
+                shot(page, "gateway-reconcile", width)
+                show(page, "bridge", "interrupted", width)
+                expect(page.get_by_role("link", name="回到家庭", exact=True)).to_be_visible()
+                expect(page.locator(".sidebar")).to_have_count(0)
+                expect(page.get_by_text("處理已中斷，請重新送出。", exact=True)).to_be_visible()
+                expect(page.get_by_text("這段對話暫時無法接續", exact=False)).to_have_count(0)
+                button = page.get_by_role("button", name="重新送出", exact=True)
+                expect(button).to_be_visible()
+                shot(page, "bridge/gateway-resend", width)
+                before = len(posts)
+                button.click()
+                expect(page.get_by_label("對話訊息", exact=True)).to_have_value(question)
+                page.wait_for_timeout(400)
+                assert len(posts) == before
+                show(page, "bridge", "reconcile", width)
+                expect(page.get_by_text(reconcile_answer, exact=True)).to_be_visible()
+                expect(page.get_by_role("button", name="重新送出", exact=True)).to_have_count(0)
+                shot(page, "bridge/gateway-reconcile", width)
+            assert not errors, errors
             browser.close()
     finally:
         server.shutdown()
