@@ -41,6 +41,7 @@ from .runner import RunnerError
 KEY = "home_worker_maintenance"
 HOST, PORT = "192.168.177.2", 8443
 STARTUP_GRACE = 120
+APP_START_TIMEOUT = 150  # Supervisor replies after the App is up, within its own 120 s.
 OPERATION_TIMEOUT = 600
 JOB_TIMEOUT = 3600  # A running Supervisor job, such as the local image build, is progress.
 STOP_CONFIRM_SECONDS = 30  # A boot, backup or restart passes through stopped; an Owner stop persists.
@@ -153,9 +154,9 @@ class HomeWorkerMaintenance:
         if not active:
             raise HomeWorkerFault("home_worker_owner_required", "needs_reconcile")
 
-    async def request(self, record, token, method, path, body=None):
+    async def request(self, record, token, method, path, body=None, timeout=30):
         self.guard(record, token)
-        result = await self.ha.request(method, path, body, supervisor=True, timeout=30)
+        result = await self.ha.request(method, path, body, supervisor=True, timeout=timeout)
         self.guard(record, token)
         return result
 
@@ -419,7 +420,8 @@ class HomeWorkerMaintenance:
         operation = {"kind": kind, "state": "sent", "created": self.clock(),
                      "deadline": self.clock() + OPERATION_TIMEOUT, "job_id": None, **(operation_extra or {})}
         self.save(record, operation=operation, state="running", code=None)
-        result = await self.request(record, token, "POST", path, body)
+        timeout = APP_START_TIMEOUT if kind in {"start", "restart"} else 30
+        result = await self.request(record, token, "POST", path, body, timeout=timeout)
         if isinstance(result, dict) and "job_id" in result:
             if not isinstance(result["job_id"], str) or not re.fullmatch(r"[a-f0-9]{32}", result["job_id"]):
                 raise HomeWorkerFault("home_worker_job_contract_invalid", "needs_reconcile")
@@ -652,7 +654,6 @@ class HomeWorkerMaintenance:
             if peer and peer.get("host") == HOST and peer.get("port") == PORT and peer.get("fingerprint"):
                 # Already paired, for example by the manual JSON flow. The poll checks the TLS pin now.
                 await self.begin_clear(record, token, app, peer["fingerprint"])
-                await self.observe_worker(record)
                 return
             deadline = record.get("pair_deadline")
             if deadline is None:
@@ -700,8 +701,10 @@ class HomeWorkerMaintenance:
 
     async def begin_clear(self, record, token, app, fingerprint):
         if app.get("options") == {}:
-            self.save(record, stage="login", state="login_ready", operation=None, code="home_worker_login_required",
-                      fingerprint=fingerprint, failed_code_hash=None, privilege_view=None)
+            # Offer login only after the capability poll confirms a reachable worker and its auth state.
+            self.save(record, stage="login", operation=None, fingerprint=fingerprint,
+                      failed_code_hash=None, privilege_view=None)
+            await self.observe_worker(record)
             return
         self.save(record, fingerprint=fingerprint, privilege_view=self.privilege_view(app), failed_code_hash=None)
         await self.effect(record, token, "clear_options", f"/addons/{record['slug']}/options", {"options": {}})
@@ -722,8 +725,8 @@ class HomeWorkerMaintenance:
                 self.waiting(record)
                 return
             raise HomeWorkerFault("home_worker_options_unconfirmed", "needs_reconcile")
-        self.save(record, stage="login", state="login_ready", operation=None, code="home_worker_login_required",
-                  privilege_view=None, failed_code_hash=None)
+        self.save(record, stage="login", operation=None, privilege_view=None, failed_code_hash=None)
+        await self.observe_worker(record)
 
     async def advance_observe(self, record, token):
         operation = record.get("operation") or {}

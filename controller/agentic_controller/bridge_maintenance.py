@@ -39,6 +39,7 @@ from .models import digest, utcnow
 
 KEY = "bridge_maintenance"
 STARTUP_GRACE = 120
+APP_START_TIMEOUT = 150  # Supervisor replies after the App is up, within its own 120 s.
 OPERATION_TIMEOUT = 600
 JOB_TIMEOUT = 3600  # A running Supervisor job, such as the local image build, is progress.
 HEARTBEAT_MAX_AGE = 90
@@ -369,9 +370,9 @@ class BridgeMaintenance:
         if not active:
             raise BridgeFault("bridge_owner_required", "needs_reconcile")
 
-    async def request(self, record, token, method, path, body=None):
+    async def request(self, record, token, method, path, body=None, timeout=30):
         self.guard(record, token)
-        result = await self.ha.request(method, path, body, supervisor=True, timeout=30)
+        result = await self.ha.request(method, path, body, supervisor=True, timeout=timeout)
         self.guard(record, token)
         return result
 
@@ -495,7 +496,8 @@ class BridgeMaintenance:
         operation = {"kind": kind, "state": "sent", "created": self.clock(),
                      "deadline": self.clock() + OPERATION_TIMEOUT, "job_id": None, **(operation_extra or {})}
         self.save(record, operation=operation, state="running", code=None)
-        result = await self.request(record, token, "POST", path, body)
+        timeout = APP_START_TIMEOUT if kind in {"start", "restart"} else 30
+        result = await self.request(record, token, "POST", path, body, timeout=timeout)
         if isinstance(result, dict) and "job_id" in result:
             if not isinstance(result["job_id"], str) or not re.fullmatch(r"[a-f0-9]{32}", result["job_id"]):
                 raise BridgeFault("bridge_job_contract_invalid", "needs_reconcile")

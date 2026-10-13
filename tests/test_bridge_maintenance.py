@@ -5,6 +5,7 @@ import json
 
 import pytest
 from agentic_controller.bridge_maintenance import (
+    APP_START_TIMEOUT,
     HEARTBEAT_MAX_AGE,
     KEY,
     OPERATION_TIMEOUT,
@@ -60,6 +61,7 @@ class Supervisor:
         self.token = "fixture-ha-token"
         self.revoked = False
         self.repos, self.calls = [], []
+        self.timeouts = []
         self.app = None
         self.catalog = {"slug": SLUG, "repository": REPO, "version_latest": "0.9.0", "available": True,
                         "ingress": True, "build": True, "hassio_api": False, "homeassistant_api": False,
@@ -87,8 +89,11 @@ class Supervisor:
                     "ingress_panel": False, "auto_update": False, "watchdog": False}
 
     async def request(self, method, path, body=None, *, supervisor, timeout):
-        assert supervisor is True and timeout == 30
+        expected_timeout = APP_START_TIMEOUT if method == "POST" and path in {
+            f"/addons/{SLUG}/start", f"/addons/{SLUG}/restart"} else 30
+        assert supervisor is True and timeout == expected_timeout
         self.calls.append((method, path, copy.deepcopy(body)))
+        self.timeouts.append((method, path, timeout))
         if self.before:
             await self.before(method, path)
         if self.fail == (method, path):
@@ -878,3 +883,85 @@ async def test_controller_start_runs_the_observation_loop(manager):
     finally:
         await manager.close()
     assert manager.task is None
+
+
+async def test_start_and_restart_use_supervisor_app_start_timeout(manager):
+    assert APP_START_TIMEOUT == 150
+    await manager.authorize(auto_repair=True)
+    await advance_to(manager, "start")
+
+    async def slow_start(method, path):
+        if method == "POST" and path == f"/addons/{SLUG}/start":
+            assert manager.ha.timeouts[-1] == ("POST", f"/addons/{SLUG}/start", 150)
+            manager.clock.now += 45
+
+    manager.ha.before = slow_start
+    status = await manager.tick()
+    assert (status["state"], status["stage"], status["code"]) == ("running", "start", None)
+    assert status["operation"]["kind"] == "start" and status["operation"]["state"] == "acknowledged"
+    manager.ha.before = None
+
+    assert (await manager.tick())["stage"] == "monitor"
+    manager.bridge.seen = manager.clock()
+    assert (await manager.tick())["state"] == "healthy"
+
+    post_timeouts = [item for item in manager.ha.timeouts if item[0] == "POST"]
+    assert post_timeouts == [
+        ("POST", "/store/repositories", 30),
+        ("POST", f"/store/addons/{SLUG}/install", 30),
+        ("POST", f"/addons/{SLUG}/options/validate", 30),
+        ("POST", f"/addons/{SLUG}/options", 30),
+        ("POST", f"/addons/{SLUG}/start", 150),
+    ]
+    assert all(timeout == 30 for method, _, timeout in manager.ha.timeouts if method == "GET")
+
+    # Auto-repair restart uses 150; all surrounding GETs stay at 30.
+    manager.ha.timeouts.clear()
+    manager.clock.now += STARTUP_GRACE + HEARTBEAT_MAX_AGE + 1
+    assert (await manager.tick())["code"] == "bridge_restart_observing"
+    assert [item for item in manager.ha.timeouts if item[0] == "POST"] == [
+        ("POST", f"/addons/{SLUG}/restart", 150)]
+    assert all(timeout == 30 for method, _, timeout in manager.ha.timeouts if method == "GET")
+    manager.bridge.seen = manager.clock()
+    assert (await manager.tick())["state"] == "healthy"
+
+    # Reconnect from started (restart) and from stopped (start) use 150 only for start/restart.
+    original = manager.bridge.prepare_pairing
+    counter = 0
+
+    def rotate(*, repair=False):
+        nonlocal counter
+        if repair:
+            counter += 1
+            manager.bridge.options.update(pairing_id=f"{counter:032x}", token=str(counter) * 64)
+            manager.bridge.state = "prepared"
+        return original()
+
+    manager.bridge.prepare_pairing = rotate
+    for initial_state, expected_kind in (("started", "restart"), ("stopped", "start")):
+        manager.ha.app["state"] = initial_state
+        manager.suspend()
+        manager.bridge.state = "revoked"
+        manager.ha.timeouts.clear()
+        await manager.authorize(auto_repair=True)
+        await advance_to(manager, "reconnect")
+        await manager.tick()
+        manager.bridge.seen = manager.clock()
+        assert (await manager.tick())["state"] == "healthy"
+        assert [item for item in manager.ha.timeouts if item[0] == "POST"] == [
+            ("POST", f"/addons/{SLUG}/options/validate", 30),
+            ("POST", f"/addons/{SLUG}/options", 30),
+            ("POST", f"/addons/{SLUG}/{expected_kind}", 150),
+        ]
+        assert all(timeout == 30 for method, _, timeout in manager.ha.timeouts if method == "GET")
+
+    # Update stays at 30.
+    bumped = BridgeMaintenance(manager.store, manager.ha, manager.bridge,
+                               release=BridgeRelease(version="0.9.1"), clock=manager.clock)
+    assert (await bumped.tick())["state"] == "update_available"
+    manager.ha.catalog["version_latest"] = "0.9.1"
+    manager.ha.timeouts.clear()
+    await bumped.update()
+    assert [item for item in manager.ha.timeouts if item[0] == "POST"] == [
+        ("POST", f"/store/addons/{SLUG}/update", 30)]
+    assert all(timeout == 30 for _, _, timeout in manager.ha.timeouts)
