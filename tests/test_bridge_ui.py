@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import json
+import re
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -89,6 +90,12 @@ def bridge_browser():
                 elif action == "disable":
                     assert body == {}
                     state["maintenance"].update(state="disabled", auto_repair=False)
+                elif action == "update":
+                    assert body == {}
+                    held = state.get("hold_update")
+                    if held is not None:
+                        held.append((route, request.headers["idempotency-key"], body))
+                        return
                 else:
                     assert action == "repair" and body == {}
             result = state["maintenance"]
@@ -115,6 +122,9 @@ def bridge_browser():
             result = {"id": JOB, "case_id": CASE, "worker_id": "host-coder", "state": "succeeded",
                       "goal": "調查並修正畫面", "stop_confirmed": True, "artifacts": [artifact],
                       "facts": ["測試環境已重現問題"], "runtime_location": "host_fixture"}
+            if state.get("web_preview"):
+                result["verification"] = {"observed_from": "independent_host_verifier", "state": "passed",
+                                          "web_preview": state["web_preview"]}
         elif path == f"worker/jobs/{JOB}/artifacts/{ART}":
             result = {"sha256": "0" * 64 if state["wrong_digest"] else hashlib.sha256(state["content"].encode()).hexdigest(),
                       "content_base64": base64.b64encode(state["content"].encode()).decode()}
@@ -366,3 +376,156 @@ def test_outer_return_uses_latest_same_thread_after_sidebar_continues(bridge_bro
     expect(page.get_by_text("已接續同一份工作。", exact=True)).to_be_visible()
     assert mutations[-1][1]["reply_to"] == NEXT
     assert messages[0]["thread_id"] == MID and messages[0]["case_id"] == CASE
+
+
+def _bridge_record(state_name, code, update=None, operation=None):
+    return {"contract": 1, "state": state_name, "code": code, "auto_repair": False, "version": "0.8.0",
+            "app_state": "started", "release": {"version": "0.9.0", "repository": "local"},
+            "observed_at": "2026-10-13T01:02:03Z", "update": update, "operation": operation}
+
+
+def test_sidebar_app_update_states_keys_and_poll(bridge_browser):
+    """Fixture maintenance. Not a real HAOS App update."""
+    page, _, base, state, calls, _, _, _ = bridge_browser
+    state["mode"] = "host"
+    app = "側欄 App"
+    offered = {"available": True, "from": "0.8.0", "to": "0.9.0", "blocked_code": None}
+    quiet = {"available": False, "from": "0.8.0", "to": "0.9.0", "blocked_code": None}
+    rows = [
+        ("update_available", "bridge_update_available", "有新版本", f"{app} 可以更新到 0.9.0（目前 0.8.0）。",
+         "更新側欄 App", offered, None),
+        ("update_available", "bridge_update_failed", "更新未完成", "上次更新沒有完成，目前仍是 0.8.0，可以再更新一次。",
+         "更新側欄 App", offered, None),
+        ("running", "bridge_observation_pending", "更新中", f"正在更新{app}，通常需要幾分鐘。", None, quiet,
+         {"kind": "update", "state": "running", "job_id": "job-upd-1", "deadline": "2026-10-13T03:00:00Z"}),
+        ("running", "bridge_update_starting", "啟動中", f"{app} 已更新，正在啟動。", None, quiet, None),
+        ("waiting", "bridge_release_not_published", "等待中", "新版本還沒出現在 App 商店，稍後會自動再檢查。", None, quiet, None),
+        ("waiting", "bridge_release_ahead", "需要更新主機", "App 商店的版本比主機新，請先更新主機。", None, quiet, None),
+        ("needs_reconcile", "bridge_release_channel_changed", "需要處理",
+         f"目前裝的是舊發行頻道的{app}。請在 Home Assistant 移除它，再回來重新啟用。", "檢查側欄連線", quiet, None),
+        ("needs_reconcile", "bridge_update_version_mismatch", "需要處理", f"更新後的{app}和預期不同，需要你確認。",
+         "檢查側欄連線", quiet, None),
+        ("needs_reconcile", "bridge_update_options_mismatch", "需要處理", f"更新後的{app}和預期不同，需要你確認。",
+         "檢查側欄連線", quiet, None),
+        ("needs_reconcile", "bridge_update_app_missing", "需要處理", f"更新後的{app}和預期不同，需要你確認。",
+         "檢查側欄連線", quiet, None),
+        ("needs_reconcile", "bridge_release_unparsable", "需要處理", "App 商店的版本資料無法判讀，需要你確認。",
+         "檢查側欄連線", {"available": False, "from": None, "to": None, "blocked_code": "bridge_release_unparsable"}, None),
+    ]
+
+    def show(record):
+        state["maintenance"] = record
+        # Same-URL goto does not reload, and a second click would close the fold.
+        page.goto(base + "#settings")
+        page.reload()
+        page.get_by_text("HA 智能管家側欄", exact=True).click()
+        panel = page.get_by_role("region", name="側欄維護")
+        expect(panel).to_be_visible()
+        return panel
+
+    def maintenance_gets(start):
+        return [item for item in calls[start:] if item == ("GET", "host/bridge/maintenance")]
+
+    panel = show(_bridge_record(*rows[0][:2], update=rows[0][5], operation=rows[0][6]))
+    expect(panel.locator(".status")).to_have_text(rows[0][2])
+    sentence = panel.get_by_text(rows[0][3], exact=True)
+    expect(sentence).to_be_visible()
+    expect(sentence).to_have_attribute("data-reason", rows[0][1])
+    assert rows[0][1] not in panel.inner_text()
+    shots(page, "app-update")
+    page.set_viewport_size({"width": 1440, "height": 900})
+    tech = panel.locator("details").filter(has=page.locator("summary", has_text="技術資料"))
+    tech.locator("summary").click()
+    expect(tech).to_contain_text("0.8.0 → 0.9.0")
+    expect(tech).to_contain_text(rows[0][1])
+    expect(tech).to_contain_text("started")
+    tech.locator("summary").click()
+
+    state["hold_update"] = []
+    button = panel.get_by_role("button", name=re.compile(r"^更新(側欄 App|中…)$"))
+    expect(button).to_have_text("更新側欄 App")
+    button.click()
+    expect(button).to_be_disabled()
+    expect(button).to_have_text("更新中…")
+    held, key, body = state["hold_update"].pop()
+    assert body == {} and len(key) == 32
+    held.fulfill(status=409, content_type="application/json",
+                 body=json.dumps({"detail": "這次更新沒有送出，請再試一次。"}, ensure_ascii=False))
+    expect(panel.locator(".notice.error")).to_have_text("這次更新沒有送出，請再試一次。")
+    assert panel.locator(".notice.error").get_attribute("data-reason") in (None, "")
+    button.click()
+    expect(button).to_have_text("更新中…")
+    held, retry_key, retry_body = state["hold_update"].pop()
+    assert retry_body == {} and retry_key == key
+    before = len(calls)
+    held.fulfill(status=200, content_type="application/json", body="{}")
+    expect(button).to_be_enabled()
+    assert maintenance_gets(before)
+    button.click()
+    held, new_key, new_body = state["hold_update"].pop()
+    assert new_body == {} and new_key != key
+    held.fulfill(status=200, content_type="application/json", body="{}")
+    state["hold_update"] = None
+    expect(panel.get_by_role("button", name="檢查側欄連線")).to_have_count(0)
+
+    updating = rows[2]
+    panel = show(_bridge_record(updating[0], updating[1], update=updating[5], operation=updating[6]))
+    expect(panel.locator(".status")).to_have_text("更新中", timeout=8000)
+    assert "job-upd-1" not in panel.inner_text()
+    mark = len(calls)
+    page.wait_for_timeout(6500)
+    assert 1 <= len(maintenance_gets(mark)) <= 2
+    state["maintenance"].update(state="healthy", code="bridge_ready", operation=None,
+                                update={"available": False, "from": "0.9.0", "to": "0.9.0", "blocked_code": None})
+    expect(panel.get_by_text("側欄服務可用", exact=True)).to_be_visible(timeout=8000)
+    mark = len(calls)
+    page.wait_for_timeout(3000)
+    assert len(maintenance_gets(mark)) <= 2
+    tech = panel.locator("details").filter(has=page.locator("summary", has_text="技術資料"))
+    state["maintenance"] = _bridge_record(updating[0], updating[1], update=updating[5], operation=updating[6])
+    expect(panel.locator(".status")).to_have_text("更新中", timeout=8000)
+    tech.locator("summary").click()
+    expect(tech).to_contain_text("job-upd-1")
+    expect(tech).to_contain_text("0.8.0 → 0.9.0")
+    expect(tech).to_contain_text("bridge_observation_pending")
+
+    for state_name, code, chip, sentence, button_name, update, operation in rows:
+        panel = show(_bridge_record(state_name, code, update=update, operation=operation))
+        expect(panel.locator(".status")).to_have_text(chip)
+        line = panel.get_by_text(sentence, exact=True)
+        expect(line).to_have_attribute("data-reason", code)
+        visible = panel.inner_text()
+        assert code not in visible
+        assert "job-upd-1" not in visible
+        if button_name:
+            expect(panel.get_by_role("button", name=button_name, exact=True)).to_be_visible()
+        for absent in ("更新側欄 App", "檢查側欄連線"):
+            if absent != button_name:
+                expect(panel.get_by_role("button", name=absent, exact=True)).to_have_count(0)
+
+    blocked = _bridge_record("update_available", "bridge_update_available", update={
+        "available": False, "from": "0.8.0", "to": "0.9.0", "blocked_code": "bridge_update_not_allowed"})
+    panel = show(blocked)
+    expect(panel.get_by_text("有新版本", exact=True)).to_be_visible()
+    expect(panel.get_by_role("button", name="更新側欄 App")).to_have_count(0)
+    assert "bridge_update_available" not in panel.inner_text()
+    assert "bridge_update_not_allowed" not in panel.inner_text()
+    generic = _bridge_record("needs_reconcile", "bridge_operation_unconfirmed")
+    panel = show(generic)
+    expect(panel.get_by_text("需要核對", exact=True)).to_be_visible()
+    expect(panel.get_by_role("button", name="檢查側欄連線", exact=True)).to_be_visible()
+    expect(panel.get_by_role("button", name="更新側欄 App")).to_have_count(0)
+    assert "bridge_operation_unconfirmed" not in panel.inner_text()
+    assert "bridge_supervisor_job_failed" not in panel.inner_text()
+
+
+def test_bridge_view_skips_host_maintenance_and_interactive_preview(bridge_browser):
+    page, _, base, state, calls, mutations, _, _ = bridge_browser
+    state["web_preview"] = {"state": "built", "reason": None, "artifact_digest": "a" * 64, "files": 2, "bytes": 80}
+    page.goto(base)
+    page.get_by_role("button", name="查看成果", exact=True).click()
+    expect(page.get_by_role("heading", name="調查並修正畫面", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="開啟互動預覽")).to_have_count(0)
+    page.wait_for_timeout(400)
+    assert not any(path.startswith("host/") for _, path in calls)
+    assert not any(body.get("mode") == "interactive" for _, body, _ in mutations if isinstance(body, dict))

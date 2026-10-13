@@ -36,6 +36,13 @@ const errorSentence:Record<string,string>={
   bridge_owner_required:'請以家庭管理員身分重新開啟。',
   bridge_owner_changed:'請以家庭管理員身分重新開啟。',
   bridge_authority_revoked:'請以家庭管理員身分重新開啟。',
+  web_preview_unavailable:'這份工作沒有可預覽的畫面。',
+  interactive_preview_host_only:'互動預覽只能在主機管理頁開啟。',
+  preview_retention_limit:'開啟的預覽太多，請稍後再試。',
+  preview_listener_unavailable:'預覽服務暫時無法使用，請稍後再試。',
+  preview_context_expiring:'這份工作即將過期，無法開啟預覽。',
+  preview_bundle_unavailable:'預覽檔案無法使用，請重新執行工作。',
+  preview_artifact_digest_mismatch:'預覽檔案無法使用，請重新執行工作。',
 };
 const errorCode=/^[a-z][a-z0-9_]{2,80}$/;
 export function plainError(e:unknown):{text:string;code?:string}{
@@ -43,4 +50,33 @@ export function plainError(e:unknown):{text:string;code?:string}{
   if(errorCode.test(message))return {text:errorSentence[message]||'這次沒有完成，請稍後再試。',code:message};
   const code=e instanceof ApiError&&typeof e.code==='string'&&e.code?e.code:undefined;
   return {text:message,code};
+}
+
+export type AppUpdateView={chip:string;sentence:string;action:'update'|'recheck'|'none';tone:string};
+type AppUpdate={available?:boolean;from?:string|null;to?:string|null;blocked_code?:string|null}|null;
+type AppStatus={code?:string|null;operation?:{kind?:string|null;state?:string|null;job_id?:string|null}|null;update?:AppUpdate};
+
+/** Owner-facing update row. Null keeps the caller's existing state copy. */
+export function appUpdateView(app:string,prefix:'bridge'|'home_worker',record?:AppStatus|null):AppUpdateView|null{
+  if(!record)return null;
+  const code=record.code||'',update=record.update,blocked=!!update?.blocked_code;
+  const from=update?.from||'未知',to=update?.to||'未知';
+  if(record.operation?.kind==='update')return {chip:'更新中',sentence:`正在更新${app}，通常需要幾分鐘。`,action:'none',tone:'s-pending'};
+  if(update?.available&&!blocked&&code===`${prefix}_update_available`)return {chip:'有新版本',sentence:`${app} 可以更新到 ${to}（目前 ${from}）。`,action:'update',tone:'s-pending'};
+  if(update?.available&&!blocked&&code===`${prefix}_update_failed`)return {chip:'更新未完成',sentence:`上次更新沒有完成，目前仍是 ${from}，可以再更新一次。`,action:'update',tone:'s-failed'};
+  if(code===`${prefix}_update_starting`)return {chip:'啟動中',sentence:`${app} 已更新，正在啟動。`,action:'none',tone:'s-pending'};
+  if(code===`${prefix}_release_not_published`)return {chip:'等待中',sentence:'新版本還沒出現在 App 商店，稍後會自動再檢查。',action:'none',tone:'s-pending'};
+  if(code===`${prefix}_release_ahead`)return {chip:'需要更新主機',sentence:'App 商店的版本比主機新，請先更新主機。',action:'none',tone:'s-failed'};
+  if(code===`${prefix}_release_channel_changed`)return {chip:'需要處理',sentence:`目前裝的是舊發行頻道的${app}。請在 Home Assistant 移除它，再回來重新啟用。`,action:'recheck',tone:'s-needs_reconcile'};
+  if(code===`${prefix}_update_app_missing`||new RegExp(`^${prefix}_update_[a-z0-9]+_mismatch$`).test(code))return {chip:'需要處理',sentence:`更新後的${app}和預期不同，需要你確認。`,action:'recheck',tone:'s-needs_reconcile'};
+  if(code===`${prefix}_release_unparsable`)return {chip:'需要處理',sentence:'App 商店的版本資料無法判讀，需要你確認。',action:'recheck',tone:'s-needs_reconcile'};
+  return null;
+}
+export function updateVersionLine(update?:{from?:string|null;to?:string|null}|null){
+  if(!update||typeof update!=='object'||(!update.from&&!update.to))return '';
+  return `${update.from||'—'} → ${update.to||'—'}`;
+}
+export function operationLine(operation?:{kind?:string|null;state?:string|null;job_id?:string|null}|null){
+  if(!operation?.kind)return '';
+  return [operation.kind,operation.state,operation.job_id].filter(Boolean).join(' · ');
 }

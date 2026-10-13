@@ -1228,3 +1228,223 @@ def test_coding_login_is_signed_in_and_stops_polling(ui_page):
     assert len(reads) > before + 1
     coding_frames(page, 'login-code')
     assert not errors, errors
+
+
+def test_interactive_candidate_preview_opens_frames_and_expires(ui_page):
+    """Fixture preview. The frame is local HTML, not a real household."""
+    page, origin = ui_page
+    job_id, case_id, preview_id = 'a' * 32, 'b' * 32, 'c' * 32
+    token, url = 'A' * 43, 'http://127.0.0.2:8100/i/' + ('A' * 43) + '/'
+    patch = b'--- a/button.css\n+++ b/button.css\n@@ -1 +1 @@\n-height: 32px\n+min-height: 44px\n'
+    artifact = {'id': '5' * 32, 'name': 'button.css', 'kind': 'patch', 'media_type': 'text/plain',
+                'sha256': hashlib.sha256(patch).hexdigest(), 'size': len(patch)}
+    web = {'state': 'failed', 'reason': 'web_typecheck_failed', 'artifact_digest': 'ab' * 32, 'files': 4, 'bytes': 1200}
+    job = {'id': job_id, 'case_id': case_id, 'worker_id': 'host-coder', 'mode': 'development', 'provider': 'codex',
+           'goal': '調整首頁間距', 'state': 'succeeded', 'execution_started': True, 'stop_confirmed': True,
+           'created_at': '2026-10-13T01:00:00Z', 'runtime_location': 'host_worker_container', 'artifacts': [artifact],
+           'verification': {'observed_from': 'worker', 'state': 'passed', 'web_preview': web}}
+    message = {'id': 'e' * 64, 'source': 'web', 'runtime': 'host', 'provider': 'codex', 'coordinator': 'hermes',
+               'thread_id': 'f' * 32, 'case_id': case_id, 'state': 'succeeded', 'message': '幫我看這次修正',
+               'answer': '成果在下面。', 'created_at': '2026-10-13T01:00:00Z'}
+    workers = [{'worker_id': 'host-coder', 'available': True, 'state': 'ready', 'modes': ['research', 'development'],
+                'providers': [{'id': 'codex', 'supported': True, 'credential_state': 'connected'}]},
+               {'worker_id': 'home-coder', 'available': False, 'state': 'blocked', 'modes': [], 'providers': []}]
+    surface = {'mode': 'host'}
+    preview = {'url': url, 'detail': None, 'expires': time.time() + 1800}
+    posts, revokes, seen, errors = [], [], [], []
+    reasons = {
+        'web_typecheck_failed': '新畫面沒有通過型別檢查，無法預覽。',
+        'web_build_failed': '新畫面建置失敗，無法預覽。',
+        'web_build_budget': '測試用完時間，沒有建置畫面預覽。',
+        'web_dependencies_changed': '這次修改動到前端套件，為了安全不建置預覽。',
+    }
+    failures = [
+        ('web_preview_unavailable', '這份工作沒有可預覽的畫面。'),
+        ('interactive_preview_host_only', '互動預覽只能在主機管理頁開啟。'),
+        ('preview_retention_limit', '開啟的預覽太多，請稍後再試。'),
+        ('preview_listener_unavailable', '預覽服務暫時無法使用，請稍後再試。'),
+        ('preview_context_expiring', '這份工作即將過期，無法開啟預覽。'),
+        ('preview_bundle_unavailable', '預覽檔案無法使用，請重新執行工作。'),
+        ('preview_artifact_digest_mismatch', '預覽檔案無法使用，請重新執行工作。'),
+    ]
+
+    def route(route):
+        req = route.request
+        path = req.url.split('/api/')[1]
+        seen.append((surface['mode'], req.method, path))
+        if path.startswith('host/'):
+            raise AssertionError(path)
+        body = req.post_data_json if req.method == 'POST' else None
+        if body is not None:
+            assert req.headers['x-agentic-csrf'] == 'fixture-csrf'
+            assert re.fullmatch(r'[0-9a-f]{32}', req.headers['idempotency-key'])
+        if path == f'worker/jobs/{job_id}/previews':
+            assert body == {'mode': 'interactive'}
+            posts.append((path, body, req.headers['idempotency-key']))
+            if preview['detail']:
+                route.fulfill(status=409, content_type='application/json', body=json.dumps({'detail': preview['detail']}))
+                return
+            route.fulfill(status=202, content_type='application/json', body=json.dumps({
+                'id': preview_id, 'mode': 'interactive', 'job_id': job_id, 'artifact_digest': web['artifact_digest'],
+                'state': 'ready', 'created_at': int(time.time()), 'expires_at': preview['expires'],
+                'interactive_url': preview['url']}))
+            return
+        if path == f'worker/previews/{preview_id}/revoke':
+            assert body == {}
+            revokes.append((path, body, req.headers['idempotency-key']))
+            route.fulfill(status=200, content_type='application/json', body=json.dumps({'id': preview_id, 'state': 'revoked'}))
+            return
+        if surface['mode'] == 'bridge' and path == 'deployment':
+            value = {'mode': 'bridge', 'authenticated': True, 'bridge_state': 'ready'}
+        elif surface['mode'] == 'bridge' and path == 'session':
+            value = {'csrf': 'fixture-csrf', 'mode': 'bridge', 'principal': 'owner-a', 'storage_scope': '1' * 64,
+                     'resume': {'message_id': message['id'], 'thread_id': message['thread_id'], 'case_id': case_id}}
+        else:
+            value = common(path)
+        if value is None and path == 'workers':
+            value = {'workers': workers, 'active_job_id': None}
+        elif value is None and path == 'worker/jobs':
+            value = {'jobs': [job], 'active_job_id': None}
+        elif value is None and path == f'worker/jobs/{job_id}':
+            value = job
+        elif value is None and path == 'gateway':
+            value = {'preferences': {'runtime': 'host', 'provider': 'codex', 'coordinator': 'hermes'}, 'channels': []}
+        elif value is None and path == 'gateway/messages':
+            value = {'messages': [message]}
+        elif value is None and path == f'hermes/cases/{case_id}':
+            value = {'id': case_id, 'jobs': [{'id': job_id, 'state': 'succeeded', 'worker_id': 'host-coder',
+                     'artifact_count': 1, 'evidence_count': 0, 'content_expired': False}]}
+        elif value is None:
+            raise AssertionError(path)
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
+
+    def frame(route):
+        route.fulfill(status=200, content_type='text/html; charset=utf-8',
+                      body='<!doctype html><title>預覽</title><p>示範畫面</p>')
+
+    def load():
+        page.reload()
+        page.get_by_role('heading', name='調整首頁間距', exact=True).wait_for()
+        return page.locator('.worker-results')
+
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.route('**/api/**', route)
+    page.route('http://127.0.0.2:8100/**', frame)
+    page.goto(origin + '/#workers')
+    for reason, sentence in reasons.items():
+        web.update(state='failed', reason=reason)
+        results = load()
+        line = results.get_by_text(sentence, exact=True)
+        expect(line).to_have_attribute('data-reason', reason)
+        assert reason not in results.inner_text()
+        expect(results.get_by_role('button', name='開啟互動預覽')).to_have_count(0)
+        expect(page.locator('iframe[title="互動預覽"]')).to_have_count(0)
+    web.update(state='failed', reason='web_other')
+    results = load()
+    expect(results.get_by_role('button', name='開啟互動預覽')).to_have_count(0)
+    assert 'web_other' not in results.inner_text()
+    for state_name, reason in (('not_applicable', None), ('unavailable', 'host_only'), ('unavailable', 'not_reported')):
+        web.update(state=state_name, reason=reason)
+        results = load()
+        expect(results.get_by_role('button', name='開啟互動預覽')).to_have_count(0)
+        assert state_name not in results.inner_text()
+        if reason:
+            assert reason not in results.inner_text()
+        tech = results.locator('details').filter(has=page.locator('summary', has_text='技術資料'))
+        tech.locator('summary').click()
+        bits = ' · '.join(part for part in (state_name, reason, '4', '1200') if part)
+        expect(tech.locator('code', has_text=state_name)).to_have_text(bits)
+    web.update(state='built', reason=None)
+    results = load()
+    button = results.get_by_role('button', name='開啟互動預覽', exact=True)
+    expect(button).to_be_visible()
+    expect(button).to_have_class(re.compile(r'\bsecondary\b'))
+    bad_urls = [
+        'https://127.0.0.2:8100/i/' + token + '/',
+        'http://127.0.0.1:8100/i/' + token + '/',
+        'http://127.0.0.2:8100/i/' + ('A' * 42) + '/',
+        'http://127.0.0.2:8100/i/' + token,
+    ]
+    for bad in bad_urls:
+        preview.update(url=bad, detail=None)
+        button.click()
+        expect(results.get_by_text('預覽檔案無法使用，請重新執行工作。', exact=True)).to_be_visible()
+        expect(page.get_by_role('dialog', name='互動預覽')).to_have_count(0)
+        expect(page.locator('iframe[title="互動預覽"]')).to_have_count(0)
+    assert len({item[2] for item in posts}) == len(bad_urls)
+    preview.update(url=url, detail=failures[0][0])
+    for code, sentence in failures:
+        preview['detail'] = code
+        button.click()
+        note = results.get_by_text(sentence, exact=True)
+        expect(note).to_have_attribute('data-reason', code)
+        assert code not in results.inner_text()
+    assert len({item[2] for item in posts[len(bad_urls):]}) == 1
+    preview.update(detail=None, expires=time.time() + 1800)
+    button.click()
+    dialog = page.get_by_role('dialog', name='互動預覽')
+    expect(dialog.get_by_role('button', name='關閉', exact=True)).to_be_focused()
+    frame_box = dialog.locator('iframe')
+    expect(frame_box).to_have_attribute('src', url + '#entry')
+    expect(frame_box).to_have_attribute('sandbox', 'allow-scripts allow-same-origin allow-forms')
+    expect(frame_box).to_have_attribute('referrerpolicy', 'no-referrer')
+    expect(page.frame_locator('iframe[title="互動預覽"]').get_by_text('示範畫面')).to_be_visible()
+    assert page.evaluate('document.documentElement.style.overflow') == 'hidden'
+    assert page.evaluate('document.body.style.overflow') == 'hidden'
+    dialog.get_by_role('button', name='手機', exact=True).click()
+    expect(dialog.get_by_role('button', name='手機', exact=True)).to_have_attribute('aria-pressed', 'true')
+    phone = frame_box.evaluate('el => el.getBoundingClientRect().width')
+    assert phone <= 391
+    dialog.get_by_role('button', name='平板', exact=True).click()
+    expect(dialog.get_by_role('button', name='平板', exact=True)).to_have_attribute('aria-pressed', 'true')
+    tablet = frame_box.evaluate('el => el.getBoundingClientRect().width')
+    assert 700 <= tablet <= 768
+    dialog.get_by_role('button', name='電腦', exact=True).click()
+    expect(dialog.get_by_role('button', name='電腦', exact=True)).to_have_attribute('aria-pressed', 'true')
+    assert frame_box.evaluate('el => el.getBoundingClientRect().width') > tablet
+    output = ROOT / 'evidence' / 'ui'
+    output.mkdir(parents=True, exist_ok=True)
+    page.screenshot(path=str(output / 'interactive-preview-1440.png'))
+    page.set_viewport_size({'width': 390, 'height': 844})
+    page.wait_for_timeout(200)
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    narrow = frame_box.evaluate('el => el.getBoundingClientRect().width')
+    assert 300 < narrow <= 390
+    page.screenshot(path=str(output / 'interactive-preview-390.png'))
+    page.set_viewport_size({'width': 1440, 'height': 900})
+    opened = len(posts)
+    assert posts[opened - 1][2] == posts[len(bad_urls)][2]
+    page.keyboard.press('Escape')
+    expect(page.get_by_role('dialog', name='互動預覽')).to_have_count(0)
+    expect(button).to_be_focused()
+    assert len(revokes) == 1 and revokes[0][1] == {}
+    assert page.evaluate('document.documentElement.style.overflow') == ''
+    assert page.evaluate('document.body.style.overflow') == ''
+    preview['expires'] = time.time() + 4
+    button.click()
+    dialog = page.get_by_role('dialog', name='互動預覽')
+    expect(dialog.locator('iframe')).to_be_visible()
+    expect(dialog.get_by_text('預覽已過期。', exact=True)).to_be_visible(timeout=8000)
+    expect(dialog.locator('iframe')).to_have_count(0)
+    short_key = posts[-1][2]
+    preview['expires'] = time.time() + 1800
+    dialog.get_by_role('button', name='重新開啟', exact=True).click()
+    expect(dialog.locator('iframe')).to_be_visible()
+    assert posts[-1][2] != short_key and short_key != posts[len(bad_urls)][2]
+    assert len(revokes) == 1
+    assert all(item[1] == {'mode': 'interactive'} for item in posts)
+
+    surface['mode'] = 'bridge'
+    web.update(state='built', reason=None)
+    page.goto(origin + '/#gateway')
+    # A hash change does not reload, so the host shell would stay mounted.
+    page.reload()
+    expect(page.locator('.bridge-shell')).to_be_visible()
+    page.get_by_role('button', name='查看成果', exact=True).click()
+    expect(page.get_by_role('heading', name='調整首頁間距', exact=True)).to_be_visible()
+    expect(page.get_by_role('button', name='開啟互動預覽')).to_have_count(0)
+    bridge_seen = [item for item in seen if item[0] == 'bridge']
+    assert bridge_seen
+    assert not any(path.startswith('host/') for _, _, path in bridge_seen)
+    assert not any(method == 'POST' and path.endswith('/previews') for _, method, path in bridge_seen)
+    assert not errors, errors

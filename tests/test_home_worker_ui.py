@@ -1,6 +1,8 @@
 """Home-worker enable flow against protocol fixtures. No real account, HAOS, or device."""
 import json
+import re
 import threading
+import time
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -72,6 +74,8 @@ def maintenance(state, **extra):
               'version': extra.get('version', '9.9.9'), 'slug': extra.get('slug', 'agentic_coder'),
               'app_state': extra.get('app_state', 'started'), 'fingerprint': extra.get('fingerprint'),
               'observed_at': extra.get('observed_at', '2026-10-13T01:02:03Z'), 'operation': extra.get('operation')}
+    if 'update' in extra:
+        record['update'] = extra['update']
     return record
 
 
@@ -507,4 +511,196 @@ def test_completion_prompt_settings_detail_and_single_host_status(ui_page):
     expect(page.get_by_text('可用空間', exact=True)).to_be_visible()
     expect(page.get_by_label('AI 帳號').locator('option')).to_have_text(['Claude Code', 'Grok Build'])
     shot(page, 'host')
+    assert not errors
+
+
+def test_home_app_update_states_keys_poll_and_blocked(ui_page):
+    """Fixture maintenance. Not a real HAOS App update."""
+    page, origin = ui_page
+    app = '家庭現場 App'
+    offered = {'available': True, 'from': '0.8.0', 'to': '0.9.0', 'blocked_code': None}
+    quiet = {'available': False, 'from': '0.8.0', 'to': '0.9.0', 'blocked_code': None}
+    rows = [
+        ('update_available', 'home_worker_update_available', '有新版本', f'{app} 可以更新到 0.9.0（目前 0.8.0）。',
+         '更新家庭現場 App', offered, None),
+        ('update_available', 'home_worker_update_failed', '更新未完成', '上次更新沒有完成，目前仍是 0.8.0，可以再更新一次。',
+         '更新家庭現場 App', offered, None),
+        ('running', 'home_worker_observation_pending', '更新中', f'正在更新{app}，通常需要幾分鐘。', None, quiet,
+         {'kind': 'update', 'state': 'running', 'job_id': 'job-upd-1', 'deadline': '2026-10-13T03:00:00Z'}),
+        ('running', 'home_worker_update_starting', '啟動中', f'{app} 已更新，正在啟動。', None, quiet, None),
+        ('waiting', 'home_worker_release_not_published', '等待中', '新版本還沒出現在 App 商店，稍後會自動再檢查。',
+         None, quiet, None),
+        ('waiting', 'home_worker_release_ahead', '需要更新主機', 'App 商店的版本比主機新，請先更新主機。', None, quiet, None),
+        ('needs_reconcile', 'home_worker_release_channel_changed', '需要處理',
+         f'目前裝的是舊發行頻道的{app}。請在 Home Assistant 移除它，再回來重新啟用。', '重新檢查', quiet, None),
+        ('needs_reconcile', 'home_worker_update_version_mismatch', '需要處理', f'更新後的{app}和預期不同，需要你確認。',
+         '重新檢查', quiet, None),
+        ('needs_reconcile', 'home_worker_update_options_mismatch', '需要處理', f'更新後的{app}和預期不同，需要你確認。',
+         '重新檢查', quiet, None),
+        ('needs_reconcile', 'home_worker_update_app_missing', '需要處理', f'更新後的{app}和預期不同，需要你確認。',
+         '重新檢查', quiet, None),
+        ('needs_reconcile', 'home_worker_release_unparsable', '需要處理', 'App 商店的版本資料無法判讀，需要你確認。',
+         '重新檢查', {'available': False, 'from': None, 'to': None, 'blocked_code': 'home_worker_release_unparsable'}, None),
+    ]
+    flow = {'state': rows[0][0], 'code': rows[0][1], 'update': rows[0][5], 'operation': rows[0][6]}
+    gets, errors = [], []
+    hold = {'items': None}
+
+    def route(route):
+        request = route.request
+        path = request.url.split('/api/')[1]
+        body = request.post_data_json if request.method == 'POST' else None
+        if path == 'host/home-worker/maintenance' and request.method == 'GET':
+            gets.append(time.monotonic())
+        if path == 'host/home-worker/maintenance/update':
+            assert body == {}
+            assert request.headers['x-agentic-csrf'] == 'fixture-csrf'
+            if hold['items'] is not None:
+                hold['items'].append((route, request.headers['idempotency-key'], body))
+                return
+            route.fulfill(status=200, content_type='application/json', body='{}')
+            return
+        value = {'deployment': {'mode': 'host', 'authenticated': True},
+                 'session': {'principal': 'host-owner', 'csrf': 'fixture-csrf'},
+                 'status': {'ha': {'status': 'connected'}, 'runner': {'protocol': 1, 'providers': []}, 'paused': False},
+                 'tasks': {'tasks': []},
+                 'workers': {'workers': [coder('host-coder', 'needs_auth'), coder('home-coder', 'needs_auth', False)],
+                             'active_job_id': None},
+                 'worker/jobs': {'jobs': [], 'active_job_id': None}}.get(path)
+        if path == 'host/home-worker/maintenance':
+            value = maintenance(flow['state'], code=flow['code'], operation=flow['operation'], update=flow['update'],
+                                version='0.8.0', release='0.9.0', app_state='started')
+        elif value is None:
+            value = {}
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
+
+    def show():
+        page.reload()
+        page.get_by_label('要調查或改善什麼？', exact=True).wait_for()
+        page.get_by_role('radio', name='家庭現場', exact=True).check()
+        return page.get_by_role('region', name='家庭現場開發助手')
+
+    def apply(row):
+        flow.update(state=row[0], code=row[1], update=row[5], operation=row[6])
+        return show()
+
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.route('**/api/**', route)
+    page.goto(origin + '/#workers')
+    card = show()
+    expect(card.locator('.status')).to_have_text('有新版本')
+    expect(page.locator('.worker-readiness')).to_contain_text('有新版本')
+    line = card.get_by_text(rows[0][3], exact=True)
+    expect(line).to_have_attribute('data-reason', rows[0][1])
+    assert rows[0][1] not in card.inner_text()
+    expect(page.get_by_role('button', name='開始調查', exact=True)).to_be_disabled()
+    page.set_viewport_size({'width': 390, 'height': 844})
+    in_view(page, card.get_by_role('button', name='更新家庭現場 App', exact=True), 844)
+    shot(page, 'update')
+    page.set_viewport_size({'width': 1440, 'height': 900})
+    tech = card.locator('details').filter(has=page.locator('summary', has_text='技術資料'))
+    tech.locator('summary').click()
+    expect(tech).to_contain_text('0.8.0 → 0.9.0')
+    expect(tech).to_contain_text(rows[0][1])
+    expect(tech).to_contain_text('started')
+    tech.locator('summary').click()
+
+    hold['items'] = []
+    button = card.get_by_role('button', name=re.compile(r'^更新(家庭現場 App|中…)$'))
+    button.click()
+    expect(button).to_be_disabled()
+    expect(button).to_have_text('更新中…')
+    held, key, body = hold['items'].pop()
+    assert body == {} and len(key) == 32
+    held.fulfill(status=409, content_type='application/json',
+                 body=json.dumps({'detail': '這次更新沒有送出，請再試一次。'}, ensure_ascii=False))
+    expect(card.locator('.notice.error')).to_have_text('這次更新沒有送出，請再試一次。')
+    assert card.locator('.notice.error').get_attribute('data-reason') in (None, '')
+    button.click()
+    expect(button).to_have_text('更新中…')
+    held, retry_key, retry_body = hold['items'].pop()
+    assert retry_body == {} and retry_key == key
+    before = len(gets)
+    held.fulfill(status=200, content_type='application/json', body='{}')
+    expect(button).to_be_enabled()
+    assert len(gets) > before
+    button.click()
+    held, new_key, new_body = hold['items'].pop()
+    assert new_body == {} and new_key != key
+    held.fulfill(status=200, content_type='application/json', body='{}')
+    hold['items'] = None
+    expect(card.get_by_role('button', name='重新檢查')).to_have_count(0)
+
+    card = apply(rows[2])
+    expect(card.locator('.status')).to_have_text('更新中')
+    assert 'job-upd-1' not in card.inner_text()
+    del gets[:]
+    page.wait_for_timeout(6500)
+    assert 1 <= len(gets) <= 2
+    flow.update(state='degraded', code='home_worker_app_stopped', operation=None,
+                update={'available': False, 'from': '0.9.0', 'to': '0.9.0', 'blocked_code': None})
+    expect(card.locator('.status')).to_have_text('App 意外停止', timeout=8000)
+    del gets[:]
+    page.wait_for_timeout(3000)
+    assert len(gets) <= 2
+
+    for row in rows:
+        card = apply(row)
+        expect(card.locator('.status')).to_have_text(row[2])
+        expect(page.locator('.worker-readiness')).to_contain_text(row[2])
+        expect(card.get_by_text(row[3], exact=True)).to_have_attribute('data-reason', row[1])
+        visible = card.inner_text()
+        assert row[1] not in visible and 'job-upd-1' not in visible
+        if row[4]:
+            expect(card.get_by_role('button', name=row[4], exact=True)).to_be_visible()
+        for absent in ('更新家庭現場 App', '重新檢查'):
+            if absent != row[4]:
+                expect(card.get_by_role('button', name=absent, exact=True)).to_have_count(0)
+        if row[5] and row[5].get('from') and row[5].get('to'):
+            details = card.locator('details').filter(has=page.locator('summary', has_text='技術資料'))
+            details.locator('summary').click()
+            expect(details).to_contain_text(f"{row[5]['from']} → {row[5]['to']}")
+            expect(details).to_contain_text('started')
+            if row[6]:
+                expect(details).to_contain_text(row[6]['job_id'])
+
+    flow.update(state='update_available', code='home_worker_update_available', operation=None, update={
+        'available': False, 'from': '0.8.0', 'to': '0.9.0', 'blocked_code': 'home_worker_update_not_allowed'})
+    card = show()
+    expect(card.locator('.status')).to_have_text('有新版本')
+    expect(card.get_by_text('有新版本可以安裝。', exact=True)).to_be_visible()
+    expect(card.get_by_role('button', name='更新家庭現場 App')).to_have_count(0)
+    assert 'home_worker_update_available' not in card.inner_text()
+    assert 'home_worker_update_not_allowed' not in card.inner_text()
+    flow.update(state='needs_reconcile', code='home_worker_operation_unconfirmed', operation=None, update=None)
+    card = show()
+    expect(card.locator('.status')).to_have_text('需要核對')
+    expect(card.get_by_text('App 狀態與預期不同，請在家庭檢查後重試。', exact=True)).to_be_visible()
+    expect(card.get_by_role('button', name='重新檢查', exact=True)).to_be_visible()
+    expect(card.get_by_role('button', name='更新家庭現場 App')).to_have_count(0)
+    assert 'home_worker_operation_unconfirmed' not in card.inner_text()
+    assert not errors
+
+
+def test_bridge_view_does_not_request_home_maintenance(ui_page):
+    page, origin = ui_page
+    seen, errors = [], []
+
+    def route(route):
+        path = route.request.url.split('/api/')[1]
+        seen.append(path)
+        if path.startswith('host/'):
+            raise AssertionError(path)
+        value = {'deployment': {'mode': 'bridge', 'authenticated': True, 'bridge_state': 'ready'},
+                 'session': {'csrf': 'fixture-csrf', 'mode': 'bridge', 'principal': 'owner-a',
+                             'storage_scope': '1' * 64, 'resume': None},
+                 'gateway/messages': {'messages': []}}.get(path, {})
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
+
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.route('**/api/**', route)
+    page.goto(origin + '/#gateway')
+    expect(page.locator('.bridge-shell')).to_be_visible()
+    page.wait_for_timeout(600)
+    assert not any(path.startswith('host/') for path in seen)
     assert not errors
