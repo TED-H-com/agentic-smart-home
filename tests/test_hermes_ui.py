@@ -55,6 +55,8 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
         elif path == "gateway/onboarding":
             gateway["step"] = body["step"]
             result = body
+        elif path == "workers":
+            result = {"workers": [{"worker_id": "host-coder", "available": False, "providers": []}]}
         elif path == "runtimes":
             result = {name: {"protocol": 1, "providers": []} for name in ("host", "haos")}
         elif path == "hermes":

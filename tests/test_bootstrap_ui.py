@@ -136,6 +136,9 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
                     pairing[channel].update(state='pending', code='PAIR-FIXTURE', expires_at=1791806580,
                                             chat=body.get('chat'))
             result = pairing[channel]
+        elif path == 'workers':
+            result = {'workers': [{'worker_id': 'host-coder', 'available': True,
+                                   'providers': [{'id': 'codex', 'credential_state': 'needs_auth'}]}]}
         elif path == 'host/authorize':
             result = {'url': 'https://unexpected.example/auth/authorize' if failure['authorize_url'] else
                       'http://127.0.0.1:8123/auth/authorize?state=fixture-state'}
@@ -342,6 +345,7 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             for step in flow['steps']:
                 step['state'] = 'skipped' if step['id'] == 'channel' else 'completed'
             page.get_by_role('heading', name='設定完成', exact=True).wait_for()
+            expect(page.get_by_role('region', name='家庭入口').get_by_text('開發助手尚未登入', exact=True)).to_be_visible()
             shots(page, 'complete')
             expect(page.get_by_role('link', name='進入家庭')).to_have_attribute('href', 'http://127.0.0.1:8123/')
             expect(page.get_by_role('region', name='家庭入口').get_by_role('button', name='智能管家', exact=True)).to_be_visible()
@@ -492,6 +496,8 @@ def native_entry_ui():
             value = {'tasks': [task]}
         elif path == 'tasks/' + task['id']:
             value = task
+        elif path == 'inventory':
+            value = {'entities': [], 'policy': {'entities': []}}
         elif path == 'bootstrap':
             value = {'contract': 1, 'id': None, 'state': 'idle', 'provider': None, 'channel': 'line',
                      'current_step': None, 'human_action': None,

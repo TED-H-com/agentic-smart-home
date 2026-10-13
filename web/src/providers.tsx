@@ -1,11 +1,13 @@
 import {useCallback,useEffect,useState} from 'react';
 import {api,ApiError,haPath,haTarget} from './api';
-import {Status,Notice,Button,CopyButton} from './ui';
+import {Status,Notice,Button,CopyButton,friendlySentence} from './ui';
 import {names,type Runtime} from './labels';
 const runtimeNames:Record<Runtime,string>={host:'主機',haos:'家庭現場'};
 const official=/^https:\/\/(auth\.openai\.com|accounts\.x\.ai|auth\.x\.ai)\//;
 const repoUrl='https://github.com/teddashh/agentic-smart-home';
 const liveAuth=new Set(['pending','verifying']),endedAuth=new Set(['failed','expired','unverified','stop_unconfirmed']);
+const accountCopy:Record<string,string>={needs_reauth:'登入已失效，請重新登入。',rate_limited:'已達用量上限，請稍後再試。',invalid_credentials:'登入資訊無效，請重新輸入。',network:'無法連線到 AI 服務，請檢查網路後再試。',cli_output_unrecognized:'無法確認登入結果，請稍後再試。',timeout:'AI 帳號回應逾時，請稍後再試。'};
+const quietReasons=new Set(['rate_limited','network','timeout']);
 function methodsFor(provider:string){return provider==='claude'?['oauth_token','api_key']:provider==='agy'?['api_key']:['device_code','api_key']}
 export function Provider({provider,state,paired,onChange,runtime,subscriptionFirst=false}:{provider:string;state:any;paired:boolean;onChange:()=>void;runtime?:'host'|'haos';subscriptionFirst?:boolean}){
   const prefix=runtime?`runtimes/${runtime}/`:'';
@@ -22,14 +24,18 @@ export function Provider({provider,state,paired,onChange,runtime,subscriptionFir
   async function cancel(){setBusy(true);setError('');try{const result=await api(`${prefix}providers/${provider}/auth/${auth.id}/cancel`,{});sessionStorage.removeItem(authKey);setAuth(['cancelled','unverified'].includes(result.status)&&!result.reason?null:result);onChange()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
   async function logout(){try{await api(`${prefix}providers/${provider}/logout`,{});sessionStorage.removeItem(authKey);setAuth(null);onChange()}catch(e){setError((e as Error).message)}}
   const pending=auth?.status==='pending',checking=auth?.status==='verifying',terminal=!!auth&&endedAuth.has(auth.status),connected=state?.status==='connected'&&!pending&&!checking;
+  const reason=terminal?String(auth?.reason||''):!auth&&!pending&&!checking?String(state?.reason||''):'';
+  const quiet=quietReasons.has(reason);
   const hint=method==='api_key'?provider==='agy'?'請用 Gemini API key；Google 訂閱尚未整合。':'使用 API key，供應商可能另行計費。':method==='oauth_token'?'在自己的電腦執行 claude setup-token，完成後貼上。':provider==='codex'?'必要時請在 ChatGPT 開啟裝置碼登入。':'在官方頁面輸入代碼完成登入。';
-  const ended=auth?.status==='expired'?'登入已過期，請重新開始。':auth?.status==='stop_unconfirmed'?'尚未確認登入程序停止，請先核對執行環境。':auth?.message||'登入未完成，請重新開始。';
-  return <article className="provider"><div className="section-heading"><h3>{name}</h3><Status value={checking?'checking':pending?'pending':state?.status||'needs_reauth'}/></div>{error&&<Notice error>{error}</Notice>}{connected?<Button onClick={logout}>登出</Button>:<>
-    <form onSubmit={login} hidden={pending||checking}>{methods.length>1&&<details><summary>其他登入方式</summary><label>登入方式<select value={method} disabled={busy} onChange={e=>setMethod(e.target.value)}>{methods.map(item=><option key={item} value={item}>{item==='device_code'?'官方訂閱':item==='oauth_token'?'setup-token':'API key'}</option>)}</select></label></details>}{method!=='device_code'&&<label>{method==='api_key'?'API key':'setup-token'}<input type="password" value={secret} onChange={e=>setSecret(e.target.value)} autoComplete="off" required/></label>}<p className="helper-text">{hint}</p><Button type="submit" disabled={!paired||busy}>{busy?'啟動中…':terminal?'重新開始':'開始登入'}</Button></form>
+  const ended=accountCopy[reason]?friendlySentence(auth?.message,accountCopy[reason]):auth?.status==='expired'?'登入已過期，請重新開始。':auth?.status==='stop_unconfirmed'?'尚未確認登入程序停止，請先核對執行環境。':auth?.message||'登入未完成，請重新開始。';
+  const stateSentence=!auth&&reason&&accountCopy[reason]?friendlySentence(state?.message,accountCopy[reason]):!auth&&state?.message?state.message:'';
+  return <article className="provider"><div className="section-heading"><h3>{name}</h3><Status value={checking?'checking':pending?'pending':quiet&&!connected?'retry_later':state?.status||'needs_reauth'}/></div>{error&&<Notice error>{error}</Notice>}{connected?<Button onClick={logout}>登出</Button>:<>
+    {terminal&&<Notice error>{ended}</Notice>}
+    {stateSentence&&<Notice error>{stateSentence}</Notice>}
+    <form onSubmit={login} hidden={pending||checking}>{methods.length>1&&<details><summary>其他登入方式</summary><label>登入方式<select value={method} disabled={busy} onChange={e=>setMethod(e.target.value)}>{methods.map(item=><option key={item} value={item}>{item==='device_code'?'官方訂閱':item==='oauth_token'?'setup-token':'API key'}</option>)}</select></label></details>}{method!=='device_code'&&<label>{method==='api_key'?'API key':'setup-token'}<input type="password" value={secret} onChange={e=>setSecret(e.target.value)} autoComplete="off" required/></label>}<p className="helper-text">{hint}</p><Button type="submit" disabled={!paired||busy}>{busy?'啟動中…':terminal?quiet?'再試一次':'重新開始':'開始登入'}</Button></form>
     {pending&&<div className="auth-code" role="status">{auth.code?<div className="code-row"><strong>{auth.code}</strong><CopyButton text={auth.code}>複製</CopyButton></div>:<span>等待官方提供一次性代碼…</span>}{auth.url&&official.test(auth.url)&&<a className="button auth-link" href={auth.url} target="_blank" rel="noreferrer">開啟登入頁 ↗</a>}<p>{provider==='codex'?'必要時請在 ChatGPT 開啟裝置碼登入。':'在官方頁面輸入代碼並確認。'}</p><Button secondary disabled={busy} onClick={cancel}>取消登入</Button></div>}
     {checking&&<div className="auth-code" role="status"><span>正在向官方確認登入資訊…</span><Button secondary disabled={busy} onClick={cancel}>取消</Button></div>}
-    {terminal&&<Notice error>{ended}</Notice>}
-    {!auth&&state?.message&&<Notice error>{state.message}</Notice>}</>}</article>
+</>}</article>
 }
 
 export function RuntimePanel({only,onChange}:{only?:Runtime;onChange?:()=>void}){
