@@ -43,6 +43,259 @@ TOKEN_PATH = "/oauth/token"
 # Pinned Codex treats these refresh failures as permanent: sign in again.
 PERMANENT_REFRESH_CODES = frozenset({"refresh_token_expired", "refresh_token_reused", "refresh_token_invalidated"})
 _REJECTED = b'{"error":"coding_egress_rejected"}'
+# Pinned Codex 0.157.1 Responses HTTP headers. Match names case-insensitively,
+# drop invalid values, and never fail the request for an unknown header.
+# x-oai-attestation is device identity and is denied below. The relay filters
+# again; a sandbox proxy is not trusted. The last request flag is ChatGPT-only.
+REQUEST_HEADER_RULES = (
+    ("x-openai-internal-codex-responses-lite", 4, "true", False),
+    ("originator", 128, "originator", False),
+    ("x-codex-turn-state", 1024, "ascii", False),
+    ("x-codex-beta-features", 1024, "beta", False),
+    ("session-id", 120, "session", False),
+    ("thread-id", 36, "uuid", False),
+    ("x-client-request-id", 36, "uuid", False),
+    ("x-codex-window-id", 57, "window", False),
+    ("x-codex-parent-thread-id", 36, "uuid", False),
+    ("x-codex-turn-metadata", 8192, "metadata", False),
+    ("x-openai-subagent", 64, "subagent", False),
+    ("x-openai-memgen-request", 4, "true", False),
+    ("x-codex-routing-hint", 128, "routing", True),
+)
+RESPONSE_HEADER_RULES = (
+    ("x-codex-turn-state", 1024, "ascii"),
+    ("openai-model", 128, "slug"),
+    ("x-models-etag", 256, "ascii"),
+    ("x-reasoning-included", 32, "ascii"),
+    ("x-request-id", 128, "ascii"),
+    ("x-oai-request-id", 128, "ascii"),
+    ("cf-ray", 128, "ascii"),
+    ("x-codex-safety-buffering-enabled", 16, "ascii"),
+    ("x-codex-safety-buffering-faster-model", 128, "slug"),
+    ("x-codex-promo-message", 512, "ascii"),
+    ("x-codex-rate-limit-reached-type", 64, "reached"),
+    ("x-codex-active-limit", 64, "limit-id"),
+    ("x-codex-credits-has-credits", 8, "bool"),
+    ("x-codex-credits-unlimited", 8, "bool"),
+    ("x-codex-credits-balance", 64, "ascii"),
+)
+RATE_FIELDS = (
+    ("primary-used-percent", "decimal"),
+    ("primary-window-minutes", "int"),
+    ("primary-reset-at", "int"),
+    ("secondary-used-percent", "decimal"),
+    ("secondary-window-minutes", "int"),
+    ("secondary-reset-at", "int"),
+    ("limit-name", "ascii"),
+)
+REACHED_TYPES = (
+    "rate_limit_reached",
+    "workspace_owner_credits_depleted",
+    "workspace_member_credits_depleted",
+    "workspace_owner_usage_limit_reached",
+    "workspace_member_usage_limit_reached",
+)
+DENIED_HEADERS = (
+    "accept", "authorization", "chatgpt-account-id", "connection", "content-length", "content-type",
+    "cookie", "host", "openai-beta", "proxy-authorization", "set-cookie", "transfer-encoding", "user-agent",
+    "x-error-json", "x-oai-attestation", "x-openai-authorization-error",
+)
+MAX_FORWARDED_REQUEST_HEADERS = 16
+MAX_FORWARDED_RESPONSE_HEADERS = 40
+_REQUEST_BY_NAME = {name: (limit, kind, chatgpt_only)
+                    for name, limit, kind, chatgpt_only in REQUEST_HEADER_RULES}
+_RESPONSE_BY_NAME = {name: (limit, kind) for name, limit, kind in RESPONSE_HEADER_RULES}
+_DENIED = frozenset(DENIED_HEADERS)
+_REACHED = frozenset(REACHED_TYPES)
+
+
+def _ascii(value, limit):
+    return isinstance(value, str) and 0 < len(value) <= limit and all(32 <= ord(ch) <= 126 for ch in value)
+
+
+def _hex_uuid(value):
+    if not isinstance(value, str) or len(value) != 36:
+        return False
+    parts = value.split("-")
+    if [len(part) for part in parts] != [8, 4, 4, 4, 12]:
+        return False
+    hex_digits = "0123456789abcdefABCDEF"
+    return all(ch in hex_digits for part in parts for ch in part)
+
+
+def _slug(value, limit):
+    return _ascii(value, limit) and all(ch.isalnum() or ch in "._:-" for ch in value)
+
+
+def _model_slug(value, limit):
+    if not isinstance(value, str) or not 0 < len(value) <= limit:
+        return False
+    return all(ch.isalnum() or ch in "._-" for ch in value)
+
+
+def _kind_ok(value, kind, limit):
+    if kind == "ascii":
+        return _ascii(value, limit)
+    if kind == "true":
+        return value == "true"
+    if kind == "uuid":
+        return _hex_uuid(value)
+    if kind == "originator":
+        return (_ascii(value, limit) and value[0].isalnum()
+                and all(ch.isalnum() or ch in " ._/-" for ch in value))
+    if kind == "beta":
+        if not _ascii(value, limit):
+            return False
+        parts = value.split(",")
+        return all(part and all(ch.islower() or ch.isdigit() or ch == "_" for ch in part) for part in parts)
+    if kind == "window":
+        if not isinstance(value, str) or value.count(":") != 1:
+            return False
+        thread, number = value.split(":", 1)
+        return _hex_uuid(thread) and number.isdigit() and 1 <= len(number) <= 20
+    if kind == "session":
+        if _hex_uuid(value):
+            return True
+        if not isinstance(value, str) or value.count(":") != 1 or not _ascii(value, limit):
+            return False
+        label, thread = value.split(":", 1)
+        label_ok = 1 <= len(label) <= 64 and all(ch.islower() or ch.isdigit() or ch == "_" for ch in label)
+        return label_ok and _hex_uuid(thread)
+    if kind == "subagent":
+        return _ascii(value, limit) and all(ch.isalnum() or ch in "_-" for ch in value)
+    if kind == "routing":
+        if not _ascii(value, limit) or not value.startswith("model="):
+            return False
+        rest = value[6:]
+        if ";tier=" in rest:
+            model, _, tier = rest.partition(";tier=")
+            return _model_slug(model, 64) and _model_slug(tier, 32)
+        return _model_slug(rest, 64) and ";" not in rest
+    if kind == "metadata":
+        if not _ascii(value, limit) or not value.startswith("{"):
+            return False
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            return False
+        return isinstance(parsed, dict)
+    if kind == "slug":
+        return _slug(value, limit)
+    if kind == "decimal":
+        if not isinstance(value, str) or not value:
+            return False
+        whole, dot, frac = value.partition(".")
+        if not whole.isdigit() or not 1 <= len(whole) <= 6:
+            return False
+        if not dot:
+            return True
+        return frac.isdigit() and 1 <= len(frac) <= 4
+    if kind == "int":
+        return isinstance(value, str) and value.isdigit() and 1 <= len(value) <= min(limit, 19)
+    if kind == "bool":
+        return isinstance(value, str) and value.lower() in {"true", "false", "0", "1"}
+    if kind == "reached":
+        return value in _REACHED
+    if kind == "limit-id":
+        return _ascii(value, limit) and all(ch.isalnum() or ch in "_-" for ch in value)
+    return False
+
+
+def _denied(name):
+    if name in _DENIED or name.startswith("proxy-"):
+        return True
+    if name.endswith("-key") or name.endswith("_key"):
+        return True
+    return "token" in name or "bearer" in name or "cookie" in name or "authorization" in name
+
+
+def _pairs(headers):
+    if headers is None:
+        return ()
+    items = getattr(headers, "items", None)
+    if callable(items):
+        return items()
+    if isinstance(headers, (str, bytes, bytearray)):
+        return ()
+    try:
+        return [(name, value) for name, value in headers]
+    except (TypeError, ValueError):
+        return ()
+
+
+def _header_name(raw):
+    if not isinstance(raw, str):
+        return None
+    name = raw.strip().lower()
+    if not name or not _ascii(name, 128):
+        return None
+    return name
+
+
+def _limit_token(token):
+    if not token or len(token) > 33:
+        return False
+    if not (token[0].islower() or token[0].isdigit()):
+        return False
+    return all(ch.islower() or ch.isdigit() or ch == "-" for ch in token)
+
+
+def _rate_kind(name):
+    if not name.startswith("x-"):
+        return None
+    for suffix, kind in RATE_FIELDS:
+        marker = "-" + suffix
+        if name.endswith(marker) and _limit_token(name[2:-len(marker)]):
+            return kind
+    return None
+
+
+def select_request_headers(headers, *, chatgpt):
+    """Return the canonical request headers safe to forward. The first value wins."""
+    chosen, seen = {}, set()
+    for raw_name, raw_value in _pairs(headers):
+        name = _header_name(raw_name)
+        if name is None or name in seen:
+            continue
+        seen.add(name)
+        rule = _REQUEST_BY_NAME.get(name)
+        if rule is None or _denied(name) or not isinstance(raw_value, str):
+            continue
+        limit, kind, chatgpt_only = rule
+        if chatgpt_only and not chatgpt:
+            continue
+        if not _kind_ok(raw_value, kind, limit):
+            continue
+        chosen[name] = raw_value
+        if len(chosen) >= MAX_FORWARDED_REQUEST_HEADERS:
+            break
+    return chosen
+
+
+def select_response_headers(headers):
+    """Return the canonical response headers pinned Codex reads. Anything else is dropped."""
+    chosen, seen = {}, set()
+    for raw_name, raw_value in _pairs(headers):
+        name = _header_name(raw_name)
+        if name is None or name in seen:
+            continue
+        seen.add(name)
+        if _denied(name) or not isinstance(raw_value, str):
+            continue
+        rule = _RESPONSE_BY_NAME.get(name)
+        if rule is not None:
+            limit, kind = rule
+        else:
+            kind = _rate_kind(name)
+            if kind is None:
+                continue
+            limit = 64 if kind == "ascii" else 19 if kind == "int" else 16
+        if not _kind_ok(raw_value, kind, limit):
+            continue
+        chosen[name] = raw_value
+        if len(chosen) >= MAX_FORWARDED_RESPONSE_HEADERS:
+            break
+    return chosen
 
 
 def credential_metadata_ok(info):
@@ -307,22 +560,28 @@ def upstream(host, path, method, body, headers, maximum=MAX_RESPONSE, on_connect
 
         connection.connect = wrapped
     try:
-        connection.request(method, path, body=body, headers={"User-Agent": "agentic-home-coding/1", **headers})
+        # The relay's own User-Agent wins over any sandbox-supplied value.
+        outgoing = {key: value for key, value in headers.items() if str(key).lower() != "user-agent"}
+        connection.request(method, path, body=body,
+                           headers={"User-Agent": "agentic-home-coding/1", **outgoing})
         response = connection.getresponse()
     except BaseException:
         connection.close()
         raise
     stream = _Upstream(connection, response, maximum)
-    return RelayResponse(stream.status, stream.content_type, maximum, read=stream.read, abort=stream.abort)
+    relayed = select_response_headers(response.getheaders())
+    return RelayResponse(stream.status, stream.content_type, maximum, read=stream.read, abort=stream.abort,
+                         headers=relayed)
 
 
 class RelayResponse:
     """A provider response. `body` is set only when the bytes are already complete."""
 
-    def __init__(self, status, content_type, maximum, *, body=None, read=None, abort=None):
+    def __init__(self, status, content_type, maximum, *, body=None, read=None, abort=None, headers=None):
         self.status = status
         self.content_type = content_type
         self.maximum = maximum
+        self.headers = {} if headers is None else dict(headers)
         self.body = body
         self._view = body
         self._read = read
@@ -377,13 +636,16 @@ def as_response(result, maximum):
     if isinstance(result, RelayResponse):
         if result.maximum > maximum:
             result.maximum = maximum
+        result.headers = select_response_headers(result.headers)
         return result
-    if isinstance(result, tuple) and len(result) == 3:
-        status, content_type, payload = result
+    if isinstance(result, tuple) and len(result) in {3, 4}:
+        status, content_type, payload = result[:3]
+        headers = select_response_headers(result[3] if len(result) == 4 else None)
         if isinstance(payload, (bytes, bytearray)):
             if len(payload) > maximum:
                 raise SandboxError("Relay response limit")
-            return RelayResponse(int(status), str(content_type), maximum, body=bytes(payload))
+            return RelayResponse(int(status), str(content_type), maximum, body=bytes(payload),
+                                 headers=headers)
         read = getattr(payload, "read", None)
         abort = getattr(payload, "abort", None)
         if read is None:
@@ -396,7 +658,7 @@ def as_response(result, maximum):
                     return b""
 
             abort = None
-        return RelayResponse(int(status), str(content_type), maximum, read=read, abort=abort)
+        return RelayResponse(int(status), str(content_type), maximum, read=read, abort=abort, headers=headers)
     raise SandboxError("Relay response limit")
 
 
@@ -427,6 +689,17 @@ class Relay:
         self.stopped = threading.Event()
         self._connections = []
         self._connections_lock = threading.Lock()
+        # HomeRelay.request keeps the three-argument signature the HAOS App overrides.
+        self._client_headers = threading.local()
+
+    def _bind_client_headers(self, headers):
+        self._client_headers.value = headers
+
+    def _clear_client_headers(self):
+        self._client_headers.value = None
+
+    def _read_sandbox_headers(self):
+        return getattr(self._client_headers, "value", None)
 
     def _timeout(self):
         """Idle gap, shortened so a blocked read cannot outlive the job deadline."""
@@ -573,7 +846,14 @@ class Relay:
                 raise SandboxError("Remote tool not allowed")
             value["store"] = False
             payload = json.dumps(value).encode()
-            request_headers = {**headers, "Content-Type": "application/json", "Accept": "text/event-stream"}
+            sandbox_headers = self._read_sandbox_headers()
+
+            def model_headers(auth, provider_host):
+                forwarded = select_request_headers(sandbox_headers, chatgpt=provider_host == "chatgpt.com")
+                base = {**forwarded, **auth, "Content-Type": "application/json"}
+                return {**base, "Accept": "text/event-stream"}
+
+            request_headers = model_headers(headers, host)
             if host == "chatgpt.com":
                 try:
                     due = refresh_due(read_auth(self.credential_path), time.time())
@@ -585,7 +865,7 @@ class Relay:
                         self.auth_failed = True
                         return self._rejected()
                     host, target, headers = self._provider()
-                    request_headers = {**headers, "Content-Type": "application/json", "Accept": "text/event-stream"}
+                    request_headers = model_headers(headers, host)
             response = self._exchange(host, target, payload, request_headers, MAX_RESPONSE)
             if response.status == 401 and host == "chatgpt.com":
                 rejected = _bearer(headers)
@@ -597,7 +877,7 @@ class Relay:
                 if outcome == "unavailable":
                     raise SandboxError("Coding token refresh unavailable")
                 host, target, headers = self._provider()
-                request_headers = {**headers, "Content-Type": "application/json", "Accept": "text/event-stream"}
+                request_headers = model_headers(headers, host)
                 response = self._exchange(host, target, payload, request_headers, MAX_RESPONSE)
             if response.status in {401, 403}:
                 self.auth_failed = True
@@ -634,6 +914,19 @@ class Relay:
                 self.wfile.write(f"{len(chunk):X}\r\n".encode() + chunk + b"\r\n")
                 self.wfile.flush()
 
+            def _begin(self, response, length=None):
+                self.send_response(response.status)
+                self._started = True
+                self.send_header("Content-Type", response.content_type)
+                for name, value in response.headers.items():
+                    self.send_header(name, value)
+                if length is None:
+                    self.send_header("Transfer-Encoding", "chunked")
+                else:
+                    self.send_header("Content-Length", str(length))
+                self.send_header("Connection", "close")
+                self.end_headers()
+
             def _emit(self, response):
                 self.close_connection = True
                 if time.time() >= relay.deadline or relay.stopped.is_set():
@@ -641,21 +934,11 @@ class Relay:
                 if response.body is not None:
                     if len(response.body) > response.maximum:
                         raise SandboxError("Relay response limit")
-                    self.send_response(response.status)
-                    self._started = True
-                    self.send_header("Content-Type", response.content_type)
-                    self.send_header("Content-Length", str(len(response.body)))
-                    self.send_header("Connection", "close")
-                    self.end_headers()
+                    self._begin(response, len(response.body))
                     self.wfile.write(response.body)
                     self.wfile.flush()
                     return
-                self.send_response(response.status)
-                self._started = True
-                self.send_header("Content-Type", response.content_type)
-                self.send_header("Transfer-Encoding", "chunked")
-                self.send_header("Connection", "close")
-                self.end_headers()
+                self._begin(response)
                 self.wfile.flush()
                 total = 0
                 while True:
@@ -693,6 +976,7 @@ class Relay:
                 self.close_connection = True
                 self.connection.settimeout(relay.idle_timeout)
                 response = None
+                relay._bind_client_headers(self.headers)
                 try:
                     length = int(self.headers.get("Content-Length", "0"))
                     if not 0 <= length <= MAX_REQUEST or self.headers.get("Transfer-Encoding"):
@@ -713,6 +997,7 @@ class Relay:
                         except OSError:
                             pass
                 finally:
+                    relay._clear_client_headers()
                     if response is not None:
                         response.abort()
 
