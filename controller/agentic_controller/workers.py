@@ -29,6 +29,7 @@ LOCATIONS = {"host-coder": "host_container", "home-coder": "haos_app"}
 TERMINAL = {"succeeded", "failed", "cancelled", "blocked", "expired", "interrupted"}
 RUNNER_STATES = TERMINAL | {"accepted", "queued", "launching", "running", "waiting_for_user", "cancel_requested", "stop_unconfirmed", "interrupted", "needs_reconcile"}
 HEARTBEAT_FRESH_SECONDS = 45
+AUTH_RECOVERY_SECONDS = 60
 LIVE_PHASES = {"launching", "running", "verifying", "collecting"}
 IDENTIFIER = re.compile(r"^[a-f0-9]{32}$")
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
@@ -80,6 +81,7 @@ class Workers:
         self.task, self.event, self.closing = None, asyncio.Event(), False
         self.auth_lock, self.retention_lock = asyncio.Lock(), asyncio.Lock()
         self.retention_retry_after, self.auth_retry_after = 0, 0
+        self.auth_check = None
         self.cache = {worker: self.unavailable(worker, "not_observed") for worker in WORKER_SCOPES}
 
     @staticmethod
@@ -315,13 +317,33 @@ class Workers:
     async def start(self):
         self.closing = False
         self.wake()
+        if self.auth_check is None or self.auth_check.done():
+            self.auth_check = asyncio.create_task(self.recover_pending_auth())
 
     async def close(self):
         self.closing = True
-        if self.task:
-            self.task.cancel()
-            await asyncio.gather(self.task, return_exceptions=True)
-            self.task = None
+        pending = [self.task, self.auth_check]
+        for task in pending:
+            if task:
+                task.cancel()
+        if any(pending):
+            await asyncio.gather(*(task for task in pending if task), return_exceptions=True)
+        self.task = None
+        self.auth_check = None
+
+    async def recover_pending_auth(self):
+        """Read a restart-stuck login without waiting for the workers page."""
+        while not self.closing:
+            try:
+                pending = self.store.setting("worker_auth_pending")
+                if not pending or not pending.get("id") or not pending.get("worker_id"):
+                    return
+                await self.role_auth(pending["worker_id"], "GET", "/coding/auth/" + pending["id"])
+            except Exception:
+                pass
+            if self.closing or not self.store.setting("worker_auth_pending"):
+                return
+            await asyncio.sleep(AUTH_RECOVERY_SECONDS)
 
     async def watch(self):
         while not self.closing:
@@ -730,6 +752,25 @@ class Workers:
                 raise WorkerError("runner_identity_changed")
             if not isinstance(response, dict):
                 raise WorkerError("invalid_worker_auth_response", 502)
+            # A restart leaves this receipt stop_unconfirmed. Reconcile once
+            # under the locks already held. Refusal or error keeps the barrier.
+            pending_match = self.store.setting("worker_auth_pending")
+            reconciled = False
+            if (pending_match and pending_match.get("worker_id") == worker and
+                pending_match.get("id") == response.get("id") and response.get("status") == "stop_unconfirmed"):
+                saved = response
+                try:
+                    reply = await self.runner(worker).call("POST", "/coding/reconcile", {})
+                    same_peer = peer_identity == self.peer_identity(worker)
+                    if (isinstance(reply, dict) and reply.get("stop_confirmed") is True and
+                        reply.get("replayed") is False and same_peer):
+                        fresh = await self.runner(worker).call("GET", "/coding/auth/" + pending_match["id"])
+                        if (isinstance(fresh, dict) and fresh.get("id") == pending_match["id"] and
+                            peer_identity == self.peer_identity(worker)):
+                            response = fresh
+                            reconciled = True
+                except Exception:
+                    response = saved
             allowed = {"id", "status", "state", "expires_in", "credential_state", "inference_verified_at"}
             result = {key: value for key, value in response.items() if key in allowed and
                       isinstance(value, (str, int, float, type(None))) and len(str(value)) <= 200}
@@ -742,7 +783,7 @@ class Workers:
             pending = self.store.setting("worker_auth_pending")
             if (pending and pending.get("worker_id") == worker and
                 pending.get("id") == response.get("id")):
-                if response.get("status") in {"connected", "configured", "succeeded", "failed", "cancelled", "expired", "disconnected"}:
+                if reconciled or response.get("status") in {"connected", "configured", "succeeded", "failed", "cancelled", "expired", "disconnected", "interrupted"}:
                     self.store.set_setting("worker_auth_pending", None)
                     self.event.set()
                 elif isinstance(response.get("id"), str) and IDENTIFIER.fullmatch(response["id"]):
