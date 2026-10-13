@@ -15,7 +15,8 @@ EXCLUDED = {"__pycache__", "node_modules", "test-results", ".pytest_cache", ".ru
 def files(directory):
     for path in sorted(directory.rglob("*")):
         if path.is_file() and not path.is_symlink() and not EXCLUDED.intersection(path.relative_to(directory).parts):
-            if not path.name.endswith((".pyc", ".tsbuildinfo")):
+            # The Controller build bundle is a local build input, never a source file.
+            if not path.name.endswith((".pyc", ".tsbuildinfo")) and path.name != "agentic-home.bundle":
                 yield path
 
 

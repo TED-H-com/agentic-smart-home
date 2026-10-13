@@ -2,6 +2,7 @@ import base64
 import hashlib
 import json
 import os
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -575,7 +576,10 @@ class BundleDocker:
             assert name in self.created
             if self.bundle is None:
                 return subprocess.CompletedProcess(args, 1, "", "Error: No such container:path: " + args[2])
-            Path(args[3]).write_bytes(self.bundle.read_bytes())
+            if self.bundle.is_dir():
+                shutil.copytree(self.bundle, args[3])
+            else:
+                Path(args[3]).write_bytes(self.bundle.read_bytes())
             return subprocess.CompletedProcess(args, 0, "", "")
         if args[1] == "rm":
             self.created.discard(args[-1])
@@ -733,21 +737,32 @@ def test_source_cas_failure_falls_back_without_claiming_a_move(updater, tmp_path
     assert json.loads(service.source_lock.read_text()) == lock
 
 
-def test_active_coding_work_blocks_the_source_move(updater, tmp_path, monkeypatch):
-    service, record = updater
+def staged_source(service, record, tmp_path):
+    """Install A, stage a signed candidate whose bundle head is B."""
     repo, commit_a = product_history(tmp_path)
-    install_coding(service, repo, commit_a)
+    lock = install_coding(service, repo, commit_a)
     commit_b = write_commit(repo, "controller/app.py", "print('B')\n", "B")
     record["manifest"]["source_commit"] = commit_b
     service.run = BundleDocker(make_bundle(repo, tmp_path / "b.bundle", "HEAD"), record["manifest"]["image_id"])
     service.stage_source(record)
+    return lock, commit_a, commit_b
+
+
+def head(service):
+    return git_out(service.source_repo, "rev-parse", "HEAD", git_dir=True)
+
+
+def test_active_coding_work_blocks_the_source_move(updater, tmp_path, monkeypatch):
+    service, record = updater
+    lock, commit_a, _ = staged_source(service, record, tmp_path)
     import agentic_host.updater as updater_module
     calls = {"n": 0}
     real = updater_module.offline_check
     def gated(*args, **kwargs):
         calls["n"] += 1
-        # The source move is the third read, after the image has already passed smoke.
-        if calls["n"] == 3:
+        # The second check gates the source move, while the candidate is stopped again.
+        if calls["n"] == 2:
+            assert head(service) == commit_a
             raise UpdateError("update_active_or_uncertain_work")
         return real(*args, **kwargs)
     monkeypatch.setattr(updater_module, "offline_check", gated)
@@ -757,8 +772,99 @@ def test_active_coding_work_blocks_the_source_move(updater, tmp_path, monkeypatc
     assert calls["n"] >= 3
     assert record["state"] == "rolled_back" and record["error_code"] == "update_active_or_uncertain_work"
     assert record["source_sync"] == "pending" and current[0] == old
-    assert git_out(service.source_repo, "rev-parse", "HEAD", git_dir=True) == commit_a
-    assert json.loads(service.source_lock.read_text())["commit"] == commit_a
+    assert head(service) == commit_a and json.loads(service.source_lock.read_text()) == lock
+
+
+def test_source_moves_only_while_the_controller_is_stopped(updater, tmp_path):
+    service, record = updater
+    lock, commit_a, commit_b = staged_source(service, record, tmp_path)
+    hook = service.source_repo / "hooks/reference-transaction"
+    hook.write_text("#!/bin/sh\ntouch \"$(dirname \"$0\")/../hook-ran\"\n")
+    hook.chmod(0o755)
+    current = prepare_deployment(service, record)
+    seen = []
+    def activate(image):
+        seen.append((image == record["manifest"]["image_id"], head(service), json.loads(service.source_lock.read_text())["commit"]))
+        current[0] = image
+    service.activate = activate
+    service.deploy(record)
+    assert record["state"] == "deployed" and record["source_sync"] == "moved"
+    # Candidate smoke still sees A. Only the final start, after the idle check, sees B.
+    assert seen == [(True, commit_a, commit_a), (True, commit_b, commit_b)]
+    seen.clear()
+    service.deploy(record, rollback=True)
+    assert record["state"] == "rolled_back" and record["source_sync"] == "reverted"
+    assert seen == [(False, commit_b, commit_b), (False, commit_a, commit_a)]
+    assert json.loads(service.source_lock.read_text()) == lock
+    assert not (service.source_repo / "hook-ran").exists()
+
+
+def test_failure_after_the_move_returns_the_source_with_the_image(updater, tmp_path):
+    service, record = updater
+    lock, commit_a, _ = staged_source(service, record, tmp_path)
+    current = prepare_deployment(service, record)
+    old, normal = current[0], service.health
+    candidate = {"n": 0}
+    def health():
+        if current[0] == record["manifest"]["image_id"]:
+            candidate["n"] += 1
+            if candidate["n"] == 2:
+                raise UpdateError("update_health_failed")
+        return normal()
+    service.health = health
+    service.deploy(record)
+    assert record["state"] == "rolled_back" and record["error_code"] == "update_health_failed" and current[0] == old
+    assert record["source_sync"] == "reverted"
+    assert head(service) == commit_a and json.loads(service.source_lock.read_text()) == lock
+
+
+@pytest.mark.parametrize("moved_head,moved_lock", [(True, False), (True, True), (False, True)])
+def test_rollback_finishes_a_source_move_interrupted_at_any_step(updater, tmp_path, moved_head, moved_lock):
+    service, record = updater
+    lock, commit_a, commit_b = staged_source(service, record, tmp_path)
+    old = "sha256:" + "1" * 64
+    if moved_head:
+        subprocess.run(["git", "--git-dir", str(service.source_repo), "update-ref", "HEAD", commit_b, commit_a],
+                       check=True, capture_output=True)
+    if moved_lock:
+        service.source_lock.write_text(json.dumps(service._moved_lock(record)))
+    service.update(record, state="deploying", base_image=old, previous_image=old)
+    restarted = Updater(service.manager)
+    recovered = restarted.records[record["candidate_digest"]]
+    assert recovered["state"] == "needs_reconcile" and recovered["source_sync"] == "needs_reconcile"
+    restarted.run, restarted._test_locked = service.run, service._test_locked
+    current = prepare_deployment(restarted, recovered)
+    current[0] = recovered["manifest"]["image_id"]
+    restarted.deploy(recovered, rollback=True)
+    assert recovered["state"] == "rolled_back" and recovered["source_sync"] == "reverted" and current[0] == old
+    assert head(restarted) == commit_a and json.loads(restarted.source_lock.read_text()) == lock
+
+
+def test_host_without_coding_source_still_deploys(updater):
+    service, record = updater
+    docker = BundleDocker(None, record["manifest"]["image_id"])
+    service.run = docker
+    service.image = lambda: "sha256:" + "1" * 64
+    service.prepare(record)
+    assert record["state"] == "staged" and record["source_sync"] == "unavailable"
+    assert not any(call[:2] == ("docker", "create") for call in docker.calls)
+    prepare_deployment(service, record)
+    service.deploy(record)
+    assert record["state"] == "deployed" and record["source_sync"] == "unavailable"
+
+
+def test_bundle_path_that_is_a_directory_is_rejected_and_removed(updater, tmp_path):
+    service, record = updater
+    repo, commit_a = product_history(tmp_path)
+    install_coding(service, repo, commit_a)
+    folder = tmp_path / "folder"
+    folder.mkdir()
+    (folder / "inner").write_text("x" * 64)
+    service.run = BundleDocker(folder, record["manifest"]["image_id"])
+    with pytest.raises(UpdateError, match="update_source_bundle_invalid"):
+        service.stage_source(record)
+    assert not list(service.root.glob("source-*")) and not service.run.created
+    assert head(service) == commit_a
 
 
 def test_moved_head_on_rollback_needs_reconcile(updater, tmp_path):
@@ -769,7 +875,7 @@ def test_moved_head_on_rollback_needs_reconcile(updater, tmp_path):
     record["manifest"]["source_commit"] = commit_b
     service.run = BundleDocker(make_bundle(repo, tmp_path / "b.bundle", "HEAD"), record["manifest"]["image_id"])
     service.stage_source(record)
-    prepare_deployment(service, record)
+    current = prepare_deployment(service, record)
     service.deploy(record)
     assert record["state"] == "deployed"
     tree = git_out(service.source_repo, "rev-parse", commit_b + "^{tree}", git_dir=True)
@@ -784,6 +890,8 @@ def test_moved_head_on_rollback_needs_reconcile(updater, tmp_path):
     assert record["source_sync"] == "needs_reconcile"
     assert git_out(service.source_repo, "rev-parse", "HEAD", git_dir=True) == commit_c
     assert json.loads(service.source_lock.read_text())["commit"] == commit_b
+    # The unknown source is left alone, but the household Controller still returns.
+    assert current[0] == record["manifest"]["image_id"]
 
 
 def test_interrupted_source_move_is_not_reported_as_moved(updater, tmp_path):
