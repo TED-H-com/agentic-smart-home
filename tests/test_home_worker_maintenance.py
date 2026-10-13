@@ -1,4 +1,5 @@
 """Supervisor contract fixtures only: no real App installation, account or HAOS VM."""
+import asyncio
 import copy
 import json
 from pathlib import Path
@@ -8,6 +9,7 @@ import yaml
 from agentic_controller.bridge_maintenance import BridgeRelease
 from agentic_controller.ha import HAError
 from agentic_controller.home_worker_maintenance import (
+    APP_START_TIMEOUT,
     DEVICES,
     HOST,
     JOB_TIMEOUT,
@@ -18,6 +20,7 @@ from agentic_controller.home_worker_maintenance import (
     PRIVILEGED,
     SAFE_FLAGS,
     STARTUP_GRACE,
+    STOP_CONFIRM_SECONDS,
     HomeWorkerFault,
     HomeWorkerMaintenance,
     HomeWorkerRelease,
@@ -68,29 +71,38 @@ class FakeRunner:
 class Supervisor:
     def __init__(self):
         self.token, self.revoked, self.repos, self.calls = "fixture-ha-token", False, [], []
+        self.timeouts = []
         self.app, self.healthy, self.publish = None, True, True
         self.code, self.before, self.fail = CODE, None, None
         self.catalog_missing, self.corrupt_on_options = False, False
         self.reload_version, self.update_state, self.lose = None, None, None
         self.catalog = {"slug": SLUG, "repository": REPO, "version_latest": RELEASE.version, "available": True,
-                        "apparmor": "profile", "privileged": list(PRIVILEGED), "devices": list(DEVICES),
-                        "network": dict(NETWORK), **{key: False for key in SAFE_FLAGS}}
+                        "apparmor": "default", **{key: False for key in SAFE_FLAGS}}
         self.job = {"uuid": JOB, "reference": SLUG, "done": True, "errors": []}
+        self.core_state, self.core_info = "running", None  # GET /info; core_info overrides the body.
 
     async def owner(self, owner):
         return {"id": owner, "is_owner": True, "is_active": True} if owner and not self.revoked else None
 
     def install_app(self):
-        self.app = {**self.catalog, "version": RELEASE.version, "options": {}, "state": "stopped", "boot": "auto"}
+        self.app = {**self.catalog, "version": RELEASE.version, "apparmor": "profile",
+                    "privileged": list(PRIVILEGED), "devices": list(DEVICES), "network": dict(NETWORK),
+                    "options": {}, "state": "stopped", "boot": "auto"}
 
     async def request(self, method, path, body=None, *, supervisor, timeout):
-        assert supervisor is True and timeout == 30
+        expected_timeout = APP_START_TIMEOUT if method == "POST" and path in {
+            f"/addons/{SLUG}/start", f"/addons/{SLUG}/restart"} else 30
+        assert supervisor is True and timeout == expected_timeout
         self.calls.append((method, path, copy.deepcopy(body)))
+        self.timeouts.append((method, path, timeout))
         if self.before:
             await self.before(method, path)
         if self.fail == (method, path):
             raise HAError("fixture transport", 503)
-        if path == "/supervisor/info":
+        if path == "/info":
+            assert method == "GET"
+            value = {"state": self.core_state} if self.core_info is None else self.core_info
+        elif path == "/supervisor/info":
             value = {"healthy": self.healthy}
         elif path == "/store/repositories":
             if method == "POST":
@@ -107,7 +119,9 @@ class Supervisor:
         elif path == f"/store/addons/{SLUG}/info":
             if self.catalog_missing:
                 raise HAError("missing", 404)
-            value = self.catalog
+            value = dict(self.catalog)
+            if self.app and value.get("apparmor") == "default":
+                value["apparmor"] = "profile"
         elif path == f"/store/addons/{SLUG}/availability":
             value = None
         elif path == "/store/reload":
@@ -145,7 +159,8 @@ class Supervisor:
             self.app["options"] = copy.deepcopy(body["options"])
             if self.corrupt_on_options:
                 self.app["privileged"] = ["SYS_ADMIN", "NET_ADMIN"]
-            value = None
+            # The real options POST answers without a job. A pending job here covers the defensive wait.
+            value = None if self.job.get("done", True) else {"job_id": JOB}
         else:
             raise AssertionError((method, path))
         if self.lose == (method, path):
@@ -181,6 +196,8 @@ async def drive(manager, stage):
 
 
 async def login_ready(manager):
+    manager.runner.capabilities["available"] = False
+    manager.runner.capabilities["providers"][0]["credential_state"] = "needs_auth"
     await manager.authorize()
     for _ in range(16):
         if manager.status()["state"] == "login_ready":
@@ -204,7 +221,7 @@ def test_pin_matches_runner_config_and_bridge_repository():
 
 @pytest.mark.parametrize("change", [{"hassio_api": True}, {"devices": ["/dev/fuse", "/dev/ttyUSB0"]},
                                     {"privileged": ["NET_ADMIN"]}, {"privileged": ["SYS_ADMIN", "NET_ADMIN"]},
-                                    {"apparmor": "default"}, {"network": {"8443/tcp": None}},
+                                    {"apparmor": "disable"}, {"network": {"8443/tcp": None}},
                                     {"full_access": True}, {"host_network": True}])
 def test_privilege_pin_rejects_widened_apps(manager, change):
     catalog = dict(manager.ha.catalog)
@@ -212,10 +229,38 @@ def test_privilege_pin_rejects_widened_apps(manager, change):
     record = {"slug": SLUG, "repository_id": REPO, "managed": False}
     with pytest.raises(HomeWorkerFault, match="home_worker_app_contract_mismatch"):
         manager.validate_app(catalog, record, installed=False)
+    manager.ha.install_app()
+    manager.ha.app.update(change)
+    with pytest.raises(HomeWorkerFault, match="home_worker_app_contract_mismatch"):
+        manager.validate_app(manager.ha.app, record, installed=True)
+
+
+@pytest.mark.parametrize("value", ["default", "profile"])
+def test_store_pin_accepts_pre_and_post_install_apparmor(manager, value):
+    record = {"slug": SLUG, "repository_id": REPO, "managed": False}
+    assert manager.validate_app({**manager.ha.catalog, "apparmor": value}, record, installed=False)["apparmor"] == value
+
+
+@pytest.mark.parametrize("value", ["disable", None, "", "unconfined", True])
+def test_store_pin_rejects_invalid_apparmor(manager, value):
+    record = {"slug": SLUG, "repository_id": REPO, "managed": False}
+    with pytest.raises(HomeWorkerFault, match="home_worker_app_contract_mismatch"):
+        manager.validate_app({**manager.ha.catalog, "apparmor": value}, record, installed=False)
+
+
+@pytest.mark.parametrize("value", ["default", "disable"])
+def test_installed_pin_requires_loaded_apparmor_profile(manager, value):
+    record = {"slug": SLUG, "repository_id": REPO, "managed": False}
+    manager.ha.install_app()
+    manager.ha.app["apparmor"] = value
+    with pytest.raises(HomeWorkerFault, match="home_worker_app_contract_mismatch"):
+        manager.validate_app(manager.ha.app, record, installed=True)
 
 
 def test_store_listing_may_omit_port_fields_that_the_install_must_show(manager):
     record = {"slug": SLUG, "repository_id": REPO, "managed": False}
+    assert {"privileged", "devices", "network"}.isdisjoint(manager.ha.catalog)
+    assert manager.validate_app(manager.ha.catalog, record, installed=False)["apparmor"] == "default"
     listed = {key: value for key, value in manager.ha.catalog.items()
               if key not in {"privileged", "devices", "network", "apparmor"}}
     assert manager.validate_app(listed, record, installed=False)["slug"] == SLUG
@@ -331,6 +376,7 @@ async def test_preexisting_stopped_app_starts_only_on_owner_repair(manager):
         await manager.tick()
         if manager.status()["state"] == "user_disabled":
             break
+        manager.clock.now += STOP_CONFIRM_SECONDS
     assert manager.status()["code"] == "home_worker_app_stopped"
     for _ in range(3):
         await manager.tick()
@@ -345,6 +391,7 @@ async def test_preexisting_stopped_app_starts_only_on_owner_repair(manager):
     manager.ha.app["state"] = "stopped"
     for _ in range(3):
         await manager.tick()
+        manager.clock.now += STOP_CONFIRM_SECONDS
     assert manager.status()["state"] == "user_disabled" and len(manager.ha.posts("/start")) == 1
 
 
@@ -352,6 +399,8 @@ async def test_later_stop_or_removal_is_not_reversed_by_the_tick(manager):
     await login_ready(manager)
     starts, installs = len(manager.ha.posts("/start")), len(manager.ha.posts("/install"))
     manager.ha.app["state"] = "stopped"
+    assert (await manager.tick())["code"] == "home_worker_observation_pending"
+    manager.clock.now += STOP_CONFIRM_SECONDS
     assert (await manager.tick())["state"] == "user_disabled"
     await manager.tick()
     assert len(manager.ha.posts("/start")) == starts
@@ -397,11 +446,18 @@ async def test_repair_is_a_no_op_while_settled(manager):
 
 
 async def test_pair_uses_fixed_host_and_status_never_contains_the_code(manager):
+    store_before = await manager.ha.request("GET", f"/store/addons/{SLUG}/info", supervisor=True, timeout=30)
+    assert store_before["apparmor"] == "default" and {"privileged", "devices", "network"}.isdisjoint(store_before)
+    manager.ha.calls.clear()
     status = await login_ready(manager)
+    store_after = await manager.ha.request("GET", f"/store/addons/{SLUG}/info", supervisor=True, timeout=30)
+    assert store_after["apparmor"] == "profile" and {"privileged", "devices", "network"}.isdisjoint(store_after)
+    assert len(manager.ha.posts("/install")) == 1 and len(manager.ha.posts("/start")) == 1
+    assert len(manager.ha.posts("/options")) == 1
     paired = manager.runner.paired[0]
     assert paired["pairing"] == {"host": HOST, "port": PORT, "fingerprint": FINGERPRINT, "code": CODE}
     assert paired["principal"] == "host-owner" and paired["controller_id"] == "d" * 32
-    assert manager.ha.app["options"] == {}
+    assert manager.ha.app["options"] == {} and manager.ha.app["apparmor"] == "profile"
     assert manager.ha.app["privileged"] == PRIVILEGED and manager.ha.app["devices"] == DEVICES
     assert manager.ha.app["hassio_api"] is False and manager.ha.app["network"] == NETWORK
     assert manager.store.setting("runner_haos")["fingerprint"] == FINGERPRINT
@@ -410,6 +466,16 @@ async def test_pair_uses_fixed_host_and_status_never_contains_the_code(manager):
     assert CODE not in blob and NEW_CODE not in blob and "runner-bearer-secret" not in blob
     assert status["login"]["show"] is True and status["login"]["worker_id"] == "home-coder"
     assert status["state"] == "login_ready" and status["stage"] == "login"
+    assert status["runtime_location"] == "haos_app" and status["credential_state"] == "needs_auth"
+    assert status["worker_available"] is False
+    assert manager.runner.calls == [("GET", "/coding/capabilities")]
+    assert status["limitations"] == [
+        "supervisor_trusted_repository_not_atomic_digest_pin",
+        "stopped_or_removed_app_returns_only_on_owner_repair",
+        "no_heartbeat_restart",
+        "hassio_api_is_not_enabled_for_self_options",
+        "credential_configured_is_not_promoted_to_inference_verified",
+    ]
     assert not any("/auth" in path for _, path in manager.runner.calls)
 
 
@@ -523,7 +589,7 @@ async def test_configured_is_not_promoted_and_credentials_are_not_read(manager, 
     assert status["state"] == "ready" and status["credential_state"] == "configured"
     assert status["runtime_location"] == "haos_app" and status["worker_available"] is True
     assert "inference_verified" not in json.dumps(manager.record())
-    assert manager.runner.calls == [("GET", "/coding/capabilities")]
+    assert manager.runner.calls == [("GET", "/coding/capabilities"), ("GET", "/coding/capabilities")]
     joined = "\n".join(seen)
     for needle in ("hermes", "coding-auth", "home_operator", "inference-verified"):
         assert needle not in joined
@@ -636,13 +702,99 @@ async def test_app_already_paired_by_the_manual_flow_goes_to_login(manager):
     manager.store.set_setting("runner_haos", {"host": HOST, "port": PORT, "fingerprint": FINGERPRINT,
                                               "token": "runner-bearer-secret"})
     await manager.authorize()
-    for _ in range(8):
-        if manager.status()["state"] == "login_ready":
-            break
-        await manager.tick()
-    assert manager.status()["state"] == "login_ready" and manager.status()["fingerprint"] == FINGERPRINT
+    await drive(manager, "pair")
+    assert not manager.runner.calls
+    status = await manager.tick()
+    assert status["state"] == "login_ready" and status["stage"] == "login"
+    assert status["fingerprint"] == FINGERPRINT and status["login"]["show"] is True
+    assert status["runtime_location"] == "haos_app" and status["credential_state"] == "needs_auth"
+    assert status["worker_available"] is False
+    assert manager.runner.calls == [("GET", "/coding/capabilities")]
     assert not manager.runner.paired and not manager.ha.posts()
     assert "runner-bearer-secret" not in json.dumps(manager.status())
+
+
+async def test_fresh_enable_populates_capabilities_before_offering_login(manager):
+    await manager.authorize()
+    await drive(manager, "pair")
+    assert not manager.runner.paired and not manager.runner.calls
+    status = await manager.tick()
+    assert (status["state"], status["stage"], status["code"]) == (
+        "login_ready", "login", "home_worker_login_required")
+    assert status["runtime_location"] == "haos_app"
+    assert status["credential_state"] == "needs_auth"
+    assert status["worker_available"] is False and status["login"]["show"] is True
+    assert manager.runner.calls == [("GET", "/coding/capabilities")]
+
+
+@pytest.mark.parametrize("error", [RunnerError("Runner 無法連線"), OSError("connect refused")])
+async def test_capability_poll_failure_on_pair_tick_withholds_login_until_reachable(manager, error):
+    await manager.authorize()
+    await drive(manager, "pair")
+    real_call = manager.runner.call
+
+    async def down(method, path, data=None, pairing=None):
+        manager.runner.calls.append((method, path))
+        raise error
+
+    manager.runner.call = down
+    status = await manager.tick()
+    assert (status["state"], status["stage"], status["code"]) == (
+        "unavailable", "login", "home_worker_worker_unavailable")
+    assert status["worker_available"] is False and status["login"]["show"] is False
+    assert len(manager.runner.paired) == 1 and len(manager.ha.posts("/options")) == 1
+    assert manager.runner.calls == [("GET", "/coding/capabilities")]
+    posts = len(manager.ha.posts())
+    manager.runner.call = real_call
+    status = await manager.tick()
+    assert (status["state"], status["stage"], status["code"]) == (
+        "login_ready", "login", "home_worker_login_required")
+    assert status["runtime_location"] == "haos_app" and status["credential_state"] == "needs_auth"
+    assert status["worker_available"] is False and status["login"]["show"] is True
+    assert len(manager.runner.paired) == 1 and len(manager.ha.posts("/options")) == 1
+    assert len(manager.ha.posts()) == posts
+    assert manager.runner.calls == [("GET", "/coding/capabilities"), ("GET", "/coding/capabilities")]
+
+
+async def test_already_signed_in_worker_goes_straight_to_ready_after_clear(manager):
+    manager.runner.capabilities["available"] = True
+    manager.runner.capabilities["providers"][0]["credential_state"] = "configured"
+    await manager.authorize()
+    await drive(manager, "pair")
+    status = await manager.tick()
+    assert (status["state"], status["stage"], status["code"]) == ("ready", "monitor", None)
+    assert status["runtime_location"] == "haos_app" and status["credential_state"] == "configured"
+    assert status["worker_available"] is True and status["login"]["show"] is False
+    assert manager.runner.calls == [("GET", "/coding/capabilities")]
+
+
+async def test_already_paired_pending_clear_stays_in_pair_until_job_finishes(manager):
+    manager.ha.repos = [{"source": RELEASE.repository, "slug": REPO}]
+    manager.ha.install_app()
+    manager.ha.app["state"] = "started"
+    manager.ha.app["options"] = {"pairing_fingerprint": FINGERPRINT, "pairing_code": CODE}
+    manager.store.set_setting("runner_haos", {"host": HOST, "port": PORT, "fingerprint": FINGERPRINT,
+                                              "token": "runner-bearer-secret"})
+    await manager.authorize()
+    await drive(manager, "pair")
+    manager.ha.job = {"uuid": JOB, "reference": SLUG, "done": False, "errors": []}
+    status = await manager.tick()
+    assert (status["state"], status["stage"], status["code"]) == (
+        "waiting", "pair", "home_worker_observation_pending")
+    assert status["operation"]["kind"] == "clear_options" and status["login"]["show"] is False
+    assert not manager.runner.paired and not manager.runner.calls
+    status = await manager.tick()
+    assert status["stage"] == "pair" and status["operation"]["kind"] == "clear_options"
+    assert not manager.runner.calls and len(manager.ha.posts("/options")) == 1
+    manager.ha.job["done"] = True
+    status = await manager.tick()
+    assert (status["state"], status["stage"], status["code"]) == (
+        "login_ready", "login", "home_worker_login_required")
+    assert "operation" not in status and status["login"]["show"] is True
+    assert status["runtime_location"] == "haos_app" and status["credential_state"] == "needs_auth"
+    assert status["worker_available"] is False
+    assert not manager.runner.paired and len(manager.ha.posts("/options")) == 1
+    assert manager.runner.calls == [("GET", "/coding/capabilities")]
 
 
 async def test_signed_in_but_blocked_runtime_does_not_ask_for_login(manager):
@@ -699,3 +851,241 @@ async def test_failed_build_can_be_retried_by_the_owner_at_once(manager):
             break
         await manager.tick()
     assert manager.status()["state"] == "login_ready" and len(manager.ha.posts("/install")) == 2
+
+
+async def test_installed_app_with_default_apparmor_is_never_started(manager):
+    installed = manager.ha.install_app
+
+    def install_without_profile():
+        installed()
+        manager.ha.app["apparmor"] = "default"
+
+    manager.ha.install_app = install_without_profile
+    await manager.authorize()
+    for _ in range(10):
+        await manager.tick()
+        if manager.status()["state"] in {"needs_reconcile", "user_modified"}:
+            break
+    status = manager.status()
+    assert status["state"] in {"needs_reconcile", "user_modified"}
+    assert status["code"] == "home_worker_app_contract_mismatch"
+    assert len(manager.ha.posts("/install")) == 1
+    assert not manager.ha.posts("/start")
+
+
+# Supervisor transitions. Fixture core states only: no real HAOS boot, backup or Controller restart.
+
+@pytest.mark.parametrize("steps", [
+    [("setup", "unknown"), ("startup", "stopped"), ("startup", "stopped"), ("startup", "startup"),
+     ("startup", "error"), ("running", "started")],
+    [("freeze", "stopped"), ("freeze", "stopped"), ("freeze", "startup"), ("running", "started")],
+], ids=["haos_reboot", "cold_backup"])
+async def test_haos_reboot_or_cold_backup_keeps_the_home_worker_paired(manager, steps):
+    await login_ready(manager)
+    sent, pairs, fingerprint = len(manager.ha.posts()), len(manager.runner.paired), manager.record()["fingerprint"]
+    for core, app_state in steps[:-1]:
+        manager.ha.core_state, manager.ha.app["state"] = core, app_state
+        manager.clock.now += 60
+        status = await manager.tick()
+        assert (status["state"], status["code"]) == ("waiting", "home_worker_supervisor_busy")
+        assert status["enabled"] is True and manager.record()["stopped_since"] is None
+    manager.ha.core_state, manager.ha.app["state"] = steps[-1]
+    manager.clock.now += 60
+    status = await manager.tick()
+    assert status["state"] == "login_ready" and status["fingerprint"] == fingerprint
+    assert len(manager.ha.posts()) == sent and len(manager.runner.paired) == pairs
+
+
+@pytest.mark.parametrize("stage", ["install", "start", "pair"])
+async def test_supervisor_busy_defers_every_stopped_path(manager, stage):
+    manager.ha.repos = [{"source": RELEASE.repository, "slug": REPO}]
+    if stage == "install":
+        manager.ha.install_app()  # A pre-existing stopped App reaches adopt_existing.
+        await manager.authorize()
+        await drive(manager, "install")
+    else:
+        await manager.authorize()
+        await drive(manager, "start")
+        if stage == "pair":
+            manager.ha.publish = False
+            await drive(manager, "pair")
+        manager.ha.app["state"] = "stopped"
+        record = manager.record()
+        record.update(started_once=True, owner_start=False)  # This record may not start the App again.
+        manager.save(record)
+    sent = len(manager.ha.posts())
+    manager.ha.core_state = "startup"
+    for _ in range(3):
+        manager.clock.now += STOP_CONFIRM_SECONDS
+        assert (await manager.tick())["code"] == "home_worker_supervisor_busy"
+    assert manager.record()["enabled"] is True and len(manager.ha.posts()) == sent
+    manager.ha.core_state = "running"
+    assert (await manager.tick())["code"] == "home_worker_observation_pending"
+    manager.clock.now += STOP_CONFIRM_SECONDS
+    status = await manager.tick()
+    assert (status["state"], status["code"]) == ("user_disabled", "home_worker_app_stopped")
+    assert len(manager.ha.posts()) == sent
+
+
+async def test_real_stop_is_confirmed_after_the_window_and_survives_controller_restart(manager):
+    await login_ready(manager)
+    sent = len(manager.ha.posts())
+    manager.ha.app["state"] = "stopped"
+    status = await manager.tick()
+    assert (status["state"], status["code"]) == ("waiting", "home_worker_observation_pending")
+    assert status["enabled"] is True and manager.record()["stopped_since"] == manager.clock()
+    # Any other observation resets the timer.
+    manager.clock.now += STOP_CONFIRM_SECONDS
+    manager.ha.app["state"] = "started"
+    assert (await manager.tick())["state"] == "login_ready" and manager.record()["stopped_since"] is None
+    manager.ha.app["state"] = "stopped"
+    await manager.tick()
+    first = manager.clock()
+    manager.clock.now += STOP_CONFIRM_SECONDS - 1
+    restarted = HomeWorkerMaintenance(manager.store, manager.ha, manager.runner, "d" * 32, clock=manager.clock)
+    assert (await restarted.tick())["code"] == "home_worker_observation_pending"
+    assert restarted.record()["stopped_since"] == first and restarted.record()["enabled"] is True
+    manager.clock.now += 1
+    status = await restarted.tick()
+    assert (status["state"], status["code"]) == ("user_disabled", "home_worker_app_stopped")
+    assert status["enabled"] is False and len(manager.ha.posts()) == sent
+
+
+async def test_supervisor_transition_clears_a_pending_stop(manager):
+    await login_ready(manager)
+    manager.ha.app["state"] = "stopped"
+    await manager.tick()
+    manager.clock.now += STOP_CONFIRM_SECONDS
+    manager.ha.core_state = "freeze"
+    assert (await manager.tick())["code"] == "home_worker_supervisor_busy"
+    assert manager.record()["stopped_since"] is None and manager.record()["enabled"] is True
+    manager.ha.core_state = "running"
+    assert (await manager.tick())["code"] == "home_worker_observation_pending"
+    manager.clock.now += STOP_CONFIRM_SECONDS
+    assert (await manager.tick())["state"] == "user_disabled"
+
+
+async def test_crash_is_degraded_only_while_supervisor_is_running(manager):
+    await login_ready(manager)
+    manager.ha.app["state"] = "error"
+    manager.ha.core_state = "shutdown"
+    assert (await manager.tick())["code"] == "home_worker_supervisor_busy"
+    manager.ha.core_state = "running"
+    assert (await manager.tick())["state"] == "degraded"
+    manager.ha.core_state = "freeze"
+    with pytest.raises(HomeWorkerFault, match="home_worker_supervisor_busy"):
+        await manager.restart()
+    assert not manager.ha.posts("/restart")
+
+
+@pytest.mark.parametrize("kind,path,body", [
+    ("add_repository", "/store/repositories", {"repository": RELEASE.repository}),
+    ("install", f"/store/addons/{SLUG}/install", {"background": True}),
+    ("start", f"/addons/{SLUG}/start", None),
+    ("restart", f"/addons/{SLUG}/restart", None),
+    ("clear_options", f"/addons/{SLUG}/options", {"options": {}}),
+    ("update", f"/store/addons/{SLUG}/update", {"backup": False, "background": True})])
+@pytest.mark.parametrize("core", ["startup", "freeze"])
+async def test_no_effect_is_posted_unless_supervisor_is_running(manager, kind, path, body, core):
+    await login_ready(manager)
+    sent, before = len(manager.ha.posts()), copy.deepcopy(manager.record())
+    manager.ha.core_state = core
+    with pytest.raises(HomeWorkerFault) as raised:
+        await manager.effect(manager.record(), manager.ha.token, kind, path, body)
+    assert (raised.value.code, raised.value.state) == ("home_worker_supervisor_busy", "waiting")
+    record = manager.record()
+    assert len(manager.ha.posts()) == sent and record["operation"] == before["operation"] is None
+    for key in ("pair_restarts", "start_sent", "owner_start", "pair_deadline"):
+        assert record.get(key) == before.get(key)
+
+
+async def test_setup_effects_wait_for_supervisor_running(manager):
+    await manager.authorize()
+    manager.ha.core_state = "startup"
+    assert (await manager.tick())["code"] == "home_worker_supervisor_busy"
+    assert not manager.ha.posts() and manager.record()["operation"] is None
+    manager.ha.core_state = "running"
+    await login_ready(manager)
+    assert len(manager.ha.posts("/repositories")) == 1 and len(manager.ha.posts("/start")) == 1
+
+
+@pytest.mark.parametrize("fault", ["transport", [], {}, {"state": None}, {"state": 1}, "running"])
+async def test_unreadable_supervisor_state_is_transient(manager, fault):
+    await login_ready(manager)
+    sent = len(manager.ha.posts())
+    manager.ha.app["state"] = "stopped"
+    if fault == "transport":
+        manager.ha.fail = ("GET", "/info")
+    else:
+        manager.ha.core_info = fault
+    status = await manager.tick()
+    assert (status["state"], status["code"]) == ("unavailable", "home_worker_observation_unavailable")
+    assert status["enabled"] is True
+    manager.ha.fail = manager.ha.core_info = None
+    manager.ha.app["state"] = "started"
+    assert (await manager.tick())["state"] == "login_ready"
+    assert len(manager.ha.posts()) == sent
+
+
+async def test_controller_start_runs_the_observation_loop(manager):
+    # Controller startup calls start(); in-memory observation state must never shadow the loop method.
+    await manager.start()
+    try:
+        await asyncio.sleep(0.05)
+        assert manager.task is not None and not manager.task.done()
+    finally:
+        await manager.close()
+    assert manager.task is None
+
+
+async def test_fresh_enable_and_pairing_restart_wait_for_supervisor_app_start_timeout(manager):
+    assert APP_START_TIMEOUT == 150
+    await manager.authorize()
+    await drive(manager, "start")
+
+    async def slow_start(method, path):
+        if method == "POST" and path == f"/addons/{SLUG}/start":
+            assert manager.ha.timeouts[-1] == ("POST", f"/addons/{SLUG}/start", 150)
+            manager.clock.now += 45
+
+    manager.ha.before = slow_start
+    status = await manager.tick()
+    assert (status["state"], status["stage"], status["code"]) == ("running", "start", None)
+    assert status["operation"]["kind"] == "start" and status["operation"]["state"] == "acknowledged"
+    manager.ha.before = None
+
+    # Next tick sees the App started and advances to pair without ever entering unavailable.
+    status = await manager.tick()
+    assert (status["state"], status["stage"], status["code"]) == ("running", "pair", None)
+    assert "operation" not in status
+
+    # An expired pairing code triggers the single pairing restart with timeout 150.
+    manager.runner.fail = RunnerError("expired", 409)
+    manager.runner.consume_fail = True
+    status = await manager.tick()
+    assert status["stage"] == "pair" and status["operation"]["kind"] == "restart"
+    status = await login_ready(manager)
+    assert status["state"] == "login_ready"
+
+    start_calls = [item for item in manager.ha.timeouts if item[1] in {
+        f"/addons/{SLUG}/start", f"/addons/{SLUG}/restart"}]
+    other_calls = [item for item in manager.ha.timeouts if item[1] not in {
+        f"/addons/{SLUG}/start", f"/addons/{SLUG}/restart"}]
+    assert start_calls == [("POST", f"/addons/{SLUG}/start", 150), ("POST", f"/addons/{SLUG}/restart", 150)]
+    assert other_calls and all(timeout == 30 for _, _, timeout in other_calls)
+    other_paths = {(method, path) for method, path, _ in other_calls}
+    for expected in (
+        ("GET", "/store/repositories"),
+        ("POST", "/store/repositories"),
+        ("GET", "/store/addons"),
+        ("GET", f"/store/addons/{SLUG}/info"),
+        ("GET", f"/store/addons/{SLUG}/availability"),
+        ("POST", f"/store/addons/{SLUG}/install"),
+        ("GET", "/addons"),
+        ("GET", f"/addons/{SLUG}/info"),
+        ("GET", "/supervisor/info"),
+        ("GET", "/info"),
+        ("GET", f"/jobs/{JOB}"),
+        ("POST", f"/addons/{SLUG}/options"),
+    ):
+        assert expected in other_paths

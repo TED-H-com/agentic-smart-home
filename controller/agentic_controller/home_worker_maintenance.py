@@ -13,6 +13,8 @@ install of the older App is recorded, then the Owner update is offered. A
 missing App at a later stage stays removed.
 A legacy ``#release/X.Y.Z`` slug is not uninstalled. Removing an App deletes
 its data directory, including the worker credential store.
+HAOS boot and backups stop and start Apps: App states other than ``started`` decide nothing
+and no effect is posted unless Supervisor ``/info`` is ``running``; a stop must persist.
 """
 from __future__ import annotations
 
@@ -39,8 +41,10 @@ from .runner import RunnerError
 KEY = "home_worker_maintenance"
 HOST, PORT = "192.168.177.2", 8443
 STARTUP_GRACE = 120
+APP_START_TIMEOUT = 150  # Supervisor replies after the App is up, within its own 120 s.
 OPERATION_TIMEOUT = 600
 JOB_TIMEOUT = 3600  # A running Supervisor job, such as the local image build, is progress.
+STOP_CONFIRM_SECONDS = 30  # A boot, backup or restart passes through stopped; an Owner stop persists.
 SAFE_FLAGS = ("hassio_api", "homeassistant_api", "auth_api", "docker_api", "full_access",
               "host_network", "host_pid")
 PRIVILEGED = ["SYS_ADMIN"]
@@ -109,7 +113,6 @@ class HomeWorkerMaintenance:
                        "stopped_or_removed_app_returns_only_on_owner_repair",
                        "no_heartbeat_restart",
                        "hassio_api_is_not_enabled_for_self_options",
-                       "self_options_with_hassio_api_false_not_verified_on_haos_vm",
                        "credential_configured_is_not_promoted_to_inference_verified"]
         stored = record.get("release") if isinstance(record, dict) else None
         if isinstance(stored, dict) and stored.get("repository") != self.release.repository:
@@ -151,11 +154,31 @@ class HomeWorkerMaintenance:
         if not active:
             raise HomeWorkerFault("home_worker_owner_required", "needs_reconcile")
 
-    async def request(self, record, token, method, path, body=None):
+    async def request(self, record, token, method, path, body=None, timeout=30):
         self.guard(record, token)
-        result = await self.ha.request(method, path, body, supervisor=True, timeout=30)
+        result = await self.ha.request(method, path, body, supervisor=True, timeout=timeout)
         self.guard(record, token)
         return result
+
+    async def supervisor_running(self, record, token):
+        """Only a Supervisor in ``running`` lets an App state decide. Boot and backups move Apps themselves."""
+        raw = await self.request(record, token, "GET", "/info")
+        state = raw.get("state") if isinstance(raw, dict) else None
+        if not isinstance(state, str):
+            raise HomeWorkerFault("home_worker_observation_unavailable", "unavailable")
+        if state != "running":
+            self.save(record, stopped_since=None)
+            raise HomeWorkerFault("home_worker_supervisor_busy", "waiting")
+
+    def confirm_stop(self, record):
+        """Disable only a stop seen again STOP_CONFIRM_SECONDS later with nothing else in between."""
+        since, now = record.get("stopped_since"), self.clock()
+        if type(since) not in (int, float) or since > now:
+            since = now
+        if now - since < STOP_CONFIRM_SECONDS:
+            self.save(record, stopped_since=since, state="waiting", code="home_worker_observation_pending")
+            return
+        self.save(record, enabled=False, state="user_disabled", code="home_worker_app_stopped", stopped_since=None)
 
     async def authorize(self, *, commit_guard=None):
         """Explicit owner start. A second call does not undo a stop, removal or edit."""
@@ -290,10 +313,13 @@ class HomeWorkerMaintenance:
 
     def pinned(self, data, *, installed):
         # Store listings can omit port and device fields. A field that is present must already match.
+        # Store info reports apparmor "default" until install loads runner/apparmor.txt.
         # The installed readback is the adoption pin and must contain every field.
-        exact = (("privileged", PRIVILEGED), ("devices", DEVICES), ("network", NETWORK), ("apparmor", APPARMOR))
+        exact = (("privileged", PRIVILEGED), ("devices", DEVICES), ("network", NETWORK))
+        apparmor = (APPARMOR,) if installed else (APPARMOR, "default")
         return (isinstance(data, dict) and all(data.get(key) is False for key in SAFE_FLAGS) and
-                all(data.get(key) == expected for key, expected in exact if installed or key in data))
+                all(data.get(key) == expected for key, expected in exact if installed or key in data) and
+                (data.get("apparmor") in apparmor if installed or "apparmor" in data else True))
 
     @staticmethod
     def privilege_view(app):
@@ -346,7 +372,10 @@ class HomeWorkerMaintenance:
         return self.validate_app(raw, record, installed=True, expected_version=expected_version)
 
     def note_app(self, record, app):
-        self.save(record, app_state=app.get("state"), version=app.get("version"), observed_at=utcnow())
+        # Any other observation interrupts a pending stop confirmation.
+        stopped = record.get("stopped_since") if app.get("state") == "stopped" else None
+        self.save(record, app_state=app.get("state"), version=app.get("version"), observed_at=utcnow(),
+                  stopped_since=stopped)
 
     def waiting(self, record):
         operation = record.get("operation")
@@ -363,6 +392,8 @@ class HomeWorkerMaintenance:
         supervisor = await self.request(record, token, "GET", "/supervisor/info")
         if not isinstance(supervisor, dict) or supervisor.get("healthy") is not True:
             raise HomeWorkerFault("home_worker_supervisor_not_healthy", "unavailable")
+        # Before the readbacks and counters below: a boot or cold backup can show the App stopped mid-transition.
+        await self.supervisor_running(record, token)
         await self.owner(record, token)
         if kind in {"start", "restart", "clear_options"}:
             latest = await self.installed(record, token)
@@ -389,7 +420,8 @@ class HomeWorkerMaintenance:
         operation = {"kind": kind, "state": "sent", "created": self.clock(),
                      "deadline": self.clock() + OPERATION_TIMEOUT, "job_id": None, **(operation_extra or {})}
         self.save(record, operation=operation, state="running", code=None)
-        result = await self.request(record, token, "POST", path, body)
+        timeout = APP_START_TIMEOUT if kind in {"start", "restart"} else 30
+        result = await self.request(record, token, "POST", path, body, timeout=timeout)
         if isinstance(result, dict) and "job_id" in result:
             if not isinstance(result["job_id"], str) or not re.fullmatch(r"[a-f0-9]{32}", result["job_id"]):
                 raise HomeWorkerFault("home_worker_job_contract_invalid", "needs_reconcile")
@@ -495,7 +527,7 @@ class HomeWorkerMaintenance:
         operation = record.get("operation")
         if app:
             if not operation or operation.get("kind") != "install":
-                self.adopt_existing(record, app)
+                await self.adopt_existing(record, token, app)
                 return
             confirmation = "supervisor_job_and_app" if operation.get("job_id") else "app_postcondition"
             try:
@@ -533,8 +565,11 @@ class HomeWorkerMaintenance:
         await self.request(record, token, "GET", f"/store/addons/{record['slug']}/availability")
         await self.effect(record, token, "install", f"/store/addons/{record['slug']}/install", {"background": True})
 
-    def adopt_existing(self, record, app):
+    async def adopt_existing(self, record, token, app):
         """A pre-existing App is adopted only when the pin matches. It is never repaired or started."""
+        self.note_app(record, app)
+        if app.get("state") != "started":
+            await self.supervisor_running(record, token)
         options = app.get("options")
         pairing = self.published_pairing(options)
         if app.get("state") == "started" and (options == {} or pairing):
@@ -545,7 +580,7 @@ class HomeWorkerMaintenance:
             if record.get("owner_start") and self.at_defaults(app):
                 self.save(record, managed=True, stage="start", operation=None, state="running", code=None)
                 return
-            self.save(record, enabled=False, state="user_disabled", code="home_worker_app_stopped")
+            self.confirm_stop(record)
             return
         raise HomeWorkerFault("home_worker_existing_app_unconfirmed", "needs_reconcile")
 
@@ -555,6 +590,8 @@ class HomeWorkerMaintenance:
             self.save(record, enabled=False, state="user_removed", code="home_worker_app_removed")
             return
         self.note_app(record, app)
+        if app.get("state") != "started":
+            await self.supervisor_running(record, token)
         if app.get("state") in {"error", "unknown"}:
             raise HomeWorkerFault("home_worker_app_state_unconfirmed", "needs_reconcile")
         if app.get("state") == "startup":
@@ -571,7 +608,7 @@ class HomeWorkerMaintenance:
         # Only this record's own install, or an explicit owner repair, permits one start.
         allowed = record.get("owner_start") or (record.get("installed_by_us") and not record.get("started_once"))
         if not allowed or not self.at_defaults(app):
-            self.save(record, enabled=False, state="user_disabled", code="home_worker_app_stopped")
+            self.confirm_stop(record)
             return
         if record.get("start_sent"):
             if record.get("operation") and not await self.job(record, token):
@@ -600,8 +637,10 @@ class HomeWorkerMaintenance:
             self.save(record, enabled=False, state="user_removed", code="home_worker_app_removed")
             return
         self.note_app(record, app)
+        if app.get("state") != "started":
+            await self.supervisor_running(record, token)
         if app.get("state") == "stopped":
-            self.save(record, enabled=False, state="user_disabled", code="home_worker_app_stopped")
+            self.confirm_stop(record)
             return
         if app.get("state") != "started":
             self.save(record, state="waiting", code="home_worker_app_starting")
@@ -615,7 +654,6 @@ class HomeWorkerMaintenance:
             if peer and peer.get("host") == HOST and peer.get("port") == PORT and peer.get("fingerprint"):
                 # Already paired, for example by the manual JSON flow. The poll checks the TLS pin now.
                 await self.begin_clear(record, token, app, peer["fingerprint"])
-                await self.observe_worker(record)
                 return
             deadline = record.get("pair_deadline")
             if deadline is None:
@@ -663,8 +701,10 @@ class HomeWorkerMaintenance:
 
     async def begin_clear(self, record, token, app, fingerprint):
         if app.get("options") == {}:
-            self.save(record, stage="login", state="login_ready", operation=None, code="home_worker_login_required",
-                      fingerprint=fingerprint, failed_code_hash=None, privilege_view=None)
+            # Offer login only after the capability poll confirms a reachable worker and its auth state.
+            self.save(record, stage="login", operation=None, fingerprint=fingerprint,
+                      failed_code_hash=None, privilege_view=None)
+            await self.observe_worker(record)
             return
         self.save(record, fingerprint=fingerprint, privilege_view=self.privilege_view(app), failed_code_hash=None)
         await self.effect(record, token, "clear_options", f"/addons/{record['slug']}/options", {"options": {}})
@@ -685,8 +725,8 @@ class HomeWorkerMaintenance:
                 self.waiting(record)
                 return
             raise HomeWorkerFault("home_worker_options_unconfirmed", "needs_reconcile")
-        self.save(record, stage="login", state="login_ready", operation=None, code="home_worker_login_required",
-                  privilege_view=None, failed_code_hash=None)
+        self.save(record, stage="login", operation=None, privilege_view=None, failed_code_hash=None)
+        await self.observe_worker(record)
 
     async def advance_observe(self, record, token):
         operation = record.get("operation") or {}
@@ -700,6 +740,8 @@ class HomeWorkerMaintenance:
             self.save(record, enabled=False, state="user_removed", code="home_worker_app_removed")
             return
         self.note_app(record, app)
+        if app.get("state") != "started":
+            await self.supervisor_running(record, token)
         if app.get("state") == "started" and self.published_pairing(app.get("options")):
             # The App lost its pairing and published a new code. Pair again under the same fences.
             self.save(record, stage="pair", state="running", code=None, pair_deadline=self.clock() + STARTUP_GRACE)
@@ -708,7 +750,7 @@ class HomeWorkerMaintenance:
             self.save(record, enabled=False, state="user_modified", code="home_worker_configuration_changed")
             return
         if app.get("state") == "stopped":
-            self.save(record, enabled=False, state="user_disabled", code="home_worker_app_stopped")
+            self.confirm_stop(record)
             return
         if app.get("state") in {"error", "unknown"}:
             self.save(record, state="degraded", code="home_worker_app_crashed")
@@ -808,7 +850,7 @@ class HomeWorkerMaintenance:
         self.save(record, release=asdict(self.release), operation=None, stage=kept,
                   grace_until=self.clock() + STARTUP_GRACE, state="running", code=None,
                   version=raw.get("version"), app_state=raw.get("state"), observed_at=utcnow(),
-                  release_store_reloaded=False)
+                  release_store_reloaded=False, stopped_since=None)
 
     def note_update_available(self, record, raw):
         # Version and App state only. Do not pair, restart, clear options, or offer login.
