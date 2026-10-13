@@ -81,3 +81,15 @@ HA Assist／語音接入另行驗收。真家庭、雲端帳號與實體 laptop 
 新 onboarding 預授權在家庭連接完成後安裝及維護本產品 App。已完成舊版設定者需在外層「設定 → HA 智能管家側欄」明確啟用。可停止自動維護而保留側欄，也可撤銷側欄連接；手動停止、移除或修改 App 不會被自動抵銷。維護狀態的「側欄服務可用」只表示傳輸與 App 觀測，不代表模型已驗證或當前瀏覽器 Owner 已授權。
 
 HAOS／Core／Supervisor 與其他 Apps 仍由 HA 原生更新管理；外層只修自家 App／adapter。HA 內的「回到家庭」回原生頁面；Linux 桌面入口與明確外層連結仍可取得設定、登入及獨立救援，不把這些控制項放入側欄。相對路徑、撤權及 PNG 預覽邊界見 [Adapters](ADAPTERS.md)。
+
+## 啟用家庭現場助手
+
+首次設定狀態為 `completed`，且目前的 HA owner 授權仍有效時，Owner 可明確呼叫 `POST /api/host/home-worker/maintenance/authorize`。沒有背景自動安裝。維護紀錄存在設定鍵 `home_worker_maintenance`，配對對象仍是 `runner_haos`，不改側欄的 `bridge_maintenance`。
+
+Controller 使用與側欄相同的發行 repository。商店沒有 `agentic_runner` 時停在 `home_worker_app_not_published`，不安裝本機 ZIP。商店清單若已帶出 `privileged`、`devices`、`network` 或 `apparmor`，值必須符合契約；清單省略這些欄位時，仍以安裝後的讀回為準。安裝後的讀回必須符合 [runner/config.yaml](../runner/config.yaml)：版本 0.8.0、`privileged` 只有 `SYS_ADMIN`、裝置只有 `/dev/fuse`、`8443/tcp` 發布為 8443、`hassio_api` 等管理旗標為 false、AppArmor 為 `profile`。已存在但不符合的 App 是 `needs_reconcile`，不會被改權限或重裝。
+
+只有這次安裝留下的預設停止狀態會被啟動一次。之後觀察到停止、移除，或 options／權限被改過，分別是 `user_disabled`、`user_removed`、`user_modified`，tick 不再啟動或重裝。`POST .../disable` 只停止觀察，不解除安裝、不取消配對、不刪除 `/data/coding-auth`。`POST .../repair` 只恢復觀察。
+
+尚未配對的 HAOS App 會把 `pairing_fingerprint` 與 `pairing_code` 寫進自己的 options，並仍把配對 JSON 印在 App 記錄。Controller 只對 `192.168.177.2:8443` 使用讀到的指紋配對；配對碼不進入維護紀錄、狀態回應或 Controller 日誌。配對後把 options 清回 `{}` 並核對權限沒有變。`hassio_api: false` 若使 self-options 被拒絕，原因是 `home_worker_self_options_rejected`，不會打開 `hassio_api`。這條 self-options 路徑尚未在真 HAOS VM 驗證。
+
+配對完成後狀態是 `login_ready`。畫面沿用既有 `POST /api/workers/home-coder/providers/codex/auth`。維護程式不呼叫登入 API，不複製 Host、Hermes 或 `home_operator` 憑證，也不建立 `inference-verified.json`。能力回報 `home-coder`／`haos_app`／available，且憑證狀態已是 `configured` 或 `inference_verified` 時，狀態才成為 `ready`。`configured` 不會被改寫成 `inference_verified`。當機的 App 是 `degraded`；明確 `POST .../restart` 在 `worker_lease` 或 `worker_auth_pending` 存在時拒絕。Supervisor 不健康、owner 失效、AI 暫停或更新閘門存在時，不對 Supervisor 送出 POST。

@@ -536,6 +536,35 @@ def create_ingress(broker, ingress_ip="172.30.32.2"):
     return app
 
 
+async def publish_haos_pairing(broker, token, *, host_mode, client=None):
+    """Publish the one-time pairing into this App's options.
+
+    Only an unpaired HAOS App does this, and only while SUPERVISOR_TOKEN is still
+    held. A rejection is returned to the caller; hassio_api is never enabled.
+    """
+    if host_mode or not token or broker.setting("token_hash") or not broker.fingerprint or not broker.code:
+        return False
+    body = {"options": {"pairing_fingerprint": broker.fingerprint, "pairing_code": broker.code}}
+
+    async def post(session):
+        async with session.post("http://supervisor/addons/self/options", json=body,
+                                headers={"Authorization": "Bearer " + token}) as response:
+            try:
+                payload = await response.json()
+            except (TypeError, ValueError):
+                return False
+            return response.status < 300 and isinstance(payload, dict) and payload.get("result") == "ok"
+
+    if client is not None:
+        return await post(client)
+    import aiohttp
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10), trust_env=False) as session:
+            return await post(session)
+    except (aiohttp.ClientError, TimeoutError, ValueError):
+        return False
+
+
 async def serve():
     os.umask(0o077)
     root = Path(os.environ.get("AGENTIC_DATA", "/data"))
@@ -582,6 +611,8 @@ async def serve():
             broker.refresh_pairing_file(Path("/pairing/runner.json"))
         else:
             print("一次性配對資料（私人資料，10 分鐘有效）：" + json.dumps(pairing), flush=True)
+            if token:
+                await publish_haos_pairing(broker, token, host_mode=False)
     del token
     if not host_mode:
         from .home_service import HomeService
