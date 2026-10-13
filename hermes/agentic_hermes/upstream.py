@@ -11,6 +11,7 @@ import importlib
 import inspect
 import json
 import re
+import time
 
 from .models import TOOLS
 
@@ -97,6 +98,7 @@ class HermesAdapter:
             raise IncompatibleUpstream("upstream_signature_incompatible") from None
         self._symbol("tools.mcp_tool_discovery", "discover_mcp_tools", allowed_mcp_names=["agentic"])
         self.allowed_tools()
+        self._catalog()
         self._symbol("model_tools", "handle_function_call", "fixture", {})
         client_id = self._client_id()
         for name, args, kwargs in (
@@ -110,6 +112,23 @@ class HermesAdapter:
         ):
             self._symbol("hermes_cli.auth_codex", name, *args, **kwargs)
         return {"adapter_contract": CONTRACT_VERSION}
+
+    def _catalog(self):
+        module = self._module("agent.model_metadata")
+        require(callable(getattr(module, "fetch_model_metadata", None)))
+        require(type(getattr(module, "_model_metadata_cache", None)) is dict)
+        require(hasattr(module, "_model_metadata_cache_time"))
+        require(type(getattr(module, "_MODEL_CACHE_TTL", None)) is int and module._MODEL_CACHE_TTL >= 600)
+        return module
+
+    def skip_catalog_download(self):
+        """Hermes prices each reply from OpenRouter's whole model catalog (about 0.8 MB). A fresh
+        child has no cache and downloads it inside the turn. Because the read timeout restarts with
+        every chunk, a slow body has held a turn for over two minutes. The product never shows
+        cost, so this short-lived process gets a fresh catalog with no entries instead."""
+        catalog = self._catalog()
+        catalog._model_metadata_cache = {"agentic/no-catalog": {}}
+        catalog._model_metadata_cache_time = time.time()
 
     def allowed_tools(self):
         prefix = self._symbol("tools.mcp_tool_schema", "mcp_prefixed_tool_name", "agentic", "host.status")
@@ -168,6 +187,7 @@ class HermesAdapter:
         module = self._module("model_tools")
         dispatch = self._symbol("model_tools", "handle_function_call", "fixture", {})
         module.handle_function_call = guarded_dispatch(dispatch, allowed)
+        self.skip_catalog_download()
         agent = None
         try:
             kwargs = agent_options(**options)
