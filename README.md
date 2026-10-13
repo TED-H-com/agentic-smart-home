@@ -1,8 +1,8 @@
-# Agentic Smart Home · 0.7.0 技術預覽
+# Agentic Smart Home · 0.8.0 原始碼／App 技術預覽
 
 從開機一路引導到家庭設定：**Linux／網路 → 選 coding CLI 並登入 → 準備隨版本交付的 Hermes → LINE 或其他通道 → 自動啟動 HAOS → HA 原生設定**。程式保存進度並自動執行固定步驟，遇到帳號授權才等待使用者；可選擇先用 Web／外層助手。
 
-本版沿用 [Plan v3](docs/v3/README.md) 的一個外層 Hermes、Host／Home 各一個 coding worker。已接通獨立 Codex Host coding、檔案差異、獨立 verifier、隔離 PNG 預覽與停止後的接手檢查點；Hermes 可提出精確家庭提案，批准仍由 Owner 完成。Home coding 尚未啟用，真 HAOS App 資源隔離已有平台證據，完整執行器仍待整合；真帳號與家庭完整 E1／E2 驗收不由工程 fixtures 代替。
+本版沿用 [Plan v3](docs/v3/README.md) 的一個外層 Hermes、Host／Home 各一個 coding worker。已接通獨立 Codex Host coding、檔案差異、獨立 verifier、隔離 PNG 預覽與停止後的接手檢查點；Hermes 可提出精確家庭提案，批准仍由 Owner 完成。0.8.0 新增真正 HAOS App 內的 Home Codex coding：獨立登入、受限公開文件查證、現場唯讀觀測、私有工作區與獨立測試。平台測試與已知限制見 [Workers](docs/WORKERS.md)；真帳號與家庭完整 E1／E2 驗收不由工程 fixtures 代替。
 
 完成設定後，日常入口進 **Home Assistant 原生家庭畫面**；需要協助時開啟 **智能管家**，安裝及救援留在外層 Web。明確對話／提案連結不跳走，HA 斷線仍可回到外層。[上游相容邊界](docs/ADAPTERS.md) 說明各 adapter、候選測試與更新限制；0.7.0 新增薄 HAOS Ingress App，在 HA 側欄延續同一外層對話；不修改 HA／Supervisor 原始介面。
 
@@ -21,12 +21,14 @@ Web ＋ 可選 LINE／Discord／Telegram（同一個 Gateway）
                          └── Supervisor／Core → 原生家庭自動化
 
 Host coding：私有 Codex → diff → 獨立 verifier → PNG 預覽／停止後檢查點
-Home coding：App 資源隔離已探測，完整 coding 執行器尚未啟用
+Home coding：HAOS App → 私有 Codex／唯讀現場觀測 → diff → 獨立 verifier
 ```
 
 [安裝](INSTALL.md) · [通訊與登入](docs/GATEWAY.md) · [Linux 架構](docs/LINUX_PRODUCT.md) · [Hermes runtime](hermes/README.md) · [驗證](docs/VERIFICATION.md) · [原生入口／相容審查](docs/reviews/2026-10-12-NATIVE-HOME-ADAPTERS.md) · [v3 進度](docs/v3/PROGRESS.md)
 
-0.7.0 的 Controller 資料格式為 **schema 3**；從 1／2 開啟時先保存私有一致快照，再向前遷移。固定 updater 僅允許可信簽章、相同 schema 3 的 Controller image 更新／退版，保留現有 Live DB。不能直接退回 schema 2 的 0.5.x；詳見 [更新](docs/UPDATES.md) 與 [恢復](docs/OPERATIONS.md)。
+0.8.0 的 Controller 資料格式為 **schema 3**；從 1／2 開啟時先保存私有一致快照，再向前遷移。固定 updater 僅允許可信簽章、相同 schema 3 的 Controller image 更新／退版，保留現有 Live DB。不能直接退回 schema 2 的 0.5.x；詳見 [更新](docs/UPDATES.md) 與 [恢復](docs/OPERATIONS.md)。
+
+0.8.0 本次交付原始碼與 App；最近完成精確安裝媒體測試的版本仍為 0.7.0。尚未發布經驗證的 0.8.0 ISO，也不能只更新 Controller 就取得新的內層執行器。
 
 ## 開始使用
 
@@ -72,19 +74,19 @@ npm ci --prefix web
 npm run build --prefix web
 uv run python scripts/contracts.py --check
 uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner, package_bridge; package_runner(); package_bridge()"
-docker build -t agentic-home-controller:0.7.0 controller
-docker build -t agentic-home-runner:0.7.0 runner
-docker build -t agentic-home-linejs:0.7.0 host/linejs
-docker build -t agentic-home-hermes:0.7.0 hermes
-docker build -t agentic-home-preview:0.7.0 host/preview
-docker build -t agentic-home-bridge:0.7.0 bridge
+docker build -t agentic-home-controller:0.8.0 controller
+docker build -t agentic-home-runner:0.8.0 runner
+docker build -t agentic-home-linejs:0.8.0 host/linejs
+docker build -t agentic-home-hermes:0.8.0 hermes
+docker build -t agentic-home-preview:0.8.0 host/preview
+docker build -t agentic-home-bridge:0.8.0 bridge
 python3 scripts/build_host.py
 uv run python scripts/package.py
 ```
 
-產品來源須先提交到本 public repo；建置會將精確 HEAD 的 Git bundle 放入安裝包，拒絕未提交的產品程式，以免 worker 研究到另一個版本。
+產品來源須先提交到本 public repo；建置會將精確 HEAD 的 Git bundle 放入安裝包，拒絕未提交的產品程式，以免 worker 研究到另一個版本。Home App 的研究來源另外固定在 `runner/coding-source.lock.json` 的公開 commit，於 image 建置時驗證並封裝；工作證據回報這個精確基準，執行時不追 upstream HEAD。
 
-`dist/` 產生 `agentic-home-0.7.0-linux-amd64.tar`、source ZIP 與 `SHA256SUMS`。內部服務名稱保留 `agentic-home`；大型 TAR／ISO 不存入 Git。產生 laptop 安裝媒體：
+`dist/` 產生 `agentic-home-0.8.0-linux-amd64.tar`、source ZIP 與 `SHA256SUMS`。內部服務名稱保留 `agentic-home`；大型 TAR／ISO 不存入 Git。產生 laptop 安裝媒體：
 
 ```bash
 docker build -f host/Builder.Dockerfile -t agentic-home-builder:0.2.0 host

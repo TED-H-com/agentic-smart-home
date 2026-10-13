@@ -1,5 +1,11 @@
 # Agentic Smart Home 驗證
 
+## 0.8.0 Home coding 原始碼／App 預覽
+
+本輪加入真正 HAOS App 內的 Home coding worker，沿用 Controller／TLS Runner 派工、獨立登入、同 case 證據和工作區交接。首個 coding provider 為固定版本 Codex；模型程序使用私有 namespace、cgroup、磁碟配額及受控 relay，正式家庭操作仍由既有受控流程執行。實作與平台測試進度見 [Workers](WORKERS.md)及 [Plan v3 帳本](v3/PROGRESS.md)。
+
+本版沒有重建或驗收整套 Linux ISO。下方 0.7.0 媒體保留原始來源與 hash，不包含本次 Home worker。真 HAOS 工程測試使用產品映像衍生 App，另加明示的模型 transport／診斷 fixture；不能代替真帳號、自主研究品質、家庭 helpers 或更新／退版的 E2 產品驗收。
+
 ## 0.7.0 側欄整合候選
 
 本輪新增薄 HAOS Ingress App、同一外層對話／case、即時 Owner 驗證、有限維護與配對恢復；首次 Hermes 改用隨附 digest。工程與產品範圍見 [整合審查](reviews/2026-10-12-INGRESS-BRIDGE.md)。HA 保留官方更新，Home coding、原生 Assist、App 跨版本 migration 與真帳號仍需另驗。

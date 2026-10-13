@@ -1,8 +1,8 @@
-# 安裝 Agentic Smart Home 0.7.0 技術預覽
+# 安裝 Agentic Smart Home：0.7.0 媒體與 0.8.0 App 預覽
 
 產品從外層 Linux 開始；Web 引導先完成 CLI、Hermes 與通訊，再自動建立／啟動 HAOS。firstboot 只啟動外層服務，因此家庭尚未準備好仍能先登入助手。完整順序見 [自動 onboarding](docs/ONBOARDING.md)。
 
-本版媒體依 [README](README.md) 建置，Git repository 不包含大型 TAR／ISO。候選 hash、一次性 VM 與硬體測試的實際結果以 [驗證紀錄](docs/VERIFICATION.md) 為準；歷史安裝結果不自動算成本候選驗收。這是 v3 技術預覽，Host Codex coding 已接通；Home coding 須通過真 HAOS App 隔離驗證。
+以下 ISO／TAR 步驟描述最近完成精確媒體驗證的 0.7.0。0.8.0 是原始碼／App 預覽，尚未完成新版 ISO 驗收；不能將以下舊媒體視為已含 Home coding。新候選媒體依 [README](README.md) 建置，Git repository 不包含大型 TAR／ISO。候選 hash、一次性 VM 與硬體測試的實際結果以 [驗證紀錄](docs/VERIFICATION.md) 為準；歷史安裝結果不自動算成本候選驗收。這是 v3 技術預覽，Host Codex coding 已接通；Home coding 須通過真 HAOS App 隔離驗證。
 
 ## A. 整台重灌
 
@@ -34,7 +34,7 @@
 1. 在 HA App 商店加入 `https://github.com/teddashh/agentic-smart-home`，安裝 **Agentic Home Runner**、保留 8443。將記錄中的一次性配對 JSON 貼至外層 Web 的 HAOS 內層登入區，再獨立登入 CLI。本機來源可用 Web 提供的 Runner ZIP，放入 Samba／SSH App 提供的本機 Apps 目錄後重新載入。新版文件使用 `/local_apps/agentic_runner`，部分映射仍為 `/addons/agentic_runner`；依所用 App 的實際掛載目錄操作，參考 [官方本機測試](https://developers.home-assistant.io/docs/apps/testing/)。
 2. 到「設備與權限」選擇分享與操作範圍。一般對話仍是 Hermes；目前家庭提案走「受控 Agent（進階）」→「HAOS 內層」，或通道的 `/home 需求`。精確提案留在 Web 等待 Owner 批准。
 
-這個 App 保留受控 `home_operator`；v3 的 Home Coding Worker 仍需獨立 HAOS App sandbox 與真實研究／測試證據。內層 App 自動安裝／登入尚未交付，配對成功不代表 E2 完成。HA 手動貼 token 保留為進階備援。
+0.8.0 Runner App 保留受控 `home_operator`，另有獨立 Home Codex coding。完成 TLS 配對後，從「設定 → 進階工具」選「家庭現場助手」，再完成獨立 coding 登入；不共用外層或家庭 CLI profile。App 需要宣告的 `SYS_ADMIN`、`/dev/fuse` 和隨附 AppArmor，邊界不可用時只停用 coding。詳細能力、平台證據與重啟限制見 [Workers](docs/WORKERS.md)。內層 App 自動安裝／登入尚未交付，配對成功不代表 E2 完成。HA 手動貼 token 保留為進階備援。
 
 ## C. 無桌面或已有相符 Ubuntu
 

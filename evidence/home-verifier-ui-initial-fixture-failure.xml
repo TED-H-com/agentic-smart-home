@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="5.766" timestamp="2026-10-12T20:18:06.691463-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_worker_ui" name="test_home_and_host_verification_show_exact_source_unknown_is_hidden" time="5.719"><failure message="AssertionError: Locator expected to contain text '通過'&#10;Actual value: passed &#10;Call log:&#10;  - Expect &quot;to_contain_text&quot; locator(&quot;.worker-findings&quot;).filter(has=get_by_role(&quot;heading&quot;, name=&quot;獨立驗證&quot;, exact=True)).locator(&quot;.status&quot;) with timeout 5000ms&#10;  - waiting for locator(&quot;.worker-findings&quot;).filter(has=get_by_role(&quot;heading&quot;, name=&quot;獨立驗證&quot;, exact=True)).locator(&quot;.status&quot;)&#10;    14 × locator resolved to &lt;span class=&quot;status s-passed&quot;&gt;passed&lt;/span&gt;&#10;       - unexpected value &quot;passed&quot;&#10;&#10;Aria snapshot:&#10;- text: passed">ui_page = (&lt;Page url='http://127.0.0.1:37977/#workers'&gt;, 'http://127.0.0.1:37977')
+
+    def test_home_and_host_verification_show_exact_source_unknown_is_hidden(ui_page):
+        page, origin = ui_page
+        job, errors, posts = mount_home_verifier_fixture(page, origin)
+        section = page.locator('.worker-findings').filter(has=page.get_by_role('heading', name='獨立驗證', exact=True))
+        expect(section).to_be_visible()
+        expect(section.locator('.helper-text')).to_contain_text('家庭現場助手')
+&gt;       expect(section.locator('.status')).to_contain_text('通過')
+E       AssertionError: Locator expected to contain text '通過'
+E       Actual value: passed 
+E       Call log:
+E         - Expect "to_contain_text" locator(".worker-findings").filter(has=get_by_role("heading", name="獨立驗證", exact=True)).locator(".status") with timeout 5000ms
+E         - waiting for locator(".worker-findings").filter(has=get_by_role("heading", name="獨立驗證", exact=True)).locator(".status")
+E           14 × locator resolved to &lt;span class="status s-passed"&gt;passed&lt;/span&gt;
+E              - unexpected value "passed"
+E       
+E       Aria snapshot:
+E       - text: passed
+
+tests/test_worker_ui.py:89: AssertionError</failure></testcase></testsuite></testsuites>

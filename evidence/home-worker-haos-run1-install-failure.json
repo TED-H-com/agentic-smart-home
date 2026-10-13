@@ -1,0 +1,40 @@
+{
+  "kind": "real_haos_home_coding_worker",
+  "status": "interrupted_after_confirmed_install_failure",
+  "observed_from": "haos_app",
+  "haos_image": "18.3",
+  "delivery": "local_supervisor_derived_transport_fixture",
+  "cloud": "fixed_model_transport_no_real_cloud_account",
+  "source_task": "documentation_only_patch_on_shipped_source",
+  "not_acceptance": [
+    "real_model_auth",
+    "autonomous_research_quality",
+    "physical_household",
+    "E2"
+  ],
+  "checks": {},
+  "phase": "official_supervisor_install",
+  "source_commit": "5a2f2b2ad7b52660395b0562456556f379b65ad4",
+  "runtime_source_uncommitted": true,
+  "runner_base_image_id": "sha256:ed27b967ee39c5d569edb6dd3be19f0eaaf37f3e633156647cad00da96f7fbf9",
+  "controller_image_id": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
+  "core": "2026.10.1",
+  "supervisor": "2026.09.3",
+  "app_config_sha256": "18044bc7975365e3570e102c247aefa7a6bb57d6d9b25154b000ebe70b952a69",
+  "app_apparmor_sha256": "2a996d8a8cdfb36f4d93fbc6ba33cc2f9070cbbbc2918ed4653ec2a4ce646a16",
+  "fixture_helper_sha256": "05a6dec3a4b224521436c1fa990a3df22ee290ba1c5839eca71b1b3d6943aef8",
+  "cleanup": {
+    "outer_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "duration_seconds": 505.386,
+  "failure": {
+    "component": "test_fixture_image_delivery",
+    "code": "supervisor_build_base_metadata_unavailable",
+    "app_started": false,
+    "original_phase": "official_supervisor_install",
+    "manual_interruption": "Owned pytest SIGINT after Supervisor build exit1; finally cleanup verified."
+  }
+}

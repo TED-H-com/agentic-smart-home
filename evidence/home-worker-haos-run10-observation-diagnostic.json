@@ -1,0 +1,47 @@
+{
+  "kind": "bounded_live_failure_diagnostic",
+  "original_receipt": "home-worker-haos-run10-observation-failure.json",
+  "original_sha256": "8d1a93e4d787b9d9694aa6ecaef950860194dd29950758cdaca6e34d7128a713",
+  "original_result_unchanged": "failed",
+  "observed_during": "same_owned_disposable_run10_failure_hold_before_cleanup",
+  "case_evidence": {
+    "count": 3,
+    "all_same_case": true,
+    "all_observed_from_haos_app": true,
+    "all_content_digests_match": true,
+    "all_source_refs_match": true
+  },
+  "original_fixed_probe": {
+    "dns_resolved": true,
+    "reachable": false,
+    "http_status": null,
+    "timed_out": false
+  },
+  "live_app_dns": {
+    "family": "IPv4",
+    "private": true,
+    "loopback": false,
+    "link_local": false
+  },
+  "live_fixed_http_probes": {
+    "80": {
+      "http_status": 401
+    },
+    "8123": {
+      "error_type": "ConnectionRefusedError",
+      "errno": 111
+    }
+  },
+  "core_http_storage": {
+    "configured_port": 80
+  },
+  "core_fixed_listener_check": {
+    "80": true,
+    "8123": false
+  },
+  "limits": [
+    "No credential, response body, raw configuration or network address exported",
+    "Live diagnostic is separate from the original failed assertion and is not a passed rerun",
+    "No product configuration changed by these read-only probes"
+  ]
+}

@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.7.0"
+VERSION = "0.8.0"
 EXCLUDED = {"__pycache__", "node_modules", "test-results", ".pytest_cache", ".ruff_cache"}
 
 
@@ -64,6 +64,8 @@ def main():
 
 
 def package_runner():
+    from worker_runtime import package_worker_runtime
+    package_worker_runtime()
     destination = ROOT / "controller/static/downloads/agentic-runner.zip"
     destination.parent.mkdir(parents=True, exist_ok=True)
     archive(destination, [(path, "agentic_runner/" + str(path.relative_to(ROOT / "runner")))

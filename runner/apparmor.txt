@@ -1,0 +1,54 @@
+#include <tunables/global>
+
+# Supervisor assigns a per-App profile name. Job code additionally runs with
+# no capabilities, seccomp, a private PID/network namespace and a read-only root.
+profile agentic-home-runner flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+  file,
+  network,
+  capability chown,
+  capability dac_override,
+  capability fowner,
+  capability fsetid,
+  capability setuid,
+  capability setgid,
+  capability setpcap,
+  capability kill,
+  capability sys_admin,
+  # Bubblewrap configures loopback only after creating its user/net namespaces.
+  # The App container itself does not receive NET_ADMIN.
+  capability net_admin,
+  signal (receive) peer=unconfined,
+  signal peer=@{profile_name},
+  ptrace (read, readby) peer=@{profile_name},
+
+  # Trusted launcher: only this App's private cgroup root and bounded disk.
+  mount options=(rw, rprivate) -> /,
+  mount options=(rw, private) -> /,
+  # Bubblewrap 0.8 adds MS_SILENT to its propagation operations.
+  mount options=(rw, silent, rslave) -> /,
+  mount options=(rw, silent, rprivate) -> /oldroot/,
+  # Fresh proc belongs to the trusted launcher's new private PID namespace.
+  mount fstype=proc options=(rw, nosuid, nodev, noexec) -> /proc/,
+  mount fstype=cgroup2 -> /data/coding/cgroups/,
+  umount /data/coding/cgroups/,
+  mount fstype=fuse.ext4 -> /data/coding/work/*/workspace/,
+  umount /data/coding/work/*/workspace/,
+  mount options=(rw, bind) -> /opt/agentic-worker/staging/workspace/,
+  mount options=(rw, bind) -> /opt/agentic-worker/staging/relay.sock,
+
+  # Bubblewrap's construction roots. These are namespace plumbing, never job
+  # storage: /work and /tmp inside the final worker are the bounded disk.
+  mount fstype=tmpfs -> /tmp/,
+  mount -> /tmp/newroot/,
+  mount -> /tmp/newroot/**,
+  mount -> /newroot/,
+  mount -> /newroot/**,
+  mount options=(ro, remount, bind) -> /,
+  pivot_root oldroot=/tmp/oldroot/ /tmp/,
+  pivot_root oldroot=/newroot/ /newroot/,
+  umount /oldroot/,
+  umount /tmp/oldroot/,
+  # The second pivot stacks the old root at / before detaching it by FD.
+  umount /,
+}

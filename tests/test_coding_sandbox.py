@@ -393,6 +393,73 @@ def test_disk_format_preserves_reserved_blocks_without_mounting(tmp_path):
     assert "Filesystem features:" in header and "extent" in header
 
 
+def test_verifier_trusted_test_exercises_candidate_restore_helper(tmp_path, monkeypatch, request):
+    """Real Git + actual restore test; only root disk/mount/chown plumbing is mocked."""
+    import hashlib
+    import shutil
+
+    from agentic_host.coding_sandbox import command
+
+    product = Path(__file__).parents[1]
+    repo = tmp_path / "baseline"
+    (repo / "tests").mkdir(parents=True)
+    (repo / "scripts").mkdir()
+    for name in ("test_api.py", "test_engine.py", "conftest.py"):
+        shutil.copyfile(product / "tests" / name, repo / "tests" / name)
+    helper = (product / "scripts/restore_controller.py").read_bytes()
+    (repo / "scripts/restore_controller.py").write_bytes(helper)
+    for args in (("init", "-q", str(repo)), ("-C", str(repo), "add", "."),
+                 ("-C", str(repo), "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+                  "commit", "-qm", "Trusted fixture baseline")):
+        command("git", *args)
+    revision = command("git", "-C", str(repo), "rev-parse", "HEAD").stdout.strip()
+    root = tmp_path / "work"
+    root.mkdir()
+    trusted = root / JOB / "workspace/trusted-tests"
+    request.addfinalizer(lambda: trusted.chmod(0o700) if trusted.is_dir() else None)
+    def fixture_command(*args, **kwargs):
+        if args[0] in {"mount", "mkfs.ext4"}:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        return command(*args, **kwargs)
+    monkeypatch.setattr(os, "posix_fallocate", lambda fd, start, count: os.ftruncate(fd, count))
+    monkeypatch.setattr(os, "statvfs", lambda path: SimpleNamespace(f_blocks=64, f_frsize=1024**2))
+    monkeypatch.setattr(os.path, "ismount", lambda path: Path(path).name == "workspace")
+    monkeypatch.setattr(os, "chown", lambda *args, **kwargs: None)
+    sandbox = CodingSandbox(root, IMAGE, {"product": repo}, limits=Limits(disk_mib=64),
+                            inputs={"candidate.patch": b"fixture"}, execute=fixture_command)
+    mask = os.umask(0o077)
+    try:
+        work = sandbox.prepare({"job_id": JOB, "repo_id": "product", "base_commit": revision}, "pass")
+    finally:
+        os.umask(mask)
+    trusted = work / "trusted-tests"
+    before = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in trusted.iterdir()}
+    assert before == {name: hashlib.sha256((repo / "tests" / name).read_bytes()).hexdigest() for name in before}
+    assert trusted.stat().st_mode & 0o777 == 0o555
+    assert all(path.stat().st_mode & 0o777 == 0o444 for path in trusted.iterdir())
+    assert (work / "scripts").is_symlink() and os.readlink(work / "scripts") == "source/scripts"
+    assert (work / "scripts").resolve() == work / "source/scripts"
+    assert work.stat().st_mode & 0o777 == 0o755
+    test = str(trusted / "test_api.py") + "::test_encrypted_snapshot_can_restore"
+    bootstrap = ("import sys;sys.path[:0]=sys.argv[1:4];import pytest;raise SystemExit(pytest.main(sys.argv[4:]))")
+    env = {**os.environ, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1", "PYTHONDONTWRITEBYTECODE": "1"}
+    def verify(label):
+        return subprocess.run([sys.executable, "-B", "-I", "-c", bootstrap,
+            str(product / "controller"), str(product / "runner"), str(product / "hermes"),
+            "-q", "-p", "no:cacheprovider", "-p", "pytest_asyncio.plugin", "-c", str(work / "verification.ini"),
+            "--confcutdir", str(trusted), "--basetemp", str(work / "scratch" / label), test],
+            env=env, capture_output=True, text=True, timeout=20)
+    candidate = work / "source/scripts/restore_controller.py"
+    candidate.write_text("raise RuntimeError('candidate-helper-was-executed')\n")
+    failed = verify("broken")
+    assert failed.returncode == 1 and "candidate-helper-was-executed" in failed.stdout
+    candidate.write_bytes(helper)
+    fixed = verify("repaired")
+    assert fixed.returncode == 0 and "1 passed" in fixed.stdout, fixed.stdout[-2000:]
+    assert before == {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in trusted.iterdir()}
+    assert not list(work.rglob(".pytest_cache")) and not list(work.rglob("__pycache__"))
+
+
 def test_installed_probe_is_guarded_and_embedded_programs_compile(monkeypatch):
     import importlib.util
     path = Path(__file__).with_name("installed_sandbox_probe.py")

@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="9" skipped="0" tests="9" time="1.462" timestamp="2026-10-12T20:53:05.733090-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_home_coding_service" name="test_partial_launch_attempt_is_durable_and_cancel_disposes_without_execution_ack" time="0.053"><failure message="AssertionError: assert None is True&#10; +  where None = &lt;built-in method get of dict object at 0x7b4cab9edac0&gt;('sandbox_attempted')&#10; +    where &lt;built-in method get of dict object at 0x7b4cab9edac0&gt; = {'id': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'case_id': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'worker_id': 'home-coder', 'mode': 'development', ...}.get">packaged = (PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_partial_launch_attempt_is0/packaged/sourc...pository': 'https://github.com/teddashh/agentic-smart-home.git', 'commit': '7e55c6b9de3f25ef2e44700d21560db2e501a9f7'})
+tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_partial_launch_attempt_is0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7b4cab95d940&gt;
+
+    def test_partial_launch_attempt_is_durable_and_cancel_disposes_without_execution_ack(packaged, tmp_path, monkeypatch):
+        service, state = partial_service(packaged, tmp_path, monkeypatch)
+        payload = request()
+        try:
+            service.submit(payload)
+            service.threads[payload["id"]].join(3)
+            assert not service.threads[payload["id"]].is_alive()
+&gt;           assert state["launch_receipt"].get("sandbox_attempted") is True
+E           AssertionError: assert None is True
+E            +  where None = &lt;built-in method get of dict object at 0x7b4cab9edac0&gt;('sandbox_attempted')
+E            +    where &lt;built-in method get of dict object at 0x7b4cab9edac0&gt; = {'id': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'case_id': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'worker_id': 'home-coder', 'mode': 'development', ...}.get
+
+tests/test_home_coding_service.py:473: AssertionError</failure></testcase><testcase classname="tests.test_home_coding_service" name="test_retention_partial_workspace_requires_exact_disposal_before_removal[False-False]" time="0.027"><failure message="AssertionError: attempted to remove a still-mounted partial workspace&#10;assert not True">packaged = (PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_retention_partial_workspa0/packaged/sourc...pository': 'https://github.com/teddashh/agentic-smart-home.git', 'commit': '7e55c6b9de3f25ef2e44700d21560db2e501a9f7'})
+tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_retention_partial_workspa0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7b4cab95d6e0&gt;
+legacy = False, dispose_error = False
+
+    @pytest.mark.parametrize("legacy", [False, True])
+    @pytest.mark.parametrize("dispose_error", [False, True])
+    def test_retention_partial_workspace_requires_exact_disposal_before_removal(packaged, tmp_path, monkeypatch, legacy, dispose_error):
+        service, state = partial_service(packaged, tmp_path, monkeypatch)
+        payload = request()
+        try:
+            service.submit(payload)
+            service.threads[payload["id"]].join(3)
+            job = service.items[payload["id"]]
+            job.update(state="cancelled", stop_confirmed=True, retained_until=0)
+            if legacy:
+                job.pop("sandbox_attempted", None)
+            state["dispose_error"] = dispose_error
+&gt;           service.prune()
+
+tests/test_home_coding_service.py:498: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+host/agentic_host/coding_service.py:439: in prune
+    shutil.rmtree(workspace)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_retention_partial_workspa0/data/coding/work/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+args = (), kwargs = {}
+
+    def remove(path, *args, **kwargs):
+        if Path(path).parent.name == "work":
+&gt;           assert not state["mounted"], "attempted to remove a still-mounted partial workspace"
+E           AssertionError: attempted to remove a still-mounted partial workspace
+E           assert not True
+
+tests/test_home_coding_service.py:456: AssertionError</failure></testcase><testcase classname="tests.test_home_coding_service" name="test_retention_partial_workspace_requires_exact_disposal_before_removal[False-True]" time="0.026"><failure message="AssertionError: attempted to remove a still-mounted partial workspace&#10;assert not True">packaged = (PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_retention_partial_workspa1/packaged/sourc...pository': 'https://github.com/teddashh/agentic-smart-home.git', 'commit': 'e0818e42ac58fce680d7edbe45c5aaaa7890a8c2'})
+tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_retention_partial_workspa1')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7b4cab9d1910&gt;
+legacy = True, dispose_error = False
+
+    @pytest.mark.parametrize("legacy", [False, True])
+    @pytest.mark.parametrize("dispose_error", [False, True])
+    def test_retention_partial_workspace_requires_exact_disposal_before_removal(packaged, tmp_path, monkeypatch, legacy, dispose_error):
+        service, state = partial_service(packaged, tmp_path, monkeypatch)
+        payload = request()
+        try:
+            service.submit(payload)
+            service.threads[payload["id"]].join(3)
+            job = service.items[payload["id"]]
+            job.update(state="cancelled", stop_confirmed=True, retained_until=0)
+            if legacy:
+                job.pop("sandbox_attempted", None)
+            state["dispose_error"] = dispose_error
+&gt;           service.prune()
+
+tests/test_home_coding_service.py:498: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+host/agentic_host/coding_service.py:439: in prune
+    shutil.rmtree(workspace)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_retention_partial_workspa1/data/coding/work/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+args = (), kwargs = {}
+
+    def remove(path, *args, **kwargs):
+        if Path(path).parent.name == "work":
+&gt;           assert not state["mounted"], "attempted to remove a still-mounted partial workspace"
+E           AssertionError: attempted to remove a still-mounted partial workspace
+E           assert not True
+
+tests/test_home_coding_service.py:456: AssertionError</failure></testcase><testcase classname="tests.test_home_coding_service" name="test_retention_partial_workspace_requires_exact_disposal_before_removal[True-False]" time="0.304"><failure message="AssertionError: attempted to remove a still-mounted partial workspace&#10;assert not True">packaged = (PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_retention_partial_workspa2/packaged/sourc...pository': 'https://github.com/teddashh/agentic-smart-home.git', 'commit': 'e0818e42ac58fce680d7edbe45c5aaaa7890a8c2'})
+tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_retention_partial_workspa2')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7b4cab9c2030&gt;
+legacy = False, dispose_error = True
+
+    @pytest.mark.parametrize("legacy", [False, True])
+    @pytest.mark.parametrize("dispose_error", [False, True])
+    def test_retention_partial_workspace_requires_exact_disposal_before_removal(packaged, tmp_path, monkeypatch, legacy, dispose_error):
+        service, state = partial_service(packaged, tmp_path, monkeypatch)
+        payload = request()
+        try:
+            service.submit(payload)
+            service.threads[payload["id"]].join(3)
+            job = service.items[payload["id"]]
+            job.update(state="cancelled", stop_confirmed=True, retained_until=0)
+            if legacy:
+                job.pop("sandbox_attempted", None)
+            state["dispose_error"] = dispose_error
+&gt;           service.prune()
+
+tests/test_home_coding_service.py:498: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+host/agentic_host/coding_service.py:439: in prune
+    shutil.rmtree(workspace)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_retention_partial_workspa2/data/coding/work/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+args = (), kwargs = {}
+
+    def remove(path, *args, **kwargs):
+        if Path(path).parent.name == "work":
+&gt;           assert not state["mounted"], "attempted to remove a still-mounted partial workspace"
+E           AssertionError: attempted to remove a still-mounted partial workspace
+E           assert not True
+
+tests/test_home_coding_service.py:456: AssertionError</failure></testcase><testcase classname="tests.test_home_coding_service" name="test_retention_partial_workspace_requires_exact_disposal_before_removal[True-True]" time="0.166"><failure message="AssertionError: attempted to remove a still-mounted partial workspace&#10;assert not True">packaged = (PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_retention_partial_workspa3/packaged/sourc...pository': 'https://github.com/teddashh/agentic-smart-home.git', 'commit': 'e0818e42ac58fce680d7edbe45c5aaaa7890a8c2'})
+tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_retention_partial_workspa3')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7b4cab9c3020&gt;
+legacy = True, dispose_error = True
+
+    @pytest.mark.parametrize("legacy", [False, True])
+    @pytest.mark.parametrize("dispose_error", [False, True])
+    def test_retention_partial_workspace_requires_exact_disposal_before_removal(packaged, tmp_path, monkeypatch, legacy, dispose_error):
+        service, state = partial_service(packaged, tmp_path, monkeypatch)
+        payload = request()
+        try:
+            service.submit(payload)
+            service.threads[payload["id"]].join(3)
+            job = service.items[payload["id"]]
+            job.update(state="cancelled", stop_confirmed=True, retained_until=0)
+            if legacy:
+                job.pop("sandbox_attempted", None)
+            state["dispose_error"] = dispose_error
+&gt;           service.prune()
+
+tests/test_home_coding_service.py:498: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+host/agentic_host/coding_service.py:439: in prune
+    shutil.rmtree(workspace)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_retention_partial_workspa3/data/coding/work/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+args = (), kwargs = {}
+
+    def remove(path, *args, **kwargs):
+        if Path(path).parent.name == "work":
+&gt;           assert not state["mounted"], "attempted to remove a still-mounted partial workspace"
+E           AssertionError: attempted to remove a still-mounted partial workspace
+E           assert not True
+
+tests/test_home_coding_service.py:456: AssertionError</failure></testcase><testcase classname="tests.test_home_coding_service" name="test_partial_cleanup_rejects_wrong_disposal_identity_or_stop_proof[override0]" time="0.431"><failure message="AssertionError: attempted to remove a still-mounted partial workspace&#10;assert not True">packaged = (PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_partial_cleanup_rejects_w0/packaged/sourc...pository': 'https://github.com/teddashh/agentic-smart-home.git', 'commit': 'e0818e42ac58fce680d7edbe45c5aaaa7890a8c2'})
+tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_partial_cleanup_rejects_w0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7b4cab025650&gt;
+override = {'job_id': 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'}
+
+    @pytest.mark.parametrize("override", [{"job_id": "e" * 32}, {"lease_epoch": 2},
+                                         {"state": "cancelled"}, {"stop_confirmed": False}])
+    def test_partial_cleanup_rejects_wrong_disposal_identity_or_stop_proof(packaged, tmp_path, monkeypatch, override):
+        service, state = partial_service(packaged, tmp_path, monkeypatch)
+        payload = request()
+        try:
+            service.submit(payload)
+            service.threads[payload["id"]].join(3)
+            job = service.items[payload["id"]]
+            job.update(state="cancelled", stop_confirmed=True, retained_until=0)
+            state["override"] = override
+&gt;           service.prune()
+
+tests/test_home_coding_service.py:523: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+host/agentic_host/coding_service.py:439: in prune
+    shutil.rmtree(workspace)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_partial_cleanup_rejects_w0/data/coding/work/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+args = (), kwargs = {}
+
+    def remove(path, *args, **kwargs):
+        if Path(path).parent.name == "work":
+&gt;           assert not state["mounted"], "attempted to remove a still-mounted partial workspace"
+E           AssertionError: attempted to remove a still-mounted partial workspace
+E           assert not True
+
+tests/test_home_coding_service.py:456: AssertionError</failure></testcase><testcase classname="tests.test_home_coding_service" name="test_partial_cleanup_rejects_wrong_disposal_identity_or_stop_proof[override1]" time="0.040"><failure message="AssertionError: attempted to remove a still-mounted partial workspace&#10;assert not True">packaged = (PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_partial_cleanup_rejects_w1/packaged/sourc...pository': 'https://github.com/teddashh/agentic-smart-home.git', 'commit': '1d3ae799430d6d8d6c5513bbf1fb01cf07168429'})
+tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_partial_cleanup_rejects_w1')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7b4cab025c50&gt;
+override = {'lease_epoch': 2}
+
+    @pytest.mark.parametrize("override", [{"job_id": "e" * 32}, {"lease_epoch": 2},
+                                         {"state": "cancelled"}, {"stop_confirmed": False}])
+    def test_partial_cleanup_rejects_wrong_disposal_identity_or_stop_proof(packaged, tmp_path, monkeypatch, override):
+        service, state = partial_service(packaged, tmp_path, monkeypatch)
+        payload = request()
+        try:
+            service.submit(payload)
+            service.threads[payload["id"]].join(3)
+            job = service.items[payload["id"]]
+            job.update(state="cancelled", stop_confirmed=True, retained_until=0)
+            state["override"] = override
+&gt;           service.prune()
+
+tests/test_home_coding_service.py:523: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+host/agentic_host/coding_service.py:439: in prune
+    shutil.rmtree(workspace)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_partial_cleanup_rejects_w1/data/coding/work/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+args = (), kwargs = {}
+
+    def remove(path, *args, **kwargs):
+        if Path(path).parent.name == "work":
+&gt;           assert not state["mounted"], "attempted to remove a still-mounted partial workspace"
+E           AssertionError: attempted to remove a still-mounted partial workspace
+E           assert not True
+
+tests/test_home_coding_service.py:456: AssertionError</failure></testcase><testcase classname="tests.test_home_coding_service" name="test_partial_cleanup_rejects_wrong_disposal_identity_or_stop_proof[override2]" time="0.025"><failure message="AssertionError: attempted to remove a still-mounted partial workspace&#10;assert not True">packaged = (PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_partial_cleanup_rejects_w2/packaged/sourc...pository': 'https://github.com/teddashh/agentic-smart-home.git', 'commit': '1d3ae799430d6d8d6c5513bbf1fb01cf07168429'})
+tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_partial_cleanup_rejects_w2')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7b4cab9a7890&gt;
+override = {'state': 'cancelled'}
+
+    @pytest.mark.parametrize("override", [{"job_id": "e" * 32}, {"lease_epoch": 2},
+                                         {"state": "cancelled"}, {"stop_confirmed": False}])
+    def test_partial_cleanup_rejects_wrong_disposal_identity_or_stop_proof(packaged, tmp_path, monkeypatch, override):
+        service, state = partial_service(packaged, tmp_path, monkeypatch)
+        payload = request()
+        try:
+            service.submit(payload)
+            service.threads[payload["id"]].join(3)
+            job = service.items[payload["id"]]
+            job.update(state="cancelled", stop_confirmed=True, retained_until=0)
+            state["override"] = override
+&gt;           service.prune()
+
+tests/test_home_coding_service.py:523: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+host/agentic_host/coding_service.py:439: in prune
+    shutil.rmtree(workspace)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_partial_cleanup_rejects_w2/data/coding/work/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+args = (), kwargs = {}
+
+    def remove(path, *args, **kwargs):
+        if Path(path).parent.name == "work":
+&gt;           assert not state["mounted"], "attempted to remove a still-mounted partial workspace"
+E           AssertionError: attempted to remove a still-mounted partial workspace
+E           assert not True
+
+tests/test_home_coding_service.py:456: AssertionError</failure></testcase><testcase classname="tests.test_home_coding_service" name="test_partial_cleanup_rejects_wrong_disposal_identity_or_stop_proof[override3]" time="0.063"><failure message="AssertionError: attempted to remove a still-mounted partial workspace&#10;assert not True">packaged = (PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_partial_cleanup_rejects_w3/packaged/sourc...pository': 'https://github.com/teddashh/agentic-smart-home.git', 'commit': '1d3ae799430d6d8d6c5513bbf1fb01cf07168429'})
+tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_partial_cleanup_rejects_w3')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7b4caa7e4140&gt;
+override = {'stop_confirmed': False}
+
+    @pytest.mark.parametrize("override", [{"job_id": "e" * 32}, {"lease_epoch": 2},
+                                         {"state": "cancelled"}, {"stop_confirmed": False}])
+    def test_partial_cleanup_rejects_wrong_disposal_identity_or_stop_proof(packaged, tmp_path, monkeypatch, override):
+        service, state = partial_service(packaged, tmp_path, monkeypatch)
+        payload = request()
+        try:
+            service.submit(payload)
+            service.threads[payload["id"]].join(3)
+            job = service.items[payload["id"]]
+            job.update(state="cancelled", stop_confirmed=True, retained_until=0)
+            state["override"] = override
+&gt;           service.prune()
+
+tests/test_home_coding_service.py:523: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+host/agentic_host/coding_service.py:439: in prune
+    shutil.rmtree(workspace)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-205305-9TOjRz/bt/test_partial_cleanup_rejects_w3/data/coding/work/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+args = (), kwargs = {}
+
+    def remove(path, *args, **kwargs):
+        if Path(path).parent.name == "work":
+&gt;           assert not state["mounted"], "attempted to remove a still-mounted partial workspace"
+E           AssertionError: attempted to remove a still-mounted partial workspace
+E           assert not True
+
+tests/test_home_coding_service.py:456: AssertionError</failure></testcase></testsuite></testsuites>

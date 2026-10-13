@@ -336,6 +336,10 @@ class CodingSandbox:
             # The broker uses umask 077. Make trusted tests traversable by the
             # unprivileged verifier without giving it directory write access.
             tests.chmod(0o555)
+            # Baseline tests resolve product helpers relative to their parent.
+            # Keep those tests immutable while exercising the candidate helper
+            # tree through a fixed alias owned by the trusted workspace root.
+            (mount / "scripts").symlink_to("source/scripts", target_is_directory=True)
             (mount / "verification.ini").write_text("[pytest]\nasyncio_mode=auto\n")
             (mount / "verification.ini").chmod(0o444)
         return mount

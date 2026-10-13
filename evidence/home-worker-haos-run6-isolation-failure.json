@@ -1,0 +1,288 @@
+{
+  "kind": "real_haos_home_coding_worker",
+  "status": "failed",
+  "observed_from": "haos_app",
+  "haos_image": "18.3",
+  "delivery": "local_supervisor_derived_transport_fixture",
+  "cloud": "fixed_model_transport_no_real_cloud_account",
+  "source_task": "documentation_only_patch_on_shipped_source",
+  "not_acceptance": [
+    "real_model_auth",
+    "autonomous_research_quality",
+    "physical_household",
+    "E2"
+  ],
+  "checks": {
+    "product_image_layers_verified": true
+  },
+  "phase": "actual_app_identity",
+  "source_commit": "5a2f2b2ad7b52660395b0562456556f379b65ad4",
+  "runtime_source_uncommitted": true,
+  "runner_base_image_id": "sha256:bab55d9f73bfe945cecd1a5411756c206bc8402b358a4c776a56abf371d1d80c",
+  "controller_image_id": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
+  "core": "2026.10.1",
+  "supervisor": "2026.09.3",
+  "app_config_sha256": "80faf7db1f8140353380d2733c43e45466a1af4ce8f72bb6206513e6b3b4480a",
+  "app_apparmor_sha256": "c208b82eb64a1cdb59fe28ae05f653109d8cab5d52319d7c84a73c53a9107271",
+  "fixture_helper_sha256": "191e7d81821a8053e5d223645f5f46de08e3848f14193d62bf5a31575326ed28",
+  "runner_oci_config_digest": "sha256:cadb03efb14cf49d545f16b59078cfe9e9ea69c14f6f02f1857ff634d1cbfbac",
+  "registry_fixture": {
+    "scope": "disposable_haos_loopback_only",
+    "upstream": "registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e",
+    "registry_config_digest": "sha256:99b916d8206bcbfc54c95fb06076751932c902254277f149b082dd5d4d67fccb",
+    "base_reference": "127.0.0.1:5000/agentic-home-runner@sha256:2a6415f6a17317df469b6ac0b2fae65223ce5d6d082a4a0662a1e3f615dded03",
+    "base_config_digest_verified": true
+  },
+  "install_confirmation": "app_postcondition_job_unavailable",
+  "app_contract": {
+    "slug": "local_agentic_runner",
+    "version": "0.7.0",
+    "apparmor_policy": "profile",
+    "privileged": [
+      "SYS_ADMIN"
+    ],
+    "no_ha_supervisor_or_docker_api": true,
+    "host_pid": false,
+    "host_network": false,
+    "full_access": false,
+    "devices": [
+      "/dev/fuse"
+    ]
+  },
+  "app_container_observation": {
+    "apparmor_profile": "local_agentic_runner",
+    "cap_add": [
+      "SYS_ADMIN"
+    ],
+    "unknown_cap_count": 0,
+    "privileged": false,
+    "host_pid": false,
+    "host_network": false,
+    "device_cgroup_rules": [
+      "c 10:229 rwm"
+    ],
+    "unrecognized_device_rule_count": 0,
+    "direct_device_mapping_count": 0,
+    "state": {
+      "Running": true,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Status": "running",
+      "ExitCode": 0
+    }
+  },
+  "actual_apparmor_profile": "local_agentic_runner",
+  "derived_fixture_image_id": "sha256:dd56d1458d44714c904fe2e82bf83659b79e76767d963ca933836b5c6dde980b",
+  "startup_boundaries": {
+    "checks": {},
+    "cleanup": "passed",
+    "errno": null,
+    "error_code": "boundary_program_failed",
+    "error_type": "AssertionError",
+    "last_job": {
+      "cgroup_populated": false,
+      "exit_code": 1,
+      "oom_killed": false,
+      "state": "failed",
+      "stop_confirmed": true
+    },
+    "launcher_diagnostic": {
+      "available": false
+    },
+    "observed_from": "haos_app",
+    "phase": "quota",
+    "quota_counters": {
+      "cgroup.events": {
+        "frozen": 0,
+        "populated": 0
+      },
+      "cpu.stat": {
+        "burst_usec": 0,
+        "nice_usec": 0,
+        "nr_bursts": 0,
+        "nr_periods": 3,
+        "nr_throttled": 0,
+        "system_usec": 1214,
+        "throttled_usec": 0,
+        "usage_usec": 12140,
+        "user_usec": 10926
+      },
+      "memory.events": {
+        "high": 0,
+        "low": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_group_kill": 0,
+        "oom_kill": 0
+      },
+      "pids.events": {
+        "max": 0
+      }
+    },
+    "runtime": {
+      "boundary_contract": 1,
+      "controllers": [
+        "cpu",
+        "memory",
+        "pids"
+      ],
+      "namespace_ids": {
+        "cgroup_ns": 4026532351,
+        "mnt_ns": 4026532875,
+        "pid_ns": 4026532350
+      },
+      "observed_from": "haos_app",
+      "private_cgroup_root": true,
+      "worker_network": "private_namespace_relay_only"
+    },
+    "source_commit": "5a2f2b2ad7b52660395b0562456556f379b65ad4",
+    "status": "failed",
+    "stderr_summary": {
+      "available": true,
+      "bubblewrap": true,
+      "missing_file": false,
+      "missing_module": false,
+      "mount": false,
+      "namespace": false,
+      "no_space": false,
+      "operation_not_permitted": false,
+      "permission_denied": true,
+      "pivot_root": false,
+      "pytest_collection": false,
+      "python_exception": false,
+      "scanned_bytes": 49,
+      "truncated": false
+    }
+  },
+  "error_type": "AssertionError",
+  "error_code": "actual_boundary_limits_failed",
+  "errno": null,
+  "owned_runtime_observation": {
+    "vm": {
+      "state_returncode": 0,
+      "state": {
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 2967309,
+        "ExitCode": 0,
+        "Status": "running"
+      },
+      "events_returncode": 0,
+      "events": [
+        {
+          "action": "create",
+          "timeNano": 1791849651863516133
+        },
+        {
+          "action": "start",
+          "timeNano": 1791849652051404334
+        }
+      ]
+    },
+    "outer": {
+      "state_returncode": 1,
+      "events_returncode": 0,
+      "events": []
+    }
+  },
+  "failure_app_state": "started",
+  "failure_startup": {
+    "state": "ready",
+    "checks": {}
+  },
+  "failure_boundaries": {
+    "status": "failed",
+    "phase": "quota",
+    "cleanup": "passed",
+    "observed_from": "haos_app",
+    "error_type": "AssertionError",
+    "error_code": "boundary_program_failed",
+    "launcher_diagnostic": {
+      "available": false,
+      "checks": {}
+    },
+    "checks": {},
+    "last_job": {
+      "state": "failed",
+      "stop_confirmed": true,
+      "artifact_count": 0,
+      "evidence_count": 0,
+      "verification": {},
+      "oom_killed": false,
+      "cgroup_populated": false,
+      "exit_code": 1
+    },
+    "stderr_summary": {
+      "available": true,
+      "bubblewrap": true,
+      "missing_file": false,
+      "missing_module": false,
+      "mount": false,
+      "namespace": false,
+      "no_space": false,
+      "operation_not_permitted": false,
+      "permission_denied": true,
+      "pivot_root": false,
+      "pytest_collection": false,
+      "python_exception": false,
+      "truncated": false,
+      "scanned_bytes": 49
+    },
+    "quota_counters": {
+      "cgroup.events": {
+        "frozen": 0,
+        "populated": 0
+      },
+      "cpu.stat": {
+        "burst_usec": 0,
+        "nr_bursts": 0,
+        "nr_periods": 3,
+        "nr_throttled": 0,
+        "system_usec": 1214,
+        "throttled_usec": 0,
+        "usage_usec": 12140,
+        "user_usec": 10926
+      },
+      "memory.events": {
+        "high": 0,
+        "low": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_group_kill": 0,
+        "oom_kill": 0
+      },
+      "pids.events": {
+        "max": 0
+      }
+    }
+  },
+  "app_stderr_summary": {
+    "available": true,
+    "scanned_bytes": 630,
+    "truncated": false,
+    "bubblewrap": false,
+    "permission_denied": false,
+    "operation_not_permitted": false,
+    "pivot_root": false,
+    "mount": false,
+    "namespace": false,
+    "missing_file": false,
+    "python_exception": false,
+    "no_space": false,
+    "missing_module": false,
+    "pytest_collection": false
+  },
+  "failure_hold_seconds": 180,
+  "cleanup": {
+    "outer_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "duration_seconds": 455.101
+}

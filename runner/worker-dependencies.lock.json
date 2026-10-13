@@ -1,0 +1,11 @@
+{
+  "distribution": "debian-bookworm-amd64",
+  "packages": {
+    "bubblewrap": "0.8.0-2+deb12u1",
+    "fuse2fs": "1.47.0-2+b2",
+    "e2fsprogs": "1.47.0-2+b2",
+    "util-linux": "2.38.1-5+deb12u3",
+    "libseccomp2": "2.5.4-1+deb12u1"
+  },
+  "boundary_contract": 1
+}

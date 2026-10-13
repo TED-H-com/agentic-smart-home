@@ -362,14 +362,13 @@ def create_api(broker):
     async def retention(body: Retention):
         broker.settings({"context_days": body.context_days})
         broker.prune()
-        if os.environ.get("AGENTIC_HOST_MODE") == "1":
-            from .coding import host_request
-            try:
-                status, _ = await host_request("POST", "/retention", body.model_dump())
-                if status != 200:
-                    raise HTTPException(503, "coding_retention_pending")
-            except (OSError, ValueError, TimeoutError):
-                raise HTTPException(503, "coding_retention_pending") from None
+        from .coding import backend_request
+        try:
+            status, _ = await backend_request(broker, "POST", "/retention", body.model_dump())
+            if status != 200:
+                raise HTTPException(503, "coding_retention_pending")
+        except (OSError, ValueError, TimeoutError):
+            raise HTTPException(503, "coding_retention_pending") from None
         return {"context_days": body.context_days, "identity_limit": MAX_IDENTITIES}
 
     @app.get("/retention")
@@ -540,8 +539,19 @@ def create_ingress(broker, ingress_ip="172.30.32.2"):
 async def serve():
     os.umask(0o077)
     root = Path(os.environ.get("AGENTIC_DATA", "/data"))
-    broker = Broker(root)
     host_mode = os.environ.get("AGENTIC_HOST_MODE") == "1"
+    home_runtime_ready = False
+    if not host_mode:
+        from agentic_host.coding_sandbox import SandboxError
+
+        from .home_launcher import BoundaryError, initialize_home_runtime
+        # Namespace setup must precede Broker construction and all background threads.
+        try:
+            initialize_home_runtime()
+            home_runtime_ready = True
+        except (OSError, ValueError, SandboxError, BoundaryError):
+            pass  # Legacy operator remains available; coding still requires its hard boundary.
+    broker = Broker(root)
     if host_mode:
         from .coding import host_request
         try:
@@ -552,6 +562,7 @@ async def serve():
         except Exception:
             pass  # Missing trusted identity never enables reconciliation.
     token = os.environ.pop("SUPERVISOR_TOKEN", "")
+    os.environ.pop("HASSIO_TOKEN", None)  # Supervisor also injects this legacy alias.
     if not broker.setting("token_hash"):
         hostname = os.environ.get("HOSTNAME", "local-agentic-runner").replace("_", "-")
         if token:
@@ -572,6 +583,20 @@ async def serve():
         else:
             print("一次性配對資料（私人資料，10 分鐘有效）：" + json.dumps(pairing), flush=True)
     del token
+    if not host_mode:
+        from .home_service import HomeService
+        home_coding = None
+        try:
+            home_coding = await asyncio.to_thread(HomeService, root, runtime_ready=home_runtime_ready)
+            await asyncio.to_thread(home_coding.prune, broker.setting("context_days") or 7)
+        except (OSError, ValueError, SandboxError, BoundaryError):
+            if home_coding is not None:
+                try:
+                    await asyncio.to_thread(home_coding.close)
+                except (OSError, ValueError, SandboxError, BoundaryError):
+                    pass  # No dispatch handle is published; persisted uncertainty remains fenced.
+        else:
+            broker.home_coding = home_coding
     api = uvicorn.Server(uvicorn.Config(create_api(broker), host="127.0.0.1" if host_mode else "0.0.0.0", port=8443,
         ssl_certfile=str(broker.cert), ssl_keyfile=str(broker.key), proxy_headers=False, access_log=False))
     ingress = uvicorn.Server(uvicorn.Config(create_ingress(broker), host="127.0.0.1" if host_mode else "0.0.0.0", port=8098 if host_mode else 8099,
@@ -605,6 +630,8 @@ async def serve():
             await broker.providers.stop(proc)
         for proc in list(coding.processes.values()):
             await coding.stop(proc)
+        if getattr(broker, "home_coding", None) is not None:
+            await asyncio.to_thread(broker.home_coding.close)
         broker.db.close()
 
 

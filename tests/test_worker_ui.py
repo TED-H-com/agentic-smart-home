@@ -39,6 +39,71 @@ def common(path):
             'host/status': {'vm': 'running', 'profile': {'label': '家庭筆電', 'memory_mib': 4096, 'vcpus': 2}, 'storage_free_bytes': 80 * 1024**3, 'jobs': [], 'snapshots': [], 'provisioned': True}}.get(path)
 
 
+def mount_home_verifier_fixture(page, origin):
+    """Compiled browser, synthetic API receipt; no Home execution claim."""
+    job = {'id': '9' * 32, 'case_id': '8' * 32, 'worker_id': 'home-coder', 'mode': 'development', 'provider': 'codex',
+        'goal': '調查家庭連線', 'state': 'succeeded', 'execution_started': True, 'stop_confirmed': True,
+        'created_at': '2026-10-12T19:00:00Z', 'runtime_location': 'haos_app', 'facts': ['調查結果與測試紀錄已保存。'],
+        'artifacts': [], 'verification': {'observed_from': 'independent_home_verifier', 'state': 'passed',
+            'tests_executed': 12, 'patch_sha256': 'a' * 64}}
+    errors, posts = [], []
+    def route(route):
+        req = route.request
+        path = req.url.split('/api/')[1]
+        if req.method != 'GET':
+            posts.append(path)
+        value = common(path)
+        if value is not None:
+            pass
+        elif path == 'workers':
+            value = {'workers': [], 'active_job_id': None}
+        elif path == 'worker/jobs':
+            value = {'jobs': [job], 'active_job_id': None}
+        else:
+            raise AssertionError(path)
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.route('**/api/**', route)
+    page.goto(origin + '/#workers')
+    page.get_by_role('heading', name=job['goal'], exact=True).wait_for()
+    return job, errors, posts
+
+
+def verifier_screenshot(page, stage, widths=(1440, 768, 390)):
+    output = ROOT / 'evidence/ui/home-verifier'
+    output.mkdir(parents=True, exist_ok=True)
+    for width in widths:
+        page.set_viewport_size({'width': width, 'height': 900 if width == 1440 else 844})
+        page.evaluate('window.scrollTo(0,0)')
+        page.wait_for_timeout(400)
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        page.screenshot(path=str(output / f'{stage}-{width}.png'), full_page=True)
+
+
+def test_home_and_host_verification_show_exact_source_unknown_is_hidden(ui_page):
+    page, origin = ui_page
+    job, errors, posts = mount_home_verifier_fixture(page, origin)
+    section = page.locator('.worker-findings').filter(has=page.get_by_role('heading', name='獨立驗證', exact=True))
+    expect(section).to_be_visible()
+    expect(section.locator('.helper-text')).to_contain_text('家庭現場助手')
+    expect(section.locator('.status')).to_have_text('passed')
+    verifier_screenshot(page, 'after')
+    section.get_by_text('查看驗證證據', exact=True).click()
+    expect(section.locator('pre')).to_contain_text('independent_home_verifier')
+    expect(section.locator('pre')).to_contain_text('a' * 64)
+    job['worker_id'] = 'host-coder'
+    job['verification']['observed_from'] = 'independent_host_verifier'
+    page.reload()
+    expect(section.locator('.helper-text')).to_contain_text('外層開發助手')
+    expect(section.locator('.helper-text')).not_to_contain_text('家庭現場助手')
+    job['verification']['observed_from'] = 'unknown_model_claim'
+    page.reload()
+    page.get_by_role('heading', name=job['goal'], exact=True).wait_for()
+    expect(page.get_by_role('heading', name='獨立驗證', exact=True)).to_have_count(0)
+    expect(page.get_by_text('查看驗證證據', exact=True)).to_have_count(0)
+    assert not errors and not posts
+
+
 def screenshot(page, name):
     for width in (1440, 768, 390):
         page.set_viewport_size({'width': width, 'height': 900 if width == 1440 else 844})

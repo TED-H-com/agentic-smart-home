@@ -39,6 +39,11 @@ async def test_quarantine_reconciliation_never_reruns_job(broker, monkeypatch):
 def broker(tmp_path):
     broker = Broker(tmp_path / "runner")
     broker.settings({"token_hash": hashlib.sha256(b"fixture-token").hexdigest()})
+    class LocalCodingFixture:
+        def handle(self, method, path, body=None):
+            assert method == "POST" and path == "/coding/retention"
+            return 200, body
+    broker.home_coding = LocalCodingFixture()
     yield broker
     broker.db.close()
 

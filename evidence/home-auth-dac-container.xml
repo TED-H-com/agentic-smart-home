@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="4.175" timestamp="2026-10-12T20:34:32.301964-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_home_coding_service" name="test_actual_coding_auth_uid1010_under_umask077" time="4.090" /></testsuite></testsuites>

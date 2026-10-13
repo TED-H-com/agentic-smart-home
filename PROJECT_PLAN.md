@@ -8,6 +8,8 @@ Owner：Ted Huang。方向版本：Steering v3.0，2026-10-11。匯入時應用�
 
 0.5.1 的 [E2E／架構審查](docs/reviews/2026-10-12-E2E-ARCHITECTURE.md) 是本輪基準。0.6.0 補上 Host 實際 coding 派工／role auth／egress、獨立測試、PNG 預覽、可信停止核對、全鏈 retention、Hermes 家庭提案 adapter 和固定同 schema Controller updater；使用及精確限制見 [Workers](docs/WORKERS.md)、[Updates](docs/UPDATES.md)。真帳號、Home App research 與家庭產品驗收仍分開記錄。
 
+0.8.0 增加 HAOS App 內的 Home Codex research／development、唯讀現場觀測、獨立 verifier 與停止後檢查點。先交付原始碼／App；0.7.0 安裝媒體證據不沿用成 0.8.0 ISO 驗收。真雲端研究品質、家庭 helpers 與更新／退版仍分別驗收，詳見 [Workers](docs/WORKERS.md)。
+
 ## 固定角色
 
 最新方向採原生 HA 日常介面＋「智能管家」Ingress App，連回同一外層 Hermes／Controller／case。HA 保留官方 Core／Supervisor／HAOS 更新路徑；外層只核對並有限次修復本產品 App，不復原使用者手動停止、移除或改動的設定。原生 Assist／語音的 Conversation adapter 另行開發，不能把 MCP 工具接點當作已完成的對話整合。

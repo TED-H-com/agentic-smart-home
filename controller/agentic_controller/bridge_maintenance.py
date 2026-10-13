@@ -33,9 +33,9 @@ TERMINAL = {"disabled", "user_disabled", "user_removed", "user_modified", "needs
 class BridgeRelease:
     """Trusted application configuration, never accepted from a browser/model."""
 
-    repository: str = "https://github.com/teddashh/agentic-smart-home#release/0.7.0"
+    repository: str = "https://github.com/teddashh/agentic-smart-home#release/0.8.0"
     app: str = "agentic_bridge"
-    version: str = "0.7.0"
+    version: str = "0.8.0"
 
 
 class BridgeFault(Exception):

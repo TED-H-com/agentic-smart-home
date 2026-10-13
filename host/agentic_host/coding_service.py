@@ -4,6 +4,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -13,7 +14,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .coding_program import VERIFY_PROGRAM, digest_request, program
+from .coding_program import digest_request, program, verification_program
 from .coding_relay import Relay, credentials
 from .coding_sandbox import CodingSandbox, Limits, SandboxError, command
 from .manager import atomic
@@ -23,7 +24,7 @@ TERMINAL = {"succeeded", "failed", "cancelled", "expired", "interrupted"}
 ARTIFACT_LIMIT = 180 * 1024
 
 
-def validate(body):
+def validate(body, worker_id="host-coder"):
     required = {"work_contract_major", "id", "case_id", "worker_id", "mode", "provider", "model", "repo_id",
                 "goal", "questions", "base_commit", "expires", "lease_epoch", "context_days"}
     if not isinstance(body, dict) or set(body) != required:
@@ -32,7 +33,7 @@ def validate(body):
         if not isinstance(body[field], str) or not re.fullmatch(r"[a-f0-9]{32}", body[field]):
             raise SandboxError("Invalid coding identity")
     if (body["work_contract_major"] != 1 or type(body["work_contract_major"]) is not int or
-        body["worker_id"] != "host-coder" or body["repo_id"] != "agentic-home" or body["provider"] != "codex" or
+        body["worker_id"] != worker_id or body["repo_id"] != "agentic-home" or body["provider"] != "codex" or
         body["mode"] not in {"research", "development"} or body["model"] not in ["", *MODELS]):
         raise SandboxError("Unsupported coding request")
     if (not isinstance(body["goal"], str) or not 1 <= len(body["goal"]) <= 4000 or
@@ -48,23 +49,55 @@ def validate(body):
     return body
 
 
+def validate_ledger(value):
+    """Reject malformed persisted data before accessing fields or attempting a stop."""
+    if not isinstance(value, dict):
+        raise ValueError("Invalid coding ledger root")
+    for identifier, job in value.items():
+        if (not isinstance(identifier, str) or not re.fullmatch(r"[a-f0-9]{32}", identifier) or
+            not isinstance(job, dict) or job.get("id") != identifier or
+            not isinstance(job.get("state"), str) or
+            job["state"] not in TERMINAL | {"queued", "running", "stop_unconfirmed"} or
+            type(job.get("execution_started")) is not bool or type(job.get("stop_confirmed")) is not bool or
+            "sandbox_attempted" in job and type(job["sandbox_attempted"]) is not bool or
+            any(type(job.get(key)) not in {int, float} or not math.isfinite(job[key])
+                for key in ("created", "retained_until")) or
+            "sandbox_job_id" in job and not isinstance(job["sandbox_job_id"], str)):
+            raise ValueError("Invalid coding ledger entry")
+    return value
+
+
 class CodingService:
-    def __init__(self, manager):
+    worker_id = "host-coder"
+    runtime_location = "host_container"
+
+    def __init__(self, manager, *, root=None, credential_path=None, source=None, source_lock_path=None,
+                 worker_id="host-coder", runtime_location="host_container",
+                 sandbox_factory=None, relay_factory=None, version_refs=None):
+        if (worker_id, runtime_location) not in {("host-coder", "host_container"), ("home-coder", "haos_app")}:
+            raise ValueError("Unsupported worker location")
         self.manager = manager
-        self.root = manager.root.parent / "coding"
+        self.worker_id, self.runtime_location = worker_id, runtime_location
+        self.sandbox_factory = sandbox_factory or CodingSandbox
+        self.relay_factory = relay_factory or Relay
+        self.version_refs = dict(version_refs or {})
+        self.verifier_location = "independent_home_verifier" if worker_id == "home-coder" else "independent_host_verifier"
+        self.verify_program = verification_program(self.verifier_location)
+        self.root = Path(root) if root is not None else manager.root.parent / "coding"
         self.root.mkdir(parents=True, mode=0o700, exist_ok=True)
         self.state_path = self.root / "jobs.json"
-        self.items = json.loads(self.state_path.read_text()) if self.state_path.exists() else {}
+        self.items = validate_ledger(json.loads(self.state_path.read_text()) if self.state_path.exists() else {})
         self.lock = threading.RLock()
         self.threads, self.relays, self.sandboxes = {}, {}, {}
-        self.credential_path = manager.root.parent / "runner/coding-auth/profiles/codex/auth.json"
-        self.source = self.root / "source"
+        self.credential_path = Path(credential_path) if credential_path is not None else manager.root.parent / "runner/coding-auth/profiles/codex/auth.json"
+        self.source = Path(source) if source is not None else self.root / "source"
+        self.source_lock_path = Path(source_lock_path) if source_lock_path is not None else self.root / "source.json"
         self.image = None
         self.auth_lock = self.root / "auth-lock.json"
         self.closing = False
         self.capability_cache = None
         try:
-            images = json.loads((manager.product / "images.lock.json").read_text())
+            images = json.loads((manager.product / "images.lock.json").read_text()) if manager is not None else {}
             choices = [v for k, v in images.items() if re.fullmatch(r"agentic-home-runner:[0-9.]+", k)]
             if len(choices) == 1 and re.fullmatch(r"sha256:[a-f0-9]{64}", choices[0]):
                 self.image = choices[0]
@@ -96,18 +129,18 @@ class CodingService:
     def persist(self):
         atomic(self.state_path, self.items)
 
-    def sandbox(self, relay=None):
-        if not self.image:
+    def sandbox(self, relay=None, *, limits=None, inputs=None):
+        if self.worker_id == "host-coder" and not self.image:
             raise SandboxError("Pinned runner image unavailable")
-        return CodingSandbox(self.root / "work", self.image, {"agentic-home": self.source},
-                             limits=Limits(disk_mib=512, memory_mib=768, pids=128, wall_seconds=300,
-                                           artifact_bytes=4 * 1024**2, artifact_files=14, web_artifacts=True), relay=relay)
+        return self.sandbox_factory(self.root / "work", self.image, {"agentic-home": self.source},
+                             limits=limits or Limits(disk_mib=512, memory_mib=768, pids=128, wall_seconds=300,
+                                           artifact_bytes=4 * 1024**2, artifact_files=14, web_artifacts=True), relay=relay, inputs=inputs)
 
     def capabilities(self):
         ready, reason = False, "source_or_image_unavailable"
         if self.capability_cache and time.monotonic() - self.capability_cache[0] < 20:
             ready, reason = self.capability_cache[1:]
-        elif self.image and self.source.exists():
+        elif (self.image or self.worker_id == "home-coder") and self.source.exists():
             try:
                 self.sandbox().preflight()
                 ready, reason = True, None
@@ -124,21 +157,21 @@ class CodingService:
                 credential_state = "needs_reauth"
         except (OSError, ValueError, SandboxError):
             pass
-        return {"work_contract_major": 1, "worker_id": "host-coder", "runtime_location": "host_container",
+        return {"work_contract_major": 1, "worker_id": self.worker_id, "runtime_location": self.runtime_location,
                 "available": ready, "state": "ready" if ready else "blocked", "reason": reason,
                 "modes": ["research", "development"] if ready else [], "max_wall_seconds": 300,
                 "providers": [{"id": "codex", "supported": ready, "models": MODELS,
                                "auth_methods": ["device_code", "api_key"], "credential_state": credential_state}]}
 
     def public(self, job):
-        return {k: v for k, v in job.items() if k not in {"request", "digest", "retained_until", "sandbox_job_id"}}
+        return {k: v for k, v in job.items() if k not in {"request", "digest", "retained_until", "sandbox_job_id", "sandbox_attempted"}}
 
     def active(self):
         return any(not value.get("stop_confirmed", False) for value in self.items.values())
 
     def refused(self, body, digest, reason):
         job = {k: body[k] for k in ("id", "case_id", "worker_id", "mode", "provider", "lease_epoch", "work_contract_major")}
-        job.update(state="failed", execution_started=False, stop_confirmed=True, runtime_location="host_container",
+        job.update(state="failed", execution_started=False, stop_confirmed=True, runtime_location=self.runtime_location,
                    base_commit=None, findings={}, evidence=[], artifacts=[], error_code=reason, request=body,
                    digest=digest, created=time.time(), retained_until=time.time() + body["context_days"] * 86400)
         self.items[body["id"]] = job
@@ -146,7 +179,7 @@ class CodingService:
         return 202, self.public(job)
 
     def submit(self, body):
-        body = validate(body)
+        body = validate(body, self.worker_id)
         digest = digest_request(body)
         with self.lock:
             if body["id"] in self.items:
@@ -167,12 +200,12 @@ class CodingService:
             except (OSError, ValueError, SandboxError):
                 return self.refused(body, digest, "coding_needs_auth")
             commit = command("git", "--git-dir", str(self.source), "rev-parse", "HEAD").stdout.strip()
-            lock = json.loads((self.root / "source.json").read_text())
+            lock = json.loads(self.source_lock_path.read_text())
             if (not re.fullmatch(r"[a-f0-9]{40}", commit) or body["base_commit"] not in {None, commit}
                 or lock.get("commit") != commit or lock.get("repo_id") != "agentic-home"):
                 return self.refused(body, digest, "coding_source_revision_mismatch")
             job = {k: body[k] for k in ("id", "case_id", "worker_id", "mode", "provider", "lease_epoch", "work_contract_major")}
-            job.update(state="queued", execution_started=False, stop_confirmed=False, runtime_location="host_container",
+            job.update(state="queued", execution_started=False, stop_confirmed=False, runtime_location=self.runtime_location,
                        base_commit=commit, findings={k: [] for k in ("facts", "inferences", "unknowns", "experiments", "next_steps")},
                        evidence=[], artifacts=[], error_code=None, request=body, digest=digest,
                        created=time.time(), retained_until=time.time() + body["context_days"] * 86400)
@@ -190,13 +223,17 @@ class CodingService:
                 job = self.items[id]
                 if job["state"] != "queued":
                     return
-                relay = Relay(self.root / "relays" / (id + ".sock"), self.credential_path, job["request"]["expires"])
+                relay = self.relay_factory(self.root / "relays" / (id + ".sock"), self.credential_path, job["request"]["expires"])
                 relay.model = job["request"]["model"] or "gpt-6-astra"
                 relay.start()
                 self.relays[id] = relay
                 sandbox = self.sandbox(relay.path)
                 self.sandboxes[id] = sandbox
-                sandbox.launch(id, job["lease_epoch"], "agentic-home", job["base_commit"], program(job["request"]))
+                # A failed launch acknowledgement can still leave a mounted
+                # filesystem or writer. Persist the attempt before allocation.
+                job["sandbox_attempted"] = True
+                self.persist()
+                sandbox.launch(id, job["lease_epoch"], "agentic-home", job["base_commit"], program(job["request"], observed_from=self.runtime_location))
                 job.update(state="running", execution_started=True)
                 self.persist()
             while True:
@@ -240,18 +277,36 @@ class CodingService:
                     self.persist()
 
     def release_workspace(self, job):
-        if not job.get("execution_started") or job.get("workspace_released"):
-            return
+        if not job.get("stop_confirmed"):
+            return False
+        if job.get("workspace_released"):
+            return True
         try:
-            for id in {job["id"], job.get("sandbox_job_id")} - {None}:
-                self.sandbox().dispose(id)
+            attempted = job.get("execution_started") or job.get("sandbox_attempted")
+            disposed = False
+            for id in sorted({job["id"], job.get("sandbox_job_id")} - {None}):
                 path = self.root / "work" / id
+                # Old records have no attempt marker. Existing exact ledger or
+                # directory still requires disposal; absence is never a stop proof.
+                if not attempted and id == job["id"] and not any(os.path.lexists(p)
+                        for p in (path, self.root / "work" / (id + ".json"))):
+                    continue
+                result = self.sandbox().dispose(id)
+                if (not isinstance(result, dict) or result.get("job_id") != id or
+                    result.get("lease_epoch") != job.get("lease_epoch") or result.get("state") != "disposed" or
+                    self.worker_id == "home-coder" and result.get("stop_confirmed") is not True or
+                    path.is_symlink() or os.path.ismount(path) or os.path.ismount(path / "workspace")):
+                    raise SandboxError("Workspace disposal not confirmed")
                 if path.exists():
                     shutil.rmtree(path)
-            job["workspace_released"] = True
+                disposed = True
+            if disposed:
+                job["workspace_released"] = True
             job.pop("cleanup_pending", None)
-        except (OSError, SandboxError):
+            return True
+        except (OSError, ValueError, SandboxError):
             job["cleanup_pending"] = True
+            return False
 
     def collect(self, job, sandbox):
         workspace = sandbox.root / job["id"] / "workspace"
@@ -305,9 +360,9 @@ class CodingService:
         content = {"base_commit": job["base_commit"], "cli_version": "0.157.1", "exit_code": job.get("exit_code")}
         digest = hashlib.sha256(json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         job["evidence"] = [{"evidence_id": hashlib.sha256((job["id"] + "execution").encode()).hexdigest()[:32],
-            "observed_from": "host_container", "target_component": "isolated_repository",
+            "observed_from": self.runtime_location, "target_component": "isolated_repository",
             "collection_method": "pinned_codex_tools", "observed_at": datetime.now(UTC).isoformat(),
-            "version_refs": {"codex": "0.157.1", "source": job["base_commit"]}, "content": content,
+            "version_refs": {**self.version_refs, "codex": "0.157.1", "source": job["base_commit"]}, "content": content,
             "content_digest": digest, "redaction": "fixed_public_fields",
             "limitations": ["No live household or deployment access", "CLI claims remain untrusted"]}]
         if job["state"] == "succeeded":
@@ -321,14 +376,13 @@ class CodingService:
             job.update(state="failed", error_code="verification_deadline_exhausted")
             return
         id = job["id"] + "-verify"
-        sandbox = CodingSandbox(self.root / "work", self.image, {"agentic-home": self.source},
-                                limits=Limits(disk_mib=512, memory_mib=768, pids=128,
+        sandbox = self.sandbox(limits=Limits(disk_mib=512, memory_mib=768, pids=128,
                                               wall_seconds=min(remaining, 300)), inputs={"candidate.patch": patch})
         job.update(state="running", stop_confirmed=False, sandbox_job_id=id,
                    verification={"state": "running", "patch_sha256": hashlib.sha256(patch).hexdigest()})
         self.sandboxes[job["id"]] = sandbox
         self.persist()
-        sandbox.launch(id, job["lease_epoch"], "agentic-home", job["base_commit"], VERIFY_PROGRAM)
+        sandbox.launch(id, job["lease_epoch"], "agentic-home", job["base_commit"], self.verify_program)
         # Drop the broker lock between observations so explicit cancellation remains effective.
         while True:
             self.lock.release()
@@ -345,9 +399,9 @@ class CodingService:
             job.update(state=result["state"], stop_confirmed=stopped)
             if stopped:
                 job["verification"] = {"state": "passed" if result["state"] == "succeeded" else "failed",
-                    "patch_sha256": hashlib.sha256(patch).hexdigest(), "observed_from": "independent_host_verifier",
+                    "patch_sha256": hashlib.sha256(patch).hexdigest(), "observed_from": self.verifier_location,
                     "exit_code": result.get("exit_code"), "stop_confirmed": True, "trusted_tests": "pinned_baseline",
-                    "test_command_sha256": hashlib.sha256(VERIFY_PROGRAM.encode()).hexdigest(), "network": "none"}
+                    "test_command_sha256": hashlib.sha256(self.verify_program.encode()).hexdigest(), "network": "none"}
                 for entry in sandbox.artifacts(id):
                     raw = entry["content"].encode()
                     if len(raw) > ARTIFACT_LIMIT:
@@ -377,13 +431,15 @@ class CodingService:
                         self.collect(job, self.sandbox())
                     except (OSError, SandboxError):
                         job["error_code"] = "checkpoint_export_failed"
+            if job["stop_confirmed"]:
+                self.release_workspace(job)
             self.persist()
             return self.public(job)
 
     def prune(self, days=None):
         with self.lock:
             for job in self.items.values():
-                if job.get("stop_confirmed") and job.get("cleanup_pending"):
+                if job.get("stop_confirmed") and not job.get("workspace_released"):
                     self.release_workspace(job)
                 if days is not None:
                     job["retained_until"] = min(job["retained_until"], job["created"] + days * 86400)
@@ -392,23 +448,12 @@ class CodingService:
                 self.cancel(job["id"])
                 if not job["stop_confirmed"]:
                     continue
+                if not self.release_workspace(job):
+                    job["error_code"] = "retention_workspace_cleanup_pending"
+                    continue
                 path = self.root / "artifacts" / job["id"]
                 if path.exists():
                     shutil.rmtree(path)
-                try:
-                    if job["execution_started"] and not job.get("workspace_released"):
-                        for sandbox_id in (job["id"], job.get("sandbox_job_id")):
-                            if sandbox_id:
-                                self.sandbox().dispose(sandbox_id)
-                                directory = self.root / "work" / sandbox_id
-                                if directory.exists():
-                                    shutil.rmtree(directory)
-                    workspace = self.root / "work" / job["id"]
-                    if workspace.exists():
-                        shutil.rmtree(workspace)
-                except (OSError, SandboxError):
-                    job["error_code"] = "retention_workspace_cleanup_pending"
-                    continue
                 job.update(state="expired", content_expired=True, request=None, findings={}, evidence=[], artifacts=[])
             self.persist()
 

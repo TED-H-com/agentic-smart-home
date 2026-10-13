@@ -37,6 +37,11 @@ class CodingCredentials(Providers):
     def __init__(self, root):
         root.mkdir(mode=0o711, exist_ok=True)
         root.chmod(0o711)
+        # Explicitly restore traversal under the service's umask 0077. The
+        # provider UID must reach its own 0700 home without listing siblings.
+        profiles = root / "profiles"
+        profiles.mkdir(mode=0o711, exist_ok=True)
+        profiles.chmod(0o711)
         super().__init__(root)
 
     def uid(self, provider):
@@ -65,14 +70,6 @@ def save_receipt(path: Path, value):
     os.replace(temporary, path)
 
 
-def home_capabilities():
-    return {"work_contract_major": 1, "worker_id": "home-coder", "runtime_location": "haos_app",
-            "available": False, "state": "blocked", "modes": [],
-            "reason": "haos_hard_quota_and_namespace_boundary_unverified", "max_wall_seconds": 300,
-            "providers": [{"id": "codex", "supported": False, "models": [],
-                           "auth_methods": [], "credential_state": "unavailable"}]}
-
-
 async def host_request(method, path, body=None):
     # Fixed Unix socket, never an address received in a model/browser envelope.
     connector = aiohttp.UnixConnector(path="/run/agentic-home/host.sock")
@@ -82,6 +79,22 @@ async def host_request(method, path, body=None):
             if len(raw) > 262144:
                 raise ValueError("coding_response_limit")
             return response.status, json.loads(raw)
+
+
+async def backend_request(broker, method, path, body=None):
+    if os.environ.get("AGENTIC_HOST_MODE") == "1":
+        return await host_request(method, path, body)
+    service = getattr(broker, "home_coding", None)
+    if service is None:
+        if method == "GET" and path == "/capabilities":
+            return 200, {"work_contract_major": 1, "worker_id": "home-coder", "runtime_location": "haos_app",
+                "available": False, "state": "blocked", "modes": [], "max_wall_seconds": 300,
+                "reason": "home_coding_initialization_pending", "providers": [{"id": "codex", "supported": False,
+                    "models": [], "auth_methods": [], "credential_state": "unavailable"}]}
+        return 503, {"detail": "home_coding_initialization_pending"}
+    # The service performs bounded Git, process, cgroup and filesystem operations.
+    # Keep TLS status/auth and cancellation handlers responsive while those run.
+    return await asyncio.to_thread(service.handle, method, "/coding" + path, body)
 
 
 def routes(app, broker):
@@ -104,31 +117,23 @@ def routes(app, broker):
     def safe_receipt(id):
         return {k: v for k, v in receipts[id].items() if k != "digest"}
 
-    def host_only():
-        if os.environ.get("AGENTIC_HOST_MODE") != "1":
-            raise HTTPException(409, "haos_coding_boundary_unavailable")
-
     async def forward(method, path, body=None):
-        host_only()
         try:
-            status, value = await host_request(method, path, body)
+            status, value = await backend_request(broker, method, path, body)
             return JSONResponse(value, status_code=status)
         except (OSError, ValueError, aiohttp.ClientError, TimeoutError):
             raise HTTPException(503, "coding_broker_unavailable") from None
 
     @app.get("/coding/capabilities")
     async def capabilities():
-        if os.environ.get("AGENTIC_HOST_MODE") != "1":
-            return home_capabilities()
         return await forward("GET", "/capabilities")
 
     @app.post("/coding/reconcile")
     async def reconcile():
-        host_only()
         if auth_guard.locked():
             raise HTTPException(409, "coding_auth_in_progress")
         async def external(previous):
-            if "container_id" not in previous:
+            if os.environ.get("AGENTIC_HOST_MODE") != "1" or "container_id" not in previous:
                 return False
             try:
                 code, evidence = await host_request("POST", "/reconcile-runtime", previous)
@@ -147,8 +152,9 @@ def routes(app, broker):
 
     @app.post("/coding/jobs")
     async def submit(body: CodingJob):
-        if body.worker_id != "host-coder":
-            raise HTTPException(409, "haos_coding_boundary_unavailable")
+        expected = "host-coder" if os.environ.get("AGENTIC_HOST_MODE") == "1" else "home-coder"
+        if body.worker_id != expected:
+            raise HTTPException(409, "coding_worker_location_mismatch")
         return await forward("POST", "/jobs", body.model_dump())
 
     @app.get("/coding/jobs/{id}")
@@ -175,7 +181,6 @@ def routes(app, broker):
 
     @app.post("/coding/providers/codex/auth")
     async def login(body: CodingAuth):
-        host_only()
         digest = hashlib.sha256(body.model_dump_json().encode()).hexdigest()
         async with auth_guard:
             if body.id in receipts:
@@ -245,7 +250,6 @@ def routes(app, broker):
 
     @app.post("/coding/providers/codex/logout")
     async def logout(body: CodingAction):
-        host_only()
         async with auth_guard:
             if body.id in receipts:
                 if receipts[body.id]["digest"] != "logout":

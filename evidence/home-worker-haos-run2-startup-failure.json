@@ -1,0 +1,87 @@
+{
+  "kind": "real_haos_home_coding_worker",
+  "status": "failed",
+  "observed_from": "haos_app",
+  "haos_image": "18.3",
+  "delivery": "local_supervisor_derived_transport_fixture",
+  "cloud": "fixed_model_transport_no_real_cloud_account",
+  "source_task": "documentation_only_patch_on_shipped_source",
+  "not_acceptance": [
+    "real_model_auth",
+    "autonomous_research_quality",
+    "physical_household",
+    "E2"
+  ],
+  "checks": {},
+  "phase": "official_supervisor_install",
+  "source_commit": "5a2f2b2ad7b52660395b0562456556f379b65ad4",
+  "runtime_source_uncommitted": true,
+  "runner_base_image_id": "sha256:d2c00fa92b62576f3b6f7cb156e85c8ed0c816b120008ac6f7795473e853a414",
+  "controller_image_id": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
+  "core": "2026.10.1",
+  "supervisor": "2026.09.3",
+  "app_config_sha256": "18044bc7975365e3570e102c247aefa7a6bb57d6d9b25154b000ebe70b952a69",
+  "app_apparmor_sha256": "2a996d8a8cdfb36f4d93fbc6ba33cc2f9070cbbbc2918ed4653ec2a4ce646a16",
+  "fixture_helper_sha256": "6bff0f0ac87c1938dcd5c0d9b987517a6058f53c7a18bbafc977552a5e559b4d",
+  "runner_oci_config_digest": "sha256:67bbe1b63da5cea5fdbf6b40ffa3623cb37f97eae523eaf9b9ab7b9b988b0943",
+  "registry_fixture": {
+    "scope": "disposable_haos_loopback_only",
+    "upstream": "registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e",
+    "registry_config_digest": "sha256:99b916d8206bcbfc54c95fb06076751932c902254277f149b082dd5d4d67fccb",
+    "base_reference": "127.0.0.1:5000/agentic-home-runner@sha256:13a15a834169b885d80c98d2bfd226d2cf00991fb71e4725004e47897dbbd3a8",
+    "base_config_digest_verified": true
+  },
+  "install_confirmation": "app_postcondition_job_unavailable",
+  "app_contract": {
+    "slug": "local_agentic_runner",
+    "version": "0.7.0",
+    "apparmor_policy": "profile",
+    "privileged": [
+      "SYS_ADMIN"
+    ],
+    "no_ha_supervisor_or_docker_api": true,
+    "host_pid": false,
+    "host_network": false,
+    "full_access": false
+  },
+  "error_type": "AssertionError",
+  "owned_runtime_observation": {
+    "vm": {
+      "state_returncode": 0,
+      "state": {
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 2643226,
+        "ExitCode": 0,
+        "Status": "running"
+      },
+      "events_returncode": 0,
+      "events": [
+        {
+          "action": "create",
+          "timeNano": 1791846928191401207
+        },
+        {
+          "action": "start",
+          "timeNano": 1791846928764497927
+        }
+      ]
+    },
+    "outer": {
+      "state_returncode": 1,
+      "events_returncode": 0,
+      "events": []
+    }
+  },
+  "failure_app_state": "error",
+  "cleanup": {
+    "outer_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "duration_seconds": 323.693
+}

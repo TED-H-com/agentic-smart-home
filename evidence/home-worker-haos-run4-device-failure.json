@@ -1,0 +1,189 @@
+{
+  "kind": "real_haos_home_coding_worker",
+  "status": "failed",
+  "observed_from": "haos_app",
+  "haos_image": "18.3",
+  "delivery": "local_supervisor_derived_transport_fixture",
+  "cloud": "fixed_model_transport_no_real_cloud_account",
+  "source_task": "documentation_only_patch_on_shipped_source",
+  "not_acceptance": [
+    "real_model_auth",
+    "autonomous_research_quality",
+    "physical_household",
+    "E2"
+  ],
+  "checks": {
+    "product_image_layers_verified": true
+  },
+  "phase": "actual_app_identity",
+  "source_commit": "5a2f2b2ad7b52660395b0562456556f379b65ad4",
+  "runtime_source_uncommitted": true,
+  "runner_base_image_id": "sha256:4d2caebd9f3462a739d37a6927900a980785a17ae6f56f78dfc091d7b368ca3e",
+  "controller_image_id": "sha256:e15c6ca3af58e123b346dc19daad1a493e68076f8186809cefe35a178cd1ed60",
+  "core": "2026.10.1",
+  "supervisor": "2026.09.3",
+  "app_config_sha256": "18044bc7975365e3570e102c247aefa7a6bb57d6d9b25154b000ebe70b952a69",
+  "app_apparmor_sha256": "b06ba2715126a3f0253ae057355b7825f8a05f7ce6e87b715e6bbe39d2c109e2",
+  "fixture_helper_sha256": "1f1672b9a1e81be6f338ad70a8cbb4e013c6afbe3a43936fd6b12b54903b59c5",
+  "runner_oci_config_digest": "sha256:a525237dbe6e7f86336800deac776028419a0ffd549002ae989de7f218c8c8c4",
+  "registry_fixture": {
+    "scope": "disposable_haos_loopback_only",
+    "upstream": "registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e",
+    "registry_config_digest": "sha256:99b916d8206bcbfc54c95fb06076751932c902254277f149b082dd5d4d67fccb",
+    "base_reference": "127.0.0.1:5000/agentic-home-runner@sha256:64ded4adb51636f940197494cb770b99a110354b4c7f7b084078f586bb49c176",
+    "base_config_digest_verified": true
+  },
+  "install_confirmation": "app_postcondition_job_unavailable",
+  "app_contract": {
+    "slug": "local_agentic_runner",
+    "version": "0.7.0",
+    "apparmor_policy": "profile",
+    "privileged": [
+      "SYS_ADMIN"
+    ],
+    "no_ha_supervisor_or_docker_api": true,
+    "host_pid": false,
+    "host_network": false,
+    "full_access": false
+  },
+  "app_container_observation": {
+    "apparmor_profile": "local_agentic_runner",
+    "cap_add": [
+      "SYS_ADMIN"
+    ],
+    "unknown_cap_count": 0,
+    "privileged": false,
+    "host_pid": false,
+    "host_network": false,
+    "state": {
+      "Running": true,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Status": "running",
+      "ExitCode": 0
+    }
+  },
+  "actual_apparmor_profile": "local_agentic_runner",
+  "derived_fixture_image_id": "sha256:0802cabb4f58258976b4121c681fdbe9e45e683765b81b603b3882a902122f5e",
+  "startup_boundaries": {
+    "checks": {},
+    "cleanup": "passed",
+    "errno": null,
+    "error_code": "sandbox_rejected",
+    "error_type": "SandboxError",
+    "launcher_diagnostic": {
+      "available": true,
+      "errno": null,
+      "error_code": "home_fuse_mount_unavailable",
+      "error_type": "BoundaryError",
+      "mode": "prepare"
+    },
+    "observed_from": "haos_app",
+    "phase": "quota",
+    "runtime": {
+      "boundary_contract": 1,
+      "controllers": [
+        "cpu",
+        "memory",
+        "pids"
+      ],
+      "namespace_ids": {
+        "cgroup_ns": 4026532341,
+        "mnt_ns": 4026532875,
+        "pid_ns": 4026532340
+      },
+      "observed_from": "haos_app",
+      "private_cgroup_root": true,
+      "worker_network": "private_namespace_relay_only"
+    },
+    "source_commit": "5a2f2b2ad7b52660395b0562456556f379b65ad4",
+    "status": "failed",
+    "stderr_summary": {
+      "available": false
+    }
+  },
+  "error_type": "AssertionError",
+  "error_code": "actual_boundary_limits_failed",
+  "errno": null,
+  "owned_runtime_observation": {
+    "vm": {
+      "state_returncode": 0,
+      "state": {
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 2806767,
+        "ExitCode": 0,
+        "Status": "running"
+      },
+      "events_returncode": 0,
+      "events": [
+        {
+          "action": "create",
+          "timeNano": 1791848294400863520
+        },
+        {
+          "action": "start",
+          "timeNano": 1791848294838144229
+        }
+      ]
+    },
+    "outer": {
+      "state_returncode": 1,
+      "events_returncode": 0,
+      "events": []
+    }
+  },
+  "failure_app_state": "started",
+  "failure_startup": {
+    "state": "ready",
+    "checks": {}
+  },
+  "failure_boundaries": {
+    "status": "failed",
+    "phase": "quota",
+    "cleanup": "passed",
+    "observed_from": "haos_app",
+    "error_type": "SandboxError",
+    "error_code": "sandbox_rejected",
+    "launcher_diagnostic": {
+      "mode": "prepare",
+      "error_type": "BoundaryError",
+      "error_code": "home_fuse_mount_unavailable",
+      "available": true,
+      "checks": {}
+    },
+    "checks": {},
+    "stderr_summary": {
+      "available": false
+    }
+  },
+  "app_stderr_summary": {
+    "available": true,
+    "scanned_bytes": 630,
+    "truncated": false,
+    "bubblewrap": false,
+    "permission_denied": false,
+    "operation_not_permitted": false,
+    "pivot_root": false,
+    "mount": false,
+    "namespace": false,
+    "missing_file": false,
+    "python_exception": false,
+    "no_space": false,
+    "missing_module": false,
+    "pytest_collection": false
+  },
+  "failure_hold_seconds": 180,
+  "cleanup": {
+    "outer_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "duration_seconds": 514.601
+}

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="0.145" timestamp="2026-10-12T20:33:42.852010-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_home_coding_service" name="test_coding_auth_umask077_parent_traversable_and_profiles_private[False]" time="0.021"><failure message="AssertionError: assert (16832 &amp; 511) == 457&#10; +  where 16832 = os.stat_result(st_mode=16832, st_ino=63741037, st_dev=64512, st_nlink=6, st_uid=1000, st_gid=1000, st_size=4096, st_atime=1791851622, st_mtime=1791851622, st_ctime=1791851622).st_mode&#10; +    where os.stat_result(st_mode=16832, st_ino=63741037, st_dev=64512, st_nlink=6, st_uid=1000, st_gid=1000, st_size=4096, st_atime=1791851622, st_mtime=1791851622, st_ctime=1791851622) = stat()&#10; +      where stat = (PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-203342-OgYKd8/bt/test_coding_auth_umask077_pare0/coding-auth') / 'profiles').stat&#10; +        where PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-203342-OgYKd8/bt/test_coding_auth_umask077_pare0/coding-auth') = &lt;agentic_runner.coding.CodingCredentials object at 0x7cd866425940&gt;.root">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-203342-OgYKd8/bt/test_coding_auth_umask077_pare0')
+existing = False
+
+    @pytest.mark.parametrize("existing", [False, True])
+    def test_coding_auth_umask077_parent_traversable_and_profiles_private(tmp_path, existing):
+        root = tmp_path / "coding-auth"
+        previous = os.umask(0o077)
+        try:
+            if existing:
+                (root / "profiles").mkdir(parents=True, mode=0o700)
+            role = CodingCredentials(root)
+        finally:
+            os.umask(previous)
+        assert role.root.stat().st_mode &amp; 0o777 == 0o711
+&gt;       assert (role.root / "profiles").stat().st_mode &amp; 0o777 == 0o711
+E       AssertionError: assert (16832 &amp; 511) == 457
+E        +  where 16832 = os.stat_result(st_mode=16832, st_ino=63741037, st_dev=64512, st_nlink=6, st_uid=1000, st_gid=1000, st_size=4096, st_atime=1791851622, st_mtime=1791851622, st_ctime=1791851622).st_mode
+E        +    where os.stat_result(st_mode=16832, st_ino=63741037, st_dev=64512, st_nlink=6, st_uid=1000, st_gid=1000, st_size=4096, st_atime=1791851622, st_mtime=1791851622, st_ctime=1791851622) = stat()
+E        +      where stat = (PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-203342-OgYKd8/bt/test_coding_auth_umask077_pare0/coding-auth') / 'profiles').stat
+E        +        where PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-203342-OgYKd8/bt/test_coding_auth_umask077_pare0/coding-auth') = &lt;agentic_runner.coding.CodingCredentials object at 0x7cd866425940&gt;.root
+
+tests/test_home_coding_service.py:41: AssertionError</failure></testcase><testcase classname="tests.test_home_coding_service" name="test_coding_auth_umask077_parent_traversable_and_profiles_private[True]" time="0.002"><failure message="AssertionError: assert (16832 &amp; 511) == 457&#10; +  where 16832 = os.stat_result(st_mode=16832, st_ino=63741044, st_dev=64512, st_nlink=6, st_uid=1000, st_gid=1000, st_size=4096, st_atime=1791851622, st_mtime=1791851622, st_ctime=1791851622).st_mode&#10; +    where os.stat_result(st_mode=16832, st_ino=63741044, st_dev=64512, st_nlink=6, st_uid=1000, st_gid=1000, st_size=4096, st_atime=1791851622, st_mtime=1791851622, st_ctime=1791851622) = stat()&#10; +      where stat = (PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-203342-OgYKd8/bt/test_coding_auth_umask077_pare1/coding-auth') / 'profiles').stat&#10; +        where PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-203342-OgYKd8/bt/test_coding_auth_umask077_pare1/coding-auth') = &lt;agentic_runner.coding.CodingCredentials object at 0x7cd866461450&gt;.root">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-203342-OgYKd8/bt/test_coding_auth_umask077_pare1')
+existing = True
+
+    @pytest.mark.parametrize("existing", [False, True])
+    def test_coding_auth_umask077_parent_traversable_and_profiles_private(tmp_path, existing):
+        root = tmp_path / "coding-auth"
+        previous = os.umask(0o077)
+        try:
+            if existing:
+                (root / "profiles").mkdir(parents=True, mode=0o700)
+            role = CodingCredentials(root)
+        finally:
+            os.umask(previous)
+        assert role.root.stat().st_mode &amp; 0o777 == 0o711
+&gt;       assert (role.root / "profiles").stat().st_mode &amp; 0o777 == 0o711
+E       AssertionError: assert (16832 &amp; 511) == 457
+E        +  where 16832 = os.stat_result(st_mode=16832, st_ino=63741044, st_dev=64512, st_nlink=6, st_uid=1000, st_gid=1000, st_size=4096, st_atime=1791851622, st_mtime=1791851622, st_ctime=1791851622).st_mode
+E        +    where os.stat_result(st_mode=16832, st_ino=63741044, st_dev=64512, st_nlink=6, st_uid=1000, st_gid=1000, st_size=4096, st_atime=1791851622, st_mtime=1791851622, st_ctime=1791851622) = stat()
+E        +      where stat = (PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-203342-OgYKd8/bt/test_coding_auth_umask077_pare1/coding-auth') / 'profiles').stat
+E        +        where PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-203342-OgYKd8/bt/test_coding_auth_umask077_pare1/coding-auth') = &lt;agentic_runner.coding.CodingCredentials object at 0x7cd866461450&gt;.root
+
+tests/test_home_coding_service.py:41: AssertionError</failure></testcase></testsuite></testsuites>

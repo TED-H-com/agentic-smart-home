@@ -59,6 +59,11 @@ prompt=('You are the '+REQUEST['mode']+' coding worker. Work only in /work/sourc
     'Write safe text artifacts under /work/artifacts. Finish with facts, inferences, unknowns, '
     'experiments, next_steps; do not claim deployment or approval.\nGoal: '+REQUEST['goal']+
     '\nQuestions: '+json.dumps(REQUEST['questions']))
+if OBSERVED_FROM == 'haos_app':
+    prompt += ('\nFor fresh local observations, GET http://127.0.0.1:8765/observe with Python urllib.request. '
+        'This fixed read-only endpoint reports only the HAOS App perspective and unauthenticated Core API '
+        'reachability. It does not prove Core container or whole HAOS health. Use at most eight observations; '
+        'you may write reproductions against the returned facts. No Home Assistant credentials are available.')
 with open('/work/scratch/events.jsonl','wb') as output:
     run=subprocess.run(args,input=prompt.encode(),stdout=output,stderr=subprocess.STDOUT,check=False)
 server.shutdown()
@@ -72,9 +77,11 @@ raise SystemExit(run.returncode)
 '''
 
 
-def program(request):
+def program(request, *, observed_from="host_container"):
+    if observed_from not in {"host_container", "haos_app"}:
+        raise ValueError("Unsupported observation location")
     safe = {key: request[key] for key in ("mode", "goal", "questions", "model")}
-    return "REQUEST=" + repr(safe) + "\n" + PROGRAM
+    return "REQUEST=" + repr(safe) + "\nOBSERVED_FROM=" + repr(observed_from) + "\n" + PROGRAM
 
 
 def digest_request(request):
@@ -116,7 +123,7 @@ raise SystemExit(code)
 """
 read_fd,write_fd=os.pipe()
 os.set_blocking(read_fd,False)
-args=['python','-I','-c',bootstrap,str(write_fd),'-q','-p','pytest_asyncio.plugin','-c','/work/verification.ini',
+args=['python','-I','-c',bootstrap,str(write_fd),'-q','-p','no:cacheprovider','-p','pytest_asyncio.plugin','-c','/work/verification.ini',
       '--confcutdir=/work/trusted-tests','--basetemp=/work/scratch/pytest','/work/trusted-tests']
 os.environ['PYTEST_DISABLE_PLUGIN_AUTOLOAD']='1'
 completion={}
@@ -142,7 +149,13 @@ Path('/work/artifacts/verification.json').write_text(json.dumps({'state':'passed
     'patch_sha256':hashlib.sha256(patch).hexdigest(),'exit_code':code,'completion_verified':valid,
     'tests_executed':completion.get('executed',0) if valid else 0,
     'test_command_sha256':hashlib.sha256(json.dumps(args).encode()).hexdigest(),
-    'observed_from':'independent_host_verifier','trusted_tests':'pinned_baseline',
+    'observed_from':globals().get('VERIFICATION_LOCATION','independent_host_verifier'),'trusted_tests':'pinned_baseline',
     'credentials_present':False,'network':'none','approval':False}))
 raise SystemExit(code)
 '''
+
+
+def verification_program(observed_from="independent_host_verifier"):
+    if observed_from not in {"independent_host_verifier", "independent_home_verifier"}:
+        raise ValueError("Unsupported verifier location")
+    return "VERIFICATION_LOCATION=" + repr(observed_from) + "\n" + VERIFY_PROGRAM

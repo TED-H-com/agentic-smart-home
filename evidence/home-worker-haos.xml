@@ -1,0 +1,513 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="48" time="550.795" timestamp="2026-10-12T20:48:44.169333-04:00" hostname="castleridge-ai1"><testcase classname="tests.test_home_worker_haos" name="test_real_home_coding_worker_in_haos" time="550.622"><failure message="AssertionError: home_worker_haos_failed:stored_same_case_observation:AssertionError">tmp_path = PosixPath('/home/ted-h/agent-work/tmp/pytest/20261012-204844-rqru7s/bt/test_real_home_coding_worker_i0')
+request = &lt;FixtureRequest for &lt;Coroutine test_real_home_coding_worker_in_haos&gt;&gt;
+
+    async def test_real_home_coding_worker_in_haos(tmp_path, request):
+        if not request.config.getoption('--haos-vm'):
+            pytest.skip('Actual Home Worker App needs --haos-vm; run heavy suites serially')
+        assert str(tmp_path).startswith(str(Path.home() / 'agent-work/tmp/pytest'))
+        config = yaml.safe_load((ROOT / 'runner/config.yaml').read_text())
+        version = config['version']
+        runner_image = os.environ.get('AGENTIC_HOME_TEST_RUNNER_IMAGE', 'agentic-home-runner:home-worker-dev')
+        assert re.fullmatch(r'agentic-home-runner:[a-zA-Z0-9._-]{1,100}', runner_image), 'fixed_runner_image_required'
+        controller_image = 'agentic-home-controller:' + version
+        label = uuid.uuid4().hex[:10]
+        vm, outer, network = ('agentic-home-worker-' + kind + '-' + label for kind in ('vm', 'outer', 'net'))
+        slug, app_container = 'local_agentic_runner', 'app_local_agentic_runner'
+        hold_seconds = failure_hold_seconds(os.environ.get('AGENTIC_HOME_TEST_FAILURE_HOLD_SECONDS', '0'))
+        registry_container = 'agentic-home-test-registry'
+        started, wall_started = time.monotonic(), time.time()
+        report = ROOT / 'evidence/home-worker-haos.json'
+        progress = ROOT / 'evidence/home-worker-haos-progress.json'
+        evidence = {'kind': 'real_haos_home_coding_worker', 'status': 'running', 'observed_from': 'haos_app',
+            'haos_image': '18.3', 'delivery': 'local_supervisor_derived_transport_fixture',
+            'cloud': 'fixed_model_transport_no_real_cloud_account', 'source_task': 'documentation_only_patch_on_shipped_source',
+            'not_acceptance': ['real_model_auth', 'autonomous_research_quality', 'physical_household', 'E2'], 'checks': {}}
+        ha, ssh = None, None
+    
+        def phase(value):
+            evidence['phase'] = value
+            progress.write_text(json.dumps({'phase': value, 'elapsed_seconds': round(time.monotonic() - started)}, indent=2) + '\n')
+    
+        def remote(command, *, timeout=30, input=None):
+            return process([*ssh, command], timeout=timeout, input=input)
+    
+        def app_json(path):
+            assert re.fullmatch(r'/data/home-worker-fixture/[a-z-]+\.json', path)
+            # Works for failed/stopped App processes; output remains byte bounded.
+            raw = remote('docker cp ' + app_container + ':' + shlex.quote(path) + ' - | head -c 143361')
+            return copied_json(raw)
+    
+        def stopped_transport():
+            return app_json('/data/home-worker-fixture/transport.json')
+    
+        def job_proof(identifier):
+            assert HEX32.fullmatch(identifier)
+            command = 'docker exec ' + app_container + ' python -m home_worker_haos_probe job-proof ' + identifier
+            value = json.loads(remote(command))
+            expected = app_json('/data/home-worker-fixture/app-observation.json')['namespaces']
+            assert value['diagnostic_namespace_ids'] == {name + '_ns': expected[name] for name in ('pid', 'cgroup', 'mnt')}, 'diagnostic_app_namespace_changed'
+            return value
+    
+        def mode(value):
+            assert value in {'source', 'cancel', 'restart', 'crash'}
+            remote('docker exec -i ' + app_container + " sh -c 'cat &gt; /data/home-worker-fixture/mode'", input=value.encode())
+    
+        try:
+            phase('prepare_disposable_disks')
+            evidence['source_commit'] = process(['git', '-C', str(ROOT), 'rev-parse', 'HEAD']).decode().strip()
+            evidence['runtime_source_uncommitted'] = bool(process(['git', '-C', str(ROOT), 'status', '--porcelain', '--',
+                'runner', 'host/agentic_host/coding_service.py', 'host/agentic_host/coding_program.py', 'controller/agentic_controller']))
+            base_image = json.loads(docker('image', 'inspect', runner_image))[0]
+            evidence['runner_base_image_id'] = base_image['Id']
+            evidence['controller_image_id'] = docker('image', 'inspect', controller_image, '--format', '{{.Id}}')
+            with lzma.open(ROOT / 'build/cache/haos_ova-18.3.qcow2.xz', 'rb') as src, (tmp_path / 'haos.qcow2').open('wb') as dst:
+                shutil.copyfileobj(src, dst, 1024 * 1024)
+            process(['ssh-keygen', '-t', 'ed25519', '-N', '', '-f', str(tmp_path / 'key')])
+            (tmp_path / 'config').mkdir()
+            shutil.copyfile(tmp_path / 'key.pub', tmp_path / 'config/authorized_keys')
+            with (tmp_path / 'config.ext4').open('wb') as stream:
+                stream.truncate(32 * 1024**2)
+            process(['/usr/sbin/mkfs.ext4', '-q', '-F', '-L', 'CONFIG', '-d', str(tmp_path / 'config'), str(tmp_path / 'config.ext4')])
+            docker('network', 'create', '--subnet', '192.168.177.0/24', '--gateway', '192.168.177.254', network)
+            phase('boot_official_haos')
+            docker('run', '-d', '--name', vm, '--network', network, '--ip', '192.168.177.2',
+                '--device', '/dev/kvm', '--memory', '4096m', '--cpus', '3', '--pids-limit', '256',
+                '-p', '127.0.0.1::8123', '-p', '127.0.0.1::2222', '-v', f'{tmp_path}:/lab',
+                'agentic-home-builder:0.2.0', 'bash', '-ec',
+                'cp /usr/share/OVMF/OVMF_VARS_4M.fd /lab/nvram.fd\nqemu-img resize /lab/haos.qcow2 64G\n'
+                'exec qemu-system-x86_64 -enable-kvm -cpu host -machine q35 -m 3072 -smp 2 '
+                '-drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd '
+                '-drive if=pflash,format=raw,file=/lab/nvram.fd '
+                '-drive file=/lab/haos.qcow2,format=qcow2,if=none,id=disk '
+                '-device virtio-scsi-pci -device scsi-hd,drive=disk '
+                '-drive file=/lab/config.ext4,format=raw,if=virtio '
+                '-netdev user,id=net,hostfwd=tcp:0.0.0.0:8123-:80,hostfwd=tcp:0.0.0.0:2222-:22222,'
+                'hostfwd=tcp:0.0.0.0:8443-:8443 -device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log')
+            ports = json.loads(docker('inspect', vm))[0]['NetworkSettings']['Ports']
+            base = 'http://127.0.0.1:' + ports['8123/tcp'][0]['HostPort']
+            ssh = ['ssh', '-i', str(tmp_path / 'key'), '-p', ports['2222/tcp'][0]['HostPort'], '-o', 'BatchMode=yes',
+                '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=no', '-o', f'UserKnownHostsFile={tmp_path / "known_hosts"}',
+                '-o', 'ConnectTimeout=5', 'root@127.0.0.1']
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=50), cookie_jar=aiohttp.CookieJar(unsafe=True)) as client:
+                for _ in range(240):
+                    try:
+                        async with client.get(base + '/api/onboarding', timeout=aiohttp.ClientTimeout(total=5)) as response:
+                            if response.status == 200 and isinstance(await response.json(), list):
+                                break
+                    except (aiohttp.ClientError, TimeoutError, ValueError):
+                        pass
+                    await asyncio.sleep(3)
+                else:
+                    raise AssertionError('haos_core_readiness_timeout')
+                phase('native_disposable_owner')
+                async with client.post(base + '/api/onboarding/users', json={'client_id': base + '/', 'name': 'Disposable Home Worker Owner',
+                    'username': 'home-worker-owner', 'password': secrets.token_urlsafe(32), 'language': 'en'}) as response:
+                    assert response.status == 200, 'native_owner_creation_failed'
+                    onboarding = await response.json()
+                async with client.post(base + '/auth/token', data={'grant_type': 'authorization_code',
+                    'code': onboarding['auth_code'], 'client_id': base + '/'}) as response:
+                    assert response.status == 200, 'native_token_exchange_failed'
+                    credentials = await response.json()
+                for step in ('core_config', 'analytics', 'integration'):
+                    fields = {'client_id': base + '/', 'redirect_uri': base + '/'} if step == 'integration' else {}
+                    async with client.post(base + '/api/onboarding/' + step, json=fields,
+                        headers={'Authorization': 'Bearer ' + credentials['access_token']}) as response:
+                        assert response.status == 200, 'native_onboarding_failed'
+                ha = ProbeHA(credentials['access_token'], base + '/api', base.replace('http:', 'ws:') + '/api/websocket', external=True)
+                await ha.start()
+                owner = await ha.ws('auth/current_user')
+                assert await ha.owner(owner['id']), 'native_owner_not_confirmed'
+                phase('supervisor_readiness')
+                for _ in range(120):
+                    supervisor = await ha.request('GET', '/supervisor/info', supervisor=True)
+                    if supervisor.get('healthy') is True:
+                        break
+                    await asyncio.sleep(3)
+                else:
+                    raise AssertionError('supervisor_not_healthy_no_automatic_update')
+                evidence.update(core=(await ha.request('GET', '/config'))['version'], supervisor=supervisor['version'])
+                phase('deliver_exact_runner_layers_and_test_transport')
+                staging = tmp_path / 'runner-fixture'
+                staging.mkdir()
+                for name in ('config.yaml', 'apparmor.txt'):
+                    shutil.copyfile(ROOT / 'runner' / name, staging / name)
+                shutil.copyfile(ROOT / 'tests/home_worker_haos_probe.py', staging / 'probe.py')
+                (staging / 'fixture-marker').write_text('derived_model_transport_fixture_v1\n')
+                evidence['app_config_sha256'] = hashlib.sha256((staging / 'config.yaml').read_bytes()).hexdigest()
+                evidence['app_apparmor_sha256'] = hashlib.sha256((staging / 'apparmor.txt').read_bytes()).hexdigest()
+                evidence['fixture_helper_sha256'] = hashlib.sha256((staging / 'probe.py').read_bytes()).hexdigest()
+                docker('image', 'inspect', BUILDER)
+                registry_host = json.loads(docker('image', 'inspect', REGISTRY))[0]
+                docker('save', '-o', str(tmp_path / 'bases.tar'), runner_image, 'docker:29.7.2-cli', 'registry:3.0.0', timeout=180)
+                base_identity = saved_image_identity(tmp_path / 'bases.tar', runner_image)
+                registry_identity = saved_image_identity(tmp_path / 'bases.tar', 'registry:3.0.0')
+                assert base_identity['layers'] == base_image['RootFS']['Layers'], 'exported_base_layers_changed'
+                assert registry_identity['layers'] == registry_host['RootFS']['Layers'], 'exported_registry_layers_changed'
+                evidence['runner_oci_config_digest'] = base_identity['config_digest']
+                with (tmp_path / 'bases.tar').open('rb') as stream:
+                    result = subprocess.run([*ssh, 'docker load'], stdin=stream, capture_output=True, timeout=240)
+                assert result.returncode == 0, 'haos_product_image_preload_failed'
+                phase('disposable_loopback_registry')
+                loaded_base = json.loads(remote('docker image inspect ' + shlex.quote(runner_image)))[0]
+                loaded_registry = json.loads(remote('docker image inspect registry:3.0.0'))[0]
+                assert loaded_base['RootFS']['Layers'] == base_identity['layers'], 'loaded_base_layers_changed'
+                assert loaded_registry['RootFS']['Layers'] == registry_identity['layers'], 'loaded_registry_layers_changed'
+                remote('docker run -d --name ' + registry_container + ' --network host --memory 128m --cpus 1 '
+                    '--pids-limit 64 -e REGISTRY_HTTP_ADDR=127.0.0.1:5000 registry:3.0.0')
+                for _ in range(20):
+                    try:
+                        ready = json.loads(remote('docker exec ' + registry_container + ' wget -q -O - http://127.0.0.1:5000/v2/', timeout=5))
+                        if ready == {}:
+                            break
+                    except (AssertionError, ValueError):
+                        pass
+                    await asyncio.sleep(.25)
+                else:
+                    raise AssertionError('disposable_registry_readiness_timeout')
+                local_tag = '127.0.0.1:5000/agentic-home-runner:fixture'
+                remote('docker tag ' + shlex.quote(runner_image) + ' ' + local_tag)
+                # The product is amd64. Do not publish a Docker29 index containing
+                # attestations or rely on local image Id/RepoDigests semantics.
+                push_output = remote('docker push --platform linux/amd64 ' + local_tag, timeout=180).decode()
+                digests = re.findall(r'digest: (sha256:[a-f0-9]{64})(?:\s|$)', push_output)
+                assert len(set(digests)) == 1, 'local_registry_manifest_identity_missing'
+                refs = ['127.0.0.1:5000/agentic-home-runner@' + digests[-1]]
+                registry_manifest = json.loads(remote('docker manifest inspect --insecure ' + refs[0]))
+                assert registry_manifest['config']['digest'] == base_identity['config_digest'], 'registry_config_digest_changed'
+                evidence['registry_fixture'] = {'scope': 'disposable_haos_loopback_only', 'upstream': REGISTRY,
+                    'registry_config_digest': registry_identity['config_digest'], 'base_reference': refs[0],
+                    'base_config_digest_verified': True}
+                (staging / 'Dockerfile').write_text(f'FROM {refs[0]}\nCOPY probe.py /app/home_worker_haos_probe.py\n'
+                    'COPY fixture-marker /opt/home-worker-test-fixture\nCMD ["python","-m","home_worker_haos_probe","serve"]\n')
+                with tarfile.open(tmp_path / 'runner.tar.gz', 'w:gz') as archive:
+                    archive.add(staging, arcname='agentic_runner')
+                with (tmp_path / 'runner.tar.gz').open('rb') as stream:
+                    result = subprocess.run([*ssh, 'mkdir -p /mnt/data/supervisor/apps/local &amp;&amp; tar xzf - -C /mnt/data/supervisor/apps/local'],
+                        stdin=stream, capture_output=True, timeout=60)
+                assert result.returncode == 0, 'haos_fixture_source_delivery_failed'
+                await ha.request('POST', '/store/reload', supervisor=True, timeout=60)
+                catalog = await ha.request('GET', f'/store/addons/{slug}/info', supervisor=True)
+                assert catalog['version_latest'] == version and catalog['build'] is True, 'runner_catalog_changed'
+                phase('official_supervisor_install')
+                receipt = await ha.request('POST', f'/store/addons/{slug}/install', {'background': True}, supervisor=True)
+                evidence['install_confirmation'] = await observe_install(ha, slug, receipt['job_id'], config)
+                await ha.request('POST', f'/addons/{slug}/options', {'options': {}, 'boot': 'auto', 'watchdog': False,
+                    'auto_update': False}, supervisor=True)
+                await ha.request('POST', f'/addons/{slug}/start', supervisor=True, timeout=120)
+                info = await ha.request('GET', f'/addons/{slug}/info', supervisor=True)
+                evidence['app_contract'] = app_contract(info, config, slug)
+                installed = json.loads(remote('docker inspect ' + app_container))[0]
+                evidence['app_container_observation'] = container_projection(installed, slug)
+                container_contract(installed, slug)
+                evidence['actual_apparmor_profile'] = installed['AppArmorProfile']
+                derived = json.loads(remote('docker image inspect ' + shlex.quote(installed['Image'])))[0]
+                assert derived['RootFS']['Layers'][:len(base_image['RootFS']['Layers'])] == base_image['RootFS']['Layers'], 'runner_base_layers_changed'
+                loaded_again = json.loads(remote('docker image inspect ' + shlex.quote(runner_image)))[0]
+                assert loaded_again['RootFS']['Layers'] == base_identity['layers'], 'runner_base_identity_changed'
+                assert loaded_again['Id'] == loaded_base['Id'], 'loaded_base_identity_changed'
+                evidence['derived_fixture_image_id'] = derived['Id']
+                evidence['checks']['product_image_layers_verified'] = True
+                phase('actual_app_identity')
+                for _ in range(240):
+                    try:
+                        pairing = app_json('/data/home-worker-fixture/pairing.json')
+                        app_observation = app_json('/data/home-worker-fixture/app-observation.json')
+                        break
+                    except (AssertionError, ValueError, tarfile.TarError):
+                        try:
+                            startup = app_json('/data/home-worker-fixture/startup.json')
+                        except (AssertionError, ValueError, tarfile.TarError):
+                            startup = {}
+                        if startup.get('state') == 'failed':
+                            evidence['startup_failure'] = diagnostic_projection(startup)
+                            raise AssertionError('runner_fixture_initialization_failed') from None
+                        state = json.loads(remote('docker inspect ' + app_container))[0]
+                        evidence['app_container_observation'] = container_projection(state, slug)
+                        if not state['State']['Running']:
+                            raise AssertionError('runner_fixture_process_exited') from None
+                        await asyncio.sleep(1)
+                else:
+                    raise AssertionError('runner_fixture_start_timeout')
+                host_ns = json.loads(remote("printf '{\"pid\":%s,\"cgroup\":%s}' \"$(stat -Lc %i /proc/self/ns/pid)\" \"$(stat -Lc %i /proc/self/ns/cgroup)\""))
+                assert app_observation['namespaces']['pid'] != host_ns['pid'], 'app_shares_haos_pid_namespace'
+                assert app_observation['namespaces']['cgroup'] != host_ns['cgroup'], 'app_shares_haos_cgroup_namespace'
+                assert (app_observation['apparmor_enforcing'] and app_observation['fuse_device_present']
+                    and app_observation['fuse_device_openable']), 'app_boundary_unavailable'
+                assert not app_observation['docker_socket_present'] and not app_observation['host_socket_present'], 'app_root_broker_socket_exposed'
+                startup_boundaries = app_json('/data/home-worker-fixture/boundaries.json')
+                evidence['startup_boundaries'] = startup_boundaries
+                assert startup_boundaries['status'] == 'passed' and startup_boundaries['cleanup'] == 'passed', 'actual_boundary_limits_failed'
+                evidence['app_observation'] = app_observation
+                evidence['checks']['distinct_actual_haos_app_namespaces'] = True
+                phase('outer_controller_real_tls_pairing')
+                identity = tmp_path / 'identity.json'
+                access_key = secrets.token_urlsafe(32)
+                identity.write_text(json.dumps({'owner': owner['id'], 'token': credentials['access_token'], 'access_key': access_key}))
+                identity.chmod(0o600)
+                (tmp_path / 'outer.py').write_text(OUTER)
+                docker('run', '-d', '--name', outer, '--network', network, '--ip', '192.168.177.1',
+                    '--memory', '768m', '--cpus', '1', '--pids-limit', '128', '--user', f'{os.getuid()}:{os.getgid()}',
+                    '-p', '127.0.0.1::8099', '-e', 'PYTHONPATH=/app', '-e', 'AGENTIC_DATA=/lab/outer-data', '-e', 'AGENTIC_HOST_MODE=1',
+                    '-v', f'{tmp_path}:/lab', controller_image, 'python', '/lab/outer.py')
+                outer_ports = json.loads(docker('inspect', outer))[0]['NetworkSettings']['Ports']
+                origin = 'http://127.0.0.1:' + outer_ports['8099/tcp'][0]['HostPort']
+                # The random host port is only a disposable transport forward.
+                # Preserve the product's fixed local Web origin/Host contract.
+                client.headers['Host'] = '127.0.0.1:8099'
+                client.headers['Origin'] = 'http://127.0.0.1:8099'
+    
+                async def api(method, path, body=None, *, expected=200, key=None):
+                    headers = {'Idempotency-Key': key} if key else {}
+                    async with client.request(method, origin + path, json=body, headers=headers) as response:
+                        assert response.status == expected, 'controller_' + method.lower() + '_status_' + str(response.status)
+                        return await response.json()
+    
+                for _ in range(60):
+                    try:
+                        await api('POST', '/api/host/login', {'key': access_key})
+                        break
+                    except (aiohttp.ClientError, TimeoutError):
+                        await asyncio.sleep(1)
+                else:
+                    raise AssertionError('outer_controller_readiness_timeout')
+                client.headers['X-Agentic-CSRF'] = (await api('GET', '/api/session'))['csrf']
+                assert (await api('POST', '/api/runtimes/haos/pair', pairing))['paired']
+                evidence['checks']['outer_controller_actual_pinned_tls_pairing'] = True
+                phase('independent_home_role_login')
+                auth = await api('POST', '/api/workers/home-coder/providers/codex/auth',
+                    {'method': 'api_key', 'secret': FIXTURE_KEY}, expected=202, key='home-role-fixture-login')
+                for _ in range(60):
+                    status = await api('GET', '/api/workers/home-coder/auth/' + auth['id'])
+                    if status.get('status') == 'connected':
+                        break
+                    await asyncio.sleep(1)
+                else:
+                    raise AssertionError('home_role_login_timeout')
+                capabilities = await api('GET', '/api/workers')
+                home = next(item for item in capabilities['workers'] if item['worker_id'] == 'home-coder')
+                assert home['available'] and home['runtime_location'] == 'haos_app', 'home_worker_not_available'
+                assert not next(item for item in capabilities['workers'] if item['worker_id'] == 'host-coder')['available']
+                evidence['checks']['home_role_login_separate_from_unpaired_host'] = True
+                phase('actual_case_and_home_source_task')
+                message = await api('POST', '/api/gateway/messages', {'message': 'Inspect the Home App and document canonical serialization.',
+                    'runtime': 'host', 'provider': 'codex', 'coordinator': 'hermes'}, expected=202, key='home-fixture-case')
+                for _ in range(60):
+                    messages = (await api('GET', '/api/gateway/messages'))['messages']
+                    current = next(item for item in messages if item['id'] == message['id'])
+                    if current.get('state') == 'succeeded' and current.get('case_id'):
+                        break
+                    await asyncio.sleep(.5)
+                else:
+                    raise AssertionError('fixture_hermes_case_timeout')
+                case_id = current['case_id']
+                body = {'worker_id': 'home-coder', 'mode': 'development', 'case_id': case_id,
+                        'goal': 'Inspect App facts, document stable serialization in models.py, and run baseline tests.'}
+                job = await api('POST', '/api/worker/jobs', body, expected=202, key='home-source-fixture')
+                assert (await api('POST', '/api/worker/jobs', body, expected=202, key='home-source-fixture'))['id'] == job['id']
+    
+                async def wait_job(identifier, *, stopped=True, timeout=280):
+                    deadline = time.monotonic() + timeout
+                    while time.monotonic() &lt; deadline:
+                        result = await api('GET', '/api/worker/jobs/' + identifier)
+                        evidence['last_job'] = job_projection(result)
+                        if result.get('stop_confirmed') if stopped else result.get('state') == 'running':
+                            return result
+                        await asyncio.sleep(.5)
+                    raise AssertionError('home_worker_state_timeout')
+    
+                job = await wait_job(job['id'])
+                evidence['source_job'] = job_projection(job)
+                if job['state'] != 'succeeded':
+                    evidence['source_job_boundary'] = job_proof(job['id'])
+                    for meta in job['artifacts']:
+                        if meta['name'] != 'home-boundaries.json':
+                            continue
+                        content = await api('GET', '/api/worker/jobs/' + job['id'] + '/artifacts/' + meta['id'])
+                        checks = json.loads(artifact_bytes(meta, content)).get('checks', {})
+                        safe_keys = {'uid_unprivileged', 'supervisor_env_absent', 'hassio_env_absent', 'fixture_parent_env_absent',
+                            'docker_socket_absent', 'host_socket_absent', 'role_auth_secret_unreadable',
+                            'runner_key_secret_unreadable', 'private_canary_secret_unreadable', 'parent_environ_secret_unreadable',
+                            'lan_direct_network_denied', 'public_direct_network_denied', 'tmp_on_bounded_volume',
+                            'root_outside_volume_readonly', 'run_outside_volume_readonly',
+                            'shm_outside_volume_readonly', 'dev_outside_volume_readonly', 'git_metadata_read_only',
+                            'worker_pid_ns_distinct_from_app', 'worker_cgroup_ns_distinct_from_app', 'worker_mnt_ns_distinct_from_app'} | ENTRY_CHECK_NAMES
+                        evidence['failed_job_boundary_checks'] = {key: checks[key] for key in safe_keys if type(checks.get(key)) is bool}
+                assert job['state'] == 'succeeded' and job['case_id'] == case_id, 'home_source_job_failed'
+                assert job['verification']['state'] == 'passed', 'home_independent_verification_failed'
+                assert job['verification']['observed_from'] == 'independent_home_verifier', 'home_verifier_location_wrong'
+                assert job['evidence_ids'] and job['runtime_location'] == 'haos_app', 'home_evidence_missing'
+                fetched = {}
+                for artifact in job['artifacts']:
+                    reply = await api('GET', '/api/worker/jobs/' + job['id'] + '/artifacts/' + artifact['id'])
+                    fetched[artifact['name']] = artifact_bytes(artifact, reply)
+                assert b'Serialize stable public contract fields' in fetched['changes.patch'], 'actual_source_patch_missing'
+                assert hashlib.sha256(fetched['changes.patch']).hexdigest() == job['verification']['patch_sha256'], 'verified_patch_not_returned'
+                boundary = json.loads(fetched['home-boundaries.json'])
+                assert boundary['observed_from'] == 'haos_app' and all(value is True for value in boundary['checks'].values())
+                assert ENTRY_CHECK_NAMES &lt;= set(boundary['checks']), 'worker_entry_checks_missing'
+                app_namespaces = {name + '_ns': app_observation['namespaces'][name] for name in ('pid', 'cgroup', 'mnt')}
+                assert boundary['app_namespace_ids'] == app_namespaces, 'worker_observation_app_namespace_changed'
+                worker_namespaces = boundary['worker_namespace_ids']
+                assert set(worker_namespaces) == set(app_namespaces), 'worker_namespace_contract_invalid'
+                assert all(type(value) is int and 0 &lt; value &lt; 2**63 and value != app_namespaces[name]
+                    for name, value in worker_namespaces.items()), 'worker_not_isolated_from_app_namespaces'
+                verification = json.loads(fetched['verification.json'])
+                assert verification['completion_verified'] and verification['tests_executed'] &gt; 0, 'independent_tests_not_completed'
+                transport = app_json('/data/home-worker-fixture/transport.json')['source']
+                assert transport['requests'] &gt;= 2 and transport['tool_output_received'] and transport['source_marker'] and transport['pytest_passed']
+                evidence['checks'].update(actual_codex_tools=True, actual_source_patch=True, independent_baseline_tests=True,
+                    same_case_tls_artifacts=True, worker_boundary_checks=True)
+                evidence['independent_tests_executed'] = verification['tests_executed']
+                evidence['boundary_checks'] = boundary['checks']
+                evidence['namespace_comparison'] = {'app': app_namespaces, 'worker': worker_namespaces,
+                    'haos_host': host_ns, 'worker_pid_cgroup_mount_distinct_from_app': True}
+                evidence['model_fixture'] = transport
+                phase('stored_same_case_observation')
+                with contextlib.closing(sqlite3.connect(f"file:{tmp_path / 'outer-data/controller.sqlite3'}?mode=ro", uri=True)) as database:
+                    rows = [json.loads(row[0]) for row in database.execute(
+                        "SELECT body FROM records WHERE kind='case_evidence' AND json_extract(body,'$.job_id')=?", (job['id'],))]
+                assert rows and all(row['case_id'] == case_id and row['observed_from'] == 'haos_app' for row in rows)
+                observed = next(row for row in rows if row['collection_method'] == 'fixed_read_only_app_probe')
+                content = json.dumps(observed['content'], ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
+                assert hashlib.sha256(content).hexdigest() == observed['content_digest'], 'home_observation_digest_changed'
+                core_view = observed['content']['core_api_from_app']
+                assert core_view['dns_resolved'] and core_view['reachable'] and core_view['http_status'] == 401
+                assert observed['content']['app_runtime']['observed_from'] == 'haos_app'
+                assert observed['limitations'] and observed['version_refs']['source'] == job['base_commit']
+                evidence['app_core_observation'] = core_view
+                evidence['checks']['same_case_observation_content_and_digest'] = True
+                source_lock = json.loads(remote('docker exec ' + app_container + ' cat /opt/agentic-worker/source.json'))
+                assert source_lock['commit'] == job['base_commit'] == startup_boundaries['source_commit']
+                evidence['pinned_source'] = source_lock
+                outer_view = json.loads(docker('exec', outer, 'python', '-c',
+                    "import socket,json\ntry: socket.getaddrinfo('homeassistant',8123); value=True\nexcept OSError: value=False\nprint(json.dumps({'app_internal_dns_resolved':value}))"))
+                assert outer_view['app_internal_dns_resolved'] is False, 'outer_scope_fixture_unexpected'
+                evidence['outer_comparison'] = outer_view
+                evidence['checks']['additional_app_namespace_view'] = True
+                checkpoint = await api('POST', '/api/worker/jobs/' + job['id'] + '/handoff', {})
+                assert checkpoint['stop_confirmed'] and checkpoint['live_session'] is False
+                assert any(artifact['id'] in checkpoint['checkpoint']['artifact_ids'] for artifact in job['artifacts'])
+                evidence['checks']['fenced_checkpoint_handoff'] = True
+    
+                async def submit_held(kind):
+                    mode(kind)
+                    reply = await api('POST', '/api/worker/jobs', {'worker_id': 'home-coder', 'mode': 'research',
+                        'case_id': case_id, 'goal': 'Hold the explicit disposable descendant probe.'}, expected=202, key='home-' + kind)
+                    await wait_job(reply['id'], stopped=False, timeout=90)
+                    deadline = time.monotonic() + 45
+                    while time.monotonic() &lt; deadline:
+                        proof = job_proof(reply['id'])
+                        if proof.get('pulse_present') and proof.get('cgroup_populated'):
+                            return reply, proof
+                        await asyncio.sleep(.25)
+                    raise AssertionError('actual_descendant_not_started')
+    
+                async def app_available():
+                    for _ in range(90):
+                        values = await api('GET', '/api/workers')
+                        home = next(item for item in values['workers'] if item['worker_id'] == 'home-coder')
+                        if home['available']:
+                            return values
+                        await asyncio.sleep(1)
+                    raise AssertionError('home_restart_readiness_timeout')
+    
+                async def reclaimed(identifier):
+                    for _ in range(40):
+                        proof = job_proof(identifier)
+                        if (not proof.get('workspace_mounted') and not proof.get('workspace_image_present')
+                                and not proof.get('cgroup_present') and not proof.get('fuse_cgroup_present')):
+                            return proof
+                        await asyncio.sleep(.25)
+                    raise AssertionError('stopped_workspace_not_reclaimed')
+    
+                phase('actual_tls_cancel_descendants')
+                held, before = await submit_held('cancel')
+                cancel_started = time.monotonic()
+                await api('POST', '/api/worker/jobs/' + held['id'] + '/cancel', {}, expected=202)
+                cancelled = await wait_job(held['id'], timeout=45)
+                assert cancelled['state'] == 'cancelled' and cancelled['stop_confirmed']
+                proof = await reclaimed(held['id'])
+                assert (await api('GET', '/api/workers'))['active_job_id'] is None
+                evidence['cancel'] = {'before': before, 'after': proof,
+                                      'seconds': round(time.monotonic() - cancel_started, 3)}
+                evidence['checks']['actual_tls_cancel_stops_descendants_and_releases_lease'] = True
+    
+                phase('graceful_supervisor_stop_and_restart')
+                held, before = await submit_held('restart')
+                await ha.request('POST', f'/addons/{slug}/stop', supervisor=True, timeout=120)
+                stopped_app = await ha.request('GET', f'/addons/{slug}/info', supervisor=True)
+                assert stopped_app['state'] == 'stopped', 'supervisor_stop_not_observed'
+                await ha.request('POST', f'/addons/{slug}/start', supervisor=True, timeout=120)
+                await app_available()
+                stopped = await wait_job(held['id'], timeout=45)
+                assert stopped['state'] in {'cancelled', 'interrupted'} and stopped['stop_confirmed']
+                assert (await api('GET', '/api/workers'))['active_job_id'] is None
+                evidence['graceful_restart'] = {'before': before, 'job': job_projection(stopped)}
+                evidence['checks']['graceful_app_restart_keeps_confirmed_stop_without_replay'] = True
+    
+                phase('abrupt_app_restart_keeps_unknown_writer_fenced')
+                held, before = await submit_held('crash')
+                previous = app_json('/data/home-worker-fixture/app-observation.json')
+                # A SIGKILL is intentional fault injection in this disposable App.
+                # Product does not receive a trusted Supervisor stop receipt.
+                remote('docker kill --signal KILL ' + app_container)
+                prior_transport = stopped_transport()['crash']['requests']
+                await ha.request('POST', f'/addons/{slug}/start', supervisor=True, timeout=120)
+                await app_available()
+                current = app_json('/data/home-worker-fixture/app-observation.json')
+                assert current['boot_id_sha256'] == previous['boot_id_sha256']
+                assert current['namespaces']['pid'] != previous['namespaces']['pid']
+                deadline = time.monotonic() + 45
+                while time.monotonic() &lt; deadline:
+                    uncertain = await api('GET', '/api/worker/jobs/' + held['id'])
+                    if uncertain['state'] == 'stop_unconfirmed':
+                        break
+                    await asyncio.sleep(.5)
+                assert uncertain['state'] == 'stop_unconfirmed' and uncertain['stop_confirmed'] is False
+                assert (await api('GET', '/api/workers'))['active_job_id'] == held['id']
+                queued = await api('POST', '/api/worker/jobs', {'worker_id': 'home-coder', 'mode': 'research',
+                    'goal': 'This request must remain behind the unknown prior writer.'}, expected=202, key='home-crash-fenced-next')
+                await asyncio.sleep(2)
+                queued = await api('GET', '/api/worker/jobs/' + queued['id'])
+                assert queued['state'] == 'queued' and queued['execution_started'] is False
+                assert app_json('/data/home-worker-fixture/transport.json')['crash']['requests'] == prior_transport
+                await api('POST', '/api/worker/jobs/' + queued['id'] + '/cancel', {}, expected=202)
+                evidence['abrupt_restart'] = {'before': before, 'job': job_projection(uncertain),
+                                             'new_writer_started': False, 'same_haos_boot': True}
+                evidence['checks']['abrupt_same_boot_restart_retains_lease_and_prevents_replay'] = True
+                evidence.update(status='passed', phase='completed',
+                                recovery_limit='abrupt same-boot unknown work remains fenced until trusted stop proof; VM removed at teardown')
+        except BaseException as error:
+            interrupted = isinstance(error, (KeyboardInterrupt, asyncio.CancelledError))
+            evidence.update(status='interrupted' if interrupted else 'failed', **failure_receipt(error, source_files=(Path(__file__),)))
+            evidence['owned_runtime_observation'] = lifecycle_observation({'vm': vm, 'outer': outer}, wall_started)
+            if ha is not None:
+                try:
+                    info = await ha.request('GET', f'/addons/{slug}/info', supervisor=True, timeout=5)
+                    evidence['failure_app_state'] = info.get('state') if info.get('state') in {'started', 'stopped', 'error', 'unknown'} else 'unknown'
+                except Exception as observation_error:
+                    evidence['failure_app_observation_error'] = type(observation_error).__name__
+            if ssh is not None:
+                with contextlib.suppress(Exception):
+                    evidence['app_container_observation'] = container_projection(json.loads(remote('docker inspect ' + app_container, timeout=10))[0], slug)
+                for filename in ('startup', 'boundaries'):
+                    with contextlib.suppress(Exception):
+                        evidence['failure_' + filename] = diagnostic_projection(app_json('/data/home-worker-fixture/' + filename + '.json'))
+                with contextlib.suppress(Exception):
+                    raw = remote('docker logs --tail 80 ' + app_container + ' 2&gt;&amp;1 | tail -c 16385', timeout=10)
+                    evidence['app_stderr_summary'] = stderr_summary_bytes(raw)
+            # Explicit diagnostic window is test-only, bounded and always followed
+            # by normal cleanup. It never changes the failure or resubmits effects.
+            evidence['failure_hold_seconds'] = hold_seconds if not interrupted else 0
+            report.write_text(json.dumps(evidence, indent=2) + '\n')
+            if not interrupted and hold_seconds:
+                progress.write_text(json.dumps({'phase': 'failure_diagnostic_hold', 'failed_phase': evidence['phase'],
+                    'error_code': evidence['error_code'], 'seconds': hold_seconds}, indent=2) + '\n')
+                for _ in range(hold_seconds):
+                    await asyncio.sleep(1)
+            if interrupted:
+                raise
+&gt;           raise AssertionError('home_worker_haos_failed:' + evidence['phase'] + ':' + type(error).__name__) from None
+E           AssertionError: home_worker_haos_failed:stored_same_case_observation:AssertionError
+
+tests/test_home_worker_haos.py:818: AssertionError</failure></testcase><testcase classname="tests.test_home_worker_haos" name="test_safe_job_projection_excludes_prompts_credentials_paths_and_model_claims" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_artifact_bytes_rejects_untrusted_receipts[wrong_digest]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_artifact_bytes_rejects_untrusted_receipts[wrong_identity]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_artifact_bytes_rejects_untrusted_receipts[oversize]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_artifact_bytes_rejects_untrusted_receipts[wrong_size]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_model_fixture_only_replaces_provider_bytes_and_saves_typed_counts" time="0.001" /><testcase classname="tests.test_home_worker_haos" name="test_private_stderr_is_reduced_to_fixed_signatures" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_model_fixture_continues_actual_tool_session_without_inventing_completion" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_install_observer_missing_ack_requires_actual_app_postcondition" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_install_observer_preserves_failed_job_and_does_not_start_app" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_saved_image_provenance_uses_actual_config_bytes_and_exact_layers" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_failed_install_job_is_rejected_even_before_done_marker" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_custom_apparmor_wire_contract_rejects_default_or_disabled[True]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_custom_apparmor_wire_contract_rejects_default_or_disabled[False]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_custom_apparmor_wire_contract_rejects_default_or_disabled[default]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_custom_apparmor_wire_contract_rejects_default_or_disabled[disable]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_custom_apparmor_wire_contract_rejects_default_or_disabled[None]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_exact_supervisor_container_contract_normalizes_kernel_capability_spelling[SYS_ADMIN]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_exact_supervisor_container_contract_normalizes_kernel_capability_spelling[CAP_SYS_ADMIN]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_failure_hold_is_explicit_bounded_and_rejects_invalid_values[-1]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_failure_hold_is_explicit_bounded_and_rejects_invalid_values[181]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_failure_hold_is_explicit_bounded_and_rejects_invalid_values[9999]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_failure_hold_is_explicit_bounded_and_rejects_invalid_values[1.0]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_failure_hold_is_explicit_bounded_and_rejects_invalid_values[]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_failure_hold_is_explicit_bounded_and_rejects_invalid_values[ 1]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_failure_hold_is_explicit_bounded_and_rejects_invalid_values[01]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_failure_hold_is_explicit_bounded_and_rejects_invalid_values[private-secret]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_failure_receipts_keep_fixed_codes_and_drop_private_nested_values" time="0.042" /><testcase classname="tests.test_home_worker_haos" name="test_stopped_container_receipt_archive_rejects_symlink_and_oversize" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_source_probe_never_writes_to_potential_tmpfs_and_checks_both_token_aliases" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_rewritten_pytest_failure_keeps_only_exact_fixed_first_line" time="0.011" /><testcase classname="tests.test_home_worker_haos" name="test_typed_sandbox_and_prepare_diagnostics_keep_codes_without_message" time="0.014" /><testcase classname="tests.test_home_worker_haos" name="test_fixture_diagnostic_rpc_only_root_fixed_job_id[0-job-proof aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n-True]" time="0.001" /><testcase classname="tests.test_home_worker_haos" name="test_fixture_diagnostic_rpc_only_root_fixed_job_id[1000-job-proof aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n-False]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_fixture_diagnostic_rpc_only_root_fixed_job_id[0-job-proof ../../private\n-False]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_fixture_diagnostic_rpc_only_root_fixed_job_id[0-exec private-command\n-False]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_fixture_diagnostic_rpc_only_root_fixed_job_id[0-job-proof aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n-False]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_app_contract_permits_only_declared_fixed_fuse_device[devices0]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_app_contract_permits_only_declared_fixed_fuse_device[devices1]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_app_contract_permits_only_declared_fixed_fuse_device[devices2]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_actual_device_contract_rejects_missing_broad_or_additional_access[rules0-mappings0]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_actual_device_contract_rejects_missing_broad_or_additional_access[rules1-mappings1]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_actual_device_contract_rejects_missing_broad_or_additional_access[rules2-mappings2]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_actual_device_contract_rejects_missing_broad_or_additional_access[rules3-mappings3]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_candidate_fuse_probe_rejects_absent_or_device_cgroup_denied_without_raw_error[True]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_candidate_fuse_probe_rejects_absent_or_device_cgroup_denied_without_raw_error[False]" time="0.000" /><testcase classname="tests.test_home_worker_haos" name="test_entry_probe_detects_inherited_private_directory_fd_without_exporting_targets" time="0.001" /></testsuite></testsuites>

@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
+    from worker_runtime import package_worker_runtime
+    package_worker_runtime(check=True)
     release = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
     for name in ("host/agentic_host/__init__.py", "controller/agentic_controller/__init__.py",
                  "runner/agentic_runner/__init__.py", "bridge/agentic_bridge/__init__.py",
@@ -42,6 +44,13 @@ def main():
         else:
             assert item["sha512"] == json.loads((ROOT / "runner/agy.lock.json").read_text())["sha512"]
     catalog = ROOT / "runner/agentic_runner/codex-models.json"
+    worker_dependencies = json.loads((ROOT / "runner/worker-dependencies.lock.json").read_text())
+    runner_dockerfile = (ROOT / "runner/Dockerfile").read_text()
+    for package, version in worker_dependencies["packages"].items():
+        assert package + "=" + version in runner_dockerfile, "Worker package version drift: " + package
+    worker_source = json.loads((ROOT / "runner/coding-source.lock.json").read_text())
+    assert worker_source["repository"] == "https://github.com/teddashh/agentic-smart-home.git"
+    assert worker_source["repo_id"] == "agentic-home" and re.fullmatch(r"[a-f0-9]{40}", worker_source["commit"])
     assert hashlib.sha256(catalog.read_bytes()).hexdigest() == lock["codex_model_catalog"]["packaged_sha256"]
     for model in json.loads(catalog.read_text())["models"]:
         assert model["apply_patch_tool_type"] is None and not model["experimental_supported_tools"]
@@ -54,6 +63,11 @@ def main():
         assert config.get("ports", {}) == ({"8443/tcp": 8443} if app == "runner" else {})
         assert bool(config["homeassistant_api"]) == (app == "controller")
         assert bool(config["hassio_api"]) == (app == "controller")
+        if app == "runner":
+            assert config["privileged"] == ["SYS_ADMIN"] and config["tmpfs"] is False
+            assert config["devices"] == ["/dev/fuse"]
+            assert config["timeout"] == 60 and "coding/*" in config["backup_exclude"]
+            assert (ROOT / "runner/apparmor.txt").is_file(), "Home worker confinement profile missing"
         for line in (ROOT / app / "Dockerfile").read_text().splitlines():
             if line.startswith("FROM "):
                 assert "@sha256:" in line

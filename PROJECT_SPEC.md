@@ -38,7 +38,7 @@ Hermes 不持有家庭 Owner／host root 權威。Controller 驗證身份、scop
 | `home_operator` | 現有受限結構化 intent 與有限 observations | 新增的一般 filesystem、terminal、browser 工具 |
 | `live_verification` | 固定並已授權的驗收 runbook／helpers | 任意 live shell、超出批准的設備動作 |
 
-保留原家庭 CLI 啟動限制。Research／development 以獨立 process、credential、mount、network 與 hard resource limits 實作；prompt 或 UI 開關不算 sandbox。Home Worker 必須在 App 內實測可用邊界，模型工作程序不得取得 Docker socket、`full_access`、host PID、整份 HA config、Core／Supervisor 管理 token。不可隔離時禁用該 coding mode，保留固定診斷並記錄缺口。0.6.0 已接通 Host Codex coding；真 HAOS App 已有 cgroup 委派與記憶體 OOM 的平台證據，但 Home coding launcher 及完整隔離尚未交付。
+保留原家庭 CLI 啟動限制。Research／development 以獨立 process、credential、mount、network 與 hard resource limits 實作；prompt 或 UI 開關不算 sandbox。Home Worker 必須在 App 內實測可用邊界，模型工作程序不得取得 Docker socket、`full_access`、host PID、整份 HA config、Core／Supervisor 管理 token。不可隔離時禁用該 coding mode，保留固定診斷並記錄缺口。0.6.0 已接通 Host Codex coding；0.8.0 加入 Home App 專用 launcher，使用私有 cgroup、磁碟配額、namespace、seccomp 與隔離 relay，沿用同一工作契約。Home 的獨立登入與精確來源封裝不複製 Host profile。實際平台測試及限制見 [Workers](docs/WORKERS.md)；App 視角不代表 Core 容器或全 HAOS 健康，亦不構成 E2 驗收。
 
 ## 工作、身份與恢復
 

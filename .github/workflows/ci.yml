@@ -32,12 +32,12 @@ jobs:
       - name: Build installable App images
         run: |
           uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner; package_runner()"
-          docker build -t agentic-home-controller:0.7.0 controller
-          docker build -t agentic-home-runner:0.7.0 runner
-          docker build -t agentic-home-linejs:0.7.0 host/linejs
-          docker build -t agentic-home-hermes:0.7.0 hermes
-          docker build -t agentic-home-preview:0.7.0 host/preview
-          docker build -t agentic-home-bridge:0.7.0 bridge
+          docker build -t agentic-home-controller:0.8.0 controller
+          docker build -t agentic-home-runner:0.8.0 runner
+          docker build -t agentic-home-linejs:0.8.0 host/linejs
+          docker build -t agentic-home-hermes:0.8.0 hermes
+          docker build -t agentic-home-preview:0.8.0 host/preview
+          docker build -t agentic-home-bridge:0.8.0 bridge
           docker pull ghcr.io/home-assistant/amd64-hassio-supervisor:2026.09.3
       - name: Real Core, CLI containers and browser tests
         run: |
@@ -51,8 +51,8 @@ jobs:
           uv run python scripts/package.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: agentic-home-0.7.0
+          name: agentic-home-0.8.0
           retention-days: 7
           path: |
-            dist/agentic-home-0.7.0-source.zip
+            dist/agentic-home-0.8.0-source.zip
             evidence/
