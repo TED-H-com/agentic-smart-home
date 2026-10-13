@@ -1,4 +1,4 @@
-# 開發與自動化測試 · 0.8.0 原始碼／App 技術預覽
+# 開發與自動化測試 · 0.9.0
 
 先讀根 [AGENTS](../AGENTS.md)、[Plan](../PROJECT_PLAN.md) 和 [v3 原稿／進度](v3/README.md)。A Hermes/Controller、B worker isolation、C Web/preview/delivery 三線可並行，共用契約由整合者維護，同一檔案／workspace 維持一個 writer。工程測試和 32 個產品驗收分開記。
 
@@ -13,12 +13,12 @@ npm run build --prefix web
 uv run playwright install --with-deps chromium
 uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner, package_bridge; package_runner(); package_bridge()"
 uv run python scripts/controller_source.py
-docker build -t agentic-home-controller:0.8.0 controller
-docker build -t agentic-home-runner:0.8.0 runner
-docker build -t agentic-home-linejs:0.8.0 host/linejs
-docker build -t agentic-home-hermes:0.8.0 hermes
-docker build -t agentic-home-preview:0.8.0 host/preview
-docker build -t agentic-home-bridge:0.8.0 bridge
+docker build -t agentic-home-controller:0.9.0 controller
+docker build -t agentic-home-runner:0.9.0 runner
+docker build -t agentic-home-linejs:0.9.0 host/linejs
+docker build -t agentic-home-hermes:0.9.0 hermes
+docker build -t agentic-home-preview:0.9.0 host/preview
+docker build -t agentic-home-bridge:0.9.0 bridge
 docker pull ghcr.io/home-assistant/amd64-hassio-supervisor:2026.09.3
 ```
 
@@ -42,7 +42,7 @@ uv run pytest -q --basetemp "$agentic_test_tmp"
 | 家庭 Engine/API/Runner | `tests/test_engine.py tests/test_api.py tests/test_runner.py` | HA/provider 協定 fixtures |
 | Hermes Controller/MCP | `tests/test_hermes_controller.py` | 身份、scope、blocked jobs、固定工具、去重／撤權；runtime fixture |
 | Hermes 私有 runtime | `tests/test_hermes_runtime.py --containers` | service tests＋真 pinned AIAgent／官方 MCP client；模型及 MCP endpoints 為本機 fixture |
-| Web | `tests/test_bootstrap_ui.py tests/test_ui.py tests/test_gateway_ui.py tests/test_hermes_ui.py tests/test_worker_ui.py` | 真 Chromium、API fixtures，1440／768／390 px |
+| Web | `tests/test_ui.py tests/test_bootstrap_ui.py tests/test_gateway_ui.py tests/test_hermes_ui.py tests/test_worker_ui.py tests/test_home_worker_ui.py tests/test_bridge_ui.py tests/test_recovery_ui.py tests/test_review_ui.py tests/test_provider_auth_ui.py tests/test_interactive_preview_ui.py` | 真 Chromium、API fixtures，1440／768／390 px |
 | 首次設定／登入 | `tests/test_bootstrap.py tests/test_bootstrap_host.py tests/test_bootstrap_runner.py tests/test_desktop_login.py tests/test_ha_oauth.py --containers --real-ha` | 持久步驟／負向恢復、真封裝CLI本機推論fixture、真Core OAuth；不登入雲端 |
 | 跨服務 onboarding E2E | `tests/test_onboarding_e2e.py --containers --real-ha` | 真 Chromium／Controller／TLS Runner／Codex／Hermes AIAgent／MCP／Core OAuth；模型與 Host 安裝副作用為 fixture，無瀏覽器 API 攔截；精確限制見測試與審查報告 |
 | 競爭與恢復回歸 | `tests/test_review_bootstrap.py tests/test_review_runtime.py tests/test_review_ui.py` | 真程序樹取消、配對回覆遺失、授權／pause race、登入表單狀態、Telegram 首次配對；外部帳號端點 fixture |
@@ -71,7 +71,7 @@ python3 scripts/build_host.py
 uv run python scripts/package.py
 ```
 
-先改 Pydantic models 再產生 contracts。Runner `protocol=1` 與 `work_contract_major=1` 分開。0.8.0 的 Controller 使用 schema 3，因舊 worker cancel 語意不兼容新 lease；從 1／2 開啟先留 0600 SQLite 一致快照，交易更新 marker，保留 audit／去重。restore 接受 1／2／3 並保持格式。固定 updater 只允許同 schema 3 Controller image；不盲目回復舊 Live DB。
+先改 Pydantic models 再產生 contracts。Runner `protocol=1` 與 `work_contract_major=1` 分開。Controller 使用 schema 3，因舊 worker cancel 語意不兼容新 lease；從 1／2 開啟先留 0600 SQLite 一致快照，交易更新 marker，保留 audit／去重。restore 接受 1／2／3 並保持格式。固定 updater 只允許同 schema 3 Controller image；不盲目回復舊 Live DB。
 
 Hermes 工具 allowlist 由 runtime 和 Controller 同時限制，沒有 Live approval、arbitrary shell 或原生 delegate；新的 research/development launcher 不可修改受控 `home_operator` 的工具限制。模型回傳 passed／approved 沒有測試或人類批准效力。
 
@@ -81,7 +81,7 @@ source ZIP 明列允许目錄；不含 `_upstream`、`.venv`、node_modules、cr
 
 ## 媒體、相容與真實驗收
 
-0.8.0 本輪交付原始碼與 App，最近的完整媒體實測仍為 0.7.0。
+每個版本的媒體、一次性 VM 安裝與平台測試結果記在 [VERIFICATION](VERIFICATION.md)。
 
 本輪首要 profile 是 Ubuntu 24.04 `laptop-amd64`。firstboot 只安裝外層和配對既有 Runner，不再自動 provision HAOS；測試應明確驗證這個行為。媒體建置和一次性 VM 安裝是不同證據；Owner 實體 laptop、真帳號、真 HAOS App coding、家庭 helpers、更新／退版及長時間運作各自記錄。
 

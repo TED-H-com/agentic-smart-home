@@ -6,7 +6,7 @@
 
 日常在「智能管家」描述需求，由 Hermes 依能力派工，成果回到同一段對話。第一次 coding 登入或手動派工可從「設定 → 進階工具」選外層或家庭現場助手，完成獨立 Codex device code 或 API key 登入。Host 工作者只讀封裝內的產品來源，在私有 clone 調查、修改和跑測試。CLI 登入資料不複製到 Hermes 或模型的工作區。尚未登入時不送出工作；`configured` 表示資料保存，成功模型工作才記為 `inference_verified`。
 
-目前 coding adapter 的 provider 為 **Codex 0.157.1**；Claude、Antigravity、Grok 的家庭模式／初始化能力繼續保留，但不冒充已完成的 coding adapter。**0.7.0 的已驗證交付仍是 Host coding。** **0.8.0 來源／App 工程預覽已實作 Home coding，並完成真 HAOS 的整條工程測試**，同樣以 Codex 為首個 provider。模型 transport 仍是固定 fixture；真雲端自主研究、Owner 家庭試跑與 E2 尚未驗收。最新完整 ISO 證據仍為 0.7.0，本輪不宣稱新 ISO 已驗。
+目前 coding adapter 的 provider 為 **Codex 0.157.1**；Claude、Antigravity、Grok 的家庭模式／初始化能力繼續保留，但不冒充已完成的 coding adapter。**0.9.0 交付 Host coding 與家庭現場的 Home coding**，兩者都以 Codex 為首個 provider，家庭現場可從網頁一鍵啟用。工程測試的模型 transport 是固定 fixture；真雲端自主研究、Owner 家庭試跑與 E2 仍待 Owner 實測。各版本的媒體與平台證據見 [驗證紀錄](VERIFICATION.md)。
 
 Web 會保留調查、差異、檔案指紋與實際程序觀測。worker 自己的結論仍是不可信內容。修改成功後，另一份無帳號、無網路的乾淨 clone 套用同一 patch，執行封裝基準提供的固定測試；原 worker 不能修改 verifier 的測試／設定。驗證器先載入封裝內的 pytest，再加入候選程式的 import 路徑；除了退出碼，還要求測試有收集、有執行且完整結束，避免尚未測試就退出的假成功。候選 Python 仍在白箱測試程序內執行，因此這是有限的測試完成紀錄，不是抵抗任意惡意候選的密碼學證明。這個有限測試集合不代表任意修改已通過完整 CI，也不形成部署批准。
 
@@ -17,13 +17,15 @@ Web 會保留調查、差異、檔案指紋與實際程序觀測。worker 自己
 - Host worker UID 10000、network none、read-only root、capabilities 限制、cgroups CPU／memory／PID 配额與固定 watchdog。所有可寫工作目錄在有界 ext4 磁碟；不能以輪詢資料夾大小代替 quota。
 - provider／公開文件出站經受控 Unix relay。上游 HTTPS 主機、IP、方法與路徑受限；拒私網 DNS 與任意 redirect／遠端 MCP，provider bearer 在 broker 加入。模型與公開來源的請求數、內容大小與期限受限。
 - 中繼把 provider 回應逐段轉給 sandbox（chunked，每段 flush）。位元組之間的閒置上限是 300 秒；工作 deadline 仍限制總時間。回應累計超過 8 MiB 就中止，不先緩衝整份本文。ChatGPT OAuth 依固定版 Codex 的規則向固定的 `https://auth.openai.com/oauth/token` 更新：JWT 有到期時間時，只在 5 分鐘內到期才更新；沒有時，`last_refresh` 早於 8 天才更新。provider 在尚未送出任何回應位元組前回 401 時，只更新並重試該請求一次。更新端點回 401、`invalid_grant` 或 `refresh_token_expired`／`refresh_token_reused`／`refresh_token_invalidated`，或第二次 401／403，才記 `auth_failed` 並以 `needs_reauth` 回報。連線失敗、逾時或 5xx 是暫時性的，不要求重新登入。refresh token 與 id token 只留在憑證檔。API key 不呼叫該端點。中繼與 sandbox proxy 只雙向轉送固定的 Codex Responses 標頭（lite、originator、turn-state、beta、session／thread／window id、turn metadata；routing hint 只在 ChatGPT 路徑），其餘含憑證、attestation 與 Set-Cookie 一律丟棄。這是程式行為，不是真帳號驗收。
-- 同時一個 coding job。準備（clone 與映像掛載）、執行、驗證各有 300 秒，用 `time.monotonic()` 計時。執行預算從容器實際跑起來才開始，不從送出開始。Owner 授權的 `expires` 仍是原本的授權截止，不會被預算拉長；逾時原因分別是 `setup_timeout`、`execution_timeout`、`verification_timeout`、`authorization_expired`。Owner 按取消是 `owner_cancelled`。取消不會清掉已寫下的 `error_code`。writer 和 verifier 都必須證明停止，才釋出全域 lease。關頁或 HTTP 回覆遺失不表示取消。
-- Broker 收到 SIGTERM／SIGINT 後，沿原本的 fenced stop 停掉 sandbox，在有限時間內 `collect()` 再結束。下次啟動先從 workspace 收集上次還在跑的 job，標成 `interrupted`（`broker_restarted`），保留 diff／findings／artifacts，不重跑。還沒進 sandbox 的排隊 job 直接標 `interrupted`（`broker_restarted`）。結果還沒 collect 的執行 workspace 不會被 prune 刪掉。`stop_unconfirmed` 的圍欄維持原樣。
+- 同時一個 coding job。準備（clone 與映像掛載）與驗證各有 300 秒，執行有 840 秒，用 `time.monotonic()` 計時。開發容器自己的上限是 900 秒，比 broker 的期限晚 60 秒，所以逾時一定由 broker 收尾並保留成果。執行預算從容器實際跑起來才開始，不從送出開始。Owner 授權的 `expires` 仍是原本的授權截止，不會被預算拉長；逾時原因分別是 `setup_timeout`、`execution_timeout`、`verification_timeout`、`authorization_expired`。Owner 按取消是 `owner_cancelled`。取消不會清掉已寫下的 `error_code`。writer 和 verifier 都必須證明停止，才釋出全域 lease。關頁或 HTTP 回覆遺失不表示取消。
+- Broker 收到 SIGTERM／SIGINT 後，沿原本的 fenced stop 停掉 sandbox，在有限時間內 `collect()` 再結束。下次啟動先從 workspace 收集上次還在跑的 job，標成 `interrupted`（`broker_restarted`），保留 diff／findings／artifacts，不重跑。還沒進 sandbox 的排隊 job 直接標 `interrupted`（`broker_restarted`）。結果還沒 collect 的執行 workspace 不會被 prune 刪掉。
+- `stop_unconfirmed` 的工作在每次清理時重試停止（每分鐘一次，以及每個寫入請求之前）；Owner 按停止或「確認已停止」也會重試。確認停止後只會成為 `cancelled`（`owner_cancelled`）、`interrupted`（`broker_restarted`）或 `failed`（沒有其他原因時記 `writer_stop_unconfirmed`），絕不升級為成功，也不跑驗證；驗證被中斷時記 `not_run`。重試失敗只略過那一筆，下次再試，不影響其他工作與請求；Owner 明確停止時仍回報失敗。Controller 的核對路由對 `stop_unconfirmed` 的工作送出取消。在確認之前，新工作仍被擋住。
+- 失敗且沒有其他原因的工作，依序記錄 relay 觀察到的第一個原因：`coding_quota_reached`（最後一次模型回應為 429）、`coding_turn_limit`（超過每份工作 200 次模型呼叫）、`coding_provider_rejected`（其他 4xx，401／403 除外）、`coding_provider_unavailable`（5xx）。401／403 照舊走 `coding_needs_reauth`。成功的工作不記錄這些原因。
 - 狀態讀取不跟 launch、git、collect 共用鎖。`phase` 含 `queued`、`launching`、`running`、`verifying`、`collecting`，並帶 `heartbeat_at`。Controller 在 launching／running／verifying／collecting 且 heartbeat 仍新時不會標 `needs_reconcile`；job 真的消失、回執不合或 heartbeat 過期才會。
 - 完成、逾時或中斷的 job 都留結果。沒有自動重試。「再試一次」是新的一次送出：Owner 用新的 `Idempotency-Key` 呼叫 `POST /api/worker/jobs`；Hermes 用新的 `idempotency_key` 呼叫 MCP `worker.submit`。同一個 key 只會取回舊 job。
-- 成果在確認停止後匯出，拒 symlink／hardlink／特殊檔案、越界、超量、非允許類型及可辨識的憑證格式。去密模式不能證明所有內容都適合公開；成果留在本機。
+- 成果在確認停止後匯出，拒 symlink／hardlink／特殊檔案、越界、超量、非允許類型及可辨識的憑證格式。不是 UTF-8 或含 NUL 的產出檔標成 `not_text` 略過，其他檔案照常匯出。修改本身不是文字時記 `patch_not_text`，不保留修改也不跑驗證；`changes.patch` 是驗證端收到的同一份位元組。驗證端回報的 `tests_executed`（0 到 1,000,000 的整數）只用來顯示，不影響通過與否。去密模式不能證明所有內容都適合公開；成果留在本機。
 
-### Home coding 0.8.0 工程預覽
+### Home coding（家庭現場）
 
 HomeService 已接現有 Controller → 配對 TLS Runner 的 jobs／auth／artifacts 契約，worker ID 為 `home-coder`。它在真正 HAOS Runner App 內執行；來源為 App 映像內的唯讀 bare repo `/opt/agentic-worker/source` 及固定 commit 記錄，每件工作另建 clone。coding 帳號獨立保存在 App 的 `/data/coding-auth`，不借用 Host、Hermes 或 `home_operator` 登入。既有家庭 Runner 的結構化限制不變。
 

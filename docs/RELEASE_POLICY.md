@@ -45,4 +45,4 @@ Controller 的 SQL `user_version` 仍為 3，但相同 schema 不代表舊 binar
 
 統一可信發行索引、內建 publisher 信任根、全產品更新／遷移與完整 Linux 恢復，仍是待交付增量。不能把現有 Controller-only manifest 重新解讀為能更新 HAOS／Core／Linux。安全公告的追蹤與緊急發版仍需持續建立實際證據，不宣稱已有值班或 SLA。
 
-0.7.0 本輪 App、橋接身份、UI 與固定維護流程的工程結果由 [驗證紀錄](VERIFICATION.md) 記錄；真家庭驗收、Home coding 與 Plan v3 E1／E2 不因新增側欄自動完成。
+各版 App、橋接身份、UI 與固定維護流程的工程結果由 [驗證紀錄](VERIFICATION.md) 記錄；工程測試通過不等於真家庭驗收。
