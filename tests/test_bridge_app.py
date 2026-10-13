@@ -55,6 +55,7 @@ async def test_proxy_preserves_user_and_idempotency_without_browser_credentials(
         "origin": "http://ha.test", "host": "ha.test", "fetch_site": "same-origin"}]
     assert response.headers["cache-control"] == "no-store"
     assert "frame-ancestors 'self'" in response.headers["content-security-policy"]
+    assert "frame-src" not in response.headers["content-security-policy"]
 
 
 @pytest.mark.parametrize("headers", [

@@ -287,7 +287,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         response.headers.setdefault("Referrer-Policy", "same-origin")
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
-            "connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'")
+            "connect-src 'self'; frame-src http://127.0.0.2:8100; frame-ancestors 'self'; "
+            "base-uri 'self'; form-action 'self'")
         return response
 
     @app.exception_handler(RequestValidationError)
@@ -656,7 +657,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         coordinator.worker_manager.runners = {"host": runner, "haos": inner_runner}
         hermes_routes(app, coordinator, store)
         worker_routes(app, coordinator.worker_manager)
-        app.state.operations = operation_routes(app, store, coordinator.worker_manager)
+        app.state.operations = operation_routes(app, store, coordinator.worker_manager, host_mode=host_mode)
         gateway_routes(app, gateway, store, gateway.runners, controller_id)
         app.state.gateway = gateway
         app.state.coordinator = coordinator

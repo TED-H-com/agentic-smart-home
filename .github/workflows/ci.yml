@@ -28,6 +28,7 @@ jobs:
         run: |
           uv run ruff check controller runner hermes bridge host scripts tests
           uv run python scripts/contracts.py --check
+          uv run python scripts/web_toolchain.py --check
           uv run python scripts/validate_kit.py
       - name: Controller source bundle
         run: uv run python scripts/controller_source.py

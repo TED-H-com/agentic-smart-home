@@ -63,7 +63,11 @@ Host 的「核對停止與工作狀態」讀取固定 runner／broker 的容器 
 
 工作產物含 `index.html` 時，可產生 1440／768／390 三個寬度的截圖。固定 renderer 使用獨立、無 credentials、network none 的瀏覽器容器。候選 HTML 不在管理中心 origin 執行。
 
-PNG 經 `127.0.0.2:8100` 的獨立 host origin 與隨機短效連結查看；管理頁只連到 PNG，30 分鐘失效，可提前關閉。遠端 SSH 指令包含這個 listener 的 forwarding，沒有把主機管理埠公開到 LAN。此版交付靜態畫面預覽，尚非互動候選站台。
+PNG 經 `127.0.0.2:8100` 的獨立 host origin 與隨機短效連結查看；管理頁只連到 PNG，30 分鐘失效，可提前關閉。遠端 SSH 指令包含這個 listener 的 forwarding，沒有把主機管理埠公開到 LAN。
+
+Host 獨立驗證器在基準測試通過、且候選差異碰到 `web/` 時，用映像內釘選的工具鏈離線建置候選介面。建置失敗只記入 `verification.web_preview`，不改變測試結果，也不新增工作階段。Home 驗證器不建置（`unavailable`／`host_only`）。依賴鎖與 `web/package.json` 必須與映像內複本逐位元組相同。
+
+擁有者在 Host 管理頁可開互動預覽：同一個 `127.0.0.2:8100` 的 `/i/<capability>/`，只提供虛構示範資料，30 分鐘失效，可提前關閉，最多同時保留 8 筆（含截圖）。候選 JavaScript 不在 `localhost:8099`、`127.0.0.1:8099` 或 HA origin 執行，也不讀真實家庭資料。Bridge 與 Ingress 拒絕互動預覽，也不轉送互動網址。每個回應帶嚴格 CSP，並拒絕帶 `Service-Worker` 標頭的請求。示範資料不是驗收。
 
 ## 內容期限
 

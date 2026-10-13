@@ -10,8 +10,10 @@ import struct
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
+from urllib.parse import unquote
 
+from .coding_sandbox import SandboxError, load_stored_bundle
 from .coding_volume import DiskVolume
 from .fence import fence
 from .manager import HostError, atomic
@@ -20,6 +22,16 @@ from .resources import ready
 WIDTHS = {1440: 960, 768: 1024, 390: 844}
 MAX_BYTES = 4 * 1024 * 1024
 SUFFIXES = {".html", ".css", ".js", ".json", ".png", ".jpg", ".jpeg", ".svg", ".webp", ".woff2", ".txt"}
+INTERACTIVE_CSP = (
+    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; "
+    "font-src 'self'; connect-src 'self'; "
+    "frame-ancestors http://localhost:8099 http://127.0.0.1:8099; "
+    "base-uri 'none'; form-action 'none'; object-src 'none'; worker-src 'none'; manifest-src 'none'")
+INTERACTIVE_TYPES = {
+    ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css",
+    ".svg": "image/svg+xml", ".json": "application/json", ".txt": "text/plain; charset=utf-8",
+    ".png": "image/png", ".webp": "image/webp", ".woff2": "font/woff2", ".ico": "image/x-icon"}
+FIXTURE_ROUTE = re.compile(r"[a-z0-9/_-]{1,120}\Z")
 
 
 def canonical(value):
@@ -73,8 +85,10 @@ def png(data, width):
 
 
 class Previews:
-    def __init__(self, manager, volume=DiskVolume):
+    def __init__(self, manager, volume=DiskVolume, bundles=None):
         self.manager, self.run, self.volume = manager, manager.run, volume
+        self.bundles = None if bundles is None else Path(bundles)
+        self.public_host, self.public_port = "127.0.0.2", 8100
         self.root = manager.root / "previews"
         self.root.mkdir(mode=0o700, exist_ok=True)
         self.lock = threading.RLock()
@@ -94,6 +108,15 @@ class Previews:
         return found[0]
 
     def view(self, record):
+        if record.get("mode") == "interactive":
+            result = {k: v for k, v in record.items() if k not in {"capability", "container"}}
+            if result.get("state") == "ready":
+                if record["expires_at"] <= time.time():
+                    result["state"] = "expired"
+                else:
+                    result["interactive_url"] = (
+                        f"http://{self.public_host}:{self.public_port}/i/{record['capability']}/")
+            return result
         result = {k: v for k, v in record.items() if k not in {"capability", "container"}}
         if result["state"] == "ready":
             if record["expires_at"] <= time.time():
@@ -107,9 +130,57 @@ class Previews:
             record.update(values)
             atomic(self.path, self.records)
 
+    def open_bundle(self, job_id):
+        if self.bundles is None or not isinstance(job_id, str) or not re.fullmatch(r"[a-f0-9]{32}", job_id):
+            raise HostError("preview_bundle_unavailable")
+        try:
+            return load_stored_bundle(self.bundles / job_id)
+        except SandboxError as exc:
+            if str(exc) == "preview_artifact_digest_mismatch":
+                raise HostError("preview_artifact_digest_mismatch") from None
+            raise HostError("preview_bundle_unavailable") from None
+
+    def interactive_record(self, capability):
+        with self.lock:
+            for record in self.records.values():
+                stored = record.get("capability")
+                if (record.get("mode") != "interactive" or not isinstance(stored, str)
+                        or len(stored) != len(capability) or not secrets.compare_digest(stored, capability)):
+                    continue
+                if record.get("state") != "ready" or record.get("expires_at", 0) <= time.time():
+                    return None
+                return {"job_id": record.get("job_id"), "artifact_digest": record.get("artifact_digest")}
+        return None
+
+    def submit_interactive(self, body):
+        if not isinstance(body, dict) or set(body) != {"id", "mode", "job_id"} or body.get("mode") != "interactive":
+            raise HostError("preview_request_invalid")
+        if not isinstance(body["id"], str) or not re.fullmatch(r"[A-Za-z0-9_-]{8,100}", body["id"]):
+            raise HostError("preview_identity_invalid")
+        if not isinstance(body["job_id"], str) or not re.fullmatch(r"[a-f0-9]{32}", body["job_id"]):
+            raise HostError("preview_identity_invalid")
+        _files, _fixtures, digest = self.open_bundle(body["job_id"])
+        with self.lock:
+            previous = self.records.get(body["id"])
+            if previous:
+                if (previous.get("mode") != "interactive" or previous.get("job_id") != body["job_id"]
+                        or previous.get("artifact_digest") != digest):
+                    raise HostError("preview_idempotency_conflict")
+                return self.view(previous)
+            if len([item for item in self.records.values() if item.get("expires_at", 0) > time.time()]) >= 8:
+                raise HostError("preview_retention_limit")
+            record = {"id": body["id"], "mode": "interactive", "job_id": body["job_id"], "artifact_digest": digest,
+                      "state": "ready", "created_at": time.time(), "expires_at": time.time() + 1800,
+                      "capability": secrets.token_urlsafe(32)}
+            self.records[body["id"]] = record
+            atomic(self.path, self.records)
+        return self.view(record)
+
     def submit(self, body):
         if not self.transport_ready:
             raise HostError("preview_listener_unavailable")
+        if isinstance(body, dict) and body.get("mode") == "interactive":
+            return self.submit_interactive(body)
         files = validate(body)
         image = self.image()
         ready(self.run, 1536)
@@ -231,12 +302,98 @@ class Previews:
         raise HostError("preview_request_invalid")
 
 
+def _interactive_target(path):
+    match = re.fullmatch(r"/i/([A-Za-z0-9_-]{43})(?:/(.*))?", path.split("?", 1)[0])
+    if not match:
+        return None
+    capability, tail = match.group(1), match.group(2)
+    if not tail:
+        return capability, "file", "index.html"
+    try:
+        decoded = unquote(tail, errors="strict")
+    except UnicodeError:
+        return capability, "reject", ""
+    if "\x00" in decoded or "\\" in decoded or any(part in {".", ".."} for part in decoded.split("/")):
+        return capability, "reject", ""
+    if decoded.startswith("api/"):
+        return capability, "api", decoded[4:]
+    return capability, "file", decoded
+
+
 def preview_server(previews, address=("127.0.0.2", 8100)):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass
 
+        def _interactive(self, status, body, content_type):
+            if isinstance(body, str):
+                body = body.encode()
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Security-Policy", INTERACTIVE_CSP)
+            self.end_headers()
+            if body:
+                self.wfile.write(body)
+
+        def _deny_json(self, status, detail):
+            self._interactive(status, json.dumps({"detail": detail}, ensure_ascii=False).encode(),
+                              "application/json; charset=utf-8")
+
+        def serve_interactive(self):
+            try:
+                length = int(self.headers.get("Content-Length") or "0")
+            except ValueError:
+                length = 0
+            if length > 0:
+                self.rfile.read(min(length, 65536))
+            if "Service-Worker" in self.headers:
+                self._interactive(404, b"", "text/plain")
+                return
+            if self.headers.get("Host") != f"{address[0]}:{self.server.server_port}":
+                self._interactive(404, b"", "text/plain")
+                return
+            target = _interactive_target(self.path)
+            if target is None:
+                self._interactive(404, b"", "text/plain")
+                return
+            capability, kind, name = target
+            record = previews.interactive_record(capability)
+            if record is None or kind == "reject":
+                self._interactive(404, b"", "text/plain")
+                return
+            try:
+                files, fixtures, digest = previews.open_bundle(record["job_id"])
+            except HostError:
+                self._interactive(404, b"", "text/plain")
+                return
+            if digest != record["artifact_digest"]:
+                self._interactive(404, b"", "text/plain")
+                return
+            if self.command != "GET":
+                self._deny_json(403, "預覽不會執行操作")
+                return
+            if kind == "api":
+                if FIXTURE_ROUTE.fullmatch(name) is None or name not in fixtures:
+                    self._deny_json(404, "預覽沒有這項資料")
+                    return
+                self._interactive(200, json.dumps(fixtures[name], ensure_ascii=False).encode(),
+                                  "application/json; charset=utf-8")
+                return
+            data = files.get(name)
+            content_type = INTERACTIVE_TYPES.get(PurePosixPath(name).suffix)
+            if data is None or content_type is None:
+                self._interactive(404, b"", "text/plain")
+                return
+            self._interactive(200, data, content_type)
+
         def do_GET(self):
+            if self.path.split("?", 1)[0].startswith("/i/"):
+                self.serve_interactive()
+                return
             match = re.fullmatch(r"/p/([A-Za-z0-9_-]{43})/(1440|768|390)\.png", self.path)
             data = None
             if self.headers.get("Host") == f"{address[0]}:{self.server.server_port}" and match:
@@ -251,4 +408,14 @@ def preview_server(previews, address=("127.0.0.2", 8100)):
             self.end_headers()
             if data:
                 self.wfile.write(data)
-    return ThreadingHTTPServer(address, Handler)
+
+        def do_POST(self):
+            if self.path.split("?", 1)[0].startswith("/i/"):
+                self.serve_interactive()
+                return
+            self.send_error(501)
+
+    server = ThreadingHTTPServer(address, Handler)
+    previews.public_host = address[0]
+    previews.public_port = server.server_port
+    return server
