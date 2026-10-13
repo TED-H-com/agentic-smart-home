@@ -12,7 +12,13 @@ import pytest
 from agentic_controller.app import create_app
 from agentic_controller.runner import Runner, RunnerError
 from agentic_runner.app import Broker, create_api
-from agentic_runner.providers import ProviderError, Providers, StopUnconfirmed, auth_error
+from agentic_runner.providers import (
+    ProviderError,
+    Providers,
+    StopUnconfirmed,
+    auth_error,
+    classify_cli_output,
+)
 
 
 def script_process(code):
@@ -431,3 +437,33 @@ async def test_controller_secret_login_is_202_and_cancel_keeps_owner_guards(stor
         assert inner.calls[-1] == ("POST", "/providers/claude/auth/abc123/cancel", None)
         assert outer.calls[-1][1] == "/providers/agy/auth/abc123/cancel"
         assert (await client.post("/api/providers/agy/auth/not-valid/cancel", headers=headers)).status_code == 422
+
+
+@pytest.mark.parametrize(("text", "category"), [
+    ("HTTP 401 from provider", "needs_reauth"),
+    ('{"status": 429}', "rate_limited"),
+    ("context used 140100 tokens; output did not match the schema", "cli_output_unrecognized"),
+    ("trace 0a4012c9 request req_8a429b failed", "cli_output_unrecognized"),
+    ("version 1.401.2 exited", "cli_output_unrecognized"),
+])
+def test_status_numbers_must_stand_alone(text, category):
+    assert classify_cli_output("", text) == category
+
+
+async def test_unrelated_run_failure_is_not_an_account_reason(tmp_path, monkeypatch):
+    providers = Providers(tmp_path)
+
+    async def probe(provider):
+        return matched_probe(provider, "1.3.3")
+
+    async def spawn(provider, args, cwd=None):
+        return await script_process(
+            "import sys; print('model returned 140100 tokens without a final answer', file=sys.stderr); raise SystemExit(1)")
+
+    monkeypatch.setattr(providers, "probe", probe)
+    monkeypatch.setattr(providers, "spawn", spawn)
+    schema = {"type": "object", "properties": {"status": {"type": "string"}}, "required": ["status"]}
+    with pytest.raises(ProviderError) as failed:
+        await providers.run("p" * 32, "agy", "Reply with status ok.", schema)
+    assert str(failed.value) == "CLI 執行失敗；請檢查登入狀態、所選模型與網路"
+    assert "agy" not in providers.reasons

@@ -417,7 +417,7 @@ def create_api(broker):
 
     @app.get("/auth/{id}")
     async def auth_status(id: str):
-        if not id.isalnum() or len(id) > 64:
+        if not (id.isascii() and id.isalnum()) or len(id) > 64:
             raise HTTPException(422, "無效登入 ID")
         state = broker.providers.auth_sessions.get(id)
         if not state:
@@ -426,7 +426,7 @@ def create_api(broker):
 
     @app.post("/providers/{provider}/auth/{id}/cancel")
     async def cancel_auth(provider: Literal["codex", "claude", "agy", "grok"], id: str):
-        if not id.isalnum() or len(id) > 64:
+        if not (id.isascii() and id.isalnum()) or len(id) > 64:
             raise HTTPException(422, "無效登入 ID")
         # A fenced login must stay visible. 409 only when this id is not that session.
         state = broker.providers.auth_sessions.get(id)

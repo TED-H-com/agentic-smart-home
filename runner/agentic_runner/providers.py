@@ -68,14 +68,20 @@ class AuthCancelled(Exception):
     """The owner cancelled verification. This must not quarantine the process."""
 
 
+# A status must stand alone: "14012 tokens" or a hex request id is not HTTP 401.
+CLI_STATUS = re.compile(r"(?<![A-Za-z0-9_.])(401|429)(?![A-Za-z0-9_.])")
+
+
 def classify_cli_output(out, err):
     """Map CLI diagnostics to a category. The raw text is never returned."""
     lower = (out + "\n" + err).lower()
+    statuses = set(CLI_STATUS.findall(lower))
     if any(token in lower for token in ("invalid api key", "invalid_api_key", "incorrect api key", "invalid key")):
         return "invalid_credentials"
-    if any(token in lower for token in ("401", "unauthorized", "not logged", "authentication", "revoked")):
+    if "401" in statuses or any(token in lower for token in ("unauthorized", "not logged", "authentication", "revoked")):
         return "needs_reauth"
-    if any(token in lower for token in ("rate limit", "rate_limit", "ratelimit", "too many requests", "quota", "429")):
+    if "429" in statuses or any(token in lower for token in (
+            "rate limit", "rate_limit", "ratelimit", "too many requests", "quota")):
         return "rate_limited"
     if any(token in lower for token in (
             "timed out", "timeout", "connection reset", "connection refused",
@@ -646,7 +652,7 @@ class Providers:
                 clean = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", text)
                 url = re.search(r"https://auth\.openai\.com/[A-Za-z0-9/_-]+" if provider == "codex" else
                                 r"https://(?:auth|accounts)\.x\.ai/[^\s\x1b]+", clean)
-                code = AUTH_CODE.search(clean)
+                code = re.search(rf"\b{AUTH_CODE.pattern}\b", clean)
                 if url and OFFICIAL_AUTH_URL.fullmatch(url[0]):
                     state["url"] = url[0]
                 if code:
@@ -870,6 +876,9 @@ class Providers:
                 raise ProviderError("Agent 已達到 1 GiB 記憶體上限，任務已停止")
             if proc.returncode != 0:
                 category = classify_cli_output(out, err)
+                if category == "cli_output_unrecognized":
+                    # An unrelated job failure says nothing about the account.
+                    raise ProviderError("CLI 執行失敗；請檢查登入狀態、所選模型與網路")
                 self.reasons[provider] = category
                 raise auth_error(category)
             self.reasons.pop(provider, None)
