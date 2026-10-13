@@ -7,6 +7,16 @@ export function Notice({children, error=false}:{children:React.ReactNode; error?
 export function Button({children, secondary=false, danger=false, ...props}:React.ButtonHTMLAttributes<HTMLButtonElement>&{secondary?:boolean;danger?:boolean}) {return <button {...props} className={`${secondary?'secondary':''} ${danger?'danger':''} ${props.className||''}`}>{children}</button>}
 export function Empty({title, children, action}:{title:string;children:React.ReactNode;action?:React.ReactNode}) {return <div className="empty"><span className="empty-rule"/><h3>{title}</h3><p>{children}</p>{action&&<div className="empty-action">{action}</div>}</div>}
 
+/** A short Traditional Chinese sentence from the API, or the local fallback. */
+export function friendlySentence(message: unknown, fallback: string) {
+  if (typeof message === 'string') {
+    const text = message.trim();
+    const han = text.match(/\p{Script=Han}/gu);
+    if ((han?.length || 0) >= 4 && text.length <= 40 && !/[A-Za-z0-9]+_[A-Za-z0-9_]+/.test(text) && !/\b(Hermes|CLI|Runner|Controller|worker|digest|fixture|observed_from)\b/.test(text)) return text;
+  }
+  return fallback;
+}
+
 export function CopyButton({text,children='複製'}:{text:string;children?:ReactNode}) {
   const [message,setMessage]=useState('');
   useEffect(()=>setMessage(''),[text]);

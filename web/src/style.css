@@ -705,6 +705,15 @@ main:focus{outline:none}
 }
 
 /* ==== 1.0 onboarding, accounts, channels ==== */
+.recovery-line{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);margin:var(--s3) 0}
+.recovery-line p{margin:0;flex:1 1 12rem;min-width:0;overflow-wrap:anywhere}
+.reason-code{display:block;margin-top:var(--s1);color:var(--muted);font-size:var(--xs);font-weight:400}
+.line-login .reason-code,.recovery-line .reason-code{overflow-wrap:anywhere}
+@media(max-width:800px){
+  .hermes-panel input,.hermes-panel textarea,.channel-settings input,.channel-settings textarea,.bootstrap input,.bootstrap textarea,.provider input,.provider textarea{font-size:16px}
+  .recovery-line{align-items:stretch}
+  .recovery-line button,.recovery-line .button{width:100%}
+}
 .bootstrap-steps>li{position:relative;flex-direction:column;align-items:center;text-align:center;gap:var(--s1);min-width:0;padding:var(--s2) 0}
 .bootstrap-steps .step-dot{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center;background:var(--bg);font-size:var(--xs);line-height:1;flex-shrink:0}
 .bootstrap-steps>li[aria-current] .step-dot{background:var(--accent);color:var(--surface);border-color:var(--accent)}
@@ -736,6 +745,12 @@ main:focus{outline:none}
 }
 
 /* ==== 1.0 conversation, case, sidebar bridge ==== */
+.device-label{font-weight:650;overflow-wrap:anywhere}
+.proposal-summary,.rule-step,.task-detail{overflow-wrap:anywhere;min-width:0}
+.chat-reply .assistant-answer .row-actions{max-width:100%}
+@media(max-width:800px){
+  .task-detail input,.task-detail textarea,.assistant-composer textarea{font-size:16px}
+}
 .assistant-messages{display:flex;flex-direction:column;gap:var(--s4)}
 .chat-turn{padding:0}
 .assistant-question{margin-bottom:var(--s1)}

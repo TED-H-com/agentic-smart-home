@@ -492,6 +492,8 @@ def native_entry_ui():
             value = {'tasks': [task]}
         elif path == 'tasks/' + task['id']:
             value = task
+        elif path == 'inventory':
+            value = {'entities': [], 'policy': {'entities': []}}
         elif path == 'bootstrap':
             value = {'contract': 1, 'id': None, 'state': 'idle', 'provider': None, 'channel': 'line',
                      'current_step': None, 'human_action': None,
