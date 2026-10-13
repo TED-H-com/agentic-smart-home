@@ -430,8 +430,16 @@ def test_chat_history_is_readonly_without_thread_and_locked_during_send(ui_page)
     page.get_by_role('heading', name=web['message'], exact=True).wait_for()
     for message in (legacy, external):
         page.get_by_role('button', name='對話紀錄', exact=False).click()
-        page.get_by_role('region', name='對話紀錄').get_by_role('button').filter(has_text=message['message']).click()
+        row = page.get_by_role('region', name='對話紀錄').get_by_role('button').filter(has_text=message['message'])
+        if message['source'] == 'line':
+            expect(row).to_contain_text('LINE')
+        else:
+            assert 'Web' not in (row.inner_text() or '')
+        row.click()
         expect(page.get_by_label('對話訊息')).to_have_count(0)
+        if message['source'] != 'web':
+            expect(page.locator('.assistant-conversation .chat-meta')).to_contain_text('LINE')
+            assert 'WEB ·' not in page.locator('.assistant-conversation').inner_text()
         assert json.loads(page.evaluate("sessionStorage.getItem('agentic-auth-conversations')")) == {'hermes-host-codex': web['id']}
         assert not posts
     page.get_by_role('button', name='對話紀錄', exact=False).click()

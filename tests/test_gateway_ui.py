@@ -180,24 +180,24 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
             page.get_by_label("對話訊息").fill("HA 還沒啟動，也能問你嗎？")
             page.get_by_role("button", name="送出訊息", exact=True).click()
             page.get_by_text("外層 Linux 仍可使用（測試回覆）", exact=True).wait_for()
-            page.get_by_text("接續這段對話", exact=True).wait_for()
+            page.wait_for_function("document.getElementById('gateway-message')?.placeholder === '繼續說…'")
             first = messages[0]['id']
             page.reload()
-            page.get_by_text("接續這段對話", exact=True).wait_for()
+            page.wait_for_function("document.getElementById('gateway-message')?.placeholder === '繼續說…'")
             page.get_by_label("對話訊息").fill("那要怎麼查看主機狀態？")
             page.get_by_role("button", name="送出訊息", exact=True).click()
             page.get_by_role("heading", name="那要怎麼查看主機狀態？", exact=True).wait_for()
             assert calls[-1] == ('gateway/messages', {'message': '那要怎麼查看主機狀態？', 'runtime': 'host', 'provider': 'codex', 'reply_to': first})
             saved = page.evaluate("sessionStorage.getItem('agentic-auth-conversations')")
             assert json.loads(saved) == {'host-codex': messages[0]['id']}
-            page.get_by_text('進階對話設定', exact=True).click()
-            page.get_by_label('執行環境', exact=True).select_option('haos')
+            page.get_by_text('進階', exact=True).click()
+            page.get_by_label('執行位置', exact=True).select_option('haos')
             page.get_by_text('需要協助時，直接告訴管家。', exact=True).wait_for()
-            page.get_by_label('執行環境', exact=True).select_option('host')
-            page.get_by_text('接續這段對話', exact=True).wait_for()
-            page.get_by_text('進階對話設定', exact=True).click()
+            page.get_by_label('執行位置', exact=True).select_option('host')
+            page.wait_for_function("document.getElementById('gateway-message')?.placeholder === '繼續說…'")
+            page.get_by_text('進階', exact=True).click()
             screenshots(page, "gateway")
-            page.get_by_role('button', name='開始新對話', exact=True).click()
+            page.get_by_role('button', name='新對話', exact=True).click()
             page.get_by_text('需要協助時，直接告訴管家。', exact=True).wait_for()
             page.get_by_label('對話訊息').fill('另一個問題')
             page.get_by_role('button', name='送出訊息', exact=True).click()
@@ -225,6 +225,134 @@ def test_outer_onboarding_line_setup_and_shared_inbox():
             grok.get_by_role("button", name="開始登入").click()
             assert any(path == "runtimes/haos/providers/grok/auth" for path, _ in calls)
             assert not errors, errors
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
+
+def test_chat_composer_keys_typing_indicator_and_scroll_to_newest():
+    """Enter, Shift+Enter, IME composition, the pending indicator, and scroll pinning."""
+    root = Path(__file__).parents[1]
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory=str(root / "controller/static"))
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    messages, posts, held, errors = [], [], [], []
+    gateway = {"preferences": {"runtime": "host", "provider": "codex", "coordinator": "hermes"}, "channels": []}
+
+    def route(route):
+        path = route.request.url.split("/api/")[1].split("?")[0]
+        body = route.request.post_data_json if route.request.method == "POST" else None
+        if path == "deployment":
+            result = {"mode": "host", "authenticated": True}
+        elif path == "session":
+            result = {"principal": "host-owner", "csrf": "fixture-csrf", "mode": "host"}
+        elif path == "status":
+            result = {"ha": {"status": "connected"}, "runner": {"protocol": 1, "providers": []}, "version": "fixture", "paused": False}
+        elif path == "tasks":
+            result = {"tasks": []}
+        elif path == "gateway":
+            result = gateway
+        elif path == "gateway/messages" and body is None:
+            result = {"messages": messages}
+        elif path == "gateway/messages":
+            assert route.request.headers.get("x-agentic-csrf") == "fixture-csrf"
+            key = route.request.headers.get("idempotency-key")
+            assert key
+            posts.append({"body": body, "key": key})
+            result = {
+                **body,
+                "id": hashlib.sha256(body["message"].encode()).hexdigest(),
+                "thread_id": "b" * 32,
+                "source": "web",
+                "state": "succeeded",
+                "answer": "已收到。\n" + ("這是較長的回覆，用來確認會捲到最新。\n" * 40),
+                "created_at": "2026-10-12T12:00:00Z",
+            }
+            held.append((route, result))
+            return
+        else:
+            result = {}
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(result))
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            page.route("**/api/**", route)
+            page.goto(f"http://127.0.0.1:{server.server_port}/#gateway")
+            box = page.get_by_label("對話訊息", exact=True)
+            box.wait_for()
+            page.wait_for_function("document.getElementById('gateway-message') === document.activeElement")
+            assert box.get_attribute("placeholder") == "輸入訊息…"
+            box.fill("   ")
+            box.press("Enter")
+            page.wait_for_timeout(150)
+            assert posts == [] and box.input_value() == "   "
+            box.fill("第一行")
+            box.press("Shift+Enter")
+            box.type("第二行")
+            assert box.input_value() == "第一行\n第二行" and posts == []
+            cancelled = page.evaluate(
+                """() => {
+                  const el = document.getElementById('gateway-message');
+                  const composing = new KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true, isComposing: true});
+                  el.dispatchEvent(composing);
+                  const code = new KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true});
+                  Object.defineProperty(code, 'keyCode', {get: () => 229});
+                  el.dispatchEvent(code);
+                  return composing.defaultPrevented || code.defaultPrevented;
+                }"""
+            )
+            page.wait_for_timeout(150)
+            assert cancelled is False and posts == [] and box.input_value() == "第一行\n第二行"
+            box.fill("請回覆這一段")
+            box.press("Enter")
+            page.get_by_role("status", name="智能管家正在回覆").wait_for()
+            assert len(posts) == 1
+            assert posts[0]["body"] == {
+                "message": "請回覆這一段", "runtime": "host", "provider": "codex", "reply_to": None, "coordinator": "hermes",
+            }
+            route, result = held.pop()
+            messages.insert(0, result)
+            route.fulfill(status=200, content_type="application/json", body=json.dumps(result))
+            page.get_by_text("已收到。", exact=False).wait_for()
+            page.wait_for_function("document.getElementById('gateway-message').value === ''")
+            page.wait_for_function("document.getElementById('gateway-message') === document.activeElement")
+            page.wait_for_function(
+                """() => {
+                  const el = document.querySelector('.assistant-conversation');
+                  const last = el && el.querySelector('.assistant-message:last-child');
+                  if (!el || !last || el.scrollHeight <= el.clientHeight + 40) return false;
+                  const near = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+                  const box = last.getBoundingClientRect();
+                  const view = el.getBoundingClientRect();
+                  return near && box.bottom <= view.bottom + 4;
+                }"""
+            )
+            assert page.get_by_role("status", name="智能管家正在回覆").count() == 0
+            page.locator(".assistant-conversation").evaluate("el => { el.scrollTop = 0 }")
+            messages.insert(0, {
+                **result, "id": "c" * 64, "message": "後來的補充", "answer": "這是更新的訊息。",
+                "created_at": "2026-10-12T12:05:00Z",
+            })
+            page.wait_for_function(
+                "document.querySelector('.assistant-conversation').textContent.includes('這是更新的訊息。')",
+                timeout=8000,
+            )
+            assert page.evaluate("document.querySelector('.assistant-conversation').scrollTop") < 80
+            page.get_by_role("button", name="最新訊息 ↓", exact=True).click()
+            page.wait_for_function(
+                """() => {
+                  const el = document.querySelector('.assistant-conversation');
+                  return el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+                }"""
+            )
+            assert len(posts) == 1 and not errors, errors
             browser.close()
     finally:
         server.shutdown()
