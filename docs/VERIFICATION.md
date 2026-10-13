@@ -1,5 +1,57 @@
 # Agentic Smart Home 驗證
 
+## 0.9.0
+
+本版重做介面，開發助手可在網頁啟用、登入，主機重開後自動復原，內容見 [CHANGELOG](../CHANGELOG.md)。受測來源、媒體與 harness 都是 [`4412d33b`](https://github.com/teddashh/agentic-smart-home/commit/4412d33b15af3c4427bc762394c853b63cc7fe05)。家庭現場映像內的開發來源固定為 [`0eb569e4`](https://github.com/teddashh/agentic-smart-home/commit/0eb569e42ed2661e3e3bd4c7835b3715d57e3da0)。來源、映像與限制的完整紀錄見 [0.9.0 交付紀錄](../evidence/release-0.9.0.json)。
+
+| 項目 | 結果 | 證據 |
+|---|---|---|
+| 本機回歸（`--real-ha --containers`） | 1472 passed、5 skipped／781.715 秒 | [JUnit](../evidence/pytest-0.9.0.xml) |
+| [GitHub CI 38401002647](https://github.com/teddashh/agentic-smart-home/actions/runs/38401002647) | 1470 passed、7 skipped／988.591 秒 | [核對](../evidence/github-ci-0.9.0.json)、[JUnit](../evidence/pytest-0.9.0-github.xml) |
+| ISO bundle 對 CI 來源 | 186 份執行／設定檔、50 份文件逐檔吻合 | [比對](../evidence/ci-media-match-0.9.0.json)、[建置](../evidence/build-0.9.0.json) |
+| HAOS 備份 | 1 passed | [結果](../evidence/haos-vm-0.9.0.json)、[JUnit](../evidence/haos-vm-0.9.0.xml) |
+| HAOS App 邊界 | 1 passed | [結果](../evidence/haos-app-boundary-0.9.0.json)、[JUnit](../evidence/haos-app-boundary-0.9.0.xml) |
+| 智能管家側欄 App（本機來源交付） | 18 passed | [結果](../evidence/bridge-haos-local-0.9.0.json)、[JUnit](../evidence/bridge-haos-local-0.9.0.xml)、[截圖](../evidence/ui/bridge-native-haos-0.9.0.png) |
+| 家庭現場開發助手（真 HAOS App） | 54 passed／314.479 秒 | [結果](../evidence/home-worker-haos-0.9.0.json)、[JUnit](../evidence/home-worker-haos-0.9.0.xml) |
+| 精確 ISO 完整安裝 | 1 passed／1437.469 秒 | [結果](../evidence/linux-install-0.9.0.json)、[JUnit](../evidence/linux-install-0.9.0.xml) |
+
+本機的五個跳過項就是上表另跑的 VM 案例，沒有算成通過。CI 另跳過 UID 1000 桌面專項及本機 QEMU builder 探針；CI 映像由 CI 獨立建置，不宣稱 ID 與本機相同。
+
+家庭現場開發助手的 54 passed 是一個真 VM 整合案例加 53 個 harness 單元測試。整合案例通過 15 項整合檢查及 38 項獨立基準測試；outer、VM、network 已移除，磁碟 ownership 已恢復。
+
+ISO 在一次性 VM 依序通過下列項目：
+
+- Ubuntu 安裝與 firstboot。
+- [角色登入](../evidence/installed-auth-laptop-amd64-0.9.0.json)與 [Controller 停止救援](../evidence/installed-rescue-laptop-amd64-0.9.0.json)。
+- [sandbox](../evidence/installed-sandbox-laptop-amd64-0.9.0.json)。
+- [真 Codex 0.157.1 工具與獨立 verifier](../evidence/installed-coding-laptop-amd64-0.9.0.json)。
+- [隨附 Hermes 啟用](../evidence/installed-hermes-laptop-amd64-0.9.0.json)。
+- HAOS 真 Core 就緒。
+- [Controller 更新／退版](../evidence/installed-update-laptop-amd64-0.9.0.json)，含三次 bridge 固定 probe。
+- 冷快照還原。
+- 整機重啟後 HAOS 自動啟動。
+
+VM 與磁碟目錄已移除，沒有在開發主機安裝產品。
+
+| 媒體 | Bytes | SHA-256 |
+|---|---|---|
+| `agentic-home-0.9.0-laptop-amd64.iso` | 6718160896 | `7e2da37c50eda233e8ec9b67a9123fc45dda9553214179928259fb0ce14488fa` |
+| `agentic-home-0.9.0-linux-amd64.tar` | 2638663680 | `412f22fc111c7703e574b6a7ce14e2a6fa0ba248a2be0b46e425ea53f90d73fe` |
+| `agentic-home-0.9.0-source.zip` | 29524022 | `a7fbe858066b878f37213e1f4fbf092da135a43daa2b8cb65f7a93b01aa49a03` |
+
+家庭現場開發助手第一次執行時，Supervisor 商店重新整理或讀取在 harness 的來源交付步驟失敗。當時 App 尚未安裝。harness 只記錄錯誤類型，所以上游原因不明，見 [失敗 receipt](../evidence/home-worker-haos-0.9.0-run1-failure.json)。同映像與 App 設定加上診斷後重跑通過，但不列為證據；同一 commit 的乾淨重跑通過，上表即此次結果。
+
+固定模型 transport、發行者／registry 與 Unix Host 能力回應都是明示的 fixture。下列項目尚未驗收：
+
+- 真雲端帳號與實體筆電。
+- 側欄與家庭現場 App 經 `#stable` 公開安裝，以及 Supervisor 從公開來源建置家庭現場 App。
+- Claude／Antigravity／Grok coding。
+- 家庭 E1／E2。
+
+32 個產品驗收案例仍為 2 passed、30 not_run。
+
+發布前的 Gitleaks [來源稽核](../evidence/source-audit-0.9.0.json)通過。1209 份公開檔案的 414 個 raw findings 都已逐一核對：412 個是可對回公開 Git blob 或封存檔的 SHA-256，2 個是測試裡的合成 fixture 值。沒有找到憑證。
+
 ## 0.8.0 Home coding 原始碼／App 預覽
 
 本輪加入真正 HAOS App 內的 Home coding worker，沿用 Controller／TLS Runner 派工、獨立登入、同 case 證據和工作區交接。首個 coding provider 為固定版本 Codex；模型程序使用私有 namespace、cgroup、磁碟配額及受控 relay，正式家庭操作仍由既有受控流程執行。實作與平台測試進度見 [Workers](WORKERS.md)及 [Plan v3 帳本](v3/PROGRESS.md)。

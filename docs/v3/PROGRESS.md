@@ -1,8 +1,8 @@
 # Plan v3 進度與驗收帳本（團隊維護）
 
-**目前：0.8.0 來源／App 工程預覽已完成真 Home coding worker 與完整 HAOS 工程案例，V3-10 為 implemented。模型 transport 是固定 fixture，真雲端／Owner 家庭及 E1／E2 尚未驗收；32 案維持 2 passed、30 not_run。最新完整 ISO 為 0.7.0，本輪沒有新 ISO 驗證。** 詳見下方 [Home coding 增量](#home-coding-080-工程增量)。
+**目前：0.9.0 完整產品工程預覽。精確 ISO 在一次性 VM 完整安裝通過；真 HAOS 側欄 App 與家庭現場開發助手的工程案例通過。模型 transport 是固定 fixture；真雲端帳號、實體筆電、`#stable` 公開安裝及 E1／E2 尚未驗收，32 案維持 2 passed、30 not_run。** 詳見 [版本驗證](../VERIFICATION.md#090)；0.8.0 的 Home coding 增量見 [下方](#home-coding-080-工程增量)。
 
-更新：2026-10-12。Owner 原稿基準為 0.3.1／`3ad476a712009469521c3f9838a44ef35ba29f76`。本檔獨立記錄實作狀態，不修改六份原稿；早期交付為 **0.4.0 v3 技術預覽，CI 145 passed／2 skipped，精確 ISO 完整 VM 測試 1 passed；完成 E0 工程媒體與獨立救援範圍，Owner laptop／真帳號及 E1、E2 尚未完成**。
+更新：2026-10-13。Owner 原稿基準為 0.3.1／`3ad476a712009469521c3f9838a44ef35ba29f76`。本檔獨立記錄實作狀態，不修改六份原稿；早期交付為 **0.4.0 v3 技術預覽，CI 145 passed／2 skipped，精確 ISO 完整 VM 測試 1 passed；完成 E0 工程媒體與獨立救援範圍，Owner laptop／真帳號及 E1、E2 尚未完成**。
 
 
 0.5.0 開發新增 CLI 先行的自動 onboarding：持久九步流程、桌面單次登入、官方最新 Hermes 相容性檢查、Hermes 原生 Codex OAuth、LINE／Telegram 配對碼、自動 HAOS 啟動及 HA 官方瀏覽器授權。這是 Owner 的新流程，不改六份原稿。當版CI為210 passed／3 skipped；精確0.5.0 ISO在一次性VM為1 passed／1310.79秒。T3-01與T3-05的E0工程範圍已重驗，其他30項不批次升級，詳見 [版本驗證](../VERIFICATION.md)。通用 Host／Home coding、真雲端家庭與固定產品更新／退版仍未完成。

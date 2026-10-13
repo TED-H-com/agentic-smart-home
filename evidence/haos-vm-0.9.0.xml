@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="118.785" timestamp="2026-10-13T09:10:47.116756-04:00" hostname="redacted"><testcase classname="tests.test_haos_vm" name="test_real_haos_boot_owner_and_supervisor_backup" time="118.768" /></testsuite></testsuites>

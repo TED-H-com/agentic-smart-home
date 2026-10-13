@@ -1,0 +1,240 @@
+{
+ "version": "0.9.0",
+ "delivery": "linux_iso_and_haos_apps_engineering_preview",
+ "source_commit": "4412d33b15af3c4427bc762394c853b63cc7fe05",
+ "test_harness_commit": "4412d33b15af3c4427bc762394c853b63cc7fe05",
+ "profile": "laptop-amd64",
+ "packaged_research_source": {
+  "repo_id": "agentic-home",
+  "repository": "https://github.com/teddashh/agentic-smart-home.git",
+  "commit": "0eb569e42ed2661e3e3bd4c7835b3715d57e3da0"
+ },
+ "host_coding_source": {
+  "repo_id": "agentic-home",
+  "commit": "4412d33b15af3c4427bc762394c853b63cc7fe05",
+  "bundle_sha256": "5c97a0a7107db58c3c4250f010520c54a0bfa4b3815e8dca1e890cab2f32c606"
+ },
+ "artifacts": {
+  "agentic-home-0.9.0-laptop-amd64.iso": {
+   "bytes": 6718160896,
+   "sha256": "7e2da37c50eda233e8ec9b67a9123fc45dda9553214179928259fb0ce14488fa"
+  },
+  "agentic-home-0.9.0-linux-amd64.tar": {
+   "bytes": 2638663680,
+   "sha256": "412f22fc111c7703e574b6a7ce14e2a6fa0ba248a2be0b46e425ea53f90d73fe"
+  },
+  "agentic-home-0.9.0-source.zip": {
+   "bytes": 29524022,
+   "sha256": "a7fbe858066b878f37213e1f4fbf092da135a43daa2b8cb65f7a93b01aa49a03"
+  }
+ },
+ "images": {
+  "agentic-home-controller:0.9.0": "sha256:ca3f77b037241ae09d13a1e6f60208e792117ae2c3e00e89b32203bbd41edd58",
+  "agentic-home-runner:0.9.0": "sha256:02ccc93484d84f2edd985dc6749911ac9e23f1089e4728ad4dda00d38a50654a",
+  "agentic-home-linejs:0.9.0": "sha256:62f7cbcba5d8b60801460f199eb5920730a2533e3e3b98316f2dc963b9250fac",
+  "agentic-home-hermes:0.9.0": "sha256:cb311bec22e1291f3e1ed348ef976b363ddf39f2f1aef6a5b133f2576c19c81f",
+  "agentic-home-preview:0.9.0": "sha256:100f2c614d2bbc576575ced573db479760ba5da143083154b51ec407c0f56e65"
+ },
+ "images_scope": "Locally built 0.9.0 images inside the ISO/TAR bundle. CI images are independently built and not claimed to have identical IDs.",
+ "latest_verified_full_installation_media": "0.9.0",
+ "installed_validation": "passed",
+ "installed_evidence": "evidence/linux-install-0.9.0.json",
+ "installed_junit": "evidence/linux-install-0.9.0.xml",
+ "installed_junit_result": {
+  "tests": 1,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "passed": 1,
+  "seconds": 1437.469
+ },
+ "cleanup": {
+  "owned_vm_removed": true,
+  "disk_basetemp_removed": true,
+  "observed_from": "integrator check after each run: no owned containers remain and every pytest disk basetemp is absent"
+ },
+ "installed_receipts": {
+  "auth": "evidence/installed-auth-laptop-amd64-0.9.0.json",
+  "rescue": "evidence/installed-rescue-laptop-amd64-0.9.0.json",
+  "sandbox": "evidence/installed-sandbox-laptop-amd64-0.9.0.json",
+  "coding": "evidence/installed-coding-laptop-amd64-0.9.0.json",
+  "hermes": "evidence/installed-hermes-laptop-amd64-0.9.0.json",
+  "update": "evidence/installed-update-laptop-amd64-0.9.0.json"
+ },
+ "release_hermes": {
+  "state": "ready",
+  "commit": "835c3dd038d903182a66ecc45e34bf5e0de65f00",
+  "source": "release",
+  "image_id": "sha256:cb311bec22e1291f3e1ed348ef976b363ddf39f2f1aef6a5b133f2576c19c81f",
+  "runtime_revision_readback": "passed",
+  "persists_after_reboot": true
+ },
+ "local_regression": {
+  "source_commit": "4412d33b15af3c4427bc762394c853b63cc7fe05",
+  "junit": "evidence/pytest-0.9.0.xml",
+  "options": "--real-ha --containers",
+  "tests": 1477,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 5,
+  "passed": 1472,
+  "seconds": 781.715
+ },
+ "ci": {
+  "evidence": "evidence/github-ci-0.9.0.json",
+  "junit": "evidence/pytest-0.9.0-github.xml",
+  "run_id": 38401002647,
+  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38401002647",
+  "source_commit": "4412d33b15af3c4427bc762394c853b63cc7fe05",
+  "tests": 1477,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 7,
+  "passed": 1470,
+  "seconds": 988.591,
+  "source_archive": {
+   "bytes": 29871116,
+   "sha256": "ee914532219d8f81bb78e978e619ccc97bdd64735bf67bbd91e0d3dd583ac34a",
+   "manifest_files": 1184,
+   "runtime_and_config_files_checked": 212
+  }
+ },
+ "ci_media_match": {
+  "evidence": "evidence/ci-media-match-0.9.0.json",
+  "runtime_files_verified": 186,
+  "documentation_files_verified": 50,
+  "differences": 0
+ },
+ "build": "evidence/build-0.9.0.json",
+ "haos": {
+  "image": "18.3",
+  "core": "2026.10.1",
+  "supervisor": "2026.09.3",
+  "backup": {
+   "evidence": "evidence/haos-vm-0.9.0.json",
+   "junit": "evidence/haos-vm-0.9.0.xml",
+   "owner_verified": true,
+   "backup_completed_and_readback": true,
+   "tests": 1,
+   "failures": 0,
+   "errors": 0,
+   "skipped": 0,
+   "passed": 1,
+   "seconds": 118.785
+  },
+  "app_boundary": {
+   "evidence": "evidence/haos-app-boundary-0.9.0.json",
+   "junit": "evidence/haos-app-boundary-0.9.0.xml",
+   "tests": 1,
+   "failures": 0,
+   "errors": 0,
+   "skipped": 0,
+   "passed": 1,
+   "seconds": 208.859
+  },
+  "sidebar_app_local_source": {
+   "evidence": "evidence/bridge-haos-local-0.9.0.json",
+   "junit": "evidence/bridge-haos-local-0.9.0.xml",
+   "screenshot": "evidence/ui/bridge-native-haos-0.9.0.png",
+   "checks_passed": 9,
+   "delivery": "local_source_fixture",
+   "tests": 18,
+   "failures": 0,
+   "errors": 0,
+   "skipped": 0,
+   "passed": 18,
+   "seconds": 244.917
+  },
+  "home_worker": {
+   "evidence": "evidence/home-worker-haos-0.9.0.json",
+   "junit": "evidence/home-worker-haos-0.9.0.xml",
+   "status": "passed",
+   "receipt_seconds": 314.235,
+   "integration_checks_passed": 15,
+   "junit_scope": "1 actual VM integration case and 53 harness unit tests",
+   "cleanup": {
+    "outer_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+   },
+   "tests": 54,
+   "failures": 0,
+   "errors": 0,
+   "skipped": 0,
+   "passed": 54,
+   "seconds": 314.479
+  }
+ },
+ "prior_failed_attempts": [
+  {
+   "evidence": "evidence/home-worker-haos-0.9.0-run1-failure.json",
+   "junit": "evidence/home-worker-haos-0.9.0-run1-failure.xml",
+   "phase": "disposable_loopback_registry",
+   "error_type": "HAError",
+   "observation": "A Supervisor store reload or catalog read failed in the harness local-source delivery step, before the App was installed. The harness keeps only the error type, so the upstream message is unknown. A diagnostic rerun of the same images and App config passed and is not release evidence; the clean rerun of this commit passed.",
+   "cleanup": {
+    "outer_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+   }
+  }
+ ],
+ "accepted_product_cases": {
+  "T3-01": "engineering disposable VM media only",
+  "T3-05": "E0 console rescue; installed Controller updater mechanics separately verified, not complete E2 pilot"
+ },
+ "remaining_product_cases": 30,
+ "not_run": [
+  "physical laptop",
+  "real cloud OAuth (Hermes ChatGPT, Host and Home Codex)",
+  "real LINE/Telegram/Discord accounts",
+  "real Tailscale account",
+  "public #stable delivery of the sidebar and Home coding Apps",
+  "Supervisor build of the Home coding App from the public repository",
+  "Claude/Antigravity/Grok tools-enabled coding",
+  "physical devices",
+  "Owner household E1/E2 pilot",
+  "public publisher release",
+  "full product or cross-schema update/rollback",
+  "App cross-version migration/rollback",
+  "controlled in-place upgrade of old Host components",
+  "TAR installation on an existing host",
+  "72h observation",
+  "native Assist/voice adapter"
+ ],
+ "fixture_scope": [
+  "Installed ISO has a real fixed Host broker and updater; coding model transport and publisher/registry delivery are synthetic.",
+  "Home worker: the actual Supervisor installs a test App derived from the product Runner image; model transport and diagnostic helper are explicit fixtures.",
+  "Sidebar App: delivered as local source to the actual Supervisor; inference and Unix Host capability response are fixtures.",
+  "App network observation does not prove Core or whole-HAOS health."
+ ],
+ "source_audit": "evidence/source-audit-0.9.0.json",
+ "evidence_sha256": {
+  "evidence/bridge-haos-local-0.9.0.json": "55453cb2b3bf705780f3a941ce359d137368615f384540b888f9331e8e801688",
+  "evidence/bridge-haos-local-0.9.0.xml": "a6f7b75aa413d0c0dd4c9d88bbb8e66f6e247313d3afd86aa73d06bb9dcadce2",
+  "evidence/build-0.9.0.json": "dbd7419d17075f47395b8e195745dd47e0197e65c1e2ea3bd4d3e9bca512af82",
+  "evidence/ci-media-match-0.9.0.json": "8899c3d5a5846d210e3a172aa439e3cc66338af5e417cae401223da53a899d48",
+  "evidence/github-ci-0.9.0.json": "e73ffed2dc7368cf4347b73493b8401c13bea9f2ffdca685cac6b566d9f523b7",
+  "evidence/haos-app-boundary-0.9.0.json": "6b690b3a6b8c8608dbffd2504fe8e396a86d0627487f0e8c7dccc8e1de0a5744",
+  "evidence/haos-app-boundary-0.9.0.xml": "25c3f1501eb7deb814595ae24d3dde04735500d3a66d39def34f9e25e94d8780",
+  "evidence/haos-vm-0.9.0.json": "cd84e96a99a380ca283fb202d613afe65bb623abcdfa86af6fd3b0dda0dd8076",
+  "evidence/haos-vm-0.9.0.xml": "0abf116bf55fe624612acf8b522c362ccae579589174c64d73e9fed627ca4781",
+  "evidence/home-worker-haos-0.9.0-run1-failure.json": "f7e673d96cae6ccbad6e23ca07865164b57bc5b2effa15621d43ae8a95c7d7f0",
+  "evidence/home-worker-haos-0.9.0-run1-failure.xml": "0b94bf23f61f0976de4c2265d78e803bd95357707af69220612d9ed5fb4a3faa",
+  "evidence/home-worker-haos-0.9.0.json": "09f76c52642a94c646c85ef5fd342a5a4ea2783cbe1a036435d9ce963124ece1",
+  "evidence/home-worker-haos-0.9.0.xml": "aff7ec763445d3a0743a5d1d56889599b92feb21f12644a49859404551648761",
+  "evidence/installed-auth-laptop-amd64-0.9.0.json": "66fdc90b339d02c527946481d200c04016e486b4ea08b3f40bc44c0d9fb68fde",
+  "evidence/installed-coding-laptop-amd64-0.9.0.json": "93f78278a6ea8b350b7b7761f2e08fc0de29d1767843b19f69950ea41d156bdf",
+  "evidence/installed-hermes-laptop-amd64-0.9.0.json": "7e1f6bdb76ebc29bc6751dc9d17ea37c0a5a1cdf5f3740dca02fd5af48cfa63b",
+  "evidence/installed-rescue-laptop-amd64-0.9.0.json": "17a28dc9e562ee7115fc62a5ee00190e6fb68995c6f9325bb45cc7b91b3c8cc2",
+  "evidence/installed-sandbox-laptop-amd64-0.9.0.json": "75fca47b01b054e13da9a59190adddb70288928f300c7cf6de6027c1d85a2e46",
+  "evidence/installed-update-laptop-amd64-0.9.0.json": "36d45e965ecf3f15f92a6a44aceb410a978479cea5cca6bc64e87ac2f6525cac",
+  "evidence/linux-install-0.9.0.json": "c8769d79a4a6985b775976cac65014c2a546067444fee19211ae94714e18e613",
+  "evidence/linux-install-0.9.0.xml": "f47096f27124791c77596bcf992064bd52b049b483c5dfcbab7efac9dcbaa4e0",
+  "evidence/pytest-0.9.0-github.xml": "7783ac0f821afe4731eb93ff6430be04e1279854b418a0553b2b30500aacbc7c",
+  "evidence/pytest-0.9.0.xml": "c7fbbcdb8bd1987bf2fd6500ff703205bd15ec9e83bb45ca6deb04bc22d83f8b",
+  "evidence/ui/bridge-native-haos-0.9.0.png": "1a8a06b5351e499580e863f137cb5a2c33c46f136479760c3c65ee8bbac24bc4"
+ }
+}

@@ -1,0 +1,54 @@
+{
+  "observed_from": "real_haos_app",
+  "haos_image": "18.3",
+  "cloud_account": "not_used",
+  "diagnostic_base": "python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd12803a5c4247979ac7655f4d641",
+  "supervisor_builder": "docker:29.7.2-cli@sha256:3f4743208d2338c934d7b8bcfbe1bb54c0b2355c510ad5e0f31c0c4a54bd704e",
+  "runner_coding_executed": false,
+  "profiles": {
+    "protected_baseline": {
+      "observed_from": "haos_app",
+      "supervisor_token_present": true,
+      "docker_socket_present": false,
+      "fuse_device": true,
+      "cgroup_namespace": 4026532336,
+      "cgroup_membership": "0::/",
+      "cap_eff": "00000000a80425fb",
+      "memory.max": "max",
+      "pids.max": "3484",
+      "cpu.max": "max 100000",
+      "cgroup.controllers": "cpuset cpu io memory hugetlb pids rdma misc",
+      "unprivileged_user_net_namespace": true,
+      "delegation": {
+        "private_cgroup_root": true,
+        "new_mount_namespace": false,
+        "errno": 1
+      },
+      "distinct_from_haos_host_cgroup_namespace": true
+    },
+    "narrow_sys_admin": {
+      "observed_from": "haos_app",
+      "supervisor_token_present": true,
+      "docker_socket_present": false,
+      "fuse_device": true,
+      "cgroup_namespace": 4026532336,
+      "cgroup_membership": "0::/",
+      "cap_eff": "00000000a82425fb",
+      "memory.max": "max",
+      "pids.max": "3484",
+      "cpu.max": "max 100000",
+      "cgroup.controllers": "cpuset cpu io memory hugetlb pids rdma misc",
+      "unprivileged_user_net_namespace": true,
+      "delegation": {
+        "private_cgroup_root": true,
+        "new_mount_namespace": true,
+        "new_cgroup_mount": true,
+        "mount_errno": null,
+        "delegated_limits": true,
+        "memory_oom_kill": true,
+        "memory_events": "low 0\nhigh 0\nmax 35\noom 1\noom_kill 1\noom_group_kill 0"
+      },
+      "distinct_from_haos_host_cgroup_namespace": true
+    }
+  }
+}
