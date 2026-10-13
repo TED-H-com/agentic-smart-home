@@ -859,3 +859,9 @@ main:focus{outline:none}
 @media(max-width:480px){.interactive-preview-bar{padding:var(--s3)}}
 @media(max-width:480px){.interactive-preview-stage{padding:var(--s3)}}
 @media(max-width:480px){.interactive-frame.w-desktop,.interactive-frame.w-tablet,.interactive-frame.w-phone{max-width:100%}}
+.confirm{display:grid;gap:var(--s3);justify-items:start}
+.confirm .row-actions{display:flex;flex-wrap:nowrap;gap:var(--s2)}
+@media(max-width:390px){.confirm .row-actions{flex-wrap:wrap}}
+.entity-row input,.entity-row select{scroll-margin-bottom:calc(var(--s8) + var(--s8) + var(--s6) + var(--s4))}
+.entity-row code{overflow-wrap:normal;word-break:normal}
+pre.one-line{white-space:pre;overflow-wrap:normal;overflow-x:auto}

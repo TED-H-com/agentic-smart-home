@@ -129,7 +129,7 @@ class Engine:
             await commit_guard()
         self.store.put("proposal", proposal)
         return self.store.transition(task, "awaiting_approval", proposal_id=proposal["id"],
-                                     message="請檢查變更內容；批准前不會寫入 Home Assistant")
+                                     message="請先看這份提案；批准前不會改家庭。")
 
     async def fresh(self, proposal, principal):
         if self.store.setting("updater_gate"):

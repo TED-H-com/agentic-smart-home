@@ -1,3 +1,5 @@
+import {errorCode, sentenceFor} from './errors';
+
 let csrf = '';
 let hostMode = false;
 let bridgeMode = false;
@@ -33,7 +35,13 @@ export function haPath(path = '/') {
 }
 export function haTarget() { return hostMode ? '_blank' : '_top'; }
 export class ApiError extends Error {
-  constructor(message: string, public status: number, public code?: string) { super(message); }
+  constructor(message: string, public status: number, public code?: string, public raw?: string) { super(message); }
+}
+function statusSentence(status: number) {
+  if (status === 401 || status === 403) return '請重新登入主機後再試。';
+  if (status === 404) return '這份資料已過期或不存在。';
+  if (status === 409) return '目前無法進行，請稍後再試。';
+  return '這次沒有完成，請稍後再試。';
 }
 export async function session() {
   const result = await api('session');
@@ -62,7 +70,12 @@ export async function api(path: string, data?: unknown, raw = false, key = reque
       // Coded failures arrive as {code, message, reason}; show the message and keep the code.
       const detail = error.detail;
       const coded = detail && typeof detail === 'object' && typeof detail.message === 'string' ? detail : null;
-      throw new ApiError(typeof detail === 'string' ? detail : coded ? coded.message : '操作未完成，請檢查填寫內容後再試。',
+      if (typeof detail === 'string') {
+        if (errorCode.test(detail)) throw new ApiError(sentenceFor(detail), response.status, detail, detail);
+        if (!/[一-鿿]/.test(detail)) throw new ApiError(statusSentence(response.status), response.status, undefined, detail);
+        throw new ApiError(detail, response.status, undefined, detail);
+      }
+      throw new ApiError(coded ? coded.message : '操作未完成，請檢查填寫內容後再試。',
         response.status, coded && typeof coded.code === 'string' ? coded.code : undefined);
     }
     if (['host/login','host/desktop-login'].includes(path)) loginGeneration++;

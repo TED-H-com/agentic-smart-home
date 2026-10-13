@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {api,requestKey,type ConversationSession} from './api';
 import {Button,Notice,Status,labels,timestamp} from './ui';
-import {WorkerResult} from './workers';
+import {WorkerResult,retryBody} from './workers';
 import {ChannelSettings} from './channels';
 import {names,type Runtime} from './labels';
 
@@ -12,7 +12,7 @@ const sameThread=(m:any,n:any)=>m.source===n.source&&m.runtime===n.runtime&&m.pr
 function savedConversations(key=conversationKey,identity?:ConversationSession):Record<string,string>{
   try{const stored=sessionStorage.getItem(key);const value=JSON.parse(stored||'{}');if(!stored&&identity?.resume&&/^[a-f0-9]{64}$/.test(identity.resume.message_id))value['hermes-host-codex']=identity.resume.message_id;return Object.fromEntries(Object.entries(value).filter(([key,id])=>/^(hermes-)?(host|haos)-(codex|claude|agy|grok)$/.test(key)&&typeof id==='string'&&/^[a-f0-9]{64}$/.test(id))) as Record<string,string>}catch{return {}}
 }
-function speakerOf(m:any){return m.coordinator==='hermes'?'智能管家':names[m.provider]||'開發助手'}
+function speakerOf(m:any){return m.coordinator==='hermes'?'智能管家':'開發助手'}
 function fitComposer(el:HTMLTextAreaElement){
   el.style.height='auto';
   const style=getComputedStyle(el);
@@ -27,8 +27,8 @@ function CaseWork({id,bridge=false,storageScope}:{id:string;bridge?:boolean;stor
   useEffect(()=>{if(!/^[a-f0-9]{32}$/.test(id))return;let active=true;let timer:ReturnType<typeof setTimeout>;async function poll(){try{const value=await api(`hermes/cases/${id}`);if(active)setJobs(value.jobs||[])}catch{if(active)setJobs([])}if(active)timer=setTimeout(poll,4000)}poll();return()=>{active=false;clearTimeout(timer)}},[id]);
   if(!jobs.length)return null;
   return <div className="conversation-work">{jobs.map(job=>{
-    const summary=job.state==='succeeded'?`${job.artifact_count} 份成果 · ${job.evidence_count} 份證據`:`${labels[job.state]||job.state} · ${job.artifact_count} 份成果 · ${job.evidence_count} 份證據`;
-    return <div className="assistant-work" key={job.id}>{job.content_expired?<p className="helper-text">成果已超過保存期限。</p>:<div className="case-line"><p>{summary}</p><Button secondary aria-expanded={expanded===job.id} onClick={()=>setExpanded(expanded===job.id?null:job.id)}>{expanded===job.id?'收起成果':'查看成果'}</Button></div>}{expanded===job.id&&!job.content_expired&&<WorkerResult key={job.id} id={job.id} caseId={id} bridge={bridge} storageScope={storageScope}/>}</div>
+    const count=`${job.artifact_count} 份成果`,summary=job.state==='succeeded'?count:`${labels[job.state]||job.state} · ${count}`;
+    return <div className="assistant-work" key={job.id}>{job.content_expired?<p className="helper-text">成果已超過保存期限。</p>:<div className="case-line"><p>{summary}</p><Button secondary aria-expanded={expanded===job.id} onClick={()=>setExpanded(expanded===job.id?null:job.id)}>{expanded===job.id?'收起成果':'查看成果'}</Button></div>}{expanded===job.id&&!job.content_expired&&<WorkerResult key={job.id} id={job.id} caseId={id} bridge={bridge} storageScope={storageScope} onRetry={bridge?undefined:async job=>{const result=await api('worker/jobs',retryBody(job),false,requestKey());location.hash=`#workers/${result.id}`}}/>}</div>
   })}</div>
 }
 
@@ -47,7 +47,7 @@ export function GatewayPanel({visible=true,bridge=false,conversationSession}:{vi
   useEffect(()=>{try{sessionStorage.setItem(storage,JSON.stringify(replies))}catch{/* Conversation works in memory when storage is unavailable. */}},[replies,storage]);
   function startNew(){if(/^#gateway\//.test(location.hash))window.history.replaceState(null,'',`${location.pathname}${location.search}#gateway`);setViewedId(null);setHistory(false);setReplies(previous=>{const next={...previous};delete next[scope];return next});setError('');pending.current=null}
   function refill(message:any){const text=typeof message.message==='string'?message.message:'';startNew();setDraft(text);restoreFocus.current=true}
-  function replyAction(message:any){if(message.state==='needs_reconcile'||message.error_code==='stop_unconfirmed'||message.reason==='stop_unconfirmed')return null;if(message.state==='interrupted')return <div className="row-actions"><Button type="button" onClick={()=>refill(message)}>重新送出</Button></div>;const code=message.error_code||message.reason;if(code==='needs_reauth')return bridge?null:<div className="row-actions"><a className="button" href="#agents">{message.coordinator==='hermes'?'重新登入智能管家':'重新登入 AI 帳號'}</a></div>;if(typeof code==='string'&&retryable.has(code))return <div className="row-actions"><Button type="button" onClick={()=>refill(message)}>重試</Button></div>;return null}
+  function replyAction(message:any){if(message.state==='needs_reconcile'||message.error_code==='stop_unconfirmed'||message.reason==='stop_unconfirmed')return null;if(message.state==='interrupted')return <div className="row-actions"><Button type="button" onClick={()=>refill(message)}>重新送出</Button></div>;const code=message.error_code||message.reason;if(code==='needs_reauth')return bridge?<p>{message.coordinator==='hermes'?'請到主機重新登入智能管家。':'請到主機重新登入 AI 帳號。'}</p>:<div className="row-actions"><a className="button" href="#agents">{message.coordinator==='hermes'?'重新登入智能管家':'重新登入 AI 帳號'}</a></div>;if(typeof code==='string'&&retryable.has(code))return <div className="row-actions"><Button type="button" onClick={()=>refill(message)}>重試</Button></div>;return null}
   function continueFrom(message:any){setViewedId(null);setHistory(false);setRuntime(message.runtime);setProvider(message.provider);setCoordinator(message.coordinator||'direct');setReplies(previous=>({...previous,[`${message.coordinator==='hermes'?'hermes-':''}${message.runtime}-${message.provider}`]:message.id}));setError('');document.getElementById('gateway-message')?.focus()}
   async function submit(e:React.FormEvent){
     e.preventDefault();if(busy||!loaded||!draft.trim()||(replyId&&!active))return;
@@ -98,8 +98,8 @@ export function GatewayPanel({visible=true,bridge=false,conversationSession}:{vi
         const typing=!m.answer&&['queued','planning'].includes(m.state);
         const place=m.coordinator==='direct'?`${names[m.runtime]||m.runtime} · ${names[m.provider]||m.provider}`:undefined;
         const caseHere=m.coordinator==='hermes'&&m.case_id&&!conversation.slice(index+1).some(next=>next.case_id===m.case_id);
-        return <article key={m.id} className="inbox-message assistant-message chat-turn"><div className="assistant-question"><h3>{m.message}</h3></div><p className="chat-meta">{m.source!=='web'&&<span>{names[m.source]||m.source}</span>}<time dateTime={m.created_at}>{timestamp(m.created_at)}</time></p><div className="chat-reply"><span className="assistant-speaker" title={place}>{name}</span>{typing?<div className="assistant-answer chat-typing" role="status" aria-label="智能管家正在回覆"><span className="sr-only">智能管家正在回覆</span><span className="chat-dots" aria-hidden="true"><i/><i/><i/></span></div>:<div className="assistant-answer">{m.answer&&<p>{m.answer}</p>}{replyAction(m)}{m.state!=='succeeded'&&<Status value={m.state}/>}<div className="row-actions">{m.task_id&&<a className="button secondary" href={`#home/${m.task_id}`}>檢查家庭操作 →</a>}{m.delivery==='unconfirmed'&&<small>通道送達尚未確認。</small>}</div>{m.context_truncated&&<p className="helper-text">較早的前文已省略；重要條件請再補充。</p>}</div>}{caseHere&&<CaseWork id={m.case_id} bridge={bridge} storageScope={conversationSession?.storage_scope}/>}</div></article>
-      })}{busy&&!inlineTyping&&<div className="chat-reply chat-pending"><span className="assistant-speaker">{coordinator==='hermes'?'智能管家':names[provider]||'開發助手'}</span><div className="assistant-answer chat-typing" role="status" aria-label="智能管家正在回覆"><span className="sr-only">智能管家正在回覆</span><span className="chat-dots" aria-hidden="true"><i/><i/><i/></span></div></div>}</div>}</>}
+        return <article key={m.id} className="inbox-message assistant-message chat-turn"><div className="assistant-question"><h3>{m.message}</h3></div><p className="chat-meta">{m.source!=='web'&&<span>{names[m.source]||m.source}</span>}<time dateTime={m.created_at}>{timestamp(m.created_at)}</time></p><div className="chat-reply"><span className="assistant-speaker" title={place}>{name}</span>{typing?<div className="assistant-answer chat-typing" role="status" aria-label="智能管家正在回覆"><span className="sr-only">智能管家正在回覆</span><span className="chat-dots" aria-hidden="true"><i/><i/><i/></span></div>:<div className="assistant-answer">{m.answer&&<p>{m.answer}</p>}{replyAction(m)}{m.state!=='succeeded'&&!m.task_id&&<Status value={m.state}/>}<div className="row-actions">{m.task_id&&<a className="button secondary" href={`#home/${m.task_id}`}>查看提案 →</a>}{m.delivery==='unconfirmed'&&<small>可能還沒送到聊天室。</small>}</div>{m.context_truncated&&<p className="helper-text">較早的前文已省略；重要條件請再補充。</p>}</div>}{caseHere&&<CaseWork id={m.case_id} bridge={bridge} storageScope={conversationSession?.storage_scope}/>}</div></article>
+      })}{busy&&!inlineTyping&&<div className="chat-reply chat-pending"><span className="assistant-speaker" title={coordinator==='direct'?`${names[runtime]||runtime} · ${names[provider]||provider}`:undefined}>{coordinator==='hermes'?'智能管家':'開發助手'}</span><div className="assistant-answer chat-typing" role="status" aria-label="智能管家正在回覆"><span className="sr-only">智能管家正在回覆</span><span className="chat-dots" aria-hidden="true"><i/><i/><i/></span></div></div>}</div>}</>}
     </section>
     <div className="chat-dock">
       {away&&<button type="button" className="chat-jump" onClick={jumpToLatest}>最新訊息 ↓</button>}
