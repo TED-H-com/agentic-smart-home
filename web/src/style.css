@@ -221,7 +221,7 @@ footer{color:var(--muted);font-size:var(--xs);padding:var(--s6) 40px;border-top:
   *{transition:none!important;scroll-behavior:auto!important}
 }
 .host-login{max-width:560px;margin:12vh auto;padding:var(--s6)}
-.host-login>p{color:var(--muted);margin:var(--s4) 0 var(--s8)}
+.host-login>p{color:var(--muted);margin:var(--s2) 0 var(--s4)}
 .host-login form label,.settings-section form label{display:block;margin-bottom:var(--s4)}
 .host-login input,.settings-section form input{display:block;width:100%;margin-top:var(--s2)}
 .settings-section .row-actions{margin-top:var(--s4);flex-wrap:wrap}
@@ -244,10 +244,10 @@ main:focus{outline:none}
 .setup-step strong{display:block;font-size:var(--sm)}
 .setup-step small{display:block;margin-top:var(--s1)}
 .host-page{max-width:1200px}
-.host-overview{display:flex;justify-content:space-between;gap:var(--s8);align-items:center;padding:var(--s6);border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);margin-bottom:var(--s8)}
-.host-overview h2{margin:var(--s1) 0 var(--s2)}
+.host-overview{display:flex;justify-content:space-between;gap:var(--s4);align-items:center;padding:var(--s4) var(--s6);border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);margin-bottom:var(--s4)}
+.host-overview h2{margin:0;overflow-wrap:anywhere}
 .host-overview p{color:var(--muted);font-size:var(--sm)}
-.host-overview dl{display:flex;gap:var(--s8);margin:0}
+.host-overview dl{display:flex;gap:var(--s6);margin:0}
 .host-overview dt{font-size:var(--xs);color:var(--muted)}
 .host-overview dd{font-size:var(--body);margin:var(--s1) 0 0;white-space:nowrap}
 .host-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--s8)}
@@ -255,8 +255,8 @@ main:focus{outline:none}
 .host-grid .row-actions{margin-bottom:var(--s4)}
 .connect-steps{padding-left:var(--s6);font-size:var(--sm);color:var(--muted);margin:0 0 var(--s6)}
 .connect-steps li{padding-bottom:var(--s2)}
-.host-agent{display:grid;grid-template-columns:minmax(220px,.75fr) minmax(0,1.25fr);gap:var(--s8)}
-.host-agent h2{margin:var(--s1) 0 var(--s3)}
+.host-agent{display:flex;flex-direction:column;gap:var(--s3)}
+.host-agent h2{margin:0 0 var(--s2)}
 .host-agent .empty{padding:var(--s4);border-style:solid;background:var(--surface)}
 .host-agent .empty h3{margin-top:0}
 .host-agent .empty p{margin-bottom:var(--s3)}
@@ -705,3 +705,28 @@ main:focus{outline:none}
 /* ==== 1.0 conversation, case, sidebar bridge ==== */
 
 /* ==== 1.0 host, maintenance, workers ==== */
+.vm-spec{margin:0 0 var(--s3);color:var(--muted);font-size:var(--sm)}
+.vm-actions{align-items:center}
+.host-agent>div>p,.host-agent-login{color:var(--muted);font-size:var(--sm)}
+.host-agent-login{display:flex;align-items:center;gap:var(--s2);min-height:44px}
+.host-fold{margin-top:0;border-bottom:1px solid var(--line)}
+.host-fold>summary{color:var(--ink);font-size:var(--sm);font-weight:650}
+.choice-pair{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2);border:0;margin:0 0 var(--s4);padding:0;min-width:0}
+.choice-pair legend{padding:0;font-size:var(--xs);color:var(--muted)}
+.choice-card{flex-direction:row;align-items:center;gap:var(--s2);min-width:0;min-height:44px;padding:var(--s2) var(--s3);border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--ink);font-size:var(--sm);cursor:pointer}
+.choice-card input{width:18px;height:18px;min-height:18px;flex:0 0 auto;accent-color:var(--accent)}
+.choice-card:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.choice-pair .worker-readiness{grid-column:1/-1;margin:0}
+.worker-result-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--s3);margin-bottom:var(--s3)}
+.worker-result-head h3{overflow-wrap:anywhere}
+.worker-meta{margin-top:var(--s1);color:var(--muted);font-size:var(--sm)}
+.update-review{margin-top:var(--s4)}
+@media(max-width:520px){
+  .host-overview{flex-direction:column;align-items:stretch;gap:var(--s3);padding:var(--s4)}
+  .host-overview dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s2);width:100%}
+  .host-overview dd{white-space:normal;font-size:var(--sm)}
+  .host-page .settings-section{padding-bottom:var(--s4);margin-bottom:var(--s4)}
+  .vm-actions>button:not(.text-button){flex:1 1 auto}
+  .worker-request textarea{min-height:88px}
+  .choice-stack{grid-template-columns:1fr}
+}

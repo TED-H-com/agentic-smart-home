@@ -165,15 +165,19 @@ def test_host_login_offline_management_and_responsive_layout():
             page.get_by_role('button', name='開啟管理中心').click()
             page.get_by_role('region', name='開始使用').wait_for()
             click_navigation(page, 'Linux 主機')
-            page.get_by_role('heading', name='Home Assistant OS', exact=True).wait_for()
+            page.get_by_role('heading', name='家庭系統', exact=True).wait_for()
             assert page.get_by_role('button', name='正常關機', exact=True).is_disabled()
             expect(page.get_by_role('button', name='家庭未連線')).to_be_visible()
             assert page.locator('footer').count() == 0
             assert page.get_by_text('家庭控制中心').count() == 0
             for width in (1440, 768, 390):
-                page.set_viewport_size({'width': width, 'height': 900 if width == 1440 else 844})
+                height = 900 if width == 1440 else 844
+                page.set_viewport_size({'width': width, 'height': height})
+                page.evaluate('window.scrollTo(0,0)')
                 page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
                 assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+                start = page.get_by_role('button', name='啟動', exact=True).bounding_box()
+                assert start and start['y'] >= 0 and start['y'] + start['height'] <= height, (width, start)
                 page.screenshot(path=str(root / f'evidence/ui/native-home/host-{width}.png'), full_page=True)
             toggle = page.get_by_role('button', name='選單', exact=True)
             toggle.click()
@@ -183,7 +187,7 @@ def test_host_login_offline_management_and_responsive_layout():
             page.keyboard.press('Escape')
             expect(page.get_by_role('button', name='選單', exact=True)).to_have_attribute('aria-expanded', 'false')
             expect(toggle).to_be_focused()
-            page.get_by_role('button', name='啟動 HAOS', exact=True).click()
+            page.get_by_role('button', name='啟動', exact=True).click()
             page.get_by_role('status').filter(has_text='操作已交給主機處理').wait_for()
             assert actions == [{'action': 'start', 'snapshot': None}]
             assert not errors, errors
@@ -295,10 +299,10 @@ def test_setup_links_session_recovery_and_login_resume():
             click_navigation(page, 'Linux 主機')
             assert page.get_by_role('link', name='開啟 Home Assistant').get_attribute('href') == 'http://127.0.0.1:8123/'
             assert page.get_by_role('link', name='個人資料 → 安全性').get_attribute('href') == 'http://127.0.0.1:8123/profile/security'
-            page.get_by_label('HA owner 權杖').fill('fixture-owner-token')
+            page.get_by_label('家庭權杖').fill('fixture-owner-token')
             page.get_by_role('button', name='驗證並連接').click()
-            page.get_by_role('button', name='設定 Agent →', exact=True).wait_for()
-            page.get_by_role('button', name='設定 Agent →', exact=True).click()
+            page.get_by_role('status').filter(has_text='家庭已連接').wait_for()
+            page.get_by_role('button', name='登入 AI 帳號 →', exact=True).click()
             hub = page.get_by_role('navigation', name='設定入口')
             expect(hub.get_by_role('link')).to_have_count(6)
             for link, label, href in zip(hub.get_by_role('link').all(),
@@ -352,7 +356,7 @@ def test_setup_links_session_recovery_and_login_resume():
             page.get_by_label('家庭需求').fill('這段尚未送出的需求需要保留')
             expire = True
             hold_old_task = True
-            page.get_by_role('heading', name='歡迎回來').wait_for(timeout=20000)
+            page.get_by_text('登入已到期，重新登入後會回到剛才的頁面。', exact=True).wait_for(timeout=20000)
             page.get_by_label('主機登入金鑰').fill('fixture-local-machine-key')
             page.get_by_role('button', name='開啟管理中心').click()
             page.get_by_label('家庭需求').wait_for()
