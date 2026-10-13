@@ -70,10 +70,15 @@ def save_receipt(path: Path, value):
     os.replace(temporary, path)
 
 
-async def host_request(method, path, body=None):
+def _job_status_get(method, path):
+    ident = path[6:] if path.startswith("/jobs/") else ""
+    return method == "GET" and len(ident) == 32 and all(c in "0123456789abcdef" for c in ident)
+
+
+async def host_request(method, path, body=None, *, timeout=35):
     # Fixed Unix socket, never an address received in a model/browser envelope.
     connector = aiohttp.UnixConnector(path="/run/agentic-home/host.sock")
-    async with aiohttp.ClientSession(connector=connector, timeout=aiohttp.ClientTimeout(total=35)) as client:
+    async with aiohttp.ClientSession(connector=connector, timeout=aiohttp.ClientTimeout(total=timeout)) as client:
         async with client.request(method, "http://host/coding" + path, json=body) as response:
             raw = await response.content.read(262145)
             if len(raw) > 262144:
@@ -83,7 +88,8 @@ async def host_request(method, path, body=None):
 
 async def backend_request(broker, method, path, body=None):
     if os.environ.get("AGENTIC_HOST_MODE") == "1":
-        return await host_request(method, path, body)
+        # Job status is an in-memory snapshot and must not sit behind launch, git or collect.
+        return await host_request(method, path, body, timeout=5 if _job_status_get(method, path) else 35)
     service = getattr(broker, "home_coding", None)
     if service is None:
         if method == "GET" and path == "/capabilities":

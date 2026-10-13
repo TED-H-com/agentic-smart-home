@@ -3,13 +3,148 @@ from __future__ import annotations
 
 import json
 
-from .coding_relay import IDLE_TIMEOUT
+from .coding_relay import (
+    DENIED_HEADERS,
+    IDLE_TIMEOUT,
+    MAX_FORWARDED_REQUEST_HEADERS,
+    MAX_FORWARDED_RESPONSE_HEADERS,
+    RATE_FIELDS,
+    REACHED_TYPES,
+    REQUEST_HEADER_RULES,
+    RESPONSE_HEADER_RULES,
+)
 
 # Placeholders are replaced below. The sandbox cannot import this module.
+# chatgpt=True below forwards the union. The proxy must not learn which credential
+# the relay holds; the relay applies this same allowlist again and drops ChatGPT-only names.
 _PROXY = r'''
 import http.client,json,os,socket,subprocess,threading
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
+REQUEST_RULES=@@REQUEST_RULES@@
+RESPONSE_RULES=@@RESPONSE_RULES@@
+RATE_FIELDS=@@RATE_FIELDS@@
+REACHED=frozenset(@@REACHED@@)
+DENIED=frozenset(@@DENIED@@)
+_REQUEST={name:(limit,kind,only) for name,limit,kind,only in REQUEST_RULES}
+_RESPONSE={name:(limit,kind) for name,limit,kind in RESPONSE_RULES}
+FORWARDED_REQUEST_CAP=@@MAX_FORWARDED_REQUEST@@
+FORWARDED_RESPONSE_CAP=@@MAX_FORWARDED_RESPONSE@@
+def _ascii(value,limit):
+    return isinstance(value,str) and 0<len(value)<=limit and all(32<=ord(ch)<=126 for ch in value)
+def _hex_uuid(value):
+    if not isinstance(value,str) or len(value)!=36:return False
+    parts=value.split('-')
+    if [len(part) for part in parts]!=[8,4,4,4,12]:return False
+    return all(ch in '0123456789abcdefABCDEF' for part in parts for ch in part)
+def _slug(value,limit):
+    return _ascii(value,limit) and all(ch.isalnum() or ch in '._:-' for ch in value)
+def _model_slug(value,limit):
+    return isinstance(value,str) and 0<len(value)<=limit and all(ch.isalnum() or ch in '._-' for ch in value)
+def _kind_ok(value,kind,limit):
+    if kind=='ascii':return _ascii(value,limit)
+    if kind=='true':return value=='true'
+    if kind=='uuid':return _hex_uuid(value)
+    if kind=='originator':
+        if not _ascii(value,limit) or not value[0].isalnum():return False
+        return all(ch.isalnum() or ch in ' ._/-' for ch in value)
+    if kind=='beta':
+        if not _ascii(value,limit):return False
+        parts=value.split(',')
+        return all(part and all(ch.islower() or ch.isdigit() or ch=='_' for ch in part) for part in parts)
+    if kind=='window':
+        if not isinstance(value,str) or value.count(':')!=1:return False
+        thread,number=value.split(':',1)
+        return _hex_uuid(thread) and number.isdigit() and 1<=len(number)<=20
+    if kind=='session':
+        if _hex_uuid(value):return True
+        if not isinstance(value,str) or value.count(':')!=1 or not _ascii(value,limit):return False
+        label,thread=value.split(':',1)
+        label_ok=1<=len(label)<=64 and all(ch.islower() or ch.isdigit() or ch=='_' for ch in label)
+        return label_ok and _hex_uuid(thread)
+    if kind=='subagent':return _ascii(value,limit) and all(ch.isalnum() or ch in '_-' for ch in value)
+    if kind=='routing':
+        if not _ascii(value,limit) or not value.startswith('model='):return False
+        rest=value[6:]
+        if ';tier=' in rest:
+            model,_,tier=rest.partition(';tier=')
+            return _model_slug(model,64) and _model_slug(tier,32)
+        return _model_slug(rest,64) and ';' not in rest
+    if kind=='metadata':
+        if not _ascii(value,limit) or not value.startswith('{'):return False
+        try:parsed=json.loads(value)
+        except ValueError:return False
+        return isinstance(parsed,dict)
+    if kind=='slug':return _slug(value,limit)
+    if kind=='decimal':
+        if not isinstance(value,str) or not value:return False
+        whole,dot,frac=value.partition('.')
+        if not whole.isdigit() or not 1<=len(whole)<=6:return False
+        if not dot:return True
+        return frac.isdigit() and 1<=len(frac)<=4
+    if kind=='int':return isinstance(value,str) and value.isdigit() and 1<=len(value)<=min(limit,19)
+    if kind=='bool':return isinstance(value,str) and value.lower() in {'true','false','0','1'}
+    if kind=='reached':return value in REACHED
+    if kind=='limit-id':return _ascii(value,limit) and all(ch.isalnum() or ch in '_-' for ch in value)
+    return False
+def _denied(name):
+    if name in DENIED or name.startswith('proxy-'):return True
+    if name.endswith('-key') or name.endswith('_key'):return True
+    return 'token' in name or 'bearer' in name or 'cookie' in name or 'authorization' in name
+def _pairs(headers):
+    if headers is None:return ()
+    items=getattr(headers,'items',None)
+    if callable(items):return items()
+    if isinstance(headers,(str,bytes,bytearray)):return ()
+    try:return [(name,value) for name,value in headers]
+    except (TypeError,ValueError):return ()
+def _header_name(raw):
+    if not isinstance(raw,str):return None
+    name=raw.strip().lower()
+    if not name or not _ascii(name,128):return None
+    return name
+def _limit_token(token):
+    if not token or len(token)>33:return False
+    if not (token[0].islower() or token[0].isdigit()):return False
+    return all(ch.islower() or ch.isdigit() or ch=='-' for ch in token)
+def _rate_kind(name):
+    if not name.startswith('x-'):return None
+    for suffix,kind in RATE_FIELDS:
+        marker='-'+suffix
+        if name.endswith(marker) and _limit_token(name[2:-len(marker)]):return kind
+    return None
+def select_request_headers(headers,*,chatgpt):
+    chosen,seen={},set()
+    for raw_name,raw_value in _pairs(headers):
+        name=_header_name(raw_name)
+        if name is None or name in seen:continue
+        seen.add(name)
+        rule=_REQUEST.get(name)
+        if rule is None or _denied(name) or not isinstance(raw_value,str):continue
+        limit,kind,only=rule
+        if only and not chatgpt:continue
+        if not _kind_ok(raw_value,kind,limit):continue
+        chosen[name]=raw_value
+        if len(chosen)>=FORWARDED_REQUEST_CAP:break
+    return chosen
+def select_response_headers(headers):
+    chosen,seen={},set()
+    for raw_name,raw_value in _pairs(headers):
+        name=_header_name(raw_name)
+        if name is None or name in seen:continue
+        seen.add(name)
+        if _denied(name) or not isinstance(raw_value,str):continue
+        rule=_RESPONSE.get(name)
+        if rule is not None:
+            limit,kind=rule
+        else:
+            kind=_rate_kind(name)
+            if kind is None:continue
+            limit=64 if kind=='ascii' else 19 if kind=='int' else 16
+        if not _kind_ok(raw_value,kind,limit):continue
+        chosen[name]=raw_value
+        if len(chosen)>=FORWARDED_RESPONSE_CAP:break
+    return chosen
 class Unix(http.client.HTTPConnection):
     def connect(self):
         self.sock=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
@@ -40,11 +175,15 @@ class Handler(BaseHTTPRequestHandler):
             self._fail(413);return
         client=Unix('relay',timeout=@@IDLE@@)
         try:
-            client.request(self.command,self.path,body=self.rfile.read(size),headers={'Content-Type':'application/json'})
+            outbound={'Content-Type':'application/json'}
+            outbound.update(select_request_headers(self.headers,chatgpt=True))
+            client.request(self.command,self.path,body=self.rfile.read(size),headers=outbound)
             result=client.getresponse()
             self.send_response(result.status)
             self._started=True
             self.send_header('Content-Type',result.getheader('Content-Type','application/octet-stream'))
+            for name,value in select_response_headers(result.getheaders()).items():
+                self.send_header(name,value)
             self.send_header('Transfer-Encoding','chunked')
             self.send_header('Connection','close')
             self.end_headers()
@@ -77,10 +216,21 @@ def sandbox_proxy(relay_socket="/relay.sock", port=8765, idle=IDLE_TIMEOUT):
         raise ValueError("Invalid relay socket")
     if isinstance(idle, bool) or not isinstance(idle, (int, float)) or not idle > 0:
         raise ValueError("Invalid proxy idle timeout")
-    values = {"@@RELAY@@": repr(relay_socket), "@@PORT@@": str(port), "@@IDLE@@": repr(float(idle))}
+    values = {
+        "@@RELAY@@": repr(relay_socket),
+        "@@PORT@@": str(port),
+        "@@IDLE@@": repr(float(idle)),
+        "@@REQUEST_RULES@@": repr(tuple(REQUEST_HEADER_RULES)),
+        "@@RESPONSE_RULES@@": repr(tuple(RESPONSE_HEADER_RULES)),
+        "@@RATE_FIELDS@@": repr(tuple(RATE_FIELDS)),
+        "@@REACHED@@": repr(tuple(REACHED_TYPES)),
+        "@@DENIED@@": repr(tuple(DENIED_HEADERS)),
+        "@@MAX_FORWARDED_REQUEST@@": str(int(MAX_FORWARDED_REQUEST_HEADERS)),
+        "@@MAX_FORWARDED_RESPONSE@@": str(int(MAX_FORWARDED_RESPONSE_HEADERS)),
+    }
     source = _PROXY
     for key, value in values.items():
-        if key in value:
+        if key in value or "@@" in value:
             raise ValueError("Invalid proxy substitution")
         source = source.replace(key, value)
     if "@@" in source:

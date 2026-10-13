@@ -5,13 +5,13 @@
     "host/agentic_host/artifacts.py": "62ed70cc0cce036d13e70a7620abf25161340663aeb6eb8b666e7f6f80e58514",
     "host/agentic_host/bootstrap.py": "97c8251b478d2be7236158bb879821e72a531a70ad287b519b27a0dce611e341",
     "host/agentic_host/cli.py": "2ceefb27d848d92f985c9f5d17f3b8414cde9ff451ee4251a1cb9d6412ddec38",
-    "host/agentic_host/coding_program.py": "6c0cef0fd013bf437a1ddeb8335ed33e873110d3a6c5d5d82642440b04b10f9e",
-    "host/agentic_host/coding_relay.py": "163adf54c57dc612b6ce1c46ad1463769448f3fdf9e14c4f69512cc5ab2cc8fb",
+    "host/agentic_host/coding_program.py": "2b3b20729f9080407aab7e3757015354c63fbe71fa66da8411fc235c06bed5c9",
+    "host/agentic_host/coding_relay.py": "5dcdeddff0175156a50126b2225973d6aad165913a82778f2b54ba6da71349e1",
     "host/agentic_host/coding_sandbox.py": "b784e137ae836bd339120328688cacdda081fde71dafb5aaa5b7d47fa4cff3aa",
-    "host/agentic_host/coding_service.py": "e054dbc2063e5963359217797e60febd5bdcf20adfbfea5696028f840833b336",
+    "host/agentic_host/coding_service.py": "eeab512351e6ec5d02154995830250f4745340e12329883a0e271d59d98fed3d",
     "host/agentic_host/coding_volume.py": "74df243725bc57df3a88f29915a1f2b76170aea8cf6dc373859112013a543701",
     "host/agentic_host/compatibility.py": "7d23e86c9bf7f78dad8c31675f23759fcfcd682ffa1ad83d26affe587210ead2",
-    "host/agentic_host/daemon.py": "e868c10e400ac992ad0a08bd3237d5c8458d616b42d96cbd63951cc96e45b2af",
+    "host/agentic_host/daemon.py": "b2416e8ccd9427ab0ec1fa89be42db52bbf923db9362196a16a52809dad02b9b",
     "host/agentic_host/desktop.py": "4da4ea5fdb13057356ddf1157ef0c162f74bed473539f49716591c47d96627e4",
     "host/agentic_host/fence.py": "2828f677c5b6ef768726d6a4827ad1bab842367e03c0df526375ec0f1d4d2ce7",
     "host/agentic_host/manager.py": "c3ab7c7bfbd5d87c534ef715ebb26f7485688b1dc49c3f00eb40ebb62efbfbe8",
@@ -20,9 +20,9 @@
     "host/agentic_host/proxy.py": "d307b950017e3daa2d041cbce3369133a90cd65f0580eba92db9b166f5b16c8d",
     "host/agentic_host/publisher.py": "f7bb178d18104f8fb7c6c12be07f127b8d236a12d231b0505e04945d412a2df4",
     "host/agentic_host/resources.py": "e75637f41d19c9613b05c1bcef947b664a3e7789c7bad85b2645e5912619e42d",
-    "host/agentic_host/source.py": "6096b05bc09dca912f68ff8c6f8550573e6c0e64ae2f509502d47806f24bcf6a",
+    "host/agentic_host/source.py": "4977754d2a7067ff2b37d3dd3907fccedf14a0a1e6975f24f6aa942565a390cf",
     "host/agentic_host/support.py": "d292fff3a7fd7d5ecc64c942e359866738f8152527739d5a466660a6dfc14376",
     "host/agentic_host/update_probe.py": "868d5260adfeae4e43bbbdf06b5db8f5624187396db08bef76781062b4ccfa70",
-    "host/agentic_host/updater.py": "7c9861b5817ceb1866af3007ceca2aacfedda3852f82570f7fdafff5eb563430"
+    "host/agentic_host/updater.py": "64d2fbc925f6a367cfff520871f45efe5bb99782bc4cbc27c0c445d313bad8c0"
   }
 }

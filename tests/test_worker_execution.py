@@ -151,7 +151,7 @@ async def test_coding_auth_lost_reply_recovers_receipt_without_reusing_operator_
     from agentic_runner import coding
     monkeypatch.setenv("AGENTIC_HOST_MODE", "1")
     calls = []
-    async def host(method, path, body=None):
+    async def host(method, path, body=None, timeout=35):
         calls.append(path)
         return 200, {"stop_confirmed": True}
     monkeypatch.setattr(coding, "host_request", host)
@@ -277,7 +277,7 @@ async def test_role_logout_reply_is_durable_and_cannot_replay_into_new_auth(tmp_
     from agentic_runner import coding
     monkeypatch.setenv("AGENTIC_HOST_MODE", "1")
     calls = []
-    async def host(method, path, body=None):
+    async def host(method, path, body=None, timeout=35):
         calls.append(path)
         return 200, {"stop_confirmed": True}
     monkeypatch.setattr(coding, "host_request", host)

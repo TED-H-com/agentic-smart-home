@@ -28,6 +28,7 @@ async def actual_capabilities(tmp_path, monkeypatch, store):
     service = object.__new__(CodingService)
     service.root = tmp_path
     service.credential_path = tmp_path / "absent-role-auth.json"
+    service.source_lock_path = tmp_path / "source.json"
     # This unit test substitutes only the prior hard-boundary observation.
     # The installed VM performs the actual Docker/namespace/quota checks.
     service.capability_cache = (time.monotonic(), True, None)
@@ -119,8 +120,9 @@ def update_observation():
         "result": {"state": "passed", "observed_from": "disposable_installed_linux_vm_root",
                    "actual": ["ed25519_signature_verification", "bounded_candidate_probe", "compose_activation", "authenticated_owner_smoke",
                               "consistent_snapshot", "schema3", "maintenance_gate", "same_database_rollback", "post_deployment_row_preserved",
-                              "revoked_bridge_fixed_probe_enforced", "pending_bridge_operation_blocked", "isolated_probe_cleanup_verified"],
-                   "fixtures": ["ephemeral_publisher", "preloaded_registry_delivery", "candidate_changes_only_image_label", "synthetic_post_deployment_record",
+                              "revoked_bridge_fixed_probe_enforced", "pending_bridge_operation_blocked", "isolated_probe_cleanup_verified",
+                              "coding_source_moved_with_image_and_rolled_back"],
+                   "fixtures": ["ephemeral_publisher", "preloaded_registry_delivery", "candidate_changes_label_and_source_bundle", "synthetic_post_deployment_record",
                                 "synthetic_missing_bridge_contract_image", "isolated_structure_only_revoked_bridge"],
                    "original_image": "sha256:" + "a" * 64, "candidate_image": "sha256:" + "b" * 64,
                    "real_cloud": False, "real_publisher_release": False, "final_schema": 3,
@@ -836,6 +838,9 @@ def test_actual_update_cleanup_survives_checkpoint_failure_and_preserves_primary
     environment, records, database = root / "runtime.env", root / "updates.json", root / "controller.sqlite3"
     environment.write_text("# fixture\n")
     records.write_text("{}")
+    coding = tmp_path / "coding"
+    coding.mkdir()
+    (coding / "source.json").write_text('{"repo_id": "agentic-home"}')
     with sqlite3.connect(database) as db:
         db.executescript("PRAGMA user_version=3; CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT); CREATE TABLE records(kind TEXT);")
     stopped = []
@@ -844,6 +849,7 @@ def test_actual_update_cleanup_survives_checkpoint_failure_and_preserves_primary
         if cleanup_fails:
             raise PermissionError("private cleanup failure")
     service = SimpleNamespace(environment=environment, path=records, database=database,
+                              source_lock=coding / "source.json", source_repo=coding / "source",
                               image=lambda: "sha256:" + "a" * 64, health=lambda: {"version": "0.7.0", "ha_version": None},
                               stop=stop, compose=lambda *args, **kwargs: None)
     monkeypatch.setattr(manager_module, "Manager", lambda: SimpleNamespace(root=root))
