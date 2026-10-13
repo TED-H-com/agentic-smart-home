@@ -1,4 +1,10 @@
-"""Opt-in exact-commit HAOS enable/backup/reboot; no cloud inference or login."""
+"""Opt-in real-HAOS proof of the one-click Home coding worker, run with --haos-vm, one heavy suite at a time.
+
+The exact candidate commit is the `stable` branch (local git daemon, or the published branch with
+AGENTIC_HOME_WORKER_PUBLIC=1). The sidebar auto-enrolls, the Owner enables the worker through the Host API, and both
+Apps must survive a cold backup and a full HAOS reboot with a Controller restart: no repair, re-pair or App restart.
+No cloud login, model call or coding run happens.
+"""
 from __future__ import annotations
 
 import ast
@@ -16,13 +22,14 @@ import shutil
 import subprocess
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 import aiohttp
 import pytest
 import yaml
 from agentic_controller import VERSION
-from agentic_controller.bridge_maintenance import STABLE_REPOSITORY, BridgeMaintenance
+from agentic_controller.bridge_maintenance import STABLE_REPOSITORY, STARTUP_GRACE, BridgeMaintenance
 from agentic_controller.ha import HAError
 from agentic_controller.home_worker_maintenance import JOB_TIMEOUT
 from home_worker_haos_probe import failure_receipt
@@ -64,15 +71,21 @@ PHASES = ('prepare_exact_head', 'local_images_present', 'prepare_disposable_disk
           'git_daemon', 'native_disposable_owner', 'supervisor_readiness', 'preload_builder_and_pinned_bases',
           'outer_candidate_controller', 'bridge_auto_enroll', 'home_worker_enable', 'login_ready_contract',
           'cold_backup', 'full_reboot', 'completion')
-STAGES = frozenset({'repository', 'install', 'start', 'pair', 'login', 'monitor', 'invalid'})
-STATES = frozenset({'running', 'waiting', 'healthy', 'login_ready', 'ready', 'unavailable', 'blocked',
-    'needs_reconcile', 'user_disabled', 'user_removed', 'user_modified', 'update_available', 'degraded', 'invalid'})
+# Home worker and sidebar bridge stages and states.
+STAGES = frozenset({'repository', 'install', 'configure', 'start', 'reconnect', 'pair', 'login', 'monitor', 'invalid'})
+STATES = frozenset({'pending', 'running', 'waiting', 'starting', 'healthy', 'login_ready', 'ready', 'unavailable',
+    'blocked', 'disabled', 'needs_reconcile', 'user_disabled', 'user_removed', 'user_modified', 'update_available',
+    'degraded', 'invalid'})
+# Only the Owner can leave these; a household backup or reboot must never cause one.
+FAILED = frozenset({'blocked', 'needs_reconcile', 'user_disabled', 'user_removed', 'user_modified', 'update_available'})
+# Core drops in-flight WebSocket replies while HAOS stops; aiohttp raises a TypeError subclass for those.
+TRANSIENT = (HAError, aiohttp.ClientError, TimeoutError, TypeError, ValueError, OSError)
 SUPERVISOR_STATES = frozenset({'initialize', 'setup', 'startup', 'running', 'freeze', 'shutdown', 'stopping', 'close', 'unknown'})
 RECORD_KEYS = frozenset({'id', 'owner', 'enabled', 'managed', 'state', 'stage', 'code', 'release', 'operation',
     'pair_restarts', 'start_sent', 'installed_by_us', 'setup_run_id', 'fingerprint', 'credential_state',
     'updated_at', 'repository_id', 'slug', 'app_state', 'version', 'observed_at', 'failed_code_hash',
     'owner_start', 'started_once', 'pair_deadline', 'grace_until', 'install_confirmation', 'privilege_view',
-    'worker_available', 'runtime_location', 'release_store_reloaded'})
+    'worker_available', 'runtime_location', 'release_store_reloaded', 'stopped_since'})
 
 
 def repository_slug(url):
@@ -86,31 +99,39 @@ def stable_commit(raw):
     return match[1].decode() if match else None
 
 
-def transition(values, raw):
+def transition(values, raw, prefix='home_worker_'):
     stage, state, code = raw.get('stage'), raw.get('state'), raw.get('code')
     stage = stage if stage in STAGES else 'invalid'
     state = state if state in STATES else 'invalid'
-    code = code if code is None or isinstance(code, str) and re.fullmatch(r'home_worker_[a-z0-9_]{1,80}', code) else 'invalid'
+    code = code if code is None or isinstance(code, str) and re.fullmatch(prefix + r'[a-z0-9_]{1,80}', code) else 'invalid'
     value = (stage, state, code)
     if len(values) < 64 and (not values or values[-1] != value):
         values.append(value)
 
 
-def require(ok, code):
-    # No raw input is an assertion operand, even with pytest rewriting enabled.
-    check_ok = bool(ok)
-    assert check_ok, code
+def recovered(record, state, stage, since):
+    # A record persisted before the disruption is not recovery; it needs a later App observation.
+    try:
+        fresh = datetime.fromisoformat(record['observed_at']).timestamp() > since
+    except (KeyError, TypeError, ValueError):
+        fresh = False
+    return fresh and record.get('state') == state and record.get('stage') == stage and record.get('enabled') is True
 
 
 def login_ready_contract(raw, url, slug):
-    for key, expected in (('state', 'login_ready'), ('stage', 'login'), ('managed', True),
-            ('installed_by_us', True), ('enabled', True), ('slug', slug), ('credential_state', 'needs_auth'),
-            ('runtime_location', 'haos_app'), ('pair_restarts', 0)):
+    # No raw input is an assertion operand, even with pytest rewriting enabled. Codes stay literal for evidence.
+    def field(key, expected):
         value = raw.get(key)
-        require(type(value) is type(expected) and value == expected, 'home_worker_status_' + key)
-    release = raw.get('release')
-    valid = release == {'repository': url, 'app': 'agentic_runner', 'version': VERSION}
-    check_ok = bool(valid)
+        return type(value) is type(expected) and value == expected
+
+    check_ok = bool(field('state', 'login_ready') and field('stage', 'login'))
+    assert check_ok, 'home_worker_status_state'
+    check_ok = bool(field('managed', True) and field('installed_by_us', True) and field('enabled', True)
+                    and field('slug', slug) and field('runtime_location', 'haos_app'))
+    assert check_ok, 'home_worker_status_ownership'
+    check_ok = bool(field('credential_state', 'needs_auth') and field('pair_restarts', 0))
+    assert check_ok, 'home_worker_status_pairing'
+    check_ok = bool(field('release', {'repository': url, 'app': 'agentic_runner', 'version': VERSION}))
     assert check_ok, 'home_worker_status_release'
     fingerprint = raw.get('fingerprint')
     valid = isinstance(fingerprint, str) and re.fullmatch(r'[a-f0-9]{64}', fingerprint) is not None
@@ -186,10 +207,10 @@ def summaries(v):
         and all(type(x) is bool for k, x in v.items() if k.startswith('app_stopped')))
 
 
-def transitions(v):
-    return (isinstance(v, list) and len(v) <= 64 and all(isinstance(x, (list, tuple)) and len(x) == 3
+def transitions(prefix):
+    return lambda v: (isinstance(v, list) and len(v) <= 64 and all(isinstance(x, (list, tuple)) and len(x) == 3
         and x[0] in STAGES and x[1] in STATES and (x[2] in (None, 'invalid') or isinstance(x[2], str)
-        and re.fullmatch(r'home_worker_[a-z0-9_]{1,80}', x[2])) for x in v))
+        and re.fullmatch(prefix + r'[a-z0-9_]{1,80}', x[2])) for x in v))
 
 
 def container_observation_valid(value):
@@ -266,7 +287,9 @@ FIELDS = {
     'enable_seconds': number, 'duration_seconds': number,
     'failure_hold_seconds': lambda v: type(v) is int and 0 <= v <= 180,
     'cold_backup_observation': summaries, 'reboot_observation': summaries,
-    'enable_transitions': transitions, 'home_recovery_transitions': transitions, 'bridge_recovery_transitions': transitions,
+    'enable_transitions': transitions('home_worker_'),
+    'home_backup_transitions': transitions('home_worker_'), 'bridge_backup_transitions': transitions('bridge_'),
+    'home_recovery_transitions': transitions('home_worker_'), 'bridge_recovery_transitions': transitions('bridge_'),
     'preload_digest_resolution': bool_map({'builder_tag', 'node_digest', 'python_digest'}),
     'upstream_error': bool_map({'job_missing', 'update_required', 'upstream_unknown_error'}),
     'failure_app_states': lambda v: isinstance(v, dict) and set(v) <= {'home', 'bridge'}
@@ -553,7 +576,7 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
         for _ in range((JOB_TIMEOUT + 600) // 5):
             record = setting(database, 'bridge_maintenance')
             stage, state = record.get('stage'), record.get('state')
-            check_ok = bool(state not in {'blocked', 'needs_reconcile', 'user_disabled', 'user_removed', 'user_modified'})
+            check_ok = bool(state not in FAILED)
             assert check_ok, 'bridge_auto_enroll_blocked'
             if stage == 'monitor' and state == 'healthy':
                 break
@@ -605,7 +628,7 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             while True:
                 transition(evidence['enable_transitions'], current)
                 state, stage = current.get('state'), current.get('stage')
-                check_ok = bool(state not in {'needs_reconcile', 'user_disabled', 'user_removed', 'user_modified', 'update_available'})
+                check_ok = bool(state not in FAILED)
                 assert check_ok, 'home_worker_enable_stopped'
                 if state == 'login_ready' and stage == 'login':
                     break
@@ -648,8 +671,44 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             evidence['app_container_observation'] = container_projection(installed, slug)
             evidence['checks']['container_contract'] = True
             phase('cold_backup')
+
+            def identities():
+                # A repair, re-pair or new pairing always changes one of these.
+                home, bridge = setting(database, 'home_worker_maintenance'), setting(database, 'bridge_maintenance')
+                return (tuple(home.get(k) for k in ('slug', 'fingerprint', 'pair_restarts')),
+                        tuple(bridge.get(k) for k in ('slug', 'repair_count', 'repairs', 'pairing_id')))
+
+            async def recover(name, since, seconds):
+                # Both managers return from fresh observations; a failed state never clears by itself.
+                homes = evidence.setdefault('home_' + name + '_transitions', [])
+                bridges = evidence.setdefault('bridge_' + name + '_transitions', [])
+                deadline = time.monotonic() + seconds
+                while True:
+                    home, bridge = setting(database, 'home_worker_maintenance'), setting(database, 'bridge_maintenance')
+                    transition(homes, home)
+                    transition(bridges, bridge, 'bridge_')
+                    check_ok = bool(home.get('state') not in FAILED)
+                    assert check_ok, 'home_worker_failed_after_disruption'
+                    check_ok = bool(bridge.get('state') not in FAILED)
+                    assert check_ok, 'bridge_failed_after_disruption'
+                    check_ok = bool(home.get('stage') == 'login' and bridge.get('stage') == 'monitor')
+                    assert check_ok, 'pairing_repeated_after_disruption'
+                    home_ok = recovered(home, 'login_ready', 'login', since)
+                    bridge_ok = recovered(bridge, 'healthy', 'monitor', since)
+                    if home_ok and bridge_ok:
+                        return
+                    if time.monotonic() >= deadline:
+                        check_ok = bool(home_ok)
+                        assert check_ok, 'home_worker_not_recovered'
+                        check_ok = bool(bridge_ok)
+                        assert check_ok, 'bridge_not_recovered'
+                    await asyncio.sleep(2)
+
+            before = identities()
+            # Like a household automatic backup: both cold Apps stop and restart inside Supervisor's freeze.
             backup = await ha.request('POST', '/backups/new/partial', {'name': 'Disposable enable cold backup',
-                'addons': [slug], 'homeassistant': False, 'folders': [], 'background': True}, supervisor=True)
+                'addons': [slug, bridge_slug], 'homeassistant': False, 'folders': [], 'background': True},
+                supervisor=True)
             job_id = backup.get('job_id')
             check_ok = bool(isinstance(job_id, str) and re.fullmatch(r'[a-f0-9-]{32,36}', job_id) is not None)
             assert check_ok, 'cold_backup_job_missing'
@@ -658,8 +717,8 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             deadline = time.monotonic() + 600
             while True:
                 supervisor_state = (await ha.request('GET', '/info', supervisor=True)).get('state')
-                runner_state = await app_state(slug)
-                sample(summary, supervisor_state, runner_state)
+                runner_state, sidebar_state = await app_state(slug), await app_state(bridge_slug)
+                sample(summary, supervisor_state, runner_state, sidebar_state)
                 job = await ha.request('GET', '/jobs/' + job_id, supervisor=True)
                 identity_ok, done, errors_empty = job.get('uuid') == job_id, job.get('done') is True, job.get('errors') == []
                 check_ok = bool(identity_ok and errors_empty)
@@ -669,92 +728,84 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
                 check_ok = bool(time.monotonic() < deadline)
                 assert check_ok, 'cold_backup_timeout'
                 await asyncio.sleep(1)
-            await pause(45)
-            current = await status()
-            state, stage, enabled = current.get('state'), current.get('stage'), current.get('enabled')
-            check_ok = bool(state == 'login_ready' and stage == 'login' and enabled is True)
-            assert check_ok, 'home_worker_disabled_by_cold_backup'
-            bridge = setting(database, 'bridge_maintenance')
-            state, stage, enabled = bridge.get('state'), bridge.get('stage'), bridge.get('enabled')
-            check_ok = bool(state == 'healthy' and stage == 'monitor' and enabled is True)
-            assert check_ok, 'bridge_disabled_by_cold_backup'
+            # The job ends after both Apps restarted and Supervisor left freeze.
+            await recover('backup', time.time(), 300)
+            check_ok = bool(identities() == before)
+            assert check_ok, 'maintenance_changed_apps_after_cold_backup'
             evidence['checks']['cold_backup'] = True
             phase('full_reboot')
-            bridge_before = tuple(bridge.get(k) for k in ('slug', 'repair_count', 'repairs'))
-            home_before = tuple(setting(database, 'home_worker_maintenance').get(k) for k in ('slug', 'fingerprint', 'pair_restarts'))
-            docker('stop', outer)
-            try:
+            # The Controller keeps watching while HAOS stops, then restarts like the host's own reboot.
+            with contextlib.suppress(*TRANSIENT):
                 await ha.request('POST', '/host/reboot', supervisor=True, timeout=15)
-            except (aiohttp.ClientConnectionError, TimeoutError):
-                pass
-            docker('start', outer)
             # Observe actual Core loss, rather than mistaking an old healthy reply for reboot.
             deadline, down = time.monotonic() + 180, False
             while time.monotonic() < deadline:
                 try:
                     await ha.request('GET', '/config', timeout=3)
-                except (HAError, aiohttp.ClientError, TimeoutError):
+                except TRANSIENT:
                     down = True
                     break
                 await asyncio.sleep(2)
             check_ok = bool(down)
             assert check_ok, 'core_reboot_down_not_observed'
+            docker('restart', outer)
+            port = json.loads(docker('inspect', outer))[0]['NetworkSettings']['Ports']['8099/tcp'][0]['HostPort']
+            outer_url = 'http://127.0.0.1:' + port
             deadline = time.monotonic() + 600
             while True:
                 try:
                     await ha.request('GET', '/config', timeout=3)
                     break
-                except (HAError, aiohttp.ClientError, TimeoutError):
+                except TRANSIENT:
                     check_ok = bool(time.monotonic() < deadline)
                     assert check_ok, 'core_reboot_return_timeout'
                     await asyncio.sleep(2)
             summary = sample_summary(boot=True)
             evidence['reboot_observation'] = summary
-            evidence['home_recovery_transitions'], evidence['bridge_recovery_transitions'] = [], []
+            homes = evidence['home_recovery_transitions'] = []
+            bridges = evidence['bridge_recovery_transitions'] = []
             deadline = time.monotonic() + 600
             while True:
-                transition(evidence['home_recovery_transitions'], setting(database, 'home_worker_maintenance'))
-                transition(evidence['bridge_recovery_transitions'], setting(database, 'bridge_maintenance'))
+                transition(homes, setting(database, 'home_worker_maintenance'))
+                transition(bridges, setting(database, 'bridge_maintenance'), 'bridge_')
                 try:
                     supervisor_state = (await ha.request('GET', '/info', supervisor=True)).get('state')
                     runner_state, sidebar_state = await app_state(slug), await app_state(bridge_slug)
                     sample(summary, supervisor_state, runner_state, sidebar_state, boot=True)
                     if supervisor_state == 'running' and runner_state == sidebar_state == 'started':
                         break
-                except (HAError, aiohttp.ClientError, TimeoutError):
+                except TRANSIENT:
                     pass
                 check_ok = bool(time.monotonic() < deadline)
-                assert check_ok, 'home_worker_not_recovered_after_reboot'
+                assert check_ok, 'apps_not_started_after_reboot'
                 await asyncio.sleep(2)
-            deadline = time.monotonic() + 600
-            while True:
-                home = setting(database, 'home_worker_maintenance')
-                bridge = setting(database, 'bridge_maintenance')
-                transition(evidence['home_recovery_transitions'], home)
-                transition(evidence['bridge_recovery_transitions'], bridge)
-                home_ok = home.get('state') == 'login_ready' and home.get('stage') == 'login' and home.get('enabled') is True
-                bridge_ok = bridge.get('state') == 'healthy' and bridge.get('stage') == 'monitor' and bridge.get('enabled') is True
-                check_ok = bool(home.get('state') not in {'user_disabled', 'user_removed', 'user_modified', 'needs_reconcile'})
-                assert check_ok, 'home_worker_not_recovered_after_reboot'
-                check_ok = bool(bridge.get('state') not in {'user_disabled', 'user_removed', 'user_modified', 'needs_reconcile'})
-                assert check_ok, 'bridge_not_recovered_after_reboot'
-                if home_ok and bridge_ok:
-                    break
-                if time.monotonic() >= deadline:
-                    check_ok = bool(home_ok)
-                    assert check_ok, 'home_worker_not_recovered_after_reboot'
-                    check_ok = bool(bridge_ok)
-                    assert check_ok, 'bridge_not_recovered_after_reboot'
-                await asyncio.sleep(2)
-            home_after = tuple(home.get(k) for k in ('slug', 'fingerprint', 'pair_restarts'))
-            bridge_after = tuple(bridge.get(k) for k in ('slug', 'repair_count', 'repairs'))
-            check_ok = bool(home_after == home_before and bridge_after == bridge_before)
-            assert check_ok, 'maintenance_restarted_app_after_reboot'
+            apps_up = time.time()
+            containers = remote('docker inspect --format ' + shlex.quote('{{.Id}} {{.State.StartedAt}}')
+                                + ' app_' + slug + ' app_' + bridge_slug)
+            await recover('recovery', apps_up, 600)
+            evidence['checks']['full_reboot'] = True
+            # Stay past the bridge's fresh startup grace: no delayed repair or restart may follow.
+            while time.time() < apps_up + STARTUP_GRACE + 30:
+                await asyncio.sleep(5)
+                await recover('recovery', apps_up, 60)
+            check_ok = bool(identities() == before)
+            assert check_ok, 'maintenance_changed_apps_after_reboot'
+            check_ok = bool(remote('docker inspect --format ' + shlex.quote('{{.Id}} {{.State.StartedAt}}')
+                                   + ' app_' + slug + ' app_' + bridge_slug) == containers)
+            assert check_ok, 'app_restarted_after_reboot'
+            probe = json.loads(remote('docker exec app_' + slug + ' python -c ' + shlex.quote(TLS_PROBE)))
+            check_ok = bool(probe.get('tls_sha256') == fingerprint)
+            assert check_ok, 'home_worker_reboot_tls_fingerprint_changed'
             info = await ha.request('GET', f'/addons/{slug}/info', supervisor=True)
             options_state = pairing_options(info.get('options'))
             check_ok = bool(options_state == 'absent')
             assert check_ok, 'home_worker_reboot_options_changed'
-            evidence['checks']['full_reboot'] = evidence['checks']['recovery_identity'] = True
+            # What the Owner sees after logging in again.
+            async with client.post(outer_url + '/api/host/login', json={'key': access_key}) as response:
+                check_ok = bool(response.status == 200)
+                assert check_ok, 'outer_login_failed'
+            login_ready_contract(await status(), url, slug)
+            evidence['checks']['recovery_identity'] = True
         phase('completion')
         complete = set(evidence['checks']) == CHECK_NAMES and all(evidence['checks'].values())
         check_ok = bool(complete)
@@ -846,6 +897,24 @@ def test_transition_recorder():
     for i in range(100):
         transition(values, {**raw, 'code': 'home_worker_' + str(i)})
     assert len(values) == 64
+    bridge = []
+    transition(bridge, {'stage': 'monitor', 'state': 'starting', 'code': 'bridge_heartbeat_pending'}, 'bridge_')
+    transition(bridge, {'stage': 'configure', 'state': 'running', 'code': 'home_worker_login_required'}, 'bridge_')
+    assert bridge == [('monitor', 'starting', 'bridge_heartbeat_pending'), ('configure', 'running', 'invalid')]
+    assert evidence_projection({'bridge_recovery_transitions': bridge, 'home_recovery_transitions': bridge}) == {
+        'bridge_recovery_transitions': bridge}
+
+
+def test_recovery_needs_an_observation_after_the_disruption():
+    record = {'state': 'healthy', 'stage': 'monitor', 'enabled': True, 'observed_at': '2026-10-13T18:00:10+00:00'}
+    moment = datetime.fromisoformat('2026-10-13T18:00:00+00:00').timestamp()
+    assert recovered(record, 'healthy', 'monitor', moment)
+    assert not recovered(record, 'healthy', 'monitor', moment + 10)
+    assert not recovered({**record, 'enabled': False}, 'healthy', 'monitor', moment)
+    assert not recovered({**record, 'state': 'starting'}, 'healthy', 'monitor', moment)
+    for observed in (None, 'private', 1760378410):
+        assert not recovered({**record, 'observed_at': observed}, 'healthy', 'monitor', moment)
+    assert not recovered({k: v for k, v in record.items() if k != 'observed_at'}, 'healthy', 'monitor', moment)
 
 
 def ready_status():
@@ -928,8 +997,9 @@ def test_projection_rejects_malformed_nested_and_unhashable_values():
 
 
 def test_failure_receipt_recognizes_enable_assertion_codes():
-    for code in ('home_worker_disabled_by_cold_backup', 'bridge_disabled_by_cold_backup',
-                 'home_worker_not_recovered_after_reboot', 'owned_enable_resources_not_removed'):
+    for code in ('home_worker_failed_after_disruption', 'bridge_not_recovered', 'app_restarted_after_reboot',
+                 'maintenance_changed_apps_after_cold_backup', 'home_worker_status_ownership',
+                 'owned_enable_resources_not_removed'):
         receipt = failure_receipt(AssertionError(code), source_files=CODE_SOURCES)
         assert receipt['error_code'] == code
         assert evidence_projection(receipt)['error_code'] == code
