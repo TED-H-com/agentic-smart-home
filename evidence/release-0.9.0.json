@@ -164,6 +164,63 @@
    "skipped": 0,
    "passed": 54,
    "seconds": 314.479
+  },
+  "home_app_supervisor_build": {
+   "evidence": "evidence/runner-supervisor-build-0.9.0.json",
+   "junit": "evidence/runner-supervisor-build-0.9.0.xml",
+   "status": "passed",
+   "delivery": "local_source_exact_head_files",
+   "test_commit": "a0c0e709f907dcd2025ea4278c5837da05a1e45e",
+   "runner_git_tree": "38f19798432b5e036a4174f9d4ea0b3ccc06bda4",
+   "runner_tree_equals_release_source": true,
+   "core": "2026.10.1",
+   "supervisor": "2026.09.3",
+   "haos_vm_profile": {
+    "profile": "laptop-amd64",
+    "memory_mib": 4096,
+    "vcpus": 2,
+    "disk_gib": 64
+   },
+   "build_seconds": 201.5,
+   "receipt_seconds": 383.224,
+   "checks_passed": 18,
+   "codex_version": "0.157.1",
+   "worker_source_commit": "0eb569e42ed2661e3e3bd4c7835b3715d57e3da0",
+   "installed_image_id": "sha256:b739bcbf43c370de334cb69cb865d25d4168469bab076d0003d84c856f98d41c",
+   "preloaded_images": [
+    "docker:29.7.2-cli@sha256:3f4743208d2338c934d7b8bcfbe1bb54c0b2355c510ad5e0f31c0c4a54bd704e",
+    "node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20",
+    "python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd12803a5c4247979ac7655f4d641"
+   ],
+   "preload_digest_resolution": {
+    "builder_tag": true,
+    "node_digest": false,
+    "python_digest": false
+   },
+   "live_build_downloads": [
+    "apt",
+    "npm",
+    "pypi",
+    "agy",
+    "coding_source"
+   ],
+   "limitations": [
+    "local_source_delivery_not_public_stable_channel",
+    "no_pairing_login_model_or_coding_executed",
+    "builder_and_pinned_bases_preloaded_registry_not_blocked"
+   ],
+   "junit_scope": "1 actual VM build case and 71 harness unit tests",
+   "cleanup": {
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+   },
+   "tests": 72,
+   "failures": 0,
+   "errors": 0,
+   "skipped": 0,
+   "passed": 72,
+   "seconds": 383.384
   }
  },
  "prior_failed_attempts": [
@@ -175,6 +232,20 @@
    "observation": "A Supervisor store reload or catalog read failed in the harness local-source delivery step, before the App was installed. The harness keeps only the error type, so the upstream message is unknown. A diagnostic rerun of the same images and App config passed and is not release evidence; the clean rerun of this commit passed.",
    "cleanup": {
     "outer_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+   }
+  },
+  {
+   "evidence": "evidence/runner-supervisor-build-0.9.0-run1-failure.json",
+   "test_commit": "c498817aaf882eefc21c3f1e6c8a619c1eea95bd",
+   "phase": "configure_and_start_app",
+   "error_type": "AssertionError",
+   "error_code": "supervisor_options_changed",
+   "observation": "The actual Supervisor built, installed and started the App. The new harness reused the fixture App contract that requires empty options, but an unpaired real App publishes its one-time pairing into its own options. The contract was corrected before the test was merged and the rerun passed.",
+   "junit_withheld": "pytest's failure diff printed the disposable VM's one-time pairing code. The VM was destroyed; the harness now keeps such values out of every assertion.",
+   "cleanup": {
     "vm_removed": true,
     "disk_fixture_ownership_restored": true,
     "network_removed": true
@@ -208,6 +279,7 @@
   "Installed ISO has a real fixed Host broker and updater; coding model transport and publisher/registry delivery are synthetic.",
   "Home worker: the actual Supervisor installs a test App derived from the product Runner image; model transport and diagnostic helper are explicit fixtures.",
   "Sidebar App: delivered as local source to the actual Supervisor; inference and Unix Host capability response are fixtures.",
+  "Home coding App build: every committed runner/ file is delivered as local source; the actual Supervisor builds, installs and starts it. No pairing, login, model or coding job runs.",
   "App network observation does not prove Core or whole-HAOS health."
  ],
  "source_audit": "evidence/source-audit-0.9.0.json",
@@ -235,6 +307,9 @@
   "evidence/linux-install-0.9.0.xml": "f47096f27124791c77596bcf992064bd52b049b483c5dfcbab7efac9dcbaa4e0",
   "evidence/pytest-0.9.0-github.xml": "7783ac0f821afe4731eb93ff6430be04e1279854b418a0553b2b30500aacbc7c",
   "evidence/pytest-0.9.0.xml": "c7fbbcdb8bd1987bf2fd6500ff703205bd15ec9e83bb45ca6deb04bc22d83f8b",
+  "evidence/runner-supervisor-build-0.9.0-run1-failure.json": "a782a67b810887e2348dad74b2e091a078fcecd19e6db960a7ca91eed793c582",
+  "evidence/runner-supervisor-build-0.9.0.json": "cd19337b97965cd186bcb7ad89fde26ee0789b3cdd5642128d2db77b8b7dec9d",
+  "evidence/runner-supervisor-build-0.9.0.xml": "8ec2b31181e14f1774c4dabb5fde80f4473930e739f56e2c1791dc143f55c845",
   "evidence/ui/bridge-native-haos-0.9.0.png": "1a8a06b5351e499580e863f137cb5a2c33c46f136479760c3c65ee8bbac24bc4"
  }
 }

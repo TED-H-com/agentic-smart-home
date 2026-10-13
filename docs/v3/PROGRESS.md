@@ -1,6 +1,6 @@
 # Plan v3 進度與驗收帳本（團隊維護）
 
-**目前：0.9.0 完整產品工程預覽。精確 ISO 在一次性 VM 完整安裝通過；真 HAOS 側欄 App 與家庭現場開發助手的工程案例通過。模型 transport 是固定 fixture；真雲端帳號、實體筆電、`#stable` 公開安裝及 E1／E2 尚未驗收，32 案維持 2 passed、30 not_run。** 詳見 [版本驗證](../VERIFICATION.md#090)；0.8.0 的 Home coding 增量見 [下方](#home-coding-080-工程增量)。
+**目前：0.9.0 完整產品工程預覽。精確 ISO 在一次性 VM 完整安裝通過；真 HAOS 側欄 App、家庭現場開發助手，以及真 Supervisor 建置家庭現場 App 的工程案例通過。模型 transport 是固定 fixture；真雲端帳號、實體筆電、`#stable` 公開安裝及 E1／E2 尚未驗收，32 案維持 2 passed、30 not_run。** 詳見 [版本驗證](../VERIFICATION.md#090)；0.8.0 的 Home coding 增量見 [下方](#home-coding-080-工程增量)。
 
 更新：2026-10-13。Owner 原稿基準為 0.3.1／`3ad476a712009469521c3f9838a44ef35ba29f76`。本檔獨立記錄實作狀態，不修改六份原稿；早期交付為 **0.4.0 v3 技術預覽，CI 145 passed／2 skipped，精確 ISO 完整 VM 測試 1 passed；完成 E0 工程媒體與獨立救援範圍，Owner laptop／真帳號及 E1、E2 尚未完成**。
 

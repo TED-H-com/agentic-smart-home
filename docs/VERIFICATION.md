@@ -2,7 +2,7 @@
 
 ## 0.9.0
 
-本版重做介面，開發助手可在網頁啟用、登入，主機重開後自動復原，內容見 [CHANGELOG](../CHANGELOG.md)。受測來源、媒體與 harness 都是 [`4412d33b`](https://github.com/teddashh/agentic-smart-home/commit/4412d33b15af3c4427bc762394c853b63cc7fe05)。家庭現場映像內的開發來源固定為 [`0eb569e4`](https://github.com/teddashh/agentic-smart-home/commit/0eb569e42ed2661e3e3bd4c7835b3715d57e3da0)。來源、映像與限制的完整紀錄見 [0.9.0 交付紀錄](../evidence/release-0.9.0.json)。
+本版重做介面，開發助手可在網頁啟用、登入，主機重開後自動復原，內容見 [CHANGELOG](../CHANGELOG.md)。受測來源、媒體與 harness 都是 [`4412d33b`](https://github.com/teddashh/agentic-smart-home/commit/4412d33b15af3c4427bc762394c853b63cc7fe05)，只有家庭現場 App 建置測試是之後補上的（見下）。家庭現場映像內的開發來源固定為 [`0eb569e4`](https://github.com/teddashh/agentic-smart-home/commit/0eb569e42ed2661e3e3bd4c7835b3715d57e3da0)。來源、映像與限制的完整紀錄見 [0.9.0 交付紀錄](../evidence/release-0.9.0.json)。
 
 | 項目 | 結果 | 證據 |
 |---|---|---|
@@ -13,11 +13,20 @@
 | HAOS App 邊界 | 1 passed | [結果](../evidence/haos-app-boundary-0.9.0.json)、[JUnit](../evidence/haos-app-boundary-0.9.0.xml) |
 | 智能管家側欄 App（本機來源交付） | 18 passed | [結果](../evidence/bridge-haos-local-0.9.0.json)、[JUnit](../evidence/bridge-haos-local-0.9.0.xml)、[截圖](../evidence/ui/bridge-native-haos-0.9.0.png) |
 | 家庭現場開發助手（真 HAOS App） | 54 passed／314.479 秒 | [結果](../evidence/home-worker-haos-0.9.0.json)、[JUnit](../evidence/home-worker-haos-0.9.0.xml) |
+| 家庭現場 App 由真 Supervisor 建置（本機來源交付） | 72 passed／383.384 秒 | [結果](../evidence/runner-supervisor-build-0.9.0.json)、[JUnit](../evidence/runner-supervisor-build-0.9.0.xml) |
 | 精確 ISO 完整安裝 | 1 passed／1437.469 秒 | [結果](../evidence/linux-install-0.9.0.json)、[JUnit](../evidence/linux-install-0.9.0.xml) |
 
 本機的五個跳過項就是上表另跑的 VM 案例，沒有算成通過。CI 另跳過 UID 1000 桌面專項及本機 QEMU builder 探針；CI 映像由 CI 獨立建置，不宣稱 ID 與本機相同。
 
 家庭現場開發助手的 54 passed 是一個真 VM 整合案例加 53 個 harness 單元測試。整合案例通過 15 項整合檢查及 38 項獨立基準測試；outer、VM、network 已移除，磁碟 ownership 已恢復。
+
+家庭現場 App 建置測試在 [#60](https://github.com/teddashh/agentic-smart-home/pull/60) 補上，harness 為 [`a0c0e709`](https://github.com/teddashh/agentic-smart-home/commit/a0c0e709f907dcd2025ea4278c5837da05a1e45e)。交付的 `runner/` 每個檔案都與 `4412d33` 逐位元相同（git tree `38f19798`）。72 passed 是一個真 VM 案例加 71 個 harness 單元測試；VM 大小同出貨的 laptop profile（4096 MiB、2 vCPU、64 GiB）。真 Supervisor 用 201.5 秒建置 `runner/Dockerfile`，安裝、啟動後通過 18 項檢查：
+
+- App 合約與容器邊界：自訂 AppArmor（enforce）、只有 SYS_ADMIN 與 `/dev/fuse`、沒有 Docker socket。
+- `/health` 200；未配對的 App 把一次性配對寫入自己的 options，指紋等於 8443 實際提供的憑證。
+- Codex 0.157.1 等於 lock；映像內開發來源 `0eb569e4` 通過產品自己的驗證。
+
+Supervisor builder 與兩個 base image 先載入 HAOS，但 HAOS 無法用 digest 在本機找到 base image，所以 build 時從 registry 依同一 digest 取得。apt、npm、PyPI、agy 與開發來源都是即時下載。沒有配對、登入、模型或開發工作。第一次實跑時建置、安裝、啟動都成功，但新 harness 沿用 fixture App「options 必須為空」的條件而失敗，見 [失敗 receipt](../evidence/runner-supervisor-build-0.9.0-run1-failure.json)。該次 JUnit 印出了已刪除 VM 的一次性配對碼，所以不公開；harness 已改成任何失敗訊息都不會印出這類值。修正後重跑通過，上表即此次結果。
 
 ISO 在一次性 VM 依序通過下列項目：
 
