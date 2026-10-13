@@ -11,6 +11,13 @@ A legacy ``#release/X.Y.Z`` slug is a different App and is never uninstalled her
 While ``update_available``, observation may read the App and the bridge heartbeat
 (``listener_ready``, ``service_last_seen``). It does not restart, repair, or re-pair,
 and a missing heartbeat does not become degraded.
+
+An ``update`` operation is only observed. Drift ``update`` at ``repository``, or at
+``install`` before an install was sent, adopts this release and continues setup.
+Drift ``update`` at ``monitor`` while not reconnecting offers the Owner update and
+does not restart or repair. An install already sent, and configure, start and
+reconnect, finish at the pinned release; monitor then offers the update.
+Re-enabling a disabled sidebar reconnects at the release that is installed.
 """
 from __future__ import annotations
 
@@ -29,6 +36,7 @@ from .models import digest, utcnow
 KEY = "bridge_maintenance"
 STARTUP_GRACE = 120
 OPERATION_TIMEOUT = 600
+JOB_TIMEOUT = 3600  # A running Supervisor job, such as the local image build, is progress.
 HEARTBEAT_MAX_AGE = 90
 MAX_RESTARTS = 2
 RESTART_WINDOW = 86400
@@ -204,12 +212,7 @@ class BridgeMaintenance:
                     raise BridgeFault("bridge_release_ahead", "waiting")
                 if drift == "invalid":
                     raise BridgeFault("bridge_release_unparsable", "needs_reconcile")
-                if drift == "update":
-                    # Re-enable stops at the Owner update. It does not rotate the pairing or restart.
-                    if previous["state"] == "disabled":
-                        self.save(previous, enabled=True, state="update_available",
-                                  code="bridge_update_available")
-                    return self.status()
+                # Re-enable reconnects at the installed release. The update is offered once it is healthy.
                 if previous["state"] == "disabled":
                     return await self.reconnect(previous, token, auto_repair, commit_guard)
                 return self.status()
@@ -243,7 +246,13 @@ class BridgeMaintenance:
         unchanged()
         raw = await self.ha.request("GET", f"/addons/{previous['slug']}/info", supervisor=True, timeout=30)
         unchanged()
-        app = self.validate_app(raw, previous, installed=True)
+        # The Owner may have updated the App in Home Assistant while the sidebar was off.
+        adopted = (self.drift(previous) == "update" and isinstance(raw, dict) and
+                   raw.get("version") == self.release.version)
+        if adopted:
+            app = self.validate_app(raw, previous, installed=True, expected_version=self.release.version)
+        else:
+            app = self.validate_app(raw, previous, installed=True)
         if not self.configured(app, previous) or app["state"] not in {"started", "stopped"}:
             raise BridgeFault("bridge_configuration_changed", "needs_reconcile")
         if not await self.ha.owner(previous["owner"]):
@@ -257,6 +266,8 @@ class BridgeMaintenance:
                   "pairing_id": options["pairing_id"], "options_digest": digest(options),
                   "initial_settings_digest": self.settings_digest(app), "stage": "configure",
                   "state": "pending", "code": None, "operation": None}
+        if adopted:
+            record["release"] = asdict(self.release)
         self.save(record)
         return self.status()
 
@@ -293,12 +304,6 @@ class BridgeMaintenance:
             if record.get("code") == "bridge_repair_budget_exhausted":
                 raise BridgeFault("bridge_repair_budget_exhausted", "needs_reconcile")
             drift = self.drift(record)
-            if drift == "update":
-                # An old release is updated in place before any restart or repair effect.
-                if (record.get("operation") or {}).get("kind") == "update":
-                    return self.status()
-                self.save(record, state="update_available", code="bridge_update_available")
-                return self.status()
             if drift == "channel":
                 raise BridgeFault("bridge_release_channel_changed", "needs_reconcile")
             if drift == "ahead":
@@ -376,7 +381,13 @@ class BridgeMaintenance:
             raise BridgeFault("bridge_pairing_contract_invalid", "needs_reconcile")
 
     def validate_app(self, data, record, *, installed, expected_version=None):
-        expected = self.release.version if expected_version is None else expected_version
+        if expected_version is None:
+            stored = record.get("release") if isinstance(record.get("release"), dict) else {}
+            pinned = stored.get("version")
+            # A caller with no pin, such as the HAOS install observer, means this release.
+            expected = pinned if isinstance(pinned, str) else self.release.version
+        else:
+            expected = expected_version
         if (not isinstance(data, dict) or data.get("slug") != record["slug"] or
                 data.get("repository") != record["repository_id"] or
                 data.get("version" if installed else "version_latest") != expected or
@@ -425,8 +436,9 @@ class BridgeMaintenance:
                 app.get("watchdog") is False)
 
     async def effect(self, record, token, kind, path, body=None, operation_extra=None):
-        if kind != "update" and self.drift(record) == "update":
-            # The installed App keeps running, but pairing, repair and restart wait for the Owner update.
+        if (kind != "update" and self.drift(record) == "update" and record.get("stage") == "monitor" and
+                not record.get("reconnecting")):
+            # Auto-repair restarts wait. Configure, start and the reconnect restart may finish.
             raise BridgeFault("bridge_update_available", "update_available")
         # A second active-owner check is immediately adjacent to the persisted intent/POST.
         await self.owner(record, token)
@@ -469,6 +481,9 @@ class BridgeMaintenance:
                 not isinstance(raw.get("errors"), list)):
             raise BridgeFault("bridge_job_contract_invalid", "needs_reconcile")
         if raw["done"] is not True:
+            operation["deadline"] = min(operation["created"] + JOB_TIMEOUT,
+                                        max(operation["deadline"], self.clock() + OPERATION_TIMEOUT))
+            self.save(record, operation=operation)
             return False
         if raw["errors"]:
             raise BridgeFault("bridge_supervisor_job_failed", "needs_reconcile")
@@ -523,7 +538,16 @@ class BridgeMaintenance:
             return self.status()
 
     async def advance(self, record, token):
-        if self.drift(record) == "update" or (record.get("operation") or {}).get("kind") == "update":
+        operation = record.get("operation") or {}
+        drift = self.drift(record)
+        if operation.get("kind") == "update":
+            await self.advance_update(record, token)
+            return
+        if drift == "update" and (record["stage"] == "repository" or
+                                  (record["stage"] == "install" and not operation)):
+            # Nothing from the old release was installed yet. Continue setup at this release.
+            self.save(record, release=asdict(self.release), release_store_reloaded=False)
+        elif drift == "update" and record["stage"] == "monitor" and not record.get("reconnecting"):
             await self.advance_update(record, token)
             return
         stage, operation = record["stage"], record.get("operation")
@@ -735,12 +759,14 @@ class BridgeMaintenance:
                 raw.get("auto_update") is False and raw.get("watchdog") is False):
             return "bridge_update_configuration_mismatch"
         if prior_state is not None:
-            state = raw.get("state")
-            if (prior_state == "started" and state == "startup" and created is not None and
-                    self.clock() < created + STARTUP_GRACE):
-                return "bridge_update_starting"
-            if state != prior_state:
-                return "bridge_update_state_mismatch"
+            expected_state = "started" if prior_state == "startup" else prior_state
+            if expected_state in {"started", "stopped"}:
+                state = raw.get("state")
+                if (expected_state == "started" and state == "startup" and created is not None and
+                        self.clock() < created + STARTUP_GRACE):
+                    return "bridge_update_starting"
+                if state != expected_state:
+                    return "bridge_update_state_mismatch"
         try:
             self.validate_app(raw, record, installed=True, expected_version=expected_version)
         except BridgeFault:
@@ -758,7 +784,6 @@ class BridgeMaintenance:
 
     def note_update_available(self, record, raw):
         # Heartbeat stays read-only. A missing listener does not restart or leave this state.
-        self.bridge.status()
         self.save(record, state="update_available", code="bridge_update_available", operation=None,
                   app_state=raw.get("state"), version=raw.get("version"), observed_at=utcnow())
 
@@ -876,6 +901,31 @@ class BridgeMaintenance:
             return
         self.save(record, operation=None, state="update_available", code="bridge_update_available")
 
+    async def update_not_applied(self, record, token, code):
+        """A failed or expired update can be retried only when the previous App is unchanged."""
+        raw = await self.app_info(record, token)
+        operation = record.get("operation") or {}
+        if raw is not None and raw.get("version") == self.release.version:
+            await self.readback_update(record, token)
+            return
+        stored = record.get("release") if isinstance(record.get("release"), dict) else {}
+        old = stored.get("version")
+        intact = self.installed_pin_problem(
+            raw, record, expected_version=old, options_digest=operation.get("options_digest")) is None
+        if raw is not None and raw.get("version") == old and intact:
+            self.save(record, operation=None, state="update_available", code="bridge_update_failed",
+                      app_state=raw.get("state"), version=raw.get("version"), observed_at=utcnow())
+            return
+        raise BridgeFault(code, "needs_reconcile")
+
+    def note_update_finished(self, record):
+        """The readback grace starts when Supervisor finishes, not when the update was sent."""
+        operation = record.get("operation") or {}
+        if operation.get("done_at"):
+            return
+        operation["done_at"] = self.clock()
+        self.save(record, operation=operation)
+
     async def finish_update(self, record, token):
         operation = record.get("operation") or {}
         if operation.get("target_release") != asdict(self.release):
@@ -888,9 +938,15 @@ class BridgeMaintenance:
         except HAError:
             await self.observe_unconfirmed_update(record, token)
             return
+        except BridgeFault as exc:
+            if exc.code != "bridge_supervisor_job_failed":
+                raise
+            await self.update_not_applied(record, token, exc.code)
+            return
         if not done:
             self.waiting(record)
             return
+        self.note_update_finished(record)
         await self.readback_update(record, token)
 
     async def observe_unconfirmed_update(self, record, token):
@@ -898,10 +954,12 @@ class BridgeMaintenance:
         operation = record.get("operation") or {}
         raw = await self.app_info(record, token)
         if raw is not None and raw.get("version") == self.release.version:
+            self.note_update_finished(record)
             await self.readback_update(record, token)
             return
         if self.clock() >= operation.get("deadline", 0):
-            raise BridgeFault("bridge_operation_unconfirmed", "needs_reconcile")
+            await self.update_not_applied(record, token, "bridge_operation_unconfirmed")
+            return
         self.save(record, state="unavailable", code="bridge_observation_unavailable")
 
     async def readback_update(self, record, token):
@@ -911,7 +969,7 @@ class BridgeMaintenance:
             raise BridgeFault("bridge_update_app_missing", "needs_reconcile")
         problem = self.installed_pin_problem(
             raw, record, expected_version=self.release.version, options_digest=operation.get("options_digest"),
-            prior_state=operation.get("app_state"), created=operation.get("created"))
+            prior_state=operation.get("app_state"), created=operation.get("done_at") or operation.get("created"))
         if problem == "bridge_update_starting":
             self.save(record, state="running", code=problem, app_state=raw.get("state"),
                       version=raw.get("version"), observed_at=utcnow())

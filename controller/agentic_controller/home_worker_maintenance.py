@@ -7,6 +7,10 @@ to call the existing runner pairing path; they are not stored, logged or returne
 The trusted repository is the sidebar ``#stable`` channel, and the version is
 ``agentic_controller.VERSION``. While ``update_available``, observation reads the
 installed App only: it does not pair, restart, clear options, or poll login.
+Setup that has not located the App, or a missing App at ``repository`` or
+``install``, adopts this release and continues the normal install. A finished
+install of the older App is recorded, then the Owner update is offered. A
+missing App at a later stage stays removed.
 A legacy ``#release/X.Y.Z`` slug is not uninstalled. Removing an App deletes
 its data directory, including the worker credential store.
 """
@@ -213,15 +217,11 @@ class HomeWorkerMaintenance:
                 raise HomeWorkerFault("home_worker_release_ahead", "waiting")
             if drift == "invalid":
                 raise HomeWorkerFault("home_worker_release_unparsable", "needs_reconcile")
-            if drift == "update":
-                # Repair at an old release enables the Owner update. It does not reinstall or pair.
-                if (record.get("operation") or {}).get("kind") == "update":
-                    if not record.get("enabled"):
-                        self.save(record, enabled=True)
-                    return self.status()
-                self.save(record, enabled=True, state="update_available", code="home_worker_update_available")
+            if drift == "update" and (record.get("operation") or {}).get("kind") == "update":
+                # Observe the update already sent. Do not post it again.
+                self.save(record, enabled=True, state="running", code=None)
                 return self.status()
-            if record.get("enabled") and record.get("state") in SETTLED:
+            if record.get("enabled") and record.get("state") in SETTLED | {"update_available"}:
                 return self.status()
             operation = record.get("operation")
             if operation and record.get("state") == "unavailable" and self.clock() < operation["deadline"]:
@@ -787,12 +787,14 @@ class HomeWorkerMaintenance:
         if options != {} and self.published_pairing(options) is None:
             return "home_worker_update_options_mismatch"
         if prior_state is not None:
-            state = raw.get("state")
-            if (prior_state == "started" and state == "startup" and created is not None and
-                    self.clock() < created + STARTUP_GRACE):
-                return "home_worker_update_starting"
-            if state != prior_state:
-                return "home_worker_update_state_mismatch"
+            expected_state = "started" if prior_state == "startup" else prior_state
+            if expected_state in {"started", "stopped"}:
+                state = raw.get("state")
+                if (expected_state == "started" and state == "startup" and created is not None and
+                        self.clock() < created + STARTUP_GRACE):
+                    return "home_worker_update_starting"
+                if state != expected_state:
+                    return "home_worker_update_state_mismatch"
         try:
             self.validate_app(raw, record, installed=True, expected_version=expected_version)
         except HomeWorkerFault:
@@ -801,7 +803,7 @@ class HomeWorkerMaintenance:
 
     def adopt_release(self, record, raw, *, stage=None):
         kept = stage or record.get("stage")
-        if kept not in {"monitor", "login", "pair", "start"}:
+        if kept not in {"repository", "install", "start", "pair", "login", "monitor"}:
             kept = "monitor"
         self.save(record, release=asdict(self.release), operation=None, stage=kept,
                   grace_until=self.clock() + STARTUP_GRACE, state="running", code=None,
@@ -893,23 +895,32 @@ class HomeWorkerMaintenance:
                  "options_digest": snapshot, "stage": record.get("stage")}
         await self.effect(record, token, "update", f"/store/addons/{record['slug']}/update", dict(UPDATE_BODY), extra)
 
+    def adopt_in_place(self, record):
+        """Pin this release without clearing the stage or an operation already sent."""
+        self.save(record, release=asdict(self.release), release_store_reloaded=False)
+
     async def advance_update(self, record, token):
         operation = record.get("operation") or {}
         if operation.get("kind") == "update":
             await self.finish_update(record, token)
             return
+        if not record.get("slug"):
+            # Setup never located the App. Continue the normal install at this release.
+            self.adopt_in_place(record)
+            await self.advance(record, token)
+            return
         if operation:
             await self.finish_foreign_operation(record, token)
             return
-        if record.get("slug") and record.get("code") in {
-                "home_worker_release_not_published", "home_worker_release_ahead"}:
+        if record.get("code") in {"home_worker_release_not_published", "home_worker_release_ahead"}:
             info = await self.request(record, token, "GET", f"/store/addons/{record['slug']}/info")
             await self.lockstep(record, token, info)
-        if not record.get("slug"):
-            self.save(record, state="update_available", code="home_worker_update_available")
-            return
         raw = await self.app_info(record, token)
         if raw is None:
+            if record.get("stage") in {"repository", "install"}:
+                self.adopt_in_place(record)
+                await self.advance(record, token)
+                return
             self.save(record, enabled=False, state="user_removed", code="home_worker_app_removed")
             return
         order = version_order(raw.get("version"), self.release.version)
@@ -944,7 +955,59 @@ class HomeWorkerMaintenance:
         if not done:
             self.waiting(record)
             return
+        if operation.get("kind") == "install":
+            await self.finish_observed_install(record, token)
+            return
         self.save(record, operation=None, state="update_available", code="home_worker_update_available")
+
+    async def finish_observed_install(self, record, token):
+        """Bookkeep a finished install. Do not post it again."""
+        operation = record.get("operation") or {}
+        raw = await self.app_info(record, token)
+        if raw is None:
+            self.waiting(record)
+            return
+        if raw.get("version") == self.release.version:
+            self.adopt_in_place(record)
+            await self.advance(record, token)
+            return
+        stored = record.get("release") if isinstance(record.get("release"), dict) else {}
+        old = stored.get("version")
+        if raw.get("version") == old:
+            self.validate_app(raw, record, installed=True, expected_version=old)
+            if not self.at_defaults(raw):
+                raise HomeWorkerFault("home_worker_initial_configuration_changed", "needs_reconcile")
+            confirmation = "supervisor_job_and_app" if operation.get("job_id") else "app_postcondition"
+            self.save(record, managed=True, installed_by_us=True, stage="start", operation=None,
+                      install_confirmation=confirmation, state="update_available",
+                      code="home_worker_update_available")
+            return
+        raise HomeWorkerFault("home_worker_update_version_mismatch", "needs_reconcile")
+
+    async def update_not_applied(self, record, token, code):
+        """A failed or expired update can be retried only when the previous App is still valid."""
+        raw = await self.app_info(record, token)
+        if raw is not None and raw.get("version") == self.release.version:
+            await self.readback_update(record, token)
+            return
+        stored = record.get("release") if isinstance(record.get("release"), dict) else {}
+        old = stored.get("version")
+        snapshot = self.options_snapshot(raw.get("options")) if isinstance(raw, dict) else None
+        intact = snapshot is not None and self.installed_pin_problem(
+            raw, record, expected_version=old, options_digest=snapshot) is None
+        if raw is not None and raw.get("version") == old and intact:
+            self.save(record, operation=None, state="update_available", code="home_worker_update_failed",
+                      app_state=raw.get("state"), version=raw.get("version"), observed_at=utcnow())
+            return
+        raise HomeWorkerFault(code, "needs_reconcile")
+
+    def note_update_finished(self, record):
+        """The readback grace starts when Supervisor finishes, not when the update was sent."""
+        operation = record.get("operation") or {}
+        if operation.get("done_at"):
+            return
+        operation["done_at"] = self.clock()
+        self.save(record, operation=operation)
 
     async def finish_update(self, record, token):
         operation = record.get("operation") or {}
@@ -958,19 +1021,27 @@ class HomeWorkerMaintenance:
         except HAError:
             await self.observe_unconfirmed_update(record, token)
             return
+        except HomeWorkerFault as exc:
+            if exc.code != "home_worker_supervisor_job_failed":
+                raise
+            await self.update_not_applied(record, token, exc.code)
+            return
         if not done:
             self.waiting(record)
             return
+        self.note_update_finished(record)
         await self.readback_update(record, token)
 
     async def observe_unconfirmed_update(self, record, token):
         operation = record.get("operation") or {}
         raw = await self.app_info(record, token)
         if raw is not None and raw.get("version") == self.release.version:
+            self.note_update_finished(record)
             await self.readback_update(record, token)
             return
         if self.clock() >= operation.get("deadline", 0):
-            raise HomeWorkerFault("home_worker_operation_unconfirmed", "needs_reconcile")
+            await self.update_not_applied(record, token, "home_worker_operation_unconfirmed")
+            return
         self.save(record, state="unavailable", code="home_worker_observation_unavailable")
 
     async def readback_update(self, record, token):
@@ -980,7 +1051,7 @@ class HomeWorkerMaintenance:
             raise HomeWorkerFault("home_worker_update_app_missing", "needs_reconcile")
         problem = self.installed_pin_problem(
             raw, record, expected_version=self.release.version, options_digest=operation.get("options_digest"),
-            prior_state=operation.get("app_state"), created=operation.get("created"))
+            prior_state=operation.get("app_state"), created=operation.get("done_at") or operation.get("created"))
         if problem == "home_worker_update_starting":
             self.save(record, state="running", code=problem, app_state=raw.get("state"),
                       version=raw.get("version"), observed_at=utcnow())

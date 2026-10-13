@@ -4,6 +4,19 @@ HA 保留官方更新；外層負責本產品的受測發行與已授權智能�
 
 Host 的 Controller 更新不會自動更新側欄 App 或 Home worker App。兩者的信任 repository 都是 `https://github.com/teddashh/agentic-smart-home#stable`（發布時 `stable` 指到與 `release/X.Y.Z` 相同的 commit），版本都來自 `agentic_controller.VERSION`。同一 repository 上較舊的安裝進入 `update_available`，Owner 以無 body 的 `POST /api/host/bridge/maintenance/update` 或 `POST /api/host/home-worker/maintenance/update` 更新到恰好該版本。商店 `version_latest` 較高時是 `*_release_ahead`，不安裝也不更新；較低時重新載入商店一次，仍較低則 `waiting`／`*_release_not_published`。舊的 `#release/X.Y.Z` 是另一個 App slug，進入 `needs_reconcile`／`*_release_channel_changed`，須在 HA 手動移除舊 App 再從管理中心啟用。不會自動解除安裝、加入 repository 或重裝，也不改權限或 options，沒有自動退版。真實 Supervisor 從 0.9.0 更新到下一版，以及真 HAOS 上的 `#stable` 商店 slug，仍是 `not_run`。
 
+更新失敗但舊 App 仍完好時，紀錄回到 `update_available`，只能由 Owner 再按一次更新。不會重送已經送出的安裝、設定、啟動或更新。
+
+| 代碼 | 意義 |
+|---|---|
+| `bridge_update_failed` | 側欄更新沒有套上；舊 App 未改，Owner 可以再更新 |
+| `home_worker_update_failed` | Home worker 更新沒有套上；舊 App 仍是有效設定（含新的配對碼），Owner 可以再更新 |
+
+停用的側欄重新啟用時，先在目前已安裝的版本重新連線，健康後才提供更新。停用期間若已在 Home Assistant 更新到這一版，重新連線直接採用這一版。
+
+設定或重新連線尚未完成時：已送出的安裝、設定、啟動與重新連線在釘選的舊版做完，進入 monitor 後才提供更新。還沒安裝任何舊版（`repository`，或 `install` 尚未送出）則改釘這一版並繼續安裝。Home worker 還沒找到 App，或 `repository`／`install` 階段 App 不在時，同樣改釘這一版後繼續安裝；已完成的舊版 install 先記下安裝，再提供更新。
+
+側欄與 Home worker 都在本機建置。讀回寬限從 Supervisor 工作完成，或第一次看到目標版本的 `done_at` 起算，不從送出更新的時間起算。工作仍在跑會延長期限，到最多一小時，不重送。
+
 上游 adapter 與產品 image 更新分開處理，見 [相容邊界與候選測試](ADAPTERS.md)。候選測試不會自動部署；目前也沒有 Linux／HAOS／Core／Hermes 全套自動退版承諾。
 
 0.7.0 的固定 updater 只更新 **外層 Controller image**，相同 Controller schema 3、Runner protocol 1、worker contract 1。manifest 另綁目前 CLI／Hermes／Core／網路 runtime 指紋；不在同次升級 OS、HAOS、Core、Runner、Hermes 或網路。較舊 schema 的向前遷移與同 schema 的 image 退版分開處理。有智能管家 bridge 歷史時（即使已撤銷），候選仍必須支援 bridge contract 1；0.6.1 缺少此契約，不能僅憑 schema 3 就直接退回。

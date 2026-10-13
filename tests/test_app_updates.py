@@ -1,6 +1,7 @@
 """Offline Supervisor fixtures for App updates. Not a real HAOS update or #stable slug."""
 import copy
 import json
+import traceback
 from pathlib import Path
 
 import httpx
@@ -9,6 +10,7 @@ import yaml
 from agentic_controller import VERSION
 from agentic_controller.app import create_app
 from agentic_controller.bridge_maintenance import (
+    JOB_TIMEOUT,
     OPERATION_TIMEOUT,
     STARTUP_GRACE,
     BridgeFault,
@@ -17,13 +19,20 @@ from agentic_controller.bridge_maintenance import (
     version_order,
 )
 from agentic_controller.home_worker_maintenance import (
+    OPERATION_TIMEOUT as HOME_OPERATION_TIMEOUT,
+)
+from agentic_controller.home_worker_maintenance import (
+    STARTUP_GRACE as HOME_STARTUP_GRACE,
+)
+from agentic_controller.home_worker_maintenance import (
     HomeWorkerFault,
     HomeWorkerMaintenance,
     HomeWorkerRelease,
 )
 from test_bridge_maintenance import JOB, Bridge, Clock, Supervisor, advance_to, installed
 from test_bridge_maintenance import SLUG as BRIDGE_SLUG
-from test_home_worker_maintenance import CODE, FakeRunner, login_ready
+from test_home_worker_maintenance import CODE, FINGERPRINT, NEW_CODE, FakeRunner, login_ready
+from test_home_worker_maintenance import REPO as HOME_REPO
 from test_home_worker_maintenance import SLUG as HOME_SLUG
 from test_home_worker_maintenance import Supervisor as HomeSupervisor
 
@@ -202,7 +211,9 @@ async def test_lost_update_response_is_observed_and_not_repeated(manager):
     await bumped.tick()
     assert len(manager.ha.writes("/update")) == 1
     manager.clock.now += OPERATION_TIMEOUT + 1
-    assert (await bumped.tick())["code"] == "bridge_operation_unconfirmed"
+    status = await bumped.tick()
+    assert status["state"] == "update_available" and status["code"] == "bridge_update_failed"
+    assert bumped.record()["operation"] is None and bumped.record()["release"]["version"] == "0.8.0"
     assert len(manager.ha.writes("/update")) == 1
 
 
@@ -235,16 +246,64 @@ async def test_legacy_bridge_repository_is_not_uninstalled(manager):
     assert not manager.ha.writes("/uninstall")
 
 
-async def test_reenable_at_an_old_release_does_not_rotate_pairing(manager):
+def accept_repair_pairing(bridge):
+    original = bridge.prepare_pairing
+
+    def rotate(*, repair=False):
+        if repair:
+            bridge.options = {**bridge.options, "pairing_id": "c" * 32, "token": "v" * 64}
+            bridge.state = "prepared"
+        return original()
+
+    bridge.prepare_pairing = rotate
+
+
+async def finish_reconnect(manager):
+    for _ in range(10):
+        record = manager.record()
+        if record["stage"] == "monitor" and not record.get("reconnecting") and record["state"] == "healthy":
+            return
+        manager.bridge.seen = manager.clock()
+        await manager.tick()
+    raise AssertionError(manager.status())
+
+
+async def test_b4_reenable_reconnects_at_the_installed_release(manager):
     await healthy(manager)
     record = manager.record()
     record["release"] = {**record["release"], "version": "0.7.0"}
     manager.save(record)
+    manager.ha.app["version"] = "0.7.0"
     manager.suspend()
-    prepared, calls = manager.bridge.preparations, len(manager.ha.calls)
-    assert (await manager.authorize())["state"] == "update_available"
-    assert manager.bridge.preparations == prepared and len(manager.ha.calls) == calls
-    assert not manager.ha.writes("/restart")
+    manager.bridge.state = "revoked"
+    accept_repair_pairing(manager.bridge)
+    old_pairing = manager.record()["pairing_id"]
+    status = await manager.authorize()
+    assert status["state"] == "pending" and status["stage"] == "configure"
+    assert manager.record()["release"]["version"] == "0.7.0"
+    assert manager.record()["pairing_id"] != old_pairing and manager.bridge.state == "prepared"
+    await finish_reconnect(manager)
+    assert manager.record()["release"]["version"] == "0.7.0"
+    assert (await manager.tick())["code"] == "bridge_update_available"
+    assert not manager.ha.writes("/update")
+
+    record = manager.record()
+    record.update(release={**record["release"], "version": "0.7.0"}, state="healthy", stage="monitor",
+                  reconnecting=False, operation=None)
+    manager.save(record)
+    manager.ha.app["version"] = VERSION
+    manager.suspend()
+    manager.bridge.state = "revoked"
+    assert (await manager.authorize())["stage"] == "configure"
+    assert manager.record()["release"]["version"] == VERSION
+    await finish_reconnect(manager)
+    assert (await manager.tick())["state"] == "healthy"
+    assert manager.record()["release"]["version"] == VERSION and not manager.ha.writes("/update")
+    app = manager.ha.app
+    bare = {"slug": app["slug"], "repository_id": app["repository"]}
+    manager.validate_app(app, bare, installed=True)
+    with pytest.raises(BridgeFault, match="bridge_app_contract_mismatch"):
+        manager.validate_app(app, {**bare, "release": {"version": "0.7.0"}}, installed=True)
 
 
 async def test_fresh_install_reloads_once_when_the_store_is_behind(manager):
@@ -376,7 +435,9 @@ async def test_home_store_versions_and_lost_update(home):
     assert len(home.ha.posts("/update")) == posts + 1
     await behind.tick()
     home.clock.now += OPERATION_TIMEOUT + 1
-    assert (await behind.tick())["code"] == "home_worker_operation_unconfirmed"
+    status = await behind.tick()
+    assert status["state"] == "update_available" and status["code"] == "home_worker_update_failed"
+    assert behind.record()["operation"] is None and behind.record()["release"]["version"] == VERSION
     assert len(home.ha.posts("/update")) == posts + 1
 
 
@@ -407,19 +468,37 @@ async def test_user_terminal_records_ignore_a_home_release_change(home, state):
     assert home.record() == before and home.ha.calls == calls
 
 
-async def test_home_repair_of_an_old_release_does_not_reinstall(home):
+async def test_h1_home_repair_resumes_an_update_and_leaves_the_button(home):
     await login_ready(home)
-    record = home.record()
-    stage = record["stage"]
-    record["release"] = {**record["release"], "version": "0.7.0"}
-    record["enabled"] = False
-    record["state"] = "user_disabled"
-    home.save(record)
+    bumped = bump_home(home)
+    await bumped.tick()
+    home.ha.catalog["version_latest"] = "0.9.0"
+    await bumped.update()
+    record = bumped.record()
+    record.update(state="needs_reconcile", code="home_worker_operation_unconfirmed", enabled=False)
+    bumped.save(record)
     calls = list(home.ha.calls)
-    status = await home.repair()
-    assert status["state"] == "update_available" and status["code"] == "home_worker_update_available"
-    assert home.record()["stage"] == stage and home.record()["enabled"] is True
-    assert home.ha.calls == calls
+    status = await bumped.repair()
+    assert status["state"] == "running" and status["code"] is None and status["enabled"] is True
+    assert bumped.record()["operation"]["kind"] == "update" and home.ha.calls == calls
+    home.runner.capabilities["available"] = True
+    home.runner.capabilities["providers"][0]["credential_state"] = "configured"
+    assert (await bumped.tick())["state"] == "ready" and len(home.ha.posts("/update")) == 1
+
+    record = bumped.record()
+    record.update(release={**record["release"], "version": VERSION}, state="update_available",
+                  code="home_worker_update_available", operation=None, enabled=True)
+    bumped.save(record)
+    before = copy.deepcopy(bumped.record())
+    assert (await bumped.repair())["state"] == "update_available" and bumped.record() == before
+
+    record = bumped.record()
+    record.update(enabled=False, state="user_disabled", code="home_worker_observation_disabled")
+    bumped.save(record)
+    calls = list(home.ha.calls)
+    status = await bumped.repair()
+    assert status["state"] == "running" and bumped.record()["stage"] == "repository"
+    assert bumped.record()["operation"] is None and home.ha.calls == calls
 
 
 async def test_legacy_home_repository_is_not_replaced(home):
@@ -505,3 +584,441 @@ async def test_home_worker_busy_route_returns_409(store, ha, tmp_path, monkeypat
     assert saved["operation"] is None and saved["state"] == "update_available"
     if getattr(app.state, "gateway", None):
         await app.state.gateway.close()
+
+
+def reset_bridge(manager):
+    manager.store.set_setting("bridge_maintenance", None)
+    manager.ha.calls.clear()
+    manager.ha.app = None
+    manager.ha.repos.clear()
+    manager.ha.catalog["version_latest"] = "0.8.0"
+    manager.ha.job = {"uuid": JOB, "reference": BRIDGE_SLUG, "done": True, "errors": []}
+    manager.ha.lose = manager.ha.update_state = None
+    manager.bridge.listener, manager.bridge.seen = True, None
+
+
+async def fresh_bridge_update(manager):
+    reset_bridge(manager)
+    await healthy(manager)
+    bumped = bump(manager)
+    await bumped.tick()
+    manager.ha.catalog["version_latest"] = "0.9.0"
+    return bumped
+
+
+def home_operation(clock, kind, *, job=True):
+    return {"kind": kind, "state": "acknowledged", "created": clock(), "job_id": JOB if job else None,
+            "deadline": clock() + HOME_OPERATION_TIMEOUT}
+
+
+async def stage_home(home, *, stage, operation=None, slug=True, present=True, app_version="0.7.0"):
+    home.store.set_setting("home_worker_maintenance", None)
+    home.ha.calls.clear()
+    home.ha.app = None
+    home.ha.repos[:] = [{"source": HomeWorkerRelease().repository, "slug": HOME_REPO}]
+    home.ha.catalog["version_latest"] = "0.9.0"
+    home.ha.job = {"uuid": JOB, "reference": HOME_SLUG, "done": True, "errors": []}
+    home.ha.lose = home.ha.update_state = None
+    await home.authorize()
+    record = home.record()
+    record.update(release={**record["release"], "version": "0.7.0"}, stage=stage, state="running", code=None,
+                  operation=operation, enabled=True, managed=False)
+    if slug:
+        record.update(slug=HOME_SLUG, repository_id=HOME_REPO)
+    else:
+        record.pop("slug", None)
+        record.pop("repository_id", None)
+    home.save(record)
+    if present:
+        home.ha.install_app()
+        home.ha.app["version"] = app_version
+    return bump_home(home, "0.9.0")
+
+
+async def test_b1_repair_resumes_an_interrupted_bridge_update(manager):
+    bumped = await fresh_bridge_update(manager)
+    await bumped.update()
+    record = bumped.record()
+    record.update(state="needs_reconcile", code="bridge_operation_unconfirmed")
+    bumped.save(record)
+    posts = len(manager.ha.writes("/update"))
+    status = await bumped.repair()
+    assert status["state"] == "pending" and status["code"] is None
+    assert bumped.record()["operation"]["kind"] == "update"
+    manager.bridge.seen = manager.clock()
+    assert (await bumped.tick())["state"] == "healthy"
+    assert len(manager.ha.writes("/update")) == posts and bumped.record()["release"]["version"] == "0.9.0"
+
+    record = bumped.record()
+    record.update(release={**record["release"], "version": "0.8.0"}, state="needs_reconcile",
+                  code="bridge_observation_unavailable", operation=None)
+    manager.ha.app["version"] = "0.8.0"
+    bumped.save(record)
+    assert (await bumped.repair())["state"] == "pending"
+    assert (await bumped.tick())["state"] == "update_available" and not manager.ha.writes("/update")[posts:]
+
+    record = bumped.record()
+    record["release"] = {**record["release"], "repository": LEGACY}
+    record.update(state="needs_reconcile", enabled=True)
+    bumped.save(record)
+    with pytest.raises(BridgeFault, match="bridge_release_channel_changed"):
+        await bumped.repair()
+    record = bumped.record()
+    record["release"] = asdict_release("0.8.0")
+    record["code"] = "bridge_repair_budget_exhausted"
+    bumped.save(record)
+    with pytest.raises(BridgeFault, match="bridge_repair_budget_exhausted"):
+        await bumped.repair()
+
+
+async def test_b2_failed_bridge_update_can_be_retried_without_a_repost(manager):
+    bumped = await fresh_bridge_update(manager)
+    await bumped.update()
+    manager.ha.app.update(version="0.8.0", state="started")
+    manager.ha.job.update(done=True, errors=[{"message": "build failed"}])
+    status = await bumped.tick()
+    assert status["state"] == "update_available" and status["code"] == "bridge_update_failed"
+    assert bumped.record()["operation"] is None and "build failed" not in json.dumps(bumped.record())
+    assert status["update"]["available"] is True
+    manager.ha.job.update(errors=[])
+    await bumped.update()
+    assert len(manager.ha.writes("/update")) == 2
+    manager.ha.job.update(errors=[{"message": "late"}])
+    manager.bridge.seen = manager.clock()
+    assert (await bumped.tick())["state"] == "healthy"
+    assert bumped.record()["release"]["version"] == "0.9.0" and len(manager.ha.writes("/update")) == 2
+
+    bumped = await fresh_bridge_update(manager)
+    await bumped.update()
+    manager.ha.app.update(version="0.8.0", options={"host": "custom"})
+    manager.ha.job.update(done=True, errors=[{"message": "build failed"}])
+    status = await bumped.tick()
+    assert status["state"] == "needs_reconcile" and status["code"] == "bridge_supervisor_job_failed"
+    assert bumped.record()["operation"]["kind"] == "update" and len(manager.ha.writes("/update")) == 1
+
+    manager.ha.job["uuid"] = "bad"
+    await bumped.repair()
+    assert (await bumped.tick())["code"] == "bridge_job_contract_invalid"
+    assert bumped.record()["operation"]["kind"] == "update"
+
+    bumped = await fresh_bridge_update(manager)
+    manager.ha.lose = ("POST", f"/store/addons/{BRIDGE_SLUG}/update")
+    await bumped.update()
+    manager.ha.app = None
+    manager.clock.now += OPERATION_TIMEOUT + 1
+    assert (await bumped.tick())["code"] == "bridge_operation_unconfirmed"
+    assert bumped.record()["state"] == "needs_reconcile" and len(manager.ha.writes("/update")) == 1
+
+
+async def test_b3_bridge_readback_grace_starts_when_the_build_finishes(manager):
+    await healthy(manager)
+    raw = copy.deepcopy(manager.ha.app)
+    raw.update(version="0.9.0", state="startup")
+    digest = manager.record()["options_digest"]
+    kwargs = {"expected_version": "0.9.0", "options_digest": digest, "created": manager.clock()}
+    assert manager.installed_pin_problem(raw, manager.record(), prior_state="startup", **kwargs) == (
+        "bridge_update_starting")
+    raw["state"] = "started"
+    assert manager.installed_pin_problem(raw, manager.record(), prior_state="error", **kwargs) is None
+    assert manager.installed_pin_problem(raw, manager.record(), prior_state="unknown", **kwargs) is None
+    raw["state"] = "startup"
+    assert manager.installed_pin_problem(raw, manager.record(), prior_state="stopped", **kwargs) == (
+        "bridge_update_state_mismatch")
+
+    bumped = await fresh_bridge_update(manager)
+    await bumped.update()
+    manager.ha.app.update(version="0.8.0", state="started")
+    manager.ha.job["done"] = False
+    manager.clock.now += STARTUP_GRACE + 50
+    assert (await bumped.tick())["state"] == "waiting" and "done_at" not in bumped.record()["operation"]
+    manager.ha.job["done"] = True
+    manager.ha.app.update(version="0.9.0", state="startup")
+    assert (await bumped.tick())["code"] == "bridge_update_starting"
+    assert bumped.record()["operation"]["done_at"] == manager.clock()
+    manager.clock.now += STARTUP_GRACE - 1
+    assert (await bumped.tick())["code"] == "bridge_update_starting"
+    manager.clock.now += 2
+    assert (await bumped.tick())["code"] == "bridge_update_state_mismatch"
+    assert len(manager.ha.writes("/update")) == 1 and bumped.record()["release"]["version"] == "0.8.0"
+
+    bumped = await fresh_bridge_update(manager)
+    manager.ha.lose = ("POST", f"/store/addons/{BRIDGE_SLUG}/update")
+    await bumped.update()
+    manager.ha.lose = None
+    manager.ha.app.update(version="0.9.0", state="startup")
+    manager.clock.now += STARTUP_GRACE + 30
+    assert (await bumped.tick())["code"] == "bridge_update_starting"
+    assert bumped.record()["operation"]["done_at"] == manager.clock()
+    assert len(manager.ha.writes("/update")) == 1
+
+
+async def test_b3b_running_bridge_job_extends_its_deadline(manager):
+    await manager.authorize()
+    await advance_to(manager, "install")
+    manager.ha.job["done"] = False
+    await manager.tick()
+    created = manager.record()["operation"]["created"]
+    assert manager.record()["operation"]["kind"] == "install"
+    manager.clock.now += OPERATION_TIMEOUT + 5
+    assert (await manager.tick())["state"] == "waiting"
+    assert manager.record()["operation"]["deadline"] == min(
+        created + JOB_TIMEOUT, max(created + OPERATION_TIMEOUT, manager.clock() + OPERATION_TIMEOUT))
+    assert len(manager.ha.writes("/install")) == 1
+    manager.clock.now = created + JOB_TIMEOUT + 1
+    assert (await manager.tick())["code"] == "bridge_operation_unconfirmed"
+    assert len(manager.ha.writes("/install")) == 1
+
+
+async def test_b5_setup_finishes_at_the_pinned_release_until_monitor(manager):
+    await healthy(manager)
+    record = manager.record()
+    record.update(release={**record["release"], "version": "0.7.0"}, auto_repair=True)
+    manager.save(record)
+    manager.ha.app["version"] = "0.7.0"
+    manager.bridge.listener = False
+    manager.clock.now += STARTUP_GRACE + 1
+    assert (await manager.tick())["state"] == "update_available"
+    assert not manager.ha.writes("/restart") and not manager.ha.writes("/update")
+
+    reset_bridge(manager)
+    manager.ha.catalog["version_latest"] = "0.7.0"
+    old = BridgeMaintenance(manager.store, manager.ha, manager.bridge,
+                            release=BridgeRelease(version="0.7.0"), clock=manager.clock)
+    await old.authorize()
+    await old.tick()
+    assert old.record()["stage"] == "repository" and old.record()["operation"]["kind"] == "add_repository"
+    bumped = bump(old, "0.8.0")
+    await bumped.tick()
+    assert bumped.record()["release"]["version"] == "0.8.0" and bumped.record()["stage"] == "install"
+    assert bumped.record()["operation"] is None and not manager.ha.writes("/update")
+
+    reset_bridge(manager)
+    manager.ha.catalog["version_latest"] = "0.7.0"
+    old = BridgeMaintenance(manager.store, manager.ha, manager.bridge,
+                            release=BridgeRelease(version="0.7.0"), clock=manager.clock)
+    await old.authorize()
+    await advance_to(old, "install")
+    assert old.record()["operation"] is None
+    manager.ha.catalog["version_latest"] = "0.8.0"
+    bumped = bump(old, "0.8.0")
+    await bumped.tick()
+    assert bumped.record()["release"]["version"] == "0.8.0" and len(manager.ha.writes("/install")) == 1
+
+    reset_bridge(manager)
+    manager.ha.catalog["version_latest"] = "0.7.0"
+    old = BridgeMaintenance(manager.store, manager.ha, manager.bridge,
+                            release=BridgeRelease(version="0.7.0"), clock=manager.clock)
+    await old.authorize()
+    await advance_to(old, "install")
+    manager.ha.job["done"] = False
+    await old.tick()
+    manager.ha.app["version"] = "0.7.0"
+    bumped = bump(old, "0.8.0")
+    await bumped.tick()
+    assert bumped.record()["release"]["version"] == "0.7.0"
+    assert bumped.record()["operation"]["kind"] == "install" and len(manager.ha.writes("/install")) == 1
+    manager.ha.job["done"] = True
+    await bumped.tick()
+    assert bumped.record()["stage"] == "configure" and bumped.record()["release"]["version"] == "0.7.0"
+    assert bumped.record()["managed"] is True and bumped.record()["operation"] is None
+    await bumped.tick()
+    assert manager.ha.writes("/options") and bumped.record()["release"]["version"] == "0.7.0"
+    assert not manager.ha.writes("/update")
+
+
+async def test_b6_noting_an_update_does_not_read_bridge_status(manager):
+    await healthy(manager)
+    callers = []
+    original = manager.bridge.status
+
+    def tracing():
+        callers.append(traceback.extract_stack()[-2].name)
+        return original()
+
+    manager.bridge.status = tracing
+    assert (await bump(manager).tick())["state"] == "update_available"
+    assert "note_update_available" not in callers and "guard" in callers
+
+
+async def test_h2_failed_home_update_can_be_retried(home):
+    await login_ready(home)
+    bumped = bump_home(home)
+    await bumped.tick()
+    home.ha.catalog["version_latest"] = "0.9.0"
+    await bumped.update()
+    home.ha.app.update(version=VERSION, state="started",
+                       options={"pairing_fingerprint": FINGERPRINT, "pairing_code": NEW_CODE})
+    home.ha.job.update(done=True, errors=[{"message": "build failed"}])
+    status = await bumped.tick()
+    assert status["state"] == "update_available" and status["code"] == "home_worker_update_failed"
+    assert bumped.record()["operation"] is None and NEW_CODE not in json.dumps(bumped.record())
+    assert status["update"]["available"] is True
+    home.ha.job.update(errors=[])
+    await bumped.update()
+    assert len(home.ha.posts("/update")) == 2 and NEW_CODE not in json.dumps(bumped.record()["operation"])
+    home.ha.job.update(errors=[{"message": "late"}])
+    home.runner.capabilities["available"] = True
+    home.runner.capabilities["providers"][0]["credential_state"] = "configured"
+    assert (await bumped.tick())["release"]["version"] == "0.9.0"
+    assert len(home.ha.posts("/update")) == 2
+
+    home.store.set_setting("home_worker_maintenance", None)
+    home.ha.app = None
+    home.ha.repos.clear()
+    home.ha.calls.clear()
+    home.ha.catalog["version_latest"] = VERSION
+    home.ha.job = {"uuid": JOB, "reference": HOME_SLUG, "done": True, "errors": []}
+    await login_ready(home)
+    bumped = bump_home(home)
+    await bumped.tick()
+    home.ha.catalog["version_latest"] = "0.9.0"
+    await bumped.update()
+    home.ha.app.update(version=VERSION, options={"pairing_code": "not-valid"})
+    home.ha.job.update(done=True, errors=[{"message": "build failed"}])
+    status = await bumped.tick()
+    assert status["state"] == "needs_reconcile" and status["code"] == "home_worker_supervisor_job_failed"
+    assert bumped.record()["operation"]["kind"] == "update"
+    home.ha.job["uuid"] = "bad"
+    await bumped.repair()
+    assert (await bumped.tick())["code"] == "home_worker_job_contract_invalid"
+    assert bumped.record()["operation"]["kind"] == "update" and len(home.ha.posts("/update")) == 1
+
+
+async def test_h3_home_readback_grace_starts_when_the_build_finishes(home):
+    await login_ready(home)
+    raw = copy.deepcopy(home.ha.app)
+    raw.update(version="0.9.0", state="startup")
+    digest = home.options_snapshot({})
+    kwargs = {"expected_version": "0.9.0", "options_digest": digest, "created": home.clock()}
+    assert home.installed_pin_problem(raw, home.record(), prior_state="startup", **kwargs) == (
+        "home_worker_update_starting")
+    raw["state"] = "started"
+    assert home.installed_pin_problem(raw, home.record(), prior_state="error", **kwargs) is None
+    assert home.installed_pin_problem(raw, home.record(), prior_state="unknown", **kwargs) is None
+    raw["state"] = "startup"
+    assert home.installed_pin_problem(raw, home.record(), prior_state="stopped", **kwargs) == (
+        "home_worker_update_state_mismatch")
+
+    bumped = bump_home(home)
+    await bumped.tick()
+    home.ha.catalog["version_latest"] = "0.9.0"
+    await bumped.update()
+    home.ha.app.update(version=VERSION, state="started")
+    home.ha.job["done"] = False
+    home.clock.now += HOME_STARTUP_GRACE + 50
+    assert (await bumped.tick())["state"] == "waiting" and "done_at" not in bumped.record()["operation"]
+    home.ha.job["done"] = True
+    home.ha.app.update(version="0.9.0", state="startup")
+    assert (await bumped.tick())["code"] == "home_worker_update_starting"
+    assert bumped.record()["operation"]["done_at"] == home.clock()
+    home.clock.now += HOME_STARTUP_GRACE - 1
+    assert (await bumped.tick())["code"] == "home_worker_update_starting"
+    home.clock.now += 2
+    assert (await bumped.tick())["code"] == "home_worker_update_state_mismatch"
+    assert len(home.ha.posts("/update")) == 1 and bumped.record()["release"]["version"] == VERSION
+
+
+async def test_h4_home_setup_adopts_a_missing_app_and_records_an_old_install(home):
+    bumped = await stage_home(home, stage="repository", slug=False, present=False,
+                              operation=home_operation(home.clock, "add_repository", job=False))
+    home.ha.repos.clear()
+    assert (await bumped.tick())["state"] == "waiting"
+    assert bumped.record()["release"]["version"] == "0.9.0"
+    assert bumped.record()["operation"]["kind"] == "add_repository" and bumped.record()["stage"] == "repository"
+    assert not home.ha.posts("/update") and not home.ha.posts("/repositories")
+
+    home.store.set_setting("home_worker_maintenance", None)
+    home.ha.app = None
+    home.ha.repos.clear()
+    home.ha.calls.clear()
+    home.ha.catalog["version_latest"] = VERSION
+    home.ha.job = {"uuid": JOB, "reference": HOME_SLUG, "done": True, "errors": []}
+    await login_ready(home)
+    installed_posts = len(home.ha.posts("/install"))
+    home.ha.app = None
+    record = home.record()
+    record.update(release={**record["release"], "version": "0.7.0"}, state="user_removed", enabled=False)
+    home.save(record)
+    await home.repair()
+    assert home.record()["stage"] == "repository" and home.record()["release"]["version"] == "0.7.0"
+    await home.tick()
+    assert home.record()["release"]["version"] == VERSION and home.record()["stage"] == "install"
+    await home.tick()
+    assert len(home.ha.posts("/install")) == installed_posts + 1 and not home.ha.posts("/update")
+
+    bumped = await stage_home(home, stage="install", present=False, operation=home_operation(home.clock, "install"))
+    home.ha.job["done"] = False
+    assert (await bumped.tick())["state"] == "waiting" and bumped.record()["operation"]["kind"] == "install"
+    home.ha.job["done"] = True
+    assert (await bumped.tick())["state"] == "waiting" and bumped.record()["release"]["version"] == "0.7.0"
+
+    bumped = await stage_home(home, stage="install", app_version="0.9.0",
+                              operation=home_operation(home.clock, "install"))
+    await bumped.tick()
+    assert bumped.record()["release"]["version"] == "0.9.0" and bumped.record()["stage"] == "start"
+    assert bumped.record()["operation"] is None and bumped.record()["state"] == "running"
+    assert bumped.record()["managed"] is True and bumped.record()["installed_by_us"] is True
+    assert bumped.record()["install_confirmation"] == "supervisor_job_and_app"
+    assert not home.ha.posts("/install") and not home.ha.posts("/start")
+
+    bumped = await stage_home(home, stage="install", app_version="0.7.0",
+                              operation=home_operation(home.clock, "install"))
+    status = await bumped.tick()
+    assert status["state"] == "update_available" and status["code"] == "home_worker_update_available"
+    assert bumped.record()["stage"] == "start" and bumped.record()["release"]["version"] == "0.7.0"
+    assert bumped.record()["install_confirmation"] == "supervisor_job_and_app"
+    assert bumped.record()["managed"] is True and bumped.record()["installed_by_us"] is True
+    await bumped.tick()
+    assert bumped.record()["state"] == "update_available" and not home.ha.posts("/start")
+
+    bumped = await stage_home(home, stage="install", app_version="0.7.0",
+                              operation=home_operation(home.clock, "install", job=False))
+    await bumped.tick()
+    assert bumped.record()["install_confirmation"] == "app_postcondition"
+
+    bumped = await stage_home(home, stage="install", app_version="0.7.0",
+                              operation=home_operation(home.clock, "install"))
+    home.ha.app["state"] = "started"
+    status = await bumped.tick()
+    assert status["state"] == "needs_reconcile" and status["code"] == "home_worker_initial_configuration_changed"
+    assert not home.ha.posts("/start")
+
+    bumped = await stage_home(home, stage="pair", app_version="0.7.0",
+                              operation=home_operation(home.clock, "restart"))
+    status = await bumped.tick()
+    assert status["state"] == "update_available" and bumped.record()["operation"] is None
+    assert bumped.record()["release"]["version"] == "0.7.0" and not home.ha.posts("/restart")
+
+    bumped = await stage_home(home, stage="monitor", present=False)
+    status = await bumped.tick()
+    assert status["state"] == "user_removed" and status["code"] == "home_worker_app_removed"
+    assert status["enabled"] is False and not home.ha.posts("/install")
+
+
+async def test_h5_adopt_release_keeps_setup_stages(home):
+    bumped = bump_home(home, "0.9.0")
+    raw = {"version": "0.9.0", "state": "stopped"}
+    base = {"operation": {"kind": "install"}, "release": {"version": "0.7.0"}}
+    for stage in ("repository", "install", "start", "pair", "login", "monitor"):
+        bumped.adopt_release({**base, "stage": stage}, raw)
+        assert bumped.record()["stage"] == stage and bumped.record()["operation"] is None
+        assert bumped.record()["release"]["version"] == "0.9.0"
+    bumped.adopt_release({**base, "stage": "configure"}, raw)
+    assert bumped.record()["stage"] == "monitor"
+
+    home.store.set_setting("home_worker_maintenance", None)
+    home.ha.app = None
+    home.ha.repos.clear()
+    await home.authorize()
+    record = home.record()
+    record.update(release={**record["release"], "version": "0.7.0"}, state="update_available", stage="repository",
+                  slug=HOME_SLUG, repository_id=HOME_REPO)
+    home.save(record)
+    home.ha.repos = [{"source": HomeWorkerRelease().repository, "slug": HOME_REPO}]
+    home.ha.install_app()
+    home.ha.app.update(version="0.9.0", state="started", options={})
+    home.ha.catalog["version_latest"] = "0.9.0"
+    bumped = bump_home(home, "0.9.0")
+    await bumped.update()
+    assert bumped.record()["release"]["version"] == "0.9.0" and bumped.record()["stage"] == "install"
+    assert bumped.record()["operation"] is None
