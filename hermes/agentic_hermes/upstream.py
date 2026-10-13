@@ -203,22 +203,25 @@ class HermesAdapter:
                 "error": error, "usage": usage, "tools": sorted(names)}
 
 
-# Known provider tokens only. The raw body is never returned.
-_AUTH_TOKENS = ("401", "403", "unauthorized", "authentication", "invalid api key", "relogin")
-_RATE_TOKENS = ("429", "quota", "rate limit", "rate_limit", "too many requests", "insufficient_quota")
-_TIMEOUT_TOKENS = ("timeout", "timed out", "deadline", "408", "504")
-_PROVIDER_TOKENS = ("500", "502", "503", "bad gateway", "service unavailable", "connection", "network")
+# Known provider tokens only. The raw body is never returned. Status numbers must stand alone:
+# a context-overflow message such as "140350 tokens" must not read as 403 and force a new login.
+_AUTH_TOKENS = ("unauthorized", "authentication", "invalid api key", "relogin")
+_RATE_TOKENS = ("quota", "rate limit", "rate_limit", "too many requests", "insufficient_quota")
+_TIMEOUT_TOKENS = ("timeout", "timed out", "deadline")
+_PROVIDER_TOKENS = ("bad gateway", "service unavailable", "connection", "network")
+_STATUS = re.compile(r"(?<![\d.])(401|403|408|429|500|502|503|504)(?![\d.])")
 
 
 def classify_provider_failure(reason):
     """Map a provider failure to a stable code. Do not treat a bare 'limit' as rate limiting."""
     text = str(reason or "").lower()
-    if any(part in text for part in _AUTH_TOKENS):
+    statuses = set(_STATUS.findall(text))
+    if statuses & {"401", "403"} or any(part in text for part in _AUTH_TOKENS):
         return "needs_reauth"
-    if any(part in text for part in _RATE_TOKENS):
+    if "429" in statuses or any(part in text for part in _RATE_TOKENS):
         return "rate_limited"
-    if any(part in text for part in _TIMEOUT_TOKENS):
+    if statuses & {"408", "504"} or any(part in text for part in _TIMEOUT_TOKENS):
         return "timeout"
-    if any(part in text for part in _PROVIDER_TOKENS):
+    if statuses & {"500", "502", "503"} or any(part in text for part in _PROVIDER_TOKENS):
         return "provider_unavailable"
     return "inference_failed"

@@ -37,7 +37,7 @@ def reason_from_stderr(raw):
     for token, reason in _STDERR_REASONS:
         if token in text:
             return reason
-    if "429" in text:
+    if re.search(r"(?<![\d.])429(?![\d.])", text):
         return "slow_down"
     return None
 

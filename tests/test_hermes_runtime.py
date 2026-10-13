@@ -940,3 +940,24 @@ async def test_turn_timeout_does_not_become_runtime_unavailable(client, runtime,
     result = (await client.get(f"/v1/runs/{body['run_id']}?scope_id={SCOPE}")).json()
     assert result["error"] == "timeout"
     assert (await client.get("/v1/capabilities")).json()["state"] == "configured"
+
+
+@pytest.mark.parametrize("text,code", [
+    ("This model's maximum context length is 128000 tokens; your messages resulted in 140350 tokens", "inference_failed"),
+    ("request used 14013 tokens of 40100", "inference_failed"),
+    ("Error code: 401 - unauthorized", "needs_reauth"),
+    ("HTTP 403", "needs_reauth"),
+    ("status 429: slow down", "rate_limited"),
+    ("upstream returned 503", "provider_unavailable"),
+    ("gateway 504", "timeout"),
+    ("version 1.403.2", "inference_failed"),
+])
+def test_provider_failure_status_numbers_must_stand_alone(text, code):
+    from agentic_hermes.upstream import classify_provider_failure
+    assert classify_provider_failure(text) == code
+
+
+def test_stderr_429_needs_a_standalone_status():
+    from agentic_hermes.oauth import reason_from_stderr
+    assert reason_from_stderr(b"HTTP 429 Too Many Requests") == "slow_down"
+    assert reason_from_stderr(b"started at 1714290001") is None
