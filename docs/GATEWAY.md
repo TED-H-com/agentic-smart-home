@@ -1,4 +1,4 @@
-# 統一通訊、Hermes 與受控 Agent · 0.7.0 技術預覽
+# 統一通訊、Hermes 與受控 Agent
 
 外層 Controller/Gateway 維持唯一通訊 receiver。Web 一直可用，onboarding 預設 LINE，亦可選 Discord／Telegram／Web；Hermes 不啟動自己的 bot Gateway，也不取得通道 token。首次開機不建立 HAOS，不影響外層 Web、Hermes 登入或固定主機查詢。
 
@@ -28,7 +28,7 @@ Host research/development 已接通獨立登入的 Codex、私有 clone、受限
 
 ## 對話、case 與重試
 
-「智能管家」直接呈現對話框，預設交給 Hermes。帳號與通訊入口移至「設定」，模型／CLI 選擇收在「進階對話設定」。選「受控 Agent（進階）」才顯示 runtime／CLI；切換進階 Grok／HAOS 後回 Hermes，仍回到自己的 Hermes 對話 scope，不讓隱藏的 CLI 選擇改變 Hermes case。Web 可按「開始新對話」，或從「對話紀錄」選擇可續接的 Web thread；無 thread 的舊紀錄、外部通道和已結束紀錄只能查看。送出時停用歷史切換；閱讀外部紀錄不清除原 Web 續接位置。sessionStorage 只保存各 scope 的訊息 IDs。
+「智能管家」直接呈現對話框，預設交給 Hermes。帳號與通訊入口移至「設定」，模型／CLI 選擇收在對話下方的「進階」。對話方式選「直接交給開發助手」才顯示執行位置與 AI；切換進階 Grok／HAOS 後回 Hermes，仍回到自己的 Hermes 對話 scope，不讓隱藏的 CLI 選擇改變 Hermes case。Web 可按「開始新對話」，或從「對話紀錄」選擇可續接的 Web thread；無 thread 的舊紀錄、外部通道和已結束紀錄只能查看。送出時停用歷史切換；閱讀外部紀錄不清除原 Web 續接位置。sessionStorage 只保存各 scope 的訊息 IDs。
 
 同 case 的工作進度與成果在原對話展開，讀取成果不派新工作。成果必須符合 exact job 與 case；checkpoint 和觀測位置保留在技術資料，檔案仍驗 SHA，候選 HTML 只產生隔離 PNG。
 
@@ -52,7 +52,7 @@ Codex 支援 device code／API key；Claude 支援 API key／setup token；Grok 
 
 受控模式的前文最多六回合、8 KiB，每則需求與答覆最多 2 KiB；逾限明示省略，保留期 1–7 天。HAOS 問答重新取得授權觀測，不把舊記憶當即時狀態。補充需求會建立後續家庭任務並連回先前等待補充的任務；等待批准的提案仍是獨立的確切資源。
 
-Hermes 的 `home.observe`／`home.propose` 和受控 HAOS 問答都接到原家庭 Engine，保留 policy、live Owner、具體提案、Web 批准、備份、journal 及讀回核對。對話中的「檢查家庭操作」開啟確切提案。Hermes 沒有把研究結果直接部署的工具；通道訊息與模型 `approved=true` 均不能代替批准。已部署的日常規則由 HA 執行，停止 Hermes／Runner 不會停用規則。
+Hermes 的 `home.observe`／`home.propose` 和受控 HAOS 問答都接到原家庭 Engine，保留 policy、live Owner、具體提案、Web 批准、備份、journal 及讀回核對。對話中的「查看提案」開啟確切提案。Hermes 沒有把研究結果直接部署的工具；通道訊息與模型 `approved=true` 均不能代替批准。已部署的日常規則由 HA 執行，停止 Hermes／Runner 不會停用規則。
 
 ## LINE.js
 

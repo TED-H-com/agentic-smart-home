@@ -1,3 +1,19 @@
+# 0.9.0 家庭現場開發助手
+
+- 由主機一鍵安裝並自動配對，之後另外登入 Codex。你停止或移除 App 後，主機不會自動裝回。
+- 開發工作最多執行 14 分鐘、200 次模型呼叫；用量上限、步驟太多、模型拒絕或服務故障時會記錄原因。
+- 非文字的產出檔會略過，其他成果照常保留；修改含非文字內容時不保留修改，也不跑驗證。
+- 改由 `#stable` 頻道發行；主機更新後，在你同意時更新到同一版本。
+
+# 0.8.0 Home coding preview
+
+- Add the Home coding worker: separate Codex login, a private clone of a pinned public commit, bounded FUSE ext4 workspace, cgroup limits and an independent verifier.
+- The App declares only `SYS_ADMIN`, `/dev/fuse` and its own AppArmor profile; the model process gets none of them and no HA or Supervisor token.
+
+# 0.7.0
+
+- Align the version with the HA sidebar release; Runner protocol 1 and worker contract 1 are unchanged.
+
 # 0.6.1 native home and upstream boundaries
 
 - Align the distribution version with native HA entry and upstream adapter checks; retain Runner protocol 1 and worker contract 1.

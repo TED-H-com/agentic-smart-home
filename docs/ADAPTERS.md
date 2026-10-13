@@ -24,7 +24,7 @@ Home Assistant 是家庭日常介面；智能管家提供研究、對話、提�
 
 `#gateway`、`#host`、提案等明確連結不自動跳走。離開外層前把原本入口記成 `#entry`，瀏覽器返回與重新整理不會形成跳轉迴圈。HA 登入維持原生流程；不把 Host cookie 或 HA bearer 搬進另一個 origin。只使用同一 loopback hostname 的既有 8099／8123 路徑；遠端仍需既有 SSH forwarding，同時連通兩個端口。
 
-## HA 側欄橋接（0.7.0 本輪）
+## HA 側欄橋接（0.7.0 起）
 
 獨立薄 App 經官方 Ingress 收取身分，再以專用 TLS／配對憑證連外層 Controller。外層重新驗證綁定的 active HA Owner；沿用 `source=web / chat=owner / sender=HA Owner`、同一 case／proposal／worker store。舊 Controller Ingress App 的第二份 DB 不能替代這個橋接。HA Assist／語音仍是不同接點。
 
