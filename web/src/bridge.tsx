@@ -29,11 +29,11 @@ export function BridgeApp({deployment,onRetry}:{deployment:any;onRetry:()=>Promi
   const blocked=!ready||!active;
   const blockedCopy:Record<string,{title:string;body:string}>={
     unpaired:{title:'尚未啟用側欄',body:'請在主機的設定中啟用智能管家側欄。'},
-    owner_required:{title:'需要擁有者',body:'只有家庭擁有者可以對話與批准。'},
+    owner_required:{title:'請用家庭擁有者開啟',body:'回到家庭，改以家庭擁有者的帳號開啟側欄。'},
     unavailable:{title:'暫時連不上',body:'家庭照常運作；請確認主機已開機。'},
   };
   const known=blockedCopy[deployment.bridge_state];
   const heading=known?.title||(error?'需要重新連線':'正在開啟');
   const detail=error?'':known?.body||'正在確認家庭授權。';
-  return <main className="bridge-shell" id="main-content" tabIndex={-1}><header className="bridge-heading"><h1>智能管家</h1><a href="/" target="_top" className="text-button">回到家庭</a></header>{blocked&&<section className="bridge-unavailable" aria-label="管家連線"><h2>{heading}</h2>{error?<Notice error>{error}</Notice>:detail&&<p>{detail}</p>}<Button disabled={busy} onClick={async()=>{await onRetry();if(ready)await refresh()}}>{busy?'確認中…':'重新連線'}</Button></section>}{identity&&<BridgeConversation key={identity.storage_scope} identity={identity} active={!blocked}/>}</main>
+  return <main className="bridge-shell" id="main-content" tabIndex={-1}><header className="bridge-heading"><h1>智能管家</h1><a href="/" target="_top" className="text-button">回到家庭</a></header>{blocked&&<section className="bridge-unavailable" aria-label="管家連線"><h2>{heading}</h2>{error?<Notice error>{error}</Notice>:detail&&<p>{detail}</p>}<Button secondary={deployment.bridge_state==='owner_required'} disabled={busy} onClick={async()=>{await onRetry();if(ready)await refresh()}}>{busy?'確認中…':'重新連線'}</Button></section>}{identity&&<BridgeConversation key={identity.storage_scope} identity={identity} active={!blocked}/>}</main>
 }

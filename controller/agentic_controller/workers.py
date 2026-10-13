@@ -845,7 +845,9 @@ def routes(app, workers):
 
     @app.post("/api/worker/jobs/{identifier}/reconcile", status_code=202)
     async def reconcile(identifier: str, body: WorkerAction):
-        workers.get(identifier)
+        item = workers.get(identifier)
+        if item.get("state") == "stop_unconfirmed":
+            workers.save(item, cancel_requested=True)
         workers.wake()
         return workers.public(workers.get(identifier))
 

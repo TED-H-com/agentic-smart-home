@@ -110,45 +110,48 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             page.get_by_text("其他設定方式", exact=True).click()
             panel = page.get_by_role("region", name="智能管家登入")
             panel.get_by_role("heading", name="智能管家登入", exact=True).wait_for()
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚待登入")
+            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚未登入")
             expect(panel.get_by_role("button", name="儲存登入")).to_be_disabled()
             screenshots(page, "needs-auth")
 
-            page.get_by_role("textbox", name="OpenRouter 模型 ID", exact=True).fill("fixture/model")
-            key = page.get_by_role("textbox", name="OpenRouter API key", exact=True)
+            page.get_by_role("textbox", name="模型", exact=True).fill("fixture/model")
+            key = page.get_by_role("textbox", name="金鑰", exact=True)
             assert key.get_attribute("type") == "password" and key.get_attribute("autocomplete") == "off"
             key.fill(secret)
             assert secret not in stored(page)
             key.press("Enter")
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，待實際回覆驗證")
+            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，尚未驗證")
             expect(panel.locator(".setup-facts span")).to_have_text("已登入 · OpenRouter")
-            expect(panel.locator(".setup-facts small")).to_have_text("fixture/model")
+            expect(panel.locator(".setup-facts small")).to_have_count(0)
+            expect(panel.locator("details").filter(has=page.locator("summary", has_text="技術資料"))).to_contain_text("模型 fixture/model")
             expect(panel.locator(".hermes-login-form")).to_have_count(0)
             assert panel.get_by_text("已完成推論驗證", exact=True).count() == 0
+            assert panel.get_by_text("已可對話", exact=True).count() == 0
             assert secret not in stored(page) and secret not in page.content()
             assert all(secret not in url for url in urls)
             assert [path for path, _ in calls] == ["hermes/auth"]  # storing credentials must not start a turn
             screenshots(page, "configured")
             page.reload()
             page.get_by_text("其他設定方式", exact=True).click()
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，待實際回覆驗證")
+            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，尚未驗證")
             expect(panel.locator(".hermes-login-form")).to_have_count(0)
             expect(panel.locator(".setup-facts span")).to_have_text("已登入 · OpenRouter")
+            expect(panel.locator("details").filter(has=page.locator("summary", has_text="技術資料"))).to_contain_text("模型 fixture/model")
             assert secret not in stored(page)
 
             # The authoritative backend, not the save operation, supplies verified/reauth states.
+            # The panel reads hermes again every 10s; the old bottom 重新檢查 button is gone.
+            expect(panel.get_by_role("button", name="重新檢查", exact=True)).to_have_count(0)
+            status = panel.locator(".section-heading").get_by_role("status")
             runtime["state"] = "ready"
-            panel.get_by_role("button", name="重新檢查", exact=True).click()
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已完成推論驗證")
+            expect(status).to_have_text("已可對話", timeout=15000)
             runtime["state"] = "needs_reauth"
-            panel.get_by_role("button", name="重新檢查", exact=True).click()
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("需要重新登入")
+            expect(status).to_have_text("需要重新登入", timeout=15000)
             runtime["state"] = "unavailable"
-            panel.get_by_role("button", name="重新檢查", exact=True).click()
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("服務尚未連線")
+            expect(status).to_have_text("暫時無法使用", timeout=15000)
             runtime["state"] = "configured"
 
-            page.get_by_role("button", name="保留進度，先開啟 Web 對話", exact=True).click()
+            page.locator(".bootstrap-manual").get_by_role("button", name="稍後再設定", exact=True).click()
             mode = page.get_by_label("對話方式", exact=True)
             expect(mode).to_have_value("hermes")
             assert page.get_by_label("AI", exact=True).count() == 0
@@ -202,9 +205,10 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             assert calls[-1][1]["reply_to"] is None and messages[0]["case_id"] != first["case_id"]
 
             click_navigation(page, 'Agent 環境')
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，待實際回覆驗證")
+            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，尚未驗證")
+            expect(panel.get_by_role("button", name="重新檢查", exact=True)).to_have_count(0)
             panel.get_by_role("button", name="登出", exact=True).click()
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚待登入")
+            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚未登入")
             assert secret not in stored(page) and not errors, errors
             browser.close()
     finally:
@@ -281,23 +285,29 @@ def test_signed_in_hermes_summary_and_login_poll_stops_after_errors():
             page.route("**/api/**", route)
             page.goto(f"http://127.0.0.1:{server.server_port}/#agents")
             panel = page.get_by_role("region", name="智能管家登入")
-            expect(panel.locator(".setup-facts span")).to_have_text("已登入 · 官方訂閱")
-            expect(panel.locator(".setup-facts small")).to_have_text("gpt-6-astra")
+            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，尚未驗證")
+            expect(panel.get_by_text("已可對話", exact=True)).to_have_count(0)
+            expect(panel.get_by_role("button", name="重新檢查", exact=True)).to_have_count(0)
+            expect(panel.locator(".setup-facts span")).to_have_text("已登入 · ChatGPT 訂閱")
+            expect(panel.locator(".setup-facts small")).to_have_count(0)
+            facts = panel.locator("details").filter(has=page.locator("summary", has_text="技術資料"))
+            expect(facts).to_contain_text("模型 gpt-6-astra")
             expect(panel.locator(".hermes-login-form")).to_have_count(0)
             expect(panel.get_by_role("button", name="開始登入", exact=True)).to_have_count(0)
             shot(page, "signed-in")
             panel.get_by_role("button", name="更換登入方式", exact=True).click()
             expect(panel.get_by_text("更換後會先登出目前的帳號。", exact=True)).to_be_visible()
             expect(panel.locator(".hermes-login-form")).to_be_visible()
-            expect(panel.get_by_role("radio", name="官方訂閱登入", exact=True)).to_be_checked()
+            expect(panel.get_by_role("radio", name="ChatGPT 訂閱", exact=True)).to_be_checked()
             shot(page, "replace-login")
             # A finished replacement folds back into the signed-in line.
-            panel.get_by_role("radio", name="OpenRouter API key", exact=True).check()
-            panel.get_by_label("OpenRouter 模型 ID", exact=True).fill("vendor/model-a")
+            panel.get_by_role("radio", name="OpenRouter 金鑰", exact=True).check()
+            panel.get_by_label("模型", exact=True).fill("vendor/model-a")
             panel.locator("input[type=password]").fill("fixture-key-not-a-secret")
             phase["replace"] = True
             panel.get_by_role("button", name="儲存登入", exact=True).click()
             expect(panel.locator(".setup-facts span")).to_have_text("已登入 · OpenRouter")
+            expect(facts).to_contain_text("模型 vendor/model-a")
             expect(panel.locator(".hermes-login-form")).to_have_count(0)
             expect(panel.get_by_text("更換後會先登出目前的帳號。", exact=True)).to_have_count(0)
             phase["replace"] = False
@@ -317,6 +327,88 @@ def test_signed_in_hermes_summary_and_login_poll_stops_after_errors():
             expect(panel.get_by_text("暫時無法讀取登入狀態。", exact=True)).to_have_count(0)
             assert len(device_gets) == 4
             shot(page, "poll-recheck")
+            assert not errors, errors
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
+
+def test_hermes_panel_recovers_from_failed_reads_and_a_late_runtime():
+    root = Path(__file__).parents[1]
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory=str(root / "controller/static")))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    hermes = {"status": 503, "runtime": {"state": "unavailable", "runtime": "hermes", "auth_verified_at": None}}
+    errors = []
+
+    def route(route):
+        request = route.request
+        path = request.url.split("/api/")[1].split("?")[0]
+        if request.method != "GET":
+            raise AssertionError("Unexpected API write: " + path)
+        if path == "deployment":
+            result = {"mode": "host", "authenticated": True}
+        elif path == "session":
+            result = {"principal": "host-owner", "csrf": "fixture-csrf", "mode": "host"}
+        elif path == "status":
+            result = {"ha": {"status": "connected"}, "runner": {"protocol": 1, "providers": []},
+                      "version": "fixture", "paused": False}
+        elif path == "tasks":
+            result = {"tasks": []}
+        elif path == "runtimes":
+            result = {"host": {"protocol": 1, "providers": []}, "haos": {"status": "unpaired"}}
+        elif path == "hermes":
+            if hermes["status"] != 200:
+                route.fulfill(status=hermes["status"], content_type="application/json",
+                              body=json.dumps({"detail": "暫時無法回應"}))
+                return
+            result = {"runtime": hermes["runtime"], "workers": []}
+        else:
+            raise AssertionError("Unexpected API route: " + path)
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(result))
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.route("**/api/**", route)
+            page.clock.install()
+            page.goto(f"http://127.0.0.1:{server.server_port}/#agents")
+            panel = page.get_by_role("region", name="智能管家登入")
+            failed = panel.get_by_role("alert").filter(has_text="暫時無法回應")
+            heading = panel.locator(".section-heading").get_by_role("status")
+            expect(failed).to_be_visible()
+            # The next good background read clears the failed one; nothing to press.
+            hermes["status"] = 200
+            page.clock.run_for(10_500)
+            expect(heading).to_have_text("暫時無法使用")
+            expect(failed).to_have_count(0)
+            panel.get_by_role("radio", name="ChatGPT 訂閱", exact=True).check()
+            model = panel.get_by_label("模型 ID", exact=True)
+            expect(model).to_have_value("")
+            expect(panel.get_by_role("button", name="開始登入", exact=True)).to_be_disabled()
+            # A runtime that finishes starting later supplies its default model.
+            hermes["runtime"] = {"state": "needs_auth", "provider": "openai-codex", "model": "",
+                                 "auth_verified_at": None, "default_models": {"openai-codex": "gpt-6-astra"}}
+            page.clock.run_for(10_500)
+            expect(heading).to_have_text("尚未登入")
+            expect(model).to_have_value("gpt-6-astra")
+            expect(panel.get_by_role("button", name="開始登入", exact=True)).to_be_enabled()
+            hermes["status"] = 503
+            page.clock.run_for(10_500)
+            expect(failed).to_be_visible()
+            hermes["status"] = 200
+            page.clock.run_for(10_500)
+            expect(failed).to_have_count(0)
+            # What the owner typed, even an emptied field, is not overwritten.
+            model.fill("")
+            page.clock.run_for(10_500)
+            expect(heading).to_have_text("尚未登入")
+            expect(model).to_have_value("")
             assert not errors, errors
             browser.close()
     finally:

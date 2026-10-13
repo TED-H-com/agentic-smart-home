@@ -93,7 +93,8 @@ def test_account_card_resumes_cancels_and_verifies_keys_in_background():
             expect(codex.get_by_text("WXYZ-98765", exact=True)).to_have_count(0)
             assert not any(path == "runtimes/host/providers/codex/auth" for path, _ in calls)
 
-            claude.get_by_label("API key", exact=True).fill("fixture-claude-key")
+            expect(claude.get_by_text("使用 API 金鑰，可能另外計費。", exact=True)).to_be_visible()
+            claude.get_by_label("API 金鑰", exact=True).fill("fixture-claude-key")
             claude.get_by_role("button", name="開始登入", exact=True).click()
             expect(claude.get_by_text("正在向官方確認登入資訊…", exact=True)).to_be_visible()
             expect(claude.get_by_text("確認中", exact=True)).to_be_visible()
@@ -102,7 +103,7 @@ def test_account_card_resumes_cancels_and_verifies_keys_in_background():
             expect(claude.get_by_role("button", name="開始登入", exact=True)).to_be_visible()
             expect(claude.get_by_role("alert")).to_have_count(0)
 
-            claude.get_by_label("API key", exact=True).fill("fixture-wrong-key")
+            claude.get_by_label("API 金鑰", exact=True).fill("fixture-wrong-key")
             claude.get_by_role("button", name="開始登入", exact=True).click()
             expect(claude.get_by_text("正在向官方確認登入資訊…", exact=True)).to_be_visible()
             secret["status"] = "failed"

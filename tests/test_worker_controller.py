@@ -13,7 +13,8 @@ from agentic_controller.hermes import Coordinator
 from agentic_controller.runner import RunnerError
 from agentic_controller.store import Conflict, Store
 from agentic_controller.work import WorkerStart, WorkerSubmit
-from agentic_controller.workers import WorkerError, Workers
+from agentic_controller.workers import WorkerError, Workers, routes
+from fastapi import FastAPI
 
 
 class CodingRunner:
@@ -710,3 +711,102 @@ async def test_startup_check_clears_pending_auth_without_a_page_request(workers)
     assert not workers.store.setting('worker_auth_pending')
     assert runner.auth[auth_id]['status'] == 'interrupted'
     assert any(path == '/coding/reconcile' for _method, path, _body in runner.calls)
+
+
+def _seed_runner(workers, item, state):
+    runner = workers.runners['host']
+    runner.jobs[item['id']] = {
+        'id': item['id'], 'lease_epoch': item['lease_epoch'], 'state': state,
+        'worker_id': item['worker_id'], 'case_id': item['case_id'], 'stop_confirmed': False,
+        'error_code': item.get('reason')}
+    return runner
+
+
+async def _post_reconcile(workers, identifier):
+    app = FastAPI()
+    routes(app, workers)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url='http://localhost') as client:
+        return await client.post('/api/worker/jobs/' + identifier + '/reconcile', json={})
+
+
+async def _stop_watch(workers):
+    workers.closing = True
+    task = workers.task
+    if task:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+    workers.task = None
+
+
+async def test_reconcile_requests_cancel_only_when_stop_is_unconfirmed(workers):
+    first = await submit(workers)
+    workers.save(workers.get(first['id']), state='stop_unconfirmed', reason='execution_timeout', stop_confirmed=False)
+    item = workers.get(first['id'])
+    runner = _seed_runner(workers, item, 'stop_unconfirmed')
+    gate = asyncio.Event()
+    original = runner.call
+
+    async def call(method, path, body=None):
+        if path.endswith('/cancel'):
+            await gate.wait()
+        return await original(method, path, body)
+
+    runner.call = call
+    workers.closing = False
+    try:
+        reply = await _post_reconcile(workers, first['id'])
+        assert reply.status_code == 202, reply.text
+        body = reply.json()
+        assert body['cancel_requested'] is True
+        assert body['reason'] == 'execution_timeout'
+        assert body['state'] == 'stop_unconfirmed'
+        gate.set()
+        found = False
+        for _ in range(50):
+            found = any(method == 'POST' and path == '/coding/jobs/' + first['id'] + '/cancel'
+                        for method, path, _body in runner.calls)
+            if found:
+                break
+            await asyncio.sleep(0.02)
+        assert found
+    finally:
+        gate.set()
+        await _stop_watch(workers)
+
+
+async def test_reconcile_of_another_state_only_wakes(workers):
+    first = await submit(workers)
+    workers.save(workers.get(first['id']), state='running', reason='still_working', stop_confirmed=False)
+    item = workers.get(first['id'])
+    runner = _seed_runner(workers, item, 'running')
+    gate = asyncio.Event()
+    original = runner.call
+
+    async def call(method, path, body=None):
+        if method == 'GET' and path.startswith('/coding/jobs/'):
+            await gate.wait()
+        return await original(method, path, body)
+
+    runner.call = call
+    workers.closing = False
+    try:
+        reply = await _post_reconcile(workers, first['id'])
+        assert reply.status_code == 202, reply.text
+        body = reply.json()
+        assert not body.get('cancel_requested')
+        assert body['reason'] == 'still_working'
+        assert body['state'] == 'running'
+        gate.set()
+        found = False
+        for _ in range(50):
+            found = any(method == 'GET' and path == '/coding/jobs/' + first['id']
+                        for method, path, _body in runner.calls)
+            if found:
+                break
+            await asyncio.sleep(0.02)
+        assert found
+        assert not any(method == 'POST' and str(path).endswith('/cancel') for method, path, _body in runner.calls)
+    finally:
+        gate.set()
+        await _stop_watch(workers)
