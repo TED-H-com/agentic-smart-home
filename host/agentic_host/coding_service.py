@@ -152,8 +152,9 @@ class CodingService:
         except (OSError, ValueError):
             pass
         for job in self.items.values():
-            if job["state"] not in TERMINAL and not job.get("sandbox_attempted"):
+            if job["state"] in {"queued", "launching"} and not (job.get("sandbox_attempted") or job.get("execution_started")):
                 # The attempt is persisted before allocation: no container or workspace exists.
+                # Any other unfinished state, including the stop_unconfirmed fence, keeps its stop check.
                 job.update(state="interrupted", stop_confirmed=True, phase="interrupted")
                 self.remember_error(job, "broker_restarted")
             elif job["state"] not in TERMINAL:

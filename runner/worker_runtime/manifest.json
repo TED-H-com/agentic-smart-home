@@ -8,7 +8,7 @@
     "host/agentic_host/coding_program.py": "6c0cef0fd013bf437a1ddeb8335ed33e873110d3a6c5d5d82642440b04b10f9e",
     "host/agentic_host/coding_relay.py": "163adf54c57dc612b6ce1c46ad1463769448f3fdf9e14c4f69512cc5ab2cc8fb",
     "host/agentic_host/coding_sandbox.py": "b784e137ae836bd339120328688cacdda081fde71dafb5aaa5b7d47fa4cff3aa",
-    "host/agentic_host/coding_service.py": "a85246d7ef9b50fbf853bb855051b12a976bfe957dc622b3377b73da01bb5bbd",
+    "host/agentic_host/coding_service.py": "cf273d9c5245b739985e01c249eff95165996bbc4f44fdb3011929b2d90fefc3",
     "host/agentic_host/coding_volume.py": "74df243725bc57df3a88f29915a1f2b76170aea8cf6dc373859112013a543701",
     "host/agentic_host/compatibility.py": "7d23e86c9bf7f78dad8c31675f23759fcfcd682ffa1ad83d26affe587210ead2",
     "host/agentic_host/daemon.py": "b2416e8ccd9427ab0ec1fa89be42db52bbf923db9362196a16a52809dad02b9b",
