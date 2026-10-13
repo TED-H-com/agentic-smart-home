@@ -2714,6 +2714,22 @@
         "summary": "Bridge Repair"
       }
     },
+    "/api/host/bridge/maintenance/update": {
+      "post": {
+        "operationId": "bridge_maintenance_update_api_host_bridge_maintenance_update_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Bridge Maintenance Update"
+      }
+    },
     "/api/host/connect": {
       "post": {
         "operationId": "connect_api_host_connect_post",
@@ -2898,6 +2914,22 @@
           }
         },
         "summary": "Home Worker Restart"
+      }
+    },
+    "/api/host/home-worker/maintenance/update": {
+      "post": {
+        "operationId": "home_worker_maintenance_update_api_host_home_worker_maintenance_update_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Home Worker Maintenance Update"
       }
     },
     "/api/host/login": {

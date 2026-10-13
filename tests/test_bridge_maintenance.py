@@ -66,6 +66,7 @@ class Supervisor:
                         "host_pid": False}
         self.job = {"uuid": JOB, "reference": SLUG, "done": True, "errors": []}
         self.fail, self.lose, self.before = None, None, None
+        self.reload_version, self.update_state = None, None
         self.healthy = True
         self.owner_hook = None
         self.owner_calls = 0
@@ -105,6 +106,19 @@ class Supervisor:
             value = self.catalog
         elif path == f"/store/addons/{SLUG}/availability":
             value = None
+        elif path == "/store/reload":
+            assert method == "POST" and body is None
+            if self.reload_version:
+                self.catalog["version_latest"] = self.reload_version
+            value = None
+        elif path == f"/store/addons/{SLUG}/update":
+            assert method == "POST" and body == {"backup": False, "background": True}
+            assert self.app
+            value = {"job_id": JOB}
+            if self.lose != (method, path):
+                self.app["version"] = self.catalog["version_latest"]
+                if self.update_state:
+                    self.app["state"] = self.update_state
         elif path == f"/store/addons/{SLUG}/install":
             assert body == {"background": True}
             self.install_app()
@@ -311,7 +325,7 @@ async def test_existing_install_is_not_silently_adopted(manager):
     assert not manager.ha.writes("/options") and not manager.ha.writes("/start")
 
 
-@pytest.mark.parametrize("change", [{"version_latest": "0.7.1"}, {"hassio_api": True},
+@pytest.mark.parametrize("change", [{"hassio_api": True},
     {"host_network": True}, {"repository": "other"}, {"build": False}, {"ingress": False}])
 async def test_store_drift_blocks_install(manager, change):
     manager.ha.catalog.update(change)
@@ -440,11 +454,11 @@ async def test_supervisor_unhealthy_blocks_only_bridge_effect(manager):
     assert len(manager.ha.writes("/repositories")) == 1
 
 
-async def test_release_changed_after_restart_stops_before_requests(manager):
+async def test_record_ahead_of_the_controller_waits_without_requests(manager):
     await manager.authorize()
     changed = BridgeMaintenance(manager.store, manager.ha, manager.bridge,
                                 release=BridgeRelease(version="0.7.1"), clock=manager.clock)
-    assert (await changed.tick())["code"] == "bridge_release_changed"
+    assert (await changed.tick())["code"] == "bridge_release_ahead"
     assert not manager.ha.calls
 
 

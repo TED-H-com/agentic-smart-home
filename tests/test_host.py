@@ -24,6 +24,15 @@ def module(path):
     return value
 
 
+def test_broker_restart_keeps_the_socket_directory_containers_mount():
+    # The Runner and Controller bind-mount /run/agentic-home when they start. systemd removes a
+    # RuntimeDirectory on stop by default, so a broker-only restart would leave them a stale directory.
+    unit = (ROOT / "host/systemd/agentic-home-host.service").read_text().splitlines()
+    assert "RuntimeDirectory=agentic-home" in unit and "RuntimeDirectoryPreserve=yes" in unit
+    compose = (ROOT / "host/compose.yaml").read_text()
+    assert compose.count("/run/agentic-home:/run/agentic-home") == 2
+
+
 def test_locked_profiles_and_real_libvirt_schema():
     bases = json.loads((ROOT / "host/bases.lock.json").read_text())
     for path in (ROOT / "host/profiles").glob("*.json"):
