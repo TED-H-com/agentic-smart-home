@@ -582,3 +582,178 @@ def test_update_record_error_is_a_sentence_and_the_code_stays_folded():
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+
+def _ui_server():
+    root = Path(__file__).parents[1]
+    server = ThreadingHTTPServer(('127.0.0.1', 0), partial(SimpleHTTPRequestHandler, directory=str(root / 'controller/static')))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return root, server, thread
+
+
+def _stop(server, thread):
+    server.shutdown()
+    server.server_close()
+    thread.join(timeout=3)
+
+
+def test_plain_error_hides_raw_detail_and_unknown_status():
+    """Code, English, and coded failures show one sentence. Fixture API, not a live host."""
+    root, server, thread = _ui_server()
+    mode = {'kind': 'code'}
+    task = {'id': 'fixture-task', 'provider': 'codex', 'request': '未知狀態檢查', 'state': 'not_a_state',
+            'message': '狀態只顯示在標籤。', 'created_at': '2026-10-13T01:02:03Z', 'updated_at': '2026-10-13T01:02:03Z'}
+    errors = []
+
+    def route(route):
+        path = route.request.url.split('/api/')[1].split('?')[0]
+        if path == 'deployment':
+            result = {'mode': 'host', 'authenticated': True}
+        elif path == 'session':
+            result = {'principal': 'host-owner', 'csrf': 'fixture-csrf', 'mode': 'host'}
+        elif path == 'status':
+            result = {'version': 'fixture', 'paused': False, 'ha': {'status': 'connected'},
+                      'runner': {'protocol': 1, 'providers': []}}
+        elif path == 'tasks':
+            kind = mode['kind']
+            if kind == 'code':
+                route.fulfill(status=409, content_type='application/json', body='{"detail":"artifact_not_found"}')
+                return
+            if kind == 'english404':
+                route.fulfill(status=404, content_type='application/json', body='{"detail":"missing record"}')
+                return
+            if kind == 'english500':
+                route.fulfill(status=500, content_type='application/json', body='{"detail":"internal boom"}')
+                return
+            if kind == 'coded':
+                body = {'detail': {'code': 'worker_queue_full', 'message': '目前工作太多，請稍後再試。'}}
+                route.fulfill(status=409, content_type='application/json', body=json.dumps(body, ensure_ascii=False))
+                return
+            result = {'tasks': [task]}
+        else:
+            result = {}
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(result))
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={'width': 1440, 'height': 900})
+            page.on('pageerror', lambda error: errors.append(str(error)))
+            page.route('**/api/**', route)
+            page.goto(f'http://127.0.0.1:{server.server_port}/#history')
+            banner = page.locator('.global-error .notice.error')
+            expect(banner).to_contain_text('這份資料已過期或不存在。')
+            expect(banner).to_have_attribute('data-reason', 'artifact_not_found')
+            assert 'artifact_not_found' not in (banner.inner_text() or '')
+            mode['kind'] = 'english404'
+            page.get_by_role('button', name='重新連線', exact=True).click()
+            expect(banner).not_to_have_attribute('data-reason', 'artifact_not_found')
+            expect(banner).to_contain_text('這份資料已過期或不存在。')
+            assert 'missing record' not in (page.locator('body').inner_text() or '')
+            mode['kind'] = 'english500'
+            page.get_by_role('button', name='重新連線', exact=True).click()
+            expect(banner).to_contain_text('這次沒有完成，請稍後再試。')
+            assert banner.get_attribute('data-reason') in (None, '')
+            assert 'internal boom' not in (page.locator('body').inner_text() or '')
+            mode['kind'] = 'coded'
+            page.get_by_role('button', name='重新連線', exact=True).click()
+            expect(banner).to_have_attribute('data-reason', 'worker_queue_full')
+            expect(banner).to_contain_text('目前工作太多，請稍後再試。')
+            assert 'worker_queue_full' not in (banner.inner_text() or '')
+            mode['kind'] = 'ok'
+            page.get_by_role('button', name='重新連線', exact=True).click()
+            status = page.locator('.history-table .status')
+            expect(status).to_have_text('未知狀態')
+            expect(status).to_have_attribute('data-reason', 'not_a_state')
+            assert 'not_a_state' not in (status.inner_text() or '')
+            output = root / 'evidence/ui/plain-error'
+            output.mkdir(parents=True, exist_ok=True)
+            page.screenshot(path=str(output / 'unknown-status-1440.png'), full_page=True)
+            assert not errors, errors
+            browser.close()
+    finally:
+        _stop(server, thread)
+
+
+def test_maintenance_fault_sentences_keep_the_code_off_the_sentence():
+    """Authorize faults show the mapped sentence. The code stays in data-reason. Fixture API."""
+    root, server, thread = _ui_server()
+    posts, errors = [], []
+
+    def coder(worker_id):
+        return {'worker_id': worker_id, 'available': True, 'state': 'ready', 'reason': '',
+                'runtime_location': 'host_worker_container', 'modes': ['research', 'development'],
+                'providers': [{'id': 'codex', 'supported': True, 'models': [], 'auth_methods': ['device_code'],
+                               'credential_state': 'needs_auth'}]}
+
+    def route(route):
+        request = route.request
+        path = request.url.split('/api/')[1].split('?')[0]
+        if request.method == 'POST':
+            posts.append({'path': path, 'body': request.post_data_json, 'key': request.headers.get('idempotency-key'),
+                          'csrf': request.headers.get('x-agentic-csrf')})
+            if path == 'host/home-worker/maintenance/authorize':
+                route.fulfill(status=409, content_type='application/json', body='{"detail":"home_worker_busy"}')
+                return
+            if path == 'host/bridge/maintenance/authorize':
+                route.fulfill(status=409, content_type='application/json', body='{"detail":"bridge_update_not_allowed"}')
+                return
+            raise AssertionError(path)
+        if path == 'deployment':
+            result = {'mode': 'host', 'authenticated': True}
+        elif path == 'session':
+            result = {'principal': 'host-owner', 'csrf': 'fixture-csrf', 'mode': 'host'}
+        elif path == 'status':
+            result = {'version': 'fixture', 'paused': False, 'ha': {'status': 'connected'},
+                      'runner': {'protocol': 1, 'providers': []}}
+        elif path == 'tasks':
+            result = {'tasks': []}
+        elif path == 'workers':
+            result = {'workers': [coder('host-coder'), coder('home-coder')], 'active_job_id': None}
+        elif path == 'worker/jobs':
+            result = {'jobs': [], 'active_job_id': None}
+        elif path == 'host/home-worker/maintenance':
+            result = {'contract': 1, 'state': 'not_authorized', 'code': None}
+        elif path == 'host/bridge/maintenance':
+            result = {'contract': 1, 'state': 'not_authorized', 'code': None, 'auto_repair': False}
+        elif path == 'services':
+            result = {'services': []}
+        else:
+            result = {}
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(result))
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={'width': 1440, 'height': 900})
+            page.on('pageerror', lambda error: errors.append(str(error)))
+            page.route('**/api/**', route)
+            origin = f'http://127.0.0.1:{server.server_port}'
+            page.goto(origin + '/#workers')
+            page.get_by_role('radio', name='家庭現場', exact=True).check()
+            card = page.get_by_role('region', name='家庭現場開發助手')
+            card.get_by_role('button', name='啟用家庭現場', exact=True).click()
+            home = card.locator('.notice.error')
+            expect(home).to_have_text('開發助手正在工作，完成後再試。')
+            expect(home).to_have_attribute('data-reason', 'home_worker_busy')
+            assert 'home_worker_busy' not in (home.inner_text() or '')
+            page.goto(origin + '/#settings')
+            page.locator('summary').filter(has_text='HA 智能管家側欄').click()
+            panel = page.get_by_role('region', name='側欄維護')
+            panel.get_by_role('button', name='啟用側欄並自動維護', exact=True).click()
+            bridge = panel.locator('.notice.error')
+            expect(bridge).to_have_text('目前不能更新，請重新整理後再試。')
+            expect(bridge).to_have_attribute('data-reason', 'bridge_update_not_allowed')
+            assert 'bridge_update_not_allowed' not in (bridge.inner_text() or '')
+            assert [item['path'] for item in posts] == [
+                'host/home-worker/maintenance/authorize', 'host/bridge/maintenance/authorize']
+            assert posts[0]['body'] == {} and posts[1]['body'] == {'auto_repair': True}
+            assert all(item['csrf'] == 'fixture-csrf' and item['key'] and len(item['key']) == 32 for item in posts)
+            output = root / 'evidence/ui/plain-error'
+            output.mkdir(parents=True, exist_ok=True)
+            page.screenshot(path=str(output / 'bridge-fault-1440.png'), full_page=True)
+            assert not errors, errors
+            browser.close()
+    finally:
+        _stop(server, thread)

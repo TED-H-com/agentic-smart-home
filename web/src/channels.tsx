@@ -5,7 +5,7 @@ import {Button,CopyButton,Notice,friendlySentence} from './ui';
 import {RuntimePanel} from './providers';
 import {HostPanel} from './host';
 import {HermesPanel} from './hermes';
-import {names,connection} from './labels';
+import {connection,names,plainError} from './labels';
 import type {View} from './setup';
 
 type Pairing={state:string;code:string|null;expires_at:number|null;chat:string|null};
@@ -25,13 +25,13 @@ function telegramSentence(channel:any){
   return fallback?friendlySentence(channel?.message,fallback):'';
 }
 function ChannelPairing({channel,chat,secret,hasSecret,enabled,onChange,onSaved,onState}:{channel:string;chat:string;secret:string;hasSecret:boolean;enabled:boolean;onChange:()=>void;onSaved:()=>void;onState:(value:Pairing,channel:string)=>void}){
-  const [pair,setPair]=useState<Pairing|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [pair,setPair]=useState<Pairing|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState<{text:string;code?:string}|null>(null);
   const previous=useRef(''),pending=useRef<{signature:string;key:string}|null>(null);
   const endpoint=`gateway/channels/${channel}/pairing`;
-  useEffect(()=>{let active=true;let timer:ReturnType<typeof setTimeout>;async function poll(){try{const value=await api(endpoint);if(active){setPair(value);onState(value,channel);if(value.state!==previous.current){previous.current=value.state;if(value.state==='paired')onChange()}}}catch(e){if(active)setError((e as Error).message)}if(active)timer=setTimeout(poll,2000)}poll();return()=>{active=false;clearTimeout(timer)}},[endpoint,onChange,onState,channel]);
-  async function mutate(cancel=false){setBusy(true);setError('');const path=cancel?`${endpoint}/cancel`:endpoint,body=cancel?{}:channel==='line'?{chat}:{secret};const signature=JSON.stringify([path,body]);if(pending.current?.signature!==signature)pending.current={signature,key:requestKey()};try{const value=await api(path,body,false,pending.current.key);pending.current=null;setPair(value);onState(value,channel);if(!cancel)onSaved()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+  useEffect(()=>{let active=true;let timer:ReturnType<typeof setTimeout>;async function poll(){try{const value=await api(endpoint);if(active){setPair(value);onState(value,channel);if(value.state!==previous.current){previous.current=value.state;if(value.state==='paired')onChange()}}}catch(e){if(active)setError(plainError(e))}if(active)timer=setTimeout(poll,2000)}poll();return()=>{active=false;clearTimeout(timer)}},[endpoint,onChange,onState,channel]);
+  async function mutate(cancel=false){setBusy(true);setError(null);const path=cancel?`${endpoint}/cancel`:endpoint,body=cancel?{}:channel==='line'?{chat}:{secret};const signature=JSON.stringify([path,body]);if(pending.current?.signature!==signature)pending.current={signature,key:requestKey()};try{const value=await api(path,body,false,pending.current.key);pending.current=null;setPair(value);onState(value,channel);if(!cancel)onSaved()}catch(e){setError(plainError(e))}finally{setBusy(false)}}
   const waiting=pair?.state==='pending';
-  return <div className="channel-pairing">{error&&<Notice error><span>請再產生一次配對碼。</span><small>{error}</small></Notice>}{enabled?<p className="helper-text">已啟用，正在確認連線。更換帳號請先停用。</p>:pair?.state==='paired'?<Notice>帳號已配對。正在確認通訊連線。</Notice>:<>{waiting?<><p>從自己的帳號送出這則訊息。</p><div className="pairing-command"><pre className="pairing-code" aria-label="通訊配對指令">/pair {pair.code}</pre><CopyButton text={`/pair ${pair.code}`}>複製配對指令</CopyButton><span>3 分鐘後失效</span></div><Button secondary disabled={busy} onClick={()=>mutate(true)}>取消這次配對</Button></>:<>{pair?.state==='expired'&&<Notice error>通訊配對碼已過期，請產生新的配對碼。</Notice>}<Button disabled={busy||(channel==='line'?!chat:!secret.trim()&&!hasSecret)} onClick={()=>mutate()}>{busy?'準備配對碼…':'產生通訊配對碼'}</Button></>}</>}<p className="helper-text">家庭變更仍需在這裡批准。</p></div>
+  return <div className="channel-pairing">{error&&<Notice error reason={error.code}>{error.text}</Notice>}{enabled?<p className="helper-text">已啟用，正在確認連線。更換帳號請先停用。</p>:pair?.state==='paired'?<Notice>帳號已配對。正在確認通訊連線。</Notice>:<>{waiting?<><p>從自己的帳號送出這則訊息。</p><div className="pairing-command"><pre className="pairing-code" aria-label="通訊配對指令">/pair {pair.code}</pre><CopyButton text={`/pair ${pair.code}`}>複製配對指令</CopyButton><span>3 分鐘後失效</span></div><Button secondary disabled={busy} onClick={()=>mutate(true)}>取消這次配對</Button></>:<>{pair?.state==='expired'&&<Notice error>通訊配對碼已過期，請產生新的配對碼。</Notice>}<Button disabled={busy||(channel==='line'?!chat:!secret.trim()&&!hasSecret)} onClick={()=>mutate()}>{busy?'準備配對碼…':'產生通訊配對碼'}</Button></>}</>}<p className="helper-text">家庭變更仍需在這裡批准。</p></div>
 }
 
 export function ChannelSettings({onChange,guided=false,initialChannel,onChannelChange}:{onChange?:()=>void;guided?:boolean;initialChannel?:string;onChannelChange?:(channel:string)=>Promise<void>}){

@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {api,requestKey} from './api';
+import {stateName} from './labels';
 import {Button,Notice,Status,labels,timestamp} from './ui';
 
 export type Task = {id:string; request:string; provider:string; state:string; message:string; created_at:string; updated_at:string; proposal_id?:string; proposal?:any; evidence?:any; events?:any[]; sources?:any[]};
@@ -20,7 +21,6 @@ function deviceName(id:string,allowNames:boolean){
   if(allowNames){const known=inventoryNames?.[id];if(known?.name)return known.area?`${known.name}（${known.area}）`:known.name}
   return id==='input_boolean.agentic_lamp_test'?'測試燈':id==='input_boolean.agentic_motion_test'?'測試動作':id;
 }
-function stateName(state:string){return state==='on'?'開啟':state==='off'?'關閉':state==='unavailable'?'無法使用':state==='unknown'?'狀態未知':state}
 function happen(p:any,allowNames:boolean){
   const effect=p.mode==='disable'?'批准後停用，重啟後仍保持停用':p.mode==='rollback'?'批准後回復前一份設定':p.mode==='action'?'批准後執行一次並讀回狀態':'批准後啟用，之後由家庭自行執行';
   if(p.intent){

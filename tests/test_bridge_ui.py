@@ -202,7 +202,8 @@ def test_bridge_resumes_outer_case_results_png_and_exact_approval(bridge_browser
     shots(page, "approval")
     state["fail_approve"] = True
     page.get_by_role("button", name="批准並執行", exact=True).click()
-    expect(page.get_by_role("alert")).to_contain_text("fixture_approval_reply_lost")
+    expect(page.get_by_role("alert")).to_contain_text("這次沒有完成，請稍後再試。")
+    assert "fixture_approval_reply_lost" not in (page.locator("body").inner_text() or "")
     page.get_by_role("button", name="批准並執行", exact=True).click()
     expect(page.get_by_text("已核對執行結果。", exact=True)).to_be_visible()
     approvals = [m for m in mutations if m[0].endswith("/approve")]
@@ -230,7 +231,8 @@ def test_bridge_resumes_outer_case_results_png_and_exact_approval(bridge_browser
     state["fail_send"] = True
     page.get_by_label("對話訊息", exact=True).fill("接續檢查，不另開 case")
     page.get_by_role("button", name="送出訊息").click()
-    expect(page.get_by_role("alert")).to_contain_text("fixture_response_lost_retry_same_request")
+    expect(page.get_by_role("alert")).to_contain_text("這次沒有完成，請稍後再試。")
+    assert "fixture_response_lost_retry_same_request" not in (page.locator("body").inner_text() or "")
     expect(page.get_by_label("對話訊息", exact=True)).to_have_value("接續檢查，不另開 case")
     # Polling already sees the accepted result; retry must retain its original parent/key.
     expect(page.get_by_text("已接續同一份工作。", exact=True)).to_be_visible(timeout=7000)

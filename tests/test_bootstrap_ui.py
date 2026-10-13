@@ -306,7 +306,11 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             page.get_by_text('正在建立家庭環境', exact=False).wait_for()
             assert calls[-1][0:2] == ('bootstrap/preferences', {'channel': 'web'})
             failure['read'] = True
-            page.get_by_role('alert').filter(has_text='fixture disconnected').wait_for()
+            disconnected = page.get_by_role('alert').filter(has_text='請重試連線。')
+            disconnected.wait_for()
+            expect(disconnected).to_contain_text('這次沒有完成，請稍後再試。')
+            assert 'fixture disconnected' not in (page.locator('body').inner_text() or '')
+            assert '恢復連線後會從這裡繼續。' not in (page.locator('body').inner_text() or '')
             assert page.get_by_role('heading', name='設定完成').count() == 0
             shots(page, 'disconnected')
             failure['read'] = False

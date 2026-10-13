@@ -592,7 +592,7 @@ def test_coding_job_phase_reason_stop_line_and_source_commit(ui_page):
     held = (
         ('cancel_requested', 'running', '正在停止', '核對停止與工作狀態'),
         ('stop_unconfirmed', 'running', '停止尚未確認', '核對停止與工作狀態'),
-        ('needs_reconcile', 'running', '需要核對', '核對停止與工作狀態'),
+        ('needs_reconcile', 'running', '需要確認', '核對停止與工作狀態'),
     )
     for state, phase, label, action in (*live, *held):
         job.update(state=state, phase=phase, reason=None, stop_confirmed=False)
@@ -832,8 +832,9 @@ def test_retry_submits_a_new_coding_job_only_on_the_worker_page(ui_page):
     fail['on'] = True
     retry.click()
     alert = page.locator('.worker-results .notice.error')
-    expect(alert.locator('p')).to_have_text('這次沒有送出，請稍後再試。')
-    expect(alert.locator('small')).to_have_text('主機暫時沒有接受這份工作。')
+    expect(alert).to_have_text('主機暫時沒有接受這份工作。')
+    expect(alert.locator('small')).to_have_count(0)
+    assert alert.get_attribute('data-reason') in (None, '')
     expect(page.locator('.worker-results select')).to_have_value('3' * 32)
     assert len(listed['jobs']) == 3
 
