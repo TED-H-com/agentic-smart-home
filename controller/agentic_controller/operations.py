@@ -10,8 +10,8 @@ import aiohttp
 from fastapi import HTTPException, Request
 from pydantic import Field, StrictFloat, StrictInt
 
-from .models import Strict, canonical, digest, utcnow
-from .work import WorkerAction, WorkerPreview
+from .models import Strict, WorkerPreview, canonical, digest, utcnow
+from .work import WorkerAction
 from .workers import WorkerError
 
 HexDigest = Annotated[str, Field(pattern=r'^[a-f0-9]{64}$')]
@@ -90,8 +90,9 @@ async def broker_call(method, path, body=None):
 
 
 class Operations:
-    def __init__(self, store, workers):
+    def __init__(self, store, workers, *, host_mode=False):
         self.store, self.workers, self.preview_lock = store, workers, asyncio.Lock()
+        self.host_mode = host_mode
 
     def owner_scope(self, request):
         return {**self.workers.authority(request=request), 'policy': None}
@@ -108,26 +109,29 @@ class Operations:
             item = self.workers.get(identifier)
             if item.get('content_expired'):
                 raise WorkerError('worker_job_expired', 410)
-            if len(set(body.artifact_ids)) != len(body.artifact_ids):
+            mode = getattr(body, 'mode', 'screenshot')
+            artifact_ids = list(getattr(body, 'artifact_ids', []))
+            if len(set(artifact_ids)) != len(artifact_ids):
                 raise WorkerError('duplicate_artifact', 422)
             # Broker previews live for at most thirty minutes. Do not create a
             # new copy whose lifetime would outlive its source context.
             if item['created_epoch'] + self.workers.context_days() * 86400 < time.time() + 1860:
                 raise WorkerError('preview_context_expiring', 409)
             key = request.headers.get('idempotency-key', '')
-            fingerprint = digest([identifier, sorted(body.artifact_ids)])
+            fingerprint = digest([identifier, mode, sorted(artifact_ids)])
             previous = self.store.request('worker_preview', key, fingerprint)
             if previous:
                 record = self.store.get('worker_preview', previous)
             else:
                 record = {'id': uuid.uuid4().hex, 'job_id': identifier, 'case_id': item['case_id'],
-                          'artifact_ids': sorted(body.artifact_ids), 'created_at': utcnow()}
+                          'mode': mode, 'artifact_ids': sorted(artifact_ids), 'created_at': utcnow()}
                 now = utcnow()
                 with self.store.db:
                     self.store.db.execute('INSERT INTO records VALUES (?,?,?,?,?)', ('worker_preview', record['id'], canonical(record), now, now))
                     self.store.db.execute('INSERT INTO requests VALUES (?,?,?,?)', ('worker_preview', key, fingerprint, record['id']))
             if not record:
                 raise WorkerError('preview_expired', 410)
+            stored_mode = record.get('mode', 'screenshot')
             try:
                 existing = await broker_call('GET', '/previews/' + record['id'])
                 self.guard(authority)
@@ -135,6 +139,19 @@ class Operations:
             except HTTPException as exc:
                 if exc.status_code != 404:
                     raise
+            if stored_mode == 'interactive':
+                # Location first: a bridge or Ingress client must not learn whether a bundle exists.
+                bridged = bool(getattr(getattr(request, 'state', None), 'bridge_identity', None))
+                if bridged or not self.host_mode:
+                    raise WorkerError('interactive_preview_host_only', 409)
+                web_preview = (item.get('verification') or {}).get('web_preview') or {}
+                if web_preview.get('state') != 'built':
+                    raise WorkerError('web_preview_unavailable', 409)
+                self.guard(authority)
+                if self.workers.get(identifier).get('content_expired'):
+                    raise WorkerError('worker_job_expired', 410)
+                return await broker_call('POST', '/previews',
+                                         {'id': record['id'], 'mode': 'interactive', 'job_id': identifier})
             files = []
             for artifact_id in record['artifact_ids']:
                 value = await self.workers.artifact(identifier, artifact_id)
@@ -157,8 +174,8 @@ class Operations:
         return await broker_call('GET', '/previews/' + identifier)
 
 
-def routes(app, store, workers):
-    operations = Operations(store, workers)
+def routes(app, store, workers, *, host_mode=False):
+    operations = Operations(store, workers, host_mode=host_mode)
 
     @app.get('/api/network')
     async def network():

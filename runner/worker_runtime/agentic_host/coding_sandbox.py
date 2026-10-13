@@ -11,11 +11,12 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import stat
 import subprocess
 from contextlib import contextmanager
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from .manager import atomic
 
@@ -26,6 +27,18 @@ SECRET = re.compile(rb"(?i)(-----BEGIN [A-Z ]*PRIVATE KEY-----|Bearer\s+[A-Za-z0
                     rb"(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password)\s*[\"']?\s*[:=]\s*"
                     rb"[\"']?[^\s\"']{8,}|sk-[A-Za-z0-9_-]{16,})")
 SUFFIXES = {".txt", ".md", ".json", ".py", ".patch", ".diff", ".log"}
+WEB_BUNDLE_SUFFIXES = {".html", ".js", ".css", ".svg", ".json", ".txt", ".png", ".webp", ".woff2", ".ico"}
+WEB_TEXT_SUFFIXES = {".html", ".js", ".css", ".svg", ".json", ".txt"}
+WEB_BUNDLE_MAX_FILES = 48
+WEB_BUNDLE_MAX_FILE = 3 * 1024 * 1024
+WEB_BUNDLE_MAX_TOTAL = 6 * 1024 * 1024
+WEB_BUNDLE_MAX_PATH = 160
+WEB_BUNDLE_MAX_DEPTH = 4
+FIXTURE_MAX_BYTES = 1024 * 1024
+FIXTURE_KEY = re.compile(r"[a-z0-9/_-]{1,120}\Z")
+# Minified DOM input-type map (`password:!0,...,week:!0};function`). The tail after
+# `}` may be an optional semicolon plus letters. Digits or punctuation still match.
+_BENIGN_INPUT_TYPES = re.compile(rb"password:!0(?:,[A-Za-z]+:!0)+")
 
 
 ERROR_CODES = frozenset({
@@ -163,13 +176,32 @@ def read_artifacts(root: Path, limits: Limits):
         if entries > 512 or len(Path(directory).relative_to(root).parts) > 12:
             raise SandboxError("Artifact directory limit exceeded")
         dirs.sort()
+        kept = []
         for name in dirs:
             path = Path(directory) / name
             if path.is_symlink():
                 raise SandboxError("Artifact symlinks are forbidden")
+            relative_dir = path.relative_to(root).as_posix()
+            # The interactive bundle is stored separately. A link still fails above.
+            if relative_dir == "web-preview" or relative_dir.startswith("web-preview/"):
+                continue
+            kept.append(name)
+        dirs[:] = kept
         for name in sorted(files):
             path = Path(directory) / name
             relative = path.relative_to(root).as_posix()
+            if relative == "web-fixtures.json" or relative.startswith("web-preview/"):
+                try:
+                    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                except OSError as exc:
+                    raise SandboxError("Artifact cannot be safely opened") from exc
+                try:
+                    info = os.fstat(descriptor)
+                    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                        raise SandboxError("Artifact must be an unlinked regular file")
+                finally:
+                    os.close(descriptor)
+                continue
             suffixes = SUFFIXES | ({".html", ".css", ".js", ".svg"} if limits.web_artifacts else set())
             if len(relative) > 240 or path.suffix not in suffixes or any(ord(c) < 32 for c in relative):
                 raise SandboxError("Unsupported artifact path or type")
@@ -202,6 +234,207 @@ def read_artifacts(root: Path, limits: Limits):
                            "size": len(data), "content": content, "untrusted": True,
                            "redaction": "pattern_scan_only; not a guarantee of no secrets"})
     return result
+
+
+def web_text_secret(data: bytes) -> bool:
+    for match in SECRET.finditer(data):
+        head, sep, tail = match.group(0).partition(b"}")
+        if sep and _BENIGN_INPUT_TYPES.fullmatch(head) and re.fullmatch(rb";?[A-Za-z]+", tail):
+            continue
+        return True
+    return False
+
+
+def bundle_relative(name: str) -> str:
+    if not isinstance(name, str) or not name or len(name) > WEB_BUNDLE_MAX_PATH:
+        raise SandboxError("Unsupported web bundle path")
+    if "\\" in name or "\x00" in name or name.startswith("/"):
+        raise SandboxError("Unsupported web bundle path")
+    path = PurePosixPath(name)
+    parts = path.parts
+    if (name != path.as_posix() or path.is_absolute() or not parts or len(parts) > WEB_BUNDLE_MAX_DEPTH
+            or any(part in {".", ".."} or part.startswith(".") for part in parts)
+            or path.suffix not in WEB_BUNDLE_SUFFIXES):
+        raise SandboxError("Unsupported web bundle path")
+    return name
+
+
+def bundle_digest(files: dict) -> str:
+    listing = [{"path": name, "sha256": hashlib.sha256(files[name]).hexdigest()} for name in sorted(files)]
+    payload = json.dumps(listing, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _read_regular(path: Path, limit: int) -> bytes:
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError as exc:
+        raise SandboxError("Artifact cannot be safely opened") from exc
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            raise SandboxError("Artifact must be an unlinked regular file")
+        if info.st_size > limit:
+            raise SandboxError("Web bundle file exceeds quota")
+        with os.fdopen(descriptor, "rb", closefd=False) as stream:
+            data = stream.read(limit + 1)
+        if len(data) != info.st_size or len(data) > limit:
+            raise SandboxError("Web bundle file changed")
+        return data
+    finally:
+        os.close(descriptor)
+
+
+def _read_bundle_file(bundle: Path, name: str) -> bytes:
+    bundle_relative(name)
+    if bundle.is_symlink() or not bundle.is_dir():
+        raise SandboxError("Web preview bundle is unavailable")
+    current = bundle
+    parts = PurePosixPath(name).parts
+    for part in parts[:-1]:
+        current = current / part
+        if current.is_symlink() or not current.is_dir():
+            raise SandboxError("Web preview bundle is unavailable")
+    return _read_regular(current / parts[-1], WEB_BUNDLE_MAX_FILE)
+
+
+def _read_fixtures(path: Path) -> bytes:
+    if path.is_symlink() or not path.is_file():
+        raise SandboxError("Web preview fixtures are missing")
+    data = _read_regular(path, FIXTURE_MAX_BYTES)
+    if web_text_secret(data):
+        raise SandboxError("Potential secret in artifact; private review required")
+    try:
+        value = json.loads(data)
+    except ValueError as exc:
+        raise SandboxError("Web preview fixtures are invalid") from exc
+    if not isinstance(value, dict) or not value:
+        raise SandboxError("Web preview fixtures are invalid")
+    if any(not isinstance(key, str) or FIXTURE_KEY.fullmatch(key) is None for key in value):
+        raise SandboxError("Web preview fixtures are invalid")
+    return data
+
+
+def read_web_bundle(root: Path):
+    """Read web-preview/ and web-fixtures.json. Caller proved the writer stopped."""
+    if root.is_symlink() or not root.is_dir():
+        raise SandboxError("Invalid artifact directory")
+    preview = root / "web-preview"
+    if preview.is_symlink() or not preview.is_dir():
+        raise SandboxError("Web preview bundle is missing")
+    files, total = {}, 0
+    for directory, dirnames, names in os.walk(preview, followlinks=False):
+        dirnames.sort()
+        for name in list(dirnames):
+            path = Path(directory) / name
+            if path.is_symlink():
+                raise SandboxError("Artifact symlinks are forbidden")
+        for name in sorted(names):
+            path = Path(directory) / name
+            relative = bundle_relative(path.relative_to(preview).as_posix())
+            data = _read_regular(path, WEB_BUNDLE_MAX_FILE)
+            if path.suffix in WEB_TEXT_SUFFIXES and web_text_secret(data):
+                raise SandboxError("Potential secret in artifact; private review required")
+            if len(files) >= WEB_BUNDLE_MAX_FILES or total + len(data) > WEB_BUNDLE_MAX_TOTAL:
+                raise SandboxError("Web bundle quota exceeded")
+            total += len(data)
+            files[relative] = data
+    if "index.html" not in files:
+        raise SandboxError("Web preview entry is missing")
+    return files, _read_fixtures(root / "web-fixtures.json")
+
+
+def _write_private(path: Path, data: bytes) -> None:
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    try:
+        os.write(descriptor, data)
+    finally:
+        os.close(descriptor)
+    path.chmod(0o600)
+
+
+def store_web_bundle(destination: Path, files: dict, fixtures: bytes) -> dict:
+    """Persist a proved bundle. Modes are 0700/0600. Digest matches preview.validate."""
+    if destination.is_symlink():
+        raise SandboxError("Web preview bundle is unavailable")
+    parent = destination.parent
+    if parent.is_symlink():
+        raise SandboxError("Web preview bundle is unavailable")
+    if not parent.is_dir():
+        parent.mkdir(mode=0o700)
+        parent.chmod(0o700)
+    if destination.exists():
+        shutil.rmtree(destination)
+    destination.mkdir(mode=0o700)
+    destination.chmod(0o700)
+    bundle = destination / "bundle"
+    bundle.mkdir(mode=0o700)
+    bundle.chmod(0o700)
+    entries = []
+    for name in sorted(files):
+        bundle_relative(name)
+        data = files[name]
+        if not isinstance(data, bytes):
+            raise SandboxError("Web preview bundle is unavailable")
+        target = bundle
+        for part in PurePosixPath(name).parts[:-1]:
+            target = target / part
+            target.mkdir(mode=0o700, exist_ok=True)
+            target.chmod(0o700)
+        target = target / PurePosixPath(name).parts[-1]
+        _write_private(target, data)
+        entries.append({"path": name, "sha256": hashlib.sha256(data).hexdigest(), "size": len(data)})
+    _write_private(destination / "fixtures.json", fixtures)
+    digest = bundle_digest(files)
+    manifest = {"files": entries, "fixtures": {"sha256": hashlib.sha256(fixtures).hexdigest(), "size": len(fixtures)},
+                "artifact_digest": digest}
+    atomic(destination / "manifest.json", manifest)
+    return {"artifact_digest": digest, "files": len(files), "bytes": sum(len(item) for item in files.values())}
+
+
+def load_stored_bundle(root: Path):
+    """Re-read a stored bundle. Any manifest mismatch raises SandboxError."""
+    if root.is_symlink() or not root.is_dir():
+        raise SandboxError("Web preview bundle is unavailable")
+    manifest_path = root / "manifest.json"
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise SandboxError("Web preview bundle is unavailable")
+    try:
+        manifest = json.loads(manifest_path.read_text())
+        items = manifest["files"]
+        if not isinstance(items, list) or not items:
+            raise ValueError()
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise SandboxError("Web preview bundle is unavailable") from exc
+    files = {}
+    for item in items:
+        try:
+            name = bundle_relative(item["path"])
+            data = _read_bundle_file(root / "bundle", name)
+        except (SandboxError, KeyError, TypeError) as exc:
+            raise SandboxError("Web preview bundle is unavailable") from exc
+        if hashlib.sha256(data).hexdigest() != item.get("sha256") or len(data) != item.get("size"):
+            raise SandboxError("preview_artifact_digest_mismatch")
+        files[name] = data
+    digest = bundle_digest(files)
+    if digest != manifest.get("artifact_digest"):
+        raise SandboxError("preview_artifact_digest_mismatch")
+    try:
+        fixtures = _read_regular(root / "fixtures.json", FIXTURE_MAX_BYTES)
+        meta = manifest["fixtures"]
+        if not isinstance(meta, dict):
+            raise TypeError()
+    except (SandboxError, KeyError, TypeError) as exc:
+        raise SandboxError("Web preview bundle is unavailable") from exc
+    if hashlib.sha256(fixtures).hexdigest() != meta.get("sha256") or len(fixtures) != meta.get("size"):
+        raise SandboxError("preview_artifact_digest_mismatch")
+    try:
+        parsed = json.loads(fixtures)
+    except ValueError as exc:
+        raise SandboxError("Web preview bundle is unavailable") from exc
+    if not isinstance(parsed, dict):
+        raise SandboxError("Web preview bundle is unavailable")
+    return files, parsed, digest
 
 
 class CodingSandbox:

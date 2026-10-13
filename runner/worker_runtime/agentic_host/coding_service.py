@@ -17,7 +17,7 @@ from pathlib import Path
 
 from .coding_program import digest_request, program, verification_program
 from .coding_relay import Relay, credentials
-from .coding_sandbox import CodingSandbox, Limits, SandboxError, command
+from .coding_sandbox import CodingSandbox, Limits, SandboxError, command, read_web_bundle, store_web_bundle
 from .manager import atomic
 from .source import source_identity
 
@@ -41,8 +41,35 @@ FINDING_KEYS = ("facts", "inferences", "unknowns", "experiments", "next_steps")
 _FINDING_HEADING = re.compile(
     r"^(?:#{1,3}[ \t]+|\*\*)?(facts|inferences|unknowns|experiments|next_steps)(?:\*\*)?[ \t]*:?[ \t]*$")
 BUDGET_REASONS = {"setup_timeout", "execution_timeout", "verification_timeout", "authorization_expired"}
+WEB_PREVIEW_REASONS = {
+    ("built", None),
+    ("failed", "web_typecheck_failed"),
+    ("failed", "web_build_failed"),
+    ("failed", "web_build_budget"),
+    ("failed", "web_dependencies_changed"),
+    ("not_applicable", None),
+    ("unavailable", "host_only"),
+}
+JOB_ID = re.compile(r"[a-f0-9]{32}\Z")
 HIDDEN = {"request", "digest", "retained_until", "sandbox_job_id", "sandbox_attempted", "results_collected",
           "collect_failures"}
+
+
+def discard_job_content(root, job_id):
+    """Delete one job's exported artifacts and interactive bundle together."""
+    if not isinstance(job_id, str) or JOB_ID.fullmatch(job_id) is None:
+        raise ValueError("invalid job id")
+    root = Path(root)
+    for name in ("artifacts", "web-previews"):
+        path = root / name / job_id
+        if path.is_symlink():
+            path.unlink()
+        elif path.exists():
+            shutil.rmtree(path)
+
+
+def _web_preview_value(state, reason, digest=None, files=0, size=0):
+    return {"state": state, "reason": reason, "artifact_digest": digest, "files": files, "bytes": size}
 
 
 def parse_findings(text):
@@ -586,6 +613,33 @@ class CodingService:
             atomic(self.root / "inference-verified.json", {"job_id": job["id"], "at": time.time()})
         return patch.encode() if len(patch.encode()) <= ARTIFACT_LIMIT else None
 
+    def web_preview_record(self, job, sandbox, verify_id, reported):
+        """Attach bundle metadata after the verifier is proved stopped. Never stores paths."""
+        missing = _web_preview_value("unavailable", "not_reported")
+        failed = _web_preview_value("failed", "web_build_failed")
+        if reported is None:
+            return missing
+        try:
+            status = json.loads(reported)
+        except (TypeError, ValueError):
+            return failed
+        if not isinstance(status, dict):
+            return failed
+        state, reason = status.get("state"), status.get("reason")
+        if (state, reason) not in WEB_PREVIEW_REASONS:
+            return failed
+        if state != "built":
+            return _web_preview_value(state, reason)
+        if JOB_ID.fullmatch(job["id"]) is None:
+            return failed
+        try:
+            root = Path(sandbox.root) / verify_id / "workspace" / "artifacts"
+            files, fixtures = read_web_bundle(root)
+            stored = store_web_bundle(self.root / "web-previews" / job["id"], files, fixtures)
+        except Exception:
+            return failed
+        return _web_preview_value("built", None, stored["artifact_digest"], stored["files"], stored["bytes"])
+
     def verify(self, job, patch):
         # Called only after the development container is proved stopped. No auth/relay reuse.
         # Own monotonic budget. Owner expires is a separate cancellation, not a shorter verifier.
@@ -642,7 +696,10 @@ class CodingService:
                     "patch_sha256": hashlib.sha256(patch).hexdigest(), "observed_from": self.verifier_location,
                     "exit_code": result.get("exit_code"), "stop_confirmed": True, "trusted_tests": "pinned_baseline",
                     "test_command_sha256": hashlib.sha256(self.verify_program.encode()).hexdigest(), "network": "none"}
+                reported = None
                 for entry in sandbox.artifacts(id):
+                    if entry["name"] == "web-preview.json":
+                        reported = entry["content"]
                     raw = entry["content"].encode()
                     if len(raw) > ARTIFACT_LIMIT:
                         continue
@@ -652,6 +709,7 @@ class CodingService:
                     atomic(self.root / "artifacts" / job["id"] / (aid + ".json"),
                            {**meta, "content_base64": base64.b64encode(raw).decode()})
                     job["artifacts"].append(meta)
+                job["verification"]["web_preview"] = self.web_preview_record(job, sandbox, id, reported)
             else:
                 job.update(state="stop_unconfirmed", phase="stop_unconfirmed", stop_confirmed=False)
                 self.remember_error(job, "writer_stop_unconfirmed")
@@ -706,9 +764,7 @@ class CodingService:
                     if not job.get("error_code"):
                         job["error_code"] = "retention_workspace_cleanup_pending"
                     continue
-                path = self.root / "artifacts" / job["id"]
-                if path.exists():
-                    shutil.rmtree(path)
+                discard_job_content(self.root, job["id"])
                 job.update(state="expired", phase="expired", content_expired=True, request=None, findings={},
                            evidence=[], artifacts=[])
                 self.publish(job)

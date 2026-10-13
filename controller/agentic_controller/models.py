@@ -29,6 +29,24 @@ class Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
 
+PreviewId = Annotated[str, Field(pattern=r"^[a-f0-9]{32}$")]
+
+
+class WorkerPreview(Strict):
+    """Screenshot stays the default. Interactive carries no artifact bytes."""
+    mode: Literal["screenshot", "interactive"] = "screenshot"
+    artifact_ids: Annotated[list[PreviewId], Field(max_length=16)] = []
+
+    @model_validator(mode="after")
+    def artifacts_match_mode(self):
+        if self.mode == "interactive":
+            if self.artifact_ids:
+                raise ValueError("interactive_preview_has_no_artifacts")
+        elif not self.artifact_ids:
+            raise ValueError("screenshot_artifacts_required")
+        return self
+
+
 class HomeEntry(Strict):
     """Product-owned navigation contract; never accepts an upstream redirect URL."""
     contract_version: Literal[1] = 1

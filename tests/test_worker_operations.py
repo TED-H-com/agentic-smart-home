@@ -5,9 +5,8 @@ import time
 from types import SimpleNamespace
 
 import pytest
-from agentic_controller.models import digest
+from agentic_controller.models import WorkerPreview, digest
 from agentic_controller.operations import Operations, UpdateManifest, broker_call
-from agentic_controller.work import WorkerPreview
 from fastapi import HTTPException
 from pydantic import ValidationError
 

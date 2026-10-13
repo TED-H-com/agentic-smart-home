@@ -299,9 +299,21 @@ def digest_request(request):
     return hashlib.sha256(json.dumps(request, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+def web_build_step_seconds(elapsed):
+    """Seconds for one web step, or None when the verifier budget cannot spare it."""
+    left = 240 - elapsed
+    return None if left < 30 else min(120, left)
+
+
 VERIFY_PROGRAM = r'''
-import hashlib,json,os,subprocess
+import hashlib,json,os,re,shutil,subprocess,time
 from pathlib import Path
+_web_started=time.monotonic()
+def web_build_step_seconds(elapsed):
+    left=240-elapsed
+    return None if left<30 else min(120,left)
+def _web_status(state,reason):
+    Path('/work/artifacts/web-preview.json').write_text(json.dumps({'state':state,'reason':reason}))
 patch=Path('/work/candidate.patch').read_bytes()
 result=subprocess.run(['git','-c','core.hooksPath=/dev/null','apply','--check','/work/candidate.patch'],capture_output=True)
 if result.returncode==0:
@@ -361,6 +373,100 @@ Path('/work/artifacts/verification.json').write_text(json.dumps({'state':'passed
     'test_command_sha256':hashlib.sha256(json.dumps(args).encode()).hexdigest(),
     'observed_from':globals().get('VERIFICATION_LOCATION','independent_host_verifier'),'trusted_tests':'pinned_baseline',
     'credentials_present':False,'network':'none','approval':False}))
+def _web_build(code):
+    location=globals().get('VERIFICATION_LOCATION','independent_host_verifier')
+    if location=='independent_home_verifier':
+        _web_status('unavailable','host_only')
+        return
+    touched=False
+    for line in patch.splitlines():
+        if line.startswith(b'diff --git ') and (b' a/web/' in line or b' b/web/' in line):
+            touched=True
+        elif line.startswith((b'--- a/web/', b'+++ b/web/', b'rename from web/', b'rename to web/')):
+            touched=True
+    if code!=0 or not touched:
+        _web_status('not_applicable',None)
+        return
+    def pinned(name):
+        left,right=Path('/work/source/web')/name,Path('/opt/web-toolchain')/name
+        if left.is_symlink() or right.is_symlink() or not left.is_file() or not right.is_file():
+            return False
+        return left.read_bytes()==right.read_bytes()
+    if not (pinned('package.json') and pinned('package-lock.json')):
+        _web_status('failed','web_dependencies_changed')
+        return
+    source,build=Path('/work/source/web'),Path('/work/scratch/web-build')
+    if build.exists():
+        shutil.rmtree(build)
+    def copy_web(origin,dest):
+        if origin.is_symlink():
+            raise RuntimeError('symlink')
+        if origin.is_dir():
+            if origin.name in ('node_modules','dist') and origin!=source:
+                return
+            dest.mkdir(mode=0o700)
+            for child in origin.iterdir():
+                if child.name in ('node_modules','dist'):
+                    continue
+                copy_web(child,dest/child.name)
+        elif origin.is_file():
+            dest.write_bytes(origin.read_bytes())
+        else:
+            raise RuntimeError('special')
+    copy_web(source,build)
+    (build/'node_modules').symlink_to('/opt/web-toolchain/node_modules')
+    def run_node(script,extra):
+        seconds=web_build_step_seconds(time.monotonic()-_web_started)
+        if seconds is None:
+            _web_status('failed','web_build_budget')
+            return 'budget'
+        env={'HOME':'/work/scratch','CI':'1','GOMAXPROCS':'2','UV_THREADPOOL_SIZE':'2',
+             'NODE_OPTIONS':'--max-old-space-size=512','NO_COLOR':'1','PATH':'/usr/local/bin:/usr/bin:/bin'}
+        try:
+            result=subprocess.run(['/usr/local/bin/node',script,*extra],cwd=build,env=env,
+                stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=seconds,check=False)
+            data=result.stdout or b''
+            ok=result.returncode==0
+        except subprocess.TimeoutExpired as exc:
+            data=exc.stdout or b''
+            if isinstance(data,str):
+                data=data.encode()
+            ok=False
+        log=Path('/work/artifacts/web-build.log')
+        previous=log.read_bytes() if log.is_file() and not log.is_symlink() else b''
+        text=re.sub(r'\x1b\[[0-9;]*[A-Za-z]','',(previous+data)[-65536:].decode('utf-8','replace')).replace('\x00','')
+        log.write_text(text)
+        return 'ok' if ok else 'fail'
+    tsc='/opt/web-toolchain/node_modules/typescript/bin/tsc'
+    vite='/opt/web-toolchain/node_modules/vite/bin/vite.js'
+    step=run_node(tsc,['-b'])
+    if step=='budget':
+        return
+    if step!='ok':
+        _web_status('failed','web_typecheck_failed')
+        return
+    # The image toolchain is read-only; the default config loader writes node_modules/.vite-temp.
+    step=run_node(vite,['build','--configLoader','runner','--outDir','/work/artifacts/web-preview','--emptyOutDir'])
+    if step=='budget':
+        return
+    if step!='ok':
+        _web_status('failed','web_build_failed')
+        return
+    fix,index=Path('/work/source/web/preview/fixtures.json'),Path('/work/artifacts/web-preview/index.html')
+    if fix.is_symlink() or not fix.is_file() or index.is_symlink() or not index.is_file():
+        _web_status('failed','web_build_failed')
+        return
+    data=fix.read_bytes()
+    if len(data)>1048576 or b'\x00' in data:
+        _web_status('failed','web_build_failed')
+        return
+    Path('/work/artifacts/web-fixtures.json').write_bytes(data)
+    _web_status('built',None)
+try:
+    _web_build(code)
+except Exception:
+    if not Path('/work/artifacts/web-preview.json').exists():
+        _web_status('failed','web_build_failed')
 raise SystemExit(code)
 '''
 
