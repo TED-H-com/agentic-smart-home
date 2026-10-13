@@ -333,3 +333,85 @@ def test_signed_in_hermes_summary_and_login_poll_stops_after_errors():
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+
+def test_hermes_panel_recovers_from_failed_reads_and_a_late_runtime():
+    root = Path(__file__).parents[1]
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory=str(root / "controller/static")))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    hermes = {"status": 503, "runtime": {"state": "unavailable", "runtime": "hermes", "auth_verified_at": None}}
+    errors = []
+
+    def route(route):
+        request = route.request
+        path = request.url.split("/api/")[1].split("?")[0]
+        if request.method != "GET":
+            raise AssertionError("Unexpected API write: " + path)
+        if path == "deployment":
+            result = {"mode": "host", "authenticated": True}
+        elif path == "session":
+            result = {"principal": "host-owner", "csrf": "fixture-csrf", "mode": "host"}
+        elif path == "status":
+            result = {"ha": {"status": "connected"}, "runner": {"protocol": 1, "providers": []},
+                      "version": "fixture", "paused": False}
+        elif path == "tasks":
+            result = {"tasks": []}
+        elif path == "runtimes":
+            result = {"host": {"protocol": 1, "providers": []}, "haos": {"status": "unpaired"}}
+        elif path == "hermes":
+            if hermes["status"] != 200:
+                route.fulfill(status=hermes["status"], content_type="application/json",
+                              body=json.dumps({"detail": "暫時無法回應"}))
+                return
+            result = {"runtime": hermes["runtime"], "workers": []}
+        else:
+            raise AssertionError("Unexpected API route: " + path)
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(result))
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.route("**/api/**", route)
+            page.clock.install()
+            page.goto(f"http://127.0.0.1:{server.server_port}/#agents")
+            panel = page.get_by_role("region", name="智能管家登入")
+            failed = panel.get_by_role("alert").filter(has_text="暫時無法回應")
+            heading = panel.locator(".section-heading").get_by_role("status")
+            expect(failed).to_be_visible()
+            # The next good background read clears the failed one; nothing to press.
+            hermes["status"] = 200
+            page.clock.run_for(10_500)
+            expect(heading).to_have_text("暫時無法使用")
+            expect(failed).to_have_count(0)
+            panel.get_by_role("radio", name="ChatGPT 訂閱", exact=True).check()
+            model = panel.get_by_label("模型 ID", exact=True)
+            expect(model).to_have_value("")
+            expect(panel.get_by_role("button", name="開始登入", exact=True)).to_be_disabled()
+            # A runtime that finishes starting later supplies its default model.
+            hermes["runtime"] = {"state": "needs_auth", "provider": "openai-codex", "model": "",
+                                 "auth_verified_at": None, "default_models": {"openai-codex": "gpt-6-astra"}}
+            page.clock.run_for(10_500)
+            expect(heading).to_have_text("尚未登入")
+            expect(model).to_have_value("gpt-6-astra")
+            expect(panel.get_by_role("button", name="開始登入", exact=True)).to_be_enabled()
+            hermes["status"] = 503
+            page.clock.run_for(10_500)
+            expect(failed).to_be_visible()
+            hermes["status"] = 200
+            page.clock.run_for(10_500)
+            expect(failed).to_have_count(0)
+            # What the owner typed, even an emptied field, is not overwritten.
+            model.fill("")
+            page.clock.run_for(10_500)
+            expect(heading).to_have_text("尚未登入")
+            expect(model).to_have_value("")
+            assert not errors, errors
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)

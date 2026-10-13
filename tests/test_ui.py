@@ -745,7 +745,7 @@ def test_maintenance_fault_sentences_keep_the_code_off_the_sentence():
             page.goto(origin + '/#settings')
             page.locator('summary').filter(has_text='智能管家側欄').click()
             panel = page.get_by_role('region', name='側欄維護')
-            panel.get_by_role('button', name='啟用側欄並自動維護', exact=True).click()
+            panel.get_by_role('button', name='啟用側欄', exact=True).click()
             bridge = panel.locator('.notice.error')
             expect(bridge).to_have_text('目前不能更新，請重新整理後再試。')
             expect(bridge).to_have_attribute('data-reason', 'bridge_update_not_allowed')

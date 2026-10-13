@@ -341,7 +341,7 @@ def test_outer_sidebar_maintenance_explicit_authority_and_revocation(bridge_brow
     page.goto(base + "#settings")
     expect(page.get_by_role("heading", name="設定", exact=True)).to_be_visible()
     assert not any("bridge/maintenance" in path for _, path in calls)
-    page.get_by_text("HA 智能管家側欄", exact=True).click()
+    page.get_by_text("智能管家側欄", exact=True).click()
     panel = page.get_by_role("region", name="側欄維護")
     expect(panel.get_by_text("尚未啟用", exact=True)).to_be_visible()
     assert not mutations
@@ -369,7 +369,7 @@ def test_outer_sidebar_maintenance_explicit_authority_and_revocation(bridge_brow
     expect(panel.get_by_text("已撤銷連接", exact=True)).to_be_visible()
     assert [m[0].rsplit("/", 1)[1] for m in mutations] == ["authorize", "policy", "disable"]
     assert mutations[-1][1] == {}
-    panel.get_by_role("button", name="重新啟用側欄並自動維護", exact=True).click()
+    panel.get_by_role("button", name="重新啟用側欄", exact=True).click()
     expect(panel.get_by_text("側欄服務可用", exact=True)).to_be_visible()
     assert mutations[-1][1] == {"auto_repair": True}
 
@@ -438,7 +438,7 @@ def test_sidebar_app_update_states_keys_and_poll(bridge_browser):
         # Same-URL goto does not reload, and a second click would close the fold.
         page.goto(base + "#settings")
         page.reload()
-        page.get_by_text("HA 智能管家側欄", exact=True).click()
+        page.get_by_text("智能管家側欄", exact=True).click()
         panel = page.get_by_role("region", name="側欄維護")
         expect(panel).to_be_visible()
         return panel
