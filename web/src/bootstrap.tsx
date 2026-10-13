@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {api,haPath,requestKey,session} from './api';
-import {Button,Notice,timestamp} from './ui';
+import {Button,Notice,friendlySentence,timestamp} from './ui';
 import {Provider} from './providers';
 import {ChannelSettings,ManualOnboarding} from './channels';
 import {HermesPanel} from './hermes';
@@ -15,6 +15,22 @@ const groups=[{title:'主機',ids:['network','runner_pairing']},{title:'AI 帳�
 const stepNames:Record<string,string>={network:'檢查網路',runner_pairing:'連接主機',cli_auth:'登入 AI 帳號',cli_assist:'確認設定',hermes_install:'準備智能管家',hermes_auth:'登入智能管家',channel:'選擇通訊',ha_provision:'啟動家庭',ha_native:'設定家庭'};
 const states:Record<string,string>={idle:'尚未開始',pending:'尚未開始',running:'處理中',waiting_input:'等你操作',blocked:'需要處理',completed:'已完成',skipped:'已略過'};
 const human=['cli_login','hermes_login','channel_setup','ha_native_onboarding'];
+const retryCopy:Record<string,string>={
+  hermes_rate_limited:'供應商暫時限制請求，請稍後再重試驗證。',
+  hermes_provider_unavailable:'模型服務暫時無法連線，請稍後再重試驗證。',
+  hermes_verification_timeout:'這次模型驗證逾時，請稍後再重試。',
+  hermes_verification_failed:'智能管家的連線驗證沒有完成，請檢查登入後重試。',
+  hermes_install_failed:'智能管家還沒準備好，請查看主機後重試。',
+  ha_provision_failed:'家庭環境尚未就緒，請查看主機後重試。',
+  cli_assist_failed:'設定確認沒有完成，請檢查登入後重試。',
+  cli_assist_expired:'這次設定確認已過期，請重試。',
+  needs_reauth:'登入已失效，請重新登入。',
+  rate_limited:'已達用量上限，請稍後再試。',
+  invalid_credentials:'登入資訊無效，請重新輸入。',
+  network:'無法連線到 AI 服務，請檢查網路後再試。',
+  cli_output_unrecognized:'無法確認登入結果，請稍後再試。',
+  timeout:'AI 帳號回應逾時，請稍後再試。',
+};
 
 function SelectedCli({provider,onChange}:{provider:ProviderId;onChange:()=>void}){
   const [runtime,setRuntime]=useState<any>(null),[error,setError]=useState('');
@@ -45,13 +61,15 @@ export function Onboarding({status,onChange,navigate}:{status:any;onChange:()=>v
   const current=data?.steps.find(s=>s.id===data.current_step);
   const activeGroup=groups.findIndex(group=>group.ids.includes(data?.current_step||''));
   const disconnected=!!readError;
+  const blocked=!!data&&(data.state==='blocked'||action?.kind==='retry');
+  const retryCode=action?.code||current?.code||'';
+  const retrySentence=blocked?friendlySentence(action?.message,retryCopy[retryCode]||(typeof action?.message==='string'?action.message:'')):'';
   const cue=data?.current_step==='hermes_install'?'正在準備智能管家。':data?.current_step==='ha_provision'?'正在建立家庭環境，請保持電源與網路。':data?.current_step==='cli_assist'?'助手正在確認設定…':'正在檢查這個步驟。';
   return <div className="onboarding bootstrap">
     <ol className="onboarding-steps bootstrap-steps" aria-label="自動設定進度">{groups.map((group,index)=>{const entries=data?.steps.filter(step=>group.ids.includes(step.id))||[];const done=started&&entries.length===group.ids.length&&entries.every(step=>['completed','skipped'].includes(step.state));const skipped=done&&entries.every(step=>step.state==='skipped');const here=activeGroup===index;return <li key={group.title} aria-current={here?'step':undefined} className={done?'complete':''}><span className="step-dot" aria-hidden>{skipped?'—':done?'✓':index+1}</span>{done&&!skipped&&<span className="sr-only">已完成</span>}<span className={here||!started?'step-label':'step-label step-label-quiet'}>{group.title}</span>{skipped&&<small>已略過</small>}</li>})}</ol>
     {readError&&<Notice error><span>請重試連線。</span><small>{readError}</small>{data&&<p>恢復連線後會從這裡繼續。</p>}<Button secondary disabled={busy} onClick={()=>refresh().catch(e=>setReadError(e.message))}>重試連線</Button></Notice>}{error&&<Notice error>{error}</Notice>}
     <div className="onboarding-body" aria-busy={busy}>{!data?<p role="status">正在讀取設定進度…</p>:!started?<section aria-label="選擇初始化助手"><h2>先選一個 AI 助手</h2><p>登入後，其餘設定自動完成。</p><form onSubmit={e=>{e.preventDefault();mutate('start',{provider,channel:'line'}).catch(()=>{})}}><div className="radio-cards" role="radiogroup" aria-label="使用的助手">{choices.map(item=><label key={item.id} className={`radio-card ${provider===item.id?'chosen':''}`}><input type="radio" name="bootstrap-provider" value={item.id} checked={provider===item.id} disabled={busy||disconnected} onChange={()=>setProvider(item.id)}/><strong>{item.name}</strong><small>{item.hint}</small></label>)}</div>{provider==='claude'&&<p className="helper-text">Claude Code 使用官方 setup-token。</p>}{provider==='agy'&&<p className="helper-text">Google 訂閱登入尚未整合，請用 Gemini API key。</p>}<Button type="submit" disabled={busy||disconnected}>{busy?'正在開始…':'開始設定'}</Button><details><summary>詳細說明</summary><p>開始即同意安裝並維護智能管家 App；不更動 HA 系統更新，手動停止或移除會保留，可隨時在設定撤銷。</p></details></form></section>:complete?<HomeEntry completion navigate={navigate}/>:<>
-      {!human.includes(action?.kind||'')&&data.state==='blocked'&&<h2>這一步需要重試</h2>}
-      {action?.message&&(data.state==='blocked'||action.kind==='retry')&&<Notice error>{action.message}</Notice>}
+      {retrySentence&&<Notice error>{retrySentence}</Notice>}
       {disconnected?<p className="helper-text">等待恢復連線。</p>:action?.kind==='cli_login'?<SelectedCli provider={selected} onChange={changed}/>:action?.kind==='hermes_login'?<HermesPanel guided/>:action?.kind==='channel_setup'?<ChannelSettings guided initialChannel={data.channel} onChannelChange={channel=>mutate('preferences',{channel})} onChange={changed}/>:action?.kind==='ha_native_onboarding'?<NativeHome onChange={changed} ownerRequired={action.code==='ha_owner_required'}/>:data.state==='blocked'||action?.kind==='retry'?<Button disabled={busy} onClick={()=>mutate('retry',{}).catch(()=>{})}>{busy?'重新檢查中…':'重試這一步'}</Button>:<p role="status">{cue}</p>}
       <details><summary>技術資料</summary><ol className="bootstrap-log">{data.steps.map(step=><li key={step.id}><strong>{stepNames[step.id]||step.id}</strong><span>{states[step.state]||step.state}</span>{step.code&&<code>{step.code}</code>}{step.verified_at&&<small>{timestamp(step.verified_at)}</small>}</li>)}</ol>{current?.code&&<p className="helper-text">目前狀態：{current.code}</p>}</details>
     </>}</div>
