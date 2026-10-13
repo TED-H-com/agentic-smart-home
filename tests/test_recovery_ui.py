@@ -129,7 +129,7 @@ def test_hermes_login_codes_and_pending_resume():
         page.route('**/api/**', route)
         page.goto(f'http://127.0.0.1:{server.server_port}/#agents')
         panel = page.get_by_role('region', name='智能管家登入')
-        panel.get_by_role('radio', name='官方訂閱登入', exact=True).check()
+        panel.get_by_role('radio', name='ChatGPT 訂閱', exact=True).check()
         panel.get_by_role('button', name='開始登入', exact=True).click()
         for code, (sentence, action, _state) in HERMES_COPY.items():
             expect(panel.get_by_text(sentence, exact=True)).to_be_visible()
@@ -306,7 +306,7 @@ def test_line_qr_epoch_and_terminal_failures_restart():
         page.route('**/api/**', route)
         page.goto(f'http://127.0.0.1:{server.server_port}/#gateway/channels')
         page.get_by_role('button', name='開始 LINE 掃碼登入', exact=True).click()
-        image = page.get_by_alt_text('用 LINE 掃描此登入 QR code')
+        image = page.get_by_alt_text('用 LINE 掃描這個 QR')
         expect(image).to_have_attribute('src', re.compile(r'^data:image/png;base64,'))
         expect(page.get_by_text('已更新 QR code', exact=True)).to_have_count(0)
         first = image.get_attribute('src')
@@ -316,7 +316,7 @@ def test_line_qr_epoch_and_terminal_failures_restart():
         page.wait_for_timeout(1800)
         expect(page.get_by_text('已更新 QR code', exact=True)).to_have_count(1)
         line.update(status='qr_expired', qr=None, reason='qr_expired', message=None, qr_epoch=2)
-        expect(page.get_by_text('QR code 已過期，請重新開始。', exact=True)).to_be_visible(timeout=POLL)
+        expect(page.get_by_text('QR 已過期，請重新開始。', exact=True)).to_be_visible(timeout=POLL)
         expect(page.get_by_role('button', name='重新開始', exact=True)).to_be_visible()
         expect(page.get_by_role('button', name='開始 LINE 掃碼登入', exact=True)).to_be_hidden()
         expect(page.locator('.line-login')).to_have_attribute('data-reason', 'qr_expired')
@@ -378,25 +378,152 @@ def test_telegram_token_focus_and_conflict_sentences():
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.route('**/api/**', route)
         page.goto(f'http://127.0.0.1:{server.server_port}/#gateway/channels')
-        expect(page.get_by_text('Bot token 無效，請重新貼上。', exact=True)).to_be_visible()
+        settings = page.get_by_role('region', name='對外通訊設定')
+        expect(page.get_by_text('權杖無效，請重新貼上。', exact=True)).to_be_visible()
         expect(page.get_by_text('invalid_token', exact=True)).to_have_count(0)
-        expect(page.get_by_label('Telegram bot token', exact=True)).to_be_focused()
+        expect(page.get_by_label('Telegram 機器人權杖', exact=True)).to_be_focused()
+        expect(settings.get_by_role('button', name='重新檢查連線', exact=True)).to_have_count(0)
+        expect(settings.get_by_role('button', name='重新檢查', exact=True)).to_have_count(0)
         _layouts(page, 'telegram-token')
         channels['telegram'].update(status='webhook_conflict', reason='webhook_active', message=None)
-        page.get_by_role('button', name='重新檢查連線', exact=True).click()
-        expect(page.get_by_text('這個 Bot 已連到其他服務（webhook），請先在那裡解除。', exact=True)).to_be_visible()
-        expect(page.get_by_text('這個 Bot 正被另一個程式使用，請先停止它。', exact=True)).to_have_count(0)
+        expect(page.get_by_text('這個機器人已接到別的服務，請先在那裡解除。', exact=True)).to_be_visible(timeout=15000)
+        expect(page.get_by_text('這個機器人正被另一個程式使用，請先停止它。', exact=True)).to_have_count(0)
         channels['telegram'].update(status='webhook_conflict', reason='poller_conflict', message=None)
-        page.get_by_role('button', name='重新檢查連線', exact=True).click()
-        expect(page.get_by_text('這個 Bot 正被另一個程式使用，請先停止它。', exact=True)).to_be_visible()
-        expect(page.get_by_text('這個 Bot 已連到其他服務（webhook），請先在那裡解除。', exact=True)).to_have_count(0)
+        expect(page.get_by_text('這個機器人正被另一個程式使用，請先停止它。', exact=True)).to_be_visible(timeout=15000)
+        expect(page.get_by_text('這個機器人已接到別的服務，請先在那裡解除。', exact=True)).to_have_count(0)
         channels['discord'].update(status='unavailable', reason='unavailable', message=None)
-        page.get_by_role('radio', name='Discord 自己的 bot', exact=True).check()
-        page.get_by_role('button', name='重新檢查連線', exact=True).click()
-        expect(page.get_by_text('Discord · 連線中斷', exact=True)).to_be_visible()
-        expect(page.get_by_text('在 Developer Portal 建立 bot', exact=False)).to_be_visible()
+        page.get_by_role('radio', name='Discord', exact=True).check()
+        expect(page.get_by_text('Discord · 連線中斷', exact=True)).to_be_visible(timeout=15000)
+        expect(page.get_by_text('在 Discord 開發者頁建立機器人，並允許讀寫訊息。', exact=True)).to_be_visible()
         expect(page.get_by_text('暫時連不上 Telegram。', exact=True)).to_have_count(0)
         _layouts(page, 'telegram-conflict')
+        _finish(server, thread, browser, errors)
+
+
+def _channel_gateway(channels, preferences):
+    gateway = {'step': 0, 'selected': True, 'preferences': preferences, 'channels': list(channels.values())}
+
+    def publish():
+        gateway['channels'] = list(channels.values())
+        return gateway
+
+    return gateway, publish
+
+
+def test_channel_disable_confirms_before_the_same_request():
+    server, thread = _server()
+    preferences = {'primary': 'line', 'runtime': 'host', 'provider': 'codex', 'coordinator': 'hermes'}
+    channels = {name: {'id': name, 'status': 'disabled', 'enabled': False, 'chats': [], 'senders': [], 'has_secret': False, 'reason': None, 'message': None}
+                for name in ('line', 'telegram', 'discord')}
+    channels['line'].update(status='connected', enabled=True, chats=['room-1'], senders=['user-1'])
+    gateway, publish = _channel_gateway(channels, preferences)
+    posts, errors = [], []
+
+    def route(route):
+        request = route.request
+        path = request.url.split('/api/')[1].split('?')[0]
+        body = request.post_data_json if request.method == 'POST' else None
+        if body is not None:
+            posts.append({'path': path, 'body': body, 'csrf': request.headers.get('x-agentic-csrf'),
+                          'key': request.headers.get('idempotency-key')})
+            if path == 'gateway/channels/line':
+                channels['line'].update(enabled=body['enabled'], chats=body['chats'], senders=body['senders'],
+                                        status='disabled' if not body['enabled'] else 'connected')
+            elif path == 'gateway/preferences':
+                preferences.update(body)
+        if path == 'deployment':
+            result = {'mode': 'host', 'authenticated': True}
+        elif path == 'session':
+            result = {'principal': 'host-owner', 'csrf': 'fixture-csrf', 'mode': 'host'}
+        elif path == 'status':
+            result = {'ha': {'status': 'connected'}, 'runner': {'protocol': 1, 'providers': []}, 'version': 'fixture', 'paused': False}
+        elif path == 'tasks':
+            result = {'tasks': []}
+        elif path == 'gateway':
+            result = publish()
+        elif path == 'gateway/messages':
+            result = {'messages': []}
+        else:
+            result = {'ok': True}
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(result))
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(viewport={'width': 1440, 'height': 900})
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        page.route('**/api/**', route)
+        page.goto(f'http://127.0.0.1:{server.server_port}/#gateway/channels')
+        settings = page.get_by_role('region', name='對外通訊設定')
+        expect(settings.get_by_label('允許的聊天室 ID')).to_have_value('room-1')
+        expect(settings.get_by_label('允許的使用者 ID')).to_have_value('user-1')
+        settings.get_by_role('button', name='停用此通道', exact=True).click()
+        confirm = settings.get_by_role('group', name='停用這個通訊？')
+        expect(confirm).to_be_visible()
+        page.wait_for_timeout(300)
+        assert posts == []
+        confirm.get_by_role('button', name='取消', exact=True).click()
+        expect(confirm).to_have_count(0)
+        assert posts == []
+        settings.get_by_role('button', name='停用此通道', exact=True).click()
+        confirm.get_by_role('button', name='停用', exact=True).click()
+        expect(settings.get_by_text('此通道已停用，Web 仍可使用。', exact=True)).to_be_visible()
+        assert [item['path'] for item in posts] == ['gateway/channels/line', 'gateway/preferences']
+        assert posts[0]['body'] == {'enabled': False, 'secret': '', 'chats': ['room-1'], 'senders': ['user-1']}
+        assert posts[1]['body'] == {'primary': 'line', 'runtime': 'host', 'provider': 'codex', 'coordinator': 'hermes'}
+        assert posts[0]['csrf'] == posts[1]['csrf'] == 'fixture-csrf'
+        assert re.fullmatch(r'[0-9a-f]{32}', posts[0]['key'])
+        assert re.fullmatch(r'[0-9a-f]{32}', posts[1]['key'])
+        assert posts[0]['key'] != posts[1]['key']
+        _finish(server, thread, browser, errors)
+
+
+def test_channel_poll_waits_while_the_form_is_dirty():
+    server, thread = _server()
+    preferences = {'primary': 'telegram', 'runtime': 'host', 'provider': 'codex', 'coordinator': 'hermes'}
+    channels = {name: {'id': name, 'status': 'disabled', 'enabled': False, 'chats': [], 'senders': [], 'has_secret': False, 'reason': None, 'message': None}
+                for name in ('line', 'telegram', 'discord')}
+    channels['telegram'].update(status='invalid_token', reason='invalid_token', message=None)
+    gateway, publish = _channel_gateway(channels, preferences)
+    posts, errors = [], []
+
+    def route(route):
+        request = route.request
+        path = request.url.split('/api/')[1].split('?')[0]
+        if request.method == 'POST':
+            posts.append(path)
+        if path == 'deployment':
+            result = {'mode': 'host', 'authenticated': True}
+        elif path == 'session':
+            result = {'principal': 'host-owner', 'csrf': 'fixture-csrf', 'mode': 'host'}
+        elif path == 'status':
+            result = {'ha': {'status': 'connected'}, 'runner': {'protocol': 1, 'providers': []}, 'version': 'fixture', 'paused': False}
+        elif path == 'tasks':
+            result = {'tasks': []}
+        elif path == 'gateway':
+            result = publish()
+        elif path == 'gateway/messages':
+            result = {'messages': []}
+        else:
+            result = {}
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(result))
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(viewport={'width': 390, 'height': 844})
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        page.route('**/api/**', route)
+        page.goto(f'http://127.0.0.1:{server.server_port}/#gateway/channels')
+        expect(page.get_by_text('權杖無效，請重新貼上。', exact=True)).to_be_visible()
+        page.get_by_label('Telegram 機器人權杖', exact=True).fill('fixture-token-not-saved')
+        channels['telegram'].update(status='webhook_conflict', reason='webhook_active', message=None)
+        page.wait_for_timeout(6000)
+        expect(page.get_by_text('權杖無效，請重新貼上。', exact=True)).to_be_visible()
+        expect(page.get_by_text('這個機器人已接到別的服務，請先在那裡解除。', exact=True)).to_have_count(0)
+        assert posts == []
+        page.get_by_role('radio', name='Discord', exact=True).check()
+        page.get_by_role('radio', name='Telegram', exact=True).check()
+        expect(page.get_by_text('這個機器人已接到別的服務，請先在那裡解除。', exact=True)).to_be_visible(timeout=12000)
+        assert posts == []
         _finish(server, thread, browser, errors)
 
 

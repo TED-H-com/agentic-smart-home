@@ -51,20 +51,26 @@ export function HomeEntry({automatic=false,completion=false,navigate}:{automatic
     }).catch(e=>{if(alive){autoAllowed.current=false;setError(e.message);setBusy(false)}});
     return()=>{alive=false};
   },[automatic]);
-  async function retry(){
-    autoAllowed.current=false;setBusy(true);setError('');
-    try{setEntry(await readEntry())}catch(e){setEntry(null);setError((e as Error).message)}finally{setBusy(false)}
-  }
+  // Rescue reads again until the home is ready or still in setup. This poll must not navigate.
+  useEffect(()=>{
+    if(busy||entry?.state==='ready'||entry?.state==='setup')return;
+    let alive=true;
+    const timer=setInterval(()=>{readEntry().then(value=>{if(!alive)return;setEntry(value);setError('')}).catch(e=>{if(!alive)return;setEntry(null);setError((e as Error).message)})},5000);
+    return()=>{alive=false;clearInterval(timer)};
+  },[busy,entry?.state]);
   const ready=entry?.state==='ready',setup=entry?.state==='setup',rescue=!busy&&!ready&&!setup;
+  const reason=entry?.reason_code||'';
+  const rescueText=reason==='home_unavailable'?'家庭暫時沒有回應，可能還在啟動。':reason==='maintenance'?'主機正在更新，完成後會自動恢復。':reason==='home_not_bound'?'還沒有連接家庭。':reason==='home_identity_changed'?'家庭擁有者已變更，請重新連接家庭。':reason==='home_contract_changed'?'家庭版本已變更，請直接開啟家庭。':'家庭暫時無法連接。';
+  const contractChanged=rescue&&reason==='home_contract_changed';
+  const openHome=<a className={contractChanged?'button':'text-button'} href={haPath('/')} target="_blank" rel="noreferrer" onClick={()=>{autoAllowed.current=false}}>開啟家庭 ↗</a>;
   return <section className="home-entry settings-section" aria-label="家庭入口">
     <h2>{completion?'設定完成':busy?'正在確認家庭入口':ready?'家庭已就緒':setup?'繼續完成設定':'家庭暫時無法連接'}</h2>
-    {busy?<p role="status">正在確認家庭連線。</p>:<p>{ready?'日常操作直接進入家庭。':setup?'已完成的部分會保留。':'可以請智能管家協助，或檢查主機。'}</p>}
+    {busy?<p role="status">正在確認家庭連線。</p>:ready?<p>日常操作直接進入家庭。</p>:setup?<p>已完成的部分會保留。</p>:<p data-reason={reason||undefined}>{rescueText}</p>}
     {error&&<Notice error>{error}</Notice>}
     <div className="row-actions">
-      {setup?<Button onClick={()=>navigate('onboarding')}>繼續設定</Button>:<a className={`button ${ready?'':'secondary'}`} href={haPath('/')} target="_blank" rel="noreferrer" onClick={()=>{autoAllowed.current=false}}>{ready?'進入家庭':'手動開啟 Home Assistant'} ↗</a>}
+      {setup?<Button onClick={()=>navigate('onboarding')}>繼續設定</Button>:ready?<a className="button" href={haPath('/')} target="_blank" rel="noreferrer" onClick={()=>{autoAllowed.current=false}}>進入家庭 ↗</a>:contractChanged?openHome:<Button onClick={()=>navigate('host')}>主機維護</Button>}
       <Button secondary onClick={()=>navigate('gateway')}>智能管家</Button>
-      {rescue&&<button type="button" className="text-button" onClick={()=>navigate('host')}>主機維護</button>}
-      {!busy&&!ready&&<button type="button" className="text-button" onClick={retry}>重新檢查</button>}
+      {rescue&&!contractChanged&&openHome}
     </div>
     {codingPrompt&&<div className="coding-login-prompt" role="status"><span>開發助手尚未登入</span><button type="button" className="text-button" onClick={()=>navigate('workers')}>登入開發助手</button><button type="button" className="text-button" onClick={()=>{try{localStorage.setItem('agentic-skip-coding-login','1')}catch{/* storage unavailable */}setCodingPrompt(false)}}>略過</button></div>}
   </section>

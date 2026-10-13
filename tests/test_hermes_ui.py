@@ -110,45 +110,48 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             page.get_by_text("其他設定方式", exact=True).click()
             panel = page.get_by_role("region", name="智能管家登入")
             panel.get_by_role("heading", name="智能管家登入", exact=True).wait_for()
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚待登入")
+            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚未登入")
             expect(panel.get_by_role("button", name="儲存登入")).to_be_disabled()
             screenshots(page, "needs-auth")
 
-            page.get_by_role("textbox", name="OpenRouter 模型 ID", exact=True).fill("fixture/model")
-            key = page.get_by_role("textbox", name="OpenRouter API key", exact=True)
+            page.get_by_role("textbox", name="模型", exact=True).fill("fixture/model")
+            key = page.get_by_role("textbox", name="金鑰", exact=True)
             assert key.get_attribute("type") == "password" and key.get_attribute("autocomplete") == "off"
             key.fill(secret)
             assert secret not in stored(page)
             key.press("Enter")
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，待實際回覆驗證")
+            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，尚未驗證")
             expect(panel.locator(".setup-facts span")).to_have_text("已登入 · OpenRouter")
-            expect(panel.locator(".setup-facts small")).to_have_text("fixture/model")
+            expect(panel.locator(".setup-facts small")).to_have_count(0)
+            expect(panel.locator("details").filter(has=page.locator("summary", has_text="技術資料"))).to_contain_text("模型 fixture/model")
             expect(panel.locator(".hermes-login-form")).to_have_count(0)
             assert panel.get_by_text("已完成推論驗證", exact=True).count() == 0
+            assert panel.get_by_text("已可對話", exact=True).count() == 0
             assert secret not in stored(page) and secret not in page.content()
             assert all(secret not in url for url in urls)
             assert [path for path, _ in calls] == ["hermes/auth"]  # storing credentials must not start a turn
             screenshots(page, "configured")
             page.reload()
             page.get_by_text("其他設定方式", exact=True).click()
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，待實際回覆驗證")
+            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，尚未驗證")
             expect(panel.locator(".hermes-login-form")).to_have_count(0)
             expect(panel.locator(".setup-facts span")).to_have_text("已登入 · OpenRouter")
+            expect(panel.locator("details").filter(has=page.locator("summary", has_text="技術資料"))).to_contain_text("模型 fixture/model")
             assert secret not in stored(page)
 
             # The authoritative backend, not the save operation, supplies verified/reauth states.
+            # The panel reads hermes again every 10s; the old bottom 重新檢查 button is gone.
+            expect(panel.get_by_role("button", name="重新檢查", exact=True)).to_have_count(0)
+            status = panel.locator(".section-heading").get_by_role("status")
             runtime["state"] = "ready"
-            panel.get_by_role("button", name="重新檢查", exact=True).click()
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已完成推論驗證")
+            expect(status).to_have_text("已可對話", timeout=15000)
             runtime["state"] = "needs_reauth"
-            panel.get_by_role("button", name="重新檢查", exact=True).click()
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("需要重新登入")
+            expect(status).to_have_text("需要重新登入", timeout=15000)
             runtime["state"] = "unavailable"
-            panel.get_by_role("button", name="重新檢查", exact=True).click()
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("服務尚未連線")
+            expect(status).to_have_text("暫時無法使用", timeout=15000)
             runtime["state"] = "configured"
 
-            page.get_by_role("button", name="保留進度，先開啟 Web 對話", exact=True).click()
+            page.locator(".bootstrap-manual").get_by_role("button", name="稍後再設定", exact=True).click()
             mode = page.get_by_label("對話方式", exact=True)
             expect(mode).to_have_value("hermes")
             assert page.get_by_label("AI", exact=True).count() == 0
@@ -202,9 +205,10 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             assert calls[-1][1]["reply_to"] is None and messages[0]["case_id"] != first["case_id"]
 
             click_navigation(page, 'Agent 環境')
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，待實際回覆驗證")
+            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，尚未驗證")
+            expect(panel.get_by_role("button", name="重新檢查", exact=True)).to_have_count(0)
             panel.get_by_role("button", name="登出", exact=True).click()
-            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚待登入")
+            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚未登入")
             assert secret not in stored(page) and not errors, errors
             browser.close()
     finally:
@@ -281,23 +285,29 @@ def test_signed_in_hermes_summary_and_login_poll_stops_after_errors():
             page.route("**/api/**", route)
             page.goto(f"http://127.0.0.1:{server.server_port}/#agents")
             panel = page.get_by_role("region", name="智能管家登入")
-            expect(panel.locator(".setup-facts span")).to_have_text("已登入 · 官方訂閱")
-            expect(panel.locator(".setup-facts small")).to_have_text("gpt-6-astra")
+            expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，尚未驗證")
+            expect(panel.get_by_text("已可對話", exact=True)).to_have_count(0)
+            expect(panel.get_by_role("button", name="重新檢查", exact=True)).to_have_count(0)
+            expect(panel.locator(".setup-facts span")).to_have_text("已登入 · ChatGPT 訂閱")
+            expect(panel.locator(".setup-facts small")).to_have_count(0)
+            facts = panel.locator("details").filter(has=page.locator("summary", has_text="技術資料"))
+            expect(facts).to_contain_text("模型 gpt-6-astra")
             expect(panel.locator(".hermes-login-form")).to_have_count(0)
             expect(panel.get_by_role("button", name="開始登入", exact=True)).to_have_count(0)
             shot(page, "signed-in")
             panel.get_by_role("button", name="更換登入方式", exact=True).click()
             expect(panel.get_by_text("更換後會先登出目前的帳號。", exact=True)).to_be_visible()
             expect(panel.locator(".hermes-login-form")).to_be_visible()
-            expect(panel.get_by_role("radio", name="官方訂閱登入", exact=True)).to_be_checked()
+            expect(panel.get_by_role("radio", name="ChatGPT 訂閱", exact=True)).to_be_checked()
             shot(page, "replace-login")
             # A finished replacement folds back into the signed-in line.
-            panel.get_by_role("radio", name="OpenRouter API key", exact=True).check()
-            panel.get_by_label("OpenRouter 模型 ID", exact=True).fill("vendor/model-a")
+            panel.get_by_role("radio", name="OpenRouter 金鑰", exact=True).check()
+            panel.get_by_label("模型", exact=True).fill("vendor/model-a")
             panel.locator("input[type=password]").fill("fixture-key-not-a-secret")
             phase["replace"] = True
             panel.get_by_role("button", name="儲存登入", exact=True).click()
             expect(panel.locator(".setup-facts span")).to_have_text("已登入 · OpenRouter")
+            expect(facts).to_contain_text("模型 vendor/model-a")
             expect(panel.locator(".hermes-login-form")).to_have_count(0)
             expect(panel.get_by_text("更換後會先登出目前的帳號。", exact=True)).to_have_count(0)
             phase["replace"] = False
