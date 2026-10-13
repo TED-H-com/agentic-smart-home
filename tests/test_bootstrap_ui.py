@@ -186,7 +186,8 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             start = page.locator('.onboarding-body').get_by_role('button', name='開始設定', exact=True)
             assert start.bounding_box()['y'] + start.bounding_box()['height'] <= page.viewport_size['height']
             expect(page.get_by_role('list', name='自動設定進度')).to_contain_text('網路與主機')
-            expect(page.get_by_role('button', name='選單', exact=True)).to_have_attribute('aria-expanded', 'false')
+            expect(page.get_by_role('button', name='選單', exact=True)).to_have_count(0)
+            expect(page.locator('#main-navigation')).to_have_count(0)
             page.locator('.onboarding-body').get_by_role('button', name='開始設定', exact=True).click()
             # Server accepted the start but the response was lost: GET resumes the persisted flow.
             page.get_by_role('button', name='開始官方登入', exact=True).wait_for()
@@ -530,7 +531,10 @@ def test_bare_login_enters_native_home_once_and_back_reload_stay_outer(native_en
     page.get_by_role('heading', name='家庭已就緒').wait_for()
     assert page.url == origin + '/#entry'
     assert state['native_visits'] == 1
-    primary = page.get_by_role('region', name='家庭入口').get_by_role('link', name='進入家庭')
+    entry = page.get_by_role('region', name='家庭入口')
+    expect(entry.get_by_role('button', name='主機維護', exact=True)).to_have_count(0)
+    expect(page.get_by_text('需要回來時', exact=False)).to_have_count(0)
+    primary = entry.get_by_role('link', name='進入家庭')
     # Wait for the existing 150 ms secondary-to-primary transition before capture.
     expect(primary).to_have_css('background-color', 'rgb(33, 100, 83)')
     expect(primary).to_have_css('color', 'rgb(255, 254, 250)')
