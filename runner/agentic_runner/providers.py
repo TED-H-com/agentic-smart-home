@@ -33,6 +33,57 @@ class StopUnconfirmed(ProviderError):
         super().__init__("stop_unconfirmed")
 
 
+# Fixed user-facing text only. Never attach CLI stdout, secrets, or non-official URLs.
+AUTH_MESSAGES = {
+    "needs_reauth": "登入已失效，請重新登入。",
+    "rate_limited": "已達用量上限，請稍後再試。",
+    "invalid_credentials": "登入資訊無效，請重新輸入。",
+    "network": "無法連線到 AI 服務，請檢查網路後再試。",
+    "cli_output_unrecognized": "無法確認登入結果，請稍後再試。",
+    "timeout": "AI 帳號回應逾時，請稍後再試。",
+}
+SECRET_VERIFY_TIMEOUT = 120
+AUTH_CODE = re.compile(r"[A-Z0-9]{4,8}-[A-Z0-9]{4,8}")
+OFFICIAL_AUTH_URL = re.compile(
+    r"https://auth\.openai\.com/[A-Za-z0-9/_-]+|https://(?:auth|accounts)\.x\.ai/[A-Za-z0-9._~/?#&=%+-]+")
+ACTIVE_AUTH = {"pending", "verifying", "stop_unconfirmed"}
+REJECTED_SECRET = {"invalid_credentials", "needs_reauth"}
+
+
+def auth_error(category):
+    return ProviderError(f"{category}：{AUTH_MESSAGES[category]}")
+
+
+def auth_category(exc):
+    text = str(exc)
+    for name in AUTH_MESSAGES:
+        if text.startswith(name + "："):
+            return name
+    if isinstance(exc, TimeoutError):
+        return "timeout"
+    return None
+
+
+class AuthCancelled(Exception):
+    """The owner cancelled verification. This must not quarantine the process."""
+
+
+def classify_cli_output(out, err):
+    """Map CLI diagnostics to a category. The raw text is never returned."""
+    lower = (out + "\n" + err).lower()
+    if any(token in lower for token in ("invalid api key", "invalid_api_key", "incorrect api key", "invalid key")):
+        return "invalid_credentials"
+    if any(token in lower for token in ("401", "unauthorized", "not logged", "authentication", "revoked")):
+        return "needs_reauth"
+    if any(token in lower for token in ("rate limit", "rate_limit", "ratelimit", "too many requests", "quota", "429")):
+        return "rate_limited"
+    if any(token in lower for token in (
+            "timed out", "timeout", "connection reset", "connection refused",
+            "network", "unreachable", "name or service")):
+        return "network"
+    return "cli_output_unrecognized"
+
+
 def process_info(pid, uid=None):
     try:
         path = Path(f"/proc/{pid}")
@@ -92,6 +143,9 @@ class Providers:
         self.root = root
         self.processes = {}
         self.auth_sessions = {}
+        self.auth_lock = asyncio.Lock()
+        self.probes = {}
+        self.reasons = {}
         self.metrics = {}
         private = root / "private"
         private.mkdir(mode=0o700, exist_ok=True)
@@ -167,7 +221,7 @@ class Providers:
         os.replace(temporary, self.runtime_path)
 
     async def reconcile(self, external_proof=None):
-        if self.processes or any(s.get("status") == "pending" for s in self.auth_sessions.values()):
+        if self.processes or any(s.get("status") in {"pending", "verifying"} for s in self.auth_sessions.values()):
             return False
         uids = {self.uid(provider) for provider in VERSIONS} if os.getuid() == 0 else {os.getuid()}
         for value in self.unconfirmed.values():
@@ -210,6 +264,7 @@ class Providers:
             await self.stop(proc)
             raise
         self.track_process(proc, provider)
+        proc._agentic_provider = provider
         return proc
 
     async def stop(self, process):
@@ -292,22 +347,79 @@ class Providers:
         self.track_process(proc, provider)
         out, _ = await self.capture(proc, timeout=15)
         version = re.search(r"\d+\.\d+\.\d+", out)
-        return {"provider": provider, "version": version[0] if version else "unknown",
-                "version_matches": bool(version and version[0] == VERSIONS[provider]),
-                "billing": "由所選官方登入方式與帳號方案決定", "hardware_verified": False}
+        result = {"provider": provider, "version": version[0] if version else "unknown",
+                  "version_matches": bool(version and version[0] == VERSIONS[provider]),
+                  "billing": "由所選官方登入方式與帳號方案決定", "hardware_verified": False}
+        self.probes[provider] = dict(result)
+        return result
+
+    def active_auth(self, provider):
+        for state in self.auth_sessions.values():
+            if state.get("provider") == provider and state.get("status") in ACTIVE_AUTH:
+                return state
+        return None
+
+    def auth_in_progress(self, provider):
+        # Each provider has its own profile and UID. Nothing in spawn shares a
+        # process slot across providers, so only this profile is blocked.
+        # stop_unconfirmed stays global through ensure_available.
+        return self.active_auth(provider) is not None
+
+    def public_auth(self, state):
+        url, code = state.get("url"), state.get("code")
+        if not (isinstance(url, str) and OFFICIAL_AUTH_URL.fullmatch(url)):
+            url = None
+        if not (isinstance(code, str) and AUTH_CODE.fullmatch(code)):
+            code = None
+        active = state.get("status") in {"pending", "verifying"}
+        body = {"id": state["id"], "provider": state["provider"], "status": state["status"],
+                "url": url if active else None, "code": code if active else None,
+                "expires_in": max(0, int(state.get("_expires", 0) - time.time())) if active else 0}
+        reason = state.get("reason")
+        if reason in AUTH_MESSAGES:
+            body["reason"] = reason
+            body["message"] = AUTH_MESSAGES[reason]
+        return body
+
+    def _with_reason(self, result, provider, reason=None):
+        reason = reason or self.reasons.get(provider)
+        if reason in AUTH_MESSAGES:
+            result["reason"] = reason
+            result["message"] = AUTH_MESSAGES[reason]
+        return result
+
+    async def _probe_or_cached(self, provider, active):
+        if active and provider in self.probes:
+            return dict(self.probes[provider])
+        try:
+            return await self.probe(provider)
+        except (ProviderError, OSError, TimeoutError):
+            return {"provider": provider, "version": "unknown", "version_matches": False,
+                    "billing": "由所選官方登入方式與帳號方案決定", "hardware_verified": False}
 
     async def health(self, provider):
-        probe = await self.probe(provider)
+        active = self.active_auth(provider)
+        probe = await self._probe_or_cached(provider, active)
+        if active:
+            # Do not spawn a second CLI against a profile that is logging in.
+            return self._with_reason({**probe, "status": "needs_reauth", "auth_method": self._stored_method(provider),
+                                      "pending_session": self.public_auth(active)}, provider, active.get("reason"))
+        if not probe.get("version_matches") and probe.get("version") == "unknown" and provider not in self.probes:
+            return self._with_reason({**probe, "status": "unavailable", "auth_method": "unknown"}, provider)
         if provider in {"agy", "grok"}:
-            return {**probe, "status": "connected" if (self.profile(provider) / "verified").exists()
-                    else "needs_reauth", "auth_method": "api_key" if (self.profile(provider) / "credential.json").exists()
-                    else "subscription" if provider == "grok" else "none"}
+            connected = (self.profile(provider) / "verified").exists()
+            result = {**probe, "status": "connected" if connected else "needs_reauth",
+                      "auth_method": "api_key" if (self.profile(provider) / "credential.json").exists()
+                      else "subscription" if provider == "grok" else "none"}
+            if connected and self.reasons.get(provider) in REJECTED_SECRET | {"timeout"}:
+                self.reasons.pop(provider, None)
+            return self._with_reason(result, provider)
         proc = await self.spawn(provider, ["login", "status"] if provider == "codex" else ["auth", "status"])
         self.track_process(proc, provider)
         try:
             out, err = await self.capture(proc, timeout=20)
         except (TimeoutError, ProviderError):
-            return {**probe, "status": "unavailable", "auth_method": "unknown"}
+            return self._with_reason({**probe, "status": "unavailable", "auth_method": "unknown"}, provider)
         connected = proc.returncode == 0
         method = "subscription" if provider == "codex" else "unknown"
         if provider == "codex" and "API key" in out + err:
@@ -319,71 +431,213 @@ class Providers:
                 method = data.get("authMethod", "unknown")
             except ValueError:
                 connected = False
-        return {**probe, "status": "connected" if connected else "needs_reauth", "auth_method": method}
+                if proc.returncode == 0:
+                    self.reasons[provider] = "cli_output_unrecognized"
+        if connected and self.reasons.get(provider) in REJECTED_SECRET | {"timeout"}:
+            self.reasons.pop(provider, None)
+        return self._with_reason(
+            {**probe, "status": "connected" if connected else "needs_reauth", "auth_method": method}, provider)
 
-    async def secret_login(self, provider, method, secret):
-        self.ensure_available()
+    def _stored_method(self, provider):
+        path = self.profile(provider) / "credential.json"
+        if provider in {"agy", "grok"}:
+            return "api_key" if path.exists() else "subscription" if provider == "grok" else "none"
+        if not path.exists():
+            return "unknown"
+        try:
+            method = json.loads(path.read_text()).get("method", "unknown")
+        except (OSError, ValueError):
+            return "unknown"
+        return method if method in {"api_key", "oauth_token"} else "unknown"
+
+    def _validate_secret(self, provider, method, secret):
         if not secret or len(secret) > 16384 or "\n" in secret or "\r" in secret:
             raise ProviderError("登入資訊格式無效")
-        if provider in {"agy", "grok"}:
-            if method != "api_key":
-                raise ProviderError("請使用 API key，或此 provider 提供的 device code 登入")
-            profile = self.profile(provider)
-            path = profile / "credential.json"
-            path.write_text(json.dumps({"method": method, "value": secret}))
-            if os.getuid() == 0:
-                os.chown(path, self.uid(provider), self.uid(provider))
-            self.private_files(provider)
-            try:
-                # This checks the actual account through the official CLI, not file existence.
-                await self.run("auth-" + str(time.time_ns()), provider, "Reply with status ok.", {
-                    "type": "object", "properties": {"status": {"type": "string", "enum": ["ok"]}},
-                    "required": ["status"], "additionalProperties": False})
-                (profile / "verified").touch(mode=0o600)
-            except BaseException:
-                path.unlink(missing_ok=True)
-                (profile / "verified").unlink(missing_ok=True)
-                raise
-            return await self.health(provider)
-        if provider == "codex":
-            if method != "api_key":
-                raise ProviderError("Codex 請使用 device code 或 API key")
-            proc = await self.spawn(provider, ["login", "--with-api-key"])
-            self.track_process(proc, provider)
-            await self.capture(proc, (secret + "\n").encode(), timeout=30)
-            if proc.returncode:
-                raise ProviderError("Codex 官方登入失敗，請確認 API key")
-        else:
-            if method not in {"api_key", "oauth_token"}:
-                raise ProviderError("Claude 支援 API key 或官方 setup-token")
-            path = self.profile(provider) / "credential.json"
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            with os.fdopen(fd, "w") as file:
-                json.dump({"method": method, "value": secret}, file)
-            if os.getuid() == 0:
-                os.chown(path, self.uid(provider), self.uid(provider))
+        if provider in {"agy", "grok"} and method != "api_key":
+            raise ProviderError("請使用 API key，或此 provider 提供的 device code 登入")
+        if provider == "codex" and method != "api_key":
+            raise ProviderError("Codex 請使用 device code 或 API key")
+        if provider == "claude" and method not in {"api_key", "oauth_token"}:
+            raise ProviderError("Claude 支援 API key 或官方 setup-token")
+
+    def _drop_secret(self, provider):
+        profile = self.profile(provider)
+        for name in ("credential.json", "verified", "auth.json"):
+            (profile / name).unlink(missing_ok=True)
+
+    def _note_secret_failure(self, provider, exc):
+        if isinstance(exc, StopUnconfirmed):
+            return
+        category = auth_category(exc)
+        # A timeout or cancellation did not prove the key invalid, so keep it.
+        if category in REJECTED_SECRET:
+            self._drop_secret(provider)
+        if category:
+            self.reasons[provider] = category
+
+    def _write_secret(self, provider, method, secret):
+        path = self.profile(provider) / "credential.json"
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as file:
+            json.dump({"method": method, "value": secret}, file)
+            file.flush()
+            os.fsync(file.fileno())
+        if os.getuid() == 0:
+            os.chown(path, self.uid(provider), self.uid(provider))
         self.private_files(provider)
+
+    async def _perform_secret(self, provider, method, secret, auth_id=None):
+        self._validate_secret(provider, method, secret)
+        state = self.auth_sessions.get(auth_id) if auth_id else None
+        if state and state.get("_cancel"):
+            raise AuthCancelled()
+        if provider == "codex":
+            proc = await self.spawn(provider, ["login", "--with-api-key"])
+            proc._agentic_auth = auth_id
+            if state is not None:
+                state["_proc"] = proc
+                if state.get("_cancel"):
+                    await self.stop(proc)
+                    raise AuthCancelled()
+            if auth_id:
+                self.processes[auth_id] = proc
+            try:
+                out, err = await self.capture(proc, (secret + "\n").encode(), timeout=SECRET_VERIFY_TIMEOUT)
+            finally:
+                if auth_id and not self.unconfirmed:
+                    self.processes.pop(auth_id, None)
+            if state and state.get("_cancel"):
+                raise AuthCancelled()
+            if proc.returncode:
+                category = classify_cli_output(out, err)
+                raise auth_error("invalid_credentials" if category == "cli_output_unrecognized" else category)
+            self.private_files(provider)
+            return
+        self._write_secret(provider, method, secret)
+        # The previous marker must not outlive an unfinished replacement.
+        (self.profile(provider) / "verified").unlink(missing_ok=True)
+        if state and state.get("_cancel"):
+            raise AuthCancelled()
+        # Claude setup-token and API keys are checked with one real completion.
+        # `auth status` alone can still report a revoked token as logged in.
+        await self.run(auth_id or f"auth{time.time_ns():x}", provider, "Reply with status ok.", {
+            "type": "object", "properties": {"status": {"type": "string", "enum": ["ok"]}},
+            "required": ["status"], "additionalProperties": False}, timeout=SECRET_VERIFY_TIMEOUT, auth_id=auth_id)
+        if state and state.get("_cancel"):
+            raise AuthCancelled()
+        if provider in {"agy", "grok"}:
+            verified = self.profile(provider) / "verified"
+            verified.touch(mode=0o600)
+            if os.getuid() == 0:
+                os.chown(verified, self.uid(provider), self.uid(provider))
+        self.private_files(provider)
+
+    async def secret_login(self, provider, method, secret):
+        """Synchronous verification for in-process callers. HTTP login uses begin_secret_auth."""
+        async with self.auth_lock:
+            self.ensure_available()
+            self._validate_secret(provider, method, secret)
+            if self.auth_in_progress(provider):
+                raise ProviderError("已有登入流程正在進行")
+        try:
+            await self._perform_secret(provider, method, secret)
+        except AuthCancelled:
+            raise ProviderError("登入已取消") from None
+        except (ProviderError, TimeoutError, OSError, ValueError) as exc:
+            self._note_secret_failure(provider, exc)
+            raise
+        self.reasons.pop(provider, None)
         return await self.health(provider)
 
+    async def begin_secret_auth(self, id, provider, method, secret):
+        async with self.auth_lock:
+            self.ensure_available()
+            self._validate_secret(provider, method, secret)
+            if self.auth_in_progress(provider):
+                raise ProviderError("已有登入流程正在進行")
+            state = {"id": id, "provider": provider, "status": "verifying", "url": None, "code": None,
+                     "expires_in": SECRET_VERIFY_TIMEOUT, "_expires": time.time() + SECRET_VERIFY_TIMEOUT, "reason": None}
+            self.auth_sessions[id] = state
+            state["_task"] = asyncio.create_task(self._finish_secret(state, provider, method, secret))
+            return self.public_auth(state)
+
+    async def _finish_secret(self, state, provider, method, secret):
+        outcome, reason = "failed", "cli_output_unrecognized"
+        try:
+            await self._perform_secret(provider, method, secret, auth_id=state["id"])
+            outcome, reason = "connected", None
+        except asyncio.CancelledError:
+            outcome, reason = "unverified", None
+            raise
+        except (AuthCancelled, StopUnconfirmed) as exc:
+            outcome, reason = ("stop_unconfirmed", None) if isinstance(exc, StopUnconfirmed) else ("unverified", None)
+        except (ProviderError, TimeoutError, OSError, ValueError) as exc:
+            category = auth_category(exc) or "cli_output_unrecognized"
+            if category in REJECTED_SECRET and not state.get("_cancel"):
+                self._drop_secret(provider)
+            if state.get("_cancel") or category == "timeout":
+                outcome, reason = "unverified", None if state.get("_cancel") else "timeout"
+            else:
+                outcome, reason = "failed", category
+            if reason:
+                self.reasons[provider] = reason
+        finally:
+            if self.unconfirmed or outcome == "stop_unconfirmed":
+                state["status"] = "stop_unconfirmed"
+            elif state.get("_cancel") and outcome != "connected":
+                state["status"] = "unverified"
+                state["reason"] = None
+            else:
+                state["status"] = outcome
+                state["reason"] = reason
+                if outcome == "connected":
+                    self.reasons.pop(provider, None)
+            state["code"] = None
+            if not self.unconfirmed:
+                self.processes.pop(state["id"], None)
+
     async def begin_device_auth(self, id, provider="codex"):
-        self.ensure_available()
-        if any(a["status"] == "pending" for a in self.auth_sessions.values()):
-            raise ProviderError("已有登入流程正在進行")
-        if provider not in {"codex", "grok"}:
-            raise ProviderError("此 provider 未提供 device code 登入")
-        args = ["login", "--device-auth"]
-        if provider == "codex":
-            args += ["-c", 'cli_auth_credentials_store="file"']
-        else:
-            (self.profile(provider) / "credential.json").unlink(missing_ok=True)
-            (self.profile(provider) / "verified").unlink(missing_ok=True)
-        proc = await self.spawn(provider, args)
-        self.track_process(proc, provider)
-        self.processes[id] = proc
-        duration = 1800 if provider == "grok" else 900
-        state = {"id": id, "provider": provider, "status": "pending", "url": None, "code": None, "expires_in": duration,
-                 "_expires": time.time() + duration}
-        self.auth_sessions[id] = state
+        async with self.auth_lock:
+            self.ensure_available()
+            if provider not in {"codex", "grok"}:
+                raise ProviderError("此 provider 未提供 device code 登入")
+            if self.auth_in_progress(provider):
+                raise ProviderError("已有登入流程正在進行")
+            duration = 1800 if provider == "grok" else 900
+            state = {"id": id, "provider": provider, "status": "pending", "url": None, "code": None,
+                     "expires_in": duration, "_expires": time.time() + duration, "reason": None}
+            self.auth_sessions[id] = state
+            args = ["login", "--device-auth"]
+            if provider == "codex":
+                args += ["-c", 'cli_auth_credentials_store="file"']
+            else:
+                # Pinned Grok package: `login --device-auth` is the adapter argv.
+                # providers.lock.json cloud_login is not_run; this is not a live check.
+                (self.profile(provider) / "credential.json").unlink(missing_ok=True)
+                (self.profile(provider) / "verified").unlink(missing_ok=True)
+            try:
+                proc = await self.spawn(provider, args)
+            except StopUnconfirmed:
+                state["status"] = "stop_unconfirmed"
+                raise
+            except (ProviderError, OSError) as exc:
+                state["status"] = "failed"
+                state["reason"] = auth_category(exc) or "cli_output_unrecognized"
+                raise
+            proc._agentic_auth = id
+            proc._agentic_provider = provider
+            state["_proc"] = proc
+            try:
+                self.track_process(proc, provider)
+            except StopUnconfirmed:
+                state["status"] = "stop_unconfirmed"
+                raise
+            self.processes[id] = proc
+            state["_task"] = asyncio.create_task(self._finish_device(state, proc, duration))
+            return self.public_auth(state)
+
+    async def _finish_device(self, state, proc, duration):
+        provider = state["provider"]
 
         async def consume(stream):
             text = ""
@@ -392,53 +646,115 @@ class Providers:
                 clean = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", text)
                 url = re.search(r"https://auth\.openai\.com/[A-Za-z0-9/_-]+" if provider == "codex" else
                                 r"https://(?:auth|accounts)\.x\.ai/[^\s\x1b]+", clean)
-                code = re.search(r"\b[A-Z0-9]{4,5}-[A-Z0-9]{4,5}\b", clean)
-                if url:
+                code = AUTH_CODE.search(clean)
+                if url and OFFICIAL_AUTH_URL.fullmatch(url[0]):
                     state["url"] = url[0]
                 if code:
                     state["code"] = code[0]
 
-        async def complete():
-            outcome = "failed"
+        outcome = "failed"
+        try:
+            async with asyncio.timeout(duration):
+                await asyncio.gather(consume(proc.stdout), consume(proc.stderr))
+                await proc.wait()
+            outcome = "connected" if proc.returncode == 0 else "failed"
+        except TimeoutError:
+            outcome = "expired"
+        except asyncio.CancelledError:
+            outcome = "cancelled"
+            raise
+        finally:
             try:
-                async with asyncio.timeout(duration):
-                    await asyncio.gather(consume(proc.stdout), consume(proc.stderr))
-                    await proc.wait()
-                outcome = "connected" if proc.returncode == 0 else "failed"
-            except TimeoutError:
-                outcome = "expired"
-            finally:
-                try:
-                    await self.stop(proc)
-                except StopUnconfirmed:
-                    state["status"] = "stop_unconfirmed"
-                else:
+                await self.stop(proc)
+            except StopUnconfirmed:
+                state["status"] = "stop_unconfirmed"
+            else:
+                if state.get("_cancel") and outcome != "connected":
+                    outcome = "cancelled"
+                if state["status"] != "stop_unconfirmed":
                     state["status"] = outcome
                     if provider == "grok" and outcome == "connected":
                         (self.profile(provider) / "verified").touch(mode=0o600)
                     self.private_files(provider)
-                    self.processes.pop(id, None)
-                state["code"] = None
+                    self.processes.pop(state["id"], None)
+            state["code"] = None
 
-        state["_task"] = asyncio.create_task(complete())
-        return {k: v for k, v in state.items() if not k.startswith("_")}
+    async def _stop_session(self, state):
+        seen = []
+        proc = state.get("_proc") or self.processes.get(state["id"])
+        if proc is not None:
+            seen.append(proc)
+        for candidate in list(self.processes.values()):
+            if getattr(candidate, "_agentic_auth", None) == state["id"] and candidate not in seen:
+                seen.append(candidate)
+        for candidate in seen:
+            await self.stop(candidate)
+
+    async def cancel_auth(self, provider, id):
+        async with self.auth_lock:
+            state = self.auth_sessions.get(id)
+            if not state or state.get("provider") != provider:
+                return None
+            if state["status"] not in {"pending", "verifying"}:
+                return self.public_auth(state)
+            state["_cancel"] = True
+            task = state.get("_task")
+        for _ in range(200):
+            if state.get("_proc") or self.processes.get(id) or task is None or task.done():
+                break
+            await asyncio.sleep(0.01)
+        try:
+            await self._stop_session(state)
+        except StopUnconfirmed:
+            # Keep the fence. A later successful stop must not look like a clean cancel.
+            state["status"] = "stop_unconfirmed"
+            state["code"] = None
+        if task and not task.done():
+            await asyncio.gather(task, return_exceptions=True)
+        if self.unconfirmed or state["status"] == "stop_unconfirmed":
+            state["status"] = "stop_unconfirmed"
+            state["code"] = None
+        elif state["status"] in {"pending", "verifying"}:
+            state["status"] = "cancelled" if state["status"] == "pending" else "unverified"
+            state["code"] = None
+            state["reason"] = None
+            self.processes.pop(id, None)
+        return self.public_auth(state)
 
     async def logout(self, provider):
-        self.ensure_available()
-        for proc in list(self.processes.values()):
-            await self.stop(proc)
-        if provider != "agy":
-            proc = await self.spawn(provider, ["logout"] if provider in {"codex", "grok"} else ["auth", "logout"])
-            self.track_process(proc, provider)
-            await self.capture(proc, timeout=20)
-        profile = self.profile(provider)
-        # Fixed, app-owned path only. Erase local auth even if remote revocation was unavailable.
-        for path in profile.iterdir():
-            if path.is_dir() and not path.is_symlink():
-                shutil.rmtree(path)
-            else:
-                path.unlink()
-        return {"status": "needs_reauth", "remote_revocation": "unknown"}
+        async with self.auth_lock:
+            self.ensure_available()
+            tasks = []
+            for state in self.auth_sessions.values():
+                if state.get("provider") != provider:
+                    continue
+                if state.get("status") in {"pending", "verifying"}:
+                    state["_cancel"] = True
+                task = state.get("_task")
+                if task and not task.done():
+                    tasks.append(task)
+            for proc in list(self.processes.values()):
+                if getattr(proc, "_agentic_provider", None) == provider:
+                    await self.stop(proc)
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+            self.reasons.pop(provider, None)
+            if provider != "agy":
+                proc = await self.spawn(provider, ["logout"] if provider in {"codex", "grok"} else ["auth", "logout"])
+                self.track_process(proc, provider)
+                await self.capture(proc, timeout=20)
+            profile = self.profile(provider)
+            # Fixed, app-owned path only. Erase local auth even if remote revocation was unavailable.
+            for path in profile.iterdir():
+                if path.is_dir() and not path.is_symlink():
+                    shutil.rmtree(path)
+                else:
+                    path.unlink()
+            for state in self.auth_sessions.values():
+                if state.get("provider") == provider and state.get("status") in {"pending", "verifying"}:
+                    state["status"] = "cancelled"
+                    state["code"] = None
+            return {"status": "needs_reauth", "remote_revocation": "unknown"}
 
     def command(self, provider, schema_path, output_path, model):
         if provider == "codex":
@@ -474,9 +790,14 @@ class Providers:
             args.append("-")
         return args
 
-    async def run(self, id, provider, prompt, schema, model=""):
+    async def run(self, id, provider, prompt, schema, model="", timeout=300, auth_id=None):
+        session = self.auth_sessions.get(auth_id) if auth_id else None
+        if session and session.get("_cancel"):
+            raise AuthCancelled()
         self.ensure_available()
         probe = await self.probe(provider)
+        if session and session.get("_cancel"):
+            raise AuthCancelled()
         if not probe["version_matches"]:
             raise ProviderError("CLI 版本與打包版本不符，請重新安裝 Runner")
         workspace = self.root / "work" / id
@@ -512,6 +833,13 @@ class Providers:
                 self.private_files(provider)
             proc = await self.spawn(provider, self.command(provider, schema_path, output_path, model), workspace)
             self.track_process(proc, provider)
+            if auth_id:
+                proc._agentic_auth = auth_id
+            if session is not None:
+                session["_proc"] = proc
+                if session.get("_cancel"):
+                    await self.stop(proc)
+                    raise AuthCancelled()
             self.processes[id] = proc
 
             async def watch_resources():
@@ -535,16 +863,16 @@ class Providers:
 
             monitor = asyncio.create_task(watch_resources())
             payload = (json.dumps({"event": "user", "message": {"content": prompt}}) + "\n").encode() if provider == "agy" else prompt.encode()
-            out, err = await self.capture(proc, payload, timeout=300)
+            out, err = await self.capture(proc, payload, timeout=timeout)
+            if session and session.get("_cancel"):
+                raise AuthCancelled()
             if metrics.get("memory_limit_exceeded"):
                 raise ProviderError("Agent 已達到 1 GiB 記憶體上限，任務已停止")
             if proc.returncode != 0:
-                lower = (out + err).lower()
-                if any(s in lower for s in ("401", "unauthorized", "not logged", "authentication")):
-                    raise ProviderError("needs_reauth：官方登入已失效")
-                if "rate" in lower or "quota" in lower or "limit" in lower:
-                    raise ProviderError("rate_limited：供應商額度或速率限制")
-                raise ProviderError("CLI 執行失敗；請檢查登入狀態、所選模型與網路")
+                category = classify_cli_output(out, err)
+                self.reasons[provider] = category
+                raise auth_error(category)
+            self.reasons.pop(provider, None)
             if provider == "codex":
                 # Only normalized final structured output crosses the broker boundary.
                 for line in out.splitlines():

@@ -52,7 +52,12 @@ class Runner:
                     if response.status >= 300:
                         raise RunnerError(str(result.get("detail", "Runner 拒絕操作"))[:300], response.status)
                     return result
-        except (aiohttp.ClientError, ValueError, TimeoutError) as exc:
+        except TimeoutError as exc:
+            # ClientTimeout is also a ClientError. A slow account check is not a bad certificate pin.
+            account = path.startswith("/providers/") or path.startswith("/auth/")
+            message = "AI 帳號回應逾時，請稍後再試。" if account else "Runner 回應逾時，請稍後再試。"
+            raise RunnerError(message) from exc
+        except (aiohttp.ClientError, ValueError) as exc:
             raise RunnerError("Runner 無法連線或憑證指紋不符，請檢查配對與 App 狀態") from exc
 
     async def pair(self, pairing, principal, controller_id):

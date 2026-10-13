@@ -3393,6 +3393,58 @@
         "summary": "Auth"
       }
     },
+    "/api/providers/{provider}/auth/{id}/cancel": {
+      "post": {
+        "operationId": "cancel_auth_api_providers__provider__auth__id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "enum": [
+                "codex",
+                "claude",
+                "agy",
+                "grok"
+              ],
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Auth"
+      }
+    },
     "/api/providers/{provider}/logout": {
       "post": {
         "operationId": "logout_api_providers__provider__logout_post",
@@ -3652,6 +3704,71 @@
           }
         },
         "summary": "Auth"
+      }
+    },
+    "/api/runtimes/{runtime}/providers/{provider}/auth/{id}/cancel": {
+      "post": {
+        "operationId": "cancel_runtime_auth_api_runtimes__runtime__providers__provider__auth__id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "runtime",
+            "required": true,
+            "schema": {
+              "enum": [
+                "host",
+                "haos"
+              ],
+              "title": "Runtime",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "enum": [
+                "codex",
+                "claude",
+                "agy",
+                "grok"
+              ],
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Runtime Auth"
       }
     },
     "/api/runtimes/{runtime}/providers/{provider}/logout": {

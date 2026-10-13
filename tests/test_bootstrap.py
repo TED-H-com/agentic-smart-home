@@ -53,22 +53,29 @@ class HostFixture:
 class RunnerFixture:
     def __init__(self):
         self.connected, self.lost, self.calls, self.jobs = False, False, [], {}
+        self.reason = None
+        self.assist_error = None
 
     async def call(self, method, path, body=None):
         self.calls.append((method, path, copy.deepcopy(body)))
         if path == "/status":
-            return {"protocol": 1, "identity": "agentic-home-runner", "providers": [
-                {"provider": "codex", "version_matches": True,
-                 "status": "connected" if self.connected else "needs_reauth"}]}
+            item = {"provider": "codex", "version_matches": True,
+                    "status": "connected" if self.connected else "needs_reauth"}
+            if self.reason:
+                item["reason"] = self.reason
+            return {"protocol": 1, "identity": "agentic-home-runner", "providers": [item]}
         if method == "GET":
             if path.rsplit("/", 1)[-1] not in self.jobs:
                 raise RunnerError("missing", 404)
             return self.jobs[path.rsplit("/", 1)[-1]]
         assert path == "/bootstrap/jobs"
         assert body["provider"] == "codex" and body["stage"] == "hermes_setup"
-        result = {"id": body["id"], "state": "succeeded", "evidence": {
-            "inference_completed": True, "observed_from": "host_runner", "live_mutations": False},
-            "result": {"decision": "continue", "next_step": "install_hermes", "reason_codes": []}}
+        if self.assist_error:
+            result = {"id": body["id"], "state": "failed", "error": self.assist_error}
+        else:
+            result = {"id": body["id"], "state": "succeeded", "evidence": {
+                "inference_completed": True, "observed_from": "host_runner", "live_mutations": False},
+                "result": {"decision": "continue", "next_step": "install_hermes", "reason_codes": []}}
         self.jobs[body["id"]] = result
         if self.lost:
             self.lost = False
@@ -145,6 +152,32 @@ async def test_start_pairs_automatically_waits_for_actual_auth_and_resumes(setup
     await bootstrap.advance()
     assert bootstrap.public()["current_step"] == "hermes_install"
     assert len(runner.jobs) == 1
+
+
+async def test_account_error_categories_reach_login_and_assist(setup):
+    bootstrap, _, runner, _, _ = setup
+    await bootstrap.start(BootstrapStart(provider="codex"), "start-plain")
+    await bootstrap.advance()
+    plain = bootstrap.public()
+    assert plain["human_action"]["message"] == "請完成所選 CLI 的官方登入；完成後會自動繼續。"
+    assert plain["human_action"]["code"] is None
+    assert next(step["code"] for step in plain["steps"] if step["id"] == "cli_auth") == "cli_login_required"
+    runner.reason = "rate_limited"
+    await bootstrap.advance()
+    limited = bootstrap.public()
+    assert limited["current_step"] == "cli_auth" and limited["human_action"]["kind"] == "cli_login"
+    assert limited["human_action"]["code"] == "rate_limited"
+    assert limited["human_action"]["message"] == "已達用量上限，請稍後再試。"
+    assert next(step["code"] for step in limited["steps"] if step["id"] == "cli_auth") == "cli_login_required"
+    runner.connected, runner.reason, runner.assist_error = True, None, "needs_reauth"
+    await bootstrap.advance()
+    failed = bootstrap.public()
+    assert failed["state"] == "blocked" and failed["current_step"] == "cli_assist"
+    assert next(step["code"] for step in failed["steps"] if step["id"] == "cli_assist") == "needs_reauth"
+    assert failed["human_action"]["message"] == "登入已失效，請重新登入。"
+    assert bootstrap.record().get("assist_request")
+    await bootstrap.retry("retry-account")
+    assert "assist_request" not in bootstrap.record()
 
 
 async def test_no_network_prevents_pairing_auth_and_any_host_action(setup):
