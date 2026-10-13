@@ -45,6 +45,7 @@ def test_device_classification_cannot_expand_domains(id, classification):
 
 async def test_no_write_before_approval_and_deploy_is_staged(engine, intent, ha):
     p = await proposal(engine, intent)
+    assert engine.store.get("task", p["task_id"])["message"] == "請先看這份提案；批准前不會改家庭。"
     assert not ha.writes and not ha.calls
     await engine.deploy(p, "owner")
     assert not ha.writes
