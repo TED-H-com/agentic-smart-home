@@ -36,7 +36,7 @@ sudo agentic-home update-publisher-add --publisher example --repository ghcr.io/
 
 發行者提供 JSON `{manifest,signature}`，signature 為 canonical JSON 的 Ed25519 簽章。manifest 必須有 publisher、version、source_commit、不可變 repository digest、實際 image ID、相容矩陣、測試名稱／證據 SHA-256、發行／到期時間。它不接受 shell、hooks、Docker mounts 或任意 compose。詳見產生的 [Owner OpenAPI](../contracts/host-controller.openapi.json)。
 
-在「Linux 主機 → 網路與系統維護 → 版本更新與退版」選取說明檔。主機驗簽、核對 repository、下載精確 digest、核對 image ID，保存候選。Owner 查看後取得綁 candidate digest、10 分鐘有效的批准；按下確認後才部署。
+在「設定 → 主機維護 → 版本」選取說明檔。主機驗簽、核對 repository、下載精確 digest、核對 image ID，保存候選。Owner 查看後取得綁 candidate digest、10 分鐘有效的批准；按下確認後才部署。
 
 ## 部署與退版
 
@@ -79,7 +79,7 @@ agentic-home wait --id <原工作id>
 
 ## 網路選擇
 
-「網路與遠端連線」分開選擇位址與遠端身份：
+「網路與遠端」分開選擇位址與遠端身份：
 
 - DHCP 保留既有自動網路。選「在路由器保留固定 IP」只保存偏好，需在路由器做 DHCP reservation；產品不假裝已代設路由器。
 - Tailscale 使用打包的鎖定官方 deb；以官方登入確認此節點。產品不接受未知 auth URL，也不啟用 exit node、subnet route 或 Tailscale SSH。

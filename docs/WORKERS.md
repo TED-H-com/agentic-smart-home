@@ -4,7 +4,7 @@
 
 ## 使用
 
-日常在「智能管家」描述需求，由 Hermes 依能力派工，成果回到同一段對話。第一次 coding 登入或手動派工可從「設定 → 進階工具」選外層或家庭現場助手，完成獨立 Codex device code 或 API key 登入。Host 工作者只讀封裝內的產品來源，在私有 clone 調查、修改和跑測試。CLI 登入資料不複製到 Hermes 或模型的工作區。尚未登入時不送出工作；`configured` 表示資料保存，成功模型工作才記為 `inference_verified`。
+日常在「智能管家」描述需求，由 Hermes 依能力派工，成果回到同一段對話。第一次 coding 登入或手動派工可從「設定 → 開發助手」選主機或家庭現場，完成獨立 Codex device code 或 API key 登入。Host 工作者只讀封裝內的產品來源，在私有 clone 調查、修改和跑測試。CLI 登入資料不複製到 Hermes 或模型的工作區。尚未登入時不送出工作；`configured` 表示資料保存，成功模型工作才記為 `inference_verified`。
 
 目前 coding adapter 的 provider 為 **Codex 0.157.1**；Claude、Antigravity、Grok 的家庭模式／初始化能力繼續保留，但不冒充已完成的 coding adapter。**0.9.0 交付 Host coding 與家庭現場的 Home coding**，兩者都以 Codex 為首個 provider，家庭現場可從網頁一鍵啟用。工程測試的模型 transport 是固定 fixture；真雲端自主研究、Owner 家庭試跑與 E2 仍待 Owner 實測。各版本的媒體與平台證據見 [驗證紀錄](VERIFICATION.md)。
 
@@ -59,7 +59,7 @@ Home 專屬觀測只讀 App namespace／資源事實，以及固定 `homeassista
 
 工作 envelope 使用 canonical digest。Controller 先保存 handle，再 dispatch；相同 Idempotency-Key／payload 取得原工作，不產生第二 writer。重新啟動或回覆遺失先查 exact job；未能確認停止時維持 `stop_unconfirmed`／`needs_reconcile`，新工作被擋住。
 
-Host 的「核對停止與工作狀態」讀取固定 runner／broker 的容器 ID、boot／process 身份與停止證據。Home 路徑沒有可任意採用的 Host Docker 停止證明。不能只刪 marker 或把狀態改 cancelled。確認停止後可下載接手檢查點及 SHA-256 綁定的 diff，在新的私有 checkout 接手；此版的 `live_session:false` **不是**直接加入同一個 BAT／CLI 可寫 session。
+Host 的「確認已停止」讀取固定 runner／broker 的容器 ID、boot／process 身份與停止證據。Home 路徑沒有可任意採用的 Host Docker 停止證明。不能只刪 marker 或把狀態改 cancelled。確認停止後可下載接手檢查點及 SHA-256 綁定的 diff，在新的私有 checkout 接手；此版的 `live_session:false` **不是**直接加入同一個 BAT／CLI 可寫 session。
 
 ## 畫面預覽
 

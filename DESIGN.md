@@ -43,9 +43,9 @@
 
 ## 0.4.0 Hermes 技術預覽
 
-- Onboarding 第二步以 Hermes 獨立登入為主；受控 CLI 登入收於「進階：受控 CLI 登入」。Web、通道、HAOS 和內層登入可分步完成，HAOS 未建立不能遮住外層對話入口。
-- 登入狀態由 runtime 回報：needs_auth、configured、ready、needs_reauth、unavailable。儲存 key 只顯示「已儲存，待實際回覆驗證」，不得填成已連線或已完成推論。Key 儲存後清空，不入 URL、storage、截圖 fixture 或一般 evidence。
-- 一般對話預設 Hermes；runtime／CLI 控制項僅在「受控 Agent（進階）」顯示。Hermes 使用固定且獨立的對話 scope，進階選 Grok／HAOS 後切回仍可接續原 Hermes case；不由隱藏控制項改變目的地。
+- Onboarding 第二步以 Hermes 獨立登入為主；受控 CLI 登入收於「進階：AI 帳號」。Web、通道、HAOS 和內層登入可分步完成，HAOS 未建立不能遮住外層對話入口。
+- 登入狀態由 runtime 回報：needs_auth、configured、ready、needs_reauth、unavailable。儲存 key 只顯示「已儲存，尚未驗證」，不得填成已連線或已完成推論。Key 儲存後清空，不入 URL、storage、截圖 fixture 或一般 evidence。
+- 一般對話預設 Hermes；runtime／CLI 控制項僅在「進階」選「直接交給開發助手」時顯示。Hermes 使用固定且獨立的對話 scope，進階選 Grok／HAOS 後切回仍可接續原 Hermes case；不由隱藏控制項改變目的地。
 - 既有 Button／Notice／Status 與 tokens 沿用。主操作是儲存或送出，重新檢查／登出／新對話是次要操作；狀態不只靠顏色。
 - worker 尚未啟用時明確顯示不可用；blocked handle 或成功登入不能呈現為 coding 已執行。一般操作頁不顯示虛構進度、費用或已完成產品驗收。
 - 1440／768／390 px 檢查鍵盤表單送出、認證失敗／服務斷線、刷新續接與進階切換。`evidence/ui/hermes-*` 是協定 fixture 畫面，不冒充真帳號或家庭現場證據。
@@ -76,7 +76,7 @@
 
 - Host 主選單保留家庭、智能管家、設備、自動化、紀錄、設定。智能管家是需要協助時的次要入口；移除通用聊天歡迎標題與建議卡。
 - 智能管家以一段對話為主：需求、回覆、處理進度與可展開的成果在同頁。對話紀錄按 thread 分組；不把所有聊天室混成當前對話。草稿不自動送出。
-- CLI、內外層、模型與手動派工是進階選項，從設定或進階對話設定開啟。一般使用者不必先選執行環境；仍保留既有明確選擇，不偷偷切換 provider。
+- CLI、內外層、模型與手動派工是進階選項，從設定或對話的「進階」開啟。一般使用者不必先選執行環境；仍保留既有明確選擇，不偷偷切換 provider。
 - 成果只以 exact job + case 讀回；檔案大小和 SHA 驗證、隔離 PNG 預覽、停止確認與家庭批准維持原契約。接手 checkpoint 和識別碼收在技術資料。
 - 設定頁使用簡短入口和可展開區；初次設定每個狀態一個標題、一個主操作。只保留下一步需要的說明，以及必要的帳號限制、授權與錯誤復原。
 - 沿用暖白、青綠與既有字體／間距。手機輸入框 16 px、觸控至少 44 px。輸入區不遮住長篇成果；1440／768／390 px 以真 Chromium 檢視。
