@@ -27,9 +27,9 @@
 
 新 onboarding 在「開始設定」附近說明完成後加入 HA 智能管家側欄，並可展開查看安裝及自動維護範圍。既有已完成設定的家庭不因升級便自動被接管；Owner 在外層設定明確啟用。
 
-外層設定區分三個操作：啟用側欄並自動維護、停止自動維護但保留連接、撤銷側欄連接。撤銷會停用維護及 App bearer，不卸載 App、不停止家庭規則。讀取狀態不建立派工或安装。
+外層設定區分三個操作：啟用側欄（同時開啟自動維護）、停止自動維護（保留連接）、撤銷連接。撤銷會停用維護及 App bearer，不卸載 App、不停止家庭規則。讀取狀態不建立派工或安装。
 
-Manager 只處理本產品指定 App。使用者手動停止、移除或改變 App 設定時，保留該選擇；不能循環重裝或重新啟動來抵銷人工操作。有限重啟最多兩次／24 小時，超限及效果不明時需核對；按重新檢查不重設次數。相同版本的來源重建尚未自動化，不能把「自動維護」解讀為任意修 code 或任意更新。[Supervisor 官方 API](https://developers.home-assistant.io/docs/api/supervisor/endpoints/)。
+Manager 只處理本產品指定 App。使用者手動停止、移除或改變 App 設定時，保留該選擇；不能循環重裝或重新啟動來抵銷人工操作。有限重啟最多兩次／24 小時，超限及效果不明時需核對；按「檢查側欄連線」不重設次數。相同版本的來源重建尚未自動化，不能把「自動維護」解讀為任意修 code 或任意更新。[Supervisor 官方 API](https://developers.home-assistant.io/docs/api/supervisor/endpoints/)。
 
 目前維護範圍限首次安裝、同版本有限重啟，以及 Owner 明確要求的重新連接。同一 `#stable` 頻道上較舊的側欄或 Home worker App 由 Owner 更新到恰好這一版。舊的 `#release/X.Y.Z` 進入 `*_release_channel_changed`，須在 Home Assistant 手動移除。Home Assistant 本身仍透過官方流程更新，見 [Updates](UPDATES.md)。因此不能宣稱 HA 上游更新後都能自動恢復側欄，仍需查證實際相容性。
 
@@ -45,4 +45,4 @@ Controller 的 SQL `user_version` 仍為 3，但相同 schema 不代表舊 binar
 
 統一可信發行索引、內建 publisher 信任根、全產品更新／遷移與完整 Linux 恢復，仍是待交付增量。不能把現有 Controller-only manifest 重新解讀為能更新 HAOS／Core／Linux。安全公告的追蹤與緊急發版仍需持續建立實際證據，不宣稱已有值班或 SLA。
 
-0.7.0 本輪 App、橋接身份、UI 與固定維護流程的工程結果由 [驗證紀錄](VERIFICATION.md) 記錄；真家庭驗收、Home coding 與 Plan v3 E1／E2 不因新增側欄自動完成。
+各版 App、橋接身份、UI 與固定維護流程的工程結果由 [驗證紀錄](VERIFICATION.md) 記錄；工程測試通過不等於真家庭驗收。

@@ -1,6 +1,6 @@
 # 管理中心更新、退版與遠端連線
 
-HA 保留官方更新；外層負責本產品的受測發行與已授權智能管家 App 的有限維護，見 [發行策略](RELEASE_POLICY.md)。不攔截 HA 更新，也不停止 Linux 安全更新。下文描述 **0.7.0 固定 Controller updater**，不是全系統更新／退版聲明。
+HA 保留官方更新；外層負責本產品的受測發行與已授權智能管家 App 的有限維護，見 [發行策略](RELEASE_POLICY.md)。不攔截 HA 更新，也不停止 Linux 安全更新。下文描述 **固定 Controller updater**（0.7.0 起），不是全系統更新／退版聲明。
 
 Host 的 Controller 更新不會自動更新側欄 App 或 Home worker App。兩者的信任 repository 都是 `https://github.com/teddashh/agentic-smart-home#stable`（發布時 `stable` 指到與 `release/X.Y.Z` 相同的 commit），版本都來自 `agentic_controller.VERSION`。同一 repository 上較舊的安裝進入 `update_available`，Owner 以無 body 的 `POST /api/host/bridge/maintenance/update` 或 `POST /api/host/home-worker/maintenance/update` 更新到恰好該版本。商店 `version_latest` 較高時是 `*_release_ahead`，不安裝也不更新；較低時重新載入商店一次，仍較低則 `waiting`／`*_release_not_published`。舊的 `#release/X.Y.Z` 是另一個 App slug，進入 `needs_reconcile`／`*_release_channel_changed`，須在 HA 手動移除舊 App 再從管理中心啟用。不會自動解除安裝、加入 repository 或重裝，也不改權限或 options，沒有自動退版。真實 Supervisor 從 0.9.0 更新到下一版，以及真 HAOS 上的 `#stable` 商店 slug，仍是 `not_run`。
 
@@ -19,7 +19,7 @@ Host 的 Controller 更新不會自動更新側欄 App 或 Home worker App。兩
 
 上游 adapter 與產品 image 更新分開處理，見 [相容邊界與候選測試](ADAPTERS.md)。候選測試不會自動部署；目前也沒有 Linux／HAOS／Core／Hermes 全套自動退版承諾。
 
-0.7.0 的固定 updater 只更新 **外層 Controller image**，相同 Controller schema 3、Runner protocol 1、worker contract 1。manifest 另綁目前 CLI／Hermes／Core／網路 runtime 指紋；不在同次升級 OS、HAOS、Core、Runner、Hermes 或網路。較舊 schema 的向前遷移與同 schema 的 image 退版分開處理。有智能管家 bridge 歷史時（即使已撤銷），候選仍必須支援 bridge contract 1；0.6.1 缺少此契約，不能僅憑 schema 3 就直接退回。
+固定 updater 只更新 **外層 Controller image**，相同 Controller schema 3、Runner protocol 1、worker contract 1。manifest 另綁目前 CLI／Hermes／Core／網路 runtime 指紋；不在同次升級 OS、HAOS、Core、Runner、Hermes 或網路。較舊 schema 的向前遷移與同 schema 的 image 退版分開處理。有智能管家 bridge 歷史時（即使已撤銷），候選仍必須支援 bridge contract 1；0.6.1 缺少此契約，不能僅憑 schema 3 就直接退回。
 
 **舊 Host 只換 Controller image，不會取得新版固定更新器。** 側欄首次配對、管理及使用前，Controller 必須從固定 Unix Host broker 取得 `controller_update.ingress_bridge_contract: 1`；值由 Host updater 實作提供，資料庫設定或產品版本號不能代替。證明只保存在程序記憶體並定期重驗，Host 過舊、失聯或證明失效時停止側欄連接與其工作，外層救援仍可用。0.7.0 媒體包含這項 Host 保護；既有 0.6.x Host 的就地升級流程尚未交付，不能用 Controller-only 更新宣稱整套升級完成。
 
@@ -36,7 +36,7 @@ sudo agentic-home update-publisher-add --publisher example --repository ghcr.io/
 
 發行者提供 JSON `{manifest,signature}`，signature 為 canonical JSON 的 Ed25519 簽章。manifest 必須有 publisher、version、source_commit、不可變 repository digest、實際 image ID、相容矩陣、測試名稱／證據 SHA-256、發行／到期時間。它不接受 shell、hooks、Docker mounts 或任意 compose。詳見產生的 [Owner OpenAPI](../contracts/host-controller.openapi.json)。
 
-在「Linux 主機 → 網路與系統維護 → 版本更新與退版」選取說明檔。主機驗簽、核對 repository、下載精確 digest、核對 image ID，保存候選。Owner 查看後取得綁 candidate digest、10 分鐘有效的批准；按下確認後才部署。
+在「設定 → 主機維護 → 版本」選取說明檔。主機驗簽、核對 repository、下載精確 digest、核對 image ID，保存候選。Owner 查看後取得綁 candidate digest、10 分鐘有效的批准；按下確認後才部署。
 
 ## 部署與退版
 
@@ -79,7 +79,7 @@ agentic-home wait --id <原工作id>
 
 ## 網路選擇
 
-「網路與遠端連線」分開選擇位址與遠端身份：
+「網路與遠端」分開選擇位址與遠端身份：
 
 - DHCP 保留既有自動網路。選「在路由器保留固定 IP」只保存偏好，需在路由器做 DHCP reservation；產品不假裝已代設路由器。
 - Tailscale 使用打包的鎖定官方 deb；以官方登入確認此節點。產品不接受未知 auth URL，也不啟用 exit node、subnet route 或 Tailscale SSH。
