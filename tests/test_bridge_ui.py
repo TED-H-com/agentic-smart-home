@@ -293,7 +293,14 @@ def test_bridge_blocked_states_never_open_outer_controls(bridge_browser, bridge_
     state["bridge_state"] = bridge_state
     page.goto(base + "#host")
     expect(page.get_by_role("region", name="管家連線")).to_be_visible()
-    expect(page.get_by_role("button", name="重新連線", exact=True)).to_be_visible()
+    reconnect = page.get_by_role("button", name="重新連線", exact=True)
+    expect(reconnect).to_be_visible()
+    if bridge_state == "owner_required":
+        expect(page.get_by_role("heading", name="請用家庭擁有者開啟", exact=True)).to_be_visible()
+        expect(page.get_by_text("回到家庭，改以家庭擁有者的帳號開啟側欄。", exact=True)).to_be_visible()
+        expect(reconnect).to_have_class(re.compile(r"(^|\s)secondary(\s|$)"))
+    else:
+        expect(reconnect).not_to_have_class(re.compile(r"secondary"))
     assert calls and all(path == "deployment" for _, path in calls)
     assert not mutations and not page.locator('input[type="password"]').count()
     shots(page, bridge_state)
@@ -338,7 +345,7 @@ def test_outer_sidebar_maintenance_explicit_authority_and_revocation(bridge_brow
     panel = page.get_by_role("region", name="側欄維護")
     expect(panel.get_by_text("尚未啟用", exact=True)).to_be_visible()
     assert not mutations
-    panel.get_by_role("button", name="啟用側欄並自動維護").click()
+    panel.get_by_role("button", name="啟用側欄", exact=True).click()
     expect(panel.get_by_text("側欄服務可用", exact=True)).to_be_visible()
     panel.get_by_text("更多", exact=True).click()
     panel.get_by_role("button", name="停止自動維護", exact=True).click()
@@ -348,9 +355,20 @@ def test_outer_sidebar_maintenance_explicit_authority_and_revocation(bridge_brow
     expect(panel.get_by_text("你已移除 App", exact=True)).to_be_visible(timeout=7000)
     expect(panel.get_by_role("button", name="檢查側欄連線")).to_have_count(0)
     panel.get_by_text("撤銷側欄連接", exact=True).click()
+    held = len(mutations)
     panel.get_by_role("button", name="撤銷連接", exact=True).click()
+    confirm = panel.get_by_role("group", name="撤銷側欄連接？家庭規則不受影響。")
+    expect(confirm).to_be_visible()
+    page.wait_for_timeout(300)
+    assert len(mutations) == held
+    confirm.get_by_role("button", name="取消", exact=True).click()
+    expect(confirm).to_have_count(0)
+    assert len(mutations) == held
+    panel.get_by_role("button", name="撤銷連接", exact=True).click()
+    panel.get_by_role("button", name="撤銷", exact=True).click()
     expect(panel.get_by_text("已撤銷連接", exact=True)).to_be_visible()
     assert [m[0].rsplit("/", 1)[1] for m in mutations] == ["authorize", "policy", "disable"]
+    assert mutations[-1][1] == {}
     panel.get_by_role("button", name="重新啟用側欄並自動維護", exact=True).click()
     expect(panel.get_by_text("側欄服務可用", exact=True)).to_be_visible()
     assert mutations[-1][1] == {"auto_repair": True}
@@ -514,7 +532,7 @@ def test_sidebar_app_update_states_keys_and_poll(bridge_browser):
     assert "bridge_update_not_allowed" not in panel.inner_text()
     generic = _bridge_record("needs_reconcile", "bridge_operation_unconfirmed")
     panel = show(generic)
-    expect(panel.get_by_text("需要核對", exact=True)).to_be_visible()
+    expect(panel.get_by_text("需要確認", exact=True)).to_be_visible()
     expect(panel.get_by_role("button", name="檢查側欄連線", exact=True)).to_be_visible()
     expect(panel.get_by_role("button", name="更新側欄 App")).to_have_count(0)
     assert "bridge_operation_unconfirmed" not in panel.inner_text()
