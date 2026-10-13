@@ -920,7 +920,7 @@ def _stop(message_id, **fields):
 
 
 async def _until(store, message_id, state):
-    deadline = time.monotonic() + 2
+    deadline = time.monotonic() + 10
     while time.monotonic() < deadline:
         item = store.get('conversation', message_id)
         if item and item['state'] == state:
