@@ -165,6 +165,17 @@ async def test_real_core_proposal_deploy_trigger_restart(real_container, tmp_pat
             await asyncio.sleep(1)
         else:
             raise AssertionError("Automation did not restore enabled state after real Core restart")
+        # The automation can come back before input_boolean has reloaded. Wait on the
+        # same inventory the engine checks, so the helper test does not race the reload.
+        for _ in range(60):
+            try:
+                if HELPERS.issubset({item["entity_id"] for item in await ha.inventory()}):
+                    break
+            except Exception:
+                pass
+            await asyncio.sleep(1)
+        else:
+            raise AssertionError("The real Core helper integration did not reload after restart")
         # Reset the evidence cutoff so the pre-restart run cannot pass this assertion.
         p["deployed_at"] = utcnow()
         await engine.helper_test(p, owner_id, "real-helper-test-after-restart")

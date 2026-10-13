@@ -362,8 +362,10 @@ def test_web_bundle_reader_rejects_unsafe_files(tmp_path):
     names = {item["name"] for item in read_artifacts(skipped, Limits())}
     assert names == {"verification.json"}
     (skipped / "leak.html").write_text("<p>no</p>")
-    with pytest.raises(SandboxError, match="type"):
-        read_artifacts(skipped, Limits())
+    exported = {item["name"]: item for item in read_artifacts(skipped, Limits())}
+    assert set(exported) == {"verification.json", "skipped.json"}
+    assert json.loads(exported["skipped.json"]["content"]) == {
+        "skipped": [{"name": "leak.html", "reason": "unsupported_type"}]}
     (skipped / "leak.html").unlink()
     (skipped / "web-fixtures.json").unlink()
     (skipped / "web-fixtures.json").symlink_to(skipped / "verification.json")

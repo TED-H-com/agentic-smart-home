@@ -22,7 +22,7 @@ _STDERR_REASONS = (
 
 
 def public(item):
-    view = {key: value for key, value in item.items() if key not in {"epoch", "created_at", "updated_at"}}
+    view = {key: value for key, value in item.items() if key not in {"epoch", "created_at", "updated_at", "instance"}}
     # `error` stays for existing clients. `reason` is the same stable code.
     if "error" in view and "reason" not in view:
         view["reason"] = view["error"]
@@ -52,7 +52,10 @@ class DeviceLogin:
         for row in runtime.db.execute("SELECT body FROM records WHERE kind='auth'").fetchall():
             item = json.loads(row[0])
             if item["state"] == "stop_unconfirmed":
-                runtime.unconfirmed.add(item["auth_id"])
+                if runtime.proven_stopped(item):
+                    self.update(item, "interrupted", "runtime_restarted")
+                else:
+                    runtime.unconfirmed.add(item["auth_id"])
             elif item["state"] not in TERMINAL:
                 self.update(item, "interrupted", "runtime_restarted")
 
@@ -216,6 +219,7 @@ class DeviceLogin:
                 await runtime.stop_process(identifier)
             except TimeoutError:
                 runtime.unconfirmed.add(identifier)
+                runtime.note_instance(item)
                 outcome, error = "stop_unconfirmed", "stop_unconfirmed"
             if outcome == "configured" and runtime.auth.get("epoch") == item["epoch"]:
                 runtime.auth.update(state="configured", verified_at=None)
@@ -242,6 +246,7 @@ class DeviceLogin:
                     self.update(current, "cancelled")
                 except TimeoutError:
                     runtime.unconfirmed.add(identifier)
+                    runtime.note_instance(current)
                     self.update(current, "stop_unconfirmed", "stop_unconfirmed")
             elif identifier not in runtime.unconfirmed:
                 self.update(current, "cancelled")

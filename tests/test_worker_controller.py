@@ -220,6 +220,23 @@ async def test_artifacts_validated_atomically_and_bytes_rehashed(workers):
         await workers.artifact(first['id'], metadata['id'])
 
 
+async def test_artifact_list_takes_32_files_and_a_withheld_kind(workers):
+    first = await submit(workers)
+    await workers.advance()
+    result = workers.runners['host'].jobs[first['id']]
+    many = [artifact(name=f'note-{index}.txt') for index in range(32)]
+    many[0] = {**many[0], 'kind': 'withheld'}
+    result.update(state='succeeded', stop_confirmed=True, artifacts=[*many, artifact(name='extra.txt')])
+    await workers.advance()
+    assert not workers.store.list('worker_artifact')
+    assert workers.store.setting('worker_lease')['job_id'] == first['id']
+    result['artifacts'] = many
+    await workers.advance()
+    rows = {row['name']: row for row in workers.store.list('worker_artifact')}
+    assert len(rows) == 32 and rows['note-0.txt']['kind'] == 'withheld'
+    assert workers.get(first['id'])['state'] == 'succeeded' and not workers.store.setting('worker_lease')
+
+
 async def test_retention_tombstone_prevents_context_and_idempotency_resurrection(workers):
     first = await submit(workers)
     await workers.advance()
@@ -614,3 +631,82 @@ async def test_retention_ack_cannot_acknowledge_a_different_peer(workers):
         await workers.update_retention({'context_days':1, 'audit_days':30})
     assert workers.store.setting('retention')['context_days'] == 7
     assert workers.store.setting('retention_pending')['context_days'] == 1
+
+
+def _pending_stop(workers, auth_id='a' * 32):
+    runner = workers.runners['host']
+    runner.auth[auth_id] = {'id': auth_id, 'status': 'stop_unconfirmed'}
+    workers.store.set_setting('worker_auth_pending', {
+        'worker_id': 'host-coder', 'id': auth_id, 'state': 'pending', 'kind': 'login',
+        'runner_identity': workers.peer_identity('host-coder')})
+    return runner
+
+
+def _reconcile_calls(runner, auth_id, *, refuse=False):
+    original = runner.call
+
+    async def call(method, path, body=None):
+        if path == '/coding/reconcile':
+            runner.calls.append((method, path, body))
+            if refuse:
+                raise RunnerError('stop_unconfirmed', 409)
+            runner.auth[auth_id]['status'] = 'interrupted'
+            return {'stop_confirmed': True, 'replayed': False}
+        if path == '/coding/auth/' + auth_id:
+            runner.calls.append((method, path, body))
+            return dict(runner.auth[auth_id])
+        return await original(method, path, body)
+
+    runner.call = call
+    return call
+
+
+async def test_stop_unconfirmed_receipt_reconciles_on_status_read(workers):
+    auth_id = 'a' * 32
+    runner = _pending_stop(workers, auth_id)
+    _reconcile_calls(runner, auth_id)
+    result = await workers.role_auth('host-coder', 'GET', '/coding/auth/' + auth_id)
+    assert result['id'] == auth_id and result['status'] == 'interrupted'
+    assert not workers.store.setting('worker_auth_pending')
+    assert [path for _method, path, _body in runner.calls].count('/coding/reconcile') == 1
+    assert runner.auth[auth_id]['status'] == 'interrupted'
+
+
+async def test_refused_reconcile_keeps_the_pending_barrier(workers):
+    auth_id = 'b' * 32
+    runner = _pending_stop(workers, auth_id)
+    _reconcile_calls(runner, auth_id, refuse=True)
+    result = await workers.role_auth('host-coder', 'GET', '/coding/auth/' + auth_id)
+    assert result['status'] == 'stop_unconfirmed' and result['id'] == auth_id
+    pending = workers.store.setting('worker_auth_pending')
+    assert pending['id'] == auth_id and pending['worker_id'] == 'host-coder'
+    assert [path for _method, path, _body in runner.calls].count('/coding/reconcile') == 1
+
+
+async def test_new_login_after_reconcile_starts_a_fresh_receipt(workers):
+    auth_id = 'c' * 32
+    runner = _pending_stop(workers, auth_id)
+    _reconcile_calls(runner, auth_id)
+    cleared = await workers.role_auth('host-coder', 'GET', '/coding/auth/' + auth_id)
+    assert cleared['status'] == 'interrupted' and not workers.store.setting('worker_auth_pending')
+    fresh = await workers.role_auth('host-coder', 'POST', '/coding/providers/codex/auth',
+                                    {'method': 'api_key', 'secret': 'next-fixture-key'}, key='fresh-login')
+    assert fresh['id'] != auth_id and fresh['id'] in runner.auth
+    assert workers.store.setting('worker_auth_pending')['id'] == fresh['id']
+    assert runner.auth[auth_id]['status'] == 'interrupted'
+    assert 'next-fixture-key' not in workers.store.path.read_bytes().decode(errors='ignore')
+
+
+async def test_startup_check_clears_pending_auth_without_a_page_request(workers):
+    auth_id = 'd' * 32
+    runner = _pending_stop(workers, auth_id)
+    _reconcile_calls(runner, auth_id)
+    workers.auth_retry_after = time.time() + 3600
+    await workers.start()
+    for _ in range(100):
+        if not workers.store.setting('worker_auth_pending'):
+            break
+        await asyncio.sleep(0.02)
+    assert not workers.store.setting('worker_auth_pending')
+    assert runner.auth[auth_id]['status'] == 'interrupted'
+    assert any(path == '/coding/reconcile' for _method, path, _body in runner.calls)
