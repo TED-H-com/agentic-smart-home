@@ -106,14 +106,14 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             page.route("**/api/**", route)
             page.goto(f"http://127.0.0.1:{server.server_port}/#onboarding")
             page.get_by_text("其他設定方式", exact=True).click()
-            panel = page.get_by_role("region", name="Hermes 協調服務")
-            panel.get_by_role("heading", name="登入你的協調助手", exact=True).wait_for()
+            panel = page.get_by_role("region", name="智能管家登入")
+            panel.get_by_role("heading", name="智能管家登入", exact=True).wait_for()
             expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚待登入")
-            expect(panel.get_by_role("button", name="儲存 Hermes 登入")).to_be_disabled()
+            expect(panel.get_by_role("button", name="儲存登入")).to_be_disabled()
             screenshots(page, "needs-auth")
 
-            page.get_by_label("OpenRouter 模型 ID", exact=True).fill("fixture/model")
-            key = page.get_by_label("OpenRouter API key", exact=True)
+            page.get_by_role("textbox", name="OpenRouter 模型 ID", exact=True).fill("fixture/model")
+            key = page.get_by_role("textbox", name="OpenRouter API key", exact=True)
             assert key.get_attribute("type") == "password" and key.get_attribute("autocomplete") == "off"
             key.fill(secret)
             assert secret not in stored(page)
@@ -128,7 +128,7 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             page.reload()
             page.get_by_text("其他設定方式", exact=True).click()
             expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，待實際回覆驗證")
-            expect(page.get_by_label("OpenRouter API key", exact=True)).to_have_value("")
+            expect(page.get_by_role("textbox", name="OpenRouter API key", exact=True)).to_have_value("")
             assert secret not in stored(page)
 
             # The authoritative backend, not the save operation, supplies verified/reauth states.
@@ -146,8 +146,8 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             page.get_by_role("button", name="保留進度，先開啟 Web 對話", exact=True).click()
             mode = page.get_by_label("對話方式", exact=True)
             expect(mode).to_have_value("hermes")
-            assert page.get_by_label("Agent", exact=True).count() == 0
-            assert page.get_by_label("執行環境", exact=True).count() == 0
+            assert page.get_by_label("AI", exact=True).count() == 0
+            assert page.get_by_label("執行位置", exact=True).count() == 0
             question = "請讀取主機狀態（UI fixture）"
             page.get_by_label("對話訊息", exact=True).fill(question)
             page.get_by_role("button", name="送出訊息", exact=True).click()
@@ -161,19 +161,19 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             assert calls[-1][1]["reply_to"] == first["id"]
             assert second["case_id"] == first["case_id"] and second["thread_id"] == first["thread_id"]
             page.reload()
-            page.get_by_text("接續這段對話", exact=True).wait_for()
+            page.wait_for_function("document.getElementById('gateway-message')?.placeholder === '繼續說…'")
             assert json.loads(page.evaluate("sessionStorage.getItem('agentic-auth-conversations')")) == {
                 "hermes-host-codex": second["id"]}
             assert secret not in stored(page) and question not in stored(page)
             screenshots(page, "gateway")
 
-            page.get_by_text("進階對話設定", exact=True).click()
+            page.get_by_text("進階", exact=True).click()
             mode.select_option("direct")
             page.get_by_text("需要協助時，直接告訴管家。", exact=True).wait_for()
-            expect(page.get_by_label("Agent", exact=True)).to_have_value("codex")
-            page.get_by_label("Agent", exact=True).select_option("grok")
-            expect(page.get_by_label("Agent", exact=True)).to_have_value("grok")
-            page.get_by_label("執行環境", exact=True).select_option("haos")
+            expect(page.get_by_label("AI", exact=True)).to_have_value("codex")
+            page.get_by_label("AI", exact=True).select_option("grok")
+            expect(page.get_by_label("AI", exact=True)).to_have_value("grok")
+            page.get_by_label("執行位置", exact=True).select_option("haos")
             page.get_by_label("對話訊息", exact=True).fill("受控 Grok 的獨立需求")
             page.get_by_role("button", name="送出訊息", exact=True).click()
             page.get_by_role("heading", name="受控 Grok 的獨立需求", exact=True).wait_for()
@@ -182,14 +182,14 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             assert direct["case_id"] != first["case_id"] and direct["coordinator"] == "direct"
 
             mode.select_option("hermes")
-            page.get_by_text("接續這段對話", exact=True).wait_for()
+            page.wait_for_function("document.getElementById('gateway-message')?.placeholder === '繼續說…'")
             page.get_by_label("對話訊息", exact=True).fill("回到原本的 Hermes case")
             page.get_by_role("button", name="送出訊息", exact=True).click()
             page.get_by_role("heading", name="回到原本的 Hermes case", exact=True).wait_for()
             assert calls[-1][1]["reply_to"] == second["id"]
             assert calls[-1][1]["runtime"] == "host" and calls[-1][1]["provider"] == "codex"
             assert messages[0]["case_id"] == first["case_id"]
-            page.get_by_role("button", name="開始新對話", exact=True).click()
+            page.get_by_role("button", name="新對話", exact=True).click()
             page.get_by_text("需要協助時，直接告訴管家。", exact=True).wait_for()
             page.get_by_label("對話訊息", exact=True).fill("另一個 Hermes case")
             page.get_by_role("button", name="送出訊息", exact=True).click()
@@ -198,7 +198,7 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
 
             click_navigation(page, 'Agent 環境')
             expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，待實際回覆驗證")
-            panel.get_by_role("button", name="登出 Hermes", exact=True).click()
+            panel.get_by_role("button", name="登出", exact=True).click()
             expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚待登入")
             assert secret not in stored(page) and not errors, errors
             browser.close()

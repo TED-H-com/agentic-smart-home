@@ -83,23 +83,26 @@ def verifier_screenshot(page, stage, widths=(1440, 768, 390)):
 def test_home_and_host_verification_show_exact_source_unknown_is_hidden(ui_page):
     page, origin = ui_page
     job, errors, posts = mount_home_verifier_fixture(page, origin)
-    section = page.locator('.worker-findings').filter(has=page.get_by_role('heading', name='獨立驗證', exact=True))
+    section = page.locator('.worker-findings').filter(has=page.get_by_role('heading', name='測試', exact=True))
     expect(section).to_be_visible()
-    expect(section.locator('.helper-text')).to_contain_text('家庭現場助手')
-    expect(section.locator('.status')).to_have_text('passed')
+    expect(section).to_contain_text('家庭現場')
+    expect(section).to_contain_text('通過')
     verifier_screenshot(page, 'after')
-    section.get_by_text('查看驗證證據', exact=True).click()
-    expect(section.locator('pre')).to_contain_text('independent_home_verifier')
-    expect(section.locator('pre')).to_contain_text('a' * 64)
+    tech = page.locator('.worker-results details').filter(has=page.locator('summary', has_text='技術資料'))
+    tech.locator('summary').click()
+    expect(tech.locator('pre')).to_contain_text('independent_home_verifier')
+    expect(tech.locator('pre')).to_contain_text('passed')
+    expect(tech.locator('pre')).to_contain_text('a' * 64)
     job['worker_id'] = 'host-coder'
     job['verification']['observed_from'] = 'independent_host_verifier'
     page.reload()
-    expect(section.locator('.helper-text')).to_contain_text('外層開發助手')
-    expect(section.locator('.helper-text')).not_to_contain_text('家庭現場助手')
+    expect(section).to_contain_text('主機的獨立測試')
+    expect(section).not_to_contain_text('家庭現場')
     job['verification']['observed_from'] = 'unknown_model_claim'
     page.reload()
     page.get_by_role('heading', name=job['goal'], exact=True).wait_for()
-    expect(page.get_by_role('heading', name='獨立驗證', exact=True)).to_have_count(0)
+    expect(page.get_by_role('heading', name='測試', exact=True)).to_have_count(0)
+    expect(page.get_by_text('unknown_model_claim')).to_have_count(0)
     expect(page.get_by_text('查看驗證證據', exact=True)).to_have_count(0)
     assert not errors and not posts
 
@@ -186,8 +189,15 @@ def test_coding_role_login_lost_reply_stop_fence_and_artifact_preview(ui_page):
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.route('**/api/**', route)
     page.goto(origin + '/#workers')
-    page.get_by_role('heading', name='要調查或改善什麼？').wait_for()
-    page.get_by_label('開發需求', exact=True).fill('調查手機上的按鈕')
+    page.get_by_label('要調查或改善什麼？', exact=True).wait_for()
+    for width, height in ((1440, 900), (768, 844), (390, 844)):
+        page.set_viewport_size({'width': width, 'height': height})
+        page.evaluate('window.scrollTo(0,0)')
+        box = page.get_by_role('button', name='開始調查', exact=True).bounding_box()
+        assert box and box['y'] >= 0 and box['y'] + box['height'] <= height, (width, box)
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    page.set_viewport_size({'width': 1440, 'height': 900})
+    page.get_by_label('要調查或改善什麼？', exact=True).fill('調查手機上的按鈕')
     expect(page.get_by_role('button', name='開始調查', exact=True)).to_be_disabled()
     page.get_by_role('button', name='登入 Codex 開發助手').click()
     page.get_by_text('SYNTHETIC-CODE', exact=True).wait_for()
@@ -195,25 +205,25 @@ def test_coding_role_login_lost_reply_stop_fence_and_artifact_preview(ui_page):
     page.get_by_text('SYNTHETIC-CODE', exact=True).wait_for()
     assert 'SYNTHETIC-CODE' not in page.evaluate('JSON.stringify({...sessionStorage})')
     auth['url'] = 'https://unexpected.example/collect'
-    expect(page.get_by_role('link', name='開啟開發助手授權頁')).to_have_count(0)
-    page.get_by_role('button', name='取消開發助手登入').click()
+    expect(page.get_by_role('link', name='開啟登入頁')).to_have_count(0)
+    page.get_by_role('button', name='取消登入').click()
     page.get_by_label('開發助手登入方式').select_option('api_key')
     page.get_by_label('開發助手 API key').fill('synthetic-private-coding-key')
     page.get_by_role('button', name='登入 Codex 開發助手').click()
-    page.get_by_role('heading', name='開發助手已登入').wait_for()
+    page.get_by_role('heading', name='已登入 Codex').wait_for()
     assert 'synthetic-private-coding-key' not in page.evaluate('JSON.stringify({s:{...sessionStorage},l:{...localStorage}})')
     assert all('synthetic-private-coding-key' not in url for url in urls)
-    page.get_by_label('開發需求', exact=True).fill('調查手機上的按鈕')
+    page.get_by_label('要調查或改善什麼？', exact=True).fill('調查手機上的按鈕')
     page.get_by_role('button', name='開始調查', exact=True).click()
     page.get_by_role('button', name='停止這份工作', exact=True).wait_for()
     page.reload()
     page.get_by_role('button', name='停止這份工作', exact=True).click()
     page.get_by_role('button', name='核對停止與工作狀態').wait_for()
-    page.get_by_label('開發需求', exact=True).fill('修正按鈕大小並測試')
+    page.get_by_label('要調查或改善什麼？', exact=True).fill('修正按鈕大小並測試')
     expect(page.get_by_role('button', name='開始調查', exact=True)).to_be_disabled()
     assert len([item for item in calls if item[0] == 'worker/jobs']) == 1
     page.get_by_role('button', name='核對停止與工作狀態').click()
-    page.get_by_label('工作方式').select_option('development')
+    page.get_by_role('radio', name='修改並測試', exact=True).check()
     page.get_by_role('button', name='開始修正與測試', exact=True).click()
     page.get_by_text('獨立測試程序：12 項通過。', exact=True).wait_for()
     page.locator('.worker-artifact').filter(has_text='candidate.patch').get_by_role('button', name='查看內容').click()
@@ -227,10 +237,16 @@ def test_coding_role_login_lost_reply_stop_fence_and_artifact_preview(ui_page):
     expect(page.get_by_role('link', name='手機預覽')).to_have_attribute('href', f"http://127.0.0.2:8100/p/{'x' * 43}/390.png")
     screenshot(page, 'coding-results')
     page.get_by_role('button', name='新工作', exact=True).click()
-    page.get_by_label('執行位置').select_option('home-coder')
-    page.get_by_label('開發需求', exact=True).fill('調查家庭現況')
+    page.get_by_role('radio', name='主機', exact=True).focus()
+    page.keyboard.press('ArrowRight')
+    expect(page.get_by_role('radio', name='家庭現場', exact=True)).to_be_checked()
+    page.keyboard.press('ArrowLeft')
+    expect(page.get_by_role('radio', name='主機', exact=True)).to_be_checked()
+    page.keyboard.press('ArrowRight')
+    expect(page.get_by_role('radio', name='家庭現場', exact=True)).to_be_checked()
+    page.get_by_label('要調查或改善什麼？', exact=True).fill('調查家庭現況')
     expect(page.get_by_role('button', name='開始修正與測試', exact=True)).to_be_disabled()
-    expect(page.get_by_text('執行環境尚未就緒', exact=False)).to_be_visible()
+    expect(page.get_by_text('尚未連接', exact=True)).to_be_visible()
     assert not errors
 
 
@@ -288,9 +304,14 @@ def test_network_and_digest_bound_update_review(ui_page):
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.route('**/api/**', route)
     page.goto(origin + '/#host')
-    page.get_by_text('網路與遠端連線', exact=True).click()
-    page.get_by_label('家中網路').select_option('reservation')
-    page.get_by_label('外出連線').select_option('tailscale')
+    page.locator('summary').filter(has_text='網路與遠端').click()
+    expect(page.get_by_role('radio', name='自動取得 IP（建議）')).to_be_enabled()
+    page.get_by_role('radio', name='自動取得 IP（建議）').focus()
+    page.keyboard.press('ArrowRight')
+    expect(page.get_by_role('radio', name='路由器保留固定 IP')).to_be_checked()
+    page.get_by_role('radio', name='暫不啟用').focus()
+    page.keyboard.press('ArrowRight')
+    expect(page.get_by_role('radio', name='Tailscale 私人網路')).to_be_checked()
     page.get_by_role('button', name='保存連線偏好').click()
     page.get_by_role('button', name='開始 Tailscale 登入').click()
     expect(page.get_by_role('link', name='開啟 Tailscale 官方登入')).to_have_attribute('href', 'https://login.tailscale.com/a/synthetic-login')
@@ -301,7 +322,7 @@ def test_network_and_digest_bound_update_review(ui_page):
     page.context.grant_permissions(['clipboard-read', 'clipboard-write'])
     page.get_by_role('button', name='複製遠端連線指令').click()
     assert page.evaluate('navigator.clipboard.readText()') == network['tunnel_command']
-    page.get_by_text('版本更新與退版', exact=True).click()
+    page.locator('summary').filter(has_text='版本').click()
     page.get_by_text('尚未設定可信的更新發行者。', exact=False).wait_for()
     expect(page.get_by_role('button', name='檢查候選版本', exact=True)).to_have_count(0)
     releases['trusted_publisher_configured'] = True
@@ -312,12 +333,12 @@ def test_network_and_digest_bound_update_review(ui_page):
     assert not [item for item in calls if item[0] == 'updates/apply']
     screenshot(page, 'host-maintenance')
     page.get_by_role('button', name='確認更新這個版本', exact=True).click()
-    page.get_by_role('button', name='選擇退回前一版本').click()
+    page.get_by_role('button', name='退回前一版本', exact=True).click()
     assert not [item for item in calls if item[0] == 'updates/rollback']
     page.get_by_role('button', name='確認退版', exact=True).click()
     expect(page.get_by_role('region', name='更新候選版本').get_by_text('已退版', exact=True)).to_be_visible()
     page.get_by_role('button', name='登出此主機的 Tailscale').click()
-    expect(page.get_by_label('外出連線')).to_have_value('disabled')
+    expect(page.get_by_role('radio', name='暫不啟用')).to_be_checked()
     assert not errors
 
 
@@ -409,8 +430,16 @@ def test_chat_history_is_readonly_without_thread_and_locked_during_send(ui_page)
     page.get_by_role('heading', name=web['message'], exact=True).wait_for()
     for message in (legacy, external):
         page.get_by_role('button', name='對話紀錄', exact=False).click()
-        page.get_by_role('region', name='對話紀錄').get_by_role('button').filter(has_text=message['message']).click()
+        row = page.get_by_role('region', name='對話紀錄').get_by_role('button').filter(has_text=message['message'])
+        if message['source'] == 'line':
+            expect(row).to_contain_text('LINE')
+        else:
+            assert 'Web' not in (row.inner_text() or '')
+        row.click()
         expect(page.get_by_label('對話訊息')).to_have_count(0)
+        if message['source'] != 'web':
+            expect(page.locator('.assistant-conversation .chat-meta')).to_contain_text('LINE')
+            assert 'WEB ·' not in page.locator('.assistant-conversation').inner_text()
         assert json.loads(page.evaluate("sessionStorage.getItem('agentic-auth-conversations')")) == {'hermes-host-codex': web['id']}
         assert not posts
     page.get_by_role('button', name='對話紀錄', exact=False).click()

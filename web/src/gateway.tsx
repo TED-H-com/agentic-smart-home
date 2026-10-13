@@ -1,75 +1,9 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
-import QRCode from 'qrcode';
-import {api,haPath,haTarget,requestKey,type ConversationSession} from './api';
-import {Button,CopyButton,Notice,Status,Empty,timestamp} from './ui';
-import {Provider} from './providers';
-import {HostPanel} from './host';
-import {HermesPanel} from './hermes';
+import {api,requestKey,type ConversationSession} from './api';
+import {Button,Notice,Status,labels,timestamp} from './ui';
 import {WorkerResult} from './workers';
-import type {View} from './setup';
-
-type Runtime='host'|'haos';
-const names:Record<string,string>={web:'Web',line:'LINE',discord:'Discord',telegram:'Telegram',host:'外層 Linux',haos:'HAOS 內層',codex:'Codex',claude:'Claude Code',agy:'Antigravity',grok:'Grok Build'};
-const connection:Record<string,string>={disabled:'尚未啟用',connecting:'連線中',connected:'已連線',unavailable:'連線中斷',needs_reauth:'需要登入',idle:'尚未登入',ready:'LINE 已登入',authenticating:'等待掃碼',restoring:'正在恢復登入',failed:'登入未完成'};
-
-export function RuntimePanel({only,onChange}:{only?:Runtime;onChange?:()=>void}){
-  const [runtime,setRuntime]=useState<Runtime>(only||'host'),[states,setStates]=useState<any>(null),[pair,setPair]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const refresh=useCallback(async()=>{try{setStates(await api('runtimes'));setError('');onChange?.()}catch(e){setError((e as Error).message)}},[onChange]);
-  useEffect(()=>{refresh();const timer=setInterval(refresh,10000);return()=>clearInterval(timer)},[refresh]);
-  useEffect(()=>{if(only)setRuntime(only)},[only]);
-  const state=states?.[runtime],paired=state?.protocol===1;
-  async function connect(){setBusy(true);setError('');try{if(runtime==='host')await api('host/pair',{});else{const data=JSON.parse(pair);await api('runtimes/haos/pair',{fingerprint:data.fingerprint,code:data.code});setPair('')}await refresh()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
-  return <section className="runtime-panel" aria-label="Agent 執行環境">{!only&&<div className="runtime-tabs" role="group" aria-label="切換 Agent 執行環境">{(['host','haos'] as Runtime[]).map(id=><Button secondary={runtime!==id} aria-pressed={runtime===id} key={id} onClick={()=>setRuntime(id)}>{names[id]}<small>{states?.[id]?.protocol===1?'已配對':'待連接'}</small></Button>)}</div>}
-    <div className="section-heading"><div><span className="eyebrow">{runtime==='host'?'OUTER LINUX':'HOME ASSISTANT OS'}</span><h2>{runtime==='host'?'登入外層 Agent':'登入 HAOS 內層 Agent'}</h2></div><Status value={paired?'connected':state?.status||'loading'}/></div>
-    <p className="subtle">{runtime==='host'?'外層 Agent 負責對話與主機查詢，HAOS 關機時仍可使用。':'內層 Agent 在 HAOS 的 Runner App 執行，從外層 Web 管理登入。兩層使用各自的登入資料。'}</p>
-    {error&&<Notice error>{error}</Notice>}
-    {!paired&&<div className="runtime-pair">{runtime==='haos'?<><ol className="connect-steps"><li>在 HA App 商店加入 repository：<code>https://github.com/teddashh/agentic-smart-home</code>。也可下載 <a href="./downloads/agentic-runner.zip" download>Runner App 安裝檔</a>，解壓到 <code>/addons/agentic_runner</code>。</li><li>在 <a href={haPath('/hassio/store')} target={haTarget()} rel="noreferrer">HA App 商店 ↗</a> 重新載入 Apps，安裝並啟動 Agentic Home Runner。網路設定保留 8443。</li><li>從 Runner 記錄複製一次性配對 JSON，貼到下方。這個 Runner 只與外層 Controller 配對。</li></ol><label>HAOS Runner 配對資料<textarea rows={3} autoComplete="off" spellCheck={false} value={pair} onChange={e=>setPair(e.target.value)} placeholder='{"fingerprint":"…","code":"…"}'/></label></>:<p>連接這台 Linux 上隨產品安裝的 Runner，再選擇 Agent 登入。</p>}<Button secondary disabled={busy||(runtime==='haos'&&!pair.trim())} onClick={connect}>{busy?'配對中…':runtime==='host'?'連接外層 Runner':'配對 HAOS Runner'}</Button></div>}
-    <div className="provider-grid runtime-providers">{['codex','claude','agy','grok'].map(provider=><Provider key={`${runtime}-${provider}`} runtime={runtime} provider={provider} paired={paired} state={state?.providers?.find((p:any)=>p.provider===provider)} onChange={refresh}/>)}</div>
-  </section>
-}
-
-type Pairing={state:string;code:string|null;expires_at:number|null;chat:string|null};
-function ChannelPairing({channel,chat,secret,hasSecret,enabled,onChange,onSaved,onState}:{channel:string;chat:string;secret:string;hasSecret:boolean;enabled:boolean;onChange:()=>void;onSaved:()=>void;onState:(value:Pairing,channel:string)=>void}){
-  const [pair,setPair]=useState<Pairing|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const previous=useRef(''),pending=useRef<{signature:string;key:string}|null>(null);
-  const endpoint=`gateway/channels/${channel}/pairing`;
-  useEffect(()=>{let active=true;let timer:ReturnType<typeof setTimeout>;async function poll(){try{const value=await api(endpoint);if(active){setPair(value);onState(value,channel);if(value.state!==previous.current){previous.current=value.state;if(value.state==='paired')onChange()}}}catch(e){if(active)setError((e as Error).message)}if(active)timer=setTimeout(poll,2000)}poll();return()=>{active=false;clearTimeout(timer)}},[endpoint,onChange,onState,channel]);
-  async function mutate(cancel=false){setBusy(true);setError('');const path=cancel?`${endpoint}/cancel`:endpoint,body=cancel?{}:channel==='line'?{chat}:{secret};const signature=JSON.stringify([path,body]);if(pending.current?.signature!==signature)pending.current={signature,key:requestKey()};try{const value=await api(path,body,false,pending.current.key);pending.current=null;setPair(value);onState(value,channel);if(!cancel)onSaved()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
-  const waiting=pair?.state==='pending';
-  return <div className="channel-pairing">{error&&<Notice error>{error}</Notice>}{enabled?<p className="helper-text">此通道已啟用，正在等待實際連線確認。若要更換帳號，請先到進階設定停用通道。</p>:pair?.state==='paired'?<Notice>帳號已配對。正在確認通訊連線，確認後會自動繼續。</Notice>:<>{waiting?<><p>從要授權的帳號，在{channel==='line'?'選定的 LINE 聊天室':'與 Telegram bot 的對話'}送出下列訊息：</p><div className="pairing-command"><pre className="pairing-code" aria-label="通訊配對指令">/pair {pair.code}</pre><CopyButton text={`/pair ${pair.code}`}>複製配對指令</CopyButton></div><p className="helper-text">這組配對碼只能使用一次，3 分鐘後失效。請只從自己的帳號送出。</p><Button secondary disabled={busy} onClick={()=>mutate(true)}>取消這次配對</Button></>:<>{pair?.state==='expired'&&<Notice error>通訊配對碼已過期，請產生新的配對碼。</Notice>}<Button disabled={busy||(channel==='line'?!chat:!secret.trim()&&!hasSecret)} onClick={()=>mutate()}>{busy?'準備配對碼…':'產生通訊配對碼'}</Button></>}</>}<p className="helper-text">只有完成配對的聊天室與帳號能向助手發送需求。家庭操作仍需在 Web 檢查與批准。</p></div>
-}
-
-export function ChannelSettings({onChange,guided=false,initialChannel,onChannelChange}:{onChange?:()=>void;guided?:boolean;initialChannel?:string;onChannelChange?:(channel:string)=>Promise<void>}){
-  const [data,setData]=useState<any>(null),[channel,setChannel]=useState('line'),[secret,setSecret]=useState(''),[chats,setChats]=useState(''),[senders,setSenders]=useState(''),[login,setLogin]=useState<any>(null),[qr,setQr]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[dirty,setDirty]=useState(false);
-  const refresh=useCallback(async()=>{const value=await api('gateway');setData(value);return value},[]);
-  const [pairChat,setPairChat]=useState(''),[pairState,setPairState]=useState<(Pairing&{channel:string})|null>(null);
-  const pairingChanged=useCallback((value:Pairing,channel:string)=>setPairState({...value,channel}),[]);
-  const pendingPair=pairState?.channel===channel&&pairState.state==='pending'?pairState:null;
-  const paired=useCallback(()=>{refresh().catch(e=>setError(e.message));onChange?.()},[refresh,onChange]);
-  const pairedSaved=useCallback(()=>{setSecret('');refresh().catch(e=>setError(e.message))},[refresh]);
-  useEffect(()=>{refresh().then(value=>setChannel(initialChannel||value.preferences.primary)).catch(e=>setError(e.message))},[refresh,initialChannel]);
-  useEffect(()=>{if(guided&&channel==='line')api('gateway/line/login').then(setLogin).catch(e=>setError(e.message))},[guided,channel]);
-  useEffect(()=>{if(!data||dirty)return;const current=data.channels.find((c:any)=>c.id===channel);setChats(current?.chats.join('\n')||'');setSenders(current?.senders.join('\n')||'')},[channel,data,dirty]);
-  useEffect(()=>{if(!login||['ready','unavailable','failed'].includes(login.status))return;let alive=true;const timer=setInterval(()=>api('gateway/line/login').then(value=>{if(alive)setLogin(value)}).catch(e=>{if(alive)setError(e.message)}),1500);return()=>{alive=false;clearInterval(timer)}},[login?.status]);
-  useEffect(()=>{let active=true;setQr('');if(login?.qr)QRCode.toDataURL(login.qr,{width:240,margin:2}).then(value=>{if(active)setQr(value)});return()=>{active=false}},[login?.qr]);
-  const current=data?.channels.find((c:any)=>c.id===channel);
-  const ids=(text:string)=>Array.from(new Set(text.split(/[\s,]+/).filter(Boolean)));
-  async function save(enabled=true){setBusy(true);setError('');setNotice('');try{if(channel!=='web')await api(`gateway/channels/${channel}`,{enabled,secret,chats:ids(chats),senders:ids(senders)});await api('gateway/preferences',{...data.preferences,primary:channel});setSecret('');setDirty(false);await refresh();onChange?.();setNotice(channel==='web'?'Web 已設為主要入口。':enabled?'設定已儲存，正在連接通訊服務。':'此通道已停用，Web 仍可使用。')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
-  return <section aria-label="對外通訊設定" className={`channel-settings ${guided?'channel-guided':''}`}><div className="section-heading"><div><span className="eyebrow">ONE GATEWAY</span><h2>選擇你的通訊入口</h2></div><span className="status s-connected">Web 隨時可用</span></div><p>選擇平常最方便的通訊方式，之後也能更換。所有需求都會回到同一個助手。</p>
-    <div className="channel-options" role="group" aria-label="主要通訊入口">{(guided?['line','telegram','web']:['line','discord','telegram','web']).map(id=><button key={id} aria-label={`${names[id]} ${id==='line'?'預設推薦':id==='web'?(guided?'先用 Web，稍後連接通訊':'瀏覽器直接對話'):id==='discord'?'自己的 Discord bot':'自己的 Telegram bot'}`} className={`channel-option ${channel===id?'chosen':''}`} aria-pressed={channel===id} disabled={busy} onClick={async()=>{setBusy(true);setError('');try{await onChannelChange?.(id);setChannel(id);setDirty(false);setSecret('');setNotice('')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}><strong>{names[id]}</strong><small>{id==='line'?'預設推薦':id==='web'?(guided?'先用 Web，稍後連接通訊':'瀏覽器直接對話'):id==='discord'?'自己的 Discord bot':'自己的 Telegram bot'}</small></button>)}</div>
-    {error&&<Notice error>{error}</Notice>}{notice&&<Notice>{notice}</Notice>}
-    {!data?<p role="status">讀取通訊設定…</p>:<>{channel==='web'?<p className="subtle">不需要其他帳號。在此 Web 登入後，就能向外層 Agent 提問；之後可隨時加上 LINE 或其他通道。</p>:<>
-      <p className="connection-state" role="status">{names[channel]} · {connection[current?.status]||'尚未設定'}</p>
-      {channel==='line'?<><p className="helper-text">以 LINE 掃碼登入，再指定家庭聊天室與可使用的人。LINE.js 使用非官方協定，請先用次要帳號。</p><Button secondary={!guided||login?.status==='ready'} hidden={guided&&login?.status==='authenticating'} disabled={busy||login?.status==='authenticating'} onClick={async()=>{setBusy(true);setError('');try{setLogin(await api('gateway/line/login',{}))}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>{login?.status==='ready'?'重新讀取 LINE 聊天室':'開始 LINE 掃碼登入'}</Button>{login&&<div className={`line-login ${qr?'has-qr':''}`} role="status">{qr&&<img src={qr} width={240} height={240} alt="用 LINE 掃描此登入 QR code"/>}<div><h3>{connection[login.status]||login.status}{login.profile&&` · ${login.profile}`}</h3>{qr&&<p>用 LINE 手機版掃描 QR code，再依手機提示確認登入。</p>}{login.pin&&<p className="line-pin-prompt">在手機輸入 <strong className="line-pin">{login.pin}</strong></p>}</div>{login.status==='unavailable'&&<p>請確認 LINE.js 服務已啟動，再重新開始。</p>}</div>}{!!login?.channels?.length&&<label>{guided?'家庭聊天室':'加入家庭聊天室'}<select aria-label={guided?'家庭聊天室':'加入家庭聊天室'} value={guided?(pendingPair?.chat||pairChat):''} disabled={guided&&!!pendingPair} onChange={e=>{if(guided)setPairChat(e.target.value);else{setChats(Array.from(new Set([...ids(chats),e.target.value])).join('\n'));setDirty(true)}}}><option value="">選擇聊天室…</option>{login.channels.map((c:any)=><option key={c.channelId} value={c.channelId}>{c.name}{!guided&&` · ${c.channelId}`}</option>)}</select></label>}</>:<label>{names[channel]} bot token<input type="password" autoComplete="off" value={secret} placeholder={current?.has_secret?'已儲存；留空保留原權杖':''} onChange={e=>{setSecret(e.target.value);setDirty(true)}}/></label>}
-      {channel==='telegram'&&<p className="helper-text">{guided?'從 BotFather 建立專用 bot，貼上 bot token 後取得一次性配對碼。':'從 BotFather 建立專用 bot。先開啟與 bot 的對話，再填入聊天室與使用者的數字 ID。'}</p>}
-      {channel==='discord'&&<p className="helper-text">在 Discord Developer Portal 建立 bot，啟用 Message Content Intent，並授予所選頻道的讀取歷史與傳送訊息權限。</p>}
-      {guided&&['line','telegram'].includes(channel)&&<div hidden={channel==='line'&&login?.status!=='ready'&&!pendingPair&&!current?.enabled}><ChannelPairing key={channel} channel={channel} chat={pairChat} secret={secret} hasSecret={!!current?.has_secret} enabled={!!current?.enabled} onChange={paired} onSaved={pairedSaved} onState={pairingChanged}/></div>}
-      </>}
-      {guided&&channel!=='web'?<details><summary>進階：手動設定通訊 IDs</summary><div className="channel-fields"><label>允許的聊天室 ID<textarea rows={2} value={chats} onChange={e=>{setChats(e.target.value);setDirty(true)}} placeholder="每行一個 ID"/></label><label>允許的使用者 ID<textarea rows={2} value={senders} onChange={e=>{setSenders(e.target.value);setDirty(true)}} placeholder="每行一個 ID"/></label></div><div className="row-actions"><Button secondary disabled={busy||!chats.trim()||!senders.trim()} onClick={()=>save(true)}>儲存並啟用通訊</Button>{current?.enabled&&<Button secondary disabled={busy} onClick={()=>save(false)}>停用此通道</Button>}</div></details>:<>{channel!=='web'&&<><div className="channel-fields"><label>允許的聊天室 ID<textarea rows={2} value={chats} onChange={e=>{setChats(e.target.value);setDirty(true)}} placeholder="每行一個 ID"/></label><label>允許的使用者 ID<textarea rows={2} value={senders} onChange={e=>{setSenders(e.target.value);setDirty(true)}} placeholder="每行一個 ID"/></label></div><p className="helper-text">只有兩份清單都符合的訊息會交給 Agent。家庭操作會產生 Web 提案，供管理者檢查與批准。</p></>}
-      <div className="row-actions"><Button disabled={busy||(channel!=='web'&&(!chats.trim()||!senders.trim()))} onClick={()=>save(true)}>{busy?'儲存中…':channel==='web'?'使用 Web 作為主要入口':'儲存並啟用通訊'}</Button>{current?.enabled&&<Button secondary disabled={busy} onClick={()=>save(false)}>停用此通道</Button>}<Button secondary disabled={busy} onClick={()=>refresh().catch(e=>setError(e.message))}>重新檢查連線</Button></div></>}
-      {guided&&channel!=='web'&&<Button secondary disabled={busy} onClick={()=>refresh().catch(e=>setError(e.message))}>重新檢查連線</Button>}</>}
-  </section>
-}
+import {ChannelSettings} from './channels';
+import {names,type Runtime} from './labels';
 
 const conversationKey='agentic-auth-conversations';
 const continuable=new Set(['queued','planning','awaiting_user','awaiting_approval','succeeded']);
@@ -77,18 +11,31 @@ const sameThread=(m:any,n:any)=>m.source===n.source&&m.runtime===n.runtime&&m.pr
 function savedConversations(key=conversationKey,identity?:ConversationSession):Record<string,string>{
   try{const stored=sessionStorage.getItem(key);const value=JSON.parse(stored||'{}');if(!stored&&identity?.resume&&/^[a-f0-9]{64}$/.test(identity.resume.message_id))value['hermes-host-codex']=identity.resume.message_id;return Object.fromEntries(Object.entries(value).filter(([key,id])=>/^(hermes-)?(host|haos)-(codex|claude|agy|grok)$/.test(key)&&typeof id==='string'&&/^[a-f0-9]{64}$/.test(id))) as Record<string,string>}catch{return {}}
 }
+function speakerOf(m:any){return m.coordinator==='hermes'?'智能管家':names[m.provider]||'開發助手'}
+function fitComposer(el:HTMLTextAreaElement){
+  el.style.height='auto';
+  const style=getComputedStyle(el);
+  const line=parseFloat(style.lineHeight)||24;
+  const pad=parseFloat(style.paddingTop)+parseFloat(style.paddingBottom);
+  const limit=line*6+pad;
+  el.style.height=`${Math.min(el.scrollHeight,limit)}px`;
+  el.style.overflowY=el.scrollHeight>limit+1?'auto':'hidden';
+}
 function CaseWork({id,bridge=false,storageScope}:{id:string;bridge?:boolean;storageScope?:string}) {
   const [jobs,setJobs]=useState<{id:string;state:string;worker_id:string;artifact_count:number;evidence_count:number;content_expired:boolean}[]>([]),[expanded,setExpanded]=useState<string|null>(null);
   useEffect(()=>{if(!/^[a-f0-9]{32}$/.test(id))return;let active=true;let timer:ReturnType<typeof setTimeout>;async function poll(){try{const value=await api(`hermes/cases/${id}`);if(active)setJobs(value.jobs||[])}catch{if(active)setJobs([])}if(active)timer=setTimeout(poll,4000)}poll();return()=>{active=false;clearTimeout(timer)}},[id]);
   if(!jobs.length)return null;
-  return <div className="conversation-work">{jobs.map(job=><div className="assistant-work" key={job.id}><div className="section-heading"><h4>{job.state==='succeeded'?'處理結果':'處理進度'}</h4><Status value={job.state}/></div>{job.content_expired?<p className="helper-text">成果已超過保存期限。</p>:<><div className="section-heading"><p className="helper-text">{job.artifact_count} 份成果 · {job.evidence_count} 份證據</p><Button secondary aria-expanded={expanded===job.id} onClick={()=>setExpanded(expanded===job.id?null:job.id)}>{expanded===job.id?'收起成果':'查看成果'}</Button></div>{expanded===job.id&&<WorkerResult key={job.id} id={job.id} caseId={id} bridge={bridge} storageScope={storageScope}/>}</>}</div>)}</div>
+  return <div className="conversation-work">{jobs.map(job=>{
+    const summary=job.state==='succeeded'?`${job.artifact_count} 份成果 · ${job.evidence_count} 份證據`:`${labels[job.state]||job.state} · ${job.artifact_count} 份成果 · ${job.evidence_count} 份證據`;
+    return <div className="assistant-work" key={job.id}>{job.content_expired?<p className="helper-text">成果已超過保存期限。</p>:<div className="case-line"><p>{summary}</p><Button secondary aria-expanded={expanded===job.id} onClick={()=>setExpanded(expanded===job.id?null:job.id)}>{expanded===job.id?'收起成果':'查看成果'}</Button></div>}{expanded===job.id&&!job.content_expired&&<WorkerResult key={job.id} id={job.id} caseId={id} bridge={bridge} storageScope={storageScope}/>}</div>
+  })}</div>
 }
 
 export function GatewayPanel({visible=true,bridge=false,conversationSession}:{visible?:boolean;bridge?:boolean;conversationSession?:ConversationSession}){
   const storage=conversationSession?.storage_scope?`${conversationKey}-${conversationSession.storage_scope}`:conversationKey;
   const [data,setData]=useState<any>(null),[messages,setMessages]=useState<any[]>([]),[draft,setDraft]=useState(''),[runtime,setRuntime]=useState<Runtime>('host'),[provider,setProvider]=useState('codex'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[settings,setSettings]=useState(()=>!bridge&&location.hash==='#gateway/channels'),[history,setHistory]=useState(false),[viewedId,setViewedId]=useState<string|null>(null);
-  const [replies,setReplies]=useState(()=>savedConversations(storage,conversationSession)),[loaded,setLoaded]=useState(false),[coordinator,setCoordinator]=useState('hermes');
-  const pending=useRef<{body:string;key:string;thread:string|null}|null>(null),initialized=useRef(false),handledLink=useRef('');
+  const [replies,setReplies]=useState(()=>savedConversations(storage,conversationSession)),[loaded,setLoaded]=useState(false),[coordinator,setCoordinator]=useState('hermes'),[away,setAway]=useState(false);
+  const pending=useRef<{body:string;key:string;thread:string|null}|null>(null),initialized=useRef(false),handledLink=useRef(''),thread=useRef<HTMLElement>(null),pin=useRef(true),box=useRef<HTMLTextAreaElement>(null),restoreFocus=useRef(false);
   const scope=coordinator==='hermes'?'hermes-host-codex':`${runtime}-${provider}`,replyId=replies[scope];
   const cursor=messages.find(m=>m.id===replyId&&m.source==='web'&&m.thread_id&&(coordinator==='hermes'||(m.runtime===runtime&&m.provider===provider))&&(m.coordinator||'direct')===coordinator);
   // A second browser surface may have continued this same thread since our last send.
@@ -100,48 +47,63 @@ export function GatewayPanel({visible=true,bridge=false,conversationSession}:{vi
   function startNew(){if(/^#gateway\//.test(location.hash))window.history.replaceState(null,'',`${location.pathname}${location.search}#gateway`);setViewedId(null);setHistory(false);setReplies(previous=>{const next={...previous};delete next[scope];return next});setError('');pending.current=null}
   function continueFrom(message:any){setViewedId(null);setHistory(false);setRuntime(message.runtime);setProvider(message.provider);setCoordinator(message.coordinator||'direct');setReplies(previous=>({...previous,[`${message.coordinator==='hermes'?'hermes-':''}${message.runtime}-${message.provider}`]:message.id}));setError('');document.getElementById('gateway-message')?.focus()}
   async function submit(e:React.FormEvent){
-    e.preventDefault();if(busy||!loaded||(replyId&&!active))return;
-    setBusy(true);setError('');
+    e.preventDefault();if(busy||!loaded||!draft.trim()||(replyId&&!active))return;
+    pin.current=true;setBusy(true);setError('');
     let body={message:draft,runtime:coordinator==='hermes'?'host':runtime,provider:coordinator==='hermes'?'codex':provider,reply_to:active?.id||null,...(coordinator==='hermes'?{coordinator}: {})};
     const previous=pending.current?JSON.parse(pending.current.body):null;
     // A lost reply must retry the original parent and key even after polling sees its result.
     if(previous&&pending.current?.thread===(active?.thread_id||null)&&previous.message===body.message&&previous.runtime===body.runtime&&previous.provider===body.provider&&previous.coordinator===body.coordinator)body=previous;
     const serialized=JSON.stringify(body);
     if(pending.current?.body!==serialized)pending.current={body:serialized,key:requestKey(),thread:active?.thread_id||null};
-    try{const result=await api('gateway/messages',body,false,pending.current!.key);setReplies(previous=>({...previous,[scope]:result.id}));setMessages(previous=>[result,...previous.filter(m=>m.id!==result.id)]);setDraft('');setViewedId(null);pending.current=null;await refresh()}
+    try{const result=await api('gateway/messages',body,false,pending.current!.key);setReplies(previous=>({...previous,[scope]:result.id}));setMessages(previous=>[result,...previous.filter(m=>m.id!==result.id)]);restoreFocus.current=true;setDraft('');setViewedId(null);pending.current=null;await refresh()}
     catch(e){setError((e as Error).message)}finally{setBusy(false)}
+  }
+  function onComposerKey(e:React.KeyboardEvent<HTMLTextAreaElement>){
+    const native=e.nativeEvent;
+    if(native.isComposing||native.keyCode===229)return;
+    if(e.key!=='Enter'||e.shiftKey)return;
+    e.preventDefault();
+    if(busy||!loaded||!draft.trim()||!!(replyId&&!active))return;
+    e.currentTarget.form?.requestSubmit();
   }
   useEffect(()=>{const changed=()=>setSettings(!bridge&&location.hash==='#gateway/channels');window.addEventListener('hashchange',changed);return()=>window.removeEventListener('hashchange',changed)},[bridge]);
   const selected=messages.find(m=>m.id===(viewedId||replyId));
   const conversation=selected?messages.filter(m=>sameThread(m,selected)).slice().reverse().sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)):[];
   const recent=messages.filter((m,index)=>!messages.slice(0,index).some(n=>sameThread(m,n)));
+  const threadKey=`${scope}:${viewedId||replyId||''}`;
+  const seenThread=useRef(threadKey);
+  if(seenThread.current!==threadKey){seenThread.current=threadKey;pin.current=true}
+  const tail=conversation.map(m=>`${m.id}:${m.state}:${m.answer||''}`).join('|');
+  const inlineTyping=!!conversation.length&&!conversation[conversation.length-1].answer&&['queued','planning'].includes(conversation[conversation.length-1].state);
+  function onThreadScroll(){const el=thread.current;if(!el)return;const near=el.scrollHeight-el.scrollTop-el.clientHeight<=48;pin.current=near;setAway(!near&&el.scrollHeight>el.clientHeight+8)}
+  function jumpToLatest(){const el=thread.current;if(!el)return;pin.current=true;setAway(false);el.scrollTo({top:el.scrollHeight,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})}
+  useEffect(()=>{const el=thread.current;if(!el)return;if(pin.current){el.scrollTop=el.scrollHeight;setAway(false)}else setAway(el.scrollHeight>el.clientHeight+8)},[tail,busy,loaded]);
+  useEffect(()=>{if(box.current)fitComposer(box.current)},[draft,viewedId]);
+  useEffect(()=>{if(!busy&&restoreFocus.current){restoreFocus.current=false;document.getElementById('gateway-message')?.focus()}},[busy]);
+  useEffect(()=>{if(loaded&&!conversation.length&&!viewedId&&!settings&&!history)document.getElementById('gateway-message')?.focus()},[loaded,conversation.length,viewedId,settings,history]);
   function openConversation(message:any){if(busy)return;if(message.source==='web'&&message.thread_id&&continuable.has(message.state))continueFrom(message);else{setHistory(false);setViewedId(message.id);setError('')}}
   useEffect(()=>{if(!loaded)return;const select=()=>{const id=/^#gateway\/([a-f0-9]{64})$/.exec(location.hash)?.[1];if(!id){handledLink.current='';return}if(handledLink.current===id)return;const message=messages.find(m=>m.id===id);if(message){handledLink.current=id;openConversation(message);}else setError('找不到這段對話；可能已超過保存期限。')};select();window.addEventListener('hashchange',select);return()=>window.removeEventListener('hashchange',select)},[loaded,messages]);
   return <div className="assistant-page">
-    <div className="assistant-toolbar"><Button secondary disabled={busy} aria-expanded={history} onClick={()=>setHistory(!history)}>對話紀錄{messages.length?` · ${recent.length}`:''}</Button><Button secondary disabled={busy||(!replyId&&!viewedId)} onClick={startNew}>開始新對話</Button>{!bridge&&<a href="#settings">設定</a>}</div>
-    {history&&<section className="assistant-history" aria-label="對話紀錄"><h2>對話紀錄</h2>{!recent.length?<p className="subtle">還沒有對話。</p>:recent.map(m=><button key={m.id} className="assistant-history-item secondary" disabled={busy} onClick={()=>openConversation(m)}><span>{m.message}</span><small>{names[m.source]} · {timestamp(m.created_at)}</small></button>)}</section>}
-    {!bridge&&settings&&<section className="assistant-channel-settings"><div className="section-heading"><h2>通訊入口</h2><Button secondary onClick={()=>{setSettings(false);location.hash='gateway'}}>回到對話</Button></div><ChannelSettings onChange={refresh}/></section>}
+    <div className="assistant-toolbar"><Button secondary disabled={busy} aria-expanded={history} onClick={()=>setHistory(!history)}>對話紀錄{messages.length?` · ${recent.length}`:''}</Button>{!viewedId&&<Button secondary disabled={busy||!replyId} onClick={startNew}>新對話</Button>}{!bridge&&<a href="#gateway/channels">通訊設定</a>}</div>
+    {history&&<section className="assistant-history" aria-label="對話紀錄">{!recent.length?<p className="subtle">還沒有對話。</p>:recent.map(m=><button key={m.id} className="assistant-history-item secondary" disabled={busy} onClick={()=>openConversation(m)}><span>{m.message}</span><small><span>{labels[m.state]||m.state}</span>{m.source!=='web'&&<span>{names[m.source]||m.source}</span>}<time dateTime={m.created_at}>{timestamp(m.created_at)}</time></small></button>)}</section>}
+    {!bridge&&settings&&<section className="assistant-channel-settings"><div className="section-heading"><h2>通訊設定</h2><Button secondary onClick={()=>{setSettings(false);location.hash='gateway'}}>回到對話</Button></div><ChannelSettings onChange={refresh}/></section>}
     {error&&<Notice error>{error}</Notice>}
-    <section className="assistant-conversation" aria-label="目前對話">
-      {!loaded?<p role="status">正在讀取對話…</p>:!conversation.length?<p className="subtle">需要協助時，直接告訴管家。</p>:<div className="inbox assistant-messages">{conversation.map((m,index)=><article key={m.id} className="inbox-message assistant-message"><div className="assistant-question"><h3>{m.message}</h3></div><div className="assistant-answer"><span className="assistant-speaker">{m.coordinator==='hermes'?'智能管家':names[m.provider]}</span><p>{m.answer||'正在處理…'}</p>{m.state!=='succeeded'&&<Status value={m.state}/>}<div className="row-actions">{m.task_id&&<a className="button secondary" href={`#home/${m.task_id}`}>檢查家庭操作 →</a>}{m.delivery==='unconfirmed'&&<small>通道送達尚未確認。</small>}</div>{m.coordinator==='hermes'&&m.case_id&&!conversation.slice(index+1).some(next=>next.case_id===m.case_id)&&<CaseWork id={m.case_id} bridge={bridge} storageScope={conversationSession?.storage_scope}/>}{m.context_truncated&&<p className="helper-text">較早的前文已省略；重要條件請再補充。</p>}</div></article>)}</div>}
+    {!bridge&&<details className="assistant-options"><summary>進階</summary><div className="composer-controls"><label>對話方式<select aria-label="對話方式" value={coordinator} disabled={busy} onChange={e=>{setViewedId(null);setCoordinator(e.target.value)}}><option value="hermes">智能管家（建議）</option><option value="direct">直接交給開發助手</option></select></label>{coordinator==='direct'&&<><label>執行位置<select aria-label="執行位置" disabled={busy} value={runtime} onChange={e=>{setViewedId(null);setRuntime(e.target.value as Runtime)}}><option value="host">主機</option><option value="haos">家庭現場</option></select></label><label>AI<select aria-label="AI" disabled={busy} value={provider} onChange={e=>{setViewedId(null);setProvider(e.target.value)}}>{['codex','claude','agy','grok'].map(id=><option key={id} value={id}>{names[id]}</option>)}</select></label></>}</div>{data&&<Button secondary onClick={async()=>{try{await api('gateway/preferences',{...data.preferences,runtime,provider,coordinator});await refresh()}catch(e){setError((e as Error).message)}}}>設為預設</Button>}<div className="row-actions"><a href="#agents">AI 帳號</a><a href="#workers">開發助手</a></div></details>}
+    <section className="assistant-conversation" aria-label="目前對話" ref={thread} onScroll={onThreadScroll}>
+      {!loaded?<p role="status">正在讀取對話…</p>:<>{!conversation.length&&!busy&&<p className="subtle chat-empty">需要協助時，直接告訴管家。</p>}{(!!conversation.length||(busy&&!inlineTyping))&&<div className="inbox assistant-messages">{conversation.map((m,index)=>{
+        const name=speakerOf(m);
+        const typing=!m.answer&&['queued','planning'].includes(m.state);
+        const place=m.coordinator==='direct'?`${names[m.runtime]||m.runtime} · ${names[m.provider]||m.provider}`:undefined;
+        const caseHere=m.coordinator==='hermes'&&m.case_id&&!conversation.slice(index+1).some(next=>next.case_id===m.case_id);
+        return <article key={m.id} className="inbox-message assistant-message chat-turn"><div className="assistant-question"><h3>{m.message}</h3></div><p className="chat-meta">{m.source!=='web'&&<span>{names[m.source]||m.source}</span>}<time dateTime={m.created_at}>{timestamp(m.created_at)}</time></p><div className="chat-reply"><span className="assistant-speaker" title={place}>{name}</span>{typing?<div className="assistant-answer chat-typing" role="status" aria-label="智能管家正在回覆"><span className="sr-only">智能管家正在回覆</span><span className="chat-dots" aria-hidden="true"><i/><i/><i/></span></div>:<div className="assistant-answer">{m.answer&&<p>{m.answer}</p>}{m.state!=='succeeded'&&<Status value={m.state}/>}<div className="row-actions">{m.task_id&&<a className="button secondary" href={`#home/${m.task_id}`}>檢查家庭操作 →</a>}{m.delivery==='unconfirmed'&&<small>通道送達尚未確認。</small>}</div>{m.context_truncated&&<p className="helper-text">較早的前文已省略；重要條件請再補充。</p>}</div>}{caseHere&&<CaseWork id={m.case_id} bridge={bridge} storageScope={conversationSession?.storage_scope}/>}</div></article>
+      })}{busy&&!inlineTyping&&<div className="chat-reply chat-pending"><span className="assistant-speaker">{coordinator==='hermes'?'智能管家':names[provider]||'開發助手'}</span><div className="assistant-answer chat-typing" role="status" aria-label="智能管家正在回覆"><span className="sr-only">智能管家正在回覆</span><span className="chat-dots" aria-hidden="true"><i/><i/><i/></span></div></div>}</div>}</>}
     </section>
-    {viewedId?<div className="assistant-readonly"><p>{selected?.source==='web'?'這段對話已結束。':'外部通訊請回原通道接續。'}</p><Button secondary onClick={startNew}>開啟新對話</Button></div>:<form className="assistant-composer" onSubmit={submit}>
-      {replyId&&loaded&&!active&&<Notice>這段對話暫時無法接續，請等候完成或開始新對話。</Notice>}
-      <label className="sr-only" htmlFor="gateway-message">對話訊息</label><textarea id="gateway-message" required disabled={busy} maxLength={5000} rows={2} value={draft} onChange={e=>setDraft(e.target.value)} placeholder={active?'繼續說…':'輸入你的需求…'}/>
-      <div className="assistant-composer-actions"><span className="subtle">{active?'接續這段對話':coordinator==='hermes'?'智能管家':`${names[runtime]} · ${names[provider]}`}</span><Button type="submit" disabled={busy||!loaded||!draft.trim()||!!(replyId&&!active)}>{busy?'送出中…':'送出訊息'}</Button></div>
-    </form>}
-    {!bridge&&<details className="assistant-options"><summary>進階對話設定</summary><div className="composer-controls"><label>對話方式<select aria-label="對話方式" value={coordinator} disabled={busy} onChange={e=>{setViewedId(null);setCoordinator(e.target.value)}}><option value="hermes">Hermes 協調助手</option><option value="direct">受控 Agent（進階）</option></select></label>{coordinator==='direct'&&<><label>執行環境<select aria-label="執行環境" disabled={busy} value={runtime} onChange={e=>{setViewedId(null);setRuntime(e.target.value as Runtime)}}><option value="host">外層 Linux</option><option value="haos">HAOS 內層</option></select></label><label>Agent<select aria-label="Agent" disabled={busy} value={provider} onChange={e=>{setViewedId(null);setProvider(e.target.value)}}>{['codex','claude','agy','grok'].map(id=><option key={id} value={id}>{names[id]}</option>)}</select></label></>}</div>{data&&<Button secondary onClick={async()=>{try{await api('gateway/preferences',{...data.preferences,runtime,provider,coordinator});await refresh()}catch(e){setError((e as Error).message)}}}>將上方選擇設為預設</Button>}<div className="row-actions"><a href="#agents">助手帳號</a><a href="#workers">進階工具</a><a href="#gateway/channels">通訊入口</a></div></details>}
+    <div className="chat-dock">
+      {away&&<button type="button" className="chat-jump" onClick={jumpToLatest}>最新訊息 ↓</button>}
+      {viewedId?<div className="assistant-readonly"><p>{selected?.source==='web'?'這段對話已結束。':'請回原來的聊天室繼續。'}</p><Button onClick={startNew}>開始新對話</Button></div>:<form className="assistant-composer" onSubmit={submit}>
+        {replyId&&loaded&&!active&&<Notice>這段對話暫時無法接續，請等候完成或開始新對話。</Notice>}
+        <div className="chat-compose"><label className="sr-only" htmlFor="gateway-message">對話訊息</label><textarea id="gateway-message" ref={box} disabled={busy} maxLength={5000} rows={1} value={draft} onChange={e=>{setDraft(e.target.value);fitComposer(e.target)}} onKeyDown={onComposerKey} placeholder={active?'繼續說…':'輸入訊息…'}/><Button type="submit" className="chat-send" aria-label="送出訊息" disabled={busy||!loaded||!draft.trim()||!!(replyId&&!active)}>{busy?'送出中…':<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h12M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}</Button></div>
+      </form>}
+    </div>
   </div>
-}
-
-export function ManualOnboarding({status,onChange,navigate}:{status:any;onChange:()=>void;navigate:(view:View)=>void}){
-  const [step,setStep]=useState(0),[error,setError]=useState('');
-  const titles=['Web 已就緒','Hermes 登入','通訊入口','連接 HAOS','開始對話'];
-  useEffect(()=>{api('gateway').then(value=>setStep(value.step||0)).catch(e=>setError(e.message))},[]);
-  async function go(next:number){try{await api('gateway/onboarding',{step:next});setStep(next);setError('')}catch(e){setError((e as Error).message)}}
-  return <div className="onboarding"><div className="onboarding-intro"><span className="eyebrow">從這台 LINUX 開始</span><h2>先讓 Agent 與你連線，再把家接進來。</h2><p>先登入 Hermes 即可查詢主機。通訊工具、Home Assistant 與內層 Agent 都能稍後加入。</p></div><ol className="onboarding-steps" aria-label="首次設定進度">{titles.map((title,index)=><li key={title}><button aria-current={step===index?'step':undefined} onClick={()=>go(index)}><span className="step-number">{index+1}</span><strong>{title}</strong></button></li>)}</ol>{error&&<Notice error>{error}</Notice>}
-    <div className="onboarding-body">{step===0&&<section><span className="status s-connected">外層 Web 已啟動</span><h2>你的家庭管理入口已經就緒</h2><p>這個介面直接由 Linux 提供。HAOS 尚未安裝或關機時，仍能在這裡登入 Agent、對話與查看主機。</p><dl className="setup-facts"><div><dt>管理介面</dt><dd>http://localhost:8099</dd></div><div><dt>管理者驗證</dt><dd>已通過這台主機的登入金鑰驗證</dd></div><div><dt>其他電腦開啟</dt><dd>透過 SSH tunnel 連接這台主機</dd></div></dl><details><summary>從另一台電腦連接</summary><p>在自己的電腦執行下列指令，將「使用者@主機」改成這台 Linux 的登入位置，再開啟 localhost:8099。</p><pre>ssh -L 8099:127.0.0.1:8099 -L 8123:127.0.0.1:8123 使用者@主機</pre></details></section>}
-    {step===1&&<><HermesPanel/><details><summary>進階：受控 CLI 登入</summary><RuntimePanel only="host" onChange={onChange}/></details></>}{step===2&&<ChannelSettings onChange={onChange}/>}{step===3&&<><HostPanel appStatus={status} onConnected={onChange} onAgent={()=>document.getElementById('inner-agent')?.scrollIntoView({behavior:'smooth'})}/><div id="inner-agent"><RuntimePanel only="haos" onChange={onChange}/></div></>}
-    {step===4&&<section><h2>從同一個窗口，開始使用 Hermes</h2><p>Web 會保留需求與回覆。先讓 Hermes 協助查詢主機；家庭操作仍需設定設備權限，並由你檢查具體提案。</p><div className="setup-facts"><p>Hermes · 可回第二步查看登入與推論驗證狀態</p><p>通訊入口 · {status?.gateway?.selected?names[status.gateway.preferences.primary]:'尚未選定，Web 可直接使用'}</p><p>Home Assistant · {status?.ha?.status==='connected'?'已連接':'可稍後連接'}</p></div><p className="helper-text">使用家庭設備前，請到「設備與權限」選擇要分享的設備。每次家庭變更仍會先顯示具體提案。</p><Button onClick={()=>navigate('gateway')}>開啟統一對話窗口 →</Button></section>}</div>
-    <div className="onboarding-actions">{step>0&&<Button secondary onClick={()=>go(step-1)}>上一步</Button>}{step<4&&<Button onClick={()=>go(step+1)}>{step===3?'保留目前進度，繼續':'下一步'}</Button>}<button className="text-button" onClick={()=>navigate('gateway')}>保留進度，先開啟 Web 對話</button></div></div>
 }
