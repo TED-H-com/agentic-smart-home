@@ -88,7 +88,7 @@ class FixtureServer(ThreadingHTTPServer):
     def __init__(self):
         super().__init__(("127.0.0.1", 0), Handler)
         self.observed = {"chat": 0, "continuation": 0, "native": 0, "unauthorized": 0, "tools": 0}
-        self.failures = []
+        self.failures, self.egress = [], []
 
     def handle_error(self, request, client_address):
         self.failures.append("fixture_protocol_mismatch")
@@ -106,13 +106,26 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def do_CONNECT(self):
+        # Turns use this server as their proxy: any HTTPS call beyond loopback is egress.
+        self.server.egress.append(self.path[:120])
+        self.send_response(403)
+        self.end_headers()
+        self.close_connection = True
+
     def do_GET(self):
+        if self.path.startswith("http"):
+            self.server.egress.append(self.path.split("/")[2][:120])
         self.reply({}, 405)
 
     def do_DELETE(self):
         self.reply({})
 
     def do_POST(self):
+        if self.path.startswith("http"):
+            self.server.egress.append(self.path.split("/")[2][:120])
+            self.reply({}, 403)
+            return
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
         if self.path == "/mcp":
             require(self.headers.get("Authorization") == "Bearer " + MCP_TOKEN)
@@ -229,10 +242,12 @@ def behavioral_probe():
                    "PYTHONPATH": "/app:/opt/hermes", "PYTHONDONTWRITEBYTECODE": "1",
                    "AGENTIC_PARENT_PID": str(os.getpid()), "AGENTIC_MCP_URL": url + "/mcp",
                    "AGENTIC_PROVIDER_URL": url + "/v1"}
+            # A turn may reach only the provider and the Controller, both loopback here.
+            turn_env = {**env, "HTTPS_PROXY": url, "HTTP_PROXY": url, "NO_PROXY": "127.0.0.1,localhost"}
             payload = {"provider": "openrouter", "model": "fixture-model", "api_key": API_KEY,
                        "mcp_token": MCP_TOKEN, "message": "fixture-original-message",
                        "session_id": "compatibility-session", "run_id": "compatibility-run", "history": []}
-            response = run_child(["-m", "agentic_hermes.child"], env, payload)
+            response = run_child(["-m", "agentic_hermes.child"], turn_env, payload)
             require(response.get("error") is None and response["answer"] == "chat fixture complete")
             require(set(response["tools"]) == EXPECTED_TOOLS)
             denied = [item for item in response["history"] if item.get("role") == "tool"
@@ -240,25 +255,25 @@ def behavioral_probe():
             require(bool(denied) and any(marker in str(denied).lower()
                                         for marker in ("error", "does not exist", "not authorized")))
             payload.update(message="fixture-continuation", history=response["history"])
-            continued = run_child(["-m", "agentic_hermes.child"], env, payload)
+            continued = run_child(["-m", "agentic_hermes.child"], turn_env, payload)
             require(continued.get("error") is None and continued["answer"] == "continuation fixture complete")
-            rejected = run_child(["-m", "agentic_hermes.child"], env,
+            rejected = run_child(["-m", "agentic_hermes.child"], turn_env,
                                  {**payload, "history": [], "api_key": API_KEY + "-invalid"})
             require(rejected.get("error") == "needs_reauth" and rejected["answer"] == "" and rejected["history"] == [])
             env.update(HERMES_HOME=str(scratch / "native"), AGENTIC_PROVIDER_URL=url + "/v1")
             oauth = run_child([str(Path(__file__).resolve()), "--oauth-fixture"], env)
             require(oauth["oauth"] == "real_upstream_helpers")
-            native = run_child(["-m", "agentic_hermes.child"], env,
+            native = run_child(["-m", "agentic_hermes.child"], {**turn_env, "HERMES_HOME": env["HERMES_HOME"]},
                               {**payload, "provider": "openai-codex", "model": "gpt-6-astra", "history": []})
             require(native.get("error") is None and native["answer"] == "native fixture complete")
             require(set(native["tools"]) == EXPECTED_TOOLS)
-            require(not server.failures)
+            require(not server.failures and not server.egress)
             require(server.observed == {"chat": 3, "continuation": 1, "native": 2, "unauthorized": 1, "tools": 2})
         return {"compatible": True, "adapter_contract": CONTRACT_VERSION, "observed_from": "runtime_container",
                 "model": "protocol_fixture", "mcp": "official_client_loopback_fixture", "cloud_account_verified": False,
                 "checks": ["consumed_signatures", "chat_tool_roundtrip", "continued_history", "tool_allowlist",
                            "builtin_tool_refused", "provider_401", "native_device_oauth", "private_token_store",
-                           "native_responses_tool_roundtrip", "secret_redaction"]}
+                           "native_responses_tool_roundtrip", "secret_redaction", "no_egress_beyond_provider_and_mcp"]}
     finally:
         server.shutdown()
         server.server_close()
