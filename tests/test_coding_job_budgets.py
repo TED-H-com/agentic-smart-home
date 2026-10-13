@@ -105,7 +105,16 @@ class Spec:
         self.launch_error = None
         self.fail_relay = False
         self.big_patch = False
+        self.bad_patch = False
         self.withheld_verify = False
+        self.verification_body = None
+        self.auth_failed = False
+        self.quota_reached = False
+        self.turns_exhausted = False
+        self.provider_rejected = False
+        self.provider_unavailable = False
+        self.cancel_calls = []
+        self.cancel_result = {"state": "cancelled", "stop_confirmed": True, "exit_code": None}
 
 
 def boundary(clock, spec):
@@ -134,6 +143,8 @@ def boundary(clock, spec):
                 (workspace / "source/value.py").write_text("value = 2\n")
                 if spec.big_patch:
                     (workspace / "source/big.txt").write_text("y" * (180 * 1024))
+                if spec.bad_patch:
+                    (workspace / "source/bad.py").write_bytes(b"value = '\xff'\n")
                 (workspace / "artifacts/findings.txt").write_text(spec.findings)
             if spec.launch_error == "stopped":
                 error = SandboxError("fixture setup failed", code="command_failed")
@@ -151,12 +162,17 @@ def boundary(clock, spec):
             return dict(spec.status)
 
         def cancel(self, id):
+            spec.cancel_calls.append(id)
             # The real ledger has no record of a job it never launched.
             if spec.strict_cancel and all(item["id"] != id for item in spec.launches):
                 raise SandboxError("Unknown job")
-            return {"state": "cancelled", "stop_confirmed": True, "exit_code": None}
+            return dict(spec.cancel_result)
 
         def artifacts(self, id):
+            if spec.verification_body is not None and str(id).endswith("-verify"):
+                content = spec.verification_body
+                return [{"name": "verification.json", "content": content,
+                         "sha256": hashlib.sha256(content.encode()).hexdigest(), "size": len(content.encode())}]
             if spec.withheld_verify and str(id).endswith("-verify"):
                 report = "passed\n"
                 return [
@@ -181,6 +197,10 @@ def boundary(clock, spec):
 
 class Relay:
     auth_failed = False
+    quota_reached = False
+    turns_exhausted = False
+    provider_rejected = False
+    provider_unavailable = False
 
     def __init__(self, path, *args, **kwargs):
         self.path = path
@@ -207,6 +227,11 @@ def service_for(tmp_path, monkeypatch, clock, spec, *, patch_wall=False):
     def make_relay(*args, **kwargs):
         relay = Relay(*args, **kwargs)
         relay.fail_relay = spec.fail_relay
+        relay.auth_failed = spec.auth_failed
+        relay.quota_reached = spec.quota_reached
+        relay.turns_exhausted = spec.turns_exhausted
+        relay.provider_rejected = spec.provider_rejected
+        relay.provider_unavailable = spec.provider_unavailable
         return relay
 
     return HomeService(tmp_path / "data", packaged_source=bare, sandbox_factory=boundary(clock, spec),
@@ -246,7 +271,7 @@ def test_models_match_packaged_catalog():
 def test_slow_setup_does_not_consume_execution_budget(tmp_path, monkeypatch):
     clock, spec = Clock(), Spec()
     spec.launch_mono = 250
-    spec.status_mono = 200
+    spec.status_mono = 700
     spec.make_workspace = True
     spec.findings = FINDINGS
     service = service_for(tmp_path, monkeypatch, clock, spec)
@@ -261,7 +286,8 @@ def test_slow_setup_does_not_consume_execution_budget(tmp_path, monkeypatch):
         raw = next(item for item in job["artifacts"] if item["name"] == "findings.txt")
         body = service.handle("GET", "/coding/jobs/" + payload["id"] + "/artifacts/" + raw["id"])[1]
         assert "alpha" in base64.b64decode(body["content_base64"]).decode()
-        assert spec.launches[0]["wall"] == EXECUTION_BUDGET_SECONDS
+        assert EXECUTION_BUDGET_SECONDS == 840
+        assert spec.launches[0]["wall"] == EXECUTION_BUDGET_SECONDS + 60 == 900
         assert spec.launch_mono + spec.status_mono > EXECUTION_BUDGET_SECONDS
     finally:
         service.close()
@@ -616,5 +642,259 @@ def test_verifier_stores_withheld_artifact_without_content(tmp_path, monkeypatch
         report = next(item for item in job["artifacts"] if item["name"] == "report.txt")
         body = json.loads((service.root / "artifacts" / payload["id"] / (report["id"] + ".json")).read_text())
         assert "passed" in base64.b64decode(body["content_base64"]).decode()
+    finally:
+        service.close()
+
+
+@pytest.mark.parametrize("flag,code", [
+    ("quota_reached", "coding_quota_reached"),
+    ("turns_exhausted", "coding_turn_limit"),
+    ("provider_rejected", "coding_provider_rejected"),
+    ("provider_unavailable", "coding_provider_unavailable"),
+])
+def test_provider_flag_on_a_failed_job_records_its_code(tmp_path, monkeypatch, flag, code):
+    clock, spec = Clock(), Spec()
+    spec.launch_mono = 1
+    spec.status = {"state": "failed", "exit_code": 1, "stop_confirmed": True}
+    setattr(spec, flag, True)
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        payload = request()
+        service.submit(payload)
+        wait_thread(service, payload["id"])
+        job = service.items[payload["id"]]
+        assert job["state"] == "failed" and job["error_code"] == code
+    finally:
+        service.close()
+
+
+@pytest.mark.parametrize("flags,code", [
+    (("quota_reached", "turns_exhausted", "provider_rejected", "provider_unavailable"), "coding_quota_reached"),
+    (("turns_exhausted", "provider_rejected", "provider_unavailable"), "coding_turn_limit"),
+    (("provider_rejected", "provider_unavailable"), "coding_provider_rejected"),
+])
+def test_provider_flags_keep_the_stated_order(tmp_path, monkeypatch, flags, code):
+    clock, spec = Clock(), Spec()
+    spec.launch_mono = 1
+    spec.status = {"state": "failed", "exit_code": 1, "stop_confirmed": True}
+    for flag in flags:
+        setattr(spec, flag, True)
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        payload = request()
+        service.submit(payload)
+        wait_thread(service, payload["id"])
+        assert service.items[payload["id"]]["error_code"] == code
+        assert service.items[payload["id"]]["state"] == "failed"
+    finally:
+        service.close()
+
+
+def test_succeeded_job_records_no_provider_code(tmp_path, monkeypatch):
+    clock, spec = Clock(), Spec()
+    spec.launch_mono = 1
+    spec.make_workspace = True
+    spec.quota_reached = True
+    spec.turns_exhausted = True
+    spec.provider_rejected = True
+    spec.provider_unavailable = True
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        payload = request()
+        service.submit(payload)
+        wait_thread(service, payload["id"])
+        job = service.items[payload["id"]]
+        assert job["state"] == "succeeded" and job["error_code"] is None
+    finally:
+        service.close()
+
+
+def test_auth_failed_keeps_reauth_ahead_of_provider_flags(tmp_path, monkeypatch):
+    clock, spec = Clock(), Spec()
+    spec.launch_mono = 1
+    spec.status = {"state": "failed", "exit_code": 1, "stop_confirmed": True}
+    spec.auth_failed = True
+    spec.quota_reached = True
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        payload = request()
+        service.submit(payload)
+        wait_thread(service, payload["id"])
+        job = service.items[payload["id"]]
+        assert job["state"] == "failed" and job["error_code"] == "coding_needs_reauth"
+        assert (service.root / "auth-failed.json").is_file()
+    finally:
+        service.close()
+
+
+@pytest.mark.parametrize("body,expected", [
+    ('{"tests_executed": 0}', 0),
+    ('{"tests_executed": 3}', 3),
+    ('{"tests_executed": 1000000}', 1_000_000),
+    ('{"tests_executed": "12"}', None),
+    ('{"tests_executed": true}', None),
+    ('{"tests_executed": false}', None),
+    ('{"tests_executed": -1}', None),
+    ('{"tests_executed": 1000001}', None),
+    ('{"state": "passed"}', None),
+    ('not-json', None),
+    ('[1]', None),
+])
+def test_verifier_test_count_is_display_only(tmp_path, monkeypatch, body, expected):
+    clock, spec = Clock(), Spec()
+    spec.launch_mono = 1
+    spec.make_workspace = True
+    spec.verification_body = body
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        payload = request()
+        service.submit(payload)
+        wait_thread(service, payload["id"])
+        job = service.items[payload["id"]]
+        assert job["state"] == "succeeded" and job["error_code"] is None
+        assert job["verification"]["state"] == "passed"
+        if expected is None:
+            assert "tests_executed" not in job["verification"]
+        else:
+            assert job["verification"]["tests_executed"] == expected
+    finally:
+        service.close()
+
+
+def test_missing_verifier_receipt_does_not_invent_a_test_count(tmp_path, monkeypatch):
+    clock, spec = Clock(), Spec()
+    spec.launch_mono = 1
+    spec.make_workspace = True
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        payload = request()
+        service.submit(payload)
+        wait_thread(service, payload["id"])
+        job = service.items[payload["id"]]
+        assert job["state"] == "succeeded" and "tests_executed" not in job["verification"]
+    finally:
+        service.close()
+
+
+def test_non_utf8_patch_fails_and_keeps_findings(tmp_path, monkeypatch):
+    clock, spec = Clock(), Spec()
+    spec.make_workspace = True
+    spec.bad_patch = True
+    spec.findings = FINDINGS
+    spec.launch_mono = 1
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        payload = request()
+        service.submit(payload)
+        wait_thread(service, payload["id"])
+        job = service.items[payload["id"]]
+        assert job["state"] == "failed" and job["error_code"] == "patch_not_text"
+        assert job["findings"]["facts"] == ["alpha"] and job["findings"]["next_steps"] == ["epsilon"]
+        assert any(item["name"] == "findings.txt" for item in job["artifacts"])
+        assert not any(item["name"] == "changes.patch" for item in job["artifacts"])
+        workspace = service.root / "work" / payload["id"] / "workspace"
+        assert not (workspace / "artifacts" / "changes.patch").exists()
+        assert not any(str(item["id"]).endswith("-verify") for item in spec.launches)
+        assert "verification" not in job
+    finally:
+        service.close()
+
+
+def _stopped_job(service, payload):
+    service.submit(payload)
+    wait_thread(service, payload["id"])
+    return service.items[payload["id"]]
+
+
+@pytest.mark.parametrize("code,outcome", [
+    ("execution_timeout", "failed"),
+    ("owner_cancelled", "cancelled"),
+    ("broker_restarted", "interrupted"),
+])
+def test_prune_retries_an_unconfirmed_stop_before_retention(tmp_path, monkeypatch, code, outcome):
+    clock, spec = Clock(), Spec()
+    spec.launch_mono = 1
+    spec.make_workspace = True
+    spec.cancel_result = {"state": "succeeded", "exit_code": 0}
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        payload = request()
+        job = _stopped_job(service, payload)
+        assert job["retained_until"] > time.time()
+        job.update(state="stop_unconfirmed", phase="stop_unconfirmed", stop_confirmed=False,
+                   error_code=code, results_collected=True, sandbox_job_id=payload["id"])
+        spec.cancel_calls.clear()
+        service.prune()
+        assert spec.cancel_calls == [payload["id"]]
+        assert job["state"] == outcome and job["phase"] == outcome and job["stop_confirmed"] is True
+        assert job["state"] != "succeeded" and job["error_code"] == code
+        assert job.get("content_expired") is not True
+    finally:
+        service.close()
+
+
+def test_verifier_retry_marks_verification_not_run(tmp_path, monkeypatch):
+    clock, spec = Clock(), Spec()
+    spec.launch_mono = 1
+    spec.make_workspace = True
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        payload = request()
+        job = _stopped_job(service, payload)
+        digest = "ab" * 32
+        job.update(state="stop_unconfirmed", phase="stop_unconfirmed", stop_confirmed=False,
+                   error_code="execution_timeout", results_collected=False, collect_failures=0,
+                   sandbox_job_id=payload["id"] + "-verify",
+                   verification={"state": "running", "patch_sha256": digest})
+        launches = len(spec.launches)
+        service.prune()
+        assert job["state"] == "failed" and job["state"] != "succeeded"
+        assert job["verification"]["state"] == "not_run"
+        assert job["verification"]["patch_sha256"] == digest
+        assert job.get("results_collected") is False
+        assert job.get("collect_failures", 0) == 0
+        assert len(spec.launches) == launches
+    finally:
+        service.close()
+
+
+def test_unconfirmed_retry_changes_nothing_and_running_is_untouched(tmp_path, monkeypatch):
+    clock, spec = Clock(), Spec()
+    spec.launch_mono = 1
+    spec.cancel_result = {"state": "stop_unconfirmed"}
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        payload = request()
+        job = _stopped_job(service, payload)
+        job.update(state="stop_unconfirmed", phase="stop_unconfirmed", stop_confirmed=False,
+                   error_code="execution_timeout", results_collected=True)
+        spec.cancel_calls.clear()
+        service.prune()
+        assert spec.cancel_calls == [payload["id"]]
+        assert job["state"] == "stop_unconfirmed" and job["stop_confirmed"] is False
+        assert job["error_code"] == "execution_timeout"
+        job.update(state="running", phase="running", stop_confirmed=False)
+        spec.cancel_calls.clear()
+        service.prune()
+        assert spec.cancel_calls == []
+        assert job["state"] == "running" and job["stop_confirmed"] is False
+    finally:
+        service.close()
+
+
+def test_cancel_of_an_unconfirmed_stop_uses_the_retry(tmp_path, monkeypatch):
+    clock, spec = Clock(), Spec()
+    spec.launch_mono = 1
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        payload = request()
+        job = _stopped_job(service, payload)
+        job.update(state="stop_unconfirmed", phase="stop_unconfirmed", stop_confirmed=False,
+                   error_code=None, results_collected=True)
+        spec.cancel_calls.clear()
+        viewed = service.cancel(payload["id"])
+        assert spec.cancel_calls == [payload["id"]]
+        assert viewed["state"] == "failed" and viewed["error_code"] == "writer_stop_unconfirmed"
+        assert viewed["stop_confirmed"] is True and "verification" not in service.items[payload["id"]]
     finally:
         service.close()

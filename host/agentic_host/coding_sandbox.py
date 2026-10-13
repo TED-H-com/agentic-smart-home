@@ -130,13 +130,13 @@ class Limits:
                 raise SandboxError(f"Invalid {field} limit")
 
 
-def command(*args, check=True, timeout=30):
+def command(*args, check=True, timeout=30, text=True):
     # The trusted broker never inherits Git hooks, provider credentials or Docker contexts.
     executable = Path(args[0]).name
     action = next((arg for arg in args[1:] if arg in OPERATIONS.get(executable, set())), None)
     operation = executable + "." + action if action else executable
     try:
-        result = subprocess.run(args, capture_output=True, text=True, timeout=timeout,
+        result = subprocess.run(args, capture_output=True, text=text, timeout=timeout,
                                 env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C",
                                      "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
                                      "GIT_TERMINAL_PROMPT": "0", "DOCKER_HOST": "unix:///var/run/docker.sock"})
@@ -205,9 +205,10 @@ def _secret_found(name: str, data: bytes) -> bool:
 def read_artifacts(root: Path, limits: Limits):
     """Caller MUST first prove the writer stopped. Never follows links.
 
-    An unsupported name or a file past the quota is skipped and listed in skipped.json.
+    An unsupported name, a file past the quota, or an allowed file that is not
+    UTF-8 text (including a NUL byte) is skipped and listed in skipped.json.
     A secret match is withheld with metadata only. Links, hardlinks, a changed size,
-    and non-UTF-8 or binary content in an allowed text file still fail the export.
+    and non-regular files still fail the export.
     """
     if root.is_symlink() or not root.is_dir():
         raise SandboxError("Invalid artifact directory")
@@ -269,10 +270,12 @@ def read_artifacts(root: Path, limits: Limits):
                 os.close(descriptor)
             try:
                 content = data.decode("utf-8")
-            except UnicodeError as exc:
-                raise SandboxError("Only UTF-8 text artifacts are supported") from exc
+            except UnicodeError:
+                skipped.append({"name": relative, "reason": "not_text"})
+                continue
             if "\x00" in content:
-                raise SandboxError("Binary artifacts are unsupported")
+                skipped.append({"name": relative, "reason": "not_text"})
+                continue
             total += len(data)
             item = {"name": relative, "sha256": hashlib.sha256(data).hexdigest(),
                     "size": len(data), "untrusted": True,
@@ -804,16 +807,28 @@ class CodingSandbox:
                 return self.save(job)
             try:
                 info = self.inspect(job)
+            except SandboxError:
+                # A removed container has no inspect result. Absence still has to be proved.
+                if self._confirm_writer(job) in {"absent", "stopped"}:
+                    job["state"] = "cancelled"
+                return self.save(job)
+            try:
                 if info["State"]["Running"] or info["State"].get("Paused"):
                     self.execute("docker", "kill", "--signal", "KILL", job["container"], check=False)
                     self.execute("docker", "wait", job["container"], timeout=15)
-                info = self.inspect(job)
-                if not info["State"]["Running"] and not info["State"].get("Paused"):
-                    job["state"] = "cancelled"
             except SandboxError as exc:
                 job["stop_failure"] = {"error_code": exc.code, **exc.diagnostics}
+                return self.save(job)
             except subprocess.SubprocessError:
-                pass
+                return self.save(job)
+            try:
+                info = self.inspect(job)
+            except SandboxError:
+                if self._confirm_writer(job) in {"absent", "stopped"}:
+                    job["state"] = "cancelled"
+                return self.save(job)
+            if not info["State"]["Running"] and not info["State"].get("Paused"):
+                job["state"] = "cancelled"
             return self.save(job)
 
     def recover(self):
