@@ -430,6 +430,8 @@ def test_candidate_cannot_add_implicit_docker_volumes(updater, volumes, expected
             output = record["manifest"]["image_id"]
         elif "inspect" in args:
             output = json.dumps([{"Os": "linux", "Architecture": "amd64", "Config": {"Volumes": volumes}}])
+        elif len(args) > 1 and args[1] == "cp":
+            return subprocess.CompletedProcess(args, 1, stdout="", stderr="Error: No such container:path: " + args[2])
         else:
             output = ""
         return subprocess.CompletedProcess(args, 0, stdout=output, stderr="")
@@ -525,3 +527,268 @@ def test_unreadable_retention_never_guesses_expiry_for_recovery_material(updater
     with sqlite3.connect(service.database) as db:
         db.execute("INSERT INTO settings VALUES ('retention_pending',?)", (policy,))
     assert service.expire_snapshots() == 0 and old.exists()
+
+
+def git_out(repo, *args, git_dir=False):
+    command = ["git", "--git-dir", str(repo), *args] if git_dir else ["git", "-C", str(repo), *args]
+    return subprocess.check_output(command, text=True, stderr=subprocess.DEVNULL).strip()
+
+
+def write_commit(repo, relative, content, message):
+    path = repo / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content)
+    subprocess.run(["git", "-C", str(repo), "add", relative], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-m", message], check=True, capture_output=True)
+    return git_out(repo, "rev-parse", "HEAD")
+
+
+class BundleDocker:
+    """Stand-in for create/cp/rm. It never starts a container."""
+
+    def __init__(self, bundle, image_id):
+        self.bundle = None if bundle is None else Path(bundle)
+        self.image_id = image_id
+        self.calls = []
+        self.created = set()
+
+    def __call__(self, *args, timeout=120, check=True):
+        self.calls.append(args)
+        if args[0] == "git":
+            result = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+            if check and result.returncode:
+                raise AssertionError((args, result.stderr))
+            return result
+        if args[0] != "docker" or args[1] in {"run", "start", "exec"}:
+            raise AssertionError(args)
+        if args[1:3] == ("image", "inspect") and "--format" in args:
+            return subprocess.CompletedProcess(args, 0, self.image_id + "\n", "")
+        if args[1:3] == ("image", "inspect"):
+            return subprocess.CompletedProcess(args, 0, json.dumps([{"Os": "linux", "Architecture": "amd64", "Config": {}}]), "")
+        if args[1] == "pull":
+            return subprocess.CompletedProcess(args, 0, "", "")
+        if args[1] == "create":
+            self.created.add(args[args.index("--name") + 1])
+            return subprocess.CompletedProcess(args, 0, "", "")
+        if args[1] == "cp":
+            name = args[2].split(":", 1)[0]
+            assert name in self.created
+            if self.bundle is None:
+                return subprocess.CompletedProcess(args, 1, "", "Error: No such container:path: " + args[2])
+            Path(args[3]).write_bytes(self.bundle.read_bytes())
+            return subprocess.CompletedProcess(args, 0, "", "")
+        if args[1] == "rm":
+            self.created.discard(args[-1])
+            return subprocess.CompletedProcess(args, 0, "", "")
+        raise AssertionError(args)
+
+
+def product_history(tmp):
+    repo = tmp / "product-repo"
+    repo.mkdir()
+    subprocess.run(["git", "-C", str(repo), "init", "-b", "main"], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.email", "fixture@example.invalid"], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.name", "Fixture"], check=True)
+    return repo, write_commit(repo, "controller/app.py", "print('A')\n", "A")
+
+
+def install_coding(service, repo, commit):
+    """Install the same way provision_source does: a bare clone of a HEAD bundle."""
+    bare = service.source_repo
+    bare.parent.mkdir(parents=True, mode=0o700)
+    packed = bare.parent / "install.bundle"
+    subprocess.run(["git", "-C", str(repo), "bundle", "create", str(packed), "HEAD"], check=True, capture_output=True)
+    subprocess.run(["git", "clone", "--bare", "--no-hardlinks", str(packed), str(bare)], check=True, capture_output=True)
+    assert git_out(bare, "rev-parse", "HEAD", git_dir=True) == commit
+    lock = {"repo_id": "agentic-home", "commit": commit, "bundle_sha256": "c" * 64}
+    service.source_lock.write_text(json.dumps(lock) + "\n")
+    os.chmod(service.source_lock, 0o600)
+    return lock
+
+
+def make_bundle(repo, destination, *refs):
+    subprocess.run(["git", "-C", str(repo), "bundle", "create", str(destination), *refs], check=True, capture_output=True)
+    return destination
+
+
+def test_status_source_commit_is_null_without_source_json(updater):
+    service, record = updater
+    status = service.status()
+    assert status["deployed_source_commit"] is None
+    assert status["records"][0]["source_sync"] == "unavailable"
+    assert "source_lock_before" not in status["records"][0]
+    assert record["candidate_digest"]
+
+
+def test_bundle_head_must_equal_source_commit_and_missing_bundle_stays_unavailable(updater, tmp_path):
+    service, record = updater
+    repo, commit_a = product_history(tmp_path)
+    lock = install_coding(service, repo, commit_a)
+    commit_b = write_commit(repo, "controller/app.py", "print('B')\n", "B")
+    bundle = make_bundle(repo, tmp_path / "b.bundle", "HEAD")
+    assert subprocess.run(["git", "--git-dir", str(service.source_repo), "cat-file", "-e", commit_b], capture_output=True).returncode != 0
+    record["manifest"]["source_commit"] = commit_a
+    service.run = BundleDocker(bundle, record["manifest"]["image_id"])
+    with pytest.raises(UpdateError, match="update_source_bundle_invalid"):
+        service.stage_source(record)
+    assert git_out(service.source_repo, "rev-parse", "HEAD", git_dir=True) == commit_a
+    subprocess.run(["git", "-C", str(repo), "branch", "other"], check=True, capture_output=True)
+    two = make_bundle(repo, tmp_path / "two.bundle", "HEAD", "other")
+    record["manifest"]["source_commit"] = commit_b
+    service.run = BundleDocker(two, record["manifest"]["image_id"])
+    with pytest.raises(UpdateError, match="update_source_bundle_invalid"):
+        service.stage_source(record)
+    service.image = lambda: "sha256:" + "1" * 64
+    service.run = BundleDocker(None, record["manifest"]["image_id"])
+    service.prepare(record)
+    assert record["state"] == "staged" and record["source_sync"] == "unavailable"
+    assert not service.run.created
+    assert not any(call[1] in {"run", "start", "exec"} for call in service.run.calls)
+    current = prepare_deployment(service, record)
+    service.deploy(record)
+    assert record["state"] == "deployed" and current[0] == record["manifest"]["image_id"]
+    assert record["source_sync"] == "unavailable"
+    assert git_out(service.source_repo, "rev-parse", "HEAD", git_dir=True) == commit_a
+    assert json.loads(service.source_lock.read_text()) == lock
+    assert service.status()["deployed_source_commit"] == commit_a
+
+
+def test_deploy_moves_source_rollback_restores_and_submit_binds_head(updater, tmp_path, monkeypatch):
+    service, record = updater
+    repo, commit_a = product_history(tmp_path)
+    lock = install_coding(service, repo, commit_a)
+    commit_b = write_commit(repo, "controller/app.py", "print('B')\n", "B")
+    bundle = make_bundle(repo, tmp_path / "b.bundle", "HEAD")
+    record["manifest"]["source_commit"] = commit_b
+    docker = BundleDocker(bundle, record["manifest"]["image_id"])
+    service.run = docker
+    service.stage_source(record)
+    assert not docker.created
+    assert not any(call[0] == "docker" and call[1] in {"run", "start", "exec"} for call in docker.calls)
+    ref = "refs/agentic/candidate/" + record["manifest"]["image_id"].removeprefix("sha256:")
+    assert record["source_sync"] == "pending" and record["source_before"] == commit_a and record["source_candidate"] == commit_b
+    assert git_out(service.source_repo, "rev-parse", "HEAD", git_dir=True) == commit_a
+    assert git_out(service.source_repo, "rev-parse", ref, git_dir=True) == commit_b
+    assert not list(service.root.glob("source-*.bundle"))
+    current = prepare_deployment(service, record)
+    old = current[0]
+    service.deploy(record)
+    moved = json.loads(service.source_lock.read_text())
+    assert record["state"] == "deployed" and record["source_sync"] == "moved" and current[0] != old
+    assert git_out(service.source_repo, "rev-parse", "HEAD", git_dir=True) == commit_b
+    assert moved == {"repo_id": "agentic-home", "commit": commit_b, "install_commit": commit_a,
+                     "previous_commit": commit_a, "image_id": record["manifest"]["image_id"],
+                     "candidate_digest": record["candidate_digest"]}
+    assert service.status()["deployed_source_commit"] == commit_b
+    stored = json.loads(service.path.read_text())[record["candidate_digest"]]
+    assert stored["source_lock_before"] == lock
+    assert "source_lock_before" not in service.public(record)
+    import agentic_host.coding_service as coding_module
+    monkeypatch.setattr(coding_module, "credentials", lambda path: ("fixture", "/v1/responses", {}))
+    coder = coding_module.CodingService(service.manager)
+    coder.capabilities = lambda: {"available": True}
+    coder.execute = lambda identifier: None
+    def submit(base):
+        body = {"work_contract_major": 1, "id": uuid.uuid4().hex, "case_id": uuid.uuid4().hex,
+                "worker_id": "host-coder", "mode": "research", "provider": "codex", "model": "",
+                "repo_id": "agentic-home", "goal": "Read the updated source", "questions": [],
+                "base_commit": base, "expires": time.time() + 300, "lease_epoch": 1, "context_days": 7}
+        return coder.submit(body)
+    try:
+        refused = submit(commit_a)[1]
+        assert refused["error_code"] == "coding_source_revision_mismatch" and refused["state"] == "failed"
+        accepted = submit(None)
+        coder.threads[accepted[1]["id"]].join(2)
+        assert accepted[1]["state"] == "queued" and accepted[1]["base_commit"] == commit_b
+        assert git_out(service.source_repo, "rev-parse", "HEAD", git_dir=True) == commit_b
+    finally:
+        coder.close()
+    service.deploy(record, rollback=True)
+    assert record["state"] == "rolled_back" and record["source_sync"] == "reverted" and current[0] == old
+    assert git_out(service.source_repo, "rev-parse", "HEAD", git_dir=True) == commit_a
+    assert json.loads(service.source_lock.read_text()) == lock
+    assert service.status()["deployed_source_commit"] == commit_a
+
+
+def test_source_cas_failure_falls_back_without_claiming_a_move(updater, tmp_path):
+    service, record = updater
+    repo, commit_a = product_history(tmp_path)
+    lock = install_coding(service, repo, commit_a)
+    commit_b = write_commit(repo, "controller/app.py", "print('B')\n", "B")
+    service.run = BundleDocker(make_bundle(repo, tmp_path / "b.bundle", "HEAD"), record["manifest"]["image_id"])
+    record["manifest"]["source_commit"] = commit_b
+    service.stage_source(record)
+    real = service.run
+    def fail_cas(*args, **kwargs):
+        if args[0] == "git" and "update-ref" in args:
+            return subprocess.CompletedProcess(args, 128, "", "cannot lock ref")
+        return real(*args, **kwargs)
+    service.run = fail_cas
+    current = prepare_deployment(service, record)
+    old = current[0]
+    service.deploy(record)
+    assert record["state"] == "rolled_back" and record["error_code"] == "update_source_move_failed"
+    assert record["source_sync"] == "pending" and current[0] == old
+    assert git_out(service.source_repo, "rev-parse", "HEAD", git_dir=True) == commit_a
+    assert json.loads(service.source_lock.read_text()) == lock
+
+
+def test_active_coding_work_blocks_the_source_move(updater, tmp_path, monkeypatch):
+    service, record = updater
+    repo, commit_a = product_history(tmp_path)
+    install_coding(service, repo, commit_a)
+    commit_b = write_commit(repo, "controller/app.py", "print('B')\n", "B")
+    record["manifest"]["source_commit"] = commit_b
+    service.run = BundleDocker(make_bundle(repo, tmp_path / "b.bundle", "HEAD"), record["manifest"]["image_id"])
+    service.stage_source(record)
+    import agentic_host.updater as updater_module
+    calls = {"n": 0}
+    real = updater_module.offline_check
+    def gated(*args, **kwargs):
+        calls["n"] += 1
+        # The source move is the third read, after the image has already passed smoke.
+        if calls["n"] == 3:
+            raise UpdateError("update_active_or_uncertain_work")
+        return real(*args, **kwargs)
+    monkeypatch.setattr(updater_module, "offline_check", gated)
+    current = prepare_deployment(service, record)
+    old = current[0]
+    service.deploy(record)
+    assert calls["n"] >= 3
+    assert record["state"] == "rolled_back" and record["error_code"] == "update_active_or_uncertain_work"
+    assert record["source_sync"] == "pending" and current[0] == old
+    assert git_out(service.source_repo, "rev-parse", "HEAD", git_dir=True) == commit_a
+    assert json.loads(service.source_lock.read_text())["commit"] == commit_a
+
+
+def test_moved_head_on_rollback_needs_reconcile(updater, tmp_path):
+    service, record = updater
+    repo, commit_a = product_history(tmp_path)
+    install_coding(service, repo, commit_a)
+    commit_b = write_commit(repo, "controller/app.py", "print('B')\n", "B")
+    record["manifest"]["source_commit"] = commit_b
+    service.run = BundleDocker(make_bundle(repo, tmp_path / "b.bundle", "HEAD"), record["manifest"]["image_id"])
+    service.stage_source(record)
+    prepare_deployment(service, record)
+    service.deploy(record)
+    assert record["state"] == "deployed"
+    tree = git_out(service.source_repo, "rev-parse", commit_b + "^{tree}", git_dir=True)
+    env = {**os.environ, "GIT_AUTHOR_NAME": "Fixture", "GIT_AUTHOR_EMAIL": "fixture@example.invalid",
+           "GIT_COMMITTER_NAME": "Fixture", "GIT_COMMITTER_EMAIL": "fixture@example.invalid"}
+    commit_c = subprocess.check_output(["git", "--git-dir", str(service.source_repo), "commit-tree", tree, "-p", commit_b, "-m", "C"],
+                                       text=True, env=env).strip()
+    subprocess.run(["git", "--git-dir", str(service.source_repo), "update-ref", "HEAD", commit_c, commit_b],
+                   check=True, capture_output=True)
+    service.deploy(record, rollback=True)
+    assert record["state"] == "needs_reconcile" and record["error_code"] == "update_source_diverged"
+    assert record["source_sync"] == "needs_reconcile"
+    assert git_out(service.source_repo, "rev-parse", "HEAD", git_dir=True) == commit_c
+    assert json.loads(service.source_lock.read_text())["commit"] == commit_b
+
+
+def test_interrupted_source_move_is_not_reported_as_moved(updater, tmp_path):
+    service, record = updater
+    service.update(record, state="deploying", source_sync="pending", source_before="a" * 40, source_candidate="b" * 40)
+    restarted = Updater(service.manager)
+    recovered = restarted.records[record["candidate_digest"]]
+    assert recovered["state"] == "needs_reconcile" and recovered["source_sync"] == "needs_reconcile"

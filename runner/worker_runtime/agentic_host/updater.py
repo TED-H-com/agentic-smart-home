@@ -25,6 +25,7 @@ from .fence import fence
 from .manager import HostError, atomic, sync_path
 from .publisher import TRUST, public_key
 from .resources import ready
+from .source import source_identity
 
 DIGEST = re.compile(r"[a-f0-9]{64}")
 IMAGE = re.compile(r"sha256:[a-f0-9]{64}")
@@ -35,6 +36,12 @@ RECOVERY_STATES = {"deploying", "rolling_back", "needs_reconcile"}
 # Advertise only from this fixed updater implementation. It protects bridge
 # operations and requires the candidate probe to preserve bridge authority.
 INGRESS_BRIDGE_CONTRACT = 1
+# The signed image digest covers the bundle. Bounds reject a huge copy before
+# import. Source objects come only from that local bundle, never from a fetch URL.
+SOURCE_BUNDLE_MAX_BYTES = 256 * 1024 * 1024
+SOURCE_DOCKER_TIMEOUT = 120
+SOURCE_GIT_TIMEOUT = 180
+SOURCE_SYNC = {"pending", "moved", "unavailable", "reverted", "needs_reconcile"}
 
 
 class UpdateError(HostError):
@@ -119,6 +126,9 @@ class Updater:
     def __init__(self, manager):
         self.manager, self.run = manager, manager.run
         self.root = manager.root / "updates"
+        self.coding = manager.root.parent / "coding"
+        self.source_repo = self.coding / "source"
+        self.source_lock = self.coding / "source.json"
         self.root.mkdir(mode=0o700, exist_ok=True)
         self.path = self.root / "records.json"
         self.environment = manager.root / "runtime.env"
@@ -132,6 +142,8 @@ class Updater:
             if value["state"] == "staging":
                 value.update(state="failed", error_code="update_staging_interrupted")
             elif value["state"] in {"deploying", "rolling_back"}:
+                if value.get("source_sync") in {"pending", "moved", "reverted"}:
+                    value["source_sync"] = "needs_reconcile"
                 value.update(state="needs_reconcile", error_code="update_interrupted")
         atomic(self.path, self.records)
         self.expire_snapshots()
@@ -241,7 +253,10 @@ class Updater:
             atomic(self.path, self.records)
 
     def public(self, record):
-        return {k: v for k, v in record.items() if k not in {"signature"}}
+        value = {k: v for k, v in record.items() if k not in {"signature", "source_lock_before"}}
+        if value.get("source_sync") not in SOURCE_SYNC:
+            value["source_sync"] = "needs_reconcile" if "source_sync" in value else "unavailable"
+        return value
 
     def stage(self, body):
         if not isinstance(body, dict) or set(body) != {"manifest", "signature"}:
@@ -271,9 +286,219 @@ class Updater:
             metadata = json.loads(self.run("docker", "image", "inspect", image).stdout)[0]
             if metadata.get("Os") != "linux" or metadata.get("Architecture") != "amd64" or metadata.get("Config", {}).get("Volumes"):
                 raise UpdateError("update_image_runtime_invalid")
+            self.stage_source(record)
             self.update(record, state="staged", base_image=self.image(), approval_id=secrets.token_urlsafe(32), approval_expires_at=time.time() + 600)
         except Exception as exc:
             self.update(record, state="failed", error_code=str(exc) if isinstance(exc, UpdateError) else "update_stage_failed")
+
+    def _command(self, *args, timeout=SOURCE_GIT_TIMEOUT, check=True):
+        result = self.run(*args, timeout=timeout, check=False)
+        if check and result.returncode:
+            raise UpdateError("update_source_command_failed")
+        return result
+
+    def _git(self, *args, repo=None, timeout=SOURCE_GIT_TIMEOUT, check=True):
+        return self._command("git", "--git-dir", str(repo or self.source_repo), *args, timeout=timeout, check=check)
+
+    def _rev(self, ref="HEAD", repo=None):
+        value = self._git("rev-parse", "--verify", ref, repo=repo).stdout.strip()
+        if not re.fullmatch(r"[a-f0-9]{40}", value):
+            raise UpdateError("update_source_command_failed")
+        return value
+
+    def _read_lock(self):
+        path = self.source_lock
+        if path.is_symlink() or not path.is_file():
+            raise UpdateError("update_source_unavailable")
+        try:
+            value = json.loads(path.read_text())
+        except (OSError, ValueError):
+            raise UpdateError("update_source_unavailable") from None
+        if not isinstance(value, dict) or value.get("repo_id") != "agentic-home":
+            raise UpdateError("update_source_unavailable")
+        commit = value.get("commit")
+        if not isinstance(commit, str) or not re.fullmatch(r"[a-f0-9]{40}", commit):
+            raise UpdateError("update_source_unavailable")
+        return value
+
+    def _require_repo(self):
+        if self.source_repo.is_symlink() or not self.source_repo.is_dir() or self.source_lock.is_symlink():
+            raise UpdateError("update_source_unavailable")
+        return self.source_repo
+
+    def _require_quiescent(self, record):
+        """The same gate as image activation: no coding job, lease, or stop_unconfirmed work."""
+        offline_check(self.database, record["manifest"]["compatibility"]["schema"])
+
+    def _extract_bundle(self, image, destination):
+        """Copy the bundle out of a created container. Never start it."""
+        if not IMAGE.fullmatch(image):
+            raise UpdateError("update_source_extract_failed")
+        name = "agentic-update-source-" + secrets.token_hex(8)
+        destination.unlink(missing_ok=True)
+        try:
+            self._command("docker", "create", "--name", name, image, timeout=SOURCE_DOCKER_TIMEOUT)
+            result = self._command("docker", "cp", name + ":/app/source/agentic-home.bundle", str(destination),
+                                   timeout=SOURCE_DOCKER_TIMEOUT, check=False)
+            if result.returncode:
+                destination.unlink(missing_ok=True)
+                detail = (result.stderr or "") + (result.stdout or "")
+                if "No such container:path" in detail or "Could not find the file" in detail:
+                    return False
+                raise UpdateError("update_source_extract_failed")
+            try:
+                info = destination.lstat()
+            except OSError:
+                raise UpdateError("update_source_extract_failed") from None
+            if destination.is_symlink() or not stat.S_ISREG(info.st_mode) or not 32 <= info.st_size <= SOURCE_BUNDLE_MAX_BYTES:
+                raise UpdateError("update_source_bundle_invalid")
+            return True
+        finally:
+            self._command("docker", "rm", "-f", name, timeout=SOURCE_DOCKER_TIMEOUT, check=False)
+
+    def _verify_bundle(self, bundle, source_commit):
+        with tempfile.TemporaryDirectory(prefix="verify-", dir=self.root) as temporary:
+            empty = Path(temporary) / "empty"
+            self._command("git", "init", "-q", "-b", "main", str(empty), timeout=SOURCE_GIT_TIMEOUT)
+            verified = self._command("git", "-C", str(empty), "bundle", "verify", str(bundle), timeout=SOURCE_GIT_TIMEOUT, check=False)
+            if verified.returncode:
+                raise UpdateError("update_source_bundle_invalid")
+        listed = self._command("git", "bundle", "list-heads", str(bundle), timeout=SOURCE_GIT_TIMEOUT)
+        heads = []
+        for line in listed.stdout.splitlines():
+            parts = line.split()
+            if len(parts) != 2 or not re.fullmatch(r"[a-f0-9]{40}", parts[0]):
+                raise UpdateError("update_source_bundle_invalid")
+            heads.append(parts[0])
+        if heads != [source_commit]:
+            raise UpdateError("update_source_bundle_invalid")
+
+    def stage_source(self, record):
+        if not re.fullmatch(r"[a-f0-9]{64}", record.get("candidate_digest", "")):
+            raise UpdateError("update_source_bundle_invalid")
+        bundle = self.root / ("source-" + record["candidate_digest"] + ".bundle")
+        try:
+            try:
+                if not self._extract_bundle(record["manifest"]["image_id"], bundle):
+                    record["source_sync"] = "unavailable"
+                    return
+                self._accept_bundle(record, bundle)
+            except UpdateError as exc:
+                if str(exc) == "update_source_diverged":
+                    record["source_sync"] = "needs_reconcile"
+                raise
+        finally:
+            if bundle.is_symlink() or bundle.is_file():
+                bundle.unlink()
+
+    def _accept_bundle(self, record, bundle):
+        source_commit = record["manifest"]["source_commit"]
+        digest = record["manifest"]["image_id"].removeprefix("sha256:")
+        ref = "refs/agentic/candidate/" + digest
+        if not re.fullmatch(r"refs/agentic/candidate/[a-f0-9]{64}", ref):
+            raise UpdateError("update_source_bundle_invalid")
+        self._verify_bundle(bundle, source_commit)
+        repo = self._require_repo()
+        before = self._rev("HEAD")
+        lock = self._read_lock()
+        if lock.get("commit") != before:
+            raise UpdateError("update_source_unavailable")
+        with tempfile.TemporaryDirectory(prefix="candidate-", dir=self.root) as temporary:
+            staging = Path(temporary) / "repo"
+            self._command("git", "clone", "--bare", "--no-hardlinks", str(bundle), str(staging), timeout=SOURCE_GIT_TIMEOUT)
+            if self._rev("HEAD", repo=staging) != source_commit:
+                raise UpdateError("update_source_bundle_invalid")
+            self._command("git", "--git-dir", str(staging), "fsck", "--full", timeout=SOURCE_GIT_TIMEOUT)
+            # Local path only. The + applies to the candidate ref, not HEAD.
+            fetched = self._git("fetch", "--no-tags", str(staging), "+HEAD:" + ref, check=False)
+            if fetched.returncode:
+                raise UpdateError("update_source_bundle_invalid")
+        if self._rev("HEAD") != before:
+            raise UpdateError("update_source_diverged")
+        if self._rev(ref) != source_commit:
+            raise UpdateError("update_source_bundle_invalid")
+        self._command("git", "--git-dir", str(repo), "fsck", "--full", timeout=SOURCE_GIT_TIMEOUT)
+        record.update(source_sync="pending", source_before=before, source_candidate=source_commit, source_ref=ref, source_lock_before=lock)
+
+    def _cas(self, new, old):
+        """Move HEAD, whether the install bundle left it detached or on a branch."""
+        if self._rev("HEAD") != old:
+            raise UpdateError("update_source_diverged")
+        result = self._git("update-ref", "HEAD", new, old, check=False)
+        if result.returncode:
+            if self._rev("HEAD") != old:
+                raise UpdateError("update_source_diverged")
+            raise UpdateError("update_source_move_failed")
+        if self._rev("HEAD") != new:
+            raise UpdateError("update_source_diverged")
+
+    def finish_source(self, record, rollback):
+        try:
+            self._finish_source(record, rollback)
+        except UpdateError as exc:
+            if str(exc) == "update_source_diverged":
+                record["source_sync"] = "needs_reconcile"
+            raise
+
+    def _finish_source(self, record, rollback):
+        if record.get("source_sync") in {None, "unavailable"}:
+            record["source_sync"] = "unavailable"
+            return
+        if rollback:
+            self._revert_source(record)
+        else:
+            self._advance_source(record)
+
+    def _advance_source(self, record):
+        if record.get("source_sync") != "pending":
+            raise UpdateError("update_source_move_failed")
+        ref = record.get("source_ref")
+        expected = "refs/agentic/candidate/" + record["manifest"]["image_id"].removeprefix("sha256:")
+        if ref != expected or record.get("source_candidate") != record["manifest"]["source_commit"]:
+            raise UpdateError("update_source_diverged")
+        if self._rev(ref) != record["source_candidate"]:
+            raise UpdateError("update_source_diverged")
+        lock = self._read_lock()
+        if lock != record.get("source_lock_before") or self._rev("HEAD") != record["source_before"]:
+            raise UpdateError("update_source_diverged")
+        install = lock.get("install_commit") or record["source_before"]
+        if not isinstance(install, str) or not re.fullmatch(r"[a-f0-9]{40}", install):
+            raise UpdateError("update_source_move_failed")
+        self._require_quiescent(record)
+        self._cas(record["source_candidate"], record["source_before"])
+        updated = {"repo_id": "agentic-home", "commit": record["source_candidate"], "install_commit": install,
+                   "previous_commit": record["source_before"], "image_id": record["manifest"]["image_id"],
+                   "candidate_digest": record["candidate_digest"]}
+        try:
+            atomic(self.source_lock, updated)
+        except OSError:
+            self._cas(record["source_before"], record["source_candidate"])
+            raise UpdateError("update_source_move_failed") from None
+        if self._rev("HEAD") != record["source_candidate"] or self._read_lock() != updated:
+            raise UpdateError("update_source_diverged")
+        record["source_sync"] = "moved"
+
+    def _revert_source(self, record):
+        sync = record.get("source_sync")
+        if sync == "pending":
+            if self._rev("HEAD") == record.get("source_before"):
+                return
+            raise UpdateError("update_source_diverged")
+        if sync != "moved" or self._rev("HEAD") != record.get("source_candidate"):
+            raise UpdateError("update_source_diverged")
+        previous = record.get("source_lock_before")
+        if not isinstance(previous, dict):
+            raise UpdateError("update_source_diverged")
+        self._require_quiescent(record)
+        self._cas(record["source_before"], record["source_candidate"])
+        try:
+            atomic(self.source_lock, previous)
+        except OSError:
+            self._cas(record["source_candidate"], record["source_before"])
+            raise UpdateError("update_source_move_failed") from None
+        if self._rev("HEAD") != record["source_before"] or self._read_lock() != previous:
+            raise UpdateError("update_source_diverged")
+        record["source_sync"] = "reverted"
 
     def compose(self, *args, **kwargs):
         if not self.environment.exists():
@@ -475,12 +700,14 @@ class Updater:
             final = self.health()
             if final != observed or self.image() != target:
                 raise UpdateError("update_final_smoke_mismatch")
+            self.finish_source(record, rollback)
             self.update(record, state="rolled_back" if rollback else "deployed", phase="complete", health=observed,
                         finished_at=time.time(), current_database_preserved=True, mutations_paused=True)
         except Exception as exc:
             code = str(exc) if isinstance(exc, UpdateError) else "update_deployment_failed"
             state = "failed"
-            if stopped and previous:
+            diverged = str(exc) == "update_source_diverged"
+            if stopped and previous and not diverged:
                 try:
                     self.stop()
                     # Preserve all post-activation writes. A changed schema or
@@ -499,6 +726,11 @@ class Updater:
                     state = "deployed" if rollback else ("rolled_back" if switched else "failed")
                 except Exception:
                     state, code = "needs_reconcile", "update_fallback_unconfirmed"
+            if diverged:
+                state, code = "needs_reconcile", "update_source_diverged"
+                record["source_sync"] = "needs_reconcile"
+            elif state == "needs_reconcile" and record.get("source_sync") in {"pending", "moved", "reverted"}:
+                record["source_sync"] = "needs_reconcile"
             self.update(record, state=state, error_code=code, current_database_preserved=True)
 
     def status(self):
@@ -508,7 +740,8 @@ class Updater:
         except UpdateError:
             trusted = False
         return {"contract": 1, "scope": "controller_only_same_schema", "trusted_publisher_configured": trusted,
-                "runtime_digest": self.runtime_digest(), "records": [self.public(r) for r in self.records.values()]}
+                "runtime_digest": self.runtime_digest(), "deployed_source_commit": source_identity(self.coding)["source_commit"],
+                "records": [self.public(r) for r in self.records.values()]}
 
     def handle(self, method, path, body=None):
         if method == "GET" and path == "/updates":

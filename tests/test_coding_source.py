@@ -10,7 +10,7 @@ import pytest
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / 'host'))
 from agentic_host.manager import HostError  # noqa: E402
-from agentic_host.source import provision_source  # noqa: E402
+from agentic_host.source import provision_source, source_identity  # noqa: E402
 
 
 def git(root, *args):
@@ -83,3 +83,81 @@ def test_dirty_product_and_altered_bundle_or_commit_are_refused(source, tmp_path
         output.write(b'corruption')
     with pytest.raises(HostError, match='checksum mismatch'):
         provision_source(product, tmp_path / 'wrong-checksum')
+
+
+def test_source_identity_is_null_when_missing_or_invalid(tmp_path):
+    assert source_identity(tmp_path / 'missing') == {'source_commit': None, 'install_commit': None}
+    coding = tmp_path / 'coding'
+    coding.mkdir()
+    path = coding / 'source.json'
+    for text in ('not-json', '[]', json.dumps({'commit': 'a' * 40}),
+                 json.dumps({'repo_id': 'other', 'commit': 'a' * 40}),
+                 json.dumps({'repo_id': 'agentic-home', 'commit': 'not-a-sha'}),
+                 json.dumps({'repo_id': 'agentic-home', 'commit': 'a' * 40, 'install_commit': 'bad'})):
+        path.write_text(text)
+        assert source_identity(coding) == {'source_commit': None, 'install_commit': None}
+    path.unlink()
+    path.symlink_to(tmp_path / 'private.json')
+    assert source_identity(coding) == {'source_commit': None, 'install_commit': None}
+    path.unlink()
+    path.write_text(json.dumps({'repo_id': 'agentic-home', 'commit': 'a' * 40}))
+    assert source_identity(coding) == {'source_commit': 'a' * 40, 'install_commit': None}
+    path.write_text(json.dumps({'repo_id': 'agentic-home', 'commit': 'b' * 40, 'install_commit': 'a' * 40}))
+    assert source_identity(coding) == {'source_commit': 'b' * 40, 'install_commit': 'a' * 40}
+
+
+def test_provision_keeps_moved_repo_and_rejects_a_foreign_one(source, tmp_path):
+    builder, repo, product, assets = source
+    lock = builder.coding_source(assets, repo)
+    state = tmp_path / 'state'
+    assert provision_source(product, state) == lock
+    bare = state / 'coding/source'
+    (bare / 'canary').write_text('do not reclone')
+    (repo / 'controller/app.py').write_text('print("moved")\n')
+    git(repo, 'add', 'controller/app.py')
+    git(repo, 'commit', '-m', 'Moved fixture')
+    commit_b = git(repo, 'rev-parse', 'HEAD')
+    subprocess.run(['git', '--git-dir', str(bare), 'fetch', '--no-tags', str(repo),
+                    'HEAD:refs/agentic/candidate/' + 'd' * 64], check=True, capture_output=True)
+    subprocess.run(['git', '--git-dir', str(bare), 'update-ref', 'HEAD', commit_b], check=True, capture_output=True)
+    moved = {'repo_id': 'agentic-home', 'commit': commit_b, 'install_commit': lock['commit'],
+             'previous_commit': lock['commit'], 'image_id': 'sha256:' + 'd' * 64, 'candidate_digest': 'e' * 64}
+    (state / 'coding/source.json').write_text(json.dumps(moved))
+    assert provision_source(product, state) == moved
+    assert (bare / 'canary').read_text() == 'do not reclone'
+    assert git(bare, 'rev-parse', 'HEAD') == commit_b
+    assert json.loads((state / 'coding/source.json').read_text())['install_commit'] == lock['commit']
+    foreign = {**moved, 'install_commit': 'a' * 40}
+    (state / 'coding/source.json').write_text(json.dumps(foreign))
+    with pytest.raises(HostError, match='different content'):
+        provision_source(product, state)
+    (state / 'coding/source.json').write_text(json.dumps({**moved, 'commit': lock['commit']}))
+    with pytest.raises(HostError, match='different content'):
+        provision_source(product, state)
+    assert (bare / 'canary').read_text() == 'do not reclone'
+
+
+def test_controller_source_refuses_a_dirty_tree(tmp_path):
+    spec = importlib.util.spec_from_file_location('controller_source', ROOT / 'scripts/controller_source.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    repo = tmp_path / 'repo'
+    repo.mkdir()
+    git(repo, 'init', '-b', 'main')
+    git(repo, 'config', 'user.email', 'fixture@example.invalid')
+    git(repo, 'config', 'user.name', 'Fixture')
+    (repo / 'controller').mkdir()
+    (repo / 'controller/app.py').write_text("print('clean')\n")
+    git(repo, 'add', 'controller')
+    git(repo, 'commit', '-m', 'Clean fixture')
+    (repo / 'controller/app.py').write_text("print('dirty')\n")
+    with pytest.raises(ValueError, match='Commit product source'):
+        module.controller_source(repo, tmp_path / 'refused.bundle')
+    assert not (tmp_path / 'refused.bundle').exists()
+    git(repo, 'checkout', '--', 'controller/app.py')
+    destination = repo / 'controller/source/agentic-home.bundle'
+    built = module.controller_source(repo, destination)
+    assert built['commit'] == git(repo, 'rev-parse', 'HEAD')
+    assert subprocess.check_output(['git', 'bundle', 'list-heads', str(destination)], text=True).splitlines() == [
+        built['commit'] + ' HEAD']
+    assert module.controller_source(repo, destination)['commit'] == built['commit']

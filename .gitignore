@@ -19,3 +19,4 @@ web/test-results/
 .env*
 **/node_modules/
 *.tsbuildinfo
+controller/source/agentic-home.bundle

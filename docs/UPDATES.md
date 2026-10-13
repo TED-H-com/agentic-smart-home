@@ -29,6 +29,12 @@ sudo agentic-home update-publisher-add --publisher example --repository ghcr.io/
 
 啟動後實際驗證 HTTP、Owner session、版本、HA／Runner 與 pause 狀態。失敗時切回前 image；較晚發現問題時，「退回前一版本」產生新的精確批准。退版保留目前 Live DB，不能拿部署前備份蓋掉新家庭操作。schema 或其他 runtime 已改變時拒絕同格式退版；狀態不確定時保留 `needs_reconcile`。
 
+成功部署且 image 含 `/app/source/agentic-home.bundle` 時，固定 updater 在最終健康檢查之後，才用 compare-and-swap 把 Host coding bare repo 的 HEAD 從更新前 commit 移到 manifest `source_commit`，並改寫 `coding/source.json`。bundle 由 `scripts/controller_source.py` 在建置時寫入，內容是該 image 的精確 commit；image digest 已涵蓋它，manifest 格式不變，`source_commit` 必須等於 bundle 的唯一 head。沒有 bundle 的 image 仍照舊部署，該筆 `source_sync` 為 `unavailable`。來源只從已驗證的本機 image 取出，不從網路 fetch。
+
+退版把同一分支從已部署 commit 換回更新前 commit，並還原 `source.json`。若 HEAD 已不是已部署 commit，狀態為 `needs_reconcile`，不宣稱來源已移動或已還原。有 coding 工作、lease 或 `stop_unconfirmed` 時拒絕移動；移動失敗視同健康檢查失敗，能退回前 image 就退回，不能確認就留 `needs_reconcile`。
+
+`GET /updates` 增加 `deployed_source_commit`（目前 `source.json` 的 `commit`；檔案缺失或無效時為 null）。每筆記錄增加 `source_sync`：`pending`、`moved`、`unavailable`、`reverted`、`needs_reconcile`。既有欄位保留。這是本機記錄，不是真機 image 的 `docker cp` 或已安裝 VM 退版證據。
+
 固定 updater 的 mode-0600 SQLite 快照包含部署時的完整 Controller DB，按目前 `audit_days`（預設 30 天；待同步的較短設定也生效）於啟動、維護狀態讀取及每 15 秒背景檢查清除。`deploying`、`rolling_back` 或 `needs_reconcile` 的復原快照保留到狀態解除；無法安全讀取政策時先保留並重試。資料庫遷移快照也採稽核保存期限。此清理不刪 image，不以舊快照覆蓋 Live DB；自行匯出的備份需另行管理。
 
 Web 不可用時的固定命令：
