@@ -22,6 +22,7 @@ KEY = "home_worker_maintenance"
 HOST, PORT = "192.168.177.2", 8443
 STARTUP_GRACE = 120
 OPERATION_TIMEOUT = 600
+JOB_TIMEOUT = 3600  # A running Supervisor job, such as the local image build, is progress.
 SAFE_FLAGS = ("hassio_api", "homeassistant_api", "auth_api", "docker_api", "full_access",
               "host_network", "host_pid")
 PRIVILEGED = ["SYS_ADMIN"]
@@ -32,6 +33,7 @@ TERMINAL = {"user_disabled", "user_removed", "user_modified", "needs_reconcile"}
 APP_STATES = {"started", "stopped", "startup", "error", "unknown"}
 CREDENTIALS = {"configured", "inference_verified", "needs_auth", "needs_reauth", "unavailable", "connected"}
 USER_STOP = {"user_disabled", "user_removed", "user_modified"}
+SETTLED = {"running", "waiting", "login_ready", "ready", "degraded"}
 
 
 @dataclass(frozen=True)
@@ -83,8 +85,9 @@ class HomeWorkerMaintenance:
                            "auth_poll_path": "/api/workers/home-coder/auth/{id}"}
         result["restart_allowed"] = result.get("state") == "degraded" and not self.busy()
         result["limitations"] = ["supervisor_trusted_repository_not_atomic_digest_pin",
-                                  "stopped_or_removed_app_is_not_reinstalled",
+                                  "stopped_or_removed_app_returns_only_on_owner_repair",
                                   "no_heartbeat_restart",
+                                  "no_app_update_across_releases",
                                   "hassio_api_is_not_enabled_for_self_options",
                                   "self_options_with_hassio_api_false_not_verified_on_haos_vm",
                                   "credential_configured_is_not_promoted_to_inference_verified"]
@@ -149,7 +152,10 @@ class HomeWorkerMaintenance:
             return self.status()
 
     async def repair(self, *, commit_guard=None):
-        """Resume observation of the existing record. Does not post, reinstall or start."""
+        """Owner retry. Re-reads the App from the first stage and allows one start or install.
+
+        The tick alone never undoes a stop, removal or edit. Privileges, ports and options are never written.
+        """
         async with self.lock:
             record = self.record()
             if not record:
@@ -162,7 +168,16 @@ class HomeWorkerMaintenance:
             if record["owner"] != self.store.setting("owner") or token != self.ha.token:
                 raise HomeWorkerFault("home_worker_authorization_changed", "needs_reconcile")
             self.effect_gate()
-            self.save(record, enabled=True, state="running", code=None)
+            if record.get("enabled") and record.get("state") in SETTLED:
+                return self.status()
+            operation = record.get("operation")
+            if operation and record.get("state") == "unavailable" and self.clock() < operation["deadline"]:
+                # A transient fault during a Supervisor job. Observe the job instead of posting again.
+                self.save(record, enabled=True, state="running", code=None)
+                return self.status()
+            self.save(record, enabled=True, state="running", code=None, stage="repository", operation=None,
+                      pair_restarts=0, pair_deadline=None, failed_code_hash=None, start_sent=False,
+                      started_once=False, owner_start=True)
             return self.status()
 
     async def disable(self, *, commit_guard=None):
@@ -212,7 +227,12 @@ class HomeWorkerMaintenance:
 
     async def run(self):
         while True:
-            await self.tick()
+            try:
+                await self.tick()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass  # A store or status error must not end observation for the process lifetime.
             await asyncio.sleep(15)
 
     def pinned(self, data, *, installed):
@@ -300,7 +320,7 @@ class HomeWorkerMaintenance:
             self.save(record, pair_restarts=record.get("pair_restarts", 0) + 1, failed_code_hash=None,
                       pair_deadline=self.clock() + STARTUP_GRACE)
         if kind == "start":
-            self.save(record, start_sent=True)
+            self.save(record, start_sent=True, owner_start=False)
         operation = {"kind": kind, "state": "sent", "created": self.clock(),
                      "deadline": self.clock() + OPERATION_TIMEOUT, "job_id": None}
         self.save(record, operation=operation, state="running", code=None)
@@ -322,6 +342,9 @@ class HomeWorkerMaintenance:
                 not isinstance(raw.get("errors"), list)):
             raise HomeWorkerFault("home_worker_job_contract_invalid", "needs_reconcile")
         if raw["done"] is not True:
+            operation["deadline"] = min(operation["created"] + JOB_TIMEOUT,
+                                        max(operation["deadline"], self.clock() + OPERATION_TIMEOUT))
+            self.save(record, operation=operation)
             return False
         if raw["errors"]:
             raise HomeWorkerFault("home_worker_supervisor_job_failed", "needs_reconcile")
@@ -386,13 +409,15 @@ class HomeWorkerMaintenance:
         repository_id = matches[0]["slug"]
         slug = repository_id + "_" + self.release.app
         self.save(record, repository_id=repository_id, slug=slug)
-        try:
-            raw = await self.request(record, token, "GET", f"/store/addons/{slug}/info")
-        except HAError as exc:
-            if exc.status == 404:
-                self.save(record, state="unavailable", code="home_worker_app_not_published", operation=None)
-                return
-            raise
+        # Core's WebSocket proxy reports a missing App as unknown_error, not 404. Read the listing instead.
+        listing = await self.request(record, token, "GET", "/store/addons")
+        if (not isinstance(listing, dict) or not isinstance(listing.get("addons"), list) or
+                any(not isinstance(item, dict) for item in listing["addons"])):
+            raise HomeWorkerFault("home_worker_store_contract_invalid", "needs_reconcile")
+        if not any(item.get("slug") == slug for item in listing["addons"]):
+            self.save(record, state="unavailable", code="home_worker_app_not_published", operation=None)
+            return
+        raw = await self.request(record, token, "GET", f"/store/addons/{slug}/info")
         self.validate_app(raw, record, installed=False)
         self.save(record, stage="install", operation=None, state="running", code=None)
 
@@ -447,6 +472,9 @@ class HomeWorkerMaintenance:
                       code=None, pair_deadline=self.clock() + STARTUP_GRACE)
             return
         if app.get("state") == "stopped":
+            if record.get("owner_start") and self.at_defaults(app):
+                self.save(record, managed=True, stage="start", operation=None, state="running", code=None)
+                return
             self.save(record, enabled=False, state="user_disabled", code="home_worker_app_stopped")
             return
         raise HomeWorkerFault("home_worker_existing_app_unconfirmed", "needs_reconcile")
@@ -470,7 +498,9 @@ class HomeWorkerMaintenance:
         if app.get("state") != "stopped":
             raise HomeWorkerFault("home_worker_app_state_unconfirmed", "needs_reconcile")
         # Stopped after a start we already sent is not started again. A lost reply stays unconfirmed.
-        if record.get("started_once") or not record.get("installed_by_us") or not self.at_defaults(app):
+        # Only this record's own install, or an explicit owner repair, permits one start.
+        allowed = record.get("owner_start") or (record.get("installed_by_us") and not record.get("started_once"))
+        if not allowed or not self.at_defaults(app):
             self.save(record, enabled=False, state="user_disabled", code="home_worker_app_stopped")
             return
         if record.get("start_sent"):
@@ -507,9 +537,15 @@ class HomeWorkerMaintenance:
             self.save(record, state="waiting", code="home_worker_app_starting")
             return
         published = self.published_pairing(app.get("options"))
+        peer = self.store.setting("runner_haos")
         if not published:
             if app.get("options") not in ({}, None):
                 self.save(record, enabled=False, state="user_modified", code="home_worker_configuration_changed")
+                return
+            if peer and peer.get("host") == HOST and peer.get("port") == PORT and peer.get("fingerprint"):
+                # Already paired, for example by the manual JSON flow. The poll checks the TLS pin now.
+                await self.begin_clear(record, token, app, peer["fingerprint"])
+                await self.observe_worker(record)
                 return
             deadline = record.get("pair_deadline")
             if deadline is None:
@@ -519,17 +555,13 @@ class HomeWorkerMaintenance:
             if self.clock() < deadline:
                 self.save(record, state="waiting", code="home_worker_pairing_pending")
                 return
-            # The App cannot call Supervisor while hassio_api stays false. Do not enable it.
-            if app.get("hassio_api") is False:
-                raise HomeWorkerFault("home_worker_self_options_rejected", "needs_reconcile")
-            raise HomeWorkerFault("home_worker_pairing_unconfirmed", "needs_reconcile")
+            # Already paired with another Controller, or Supervisor rejected self-options. Never enable hassio_api.
+            raise HomeWorkerFault("home_worker_pairing_not_published", "needs_reconcile")
         fingerprint, code = published
-        peer = self.store.setting("runner_haos")
-        if peer:
-            if peer.get("host") != HOST or peer.get("port") != PORT or peer.get("fingerprint") != fingerprint:
-                raise HomeWorkerFault("home_worker_pairing_mismatch", "needs_reconcile")
+        if peer and peer.get("host") == HOST and peer.get("port") == PORT and peer.get("fingerprint") == fingerprint:
             await self.begin_clear(record, token, app, fingerprint)
             return
+        # The App publishes only while it has no Controller, so a peer with another fingerprint is stale.
         if self.busy():
             self.save(record, state="waiting", code="home_worker_coding_busy")
             return
@@ -541,6 +573,11 @@ class HomeWorkerMaintenance:
             await self.runner.pair({"host": HOST, "port": PORT, "fingerprint": fingerprint, "code": code},
                                    "host-owner", self.controller_id)
         except RunnerError as exc:
+            deadline = record.get("pair_deadline")
+            if exc.status_code is None and deadline is not None and self.clock() < deadline:
+                # The App publishes before its TLS listener is up. Unreachable is not a rejected code.
+                self.save(record, state="waiting", code="home_worker_pairing_pending")
+                return
             self.save(record, failed_code_hash=code_hash)
             if exc.status_code in {403, 409, 429} or exc.status_code is None:
                 await self.begin_pair_restart(record, token)
@@ -593,6 +630,10 @@ class HomeWorkerMaintenance:
             self.save(record, enabled=False, state="user_removed", code="home_worker_app_removed")
             return
         self.note_app(record, app)
+        if app.get("state") == "started" and self.published_pairing(app.get("options")):
+            # The App lost its pairing and published a new code. Pair again under the same fences.
+            self.save(record, stage="pair", state="running", code=None, pair_deadline=self.clock() + STARTUP_GRACE)
+            return
         if app.get("options") != {}:
             self.save(record, enabled=False, state="user_modified", code="home_worker_configuration_changed")
             return
@@ -612,11 +653,11 @@ class HomeWorkerMaintenance:
         try:
             raw = await self.runner.call("GET", "/coding/capabilities")
         except (RunnerError, OSError, TimeoutError, ValueError, TypeError):
-            self.save(record, state="login_ready", stage="login", code="home_worker_worker_unavailable",
-                      worker_available=False)
+            # A login cannot reach an unreachable Runner. Keep polling instead of offering it.
+            self.save(record, state="unavailable", code="home_worker_worker_unavailable", worker_available=False)
             return
         if not isinstance(raw, dict) or raw.get("worker_id") != "home-coder" or raw.get("runtime_location") != "haos_app":
-            self.save(record, state="login_ready", stage="login", code="home_worker_capability_mismatch",
+            self.save(record, state="unavailable", code="home_worker_capability_mismatch",
                       worker_available=False, runtime_location=None, credential_state=None)
             return
         credential = None
@@ -626,7 +667,13 @@ class HomeWorkerMaintenance:
                 credential = value if value in CREDENTIALS else "unavailable"
                 break
         available = raw.get("available") is True
-        ready = available and credential in {"configured", "inference_verified"}
+        signed_in = credential in {"configured", "inference_verified"}
+        if signed_in and not available:
+            # Login cannot fix a blocked sandbox or source. Do not ask for it again.
+            self.save(record, credential_state=credential, worker_available=False, runtime_location="haos_app",
+                      state="unavailable", stage="monitor", code="home_worker_runtime_blocked")
+            return
+        ready = available and signed_in
         self.save(record, credential_state=credential, worker_available=available, runtime_location="haos_app",
                   state="ready" if ready else "login_ready", stage="monitor" if ready else "login",
                   code=None if ready else "home_worker_login_required")
