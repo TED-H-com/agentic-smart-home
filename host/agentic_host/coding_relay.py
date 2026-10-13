@@ -40,6 +40,8 @@ TOKEN_REFRESH_INTERVAL = 8 * 24 * 60 * 60
 CHATGPT_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
 TOKEN_HOST = "auth.openai.com"
 TOKEN_PATH = "/oauth/token"
+# Pinned Codex treats these refresh failures as permanent: sign in again.
+PERMANENT_REFRESH_CODES = frozenset({"refresh_token_expired", "refresh_token_reused", "refresh_token_invalidated"})
 _REJECTED = b'{"error":"coding_egress_rejected"}'
 
 
@@ -87,15 +89,44 @@ def refresh_instant(value):
 
 
 def refresh_due(value, now):
-    """True when the access token expires within 5 minutes or last_refresh is older than 8 days."""
+    """Mirror pinned Codex: a parsed JWT exp decides alone (5-minute window).
+    Without one, refresh when last_refresh is older than 8 days."""
     tokens = value.get("tokens") if isinstance(value, dict) else None
     access = tokens.get("access_token") if isinstance(tokens, dict) else None
     if isinstance(access, str):
         exp = jwt_expiration(access)
-        if exp is not None and exp <= now + ACCESS_REFRESH_WINDOW:
-            return True
+        if exp is not None:
+            return exp <= now + ACCESS_REFRESH_WINDOW
     refreshed = refresh_instant(value.get("last_refresh")) if isinstance(value, dict) else None
     return refreshed is not None and refreshed < now - TOKEN_REFRESH_INTERVAL
+
+
+def refresh_error_code(raw):
+    """The code pinned Codex reads: string `error`, then `error.code`, then top-level `code`."""
+    try:
+        detail = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(detail, dict):
+        return None
+    error = detail.get("error")
+    if isinstance(error, str) and error:
+        return error
+    if isinstance(error, dict) and isinstance(error.get("code"), str) and error["code"]:
+        return error["code"]
+    code = detail.get("code")
+    return code if isinstance(code, str) and code else None
+
+
+def refresh_rejected(status, raw):
+    """True for a permanent refresh failure. Anything else is transient and may be retried."""
+    code = (refresh_error_code(raw) or "").lower()
+    return status == 401 or code in PERMANENT_REFRESH_CODES or (status == 400 and code == "invalid_grant")
+
+
+class RefreshRejected(SandboxError):
+    def __init__(self):
+        super().__init__("Coding token refresh rejected")
 
 
 def read_auth(path):
@@ -463,6 +494,8 @@ class Relay:
         try:
             raw = self._read_limited(response)
             if response.status != 200:
+                if refresh_rejected(response.status, raw):
+                    raise RefreshRejected()
                 raise SandboxError("Coding token refresh failed")
             try:
                 parsed = json.loads(raw)
@@ -475,32 +508,39 @@ class Relay:
             response.abort()
 
     def _refresh(self, *, force, rejected=None):
+        """Return "ok", "rejected" (sign in again) or "unavailable" (transient; try later)."""
         with self.refresh_lock:
             try:
                 value = read_auth(self.credential_path)
             except (OSError, ValueError, SandboxError):
-                return False
+                return "rejected"
             tokens = value.get("tokens")
             if not isinstance(tokens, dict):
-                return False
+                return "rejected"
             access = tokens.get("access_token")
             if rejected is not None and isinstance(access, str) and access != rejected:
-                return True
+                return "ok"
             if not force and not refresh_due(value, time.time()):
-                return True
+                return "ok"
             refresh_token = tokens.get("refresh_token")
             if not isinstance(refresh_token, str) or not refresh_token:
-                return False
+                return "rejected"
             try:
-                refreshed = self._fetch_token(refresh_token)
-                write_auth(self.credential_path, apply_refresh(value, refreshed))
+                updated = apply_refresh(value, self._fetch_token(refresh_token))
+            except RefreshRejected:
+                return "rejected"
             except SandboxError as exc:
                 if exc.args and exc.args[0] == "Relay authorization expired or exhausted":
                     raise
-                return False
+                return "unavailable"
             except Exception:
-                return False
-            return True
+                return "unavailable"
+            try:
+                write_auth(self.credential_path, updated)
+            except SandboxError:
+                # The provider may already have rotated the refresh token. Only a new sign-in recovers.
+                return "rejected"
+            return "ok"
 
     def _provider(self):
         return credentials(self.credential_path)
@@ -540,18 +580,22 @@ class Relay:
                 except (OSError, ValueError, SandboxError):
                     due = False
                 if due:
-                    if not self._refresh(force=False):
+                    # A transient failure keeps the current token; an expired one comes back as 401 below.
+                    if self._refresh(force=False) == "rejected":
                         self.auth_failed = True
-                        raise SandboxError("Coding provider requires reauthentication")
+                        return self._rejected()
                     host, target, headers = self._provider()
                     request_headers = {**headers, "Content-Type": "application/json", "Accept": "text/event-stream"}
             response = self._exchange(host, target, payload, request_headers, MAX_RESPONSE)
             if response.status == 401 and host == "chatgpt.com":
                 rejected = _bearer(headers)
                 response.abort()
-                if not self._refresh(force=True, rejected=rejected):
+                outcome = self._refresh(force=True, rejected=rejected)
+                if outcome == "rejected":
                     self.auth_failed = True
                     return self._rejected()
+                if outcome == "unavailable":
+                    raise SandboxError("Coding token refresh unavailable")
                 host, target, headers = self._provider()
                 request_headers = {**headers, "Content-Type": "application/json", "Accept": "text/event-stream"}
                 response = self._exchange(host, target, payload, request_headers, MAX_RESPONSE)

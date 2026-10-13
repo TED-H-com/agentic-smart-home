@@ -413,7 +413,8 @@ def test_refresh_rules_write_back_and_one_retry(tmp_path, monkeypatch):
     assert refresh_due(auth_value(jwt_token({"exp": now + ACCESS_REFRESH_WINDOW}), OLD_REFRESH, recent, far), now)
     assert not refresh_due(auth_value(jwt_token({"exp": now + ACCESS_REFRESH_WINDOW + 1}), OLD_REFRESH, recent, far), now)
     assert not refresh_due(auth_value(far, OLD_REFRESH, stamp(now - TOKEN_REFRESH_INTERVAL + 5), far), now)
-    assert refresh_due(auth_value(far, OLD_REFRESH, stamp(now - TOKEN_REFRESH_INTERVAL - 5), far), now)
+    # Like pinned Codex, a parsed exp decides alone; the 8-day rule is only for tokens without one.
+    assert not refresh_due(auth_value(far, OLD_REFRESH, stamp(now - TOKEN_REFRESH_INTERVAL - 5), far), now)
     assert not refresh_due(auth_value("opaque-access", OLD_REFRESH, None, far), now)
     assert refresh_due(auth_value("opaque-access", OLD_REFRESH, stamp(now - TOKEN_REFRESH_INTERVAL - 5), far), now)
     bool_exp = jwt_token({"exp": True})
@@ -466,7 +467,7 @@ def test_refresh_rules_write_back_and_one_retry(tmp_path, monkeypatch):
         os.close(fd)
     assert credentials(path)[2]["Authorization"] == "Bearer " + new_access
 
-    kept = auth_value(live_far, OLD_REFRESH, stamp(time.time() - TOKEN_REFRESH_INTERVAL - 5),
+    kept = auth_value("opaque-access", OLD_REFRESH, stamp(time.time() - TOKEN_REFRESH_INTERVAL - 5),
                       jwt_token({"kind": "id-old"}))
     path, calls, status, _, raw, _ = run(kept, [(200, "application/json", json.dumps(
         {"access_token": new_access, "id_token": new_id}).encode()), model_reply])
@@ -479,17 +480,42 @@ def test_refresh_rules_write_back_and_one_retry(tmp_path, monkeypatch):
 
     quiet = auth_value(live_far, OLD_REFRESH, stamp(time.time()), jwt_token({"kind": "id-old"}))
     secret_body = json.dumps({"error": LEAK, "refresh_token": OLD_REFRESH}).encode()
-    path, calls, status, _, raw, relay = run(quiet, [(401, "application/json", b'{"error":"expired"}'),
-                                                     (500, "application/json", secret_body)])
-    assert status == 401 and raw == b'{"error":"coding_egress_rejected"}' and relay.auth_failed
-    assert [item[0] for item in calls] == ["chatgpt.com", TOKEN_HOST]
-    assert LEAK.encode() not in raw and OLD_REFRESH.encode() not in raw
+    path = tmp_path / "transient" / "auth.json"
+    install_auth(path, quiet)
+    calls = []
+    replies = [(401, "application/json", b'{"error":"expired"}'), (500, "application/json", secret_body)]
+
+    def transient(host, route, method, body, headers, maximum=None):
+        calls.append(host)
+        return replies.pop(0)
+
+    # A token endpoint outage is transient: no sign-in is demanded and Codex may retry.
+    relay = Relay(tmp_path / "transient.sock", path, time.time() + 30, transport=transient)
+    with pytest.raises(SandboxError) as failure:
+        relay.request("POST", "/v1/responses", REQUEST)
+    assert calls == ["chatgpt.com", TOKEN_HOST] and not relay.auth_failed
+    assert LEAK not in str(failure.value) and failure.value.__cause__ is None
     assert json.loads(path.read_text())["tokens"]["refresh_token"] == OLD_REFRESH
     assert json.loads(path.read_text())["tokens"]["access_token"] == live_far
+
+    for reply in [(401, "application/json", secret_body),
+                  (400, "application/json", b'{"error":"invalid_grant"}'),
+                  (400, "application/json", b'{"error":{"code":"refresh_token_reused","message":"used"}}')]:
+        path, calls, status, _, raw, relay = run(quiet, [(401, "application/json", b'{"error":"expired"}'), reply])
+        assert status == 401 and raw == b'{"error":"coding_egress_rejected"}' and relay.auth_failed
+        assert [item[0] for item in calls] == ["chatgpt.com", TOKEN_HOST]
+        assert LEAK.encode() not in raw and OLD_REFRESH.encode() not in raw
+        assert json.loads(path.read_text())["tokens"]["access_token"] == live_far
     with pytest.raises(SandboxError) as failure:
         relay.request("POST", "/v1/responses", REQUEST)
     assert LEAK not in str(failure.value) and failure.value.__cause__ is None
-    assert json.loads(path.read_text())["tokens"]["access_token"] == live_far
+
+    # A due refresh that cannot reach the token host keeps the current, still valid token.
+    soon_value = auth_value(live_soon, OLD_REFRESH, stamp(time.time()), jwt_token({"kind": "id-old"}))
+    path, calls, status, _, raw, relay = run(soon_value, [(503, "application/json", b"{}"), model_reply])
+    assert status == 200 and raw == b"data: ok\n\n" and not relay.auth_failed
+    assert [item[0] for item in calls] == [TOKEN_HOST, "chatgpt.com"]
+    assert calls[1][3]["Authorization"] == "Bearer " + live_soon
 
     burst = auth_value(live_far, OLD_REFRESH, stamp(time.time()), jwt_token({"kind": "id-old"}))
     path = tmp_path / "burst" / "auth.json"
@@ -535,11 +561,11 @@ def test_failed_refresh_exception_and_api_key_skip_token_endpoint(tmp_path, monk
         return 401, "application/json", b"{}"
 
     relay = Relay(tmp_path / "sock", path, time.time() + 30, transport=explode)
-    status, _, raw = relay.request("POST", "/v1/responses", REQUEST)
-    assert status == 401 and relay.auth_failed and LEAK.encode() not in raw and path.read_bytes() == before
-    with pytest.raises(SandboxError) as failure:
-        relay.request("POST", "/v1/responses", REQUEST)
-    assert LEAK not in str(failure.value) and failure.value.__cause__ is None
+    for _ in range(2):
+        with pytest.raises(SandboxError) as failure:
+            relay.request("POST", "/v1/responses", REQUEST)
+        assert not relay.auth_failed and path.read_bytes() == before
+        assert LEAK not in str(failure.value) and failure.value.__cause__ is None
 
     key_path = tmp_path / "key.json"
     install_auth(key_path, auth_value(jwt_token({"exp": int(time.time()) + 30}), OLD_REFRESH,
@@ -720,5 +746,6 @@ def test_refresh_uses_public_tls_on_the_fixed_token_host(tmp_path, monkeypatch):
     with pytest.raises(SandboxError) as failure:
         relay.request("POST", "/v1/responses", REQUEST)
     assert seen and seen[0][0] == TOKEN_HOST and seen[0][1] <= IDLE_TIMEOUT
-    assert all(host == TOKEN_HOST for host, _ in seen)
-    assert OLD_REFRESH not in str(failure.value) and relay.auth_failed
+    # An unreachable token host is transient: the still valid token is tried, and no sign-in is demanded.
+    assert [host for host, _ in seen] == [TOKEN_HOST, "chatgpt.com"]
+    assert OLD_REFRESH not in str(failure.value) and not relay.auth_failed
