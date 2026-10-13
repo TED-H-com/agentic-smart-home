@@ -326,6 +326,7 @@ def test_outer_sidebar_maintenance_explicit_authority_and_revocation(bridge_brow
     assert not mutations
     panel.get_by_role("button", name="啟用側欄並自動維護").click()
     expect(panel.get_by_text("側欄服務可用", exact=True)).to_be_visible()
+    panel.get_by_text("更多", exact=True).click()
     panel.get_by_role("button", name="停止自動維護", exact=True).click()
     expect(panel.get_by_text("自動維護已停止，側欄連接保留。", exact=False)).to_be_visible()
     assert state["maintenance"]["state"] == "healthy"
