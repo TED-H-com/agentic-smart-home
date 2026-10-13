@@ -669,6 +669,8 @@ main:focus{outline:none}
 .home-entry{max-width:720px}
 .home-entry h2{margin-bottom:var(--s2)}
 .home-entry>.row-actions{margin-top:var(--s4)}
+.home-entry.settings-section{border-bottom:0;padding-bottom:0}
+.settings-hub.row-actions{align-items:stretch}
 .empty-action{margin-top:var(--s4)}
 .more-actions{margin:0}
 .more-actions>summary{min-height:44px}
