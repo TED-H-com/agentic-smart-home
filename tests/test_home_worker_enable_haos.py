@@ -652,6 +652,10 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
                 outer_alive()
                 current = await status()
             evidence['enable_seconds'] = round(time.monotonic() - enable_started, 3)
+            # A normal enable only shows progress; any failure state would offer the Owner a needless repair.
+            smooth = all(step[1] in {'running', 'waiting', 'login_ready'} for step in evidence['enable_transitions'])
+            check_ok = bool(smooth)
+            assert check_ok, 'home_worker_enable_showed_failure'
             evidence['checks']['home_worker_enable'] = True
             phase('login_ready_contract')
             login_ready_contract(current, url, slug)
@@ -1016,7 +1020,8 @@ def test_projection_rejects_malformed_nested_and_unhashable_values():
 def test_failure_receipt_recognizes_enable_assertion_codes():
     for code in ('home_worker_failed_after_disruption', 'bridge_not_recovered', 'app_restarted_after_reboot',
                  'maintenance_changed_apps_after_cold_backup', 'home_worker_status_ownership',
-                 'owned_enable_resources_not_removed', 'outer_controller_exited', 'outer_controller_not_ready'):
+                 'owned_enable_resources_not_removed', 'outer_controller_exited', 'outer_controller_not_ready',
+                 'home_worker_enable_showed_failure'):
         receipt = failure_receipt(AssertionError(code), source_files=CODE_SOURCES)
         assert receipt['error_code'] == code
         assert evidence_projection(receipt)['error_code'] == code
