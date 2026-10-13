@@ -24,6 +24,7 @@ import sys
 import tarfile
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 import aiohttp
@@ -94,6 +95,40 @@ def container_contract(raw, slug):
     assert (value['device_cgroup_rules'] == ['c 10:229 rwm'] and value['unrecognized_device_rule_count'] == 0
         and value['direct_device_mapping_count'] == 0), 'actual_fuse_device_cgroup_contract_changed'
     return value
+
+
+def container_generation(raw):
+    """Only the owned App's fixed Docker process-generation fields are public."""
+    state = raw.get('State', {})
+    identifier, started, pid = raw.get('Id'), state.get('StartedAt'), state.get('Pid')
+    assert isinstance(identifier, str) and HEX64.fullmatch(identifier), 'app_container_identity_invalid'
+    assert isinstance(started, str) and re.fullmatch(r'20[0-9]{2}-[0-9TZ:.-]{15,40}', started), 'app_start_generation_invalid'
+    try:
+        timestamp = datetime.fromisoformat(started.replace('Z', '+00:00')).timestamp()
+    except ValueError:
+        raise AssertionError('app_start_generation_invalid') from None
+    assert timestamp > 0 and type(pid) is int and 0 <= pid < 2**31, 'app_start_generation_invalid'
+    assert type(state.get('Running')) is bool, 'app_running_state_invalid'
+    return {'container_id': identifier, 'started_at': started, 'started_at_epoch': timestamp,
+            'host_pid': pid, 'running': state['Running']}
+
+
+def verified_app_generation(raw, slug, expected_image):
+    container_contract(raw, slug)
+    assert raw.get('Name') == '/app_' + slug, 'restarted_app_name_changed'
+    assert raw.get('Image') == expected_image, 'restarted_app_image_changed'
+    return container_generation(raw)
+
+
+def fresh_app_restart(previous, current, before, after, *, replacement_verified=False):
+    """Namespace inodes can repeat; require a new real process plus Docker start."""
+    old_ticks, new_ticks = previous.get('process_start_ticks'), current.get('process_start_ticks')
+    return (type(old_ticks) is int and type(new_ticks) is int and 0 < old_ticks < new_ticks < 2**63
+        and isinstance(previous.get('boot_id_sha256'), str) and HEX64.fullmatch(previous['boot_id_sha256']) is not None
+        and current.get('boot_id_sha256') == previous['boot_id_sha256']
+        and (before['container_id'] == after['container_id'] or replacement_verified)
+        and before['running'] and after['running']
+        and after['started_at_epoch'] > before['started_at_epoch'])
 
 
 def copied_json(raw):
@@ -771,6 +806,19 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
                     await asyncio.sleep(1)
                 raise AssertionError('home_restart_readiness_timeout')
 
+            async def restarted_app(previous, before):
+                for _ in range(90):
+                    current = app_json('/data/home-worker-fixture/app-observation.json')
+                    # Supervisor may remove/recreate the same App container.
+                    # Exact image identity inherits the initial verified layer proof.
+                    after = verified_app_generation(json.loads(remote('docker inspect ' + app_container))[0],
+                        slug, installed['Image'])
+                    if fresh_app_restart(previous, current, before, after, replacement_verified=True):
+                        await app_available()
+                        return current, after
+                    await asyncio.sleep(1)
+                raise AssertionError('fresh_app_process_start_not_observed')
+
             async def reclaimed(identifier):
                 for _ in range(40):
                     proof = job_proof(identifier)
@@ -794,46 +842,63 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
 
             phase('graceful_supervisor_stop_and_restart')
             held, before = await submit_held('restart')
+            previous = app_json('/data/home-worker-fixture/app-observation.json')
+            generation = container_generation(json.loads(remote('docker inspect ' + app_container))[0])
             await ha.request('POST', f'/addons/{slug}/stop', supervisor=True, timeout=120)
             stopped_app = await ha.request('GET', f'/addons/{slug}/info', supervisor=True)
             assert stopped_app['state'] == 'stopped', 'supervisor_stop_not_observed'
             await ha.request('POST', f'/addons/{slug}/start', supervisor=True, timeout=120)
-            await app_available()
+            current, after = await restarted_app(previous, generation)
             stopped = await wait_job(held['id'], timeout=45)
-            assert stopped['state'] in {'cancelled', 'interrupted'} and stopped['stop_confirmed']
-            assert (await api('GET', '/api/workers'))['active_job_id'] is None
-            evidence['graceful_restart'] = {'before': before, 'job': job_projection(stopped)}
+            assert stopped['state'] in {'cancelled', 'interrupted'} and stopped['stop_confirmed'], 'graceful_worker_stop_unconfirmed'
+            assert (await api('GET', '/api/workers'))['active_job_id'] is None, 'graceful_worker_lease_not_released'
+            evidence['graceful_restart'] = {'before': before, 'job': job_projection(stopped),
+                'generation_before': generation, 'generation_after': after,
+                'process_start_ticks_before': previous['process_start_ticks'],
+                'process_start_ticks_after': current['process_start_ticks']}
             evidence['checks']['graceful_app_restart_keeps_confirmed_stop_without_replay'] = True
 
             phase('abrupt_app_restart_keeps_unknown_writer_fenced')
             held, before = await submit_held('crash')
             previous = app_json('/data/home-worker-fixture/app-observation.json')
+            generation = container_generation(json.loads(remote('docker inspect ' + app_container))[0])
+            evidence['abrupt_restart'] = {'before': before, 'generation_before': generation,
+                'process_start_ticks_before': previous['process_start_ticks']}
             # A SIGKILL is intentional fault injection in this disposable App.
             # Product does not receive a trusted Supervisor stop receipt.
             remote('docker kill --signal KILL ' + app_container)
+            killed = container_generation(json.loads(remote('docker inspect ' + app_container))[0])
+            assert killed['running'] is False, 'abrupt_app_stop_not_observed'
             prior_transport = stopped_transport()['crash']['requests']
             await ha.request('POST', f'/addons/{slug}/start', supervisor=True, timeout=120)
-            await app_available()
-            current = app_json('/data/home-worker-fixture/app-observation.json')
-            assert current['boot_id_sha256'] == previous['boot_id_sha256']
-            assert current['namespaces']['pid'] != previous['namespaces']['pid']
+            current, after = await restarted_app(previous, generation)
+            evidence['abrupt_restart'].update(generation_after=after,
+                process_start_ticks_after=current['process_start_ticks'],
+                same_haos_boot=current['boot_id_sha256'] == previous['boot_id_sha256'],
+                namespace_ids_changed=current['namespaces'] != previous['namespaces'])
+            assert current['boot_id_sha256'] == previous['boot_id_sha256'], 'abrupt_restart_haos_boot_changed'
             deadline = time.monotonic() + 45
             while time.monotonic() < deadline:
                 uncertain = await api('GET', '/api/worker/jobs/' + held['id'])
                 if uncertain['state'] == 'stop_unconfirmed':
                     break
                 await asyncio.sleep(.5)
-            assert uncertain['state'] == 'stop_unconfirmed' and uncertain['stop_confirmed'] is False
-            assert (await api('GET', '/api/workers'))['active_job_id'] == held['id']
+            evidence['abrupt_restart']['job'] = job_projection(uncertain)
+            assert uncertain['state'] == 'stop_unconfirmed' and uncertain['stop_confirmed'] is False, 'abrupt_writer_fence_missing'
+            lease_retained = (await api('GET', '/api/workers'))['active_job_id'] == held['id']
+            evidence['abrupt_restart']['exact_lease_retained'] = lease_retained
+            assert lease_retained, 'abrupt_writer_lease_missing'
             queued = await api('POST', '/api/worker/jobs', {'worker_id': 'home-coder', 'mode': 'research',
                 'goal': 'This request must remain behind the unknown prior writer.'}, expected=202, key='home-crash-fenced-next')
             await asyncio.sleep(2)
             queued = await api('GET', '/api/worker/jobs/' + queued['id'])
-            assert queued['state'] == 'queued' and queued['execution_started'] is False
-            assert app_json('/data/home-worker-fixture/transport.json')['crash']['requests'] == prior_transport
+            evidence['abrupt_restart']['queued_job'] = job_projection(queued)
+            assert queued['state'] == 'queued' and queued['execution_started'] is False, 'abrupt_restart_new_writer_started'
+            not_replayed = app_json('/data/home-worker-fixture/transport.json')['crash']['requests'] == prior_transport
+            evidence['abrupt_restart']['model_request_count_unchanged'] = not_replayed
+            assert not_replayed, 'abrupt_restart_model_request_replayed'
             await api('POST', '/api/worker/jobs/' + queued['id'] + '/cancel', {}, expected=202)
-            evidence['abrupt_restart'] = {'before': before, 'job': job_projection(uncertain),
-                                         'new_writer_started': False, 'same_haos_boot': True}
+            evidence['abrupt_restart']['new_writer_started'] = False
             evidence['checks']['abrupt_same_boot_restart_retains_lease_and_prevents_replay'] = True
             evidence.update(status='passed', phase='completed',
                             recovery_limit='abrupt same-boot unknown work remains fenced until trusted stop proof; VM removed at teardown')
@@ -1053,6 +1118,44 @@ def test_exact_supervisor_container_contract_normalizes_kernel_capability_spelli
     raw['AppArmorProfile'] = 'private-secret-profile'
     projected = container_projection(raw, 'local_agentic_runner')
     assert projected['apparmor_profile'] == 'unrecognized' and 'private-secret' not in json.dumps(projected)
+
+
+def test_restart_requires_fresh_process_and_docker_start_even_when_namespace_inodes_repeat():
+    previous = {'process_start_ticks': 100, 'boot_id_sha256': 'a' * 64, 'namespaces': {'pid': 42}}
+    before = container_generation({'Id': 'b' * 64, 'State':
+        {'StartedAt': '2026-10-13T01:00:00.123456789Z', 'Pid': 200, 'Running': True}})
+    after = container_generation({'Id': 'b' * 64, 'State':
+        {'StartedAt': '2026-10-13T01:00:05.123456789Z', 'Pid': 300, 'Running': True},
+        'Config': {'Env': ['private-secret']}})
+    assert not fresh_app_restart(previous, previous, before, after), 'cached_snapshot_must_not_satisfy_restart'
+    current = {**previous, 'process_start_ticks': 600}
+    assert fresh_app_restart(previous, current, before, after), 'inode_reuse_is_not_restart_failure'
+    assert not fresh_app_restart(previous, current, before, before), 'docker_generation_must_also_change'
+    assert not fresh_app_restart(previous, {**current, 'boot_id_sha256': 'c' * 64}, before, after)
+    assert not fresh_app_restart(previous, current, before, {**after, 'container_id': 'd' * 64})
+    assert fresh_app_restart(previous, current, before, {**after, 'container_id': 'd' * 64}, replacement_verified=True)
+    assert not fresh_app_restart(previous, current, before, {**after, 'running': False})
+    assert 'private' not in json.dumps(after)
+
+
+def test_recreated_app_requires_exact_owned_name_image_and_unchanged_boundary():
+    slug, image = 'local_agentic_runner', 'sha256:' + 'c' * 64
+    raw = {'Id': 'b' * 64, 'Name': '/app_' + slug, 'Image': image, 'AppArmorProfile': slug,
+        'HostConfig': {'Privileged': False, 'CapAdd': ['SYS_ADMIN'], 'DeviceCgroupRules': ['c 10:229 rwm'], 'Devices': []},
+        'State': {'StartedAt': '2026-10-13T01:00:05.123456789Z', 'Pid': 300, 'Running': True}}
+    assert verified_app_generation(raw, slug, image)['container_id'] == 'b' * 64
+    with pytest.raises(AssertionError, match='restarted_app_image_changed'):
+        verified_app_generation({**raw, 'Image': 'sha256:' + 'd' * 64}, slug, image)
+    with pytest.raises(AssertionError, match='restarted_app_name_changed'):
+        verified_app_generation({**raw, 'Name': '/app_other'}, slug, image)
+    with pytest.raises(AssertionError, match='actual_custom_apparmor_profile_required'):
+        verified_app_generation({**raw, 'AppArmorProfile': 'unconfined'}, slug, image)
+
+
+@pytest.mark.parametrize('started', ['private-secret', '2026-99-99T01:00:00Z', None])
+def test_restart_generation_rejects_untrusted_or_malformed_start_fields(started):
+    with pytest.raises(AssertionError, match='app_start_generation_invalid'):
+        container_generation({'Id': 'b' * 64, 'State': {'StartedAt': started, 'Pid': 200, 'Running': True}})
 
 
 @pytest.mark.parametrize('value', ['-1', '181', '9999', '1.0', '', ' 1', '01', 'private-secret'])

@@ -1,0 +1,27 @@
+{
+  "kind": "bounded_live_failure_diagnostic",
+  "original_receipt": "home-worker-haos-run11-restart-observer-failure.json",
+  "original_sha256": "eff3ff49756b35058efec5999afc2e678f1a4369ca3a6692a1231ef1b746d1b7",
+  "original_result_unchanged": "failed",
+  "observed_during": "same_owned_disposable_run11_failure_hold_before_cleanup",
+  "controller": {
+    "crashed_job_state": "stop_unconfirmed",
+    "stop_confirmed": false,
+    "reason": "broker_restarted",
+    "exact_original_lease_retained": true,
+    "later_queued_probe_not_submitted": true
+  },
+  "app": {
+    "actual_pid1_start_ticks": 30872,
+    "docker_started_at": "2026-10-13T01:17:32.878679594Z",
+    "snapshot_mtime_epoch": 1791854253.8279579,
+    "current_actual_pid_cgroup_mount_namespace_ids_match_snapshot": true,
+    "current_actual_pid_cgroup_mount_namespace_ids_match_precrash_runtime": true
+  },
+  "limits": [
+    "Original assertion required a different PID namespace inode; inode reuse is observable after this restart",
+    "Original assertion did not save process start or file freshness, so an earlier cached-readiness race cannot be excluded retrospectively",
+    "Live readback is not a passed full rerun and does not prove unknown writers stopped",
+    "No credential, raw process environment, configuration or log exported; no product changes made"
+  ]
+}

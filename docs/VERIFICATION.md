@@ -4,6 +4,10 @@
 
 本輪加入真正 HAOS App 內的 Home coding worker，沿用 Controller／TLS Runner 派工、獨立登入、同 case 證據和工作區交接。首個 coding provider 為固定版本 Codex；模型程序使用私有 namespace、cgroup、磁碟配額及受控 relay，正式家庭操作仍由既有受控流程執行。實作與平台測試進度見 [Workers](WORKERS.md)及 [Plan v3 帳本](v3/PROGRESS.md)。
 
+候選來源 [`c19610ae`](https://github.com/teddashh/agentic-smart-home/commit/c19610ae52322066f6d25e2d88c57f040de29641) 的本機完整 `--real-ha --containers` 回歸為 **1116 passed、5 skipped／385.46 秒**，見 [JUnit](../evidence/pytest-0.8.0.xml)。五個跳過項是獨立 HAOS 邊界、備份、側欄 App、Home worker 及完整 Linux 安裝案例；Home worker 接著另跑真平台測試，沒有把跳過算成通過。Home 映像內的研究來源固定為 [`bf831fc8`](https://github.com/teddashh/agentic-smart-home/commit/bf831fc8e6082c886b988f4e1cbdfecab5238380)，由獨立 lock 記錄，與 App 執行碼來源分開追溯。
+
+同一來源的 [GitHub CI 38330431861](https://github.com/teddashh/agentic-smart-home/actions/runs/38330431861) 為 **1114 passed、7 skipped／435.462 秒**，見 [CI 與來源核對](../evidence/github-ci-0.8.0.json)及 [JUnit](../evidence/pytest-0.8.0-github.xml)。GitHub artifact digest、source ZIP 的 1073 個 manifest 項目，以及 203 份執行碼／配置／編譯資產均核對成功；Bridge 與 Controller UI 相同。CI 額外跳過 UID 1000 桌面專項及本機 QEMU builder 探針；獨立建置的映像 ID 不宣稱與本機相同。
+
 本版沒有重建或驗收整套 Linux ISO。下方 0.7.0 媒體保留原始來源與 hash，不包含本次 Home worker。真 HAOS 工程測試使用產品映像衍生 App，另加明示的模型 transport／診斷 fixture；不能代替真帳號、自主研究品質、家庭 helpers 或更新／退版的 E2 產品驗收。
 
 ## 0.7.0 側欄整合候選

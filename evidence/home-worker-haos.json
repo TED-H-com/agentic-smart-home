@@ -21,24 +21,29 @@
     "actual_source_patch": true,
     "independent_baseline_tests": true,
     "same_case_tls_artifacts": true,
-    "worker_boundary_checks": true
+    "worker_boundary_checks": true,
+    "same_case_observation_content_and_digest": true,
+    "additional_app_namespace_view": true,
+    "fenced_checkpoint_handoff": true,
+    "actual_tls_cancel_stops_descendants_and_releases_lease": true,
+    "graceful_app_restart_keeps_confirmed_stop_without_replay": true
   },
-  "phase": "stored_same_case_observation",
-  "source_commit": "5a2f2b2ad7b52660395b0562456556f379b65ad4",
-  "runtime_source_uncommitted": true,
-  "runner_base_image_id": "sha256:f3ead22351bcf61b70b299fb48bf5364affa07203af61d8a310aec15eddc368a",
-  "controller_image_id": "sha256:0be5aa4b63763be2db5ce28a520b308b28522750540472cd9ef5d35e19d62e97",
+  "phase": "abrupt_app_restart_keeps_unknown_writer_fenced",
+  "source_commit": "c19610ae52322066f6d25e2d88c57f040de29641",
+  "runtime_source_uncommitted": false,
+  "runner_base_image_id": "sha256:f80d0e4bdaed66cd5501fd23569715efb3603d832d2387341f12405eaf58d6e6",
+  "controller_image_id": "sha256:416ad3647d5d0035ad94806ef08f0b6eb58ad0292d241d12d8ca5c039e17189d",
   "core": "2026.10.1",
   "supervisor": "2026.09.3",
   "app_config_sha256": "e196816f62fe3c63772e638f018e698d27cdaed97020c5573ba0cb820a79d0c6",
   "app_apparmor_sha256": "e5806ce5ccc65cb1e1332774f0b6b96b7af650f20a76cb6516d0f018862d7753",
   "fixture_helper_sha256": "93d5b9cd6e6fd183176ceecec246587964a749e1629f30afe4faab1d2a817b68",
-  "runner_oci_config_digest": "sha256:fafa803d16a9fc4ee2cbe9d905c45e0e5cbfd6793082f3d5672b43903cfd83f4",
+  "runner_oci_config_digest": "sha256:723421606a3de30f4edd9c8de292ecf1762f196d66c3951ff56b386a9b7b399f",
   "registry_fixture": {
     "scope": "disposable_haos_loopback_only",
     "upstream": "registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e",
     "registry_config_digest": "sha256:99b916d8206bcbfc54c95fb06076751932c902254277f149b082dd5d4d67fccb",
-    "base_reference": "127.0.0.1:5000/agentic-home-runner@sha256:6ce861181a860a65b0f140274a14a1a223f61d32d0dcac9a8221884df463a73b",
+    "base_reference": "127.0.0.1:5000/agentic-home-runner@sha256:c09fe47c19c16b880bab28722516afcb47a3e095083649e7d7771af08567a9e5",
     "base_config_digest_verified": true
   },
   "install_confirmation": "app_postcondition_job_unavailable",
@@ -75,16 +80,16 @@
       "Running": true,
       "Paused": false,
       "Restarting": false,
-      "OOMKilled": true,
+      "OOMKilled": false,
       "Dead": false,
       "Status": "running",
       "ExitCode": 0
     }
   },
   "actual_apparmor_profile": "local_agentic_runner",
-  "derived_fixture_image_id": "sha256:8a9db361d9f8ae3906a6e7e810b59e8830b4a9b29acf70e02d2a3a71534d12e6",
+  "derived_fixture_image_id": "sha256:2ae3765c71984fdf80c012dd2e8caff604e2a55e3e68b920678c08c4fa4bae5a",
   "startup_boundaries": {
-    "cancel_seconds": 0.238,
+    "cancel_seconds": 0.231,
     "checks": {
       "actual_cpu_throttling": true,
       "actual_ext4_enospc": true,
@@ -103,12 +108,12 @@
         "burst_usec": 0,
         "nice_usec": 0,
         "nr_bursts": 0,
-        "nr_periods": 2,
+        "nr_periods": 5,
         "nr_throttled": 0,
-        "system_usec": 8940,
+        "system_usec": 10145,
         "throttled_usec": 0,
-        "usage_usec": 63571,
-        "user_usec": 54631
+        "usage_usec": 67977,
+        "user_usec": 57831
       },
       "memory.events": {
         "high": 0,
@@ -151,15 +156,15 @@
         "nr_bursts": 0,
         "nr_periods": 2,
         "nr_throttled": 0,
-        "system_usec": 59954,
+        "system_usec": 59951,
         "throttled_usec": 0,
-        "usage_usec": 81394,
-        "user_usec": 21440
+        "usage_usec": 78936,
+        "user_usec": 18984
       },
       "memory.events": {
         "high": 0,
         "low": 0,
-        "max": 20,
+        "max": 18,
         "oom": 1,
         "oom_group_kill": 1,
         "oom_kill": 5
@@ -178,12 +183,12 @@
         "burst_usec": 0,
         "nice_usec": 0,
         "nr_bursts": 0,
-        "nr_periods": 42,
-        "nr_throttled": 41,
-        "system_usec": 10896,
-        "throttled_usec": 4019774,
-        "usage_usec": 4135226,
-        "user_usec": 4124329
+        "nr_periods": 44,
+        "nr_throttled": 40,
+        "system_usec": 10823,
+        "throttled_usec": 3948777,
+        "usage_usec": 4118674,
+        "user_usec": 4107851
       },
       "memory.events": {
         "high": 0,
@@ -205,7 +210,7 @@
       "capacity_bytes": 251590656,
       "errno": 28,
       "tmp_same_volume": true,
-      "written_bytes": 162136064
+      "written_bytes": 158859264
     },
     "quota_counters": {
       "cgroup.events": {
@@ -216,17 +221,17 @@
         "burst_usec": 0,
         "nice_usec": 0,
         "nr_bursts": 0,
-        "nr_periods": 5,
+        "nr_periods": 8,
         "nr_throttled": 0,
-        "system_usec": 36082,
+        "system_usec": 34730,
         "throttled_usec": 0,
-        "usage_usec": 115677,
-        "user_usec": 79594
+        "usage_usec": 115105,
+        "user_usec": 80375
       },
       "memory.events": {
         "high": 0,
         "low": 0,
-        "max": 214,
+        "max": 231,
         "oom": 0,
         "oom_group_kill": 0,
         "oom_kill": 0
@@ -243,58 +248,50 @@
         "pids"
       ],
       "namespace_ids": {
-        "cgroup_ns": 4026532351,
+        "cgroup_ns": 4026532350,
         "mnt_ns": 4026532875,
-        "pid_ns": 4026532350
+        "pid_ns": 4026532349
       },
       "observed_from": "haos_app",
       "private_cgroup_root": true,
       "worker_network": "private_namespace_relay_only"
     },
-    "source_commit": "5a2f2b2ad7b52660395b0562456556f379b65ad4",
+    "source_commit": "bf831fc8e6082c886b988f4e1cbdfecab5238380",
     "status": "passed"
   },
   "app_observation": {
     "apparmor_enforcing": true,
-    "boot_id_sha256": "b9a95f84805021a9b3b0565c7b0d0affc7f71648f9b3203aedb023c327ca0992",
+    "boot_id_sha256": "962ad6305858a0bdb8ac4325d414ce5f9840d118dc68038a2e4c052e371b5bc1",
     "docker_socket_present": false,
     "fuse_device_openable": true,
     "fuse_device_present": true,
     "host_socket_present": false,
     "namespaces": {
-      "cgroup": 4026532351,
+      "cgroup": 4026532350,
       "mnt": 4026532875,
-      "net": 4026532352,
-      "pid": 4026532350
+      "net": 4026532351,
+      "pid": 4026532349
     },
     "observed_from": "haos_app",
     "supervisor_token_present": true,
     "uid": 0
   },
   "last_job": {
-    "id": "ff46fbce52dc49609ca03d9b955da4d7",
-    "job_id": "ff46fbce52dc49609ca03d9b955da4d7",
-    "case_id": "24c7a2883b8c4d0cb31193795596282a",
-    "state": "succeeded",
-    "stop_confirmed": true,
+    "id": "30d976c098d04040a6b1ec9a31398c4b",
+    "job_id": "30d976c098d04040a6b1ec9a31398c4b",
+    "case_id": "bc64ee5ca1d14597b149b0f148bed857",
+    "state": "running",
+    "stop_confirmed": false,
     "execution_started": true,
     "runtime_location": "haos_app",
-    "artifact_count": 6,
-    "evidence_count": 3,
-    "verification": {
-      "state": "passed",
-      "observed_from": "independent_home_verifier",
-      "network": "none",
-      "trusted_tests": "pinned_baseline",
-      "patch_sha256": "a8148843a6ec1c97c3d3c28d719d571e491bcbf09ea231e8f18adb45ca401013",
-      "exit_code": 0,
-      "stop_confirmed": true
-    }
+    "artifact_count": 0,
+    "evidence_count": 0,
+    "verification": {}
   },
   "source_job": {
-    "id": "ff46fbce52dc49609ca03d9b955da4d7",
-    "job_id": "ff46fbce52dc49609ca03d9b955da4d7",
-    "case_id": "24c7a2883b8c4d0cb31193795596282a",
+    "id": "ff741aafb6ca4e64b37b754ca99356d3",
+    "job_id": "ff741aafb6ca4e64b37b754ca99356d3",
+    "case_id": "bc64ee5ca1d14597b149b0f148bed857",
     "state": "succeeded",
     "stop_confirmed": true,
     "execution_started": true,
@@ -346,8 +343,8 @@
   },
   "namespace_comparison": {
     "app": {
-      "pid_ns": 4026532350,
-      "cgroup_ns": 4026532351,
+      "pid_ns": 4026532349,
+      "cgroup_ns": 4026532350,
       "mnt_ns": 4026532875
     },
     "worker": {
@@ -363,9 +360,179 @@
   },
   "model_fixture": {
     "pytest_passed": true,
-    "requests": 3,
+    "requests": 4,
     "source_marker": true,
     "tool_output_received": true
+  },
+  "stored_observation": {
+    "records_present": true,
+    "record_count": 3,
+    "same_case": true,
+    "all_from_haos_app": true,
+    "single_fixed_probe": true,
+    "core_api_from_app": {
+      "dns_resolved": true,
+      "reachable": true,
+      "timed_out": false,
+      "http_status": 401,
+      "http_port": 80,
+      "attempted_ports": [
+        80
+      ],
+      "endpoints": [
+        {
+          "port": 80,
+          "reachable": true,
+          "http_status": 401,
+          "error_code": null
+        }
+      ]
+    },
+    "content_digest_matches": true,
+    "app_runtime_from_haos_app": true,
+    "limitations_present": true,
+    "source_commit_matches": true
+  },
+  "app_core_observation": {
+    "dns_resolved": true,
+    "reachable": true,
+    "timed_out": false,
+    "http_status": 401,
+    "http_port": 80,
+    "attempted_ports": [
+      80
+    ],
+    "endpoints": [
+      {
+        "port": 80,
+        "reachable": true,
+        "http_status": 401,
+        "error_code": null
+      }
+    ]
+  },
+  "pinned_source": {
+    "repo_id": "agentic-home",
+    "repository": "https://github.com/teddashh/agentic-smart-home.git",
+    "commit": "bf831fc8e6082c886b988f4e1cbdfecab5238380"
+  },
+  "outer_comparison": {
+    "app_internal_dns_resolved": false
+  },
+  "cancel": {
+    "before": {
+      "record_present": true,
+      "pulse_present": true,
+      "workspace_mounted": true,
+      "workspace_image_present": true,
+      "state": "running",
+      "cgroup_present": true,
+      "cgroup_populated": true,
+      "fuse_cgroup_present": true,
+      "fuse_cgroup_populated": true,
+      "stderr_summary": {
+        "available": true,
+        "scanned_bytes": 0,
+        "truncated": false,
+        "bubblewrap": false,
+        "permission_denied": false,
+        "operation_not_permitted": false,
+        "pivot_root": false,
+        "mount": false,
+        "namespace": false,
+        "missing_file": false,
+        "python_exception": false,
+        "no_space": false,
+        "missing_module": false,
+        "pytest_collection": false,
+        "root_mount_propagation": false,
+        "proc_mount": false,
+        "loopback_setup": false,
+        "private_fd_lookup": false
+      },
+      "launcher_diagnostic": {
+        "available": false
+      },
+      "diagnostic_namespace_ids": {
+        "pid_ns": 4026532349,
+        "cgroup_ns": 4026532350,
+        "mnt_ns": 4026532875
+      }
+    },
+    "after": {
+      "record_present": true,
+      "pulse_present": false,
+      "workspace_mounted": false,
+      "workspace_image_present": false,
+      "state": "disposed",
+      "cgroup_present": false,
+      "fuse_cgroup_present": false,
+      "stderr_summary": {
+        "available": false
+      },
+      "launcher_diagnostic": {
+        "available": false
+      },
+      "diagnostic_namespace_ids": {
+        "pid_ns": 4026532349,
+        "cgroup_ns": 4026532350,
+        "mnt_ns": 4026532875
+      }
+    },
+    "seconds": 1.903
+  },
+  "graceful_restart": {
+    "before": {
+      "record_present": true,
+      "pulse_present": true,
+      "workspace_mounted": true,
+      "workspace_image_present": true,
+      "state": "running",
+      "cgroup_present": true,
+      "cgroup_populated": true,
+      "fuse_cgroup_present": true,
+      "fuse_cgroup_populated": true,
+      "stderr_summary": {
+        "available": true,
+        "scanned_bytes": 0,
+        "truncated": false,
+        "bubblewrap": false,
+        "permission_denied": false,
+        "operation_not_permitted": false,
+        "pivot_root": false,
+        "mount": false,
+        "namespace": false,
+        "missing_file": false,
+        "python_exception": false,
+        "no_space": false,
+        "missing_module": false,
+        "pytest_collection": false,
+        "root_mount_propagation": false,
+        "proc_mount": false,
+        "loopback_setup": false,
+        "private_fd_lookup": false
+      },
+      "launcher_diagnostic": {
+        "available": false
+      },
+      "diagnostic_namespace_ids": {
+        "pid_ns": 4026532349,
+        "cgroup_ns": 4026532350,
+        "mnt_ns": 4026532875
+      }
+    },
+    "job": {
+      "id": "74cc1bac626b42839cc3f3287eae0827",
+      "job_id": "74cc1bac626b42839cc3f3287eae0827",
+      "case_id": "bc64ee5ca1d14597b149b0f148bed857",
+      "state": "cancelled",
+      "stop_confirmed": true,
+      "execution_started": true,
+      "runtime_location": "haos_app",
+      "artifact_count": 2,
+      "evidence_count": 2,
+      "verification": {}
+    }
   },
   "error_type": "AssertionError",
   "error_code": "unclassified_fixture_error",
@@ -379,7 +546,7 @@
         "Restarting": false,
         "OOMKilled": false,
         "Dead": false,
-        "Pid": 3219912,
+        "Pid": 3389751,
         "ExitCode": 0,
         "Status": "running"
       },
@@ -387,11 +554,11 @@
       "events": [
         {
           "action": "create",
-          "timeNano": 1791852554599074248
+          "timeNano": 1791853942078907873
         },
         {
           "action": "start",
-          "timeNano": 1791852554919065352
+          "timeNano": 1791853942188887781
         }
       ]
     },
@@ -403,7 +570,7 @@
         "Restarting": false,
         "OOMKilled": false,
         "Dead": false,
-        "Pid": 3231814,
+        "Pid": 3408459,
         "ExitCode": 0,
         "Status": "running"
       },
@@ -411,11 +578,11 @@
       "events": [
         {
           "action": "create",
-          "timeNano": 1791852853460141602
+          "timeNano": 1791854155974268190
         },
         {
           "action": "start",
-          "timeNano": 1791852853560525152
+          "timeNano": 1791854156075025476
         }
       ]
     }
@@ -465,17 +632,17 @@
       "cpu.stat": {
         "burst_usec": 0,
         "nr_bursts": 0,
-        "nr_periods": 5,
+        "nr_periods": 8,
         "nr_throttled": 0,
-        "system_usec": 36082,
+        "system_usec": 34730,
         "throttled_usec": 0,
-        "usage_usec": 115677,
-        "user_usec": 79594
+        "usage_usec": 115105,
+        "user_usec": 80375
       },
       "memory.events": {
         "high": 0,
         "low": 0,
-        "max": 214,
+        "max": 231,
         "oom": 0,
         "oom_group_kill": 0,
         "oom_kill": 0
@@ -492,12 +659,12 @@
       "cpu.stat": {
         "burst_usec": 0,
         "nr_bursts": 0,
-        "nr_periods": 42,
-        "nr_throttled": 41,
-        "system_usec": 10896,
-        "throttled_usec": 4019774,
-        "usage_usec": 4135226,
-        "user_usec": 4124329
+        "nr_periods": 44,
+        "nr_throttled": 40,
+        "system_usec": 10823,
+        "throttled_usec": 3948777,
+        "usage_usec": 4118674,
+        "user_usec": 4107851
       },
       "memory.events": {
         "high": 0,
@@ -521,15 +688,15 @@
         "nr_bursts": 0,
         "nr_periods": 2,
         "nr_throttled": 0,
-        "system_usec": 59954,
+        "system_usec": 59951,
         "throttled_usec": 0,
-        "usage_usec": 81394,
-        "user_usec": 21440
+        "usage_usec": 78936,
+        "user_usec": 18984
       },
       "memory.events": {
         "high": 0,
         "low": 0,
-        "max": 20,
+        "max": 18,
         "oom": 1,
         "oom_group_kill": 1,
         "oom_kill": 5
@@ -546,12 +713,12 @@
       "cpu.stat": {
         "burst_usec": 0,
         "nr_bursts": 0,
-        "nr_periods": 2,
+        "nr_periods": 5,
         "nr_throttled": 0,
-        "system_usec": 8940,
+        "system_usec": 10145,
         "throttled_usec": 0,
-        "usage_usec": 63571,
-        "user_usec": 54631
+        "usage_usec": 67977,
+        "user_usec": 57831
       },
       "memory.events": {
         "high": 0,
@@ -568,7 +735,7 @@
   },
   "app_stderr_summary": {
     "available": true,
-    "scanned_bytes": 630,
+    "scanned_bytes": 385,
     "truncated": false,
     "bubblewrap": false,
     "permission_denied": false,
@@ -593,5 +760,5 @@
     "disk_fixture_ownership_restored": true,
     "network_removed": true
   },
-  "duration_seconds": 550.62
+  "duration_seconds": 530.982
 }

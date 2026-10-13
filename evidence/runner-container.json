@@ -48,7 +48,7 @@
   "structured_output": "passed",
   "tls_pin_and_pairing": "passed",
   "uid_and_secret_isolation": "passed",
-  "run_at": 1791831722.425286,
+  "run_at": 1791853664.408703,
   "inference": "local protocol fixture; no cloud account",
-  "image": "sha256:9a64fef60148e840b884aee668dd5c08b769177f4fc54558037cd39fef109535"
+  "image": "sha256:f80d0e4bdaed66cd5501fd23569715efb3603d832d2387341f12405eaf58d6e6"
 }

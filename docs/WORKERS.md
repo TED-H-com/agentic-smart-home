@@ -41,7 +41,7 @@ Home 專屬觀測只讀 App namespace／資源事實，以及固定 `homeassista
 
 第十輪來源工作成功，獨立 verifier **38 passed**，30 項 worker 邊界檢查通過；case／觀測來源／內容指紋均相符。完整測試仍於 Core 連通性檢查失敗：原固定 probe 使用 8123，但該 HAOS 的 Core HTTP 設定及實際 listener 為 80；現場唯讀核對為 80 回應 401、8123 拒絕連線。見 [第十輪原始失敗](../evidence/home-worker-haos-run10-observation-failure.json)與 [獨立去密診斷](../evidence/home-worker-haos-run10-observation-diagnostic.json)。原失敗未改寫，資源已清理。
 
-修正採固定 80 → 8123 有界探測，每次保留安全結果，不能接受模型指定主機／埠。第十一輪待執行，尚須通過實際 App 連通性核對、TLS 取消、正常 App 停止／重啟，以及非正常重啟的未知 writer fencing；分段證據不等於整案通過。
+修正採固定 80 → 8123 有界探測，每次保留安全結果，不能接受模型指定主機／埠。第十一輪使用已提交的 0.8.0 候選，來源修改、獨立測試、同 case 內容／指紋、Core 80 回應 401、TLS 取消及正常 App 停止／重啟已通過順序核對；最後因測試誤要求重啟後 PID namespace 編號必須改變而失敗。現場讀回顯示新 App 確實重用 namespace 編號，產品仍保留 `stop_unconfirmed` 與原 lease。見 [第十一輪原始失敗](../evidence/home-worker-haos-run11-restart-observer-failure.json)與 [去密診斷](../evidence/home-worker-haos-run11-restart-observer-diagnostic.json)。資源已清理；測試改核對程序 start ticks 與 Docker StartedAt，避免舊快取或重用編號誤判，修後完整重跑仍待執行。未知 writer 阻擋新工作及不重播模型請求的最後斷言尚未完成，分段證據不等於整案通過。
 
 測試的模型回應是固定 fixture，source task 只是封裝真原始碼的一筆文件註解修改；即使工程鏈通過，也不是自主修復真問題、真雲端登入或 E2 驗收。T3-13／T3-15 與其他產品案例仍分別保持待驗。
 

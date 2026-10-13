@@ -1,26 +1,26 @@
 {
   "kind": "real_docker_offline_boundary",
   "method": "deadline",
-  "image": "sha256:9a64fef60148e840b884aee668dd5c08b769177f4fc54558037cd39fef109535",
+  "image": "sha256:f80d0e4bdaed66cd5501fd23569715efb3603d832d2387341f12405eaf58d6e6",
   "wall_seconds": 10,
   "control_wait_timeout_seconds": 20,
   "status": "passed",
   "timings": [
     {
       "operation": "create",
-      "seconds": 0.043
+      "seconds": 0.155
     },
     {
       "operation": "start",
-      "seconds": 0.099
+      "seconds": 0.084
     },
     {
       "operation": "wait",
-      "seconds": 10.059
+      "seconds": 10.069
     },
     {
       "operation": "inspect",
-      "seconds": 0.011
+      "seconds": 0.012
     }
   ],
   "stage": "inspect",
@@ -35,9 +35,9 @@
       "Pid": 0,
       "ExitCode": 137,
       "Status": "exited",
-      "StartedAt": "2026-10-12T19:01:41.060615325Z",
-      "FinishedAt": "2026-10-12T19:01:51.120923495Z",
-      "runtime_seconds": 10.06
+      "StartedAt": "2026-10-13T01:07:21.924933654Z",
+      "FinishedAt": "2026-10-13T01:07:31.990225496Z",
+      "runtime_seconds": 10.065
     },
     "state_error_signatures": {
       "permission": false,
@@ -45,7 +45,7 @@
       "resource_unavailable": false,
       "timeout": false
     },
-    "inspect_seconds": 0.011,
+    "inspect_seconds": 0.01,
     "fixture_stderr_bytes": 0,
     "fixture_stderr_signatures": {
       "assertion": false,

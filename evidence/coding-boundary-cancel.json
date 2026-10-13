@@ -1,18 +1,18 @@
 {
   "kind": "real_docker_offline_boundary",
   "method": "cancel",
-  "image": "sha256:9a64fef60148e840b884aee668dd5c08b769177f4fc54558037cd39fef109535",
+  "image": "sha256:f80d0e4bdaed66cd5501fd23569715efb3603d832d2387341f12405eaf58d6e6",
   "wall_seconds": 10,
   "control_wait_timeout_seconds": 20,
   "status": "passed",
   "timings": [
     {
       "operation": "create",
-      "seconds": 0.061
+      "seconds": 0.129
     },
     {
       "operation": "start",
-      "seconds": 0.084
+      "seconds": 0.085
     },
     {
       "operation": "wait",
@@ -35,9 +35,9 @@
       "Pid": 0,
       "ExitCode": 137,
       "Status": "exited",
-      "StartedAt": "2026-10-12T19:01:51.346642499Z",
-      "FinishedAt": "2026-10-12T19:01:51.547595642Z",
-      "runtime_seconds": 0.201
+      "StartedAt": "2026-10-13T01:07:32.289761873Z",
+      "FinishedAt": "2026-10-13T01:07:32.490094804Z",
+      "runtime_seconds": 0.2
     },
     "state_error_signatures": {
       "permission": false,
@@ -45,7 +45,7 @@
       "resource_unavailable": false,
       "timeout": false
     },
-    "inspect_seconds": 0.011,
+    "inspect_seconds": 0.01,
     "fixture_stderr_bytes": 0,
     "fixture_stderr_signatures": {
       "assertion": false,

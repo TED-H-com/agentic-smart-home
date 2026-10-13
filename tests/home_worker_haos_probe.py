@@ -339,7 +339,9 @@ def diagnostic_client(identifier):
 
 
 def namespace_snapshot():
+    process_fields = Path('/proc/self/stat').read_text().rsplit(') ', 1)[1].split()
     result = {'observed_from': 'haos_app', 'uid': os.geteuid(),
+        'process_id': os.getpid(), 'process_start_ticks': int(process_fields[19]),
         'supervisor_token_present': bool(os.environ.get('SUPERVISOR_TOKEN')),
         'docker_socket_present': Path('/var/run/docker.sock').exists(),
         'host_socket_present': Path('/run/agentic-home/host.sock').exists(),
