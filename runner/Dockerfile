@@ -3,6 +3,13 @@ WORKDIR /opt/agents
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
 
+FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS webtoolchain
+WORKDIR /opt/web-toolchain
+COPY web-toolchain/package.json web-toolchain/package-lock.json ./
+RUN npm ci --no-audit --no-fund \
+ && chmod -R u=rwX,go=rX /opt/web-toolchain \
+ && chown -R root:root /opt/web-toolchain
+
 FROM python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd12803a5c4247979ac7655f4d641
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 RUN apt-get update && apt-get install -y --no-install-recommends git \
@@ -10,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
     util-linux=2.38.1-5+deb12u3 libseccomp2=2.5.4-1+deb12u1 && rm -rf /var/lib/apt/lists/*
 COPY --from=agents /usr/local/bin/node /usr/local/bin/node
 COPY --from=agents /opt/agents /opt/agents
+COPY --from=webtoolchain /opt/web-toolchain /opt/web-toolchain
 RUN ln -s /opt/agents/node_modules/.bin/codex /usr/local/bin/codex && \
     ln -s /opt/agents/node_modules/.bin/claude /usr/local/bin/claude && \
     ln -s /opt/agents/node_modules/.bin/grok /usr/local/bin/grok

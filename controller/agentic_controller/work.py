@@ -59,10 +59,6 @@ class WorkerAction(Strict):
     pass
 
 
-class WorkerPreview(Strict):
-    artifact_ids: Annotated[list[Identifier], Field(min_length=1, max_length=16)]
-
-
 class WorkerWireJob(Strict):
     work_contract_major: Literal[1] = 1
     id: Identifier

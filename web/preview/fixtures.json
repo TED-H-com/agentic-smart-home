@@ -1,0 +1,334 @@
+{
+  "deployment": {"mode": "host", "authenticated": true},
+  "session": {
+    "mode": "host",
+    "csrf": "preview-csrf",
+    "principal": "preview-owner",
+    "version": "0.8.0",
+    "resume": {
+      "message_id": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+      "thread_id": "1212121212121212121212121212121212121212121212121212121212121212",
+      "case_id": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+    }
+  },
+  "status": {
+    "version": "0.8.0",
+    "paused": false,
+    "events_connected": true,
+    "onboarding": {"policy_confirmed": true},
+    "ha": {"location_name": "示範家庭", "status": "connected", "version": "demo"},
+    "runner": {
+      "protocol": 1,
+      "providers": [
+        {"provider": "codex", "status": "connected", "version": "demo"},
+        {"provider": "claude", "status": "needs_reauth"},
+        {"provider": "agy", "status": "needs_reauth"},
+        {"provider": "grok", "status": "needs_reauth"}
+      ]
+    },
+    "gateway": {
+      "step": 0,
+      "selected": true,
+      "web": {"status": "connected"},
+      "preferences": {"runtime": "host", "provider": "codex", "coordinator": "hermes", "primary": "web"},
+      "channels": [
+        {"id": "line", "status": "disabled", "enabled": false, "chats": [], "senders": [], "has_secret": false},
+        {"id": "discord", "status": "disabled", "enabled": false, "chats": [], "senders": [], "has_secret": false},
+        {"id": "telegram", "status": "disabled", "enabled": false, "chats": [], "senders": [], "has_secret": false}
+      ]
+    }
+  },
+  "tasks": {
+    "tasks": [
+      {
+        "id": "demo-proposal",
+        "provider": "codex",
+        "state": "awaiting_approval",
+        "request": "天黑後打開客廳燈",
+        "message": "請先看規則；批准前不會改動示範家庭。",
+        "created_at": "2026-10-13T01:00:00+00:00",
+        "proposal_id": "demo-proposal",
+        "events": [],
+        "proposal": {
+          "id": "demo-proposal",
+          "mode": "upsert",
+          "prior": null,
+          "digest": "1111111111111111111111111111111111111111111111111111111111111111",
+          "expires": 2000000000,
+          "action": null,
+          "intent": {
+            "title": "天黑後打開客廳燈",
+            "trigger": {"entity_id": "binary_sensor.demo_entry", "from_state": "off", "to_state": "on"},
+            "actions": [{"entity_id": "light.demo_living_room", "action": "turn_on"}]
+          },
+          "final": {"alias": "示範自動化", "triggers": [], "actions": []}
+        }
+      }
+    ]
+  },
+  "tasks/demo-proposal": {
+    "id": "demo-proposal",
+    "provider": "codex",
+    "state": "awaiting_approval",
+    "request": "天黑後打開客廳燈",
+    "message": "請先看規則；批准前不會改動示範家庭。",
+    "created_at": "2026-10-13T01:00:00+00:00",
+    "proposal_id": "demo-proposal",
+    "events": [],
+    "proposal": {
+      "id": "demo-proposal",
+      "mode": "upsert",
+      "prior": null,
+      "digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "expires": 2000000000,
+      "action": null,
+      "intent": {
+        "title": "天黑後打開客廳燈",
+        "trigger": {"entity_id": "binary_sensor.demo_entry", "from_state": "off", "to_state": "on"},
+        "actions": [{"entity_id": "light.demo_living_room", "action": "turn_on"}]
+      },
+      "final": {"alias": "示範自動化", "triggers": [], "actions": []}
+    }
+  },
+  "inventory": {
+    "entities": [
+      {
+        "entity_id": "light.demo_living_room",
+        "name": "客廳燈",
+        "domain": "light",
+        "area": "示範家庭",
+        "state": "off",
+        "availability": "available",
+        "actions": ["turn_on", "turn_off"],
+        "observed_at": "2026-10-13T01:00:00+00:00"
+      },
+      {
+        "entity_id": "binary_sensor.demo_entry",
+        "name": "玄關感應器",
+        "domain": "binary_sensor",
+        "area": "玄關",
+        "state": "off",
+        "availability": "available",
+        "actions": [],
+        "observed_at": "2026-10-13T01:00:00+00:00"
+      },
+      {
+        "entity_id": "climate.demo_bedroom",
+        "name": "臥室冷氣",
+        "domain": "climate",
+        "area": "臥室",
+        "state": "off",
+        "availability": "available",
+        "actions": ["turn_on", "turn_off"],
+        "observed_at": "2026-10-13T01:00:00+00:00"
+      }
+    ],
+    "policy": {"entities": []}
+  },
+  "automations": {
+    "automations": [
+      {
+        "id": "demo-evening-light",
+        "enabled": true,
+        "intent": {
+          "title": "天黑後打開客廳燈",
+          "trigger": {"entity_id": "binary_sensor.demo_entry", "from_state": "off", "to_state": "on"}
+        }
+      }
+    ]
+  },
+  "services": {
+    "services": [
+      {
+        "id": "demo_light",
+        "title": "示範燈光",
+        "domain": "light",
+        "state": "not_started",
+        "path": "/config/integrations",
+        "docs": "https://example.invalid/demo",
+        "steps": ["這是虛構的示範步驟，不是這戶的設定。"]
+      }
+    ]
+  },
+  "retention": {"audit_days": 30, "context_days": 7},
+  "evidence": {"records": [], "note": "示範資料，不是這戶的執行證據"},
+  "workers": {
+    "workers": [
+      {
+        "worker_id": "host-coder",
+        "available": true,
+        "state": "ready",
+        "modes": ["research", "development"],
+        "providers": [{"id": "codex", "supported": true, "credential_state": "connected", "models": ["demo-model"]}]
+      },
+      {
+        "worker_id": "home-coder",
+        "available": true,
+        "state": "ready",
+        "modes": ["research", "development"],
+        "providers": [{"id": "codex", "supported": true, "credential_state": "connected", "models": []}]
+      }
+    ],
+    "active_job_id": null,
+    "work_contract_major": 1
+  },
+  "worker/jobs": {
+    "jobs": [
+      {
+        "id": "abababababababababababababababab",
+        "case_id": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "worker_id": "host-coder",
+        "mode": "development",
+        "provider": "codex",
+        "goal": "把示範家庭的客廳燈自動化說明寫清楚",
+        "state": "succeeded",
+        "execution_started": true,
+        "stop_confirmed": true,
+        "artifacts": [],
+        "evidence_ids": [],
+        "facts": [],
+        "created_at": "2026-10-13T01:00:00+00:00",
+        "verification": {
+          "state": "passed",
+          "observed_from": "independent_host_verifier",
+          "patch_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+          "tests_executed": 1,
+          "web_preview": {"state": "built", "reason": null, "artifact_digest": null, "files": 0, "bytes": 0}
+        }
+      }
+    ],
+    "active_job_id": null
+  },
+  "worker/jobs/abababababababababababababababab": {
+    "id": "abababababababababababababababab",
+    "case_id": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "worker_id": "host-coder",
+    "mode": "development",
+    "provider": "codex",
+    "goal": "把示範家庭的客廳燈自動化說明寫清楚",
+    "state": "succeeded",
+    "execution_started": true,
+    "stop_confirmed": true,
+    "artifacts": [],
+    "evidence_ids": [],
+    "facts": [],
+    "created_at": "2026-10-13T01:00:00+00:00",
+    "verification": {
+      "state": "passed",
+      "observed_from": "independent_host_verifier",
+      "patch_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "tests_executed": 1,
+      "web_preview": {"state": "built", "reason": null, "artifact_digest": null, "files": 0, "bytes": 0}
+    }
+  },
+  "hermes/cases/cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd": {
+    "jobs": [
+      {
+        "id": "abababababababababababababababab",
+        "state": "succeeded",
+        "worker_id": "host-coder",
+        "artifact_count": 0,
+        "evidence_count": 0,
+        "content_expired": false
+      }
+    ]
+  },
+  "gateway": {
+    "step": 0,
+    "selected": true,
+    "web": {"status": "connected"},
+    "preferences": {"runtime": "host", "provider": "codex", "coordinator": "hermes", "primary": "web"},
+    "channels": [
+      {"id": "line", "status": "disabled", "enabled": false, "chats": [], "senders": [], "has_secret": false},
+      {"id": "discord", "status": "disabled", "enabled": false, "chats": [], "senders": [], "has_secret": false},
+      {"id": "telegram", "status": "disabled", "enabled": false, "chats": [], "senders": [], "has_secret": false}
+    ]
+  },
+  "gateway/messages": {
+    "messages": [
+      {
+        "id": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+        "thread_id": "1212121212121212121212121212121212121212121212121212121212121212",
+        "source": "web",
+        "runtime": "host",
+        "provider": "codex",
+        "coordinator": "hermes",
+        "message": "示範家庭的玄關感應器可以在天黑後打開客廳燈嗎？",
+        "answer": "可以。提案已準備好，批准前不會改動家庭。",
+        "state": "awaiting_approval",
+        "created_at": "2026-10-13T01:00:00+00:00",
+        "case_id": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "task_id": "demo-proposal"
+      }
+    ]
+  },
+  "gateway/channels/line/pairing": {"state": "idle", "channel": "line"},
+  "hermes": {
+    "runtime": {"state": "ready", "execution_state": "idle", "model": "demo-model", "provider": "openai-codex"},
+    "workers": []
+  },
+  "runtimes": {
+    "host": {
+      "protocol": 1,
+      "providers": [
+        {"provider": "codex", "status": "connected"},
+        {"provider": "claude", "status": "needs_reauth"},
+        {"provider": "agy", "status": "needs_reauth"},
+        {"provider": "grok", "status": "needs_reauth"}
+      ]
+    },
+    "haos": {"protocol": 1, "providers": []}
+  },
+  "host/home-entry": {"contract_version": 1, "native_path": "/", "state": "ready", "reason_code": null},
+  "host/home-worker/maintenance": {
+    "contract": 1,
+    "state": "ready",
+    "stage": null,
+    "code": null,
+    "limitations": [],
+    "observed_at": "2026-10-13T01:00:00Z",
+    "version": "0.8.0",
+    "auto_repair": true
+  },
+  "host/bridge/maintenance": {
+    "contract": 1,
+    "state": "healthy",
+    "auto_repair": true,
+    "version": "0.8.0",
+    "observed_at": "2026-10-13T01:00:00Z",
+    "code": null
+  },
+  "host/status": {
+    "vm": "running",
+    "provisioned": true,
+    "kvm": true,
+    "ha_connected": true,
+    "profile": {"label": "示範主機", "memory_mib": 4096, "vcpus": 2},
+    "snapshots": [],
+    "jobs": [],
+    "storage_free_bytes": 85899345920
+  },
+  "network": {"lan": "dhcp", "remote": "disabled", "managed": false, "tailscale": {"state": "not_installed"}},
+  "updates": {"trusted_publisher_configured": false, "records": []},
+  "bootstrap": {
+    "contract": 1,
+    "id": "bootstrap-demo",
+    "state": "completed",
+    "provider": "codex",
+    "channel": "web",
+    "current_step": null,
+    "human_action": null,
+    "updated_at": "2026-10-13T01:00:00Z",
+    "steps": [
+      {"id": "network", "state": "completed", "code": null, "verified_at": "2026-10-13T01:00:00Z"},
+      {"id": "runner_pairing", "state": "completed", "code": null, "verified_at": "2026-10-13T01:00:00Z"},
+      {"id": "cli_auth", "state": "completed", "code": null, "verified_at": "2026-10-13T01:00:00Z"},
+      {"id": "cli_assist", "state": "completed", "code": null, "verified_at": "2026-10-13T01:00:00Z"},
+      {"id": "hermes_install", "state": "completed", "code": null, "verified_at": "2026-10-13T01:00:00Z"},
+      {"id": "hermes_auth", "state": "completed", "code": null, "verified_at": "2026-10-13T01:00:00Z"},
+      {"id": "channel", "state": "completed", "code": null, "verified_at": "2026-10-13T01:00:00Z"},
+      {"id": "ha_provision", "state": "completed", "code": null, "verified_at": "2026-10-13T01:00:00Z"},
+      {"id": "ha_native", "state": "completed", "code": null, "verified_at": "2026-10-13T01:00:00Z"}
+    ]
+  }
+}

@@ -436,7 +436,8 @@ class IngressBridge:
     def preview_view(payload):
         if not isinstance(payload, dict):
             return payload
-        result = {key: value for key, value in payload.items() if key not in {"preview_urls", "capability", "container"}}
+        result = {key: value for key, value in payload.items()
+                  if key not in {"preview_urls", "capability", "container", "interactive_url"}}
         if payload.get("state") == "ready" and re.fullmatch(IDENT, payload.get("id", "")):
             result["preview_urls"] = {str(width): f'api/bridge/previews/{payload["id"]}/{width}.png'
                 for width in (390, 768, 1440) if str(width) in payload.get("preview_urls", {})}
