@@ -515,3 +515,70 @@ def test_update_source_commit_and_sync_are_plain_and_short():
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+
+def test_update_record_error_is_a_sentence_and_the_code_stays_folded():
+    """A failed release shows a sentence. The raw code stays in 技術資料. Fixture, not a release."""
+    root = Path(__file__).parents[1]
+    server = ThreadingHTTPServer(('127.0.0.1', 0), partial(SimpleHTTPRequestHandler, directory=str(root / 'controller/static')))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    code = 'release_apply_failed'
+    manifest_sha = 'b' * 40
+    record = {'candidate_digest': 'c' * 64, 'state': 'failed', 'error_code': code,
+              'manifest': {'version': '0.8.1', 'source_commit': manifest_sha, 'tests': [{'name': 'browser', 'result': 'passed'}]}}
+    errors = []
+
+    def route(route):
+        path = route.request.url.split('/api/')[1]
+        if path == 'deployment':
+            result = {'mode': 'host', 'authenticated': True}
+        elif path == 'session':
+            result = {'principal': 'host-owner', 'csrf': 'fixture-csrf', 'mode': 'host'}
+        elif path == 'status':
+            result = {'version': 'fixture', 'paused': False, 'ha': {'status': 'connected'}, 'runner': {'protocol': 1, 'providers': []}}
+        elif path == 'tasks':
+            result = {'tasks': []}
+        elif path == 'host/status':
+            result = {'vm': 'running', 'provisioned': True, 'jobs': [], 'snapshots': [],
+                      'profile': {'label': '家庭筆電', 'memory_mib': 4096, 'vcpus': 2}}
+        elif path == 'updates':
+            result = {'trusted_publisher_configured': True, 'records': [record]}
+        else:
+            raise AssertionError(path)
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(result))
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={'width': 1440, 'height': 900})
+            page.on('pageerror', lambda error: errors.append(str(error)))
+            page.route('**/api/**', route)
+            page.goto(f'http://127.0.0.1:{server.server_port}/#host')
+            page.get_by_role('heading', name='主機維護', exact=True).wait_for()
+            page.locator('summary').filter(has_text='版本').click()
+            review = page.get_by_role('region', name='更新候選版本')
+            notice = review.locator('.notice.error')
+            expect(notice).to_have_text('這次更新沒有完成。')
+            expect(notice).to_have_attribute('data-reason', code)
+            assert code not in page.locator('body').inner_text()
+            output = root / 'evidence/ui/host-update'
+            output.mkdir(parents=True, exist_ok=True)
+            for width in (1440, 390):
+                page.set_viewport_size({'width': width, 'height': 900 if width == 1440 else 844})
+                page.evaluate('window.scrollTo(0,0)')
+                page.wait_for_timeout(200)
+                expect(notice).to_have_text('這次更新沒有完成。')
+                assert code not in page.locator('body').inner_text()
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), width
+                page.screenshot(path=str(output / f'error-{width}.png'), full_page=True)
+            page.set_viewport_size({'width': 1440, 'height': 900})
+            review.get_by_text('技術資料', exact=True).click()
+            expect(review.locator('dt', has_text='原因代碼')).to_be_visible()
+            expect(review.locator('code', has_text=code)).to_be_visible()
+            assert not errors, errors
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)

@@ -523,6 +523,9 @@ main:focus{outline:none}
 .worker-artifact{padding-block:var(--s4);border-bottom:1px solid var(--line)}
 .worker-artifact h4{overflow-wrap:anywhere}
 .worker-artifact .section-heading{margin:0}
+.worker-artifact pre .diff-add{color:var(--accent);background:var(--accent-soft)}
+.worker-artifact pre .diff-del{color:var(--error);background:var(--error-bg)}
+.worker-artifact pre .diff-hunk{color:var(--warning);background:var(--warning-bg)}
 @media(max-width:1000px){
   .worker-layout{grid-template-columns:1fr}
   .worker-results{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:var(--s6)}
