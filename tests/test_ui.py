@@ -89,7 +89,7 @@ def test_browser_approval_and_responsive_layout(intent):
                 assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), f"Overflow at {width}"
                 page.screenshot(path=str(evidence / f"workbench-{width}.png"), full_page=True)
             page.get_by_role("button", name="批准並執行").click()
-            page.get_by_role("button", name="執行 helper 測試").wait_for()
+            page.get_by_role("button", name="試一次這條規則").wait_for()
             assert len([p for p, _, _ in requests if p.endswith("/approve")]) == 1
             click_navigation(page, '設備與權限')
             page.get_by_role("checkbox", name=f"分享 {SOURCE}").check()

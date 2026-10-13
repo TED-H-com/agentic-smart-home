@@ -177,9 +177,11 @@ def test_bridge_resumes_outer_case_results_png_and_exact_approval(bridge_browser
     expect(page.get_by_role("heading", name="智能管家", exact=True)).to_be_visible()
     expect(page.get_by_text("已整理提案與修正成果，請先確認。", exact=True)).to_be_visible()
     assert not page.locator(".sidebar").count()
-    assert not page.get_by_text("進階對話設定", exact=True).count()
+    assert not page.get_by_text("進階", exact=True).count()
+    assert not page.locator(".assistant-options").count()
     assert not page.get_by_role("button", name="暫停 AI").count()
     assert not page.get_by_role("link", name="設定", exact=True).count()
+    assert not page.get_by_role("link", name="通訊設定", exact=True).count()
     assert not mutations
     shots(page, "conversation")
 
