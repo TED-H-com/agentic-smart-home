@@ -62,6 +62,14 @@ _DIRECT_NEXT = {
 }
 _TELEGRAM_STATES = {"invalid_token", "webhook_conflict", "rate_limited", "unavailable"}
 _TELEGRAM_REASONS = {"invalid_token", "webhook_active", "poller_conflict", "rate_limited", "unavailable"}
+# Same states execute already treats as a settled Home task when a stop is confirmed.
+_HOME_SETTLED = {"cancelled", "failed", "succeeded", "awaiting_user", "awaiting_approval"}
+_RECONCILE_ANSWER = "正在確認上一個回覆已停止，完成後可以重新送出。"
+_INTERRUPTED_ANSWER = "處理已中斷，請重新送出。"
+RECONCILE_INTERVAL = 60
+RECONCILE_WINDOW = 30 * 60
+RECONCILE_ITEM_TIMEOUT = 10
+RECONCILE_PARALLEL = 4
 
 
 class ConversationError(Exception):
@@ -75,6 +83,7 @@ class Gateway:
         self.workers, self.states, self.transports, self.rates = {}, {}, {}, {}
         self.line_login = None
         self.line_task = None
+        self._reconcile_task = None
         self.coordinator = coordinator
         self.bridge_valid = lambda item: True
         self.pairing_lock, self.pairing_timers = asyncio.Lock(), {}
@@ -214,8 +223,16 @@ class Gateway:
                     for name in TRANSPORTS]}
 
     async def start(self):
+        previous = self._reconcile_task
+        self._reconcile_task = None
+        if previous and not previous.done():
+            previous.cancel()
+            await asyncio.gather(previous, return_exceptions=True)
         if self.coordinator:
             await self.coordinator.recover()
+        await self._settle_unconfirmed()
+        if self._unconfirmed_stops():
+            self._reconcile_task = asyncio.create_task(self._reconcile_unconfirmed())
         for item in self.store.list("conversation", 10000):
             if item.get("delivery") == "sending":
                 item["delivery"] = "unconfirmed"
@@ -227,12 +244,103 @@ class Gateway:
             self.pair_timer(name)
 
     async def close(self):
+        reconcile = self._reconcile_task
         tasks = list(self.workers.values()) + list(self.pairing_timers.values()) + ([self.line_task] if self.line_task else [])
+        if reconcile:
+            tasks.append(reconcile)
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
         self.workers.clear()
         self.pairing_timers.clear()
+        self._reconcile_task = None
+
+    def _unconfirmed_stops(self):
+        return [item for item in self.store.list("conversation", 10000)
+                if item.get("state") == "needs_reconcile" and (
+                    item.get("error_code") == "stop_unconfirmed" or item.get("reason") == "stop_unconfirmed")]
+
+    def _still_unconfirmed(self, item):
+        current = self.store.get("conversation", item["id"]) if item.get("id") else None
+        if not current or current.get("state") != "needs_reconcile":
+            return None
+        if current.get("error_code") != "stop_unconfirmed" and current.get("reason") != "stop_unconfirmed":
+            return None
+        return current
+
+    def _mark_interrupted(self, item, reason):
+        self.store.put("conversation", {**item, "state": "interrupted", "error_code": None,
+                                        "reason": reason, "answer": _INTERRUPTED_ANSWER})
+
+    async def _settle_conversation(self, item):
+        """Confirm one stopped reply. Cancels or reads the original handle and never replays it."""
+        current = self._still_unconfirmed(item)
+        if not current:
+            return
+        if current.get("hermes_run_id"):
+            run = self.store.get("hermes_run", current["hermes_run_id"]) or {}
+            if run.get("state") in HERMES_TERMINAL:
+                fresh = self._still_unconfirmed(current)
+                if fresh:
+                    self._mark_interrupted(fresh, "runtime_restarted")
+            return
+        if current.get("job_id"):
+            runner = self.runners.get(current.get("runtime"))
+            if runner is not None and await cancel_and_confirm(runner, current["job_id"]):
+                fresh = self._still_unconfirmed(current)
+                if fresh:
+                    self._mark_interrupted(fresh, None)
+            return
+        if current.get("task_id"):
+            task = self.store.get("task", current["task_id"]) or {}
+            if task.get("state") in _HOME_SETTLED:
+                fresh = self._still_unconfirmed(current)
+                if fresh:
+                    self._mark_interrupted(fresh, None)
+
+    async def _settle_unconfirmed(self):
+        semaphore = asyncio.Semaphore(RECONCILE_PARALLEL)
+
+        async def one(item):
+            async with semaphore:
+                try:
+                    async with asyncio.timeout(RECONCILE_ITEM_TIMEOUT):
+                        await self._settle_conversation(item)
+                except TimeoutError:
+                    return
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    return
+
+        await asyncio.gather(*(one(item) for item in self._unconfirmed_stops()))
+
+    async def _recheck_unconfirmed(self):
+        try:
+            pending = self._unconfirmed_stops()
+            if not pending:
+                return
+            if self.coordinator is not None:
+                await self.coordinator.recover(message_ids={item["id"] for item in pending})
+            await self._settle_unconfirmed()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return
+
+    async def _reconcile_unconfirmed(self):
+        """Re-read unconfirmed stops after startup. Cancel and read only; never resend work."""
+        deadline = time.monotonic() + RECONCILE_WINDOW
+        try:
+            while time.monotonic() < deadline:
+                await asyncio.sleep(RECONCILE_INTERVAL)
+                if time.monotonic() >= deadline or not self._unconfirmed_stops():
+                    return
+                await self._recheck_unconfirmed()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            return
 
     async def restart(self, name):
         previous = self.workers.pop(name, None)
@@ -516,13 +624,16 @@ class Gateway:
                 confirmed = await cancel_and_confirm(runner, job_id)
             elif result.get("task_id"):
                 home_task = self.store.get("task", result["task_id"]) or {}
-                confirmed = home_task.get("state") in {"cancelled", "failed", "succeeded", "awaiting_user", "awaiting_approval"}
+                confirmed = home_task.get("state") in _HOME_SETTLED
             elif result.get("hermes_run_id"):
                 hermes_run = self.store.get("hermes_run", result["hermes_run_id"]) or {}
                 confirmed = hermes_run.get("state") in HERMES_TERMINAL
-            self.store.put("conversation", {**result, "state": "interrupted" if confirmed else "needs_reconcile",
+            stored = {**result, "state": "interrupted" if confirmed else "needs_reconcile",
                 "error_code": None if confirmed else "stop_unconfirmed",
-                "answer": "處理已中斷，請重新送出。" if confirmed else "原程序尚未確認停止；請先查看診斷並核對原工作。"})
+                "answer": _INTERRUPTED_ANSWER if confirmed else _RECONCILE_ANSWER}
+            if direct_dispatched and not confirmed:
+                stored["job_id"] = job_id
+            self.store.put("conversation", stored)
             raise
         except ConversationError as exc:
             result.update(state="failed", answer=str(exc))
@@ -548,7 +659,9 @@ class Gateway:
                     error_code=None if confirmed else "stop_unconfirmed",
                     reason=None if confirmed else "stop_unconfirmed",
                     answer="Agent 尚未完成回覆，請在 Web 檢查此執行環境的配對、登入與連線。" if confirmed else
-                           "Runner 尚未確認原程序已停止；請先查看診斷並核對原工作。")
+                           _RECONCILE_ANSWER)
+            if direct_dispatched and result.get("state") == "needs_reconcile":
+                result["job_id"] = job_id
         self.store.put("conversation", result)
         if item["source"] != "web":
             # A changed audience/token must never receive an in-flight response from the previous configuration.
