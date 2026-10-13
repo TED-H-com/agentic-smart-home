@@ -2813,6 +2813,86 @@
         "summary": "Entry"
       }
     },
+    "/api/host/home-worker/maintenance": {
+      "get": {
+        "operationId": "home_worker_maintenance_status_api_host_home_worker_maintenance_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Home Worker Maintenance Status"
+      }
+    },
+    "/api/host/home-worker/maintenance/authorize": {
+      "post": {
+        "operationId": "home_worker_authorize_api_host_home_worker_maintenance_authorize_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Home Worker Authorize"
+      }
+    },
+    "/api/host/home-worker/maintenance/disable": {
+      "post": {
+        "operationId": "home_worker_disable_api_host_home_worker_maintenance_disable_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Home Worker Disable"
+      }
+    },
+    "/api/host/home-worker/maintenance/repair": {
+      "post": {
+        "operationId": "home_worker_repair_api_host_home_worker_maintenance_repair_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Home Worker Repair"
+      }
+    },
+    "/api/host/home-worker/maintenance/restart": {
+      "post": {
+        "operationId": "home_worker_restart_api_host_home_worker_maintenance_restart_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Home Worker Restart"
+      }
+    },
     "/api/host/login": {
       "post": {
         "operationId": "login_api_host_login_post",
@@ -3393,6 +3473,58 @@
         "summary": "Auth"
       }
     },
+    "/api/providers/{provider}/auth/{id}/cancel": {
+      "post": {
+        "operationId": "cancel_auth_api_providers__provider__auth__id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "enum": [
+                "codex",
+                "claude",
+                "agy",
+                "grok"
+              ],
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Auth"
+      }
+    },
     "/api/providers/{provider}/logout": {
       "post": {
         "operationId": "logout_api_providers__provider__logout_post",
@@ -3652,6 +3784,71 @@
           }
         },
         "summary": "Auth"
+      }
+    },
+    "/api/runtimes/{runtime}/providers/{provider}/auth/{id}/cancel": {
+      "post": {
+        "operationId": "cancel_runtime_auth_api_runtimes__runtime__providers__provider__auth__id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "runtime",
+            "required": true,
+            "schema": {
+              "enum": [
+                "host",
+                "haos"
+              ],
+              "title": "Runtime",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "enum": [
+                "codex",
+                "claude",
+                "agy",
+                "grok"
+              ],
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Runtime Auth"
       }
     },
     "/api/runtimes/{runtime}/providers/{provider}/logout": {

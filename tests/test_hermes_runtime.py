@@ -808,3 +808,158 @@ async def test_idle_runtime_prunes_without_new_request(runtime):
     finally:
         maintenance.cancel()
         await asyncio.gather(maintenance, return_exceptions=True)
+
+
+def test_device_login_and_provider_failures_stay_distinct_codes():
+    from agentic_hermes.oauth import reason_from_stderr
+    from agentic_hermes.oauth_child import classify_login
+    from agentic_hermes.upstream import classify_provider_failure
+
+    class Failure(Exception):
+        def __init__(self, **fields):
+            self.__dict__.update(fields)
+
+    assert classify_login(Failure(code="access_denied")) == ("failed", "access_denied")
+    assert classify_login(Failure(error="slow_down")) == ("failed", "slow_down")
+    assert classify_login(Failure(status_code=429)) == ("failed", "slow_down")
+    assert classify_login(Failure(code="expired_token")) == ("expired", "expired_token")
+    assert classify_login(Failure(code="device_code_timeout")) == ("expired", "expired_token")
+    assert classify_login(Failure(code="provider blew up sk-live")) == ("failed", "oauth_failed")
+    denied = Failure(code="access_denied")
+    denied.args = ("secret provider body sk-live",)
+    assert "sk-live" not in "".join(classify_login(denied))
+    assert reason_from_stderr(b"access_denied by the user") == "access_denied"
+    assert reason_from_stderr(b"HTTP 429 slow down") == "slow_down"
+    assert reason_from_stderr(b"device_code_timeout") == "expired_token"
+    assert reason_from_stderr(b"totally unknown sk-live") is None
+    assert classify_provider_failure("401 invalid api key sk-live") == "needs_reauth"
+    assert classify_provider_failure("429 insufficient_quota") == "rate_limited"
+    assert classify_provider_failure("limit") == "inference_failed"
+    assert classify_provider_failure("504 deadline exceeded") == "timeout"
+    assert classify_provider_failure("502 bad gateway") == "provider_unavailable"
+    assert classify_provider_failure("connection reset") == "provider_unavailable"
+    assert classify_provider_failure("model refused the schema") == "inference_failed"
+
+
+async def test_pending_login_resumes_without_clearing_the_account(client, runtime, monkeypatch):
+    cleared = []
+    original = runtime.clear_account
+
+    def spy():
+        cleared.append("clear")
+        return original()
+
+    entered = asyncio.Event()
+
+    async def oauth_fixture(item, home):
+        runtime.device_login.update(item, "pending", verification_uri="https://auth.openai.com/codex/device",
+                                    user_code="ABCD-EFGH")
+        entered.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(runtime, "clear_account", spy)
+    monkeypatch.setattr(runtime.device_login, "invoke", oauth_fixture)
+    body = {"provider": "openai-codex", "model": "gpt-6-astra"}
+    first = await client.post("/v1/auth/device", json=body, headers={"Idempotency-Key": "login-a"})
+    assert first.status_code == 202
+    await entered.wait()
+    second = await client.post("/v1/auth/device", json={**body, "model": "other-model"}, headers={"Idempotency-Key": "login-b"})
+    assert second.status_code == 202
+    assert second.json()["auth_id"] == first.json()["auth_id"]
+    assert second.json()["user_code"] == "ABCD-EFGH"
+    assert second.json()["verification_uri"] == "https://auth.openai.com/codex/device"
+    assert "reason" in second.json()
+    assert len(cleared) == 1
+    pending = (await client.get("/v1/capabilities")).json()["pending_auth"]
+    assert pending["auth_id"] == first.json()["auth_id"] and pending["state"] == "pending"
+    assert pending["user_code"] == "ABCD-EFGH"
+    await client.post("/v1/auth/device/" + first.json()["auth_id"] + "/cancel")
+
+
+@pytest.mark.parametrize("outcome,reason,state", [
+    (("failed", "access_denied"), "access_denied", "failed"),
+    (("failed", "slow_down"), "slow_down", "failed"),
+    (("expired", "expired_token"), "expired_token", "expired"),
+])
+async def test_oauth_child_reason_is_stored(client, runtime, monkeypatch, outcome, reason, state):
+    async def oauth_fixture(item, home):
+        return outcome
+
+    monkeypatch.setattr(runtime.device_login, "invoke", oauth_fixture)
+    started = await client.post("/v1/auth/device", json={"provider": "openai-codex", "model": "gpt-6-astra"},
+                                headers={"Idempotency-Key": "reason-" + reason})
+    await drain(runtime)
+    status = await client.get("/v1/auth/device/" + started.json()["auth_id"])
+    assert status.json()["state"] == state
+    assert status.json()["error"] == reason and status.json()["reason"] == reason
+    assert "sk-" not in status.text
+
+
+async def test_oauth_parent_timeout_is_expired_token(client, runtime, monkeypatch):
+    async def oauth_fixture(item, home):
+        raise TimeoutError
+
+    monkeypatch.setattr(runtime.device_login, "invoke", oauth_fixture)
+    started = await client.post("/v1/auth/device", json={"provider": "openai-codex", "model": "gpt-6-astra"},
+                                headers={"Idempotency-Key": "parent-timeout"})
+    await drain(runtime)
+    status = (await client.get("/v1/auth/device/" + started.json()["auth_id"])).json()
+    assert status["state"] == "expired" and status["reason"] == "expired_token"
+
+
+@pytest.mark.parametrize("error", ["rate_limited", "provider_unavailable", "timeout", "needs_reauth"])
+async def test_turn_error_codes_pass_through_without_provider_text(client, runtime, monkeypatch, error):
+    await configure(client)
+    sid = await session(client, key="turn-" + error)
+
+    async def inference(payload, scratch, identifier):
+        return {"error": error, "answer": "provider said sk-live-secret", "history": [{"secret": "sk-live-secret"}]}
+
+    monkeypatch.setattr(runtime, "invoke", inference)
+    body = request_body()
+    await client.post(f"/v1/sessions/{sid}/runs", json=body, headers={"Idempotency-Key": "turn-" + error})
+    await drain(runtime)
+    result = await client.get(f"/v1/runs/{body['run_id']}?scope_id={SCOPE}")
+    assert result.json()["state"] == "failed" and result.json()["error"] == error
+    assert "sk-live" not in result.text
+    auth = (await client.get("/v1/capabilities")).json()
+    assert auth["state"] == ("needs_reauth" if error == "needs_reauth" else "configured")
+
+
+async def test_turn_timeout_does_not_become_runtime_unavailable(client, runtime, monkeypatch):
+    await configure(client)
+    sid = await session(client, key="turn-timeout")
+
+    async def inference(payload, scratch, identifier):
+        raise TimeoutError
+
+    monkeypatch.setattr(runtime, "invoke", inference)
+    body = request_body()
+    await client.post(f"/v1/sessions/{sid}/runs", json=body, headers={"Idempotency-Key": "turn-timeout"})
+    await drain(runtime)
+    result = (await client.get(f"/v1/runs/{body['run_id']}?scope_id={SCOPE}")).json()
+    assert result["error"] == "timeout"
+    assert (await client.get("/v1/capabilities")).json()["state"] == "configured"
+
+
+@pytest.mark.parametrize("text,code", [
+    ("This model's maximum context length is 128000 tokens; your messages resulted in 140350 tokens", "inference_failed"),
+    ("request used 14013 tokens of 40100", "inference_failed"),
+    ("Error code: 401 - unauthorized", "needs_reauth"),
+    ("HTTP 403", "needs_reauth"),
+    ("status 429: slow down", "rate_limited"),
+    ("upstream returned 503", "provider_unavailable"),
+    ("gateway 504", "timeout"),
+    ("version 1.403.2", "inference_failed"),
+    ("model error, request req_8a401b trace 0a5030c", "inference_failed"),
+])
+def test_provider_failure_status_numbers_must_stand_alone(text, code):
+    from agentic_hermes.upstream import classify_provider_failure
+    assert classify_provider_failure(text) == code
+
+
+def test_stderr_429_needs_a_standalone_status():
+    from agentic_hermes.oauth import reason_from_stderr
+    assert reason_from_stderr(b"HTTP 429 Too Many Requests") == "slow_down"
+    assert reason_from_stderr(b"started at 1714290001") is None
+    assert reason_from_stderr(b"device session a429f1 closed") is None

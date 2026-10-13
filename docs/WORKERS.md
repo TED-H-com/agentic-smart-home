@@ -16,12 +16,15 @@ Web 會保留調查、差異、檔案指紋與實際程序觀測。worker 自己
 - 固定 Host broker 持有 Docker 與 ext4 volume。Runner 只有固定 Unix broker 接點；模型程序無 Docker socket、Controller／HA／Supervisor bearer、Owner cookies 或 provider bearer。
 - Host worker UID 10000、network none、read-only root、capabilities 限制、cgroups CPU／memory／PID 配额與固定 watchdog。所有可寫工作目錄在有界 ext4 磁碟；不能以輪詢資料夾大小代替 quota。
 - provider／公開文件出站經受控 Unix relay。上游 HTTPS 主機、IP、方法與路徑受限；拒私網 DNS 與任意 redirect／遠端 MCP，provider bearer 在 broker 加入。模型與公開來源的請求數、內容大小與期限受限。
+- 中繼把 provider 回應逐段轉給 sandbox（chunked，每段 flush）。位元組之間的閒置上限是 300 秒；工作 deadline 仍限制總時間。回應累計超過 8 MiB 就中止，不先緩衝整份本文。ChatGPT OAuth 依固定版 Codex 的規則向固定的 `https://auth.openai.com/oauth/token` 更新：JWT 有到期時間時，只在 5 分鐘內到期才更新；沒有時，`last_refresh` 早於 8 天才更新。provider 在尚未送出任何回應位元組前回 401 時，只更新並重試該請求一次。更新端點回 401、`invalid_grant` 或 `refresh_token_expired`／`refresh_token_reused`／`refresh_token_invalidated`，或第二次 401／403，才記 `auth_failed` 並以 `needs_reauth` 回報。連線失敗、逾時或 5xx 是暫時性的，不要求重新登入。refresh token 與 id token 只留在憑證檔。API key 不呼叫該端點。這是程式行為，不是真帳號驗收。
 - 任務初期最多 300 秒、同時一個 coding job。writer 和 verifier 都必須證明停止，才釋出全域 lease。關頁或 HTTP 回覆遺失不表示取消。
 - 成果在確認停止後匯出，拒 symlink／hardlink／特殊檔案、越界、超量、非允許類型及可辨識的憑證格式。去密模式不能證明所有內容都適合公開；成果留在本機。
 
 ### Home coding 0.8.0 工程預覽
 
 HomeService 已接現有 Controller → 配對 TLS Runner 的 jobs／auth／artifacts 契約，worker ID 為 `home-coder`。它在真正 HAOS Runner App 內執行；來源為 App 映像內的唯讀 bare repo `/opt/agentic-worker/source` 及固定 commit 記錄，每件工作另建 clone。coding 帳號獨立保存在 App 的 `/data/coding-auth`，不借用 Host、Hermes 或 `home_operator` 登入。既有家庭 Runner 的結構化限制不變。
+
+Owner 可在首次設定完成後明確啟用這個 App。狀態由 `GET /api/host/home-worker/maintenance` 讀取：`not_authorized`、`running`／`waiting`（階段 `repository` → `install` → `start` → `pair` → `login` → `monitor`）、`login_ready`、`ready`、`degraded`、`user_disabled`、`user_removed`、`user_modified`、`needs_reconcile`、`unavailable`。`login.show` 為真時，登入仍走 `POST /api/workers/home-coder/providers/codex/auth`；維護流程自己不呼叫它。`credential_state` 只反映能力輪詢，`configured` 不會被標成 `inference_verified`。停用維護不刪 `/data/coding-auth`，也不解除安裝或取消 `runner_haos` 配對；`POST .../repair` 是 Owner 明確重試，最多重新安裝或啟動一次，不改權限或 options。當機後的明確重啟在 coding lease 或登入 barrier 存在時拒絕。真 HAOS 上 `hassio_api: false` 的 self-options、`release/0.8.0` 商店 slug，以及能力回報 `haos_app`，仍是 `not_run`。
 
 HomeSandbox 的 FUSE ext4 工作磁碟、程序 namespace、App 內 cgroup 資源限制與停止紀錄已在第十二輪真 HAOS App 測試通過。App 只申請 `SYS_ADMIN`、自訂 enforcing AppArmor 與 `/dev/fuse` 裝置規則；沒有 host network／PID、full access 或 Docker socket。模型 worker 必須降為 UID 10000、唯讀 root、無有效 capabilities、有 seccomp／no-new-privileges；私有 staging、管理憑證及父程序 workspace FD 都不能傳入。這些啟用條件有真程序及資源耗盡證據，不能只以啟動參數或單元測試代替。
 

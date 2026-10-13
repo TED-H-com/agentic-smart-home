@@ -33,6 +33,7 @@ from .ha import HAError, HomeAssistant
 from .ha_oauth import routes as ha_oauth_routes
 from .hermes import Coordinator
 from .hermes import routes as hermes_routes
+from .home_worker_maintenance import HomeWorkerFault, HomeWorkerMaintenance
 from .host import HostSession, external_ha
 from .host import routes as host_routes
 from .household import Household
@@ -42,6 +43,7 @@ from .models import (
     Decision,
     Policy,
     Provider,
+    Runtime,
     Strict,
     canonical,
     digest,
@@ -128,7 +130,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     ha = ha or (external_ha(root) if host_mode else HomeAssistant(os.environ.get("SUPERVISOR_TOKEN", "")))
     runner = runner or Runner(store)
     inner_runner = inner_runner or Runner(store, "haos")
-    gateway, bootstrap, bridge, maintenance = None, None, None, None
+    gateway, bootstrap, bridge, maintenance, home_worker = None, None, None, None, None
     coordinator = Coordinator(store, hermes_client) if host_mode else None
     engine = Engine(store, ha)
     secret = store.setting("csrf_secret") or secrets.token_hex(32)
@@ -162,6 +164,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         if bridge:
             await bridge.start()
             await maintenance.start()
+        if home_worker:
+            await home_worker.start()
         if bootstrap:
             bootstrap.resume()
         mcp_server = None
@@ -173,6 +177,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
             mcp_server.capture_signals = contextlib.nullcontext
             mcp_task = asyncio.create_task(mcp_server.serve())
         yield
+        if home_worker:
+            await home_worker.close()
         if bridge:
             await maintenance.close()
             await bridge.close()
@@ -378,11 +384,27 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
 
     @app.post("/api/providers/{provider}/auth")
     async def auth(provider: Provider, body: LoginInput):
-        return await runner.call("POST", f"/providers/{provider}/auth", body.model_dump())
+        result = await runner.call("POST", f"/providers/{provider}/auth", body.model_dump())
+        if body.method == "device_code":
+            return result
+        return JSONResponse(result, status_code=202)
+
+    @app.post("/api/providers/{provider}/auth/{id}/cancel")
+    async def cancel_auth(provider: Provider, id: str):
+        if not (id.isascii() and id.isalnum()) or len(id) > 64:
+            raise HTTPException(422, "無效登入 ID")
+        return await runner.call("POST", f"/providers/{provider}/auth/{id}/cancel")
+
+    @app.post("/api/runtimes/{runtime}/providers/{provider}/auth/{id}/cancel")
+    async def cancel_runtime_auth(runtime: Runtime, provider: Provider, id: str):
+        if not (id.isascii() and id.isalnum()) or len(id) > 64:
+            raise HTTPException(422, "無效登入 ID")
+        selected = inner_runner if runtime == "haos" else runner
+        return await selected.call("POST", f"/providers/{provider}/auth/{id}/cancel")
 
     @app.get("/api/auth/{id}")
     async def auth_state(id: str):
-        if not id.isalnum() or len(id) > 64:
+        if not (id.isascii() and id.isalnum()) or len(id) > 64:
             raise HTTPException(422, "無效登入 ID")
         result = await runner.call("GET", "/auth/" + id)
         if result.get("status") == "connected":
@@ -711,6 +733,44 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         async def bridge_disable():
             await bridge.revoke()
             return {**maintenance.status(), "bridge": bridge.status()}
+
+        home_worker = HomeWorkerMaintenance(store, ha, inner_runner, controller_id)
+        app.state.home_worker_maintenance = home_worker
+
+        def home_worker_guard(request):
+            epoch, owner = store.setting("hermes_web_epoch"), store.setting("owner")
+
+            def guard():
+                if (not host_session.verify(request) or epoch != store.setting("hermes_web_epoch")
+                        or owner != store.setting("owner") or store.setting("updater_gate")):
+                    raise HomeWorkerFault("home_worker_authorization_changed")
+            return guard
+
+        async def home_worker_action(method, request, **kwargs):
+            try:
+                return await method(commit_guard=home_worker_guard(request), **kwargs)
+            except HomeWorkerFault as exc:
+                raise HTTPException(409, exc.code) from None
+
+        @app.get("/api/host/home-worker/maintenance")
+        async def home_worker_maintenance_status():
+            return home_worker.status()
+
+        @app.post("/api/host/home-worker/maintenance/authorize")
+        async def home_worker_authorize(request: Request):
+            return await home_worker_action(home_worker.authorize, request)
+
+        @app.post("/api/host/home-worker/maintenance/repair")
+        async def home_worker_repair(request: Request):
+            return await home_worker_action(home_worker.repair, request)
+
+        @app.post("/api/host/home-worker/maintenance/disable")
+        async def home_worker_disable(request: Request):
+            return await home_worker_action(home_worker.disable, request)
+
+        @app.post("/api/host/home-worker/maintenance/restart")
+        async def home_worker_restart(request: Request):
+            return await home_worker_action(home_worker.restart, request)
 
         bootstrap = Bootstrap(store, runner, coordinator, gateway, ha, controller_id)
         bootstrap_routes(app, bootstrap)

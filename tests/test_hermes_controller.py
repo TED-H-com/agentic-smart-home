@@ -7,9 +7,11 @@ import uuid
 import httpx
 import pytest
 from agentic_controller.app import create_app
+from agentic_controller.ha import HA_CLIENT_TIMEOUT, HAError
 from agentic_controller.hermes import HermesError
 from agentic_controller.mcp import TOOLS, create_mcp
 from agentic_controller.models import ChatInput
+from agentic_hermes.child import MCP_TOOL_TIMEOUT
 from fastapi import HTTPException
 
 
@@ -309,3 +311,164 @@ async def test_cancel_during_dispatch_does_not_accept_late_success(system, store
     release.set()
     await asyncio.gather(*list(app.state.running.values()))
     assert store.get("conversation", item["id"])["state"] == "failed"
+
+
+async def test_pending_device_login_does_not_rotate_or_restart(system, store):
+    _, client, bridge = system
+    pending = {"auth_id": "b" * 32, "state": "pending", "verification_uri": "https://auth.openai.com/codex/device",
+               "user_code": "WXYZ-1234", "reason": None}
+    epoch = store.setting("hermes_auth_epoch")
+
+    async def call(method, path, body=None, key=None):
+        bridge.calls.append((method, path, body, key))
+        if path == "/v1/capabilities":
+            return {"state": "needs_auth", "pending_auth": pending}
+        if path == "/v1/auth/device":
+            raise AssertionError("pending login must not be restarted")
+        return {"state": "configured"}
+
+    bridge.call = call
+    body = {"provider": "openai-codex", "model": "fixture-model"}
+    response = await client.post("/api/hermes/auth/device", json=body, headers={"Idempotency-Key": "resume-login"})
+    assert response.status_code == 202
+    assert response.json()["auth_id"] == "b" * 32 and response.json()["user_code"] == "WXYZ-1234"
+    assert store.setting("hermes_auth_epoch") == epoch
+    assert not any(item[1] == "/v1/auth/device" for item in bridge.calls)
+
+
+@pytest.mark.parametrize("code,status", [
+    ("stop_unconfirmed", 409), ("access_denied", 409), ("slow_down", 429),
+    ("expired_token", 409), ("oauth_failed", 409),
+])
+async def test_device_login_reasons_pass_through(system, code, status):
+    _, client, bridge = system
+
+    async def call(method, path, body=None, key=None):
+        if path == "/v1/capabilities":
+            return {"state": "needs_auth"}
+        raise HermesError(code)
+
+    bridge.call = call
+    response = await client.post("/api/hermes/auth/device", json={"provider": "openai-codex", "model": "fixture-model"},
+                                 headers={"Idempotency-Key": "login-" + code})
+    assert response.status_code == status
+    detail = response.json()["detail"]
+    assert detail["code"] == code and detail["reason"] == code and isinstance(detail["message"], str)
+    assert "尚未就緒" not in response.text and "sk-" not in response.text
+
+
+async def test_unknown_device_login_failure_stays_a_string(system):
+    _, client, bridge = system
+
+    async def call(method, path, body=None, key=None):
+        if path == "/v1/capabilities":
+            return {"state": "needs_auth"}
+        raise HermesError()
+
+    bridge.call = call
+    response = await client.post("/api/hermes/auth/device", json={"provider": "openai-codex", "model": "fixture-model"},
+                                 headers={"Idempotency-Key": "login-generic"})
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Hermes 官方登入服務尚未就緒；重試請沿用同一識別碼"
+
+
+async def test_hermes_turn_category_reaches_the_gateway_message(system, store):
+    app, client, bridge = system
+
+    async def call(method, path, body=None, key=None):
+        if path == "/v1/sessions":
+            return {"session_id": "a" * 32}
+        if path.endswith("/runs"):
+            return {"state": "failed", "error": "rate_limited", "answer": "raw sk-live-provider"}
+        if path.endswith("/cancel"):
+            return {"state": "cancelled"}
+        return {"state": "configured"}
+
+    bridge.call = call
+    response = await client.post("/api/gateway/messages", json={"message": "查狀態", "coordinator": "hermes"},
+                                 headers={"Idempotency-Key": "hermes-rate"})
+    assert response.status_code == 202
+    await asyncio.gather(*list(app.state.running.values()))
+    item = store.get("conversation", response.json()["id"])
+    assert item["state"] == "failed" and item["error_code"] == "rate_limited" and item["reason"] == "rate_limited"
+    assert "稍後再送出" in item["answer"] and "sk-live" not in item["answer"]
+
+
+async def test_hermes_poll_timeout_is_its_own_category(system, store):
+    app, client, bridge = system
+
+    async def call(method, path, body=None, key=None):
+        if path == "/v1/sessions":
+            return {"session_id": "c" * 32}
+        if method == "POST" and path.endswith("/runs"):
+            return {"state": "running", "answer": ""}
+        if method == "GET" and path.startswith("/v1/runs/"):
+            raise TimeoutError
+        if path.endswith("/cancel"):
+            return {"state": "cancelled"}
+        return {"state": "configured"}
+
+    bridge.call = call
+    response = await client.post("/api/gateway/messages", json={"message": "逾時", "coordinator": "hermes"},
+                                 headers={"Idempotency-Key": "hermes-timeout"})
+    await asyncio.gather(*list(app.state.running.values()))
+    item = store.get("conversation", response.json()["id"])
+    assert item["error_code"] == "timeout" and "逾時" in item["answer"]
+    assert item["state"] == "failed"
+
+
+def test_mcp_tool_timeout_is_longer_than_the_ha_client():
+    assert MCP_TOOL_TIMEOUT > HA_CLIENT_TIMEOUT == 30
+
+
+async def test_mcp_tool_errors_distinguish_timeout_from_a_bad_argument(system, store):
+    from agentic_controller.engine import Rejected
+    from agentic_controller.workers import WorkerError
+
+    app, _, _ = system
+    token, _ = await prepare_grant(app, store)
+
+    class Household:
+        def __init__(self):
+            self.exc = None
+
+        async def observe(self, arguments, auth):
+            raise self.exc
+
+    household = Household()
+    app.state.coordinator.household = household
+    transport = httpx.ASGITransport(app=create_mcp(app.state.coordinator), client=("127.0.0.1", 40000))
+
+    async def call():
+        async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8097",
+                                      headers={"Authorization": "Bearer " + token}) as client:
+            response = await client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                                                       "params": {"name": "home.observe", "arguments": {}}})
+            return response.status_code, response.json()
+
+    try:
+        raise TimeoutError("slow")
+    except TimeoutError as exc:
+        household.exc = HAError("Home Assistant 連線中斷或回應無效") 
+        household.exc.__cause__ = exc
+    status, body = await call()
+    assert status == 200 and body["result"]["content"][0]["text"] == "ha_timeout"
+    assert "slow" not in response_text(body)
+    household.exc = HAError("Home Assistant 連線中斷", 504)
+    assert (await call())[1]["result"]["content"][0]["text"] == "ha_timeout"
+    household.exc = HAError("Home Assistant 連線中斷或回應無效")
+    assert (await call())[1]["result"]["content"][0]["text"] == "ha_unavailable"
+    household.exc = Rejected("尚未授權讀取 light.private")
+    text = (await call())[1]["result"]["content"][0]["text"]
+    assert text == "not_permitted" and "light.private" not in text
+    household.exc = Rejected("household_owner_required")
+    assert (await call())[1]["result"]["content"][0]["text"] == "not_permitted"
+    household.exc = WorkerError("owner_authority_required", 403)
+    assert (await call())[1]["result"]["content"][0]["text"] == "not_permitted"
+    household.exc = ValueError("entity sk-live is not a string")
+    text = (await call())[1]["result"]["content"][0]["text"]
+    assert text == "invalid_or_out_of_scope_request" and "sk-live" not in text
+
+
+def response_text(body):
+    return json.dumps(body)
