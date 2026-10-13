@@ -467,3 +467,105 @@ async def test_unrelated_run_failure_is_not_an_account_reason(tmp_path, monkeypa
         await providers.run("p" * 32, "agy", "Reply with status ok.", schema)
     assert str(failed.value) == "CLI 執行失敗；請檢查登入狀態、所選模型與網路"
     assert "agy" not in providers.reasons
+
+
+def _release_clock(monkeypatch):
+    from agentic_runner import coding
+    clock, slept = {"now": 0.0}, []
+
+    def monotonic():
+        return clock["now"]
+
+    async def sleep(delay):
+        slept.append(delay)
+        clock["now"] += delay
+
+    monkeypatch.setattr(coding.time, "monotonic", monotonic)
+    monkeypatch.setattr(coding.asyncio, "sleep", sleep)
+    return clock, slept
+
+
+async def _run_device_release(tmp_path, monkeypatch, host, *, unconfirmed=False):
+    from agentic_runner import coding
+    monkeypatch.setenv("AGENTIC_HOST_MODE", "1")
+    clock, slept = _release_clock(monkeypatch)
+    monkeypatch.setattr(coding, "host_request", host)
+    broker = Broker(tmp_path)
+    broker.settings({"token_hash": hashlib.sha256(b"fixture").hexdigest()})
+    app = create_api(broker)
+    if unconfirmed:
+        broker.coding_credentials.quarantine("fixture-stop")
+
+    async def begin(auth_id, provider="codex"):
+        async def finished():
+            return None
+        task = asyncio.create_task(finished())
+        state = {"id": auth_id, "provider": provider, "status": "connected", "_task": task}
+        broker.coding_credentials.auth_sessions[auth_id] = state
+        return state
+
+    monkeypatch.setattr(broker.coding_credentials, "begin_device_auth", begin)
+    auth_id = "e" * 32
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://runner",
+                                     headers={"Authorization": "Bearer fixture"}) as client:
+            response = await client.post("/coding/providers/codex/auth",
+                                        json={"id": auth_id, "method": "device_code", "secret": ""})
+            assert response.status_code == 200, response.text
+            await broker.coding_credentials.auth_sessions[auth_id]["_release"]
+    finally:
+        await close_broker(broker)
+    return clock, slept
+
+
+async def test_auth_release_retries_transport_and_server_errors_until_success(tmp_path, monkeypatch):
+    releases = []
+
+    async def host(method, path, body=None, timeout=35):
+        if path != "/auth-release":
+            return 200, {"ok": True}
+        releases.append(path)
+        if len(releases) == 1:
+            raise OSError("fixture transport")
+        if len(releases) == 2:
+            return 503, {"detail": "unavailable"}
+        return 200, {"released": True}
+
+    _clock, slept = await _run_device_release(tmp_path, monkeypatch, host)
+    assert len(releases) == 3 and slept == [1, 2]
+
+
+async def test_auth_release_stops_on_client_error_and_skips_while_unconfirmed(tmp_path, monkeypatch):
+    releases = []
+
+    async def host(method, path, body=None, timeout=35):
+        if path == "/auth-release":
+            releases.append(len(releases))
+            return 409, {"detail": "refused"}
+        return 200, {"ok": True}
+
+    _clock, slept = await _run_device_release(tmp_path / "client-error", monkeypatch, host)
+    assert releases == [0] and slept == []
+
+    skipped = []
+
+    async def blocked(method, path, body=None, timeout=35):
+        skipped.append(path)
+        return 200, {"ok": True}
+
+    _clock, slept = await _run_device_release(tmp_path / "unconfirmed", monkeypatch, blocked, unconfirmed=True)
+    assert "/auth-release" not in skipped and "/fence" in skipped and slept == []
+
+
+async def test_auth_release_gives_up_after_ten_minutes(tmp_path, monkeypatch):
+    releases = []
+
+    async def host(method, path, body=None, timeout=35):
+        if path == "/auth-release":
+            releases.append(1)
+            return 503, {"detail": "unavailable"}
+        return 200, {"ok": True}
+
+    clock, slept = await _run_device_release(tmp_path, monkeypatch, host)
+    assert len(releases) == 15 and clock["now"] == 600
+    assert slept[:6] == [1, 2, 4, 8, 16, 32] and max(slept) == 60 and slept[-1] == 57

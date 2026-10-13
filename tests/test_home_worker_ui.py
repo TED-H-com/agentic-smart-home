@@ -337,9 +337,8 @@ def test_coding_login_terminal_states_offer_retry(ui_page):
     auth = {'status': 'failed'}
     errors, posts = [], []
     outcomes = {'failed': '登入未完成，請重新登入。', 'expired': '這次登入已過期，請重新登入。',
-                'stop_unconfirmed': '尚未確認登入程序停止，請先核對後再登入。', 'interrupted': '登入已中斷，請重新登入。',
-                'cancelled': '已取消這次登入。', 'disconnected': '已登出開發助手。', 'unverified': '尚未確認登入結果，請重新登入。',
-                'connected': '登入沒有完成，請重新登入。', 'configured': '登入沒有完成，請重新登入。', 'succeeded': '登入沒有完成，請重新登入。',
+                'interrupted': '登入已中斷，請重新登入。', 'cancelled': '已取消這次登入。',
+                'disconnected': '已登出開發助手。', 'unverified': '尚未確認登入結果，請重新登入。',
                 'mystery': '登入沒有完成，請重新登入。'}
 
     def route(route):
@@ -371,6 +370,19 @@ def test_coding_login_terminal_states_offer_retry(ui_page):
         expect(page.locator('.coding-login').get_by_role('status')).to_contain_text(sentence)
         page.get_by_role('button', name='重新登入', exact=True).click()
         expect(page.get_by_label('開發助手登入方式')).to_be_visible()
+    auth['status'] = 'stop_unconfirmed'
+    page.evaluate("sessionStorage.setItem('agentic-coding-auth-host-coder','%s')" % ('a' * 32))
+    page.reload()
+    expect(page.locator('.coding-login').get_by_role('status')).to_contain_text('尚未確認登入程序停止，請先核對後再登入。')
+    expect(page.get_by_role('button', name='核對', exact=True)).to_be_visible()
+    expect(page.get_by_role('button', name='重新登入', exact=True)).to_have_count(0)
+    for status in ('connected', 'configured', 'succeeded'):
+        auth['status'] = status
+        page.evaluate("sessionStorage.setItem('agentic-coding-auth-host-coder','%s')" % ('a' * 32))
+        page.reload()
+        expect(page.get_by_text('已登入 Codex', exact=True)).to_be_visible()
+        expect(page.get_by_role('button', name='重新登入', exact=True)).to_have_count(0)
+        expect(page.get_by_text('登入沒有完成，請重新登入。')).to_have_count(0)
     assert not posts and not errors
     page.set_viewport_size({'width': 390, 'height': 844})
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
