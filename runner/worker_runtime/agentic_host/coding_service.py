@@ -35,11 +35,14 @@ VERIFICATION_BUDGET_SECONDS = 300
 SHUTDOWN_BUDGET_SECONDS = 20
 # Same ceiling as HostSession.verify: 12h owner cookie plus 60s skew. Not a longer grant.
 AUTHORIZATION_MAX_AHEAD_SECONDS = 43260
-# Exact labels from the worker prompt ("Finish with facts, inferences, unknowns, experiments,
-# next_steps" in coding_program.py) and Worker Protocol v1 section 4. Absent headings stay empty.
+# Protocol headings from the worker prompt and Worker Protocol v1 section 4.
+# Any case, an optional trailing colon, and a space or hyphen in next_steps are accepted.
+# Absent headings stay empty.
 FINDING_KEYS = ("facts", "inferences", "unknowns", "experiments", "next_steps")
 _FINDING_HEADING = re.compile(
-    r"^(?:#{1,3}[ \t]+|\*\*)?(facts|inferences|unknowns|experiments|next_steps)(?:\*\*)?[ \t]*:?[ \t]*$")
+    r"^(?:#{1,3}[ \t]+|\*\*)?(facts|inferences|unknowns|experiments|next[-_ ]steps)"
+    r"(?:\*\*)?[ \t]*:?[ \t]*(?:\*\*)?[ \t]*$",
+    re.IGNORECASE)
 BUDGET_REASONS = {"setup_timeout", "execution_timeout", "verification_timeout", "authorization_expired"}
 WEB_PREVIEW_REASONS = {
     ("built", None),
@@ -82,7 +85,9 @@ def parse_findings(text):
         line = raw_line.strip()
         match = _FINDING_HEADING.fullmatch(line)
         if match:
-            current = match.group(1)
+            key = match.group(1).lower().replace("-", "_").replace(" ", "_")
+            if key in sections:
+                current = key
             continue
         if current is None or not line:
             continue
@@ -452,11 +457,18 @@ class CodingService:
         except (OSError, ValueError, SandboxError) as exc:
             with self.lock:
                 job = self.items[id]
-                # Absence of launch acknowledgement does not prove Docker did not start.
-                stopped = job.get("stop_confirmed", False)
-                job.update(state="failed" if stopped else "stop_unconfirmed",
-                           phase="failed" if stopped else "stop_unconfirmed", stop_confirmed=stopped)
-                self.remember_error(job, exc.code if isinstance(exc, SandboxError) else "coding_execution_failed")
+                # Before any sandbox attempt, or after a launch that proved no writer
+                # remains, the lease is released. A later uncertain writer stays fenced.
+                proved_stop = isinstance(exc, SandboxError) and getattr(exc, "stopped", False) is True
+                if not job.get("sandbox_attempted") or proved_stop:
+                    job.update(state="failed", phase="failed", stop_confirmed=True)
+                    self.remember_error(job, "coding_setup_failed")
+                else:
+                    # Absence of launch acknowledgement does not prove Docker did not start.
+                    stopped = job.get("stop_confirmed", False)
+                    job.update(state="failed" if stopped else "stop_unconfirmed",
+                               phase="failed" if stopped else "stop_unconfirmed", stop_confirmed=stopped)
+                    self.remember_error(job, exc.code if isinstance(exc, SandboxError) else "coding_execution_failed")
                 self.publish(job)
         finally:
             pulse_stop.set()
@@ -512,6 +524,8 @@ class CodingService:
             self.remember_error(job, "checkpoint_export_failed")
             if outcome == "succeeded":
                 outcome = "failed"
+        if job.get("error_code") == "patch_too_large" and outcome == "succeeded":
+            outcome = "failed"
         job.update(state=outcome, phase=outcome, stop_confirmed=True)
         if outcome == "succeeded" and patch and reason is None:
             self.verify(job, patch)
@@ -556,26 +570,30 @@ class CodingService:
         source = workspace / "source"
         if source.is_symlink() or (source / ".git").is_symlink() or not (source / ".git").is_dir():
             raise SandboxError("Source identity changed")
-        entries = 0
-        for directory, dirs, files in os.walk(source, followlinks=False):
-            if Path(directory) == source:
-                dirs.remove(".git")
-            entries += len(dirs) + len(files)
-            if entries > 50000 or len(Path(directory).relative_to(source).parts) > 30:
+        listed = command("git", "-c", "safe.directory=*", "-c", "core.fsmonitor=false", "-C", str(source),
+                         "ls-files", "-z", "--cached", "--others", "--exclude-standard", timeout=15)
+        candidates = [name for name in listed.stdout.split("\0") if name]
+        if len(candidates) > 50000:
+            raise SandboxError("Candidate tree limit")
+        for relative in candidates:
+            parts = Path(relative).parts
+            if len(parts) > 31:
                 raise SandboxError("Candidate tree limit")
-            for name in dirs + files:
-                path = Path(directory) / name
-                metadata = path.lstat()
-                if name == ".git" or stat.S_ISLNK(metadata.st_mode) or not (stat.S_ISREG(metadata.st_mode) or stat.S_ISDIR(metadata.st_mode)):
-                    raise SandboxError("Candidate links or nested repository refused")
-                if stat.S_ISREG(metadata.st_mode) and metadata.st_nlink != 1:
-                    raise SandboxError("Candidate hardlink refused")
+            if parts and (parts[0] == ".." or ".." in parts or ".git" in parts or Path(relative).is_absolute()):
+                raise SandboxError("Candidate links or nested repository refused")
+            metadata = (source / relative).lstat()
+            if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+                raise SandboxError("Candidate links or nested repository refused")
+            if metadata.st_nlink != 1:
+                raise SandboxError("Candidate hardlink refused")
         # .git is a separate read-only bind inside the worker. Disable external diff/textconv.
-        command("git", "-c", "safe.directory=*", "-c", "core.fsmonitor=false", "-C", str(workspace / "source"),
+        # git add and git diff honor .gitignore, so ignored paths are neither read nor exported.
+        command("git", "-c", "safe.directory=*", "-c", "core.fsmonitor=false", "-C", str(source),
                 "add", "--intent-to-add", "--all", timeout=15)
-        patch = command("git", "-c", "safe.directory=*", "-c", "core.fsmonitor=false", "-C", str(workspace / "source"),
+        patch = command("git", "-c", "safe.directory=*", "-c", "core.fsmonitor=false", "-C", str(source),
                         "diff", "--no-ext-diff", "--no-textconv", job["base_commit"], "--", timeout=15).stdout
-        if len(patch.encode()) <= ARTIFACT_LIMIT:
+        patch_bytes = patch.encode()
+        if len(patch_bytes) <= ARTIFACT_LIMIT:
             path = workspace / "artifacts" / "changes.patch"
             path.unlink(missing_ok=True)
             descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
@@ -585,16 +603,22 @@ class CodingService:
         output = self.root / "artifacts" / job["id"]
         output.mkdir(parents=True, mode=0o700, exist_ok=True)
         for entry in exported:
+            artifact_id = hashlib.sha256((job["id"] + ":" + entry["name"]).encode()).hexdigest()[:32]
+            media_type = {".html": "text/html", ".css": "text/css", ".js": "text/javascript",
+                          ".svg": "image/svg+xml"}.get(Path(entry["name"]).suffix, "text/plain")
+            if entry.get("kind") == "withheld" or "content" not in entry:
+                metadata = {"id": artifact_id, "job_id": job["id"], "kind": "withheld", "name": entry["name"],
+                            "media_type": media_type, "sha256": entry["sha256"], "size": entry["size"]}
+                atomic(output / (artifact_id + ".json"), metadata)
+                job["artifacts"].append(metadata)
+                continue
             raw = entry.pop("content").encode()
             if len(raw) > ARTIFACT_LIMIT:
                 continue
             if entry["name"] == "findings.txt":
                 # Headings are the protocol tokens only. Unheaded text stays in the artifact.
                 job["findings"] = parse_findings(raw.decode("utf-8", errors="replace"))
-            artifact_id = hashlib.sha256((job["id"] + ":" + entry["name"]).encode()).hexdigest()[:32]
             kind = "patch" if entry["name"].endswith((".patch", ".diff")) else "evidence"
-            media_type = {".html": "text/html", ".css": "text/css", ".js": "text/javascript",
-                          ".svg": "image/svg+xml"}.get(Path(entry["name"]).suffix, "text/plain")
             if media_type != "text/plain":
                 kind = "preview_asset"
             metadata = {"id": artifact_id, "job_id": job["id"], "kind": kind, "name": entry["name"],
@@ -609,9 +633,15 @@ class CodingService:
             "version_refs": {**self.version_refs, "codex": "0.157.1", "source": job["base_commit"]}, "content": content,
             "content_digest": digest, "redaction": "fixed_public_fields",
             "limitations": ["No live household or deployment access", "CLI claims remain untrusted"]}]
+        if len(patch_bytes) > ARTIFACT_LIMIT:
+            self.remember_error(job, "patch_too_large")
+            if job.get("state") == "succeeded":
+                job["state"] = "failed"
+                job["phase"] = "failed"
+            return None
         if job["state"] == "succeeded":
             atomic(self.root / "inference-verified.json", {"job_id": job["id"], "at": time.time()})
-        return patch.encode() if len(patch.encode()) <= ARTIFACT_LIMIT else None
+        return patch_bytes
 
     def web_preview_record(self, job, sandbox, verify_id, reported):
         """Attach bundle metadata after the verifier is proved stopped. Never stores paths."""
@@ -698,12 +728,18 @@ class CodingService:
                     "test_command_sha256": hashlib.sha256(self.verify_program.encode()).hexdigest(), "network": "none"}
                 reported = None
                 for entry in sandbox.artifacts(id):
+                    aid = hashlib.sha256((id + entry["name"]).encode()).hexdigest()[:32]
+                    if entry.get("kind") == "withheld" or "content" not in entry:
+                        meta = {"id": aid, "job_id": job["id"], "kind": "withheld", "name": entry["name"],
+                                "media_type": "text/plain", "sha256": entry["sha256"], "size": entry["size"]}
+                        atomic(self.root / "artifacts" / job["id"] / (aid + ".json"), meta)
+                        job["artifacts"].append(meta)
+                        continue
                     if entry["name"] == "web-preview.json":
                         reported = entry["content"]
                     raw = entry["content"].encode()
                     if len(raw) > ARTIFACT_LIMIT:
                         continue
-                    aid = hashlib.sha256((id + entry["name"]).encode()).hexdigest()[:32]
                     meta = {"id": aid, "job_id": job["id"], "kind": "test_report", "name": entry["name"],
                             "media_type": "text/plain", "sha256": entry["sha256"], "size": len(raw)}
                     atomic(self.root / "artifacts" / job["id"] / (aid + ".json"),
@@ -863,7 +899,10 @@ class CodingService:
                 if method == "GET" and action and action.startswith("artifacts/"):
                     file = self.root / "artifacts" / id / (match[3] + ".json")
                     if file.exists():
-                        return 200, json.loads(file.read_text())
+                        payload = json.loads(file.read_text())
+                        if payload.get("kind") == "withheld":
+                            return 404, {"detail": "artifact_withheld"}
+                        return 200, payload
             return 404, {"detail": "unknown_coding_resource"}
         except (OSError, ValueError, KeyError, TypeError, SandboxError):
             return 409, {"detail": "coding_operation_rejected"}

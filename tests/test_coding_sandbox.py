@@ -74,8 +74,9 @@ def test_artifacts_reject_traversal_links_specials_secrets_and_quota(tmp_path):
     path.write_text("print('reproduced')\n")
     item = read_artifacts(artifacts, Limits())[0]
     assert item["name"] == "reproducer.py" and item["untrusted"] and len(item["sha256"]) == 64
-    with pytest.raises(SandboxError, match="quota"):
-        read_artifacts(artifacts, Limits(artifact_bytes=1))
+    exported = read_artifacts(artifacts, Limits(artifact_bytes=1))
+    assert [item["name"] for item in exported] == ["skipped.json"]
+    assert json.loads(exported[0]["content"])["skipped"] == [{"name": "reproducer.py", "reason": "size_limit"}]
     path.unlink()
     (artifacts / "leak.txt").symlink_to(tmp_path / "owner-secret")
     with pytest.raises(SandboxError, match="safely opened"):
@@ -85,20 +86,24 @@ def test_artifacts_reject_traversal_links_specials_secrets_and_quota(tmp_path):
     with pytest.raises(SandboxError, match="regular file"):
         read_artifacts(artifacts, Limits())
     (artifacts / "pipe.txt").unlink()
-    (artifacts / "token.txt").write_text("access_token = not-a-real-account-token")
-    with pytest.raises(SandboxError, match="secret"):
-        read_artifacts(artifacts, Limits())
-    (artifacts / "token.txt").unlink()
+    (artifacts / "typed.py").write_text("api_key: SecretStr\napi_key: str | None = None\npassword=body.password\naccess_token: str\n")
+    (artifacts / "plain.txt").write_text("access_token = not-a-real-account-token\n")
+    kept = {item["name"]: item for item in read_artifacts(artifacts, Limits())}
+    assert "content" in kept["typed.py"] and "content" in kept["plain.txt"]
+    (artifacts / "typed.py").unlink()
+    (artifacts / "plain.txt").unlink()
     (artifacts / "active.html").write_text("<script>fetch('/approval')</script>")
-    with pytest.raises(SandboxError, match="type"):
-        read_artifacts(artifacts, Limits())
+    skipped = {item["name"]: item for item in read_artifacts(artifacts, Limits())}
+    assert "active.html" not in skipped
+    assert json.loads(skipped["skipped.json"]["content"])["skipped"] == [
+        {"name": "active.html", "reason": "unsupported_type"}]
 
 
 def test_unconfirmed_stop_never_releases_writer_or_exports(tmp_path):
     calls = []
     def execute(*args, **kwargs):
         calls.append(args)
-        if args[:2] == ("docker", "inspect"):
+        if args[:2] in {("docker", "inspect"), ("docker", "version")}:
             raise SandboxError("daemon unavailable")
         return SimpleNamespace(returncode=0, stdout="")
     sandbox = CodingSandbox(tmp_path, IMAGE, {}, execute=execute)
@@ -589,3 +594,282 @@ def test_boundary_diagnostic_failure_returns_typed_evidence_without_raising(tmp_
     assert "fixture-private-value" not in json.dumps(value)
     if failure != "missing":
         assert value["inspect_error_type"] == ("TimeoutExpired" if failure == "timeout" else "JSONDecodeError")
+
+
+def _absence_execute(calls, *, ps="", version_error=False, inspect_running=False, exit_code=0):
+    """Fake Docker. An empty label listing is absence only after version succeeds."""
+    alive = {"running": inspect_running}
+
+    def execute(*args, **kwargs):
+        calls.append(args)
+        if args[:2] == ("docker", "version"):
+            assert "{{.Server.Version}}" in args
+            if version_error:
+                raise OSError("daemon did not answer")
+            return SimpleNamespace(returncode=0, stdout="27.0\n")
+        if args[:2] == ("docker", "ps"):
+            assert "{{.ID}}" in args and any(arg.startswith("label=agentic.coding=") for arg in args)
+            return SimpleNamespace(returncode=0, stdout=ps)
+        if args[:2] == ("docker", "inspect"):
+            if not ps:
+                return SimpleNamespace(returncode=1, stdout="")
+            running = alive["running"]
+            state = {"Running": running, "Paused": False, "OOMKilled": False, "ExitCode": exit_code,
+                     "Status": "running" if running else "exited"}
+            info = [{"Id": ps.strip(), "Config": {"Labels": {"agentic.coding": args[-1]}}, "State": state}]
+            return SimpleNamespace(returncode=0, stdout=json.dumps(info))
+        if args[:2] == ("docker", "kill"):
+            alive["running"] = False
+            return SimpleNamespace(returncode=0, stdout="")
+        if args[:2] == ("docker", "wait"):
+            assert kwargs.get("timeout") == 15
+            return SimpleNamespace(returncode=0, stdout="0\n")
+        if args[:2] in {("docker", "create"), ("docker", "start"), ("docker", "rm")} or args[0] == "umount":
+            created = "created-id\n" if args[:2] == ("docker", "create") else ""
+            return SimpleNamespace(returncode=0, stdout=created)
+        return SimpleNamespace(returncode=0, stdout="")
+
+    return execute
+
+
+@pytest.mark.parametrize("point", ["prepare", "create", "start"])
+def test_failed_start_with_proven_absence_releases_the_fence(tmp_path, monkeypatch, point):
+    calls, attempts = [], {"prepare": 0, "create": 0, "start": 0}
+
+    def execute(*args, **kwargs):
+        if args[:2] == ("docker", "create"):
+            attempts["create"] += 1
+            if point == "create" and attempts["create"] == 1:
+                raise SandboxError("create failed", code="command_failed")
+        if args[:2] == ("docker", "start"):
+            attempts["start"] += 1
+            if point == "start" and attempts["start"] == 1:
+                raise subprocess.SubprocessError("start failed")
+        return _absence_execute(calls)(*args, **kwargs)
+
+    sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path}, execute=execute)
+    monkeypatch.setattr(sandbox, "preflight", lambda: True)
+    monkeypatch.setattr(os.path, "ismount", lambda path: Path(path).name == "workspace")
+
+    def prepare(job, program):
+        attempts["prepare"] += 1
+        if point == "prepare" and attempts["prepare"] == 1:
+            raise OSError("loop allocation failed")
+        return tmp_path / "workspace-mount"
+
+    monkeypatch.setattr(sandbox, "prepare", prepare)
+    program = "print('hi')"
+    with pytest.raises(SandboxError) as err:
+        sandbox.launch(JOB, 1, "product", "a" * 40, program)
+    assert err.value.code == "coding_setup_failed" and err.value.stopped is True
+    saved = json.loads((tmp_path / f"{JOB}.json").read_text())
+    assert saved["state"] == "failed"
+    assert saved["setup_failure"] == ("command_failed" if point == "create" else "coding_setup_failed")
+    assert any(args[0] == "umount" for args in calls)
+    assert not any(args[:2] == ("docker", "rm") for args in calls)
+    assert sandbox.launch(JOB, 1, "product", "a" * 40, program)["state"] == "failed"
+    assert attempts["prepare"] == 1
+    assert sandbox.launch("test-later-0002", 1, "product", "a" * 40, program)["state"] == "running"
+
+
+def test_unanswering_daemon_keeps_a_failed_start_fenced(tmp_path, monkeypatch):
+    calls = []
+
+    def prepare(job, program):
+        raise OSError("loop failed")
+
+    sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path},
+                            execute=_absence_execute(calls, version_error=True))
+    monkeypatch.setattr(sandbox, "preflight", lambda: True)
+    monkeypatch.setattr(sandbox, "prepare", prepare)
+    with pytest.raises(OSError, match="loop failed"):
+        sandbox.launch(JOB, 1, "product", "a" * 40, "print('hi')")
+    assert json.loads((tmp_path / f"{JOB}.json").read_text())["state"] == "stop_unconfirmed"
+    assert not any(args[:2] == ("docker", "ps") for args in calls)
+    with pytest.raises(SandboxError, match="fenced"):
+        sandbox.launch("test-later-0002", 1, "product", "a" * 40, "print('hi')")
+
+
+def test_several_labeled_containers_are_not_absence(tmp_path, monkeypatch):
+    calls = []
+    sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path},
+                            execute=_absence_execute(calls, ps="aaaa\nbbbb\n"))
+    monkeypatch.setattr(sandbox, "preflight", lambda: True)
+
+    def prepare(job, program):
+        raise SandboxError("mount failed", code="workspace_mount_unverified")
+
+    monkeypatch.setattr(sandbox, "prepare", prepare)
+    with pytest.raises(SandboxError) as err:
+        sandbox.launch(JOB, 1, "product", "a" * 40, "print('hi')")
+    assert err.value.code == "workspace_mount_unverified" and getattr(err.value, "stopped", False) is not True
+    assert json.loads((tmp_path / f"{JOB}.json").read_text())["state"] == "stop_unconfirmed"
+    with pytest.raises(SandboxError, match="fenced"):
+        sandbox.launch("test-later-0002", 1, "product", "a" * 40, "print('hi')")
+
+
+def test_labeled_container_found_at_start_is_stopped(tmp_path, monkeypatch):
+    calls, created = [], {"count": 0}
+    fake = _absence_execute(calls, ps="deadbeef\n", inspect_running=True, exit_code=137)
+
+    def execute(*args, **kwargs):
+        if args[:2] == ("docker", "ps"):
+            label = next(arg for arg in args if arg.startswith("label=agentic.coding="))
+            if not label.endswith(JOB):
+                calls.append(args)
+                assert "{{.ID}}" in args
+                return SimpleNamespace(returncode=0, stdout="")
+        if args[:2] == ("docker", "create"):
+            created["count"] += 1
+            if created["count"] == 1:
+                raise SandboxError("create lost its reply", code="command_failed")
+            return SimpleNamespace(returncode=0, stdout="created-id\n")
+        return fake(*args, **kwargs)
+
+    sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path}, execute=execute)
+    monkeypatch.setattr(sandbox, "preflight", lambda: True)
+    monkeypatch.setattr(sandbox, "prepare", lambda job, program: tmp_path / "workspace-mount")
+    monkeypatch.setattr(os.path, "ismount", lambda path: Path(path).name == "workspace")
+    with pytest.raises(SandboxError) as err:
+        sandbox.launch(JOB, 1, "product", "a" * 40, "print('hi')")
+    assert err.value.code == "coding_setup_failed" and err.value.stopped is True
+    saved = json.loads((tmp_path / f"{JOB}.json").read_text())
+    assert saved["state"] == "failed" and saved["container_id"] == "deadbeef"
+    assert saved["setup_failure"] == "command_failed"
+    assert any(args[:2] == ("docker", "kill") for args in calls)
+    assert any(args[:2] == ("docker", "wait") for args in calls)
+    assert sandbox.launch("test-later-0002", 1, "product", "a" * 40, "print('hi')")["state"] == "running"
+
+
+def test_absence_proof_clears_status_cancel_and_recover(tmp_path, monkeypatch):
+    calls = []
+    sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path}, execute=_absence_execute(calls))
+    sandbox.save({"job_id": JOB, "container": "agentic-coding-" + JOB, "state": "running"})
+    assert sandbox.status(JOB)["state"] == "failed"
+    cancel_id = "test-cancel-0005"
+    sandbox.save({"job_id": cancel_id, "container": "agentic-coding-" + cancel_id, "state": "running"})
+    assert sandbox.cancel(cancel_id)["state"] == "cancelled"
+    dispose_id = "test-dispose-0008"
+    sandbox.save({"job_id": dispose_id, "container": "agentic-coding-" + dispose_id, "state": "running"})
+    monkeypatch.setattr(os.path, "ismount", lambda path: Path(path).name == "workspace")
+    assert sandbox.dispose(dispose_id)["state"] == "disposed"
+    assert any(args[0] == "umount" for args in calls)
+    assert not any(args[:2] == ("docker", "rm") for args in calls)
+    recover_id = "test-recover-0003"
+    sandbox.save({"job_id": recover_id, "container": "agentic-coding-" + recover_id, "state": "preparing"})
+    assert {item["job_id"]: item["state"] for item in sandbox.recover()} == {recover_id: "interrupted"}
+    monkeypatch.setattr(sandbox, "preflight", lambda: True)
+    monkeypatch.setattr(sandbox, "prepare", lambda job, program: tmp_path / "workspace-mount")
+    assert sandbox.launch("test-later-0002", 1, "product", "a" * 40, "print('hi')")["state"] == "running"
+
+
+def test_labeled_record_is_stopped_by_status_cancel_and_recover(tmp_path):
+    calls = []
+    sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path},
+                            execute=_absence_execute(calls, ps="deadbeef\n", inspect_running=False, exit_code=0))
+    labeled = "test-labeled-0004"
+    sandbox.save({"job_id": labeled, "container": "agentic-coding-" + labeled, "state": "running"})
+    assert sandbox.status(labeled)["state"] == "succeeded"
+    assert not any(args[:2] == ("docker", "kill") for args in calls)
+    running = "test-cancel-0005"
+    sandbox.execute = _absence_execute(calls, ps="cafebabe\n", inspect_running=True, exit_code=137)
+    sandbox.save({"job_id": running, "container": "agentic-coding-" + running, "state": "running"})
+    assert sandbox.cancel(running)["state"] == "cancelled"
+    assert any(args[:3] == ("docker", "kill", "--signal") for args in calls)
+    recovered = "test-found-0006"
+    sandbox.execute = _absence_execute(calls, ps="deadbeef\n", inspect_running=True, exit_code=137)
+    sandbox.save({"job_id": recovered, "container": "agentic-coding-" + recovered, "state": "stop_unconfirmed"})
+    assert {item["job_id"]: item["state"] for item in sandbox.recover()} == {recovered: "interrupted"}
+
+
+def test_unanswering_record_stays_stop_unconfirmed(tmp_path, monkeypatch):
+    calls = []
+    sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path},
+                            execute=_absence_execute(calls, version_error=True))
+    quiet = "test-quiet-0007"
+    sandbox.save({"job_id": quiet, "container": "agentic-coding-" + quiet, "state": "running"})
+    assert sandbox.status(quiet)["state"] == "stop_unconfirmed"
+    assert sandbox.cancel(quiet)["state"] == "stop_unconfirmed"
+    assert sandbox.recover()[0]["state"] == "stop_unconfirmed"
+    monkeypatch.setattr(sandbox, "preflight", lambda: True)
+    with pytest.raises(SandboxError, match="fenced"):
+        sandbox.launch("test-later-0002", 1, "product", "a" * 40, "print('hi')")
+
+
+def test_patch_lines_and_narrow_secrets_withhold_one_file(tmp_path):
+    import hashlib
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    (artifacts / "notes.patch").write_text(
+        "diff --git a/old.py b/old.py\n--- a/old.py\n+++ b/old.py\n"
+        "-api_key = \"abcdefghij\"\n api_key = \"abcdefghij\"\n+print('clean')\n")
+    (artifacts / "typed.patch").write_text(
+        "diff --git a/t.py b/t.py\n--- a/t.py\n+++ b/t.py\n"
+        "+api_key: SecretStr\n+api_key: str | None = None\n+password=body.password\n+access_token: str\n"
+        "+api_key=\"1234567\"\n")
+    (artifacts / "leak.patch").write_text("diff --git a/t.py b/t.py\n+++ b/t.py\n+api_key=\"abcdefgh\"\n")
+    (artifacts / "quoted.py").write_text("password = '12345678'\napi_key = \"abcd efgh\"\n")
+    (artifacts / "token.py").write_text("api_key = abcdefghij1234567890\n")
+    (artifacts / "short.py").write_text("api_key = abcdefghij123456789\n")
+    (artifacts / "ok.py").write_text("print('fine')\n")
+    (artifacts / "pem.txt").write_text("-----BEGIN PRIVATE KEY-----\n")
+    (artifacts / "bearer.txt").write_text("Authorization: Bearer abcdefghijklmnop\n")
+    (artifacts / "sk.txt").write_text("sk-abcdefghijklmnop\n")
+    items = {item["name"]: item for item in read_artifacts(artifacts, Limits())}
+    for name in ("notes.patch", "typed.patch", "short.py", "ok.py"):
+        assert "content" in items[name] and items[name].get("kind") != "withheld"
+    for name in ("leak.patch", "quoted.py", "token.py", "pem.txt", "bearer.txt", "sk.txt"):
+        raw = (artifacts / name).read_bytes()
+        assert items[name]["kind"] == "withheld" and "content" not in items[name]
+        assert items[name]["size"] == len(raw) and items[name]["sha256"] == hashlib.sha256(raw).hexdigest()
+    assert "print('fine')" in items["ok.py"]["content"]
+
+
+def test_skipped_files_are_listed_and_tampering_stays_fatal(tmp_path):
+    root = tmp_path / "artifacts"
+    root.mkdir()
+    (root / "web-preview").mkdir()
+    (root / "web-preview" / "index.html").write_text("<p>bundle</p>\n")
+    (root / "web-fixtures.json").write_text("{}\n")
+    (root / "ok.py").write_text("print(1)\n")
+    (root / "extra.py").write_text("print(2)\n")
+    (root / "big.py").write_text("z" * 80)
+    (root / "blob.bin").write_text("nope\n")
+    (root / "page.html").write_text("<p>ok</p>\n")
+    (root / "bad\nname.txt").write_text("x\n")
+    (root / ("n" * 237 + ".txt")).write_text("long\n")
+    (root / "nested").mkdir()
+    (root / "nested" / "inner.py").write_text("x\n")
+    (root / "skipped.json").write_text('{"marker":"worker"}\n')
+    exported = {item["name"]: item for item in read_artifacts(root, Limits(artifact_files=1, artifact_bytes=40, web_artifacts=True))}
+    assert "content" in exported["extra.py"] and "ok.py" not in exported and "page.html" not in exported
+    assert "web-fixtures.json" not in exported and "web-preview/index.html" not in exported
+    skipped = json.loads(exported["skipped.json"]["content"])["skipped"]
+    reasons = {entry["reason"] for entry in skipped}
+    assert reasons == {"unsupported_type", "name_not_allowed", "file_limit", "size_limit"}
+    assert {"name": "blob.bin", "reason": "unsupported_type"} in skipped
+    assert {"name": "big.py", "reason": "size_limit"} in skipped
+    assert {"name": "nested/inner.py", "reason": "name_not_allowed"} in skipped
+    assert "worker" not in exported["skipped.json"]["content"]
+    assert not any(entry["name"].startswith("web-preview") or entry["name"] == "web-fixtures.json" for entry in skipped)
+    for path in root.iterdir():
+        if path.is_symlink() or path.is_file():
+            path.unlink()
+        elif path.is_dir() and not path.is_symlink():
+            for child in path.rglob("*"):
+                if child.is_file() or child.is_symlink():
+                    child.unlink()
+    (root / "text.txt").write_bytes(b"hello\x00")
+    with pytest.raises(SandboxError, match="Binary"):
+        read_artifacts(root, Limits())
+    (root / "text.txt").write_bytes(b"\xff\xfe")
+    with pytest.raises(SandboxError, match="UTF-8"):
+        read_artifacts(root, Limits())
+    (root / "text.txt").write_text("plain\n")
+    os.link(root / "text.txt", root / "alias.txt")
+    with pytest.raises(SandboxError, match="regular file"):
+        read_artifacts(root, Limits())
+    (root / "alias.txt").unlink()
+    (root / "leak.html").symlink_to(root / "text.txt")
+    with pytest.raises(SandboxError, match="safely opened"):
+        read_artifacts(root, Limits())
