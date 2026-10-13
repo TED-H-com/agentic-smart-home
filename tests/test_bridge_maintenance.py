@@ -9,6 +9,7 @@ from agentic_controller.bridge_maintenance import (
     KEY,
     OPERATION_TIMEOUT,
     STARTUP_GRACE,
+    STOP_CONFIRM_SECONDS,
     BridgeFault,
     BridgeMaintenance,
     BridgeRelease,
@@ -70,6 +71,7 @@ class Supervisor:
         self.healthy = True
         self.owner_hook = None
         self.owner_calls = 0
+        self.core_state, self.core_info = "running", None  # GET /info; core_info overrides the body.
 
     async def owner(self, owner):
         self.owner_calls += 1
@@ -91,7 +93,10 @@ class Supervisor:
             await self.before(method, path)
         if self.fail == (method, path):
             raise HAError("private fixture token should never escape")
-        if path == "/supervisor/info":
+        if path == "/info":
+            assert method == "GET"
+            value = {"state": self.core_state} if self.core_info is None else self.core_info
+        elif path == "/supervisor/info":
             value = {"healthy": self.healthy}
         elif path == "/store/repositories":
             if method == "POST":
@@ -299,6 +304,9 @@ async def test_transport_failure_is_not_absence_and_preserves_existing_app(manag
 async def test_manual_intent_is_sticky_and_never_reversed(manager, change, state):
     app = await installed(manager, auto_repair=True)
     app.update(change)
+    if state == "user_disabled":
+        assert (await manager.tick())["code"] == "bridge_app_stop_pending"
+        manager.clock.now += STOP_CONFIRM_SECONDS
     assert (await manager.tick())["state"] == state
     writes = len(manager.ha.calls)
     await manager.authorize(auto_repair=True)
@@ -353,10 +361,12 @@ async def test_exact_repo_source_not_metadata_url_drives_install(manager):
 async def test_bounded_restart_budget_survives_restart_and_cannot_be_reset_by_retry(manager):
     await installed(manager, auto_repair=True)
     for expected in (1, 2):
+        await manager.tick()  # A restarted Controller first observes its own started run.
         manager.clock.now += STARTUP_GRACE + 1
         await manager.tick()
         assert len(manager.ha.writes("/restart")) == expected
         manager = BridgeMaintenance(manager.store, manager.ha, manager.bridge, clock=manager.clock)
+    await manager.tick()
     manager.clock.now += STARTUP_GRACE + 1
     assert (await manager.tick())["code"] == "bridge_repair_budget_exhausted"
     with pytest.raises(BridgeFault, match="bridge_repair_budget_exhausted"):
@@ -670,3 +680,201 @@ async def test_installed_security_drift_never_starts_or_repairs(manager, change)
     assert (await manager.tick())["code"] == "bridge_app_contract_mismatch"
     assert not manager.ha.writes("/options") and not manager.ha.writes("/start")
     assert not manager.ha.writes("/restart")
+
+
+# Supervisor transitions. Fixture core states only: no real HAOS boot, backup or Controller restart.
+
+def posts(ha):
+    return [call for call in ha.calls if call[0] == "POST"]
+
+
+async def healthy(manager):
+    await installed(manager, auto_repair=True)
+    manager.bridge.seen = manager.clock()
+    assert (await manager.tick())["state"] == "healthy"
+
+
+@pytest.mark.parametrize("steps", [
+    [("setup", "unknown"), ("startup", "stopped"), ("startup", "stopped"), ("startup", "startup"),
+     ("startup", "started"), ("running", "started")],
+    [("freeze", "stopped"), ("freeze", "stopped"), ("freeze", "startup"), ("running", "started")],
+], ids=["haos_reboot", "cold_backup"])
+async def test_haos_reboot_or_cold_backup_keeps_the_sidebar_without_restart(manager, steps):
+    await healthy(manager)
+    sent = len(posts(manager.ha))
+    manager.clock.now += 600  # grace_until expired; the heartbeat stays stale until the App reconnects.
+    for core, app_state in steps:
+        manager.ha.core_state, manager.ha.app["state"] = core, app_state
+        manager.clock.now += 60
+        status = await manager.tick()
+        assert status["state"] in {"waiting", "starting"}, status
+        assert status["code"] in {"bridge_supervisor_busy", "bridge_heartbeat_pending"}
+        assert manager.record()["enabled"] is True and manager.record()["stopped_since"] is None
+    manager.bridge.seen = manager.clock()
+    assert (await manager.tick())["state"] == "healthy"
+    assert len(posts(manager.ha)) == sent and manager.record()["repairs"] == []
+    assert manager.record()["repair_count"] == 0
+
+
+async def test_real_stop_is_confirmed_after_the_window_and_survives_controller_restart(manager):
+    await healthy(manager)
+    sent = len(posts(manager.ha))
+    manager.ha.app["state"] = "stopped"
+    status = await manager.tick()
+    assert (status["state"], status["code"]) == ("waiting", "bridge_app_stop_pending")
+    assert manager.record()["enabled"] is True and manager.record()["stopped_since"] == manager.clock()
+    # Any other observation resets the timer.
+    manager.clock.now += STOP_CONFIRM_SECONDS
+    manager.ha.app["state"] = "started"
+    manager.bridge.seen = manager.clock()
+    assert (await manager.tick())["state"] == "healthy" and manager.record()["stopped_since"] is None
+    manager.ha.app["state"] = "stopped"
+    await manager.tick()
+    first = manager.clock()
+    manager.clock.now += STOP_CONFIRM_SECONDS - 1
+    restarted = BridgeMaintenance(manager.store, manager.ha, manager.bridge, clock=manager.clock)
+    assert (await restarted.tick())["code"] == "bridge_app_stop_pending"
+    assert restarted.record()["stopped_since"] == first and restarted.record()["enabled"] is True
+    manager.clock.now += 1
+    status = await restarted.tick()
+    assert (status["state"], status["code"]) == ("user_disabled", "bridge_app_stopped")
+    assert restarted.record()["enabled"] is False and len(posts(manager.ha)) == sent
+
+
+async def test_supervisor_transition_clears_a_pending_stop(manager):
+    await healthy(manager)
+    manager.ha.app["state"] = "stopped"
+    await manager.tick()
+    manager.clock.now += STOP_CONFIRM_SECONDS
+    manager.ha.core_state = "freeze"
+    assert (await manager.tick())["code"] == "bridge_supervisor_busy"
+    assert manager.record()["stopped_since"] is None and manager.record()["enabled"] is True
+    manager.ha.core_state = "running"
+    assert (await manager.tick())["code"] == "bridge_app_stop_pending"
+    manager.clock.now += STOP_CONFIRM_SECONDS
+    assert (await manager.tick())["state"] == "user_disabled"
+
+
+@pytest.mark.parametrize("kind,path,body", [
+    ("add_repository", "/store/repositories", {"repository": RELEASE.repository}),
+    ("install", f"/store/addons/{SLUG}/install", {"background": True}),
+    ("configure", f"/addons/{SLUG}/options", {"options": {}}),
+    ("start", f"/addons/{SLUG}/start", None),
+    ("restart", f"/addons/{SLUG}/restart", None),
+    ("update", f"/store/addons/{SLUG}/update", {"backup": False, "background": True})])
+@pytest.mark.parametrize("core", ["startup", "freeze"])
+async def test_no_effect_is_posted_unless_supervisor_is_running(manager, kind, path, body, core):
+    await healthy(manager)
+    sent, before = len(posts(manager.ha)), copy.deepcopy(manager.record())
+    manager.ha.core_state = core
+    with pytest.raises(BridgeFault) as raised:
+        await manager.effect(manager.record(), manager.ha.token, kind, path, body)
+    assert (raised.value.code, raised.value.state) == ("bridge_supervisor_busy", "waiting")
+    assert len(posts(manager.ha)) == sent and manager.record()["operation"] == before["operation"] is None
+
+
+async def test_auto_repair_restart_waits_for_supervisor_running(manager):
+    await healthy(manager)
+    manager.clock.now += STARTUP_GRACE + HEARTBEAT_MAX_AGE
+    manager.ha.core_state = "freeze"
+    status = await manager.tick()
+    assert (status["state"], status["code"]) == ("waiting", "bridge_supervisor_busy")
+    assert not manager.ha.writes("/restart") and manager.record()["repair_count"] == 0
+    manager.ha.core_state = "running"
+    # The App may have been restarted inside the busy window: a fresh grace applies.
+    assert (await manager.tick())["code"] == "bridge_heartbeat_pending"
+    manager.clock.now += STARTUP_GRACE
+    # Supervisor turns busy between the heartbeat gate and the POST: still nothing is sent.
+    reads = []
+
+    async def freeze_on_effect_read(method, path):
+        if path == "/info":
+            reads.append(path)
+            if len(reads) == 2:
+                manager.ha.core_state = "freeze"
+
+    manager.ha.before = freeze_on_effect_read
+    assert (await manager.tick())["code"] == "bridge_supervisor_busy"
+    assert len(reads) == 2 and not manager.ha.writes("/restart") and manager.record()["operation"] is None
+    manager.ha.before, manager.ha.core_state = None, "running"
+    await manager.tick()
+    manager.clock.now += STARTUP_GRACE
+    await manager.tick()
+    assert len(manager.ha.writes("/restart")) == 1
+
+
+@pytest.mark.parametrize("fault", ["transport", [], {}, {"state": None}, {"state": 1}, "running"])
+async def test_unreadable_supervisor_state_is_transient(manager, fault):
+    await healthy(manager)
+    sent = len(posts(manager.ha))
+    manager.ha.app["state"] = "stopped"
+    if fault == "transport":
+        manager.ha.fail = ("GET", "/info")
+    else:
+        manager.ha.core_info = fault
+    status = await manager.tick()
+    assert (status["state"], status["code"]) == ("unavailable", "bridge_observation_unavailable")
+    assert manager.record()["enabled"] is True
+    manager.ha.fail = manager.ha.core_info = None
+    manager.ha.app["state"] = "started"
+    manager.bridge.seen = manager.clock()
+    assert (await manager.tick())["state"] == "healthy"
+    assert len(posts(manager.ha)) == sent
+
+
+async def test_controller_restart_gives_a_fresh_heartbeat_grace_then_budgeted_repair(manager):
+    await healthy(manager)
+    calls = len(manager.ha.calls)
+    await manager.tick()
+    assert ("GET", "/info", None) not in manager.ha.calls[calls:]  # Healthy ticks do not read /info.
+    manager.clock.now += 3600  # Controller (and HAOS) were down: grace_until and heartbeat are stale.
+    restarted = BridgeMaintenance(manager.store, manager.ha, manager.bridge, clock=manager.clock)
+    start = manager.clock()
+    for offset in (0, 40, 80, STARTUP_GRACE - 1):
+        manager.clock.now = start + offset
+        status = await restarted.tick()
+        assert (status["state"], status["code"]) == ("starting", "bridge_heartbeat_pending")
+    assert not manager.ha.writes("/restart")
+    manager.clock.now = start + STARTUP_GRACE
+    await restarted.tick()
+    assert len(manager.ha.writes("/restart")) == 1 and restarted.record()["repair_count"] == 1
+
+
+async def test_failed_tick_before_the_app_read_restarts_the_observed_run(manager):
+    await healthy(manager)
+    manager.clock.now += 3600
+    manager = BridgeMaintenance(manager.store, manager.ha, manager.bridge, clock=manager.clock)
+    await manager.tick()  # The restarted Controller's started run begins.
+    manager.clock.now += STARTUP_GRACE - 10
+    manager.ha.fail = ("GET", "/addons")
+    assert (await manager.tick())["state"] == "unavailable"
+    manager.ha.fail = None
+    manager.clock.now += 20
+    assert (await manager.tick())["code"] == "bridge_heartbeat_pending"
+    manager.clock.now += STARTUP_GRACE
+    await manager.tick()
+    assert len(manager.ha.writes("/restart")) == 1
+
+
+async def test_startup_after_a_gap_gets_a_fresh_grace_then_needs_reconcile(manager):
+    await healthy(manager)
+    manager.clock.now += 3600
+    manager.ha.app["state"] = "startup"
+    assert (await manager.tick())["code"] == "bridge_app_starting"
+    manager.clock.now += STARTUP_GRACE - 1
+    assert (await manager.tick())["code"] == "bridge_app_starting"
+    manager.clock.now += 1
+    status = await manager.tick()
+    assert (status["state"], status["code"]) == ("needs_reconcile", "bridge_app_state_unconfirmed")
+    assert not manager.ha.writes("/restart")
+
+
+async def test_controller_start_runs_the_observation_loop(manager):
+    # Controller startup calls start(); in-memory observation state must never shadow the loop method.
+    await manager.start()
+    try:
+        await asyncio.sleep(0.05)
+        assert manager.task is not None and not manager.task.done()
+    finally:
+        await manager.close()
+    assert manager.task is None
