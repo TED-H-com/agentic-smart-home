@@ -112,7 +112,7 @@ def test_relay_selected_model_and_call_deadline(tmp_path, monkeypatch):
     from agentic_host import coding_relay
     monkeypatch.setattr(coding_relay, "credentials", lambda path: ("api.openai.com", "/v1/responses", {"Authorization": "Bearer fixture"}))
     forwarded = []
-    def transport(*args):
+    def transport(*args, **kwargs):
         forwarded.append(args)
         return 200, "application/json", b"{}"
     relay = Relay(tmp_path / "relay.sock", tmp_path / "auth.json", time.time() + 10,
@@ -263,7 +263,7 @@ def test_relay_auth_failure_requires_new_role_login(tmp_path, monkeypatch):
     from agentic_host import coding_relay
     monkeypatch.setattr(coding_relay, "credentials", lambda path: ("api.openai.com", "/v1/responses", {}))
     calls = []
-    def rejected(*args):
+    def rejected(*args, **kwargs):
         calls.append(args)
         return 401, "application/json", b'{}'
     relay = Relay(tmp_path / "relay", tmp_path / "auth", time.time() + 10, transport=rejected)

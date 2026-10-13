@@ -3,34 +3,92 @@ from __future__ import annotations
 
 import json
 
-PROGRAM = r'''
+from .coding_relay import IDLE_TIMEOUT
+
+# Placeholders are replaced below. The sandbox cannot import this module.
+_PROXY = r'''
 import http.client,json,os,socket,subprocess,threading
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 class Unix(http.client.HTTPConnection):
     def connect(self):
         self.sock=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
-        self.sock.settimeout(50)
-        self.sock.connect('/relay.sock')
+        self.sock.settimeout(@@IDLE@@)
+        self.sock.connect(@@RELAY@@)
 class Handler(BaseHTTPRequestHandler):
+    protocol_version='HTTP/1.1'
     def log_message(self,*args):pass
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(@@IDLE@@)
+        self._started=False
+        try:self.connection.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
+        except OSError:pass
+    def _fail(self,code):
+        if self._started:
+            self.close_connection=True
+            try:self.connection.shutdown(socket.SHUT_WR)
+            except OSError:pass
+            return
+        self.send_error(code)
     def transfer(self):
-        size=int(self.headers.get('Content-Length','0'))
-        if not 0<=size<=2097152:
-            self.send_error(413);return
-        client=Unix('relay',timeout=50)
+        self.close_connection=True
+        try:size=int(self.headers.get('Content-Length','0'))
+        except ValueError:
+            self._fail(400);return
+        if self.headers.get('Transfer-Encoding') or not 0<=size<=2097152:
+            self._fail(413);return
+        client=Unix('relay',timeout=@@IDLE@@)
         try:
             client.request(self.command,self.path,body=self.rfile.read(size),headers={'Content-Type':'application/json'})
-            result=client.getresponse();body=result.read(8388609)
-            if len(body)>8388608:raise ValueError('response limit')
+            result=client.getresponse()
             self.send_response(result.status)
+            self._started=True
             self.send_header('Content-Type',result.getheader('Content-Type','application/octet-stream'))
-            self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
-        except (OSError,ValueError):self.send_error(502)
+            self.send_header('Transfer-Encoding','chunked')
+            self.send_header('Connection','close')
+            self.end_headers()
+            self.wfile.flush()
+            total=0
+            while True:
+                chunk=result.read1(65536)
+                if not chunk:break
+                total+=len(chunk)
+                if total>8388608:raise ValueError('response limit')
+                self.wfile.write(f'{len(chunk):X}\r\n'.encode()+chunk+b'\r\n')
+                self.wfile.flush()
+            self.wfile.write(b'0\r\n\r\n')
+            self.wfile.flush()
+        except (OSError,ValueError,http.client.HTTPException):
+            try:self._fail(502)
+            except OSError:pass
         finally:client.close()
     do_GET=do_POST=transfer
-server=ThreadingHTTPServer(('127.0.0.1',8765),Handler)
+server=ThreadingHTTPServer(('127.0.0.1',@@PORT@@),Handler)
 threading.Thread(target=server.serve_forever,daemon=True).start()
+'''
+
+
+def sandbox_proxy(relay_socket="/relay.sock", port=8765, idle=IDLE_TIMEOUT):
+    """In-sandbox HTTP proxy. It streams relay bytes and never sees provider credentials."""
+    if type(port) is not int or not 0 <= port <= 65535:
+        raise ValueError("Invalid proxy port")
+    if not isinstance(relay_socket, str) or not relay_socket or "\n" in relay_socket or "\x00" in relay_socket:
+        raise ValueError("Invalid relay socket")
+    if isinstance(idle, bool) or not isinstance(idle, (int, float)) or not idle > 0:
+        raise ValueError("Invalid proxy idle timeout")
+    values = {"@@RELAY@@": repr(relay_socket), "@@PORT@@": str(port), "@@IDLE@@": repr(float(idle))}
+    source = _PROXY
+    for key, value in values.items():
+        if key in value:
+            raise ValueError("Invalid proxy substitution")
+        source = source.replace(key, value)
+    if "@@" in source:
+        raise ValueError("Unresolved proxy placeholder")
+    return source
+
+
+_LAUNCHER = r'''
 os.environ.update({'CODEX_HOME':'/work/profile','HOME':'/work/profile','TMPDIR':'/work/scratch',
     'GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_GLOBAL':'/dev/null'})
 catalog=json.loads(Path('/app/agentic_runner/codex-models.json').read_text())
@@ -75,6 +133,8 @@ if answer.exists() and answer.stat().st_size<=65536:
     Path('/work/artifacts/findings.txt').write_bytes(answer.read_bytes())
 raise SystemExit(run.returncode)
 '''
+
+PROGRAM = sandbox_proxy() + _LAUNCHER
 
 
 def program(request, *, observed_from="host_container"):
