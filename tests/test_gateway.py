@@ -678,7 +678,7 @@ async def test_line_qr_refresh_and_distinct_login_failures(system, monkeypatch):
     await asyncio.wait_for(gateway.line_task, timeout=2)
     status = (await client.get('/api/gateway/line/login')).json()
     assert status['status'] == 'qr_expired' and status['reason'] == 'qr_expired' and status['qr'] is None
-    assert 'QR 已過期' in status['message'] and 'line.example' not in status['message']
+    assert 'QR code 已過期' in status['message'] and 'line.example' not in status['message']
 
     monkeypatch.setattr('agentic_controller.gateway.LINE_QR_SECONDS', 5)
     await client.post('/api/gateway/line/login')

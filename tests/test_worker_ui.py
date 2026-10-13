@@ -85,8 +85,8 @@ def test_home_and_host_verification_show_exact_source_unknown_is_hidden(ui_page)
     job, errors, posts = mount_home_verifier_fixture(page, origin)
     section = page.locator('.worker-findings').filter(has=page.get_by_role('heading', name='測試', exact=True))
     expect(section).to_be_visible()
-    expect(section).to_contain_text('家庭現場')
-    expect(section).to_contain_text('通過')
+    expect(section).to_contain_text('家庭現場基準測試通過（12 項）。')
+    expect(section).to_contain_text('基準測試使用固定的模擬家庭，不等於你家的實際驗收。')
     verifier_screenshot(page, 'after')
     tech = page.locator('.worker-results details').filter(has=page.locator('summary', has_text='技術資料'))
     tech.locator('summary').click()
@@ -96,7 +96,9 @@ def test_home_and_host_verification_show_exact_source_unknown_is_hidden(ui_page)
     job['worker_id'] = 'host-coder'
     job['verification']['observed_from'] = 'independent_host_verifier'
     page.reload()
-    expect(section).to_contain_text('主機的獨立測試')
+    expect(section).to_contain_text('主機基準測試通過（12 項）。')
+    expect(section).to_contain_text('基準測試使用固定的模擬家庭，不等於你家的實際驗收。')
+    expect(section).not_to_contain_text('獨立測試')
     expect(section).not_to_contain_text('家庭現場')
     job['verification']['observed_from'] = 'unknown_model_claim'
     page.reload()
@@ -182,6 +184,14 @@ def test_coding_role_login_lost_reply_stop_fence_and_artifact_preview(ui_page):
         elif path.endswith('/previews'):
             assert body == {'artifact_ids': ['c' * 32]}
             value = {'id': 'd' * 32, 'state': 'ready', 'preview_urls': {str(width): f"http://127.0.0.2:8100/p/{'x' * 43}/{width}.png" for width in (1440, 768, 390)}}
+        elif path == 'host/home-worker/maintenance':
+            value = {'contract': 1, 'state': 'not_authorized', 'stage': None, 'code': None, 'enabled': False,
+                     'managed': False, 'release': {'repository': 'local', 'app': 'agentic_coder', 'version': '1.0.0'},
+                     'credential_state': 'needs_auth', 'worker_available': False, 'runtime_location': 'haos_app',
+                     'login': {'worker_id': 'home-coder', 'provider': 'codex', 'show': False,
+                               'auth_path': '/api/workers/home-coder/providers/codex/auth',
+                               'auth_poll_path': '/api/workers/home-coder/auth/{id}'},
+                     'restart_allowed': False, 'limitations': ['workspace_has_no_network']}
         else:
             raise AssertionError(path)
         route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
@@ -193,7 +203,7 @@ def test_coding_role_login_lost_reply_stop_fence_and_artifact_preview(ui_page):
     for width, height in ((1440, 900), (768, 844), (390, 844)):
         page.set_viewport_size({'width': width, 'height': height})
         page.evaluate('window.scrollTo(0,0)')
-        box = page.get_by_role('button', name='開始調查', exact=True).bounding_box()
+        box = page.get_by_role('button', name='登入 Codex 開發助手', exact=True).bounding_box()
         assert box and box['y'] >= 0 and box['y'] + box['height'] <= height, (width, box)
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     page.set_viewport_size({'width': 1440, 'height': 900})
@@ -207,10 +217,11 @@ def test_coding_role_login_lost_reply_stop_fence_and_artifact_preview(ui_page):
     auth['url'] = 'https://unexpected.example/collect'
     expect(page.get_by_role('link', name='開啟登入頁')).to_have_count(0)
     page.get_by_role('button', name='取消登入').click()
+    page.get_by_role('button', name='重新登入', exact=True).click()
     page.get_by_label('開發助手登入方式').select_option('api_key')
     page.get_by_label('開發助手 API key').fill('synthetic-private-coding-key')
     page.get_by_role('button', name='登入 Codex 開發助手').click()
-    page.get_by_role('heading', name='已登入 Codex').wait_for()
+    page.get_by_text('已登入 Codex', exact=True).wait_for()
     assert 'synthetic-private-coding-key' not in page.evaluate('JSON.stringify({s:{...sessionStorage},l:{...localStorage}})')
     assert all('synthetic-private-coding-key' not in url for url in urls)
     page.get_by_label('要調查或改善什麼？', exact=True).fill('調查手機上的按鈕')
@@ -246,7 +257,7 @@ def test_coding_role_login_lost_reply_stop_fence_and_artifact_preview(ui_page):
     expect(page.get_by_role('radio', name='家庭現場', exact=True)).to_be_checked()
     page.get_by_label('要調查或改善什麼？', exact=True).fill('調查家庭現況')
     expect(page.get_by_role('button', name='開始修正與測試', exact=True)).to_be_disabled()
-    expect(page.get_by_text('尚未連接', exact=True)).to_be_visible()
+    expect(page.locator('.worker-readiness')).to_contain_text('尚未啟用')
     assert not errors
 
 

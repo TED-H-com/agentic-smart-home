@@ -4,6 +4,8 @@ import {Button,Notice} from './ui';
 import type {View} from './setup';
 
 type Entry = {contract_version:1;state:'ready'|'setup'|'unavailable'|'unsupported';native_path:'/';reason_code:string|null};
+const signedCoding=(state?:string)=>['configured','inference_verified','connected'].includes(state||'');
+function codingSkipped(){try{return localStorage.getItem('agentic-skip-coding-login')==='1'}catch{return false}}
 
 async function readEntry():Promise<Entry>{
   const value=await api('host/home-entry');
@@ -14,9 +16,21 @@ async function readEntry():Promise<Entry>{
 }
 
 export function HomeEntry({automatic=false,completion=false,navigate}:{automatic?:boolean;completion?:boolean;navigate:(view:View)=>void}){
-  const [entry,setEntry]=useState<Entry|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(true);
+  const [entry,setEntry]=useState<Entry|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(true),[codingPrompt,setCodingPrompt]=useState(false);
   const initial=useRef<Promise<Entry>|null>(null),autoAllowed=useRef<boolean|null>(null);
   const navigateRef=useRef(navigate);navigateRef.current=navigate;
+  useEffect(()=>{
+    if(!completion||codingSkipped()){setCodingPrompt(false);return}
+    let alive=true;
+    api('workers').then(value=>{
+      if(!alive)return;
+      const worker=Array.isArray(value?.workers)?value.workers.find((item:any)=>item?.worker_id==='host-coder'):null;
+      const provider=Array.isArray(worker?.providers)?worker.providers.find((item:any)=>item?.id==='codex'):null;
+      const state=provider?.credential_state;
+      setCodingPrompt(worker?.available===true&&typeof state==='string'&&!signedCoding(state));
+    }).catch(()=>{if(alive)setCodingPrompt(false)});
+    return()=>{alive=false};
+  },[completion]);
   useEffect(()=>{
     let alive=true;
     if(!automatic)autoAllowed.current=false;
@@ -52,5 +66,6 @@ export function HomeEntry({automatic=false,completion=false,navigate}:{automatic
       {rescue&&<button type="button" className="text-button" onClick={()=>navigate('host')}>主機維護</button>}
       {!busy&&!ready&&<button type="button" className="text-button" onClick={retry}>重新檢查</button>}
     </div>
+    {codingPrompt&&<div className="coding-login-prompt" role="status"><span>開發助手尚未登入</span><button type="button" className="text-button" onClick={()=>navigate('workers')}>登入開發助手</button><button type="button" className="text-button" onClick={()=>{try{localStorage.setItem('agentic-skip-coding-login','1')}catch{/* storage unavailable */}setCodingPrompt(false)}}>略過</button></div>}
   </section>
 }

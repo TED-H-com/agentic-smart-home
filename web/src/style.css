@@ -72,7 +72,7 @@ main{min-width:0}
 .task-row p{font-size:var(--xs);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .status{display:inline-flex;align-items:center;font-size:var(--xs);font-weight:500;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:2px var(--s2);white-space:nowrap}
 .s-connected,.s-succeeded{color:var(--accent);background:var(--accent-soft);border-color:transparent}
-.s-awaiting_approval,.s-verifying,.s-awaiting_user,.s-needs_reauth,.s-waiting_for_user,.s-pending,.s-checking{color:var(--warning);background:var(--warning-bg);border-color:transparent}
+.s-awaiting_approval,.s-verifying,.s-awaiting_user,.s-needs_reauth,.s-retry_later,.s-waiting_for_user,.s-pending,.s-checking{color:var(--warning);background:var(--warning-bg);border-color:transparent}
 .s-failed,.s-needs_reconcile,.s-unavailable{color:var(--error);background:var(--error-bg);border-color:transparent}
 .task-detail{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:var(--s6)}
 .task-detail>h2{font-size:18px;overflow-wrap:anywhere}
@@ -512,7 +512,7 @@ main:focus{outline:none}
 .worker-request textarea{min-height:120px}
 .worker-readiness{font-size:var(--sm);color:var(--muted);margin-block:var(--s3)}
 .worker-readiness small{display:block;overflow-wrap:anywhere}
-.coding-login{margin-top:var(--s6);border-top:1px solid var(--line);padding-top:var(--s6)}
+.coding-login{margin-bottom:var(--s4);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:var(--s6)}
 .coding-login>.helper-text{margin-block:var(--s2) var(--s4)}
 .worker-results{border-left:1px solid var(--line);padding-left:var(--s8)}
 .worker-goal{margin-block:var(--s4) var(--s2);overflow-wrap:anywhere}
@@ -640,6 +640,8 @@ main:focus{outline:none}
 .bridge-maintenance>p,.bridge-maintenance>.row-actions,.bridge-maintenance>.notice,.bridge-maintenance>details{margin-block:var(--s4)}
 
 /* ==== 1.0 shell, navigation, settings, home entry ==== */
+.coding-login-prompt{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);min-height:44px;margin-top:var(--s4);padding-top:var(--s3);border-top:1px solid var(--line)}
+.coding-login-prompt>span{font-size:var(--sm);color:var(--ink)}
 .sidebar-inner{position:sticky;top:0;height:100vh;height:100dvh;display:flex;flex-direction:column;width:100%;padding:var(--s8) var(--s6);overflow:auto}
 .sidebar{padding:0}
 .sidebar nav{margin-top:0}
@@ -703,6 +705,15 @@ main:focus{outline:none}
 }
 
 /* ==== 1.0 onboarding, accounts, channels ==== */
+.recovery-line{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);margin:var(--s3) 0}
+.recovery-line p{margin:0;flex:1 1 12rem;min-width:0;overflow-wrap:anywhere}
+.reason-code{display:block;margin-top:var(--s1);color:var(--muted);font-size:var(--xs);font-weight:400}
+.line-login .reason-code,.recovery-line .reason-code{overflow-wrap:anywhere}
+@media(max-width:800px){
+  .hermes-panel input,.hermes-panel textarea,.channel-settings input,.channel-settings textarea,.bootstrap input,.bootstrap textarea,.provider input,.provider textarea{font-size:16px}
+  .recovery-line{align-items:stretch}
+  .recovery-line button,.recovery-line .button{width:100%}
+}
 .bootstrap-steps>li{position:relative;flex-direction:column;align-items:center;text-align:center;gap:var(--s1);min-width:0;padding:var(--s2) 0}
 .bootstrap-steps .step-dot{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center;background:var(--bg);font-size:var(--xs);line-height:1;flex-shrink:0}
 .bootstrap-steps>li[aria-current] .step-dot{background:var(--accent);color:var(--surface);border-color:var(--accent)}
@@ -734,6 +745,12 @@ main:focus{outline:none}
 }
 
 /* ==== 1.0 conversation, case, sidebar bridge ==== */
+.device-label{font-weight:650;overflow-wrap:anywhere}
+.proposal-summary,.rule-step,.task-detail{overflow-wrap:anywhere;min-width:0}
+.chat-reply .assistant-answer .row-actions{max-width:100%}
+@media(max-width:800px){
+  .task-detail input,.task-detail textarea,.assistant-composer textarea{font-size:16px}
+}
 .assistant-messages{display:flex;flex-direction:column;gap:var(--s4)}
 .chat-turn{padding:0}
 .assistant-question{margin-bottom:var(--s1)}
@@ -782,6 +799,17 @@ main:focus{outline:none}
 }
 
 /* ==== 1.0 host, maintenance, workers ==== */
+.home-worker{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:var(--s6);margin-bottom:var(--s4)}
+.home-worker>.section-heading{margin-bottom:var(--s2)}
+.home-worker>p{font-size:var(--sm)}
+.home-worker>.helper-text{margin-top:var(--s2)}
+.home-worker>button,.home-worker>.external-link{margin-top:var(--s3)}
+.coding-signed{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s2);min-height:44px;margin-top:var(--s3)}
+.home-worker-more{margin-top:var(--s3)}
+@media(max-width:520px){
+  .home-worker,.coding-login{padding:var(--s4)}
+  .home-worker>button,.coding-login form>button{width:100%}
+}
 .vm-spec{margin:0 0 var(--s3);color:var(--muted);font-size:var(--sm)}
 .vm-actions{align-items:center}
 .host-agent>div>p,.host-agent-login{color:var(--muted);font-size:var(--sm)}
@@ -800,7 +828,7 @@ main:focus{outline:none}
 .update-review{margin-top:var(--s4)}
 @media(max-width:520px){
   .host-overview{flex-direction:column;align-items:stretch;gap:var(--s3);padding:var(--s4)}
-  .host-overview dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s2);width:100%}
+  .host-overview dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2);width:100%}
   .host-overview dd{white-space:normal;font-size:var(--sm)}
   .host-page .settings-section{padding-bottom:var(--s4);margin-bottom:var(--s4)}
   .vm-actions>button:not(.text-button){flex:1 1 auto}

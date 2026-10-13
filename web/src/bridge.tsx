@@ -12,7 +12,7 @@ function BridgeTask({id,visible}:{id:string;visible:boolean}) {
   const [task,setTask]=useState<Task|null>(null),[error,setError]=useState('');
   const refresh=useCallback(async()=>{const value=await api(`tasks/${id}`);if(value.id!==id)throw new Error('提案與目前連結不符，請重新讀取。');setTask(value);setError('')},[id]);
   useEffect(()=>{if(!visible)return;let active=true;let timer:ReturnType<typeof setTimeout>;async function poll(){try{await refresh()}catch(e){if(active)setError((e as Error).message)}if(active)timer=setTimeout(poll,2500)}poll();return()=>{active=false;clearTimeout(timer)}},[visible,refresh]);
-  return <section hidden={!visible} aria-label="家庭提案"><div className="bridge-back"><a className="button secondary" href="#gateway">← 回到對話</a></div>{error&&<Notice error>{error}<Button secondary onClick={()=>refresh().catch(e=>setError(e.message))}>重新讀取提案</Button></Notice>}{task&&<div hidden={!!error}><TaskDetail task={task} onChange={()=>refresh().catch(e=>setError(e.message))}/></div>}{!task&&!error&&<p role="status">正在讀取提案…</p>}</section>
+  return <section hidden={!visible} aria-label="家庭提案"><div className="bridge-back"><a className="button secondary" href="#gateway">← 回到對話</a></div>{error&&<Notice error>{error}<Button secondary onClick={()=>refresh().catch(e=>setError(e.message))}>重新讀取提案</Button></Notice>}{task&&<div hidden={!!error}><TaskDetail bridge task={task} onChange={()=>refresh().catch(e=>setError(e.message))}/></div>}{!task&&!error&&<p role="status">正在讀取提案…</p>}</section>
 }
 function BridgeConversation({identity,active}:{identity:ConversationSession;active:boolean}) {
   const [selected,setSelected]=useState(taskFromHash),[visited,setVisited]=useState<string[]>(()=>{const id=taskFromHash();return id?[id]:[]});
