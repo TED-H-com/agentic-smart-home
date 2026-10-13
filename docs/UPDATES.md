@@ -27,7 +27,7 @@ sudo agentic-home update-publisher-add --publisher example --repository ghcr.io/
 
 固定 updater 停止 Controller，核對沒有活動／未確認的 household、Hermes、worker 工作、lease 或尚未核對的 Supervisor App 操作，保存 SQLite 一致快照。候選在無家庭資料的結構性 DB 與隔離 probe 中檢查；正式切換受 updater gate 保護，不能在健康檢查途中透過 Web 恢復 AI 或派新工作。
 
-啟動後實際驗證 HTTP、Owner session、版本、HA／Runner 與 pause 狀態。失敗時切回前 image；較晚發現問題時，「選擇退回前一版本」產生新的精確批准。退版保留目前 Live DB，不能拿部署前備份蓋掉新家庭操作。schema 或其他 runtime 已改變時拒絕同格式退版；狀態不確定時保留 `needs_reconcile`。
+啟動後實際驗證 HTTP、Owner session、版本、HA／Runner 與 pause 狀態。失敗時切回前 image；較晚發現問題時，「退回前一版本」產生新的精確批准。退版保留目前 Live DB，不能拿部署前備份蓋掉新家庭操作。schema 或其他 runtime 已改變時拒絕同格式退版；狀態不確定時保留 `needs_reconcile`。
 
 固定 updater 的 mode-0600 SQLite 快照包含部署時的完整 Controller DB，按目前 `audit_days`（預設 30 天；待同步的較短設定也生效）於啟動、維護狀態讀取及每 15 秒背景檢查清除。`deploying`、`rolling_back` 或 `needs_reconcile` 的復原快照保留到狀態解除；無法安全讀取政策時先保留並重試。資料庫遷移快照也採稽核保存期限。此清理不刪 image，不以舊快照覆蓋 Live DB；自行匯出的備份需另行管理。
 

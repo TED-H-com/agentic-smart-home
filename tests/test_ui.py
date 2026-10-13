@@ -89,7 +89,7 @@ def test_browser_approval_and_responsive_layout(intent):
                 assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), f"Overflow at {width}"
                 page.screenshot(path=str(evidence / f"workbench-{width}.png"), full_page=True)
             page.get_by_role("button", name="批准並執行").click()
-            page.get_by_role("button", name="執行 helper 測試").wait_for()
+            page.get_by_role("button", name="試一次這條規則").wait_for()
             assert len([p for p, _, _ in requests if p.endswith("/approve")]) == 1
             click_navigation(page, '設備與權限')
             page.get_by_role("checkbox", name=f"分享 {SOURCE}").check()
@@ -102,7 +102,8 @@ def test_browser_approval_and_responsive_layout(intent):
             page.get_by_role("button", name="儲存修改", exact=True).click()
             page.get_by_role("status").filter(has_text="設備授權已儲存").wait_for()
             click_navigation(page, '連線與設定')
-            page.get_by_role("heading", name="登入你的 Agent").wait_for()
+            page.get_by_role("heading", name="登入 AI 帳號").wait_for()
+            assert page.locator('footer').count() == 0
             assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
             page.screenshot(path=str(evidence / "settings-390.png"), full_page=True)
             assert not errors, errors
@@ -164,14 +165,29 @@ def test_host_login_offline_management_and_responsive_layout():
             page.get_by_role('button', name='開啟管理中心').click()
             page.get_by_role('region', name='開始使用').wait_for()
             click_navigation(page, 'Linux 主機')
-            page.get_by_role('heading', name='Home Assistant OS', exact=True).wait_for()
+            page.get_by_role('heading', name='家庭系統', exact=True).wait_for()
             assert page.get_by_role('button', name='正常關機', exact=True).is_disabled()
+            expect(page.get_by_role('button', name='家庭未連線')).to_be_visible()
+            assert page.locator('footer').count() == 0
+            assert page.get_by_text('家庭控制中心').count() == 0
             for width in (1440, 768, 390):
-                page.set_viewport_size({'width': width, 'height': 900 if width == 1440 else 844})
+                height = 900 if width == 1440 else 844
+                page.set_viewport_size({'width': width, 'height': height})
+                page.evaluate('window.scrollTo(0,0)')
                 page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
                 assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+                start = page.get_by_role('button', name='啟動', exact=True).bounding_box()
+                assert start and start['y'] >= 0 and start['y'] + start['height'] <= height, (width, start)
                 page.screenshot(path=str(root / f'evidence/ui/native-home/host-{width}.png'), full_page=True)
-            page.get_by_role('button', name='啟動 HAOS', exact=True).click()
+            toggle = page.get_by_role('button', name='選單', exact=True)
+            toggle.click()
+            expect(page.get_by_role('button', name='收起選單', exact=True)).to_have_attribute('aria-expanded', 'true')
+            expect(page.get_by_role('navigation', name='主選單').get_by_role('button', name='登出', exact=True)).to_have_count(0)
+            expect(page.get_by_role('button', name='登出', exact=True)).to_be_visible()
+            page.keyboard.press('Escape')
+            expect(page.get_by_role('button', name='選單', exact=True)).to_have_attribute('aria-expanded', 'false')
+            expect(toggle).to_be_focused()
+            page.get_by_role('button', name='啟動', exact=True).click()
             page.get_by_role('status').filter(has_text='操作已交給主機處理').wait_for()
             assert actions == [{'action': 'start', 'snapshot': None}]
             assert not errors, errors
@@ -191,12 +207,14 @@ def test_setup_links_session_recovery_and_login_resume():
     authenticated, connected, agent_connected = True, False, False
     expire = False
     hold_old_task = False
+    paused = False
     pending = []
+    pause_calls = []
     auth_starts = 0
     errors = []
 
     def route(route):
-        nonlocal authenticated, connected, agent_connected, expire, auth_starts, hold_old_task
+        nonlocal authenticated, connected, agent_connected, expire, auth_starts, hold_old_task, paused
         path = route.request.url.split('/api/')[1]
         if hold_old_task and path == 'tasks':
             hold_old_task = False
@@ -215,9 +233,17 @@ def test_setup_links_session_recovery_and_login_resume():
             authenticated = True
             result = {'authenticated':True}
         elif path == 'status':
-            result = {'version':'0.5.1','ha':{'status':'connected' if connected else 'unavailable', 'location_name':'介面測試家庭'},
+            result = {'version':'0.5.1','paused':paused,'ha':{'status':'connected' if connected else 'unavailable', 'location_name':'介面測試家庭'},
                       'runner':{'protocol':1,'providers':[{'provider':'codex','status':'connected' if agent_connected else 'needs_reauth'}]},
                       'onboarding':{'policy_confirmed':False},'policy_entities':0}
+        elif path == 'pause':
+            body = route.request.post_data_json
+            assert route.request.headers.get('x-agentic-csrf') == 'connected-csrf'
+            assert route.request.headers.get('idempotency-key')
+            assert body in ({'paused': True}, {'paused': False})
+            pause_calls.append(body)
+            paused = body['paused']
+            result = {'paused': paused}
         elif path == 'tasks':
             result = {'tasks':[]}
         elif path == 'host/status':
@@ -273,23 +299,37 @@ def test_setup_links_session_recovery_and_login_resume():
             click_navigation(page, 'Linux 主機')
             assert page.get_by_role('link', name='開啟 Home Assistant').get_attribute('href') == 'http://127.0.0.1:8123/'
             assert page.get_by_role('link', name='個人資料 → 安全性').get_attribute('href') == 'http://127.0.0.1:8123/profile/security'
-            page.get_by_label('HA owner 權杖').fill('fixture-owner-token')
+            page.get_by_label('家庭權杖').fill('fixture-owner-token')
             page.get_by_role('button', name='驗證並連接').click()
-            page.get_by_role('button', name='設定 Agent →', exact=True).wait_for()
-            page.get_by_role('button', name='設定 Agent →', exact=True).click()
+            page.get_by_role('status').filter(has_text='家庭已連接').wait_for()
+            page.get_by_role('button', name='登入 AI 帳號 →', exact=True).click()
             hub = page.get_by_role('navigation', name='設定入口')
             expect(hub.get_by_role('link')).to_have_count(6)
-            assert hub.get_by_role('link', name='通訊入口').get_attribute('href') == '#gateway/channels'
+            for link, label, href in zip(hub.get_by_role('link').all(),
+                    ['AI 帳號', '通訊', '開發助手', '主機維護', '家庭提案', '初次設定'],
+                    ['#agents', '#gateway/channels', '#workers', '#host', '#home', '#onboarding'], strict=True):
+                assert link.inner_text().startswith(label)
+                assert link.get_attribute('href') == href
+            expect(hub.get_by_role('link', name='AI 帳號')).to_contain_text('尚未登入')
+            expect(page.get_by_role('heading', name='AI 助手', exact=True)).to_be_visible()
+            expect(page.get_by_text('Agentic Home 0.5.1', exact=True)).to_be_visible()
+            assert page.locator('footer').count() == 0
             for width in (1440,768,390):
                 page.set_viewport_size({'width':width,'height':900 if width==1440 else 844})
                 page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
                 page.screenshot(path=str(root/f'evidence/ui/native-home/settings-host-{width}.png'), full_page=True)
-            hub.get_by_role('link', name='助手帳號').click()
-            runtime = page.get_by_role('region', name='Agent 執行環境', exact=True)
-            runtime.get_by_role('heading', name='登入外層 Agent', exact=True).wait_for()
+            page.get_by_role('button', name='暫停 AI', exact=True).click()
+            expect(page.get_by_text('已暫停', exact=True)).to_be_visible()
+            page.get_by_role('button', name='AI 已暫停 · 恢復', exact=True).click()
+            expect(page.get_by_role('button', name='暫停 AI', exact=True)).to_be_visible()
+            expect(page.get_by_text('運作中', exact=True)).to_be_visible()
+            assert pause_calls == [{'paused': True}, {'paused': False}]
+            hub.get_by_role('link', name='AI 帳號').click()
+            runtime = page.get_by_role('region', name='開發助手帳號', exact=True)
+            runtime.get_by_role('heading', name='主機的 AI 帳號', exact=True).wait_for()
             codex = runtime.locator('article').filter(has=page.get_by_role('heading', name='Codex', exact=True))
-            codex.get_by_role('button', name='開始官方登入', exact=True).click()
+            codex.get_by_role('button', name='開始登入', exact=True).click()
             page.get_by_text('ABCD-1234', exact=True).wait_for()
             click_navigation(page, '工作台')
             click_navigation(page, 'Agent 環境')
@@ -309,14 +349,14 @@ def test_setup_links_session_recovery_and_login_resume():
             expect(backup).to_be_visible()
             assert backup.get_attribute('href') == 'http://127.0.0.1:8123/config/backup/overview'
             click_navigation(page, '家庭自動化')
-            assert page.get_by_role('link', name='開啟 HA 原生自動化').get_attribute('href') == 'http://127.0.0.1:8123/config/automation/dashboard'
+            assert page.get_by_role('link', name='開啟家庭自動化').get_attribute('href') == 'http://127.0.0.1:8123/config/automation/dashboard'
             page.reload()
             page.get_by_role('heading', name='自動化', exact=True).wait_for()
             click_navigation(page, '工作台')
             page.get_by_label('家庭需求').fill('這段尚未送出的需求需要保留')
             expire = True
             hold_old_task = True
-            page.get_by_role('heading', name='歡迎回來').wait_for(timeout=20000)
+            page.get_by_text('登入已到期，重新登入後會回到剛才的頁面。', exact=True).wait_for(timeout=20000)
             page.get_by_label('主機登入金鑰').fill('fixture-local-machine-key')
             page.get_by_role('button', name='開啟管理中心').click()
             page.get_by_label('家庭需求').wait_for()
@@ -354,7 +394,7 @@ def test_bootstrap_failure_shows_retry_without_guessing_deployment():
             page = browser.new_page()
             page.route('**/api/deployment', route)
             page.goto(f'http://127.0.0.1:{server.server_port}/#home')
-            page.get_by_role('heading', name='管理中心尚未回應').wait_for()
+            page.get_by_role('heading', name='服務尚未回應').wait_for()
             retry = True
             page.get_by_role('button', name='重試連線').click()
             page.get_by_label('主機登入金鑰').wait_for()

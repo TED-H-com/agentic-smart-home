@@ -5,7 +5,7 @@ export const timestamp = (date?:string) => date ? new Date(date).toLocaleString(
 export function Status({value}:{value:string}) {return <span className={`status s-${value}`}>{labels[value] || value}</span>}
 export function Notice({children, error=false}:{children:React.ReactNode; error?:boolean}) {return <div role={error?'alert':'status'} className={`notice ${error?'error':''}`}>{children}</div>}
 export function Button({children, secondary=false, danger=false, ...props}:React.ButtonHTMLAttributes<HTMLButtonElement>&{secondary?:boolean;danger?:boolean}) {return <button {...props} className={`${secondary?'secondary':''} ${danger?'danger':''} ${props.className||''}`}>{children}</button>}
-export function Empty({title, children}:{title:string;children:React.ReactNode}) {return <div className="empty"><span className="empty-rule"/><h3>{title}</h3><p>{children}</p></div>}
+export function Empty({title, children, action}:{title:string;children:React.ReactNode;action?:React.ReactNode}) {return <div className="empty"><span className="empty-rule"/><h3>{title}</h3><p>{children}</p>{action&&<div className="empty-action">{action}</div>}</div>}
 
 export function CopyButton({text,children='複製'}:{text:string;children?:ReactNode}) {
   const [message,setMessage]=useState('');
