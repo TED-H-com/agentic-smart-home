@@ -209,7 +209,7 @@ _AUTH_TOKENS = ("unauthorized", "authentication", "invalid api key", "relogin")
 _RATE_TOKENS = ("quota", "rate limit", "rate_limit", "too many requests", "insufficient_quota")
 _TIMEOUT_TOKENS = ("timeout", "timed out", "deadline")
 _PROVIDER_TOKENS = ("bad gateway", "service unavailable", "connection", "network")
-_STATUS = re.compile(r"(?<![\d.])(401|403|408|429|500|502|503|504)(?![\d.])")
+_STATUS = re.compile(r"(?<![A-Za-z0-9_.])(401|403|408|429|500|502|503|504)(?![A-Za-z0-9_.])")
 
 
 def classify_provider_failure(reason):

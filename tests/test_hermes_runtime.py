@@ -951,6 +951,7 @@ async def test_turn_timeout_does_not_become_runtime_unavailable(client, runtime,
     ("upstream returned 503", "provider_unavailable"),
     ("gateway 504", "timeout"),
     ("version 1.403.2", "inference_failed"),
+    ("model error, request req_8a401b trace 0a5030c", "inference_failed"),
 ])
 def test_provider_failure_status_numbers_must_stand_alone(text, code):
     from agentic_hermes.upstream import classify_provider_failure
@@ -961,3 +962,4 @@ def test_stderr_429_needs_a_standalone_status():
     from agentic_hermes.oauth import reason_from_stderr
     assert reason_from_stderr(b"HTTP 429 Too Many Requests") == "slow_down"
     assert reason_from_stderr(b"started at 1714290001") is None
+    assert reason_from_stderr(b"device session a429f1 closed") is None
