@@ -126,6 +126,31 @@ def recv_rest(sock, timeout=2):
     return data
 
 
+def recv_request(conn):
+    """Read one whole request, body included, as the real relay does before it answers.
+
+    http.client sends the head and the body separately. Answering after the head alone
+    races the body write and the proxy reports 502.
+    """
+    data = b""
+    while b"\r\n\r\n" not in data:
+        part = conn.recv(65536)
+        if not part:
+            return data
+        data += part
+    head, _, rest = data.partition(b"\r\n\r\n")
+    length = 0
+    for line in head.split(b"\r\n")[1:]:
+        name, _, value = line.partition(b":")
+        if name.strip().lower() == b"content-length":
+            length = int(value)
+    while len(rest) < length:
+        part = conn.recv(65536)
+        if not part:
+            break
+        rest += part
+    return head + b"\r\n\r\n" + rest
+
 def patch_chown(monkeypatch):
     monkeypatch.setattr(os, "chown", lambda *args, **kwargs: None)
 
@@ -206,10 +231,8 @@ def test_proxy_forwards_incrementally_and_idle_timeout_fires(tmp_path):
         server.settimeout(5)
         conn, _ = server.accept()
         try:
-            data = b""
             conn.settimeout(2)
-            while b"\r\n\r\n" not in data:
-                data += conn.recv(65536)
+            data = recv_request(conn)
             assert b"Authorization" not in data and LEAK.encode() not in data
             head = (b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: "
                     + str(len(body)).encode() + b"\r\nConnection: close\r\n\r\n")
@@ -1151,11 +1174,8 @@ def test_sandbox_proxy_forwards_allowlisted_headers_both_ways(tmp_path):
         server.settimeout(5)
         conn, _ = server.accept()
         try:
-            data = b""
             conn.settimeout(2)
-            while b"\r\n\r\n" not in data:
-                data += conn.recv(65536)
-            seen.append(data)
+            seen.append(recv_request(conn))
             body = b"data: ok\n\n"
             head = (b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n"
                     b"X-Codex-Turn-State: ts-1\r\nSet-Cookie: session=secret\r\nX-Evil: nope\r\nContent-Length: "

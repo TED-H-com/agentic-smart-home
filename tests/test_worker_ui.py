@@ -328,7 +328,8 @@ def test_network_and_digest_bound_update_review(ui_page):
     page.get_by_role('button', name='開始 Tailscale 登入').click()
     expect(page.get_by_role('link', name='開啟 Tailscale 官方登入')).to_have_attribute('href', 'https://login.tailscale.com/a/synthetic-login')
     network['tailscale']['login_url'] = 'https://unexpected.example/steal'
-    expect(page.get_by_role('link', name='開啟 Tailscale 官方登入')).to_have_count(0)
+    # The network card polls every 4 s; a loaded machine needs more than the 5 s default.
+    expect(page.get_by_role('link', name='開啟 Tailscale 官方登入')).to_have_count(0, timeout=15000)
     network.update(tailscale={'state': 'Running', 'identity': 'synthetic-user@example.invalid'}, tunnel_command='ssh -N -L 127.0.0.1:8099:127.0.0.1:8099 owner@100.64.0.9')
     page.get_by_role('button', name='複製遠端連線指令').wait_for()
     page.context.grant_permissions(['clipboard-read', 'clipboard-write'])

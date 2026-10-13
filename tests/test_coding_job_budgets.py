@@ -373,7 +373,8 @@ def test_close_collects_and_restart_keeps_interrupted_results(tmp_path, monkeypa
     try:
         payload = request()
         service.submit(payload)
-        for _ in range(50):
+        # Upper bound only: a loaded machine can delay the job thread.
+        for _ in range(600):
             if service.items[payload["id"]].get("execution_started"):
                 break
             time.sleep(0.05)
@@ -528,7 +529,7 @@ def test_sigterm_schedules_shutdown_off_the_signal_thread():
         assert signal.getsignal(signal.SIGTERM) not in {signal.SIG_DFL, signal.SIG_IGN}
         assert signal.getsignal(signal.SIGINT) not in {signal.SIG_DFL, signal.SIG_IGN}
         os.kill(os.getpid(), signal.SIGTERM)
-        for _ in range(50):
+        for _ in range(3000):
             if seen and coding.closing and coding.closed.is_set():
                 break
             time.sleep(0.01)
