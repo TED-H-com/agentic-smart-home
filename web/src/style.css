@@ -410,7 +410,7 @@ main:focus{outline:none}
 .bootstrap-log code,.bootstrap-log small{grid-column:1/-1}
 .bootstrap-manual{margin-top:var(--s6);border-top:1px solid var(--line);padding-top:var(--s4)}
 .bootstrap-manual>.onboarding{margin-top:var(--s6)}
-.bootstrap section[aria-label="Home Assistant 原生設定"]>.button{margin:var(--s4) 0}
+.bootstrap section[aria-label="設定家庭"]>.button{margin:var(--s4) 0}
 .bootstrap .notice button{margin-top:var(--s3)}
 @media(max-width:768px){
   .bootstrap-steps>li{flex-direction:column}
@@ -422,7 +422,7 @@ main:focus{outline:none}
 .channel-pairing{margin-block:var(--s4)}
 .channel-pairing .pairing-code{font-size:var(--body);font-weight:600;max-width:640px}
 .channel-pairing>.helper-text{margin-top:var(--s3)}
-.bootstrap section[aria-label="Home Assistant 原生設定"]>.helper-text{margin-block:var(--s4)}
+.bootstrap section[aria-label="設定家庭"]>.helper-text{margin-block:var(--s4)}
 /* Focused setup: current action first; preserve the existing product tokens. */
 .nav-toggle{display:none}
 .step-short{display:none}
@@ -640,6 +640,35 @@ main:focus{outline:none}
 /* ==== 1.0 shell, navigation, settings, home entry ==== */
 
 /* ==== 1.0 onboarding, accounts, channels ==== */
+.bootstrap-steps>li{position:relative;flex-direction:column;align-items:center;text-align:center;gap:var(--s1);min-width:0;padding:var(--s2) 0}
+.bootstrap-steps .step-dot{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center;background:var(--bg);font-size:var(--xs);line-height:1;flex-shrink:0}
+.bootstrap-steps>li[aria-current] .step-dot{background:var(--accent);color:var(--surface);border-color:var(--accent)}
+.bootstrap-steps>li.complete .step-dot{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.bootstrap-steps .step-label{font-size:var(--xs);font-weight:650;line-height:1.3;overflow-wrap:anywhere}
+.radio-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3);margin:var(--s3) 0}
+.radio-card{position:relative;display:flex;flex-direction:column;justify-content:center;gap:0;min-height:44px;margin:0;padding:var(--s2) var(--s3);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:var(--radius);font-size:var(--sm);font-weight:650;cursor:pointer;text-align:left}
+.channel-settings .radio-card{display:flex;flex-direction:column;margin-block:0}
+.radio-card.chosen,.radio-card:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.radio-card strong,.radio-card small{display:block}
+.radio-card small{font-size:var(--xs);font-weight:400;color:var(--muted);margin-top:var(--s1)}
+.radio-card input{position:absolute;opacity:0;inset:0;width:100%;height:100%;min-height:0;margin:0;padding:0;cursor:pointer}
+.channel-settings .radio-card input{display:block;max-width:none;margin-top:0;width:100%;min-height:0}
+.channel-guided .channel-options{grid-template-columns:repeat(4,minmax(0,1fr))}
+.runtime-tabs button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.auth-code .code-row{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s3)}
+.auth-code .code-row strong{margin:0}
+.line-login.has-qr{display:flex;flex-direction:column;align-items:center;text-align:center}
+.line-pin{font-size:var(--h1);letter-spacing:.08em}
+.pairing-command>span{font-size:var(--xs);color:var(--muted)}
+@media(max-width:800px){
+  .channel-guided .channel-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .channel-guided .channel-option small{display:block}
+  .bootstrap .channel-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+  .bootstrap-steps .step-label-quiet{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .line-login.has-qr>img{align-self:center}
+}
 
 /* ==== 1.0 conversation, case, sidebar bridge ==== */
 
