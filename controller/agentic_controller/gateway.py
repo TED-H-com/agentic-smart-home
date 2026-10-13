@@ -10,6 +10,7 @@ import secrets
 import threading
 import time
 import uuid
+import weakref
 from pathlib import Path
 from typing import Literal
 
@@ -87,7 +88,8 @@ class Gateway:
         self.bridge_valid = lambda item: True
         self.pairing_lock, self.pairing_timers = asyncio.Lock(), {}
         self.reasons, self.channel_messages = {}, {}
-        self._submit_locks, self._submit_guard, self._loop = {}, threading.Lock(), None
+        # A thread lock lives only while a submit holds it, so unique message IDs do not accumulate.
+        self._submit_locks, self._submit_guard, self._loop = weakref.WeakValueDictionary(), threading.Lock(), None
 
     def preferences(self):
         return GatewayPreferences.model_validate(self.store.setting("gateway", {}))

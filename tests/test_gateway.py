@@ -876,6 +876,7 @@ async def test_concurrent_submits_share_one_thread_and_one_execution(system):
             await asyncio.sleep(0)
         assert not errors and same[0]['id'] == same[1]['id']
         assert executed.count(same[0]['id']) == 1
+        assert len(gateway._submit_locks) == 0
     finally:
         gateway.store, gateway.execute, gateway.scope = original
 
