@@ -30,6 +30,7 @@ SOURCE_HOSTS = frozenset({"github.com", "raw.githubusercontent.com", "api.github
     "hermes-agent.nousresearch.com", "developers.openai.com", "platform.openai.com"})
 MAX_REQUEST = 2 * 1024**2
 MAX_RESPONSE = 8 * 1024**2
+MAX_CALLS = 200
 FETCH_LIMIT = 512 * 1024
 MAX_CREDENTIAL = 32768
 # Idle gap between response bytes. Codex's own stream idle limit is 300s.
@@ -680,6 +681,10 @@ class Relay:
         self.model = model
         self.connections = threading.BoundedSemaphore(2)
         self.auth_failed = False
+        self.quota_reached = False
+        self.provider_rejected = False
+        self.provider_unavailable = False
+        self.turns_exhausted = False
         if idle_timeout is None:
             self.idle_timeout = float(IDLE_TIMEOUT)
         elif isinstance(idle_timeout, bool) or not isinstance(idle_timeout, (int, float)) or idle_timeout <= 0:
@@ -828,7 +833,10 @@ class Relay:
 
     def request(self, method, path, body):
         with self.lock:
-            if time.time() >= self.deadline or self.stopped.is_set() or self.calls >= 80:
+            if self.calls >= MAX_CALLS:
+                self.turns_exhausted = True
+                raise SandboxError("Relay authorization expired or exhausted")
+            if time.time() >= self.deadline or self.stopped.is_set():
                 raise SandboxError("Relay authorization expired or exhausted")
             self.calls += 1
         if method == "POST" and path == "/v1/responses":
@@ -881,6 +889,12 @@ class Relay:
                 response = self._exchange(host, target, payload, request_headers, MAX_RESPONSE)
             if response.status in {401, 403}:
                 self.auth_failed = True
+            elif response.status == 429:
+                self.quota_reached = True
+            elif 400 <= response.status <= 499:
+                self.provider_rejected = True
+            elif 500 <= response.status <= 599:
+                self.provider_unavailable = True
             return response
         query = urlsplit(path)
         if method == "GET" and query.path == "/fetch":

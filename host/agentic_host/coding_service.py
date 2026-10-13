@@ -30,7 +30,7 @@ LEDGER_STATES = TERMINAL | {"queued", "launching", "running", "stop_unconfirmed"
 ARTIFACT_LIMIT = 180 * 1024
 # Phase budgets are monotonic and do not extend Owner authorization (`expires`).
 SETUP_BUDGET_SECONDS = 300
-EXECUTION_BUDGET_SECONDS = 300
+EXECUTION_BUDGET_SECONDS = 840
 VERIFICATION_BUDGET_SECONDS = 300
 SHUTDOWN_BUDGET_SECONDS = 20
 # Same ceiling as HostSession.verify: 12h owner cookie plus 60s skew. Not a longer grant.
@@ -213,7 +213,7 @@ class CodingService:
         while not self.closed.wait(60):
             try:
                 self.prune()
-            except (OSError, ValueError, SandboxError):
+            except (OSError, ValueError, KeyError, TypeError, SandboxError):
                 pass
 
     def persist(self):
@@ -224,7 +224,8 @@ class CodingService:
             raise SandboxError("Pinned runner image unavailable")
         return self.sandbox_factory(self.root / "work", self.image, {"agentic-home": self.source},
                              limits=limits or Limits(disk_mib=512, memory_mib=768, pids=128,
-                                           wall_seconds=EXECUTION_BUDGET_SECONDS,
+                                           # 60s after the broker deadline, so the container KILL is not the timeout.
+                                           wall_seconds=EXECUTION_BUDGET_SECONDS + 60,
                                            artifact_bytes=4 * 1024**2, artifact_files=14, web_artifacts=True), relay=relay, inputs=inputs)
 
     def remember_error(self, job, code):
@@ -511,6 +512,15 @@ class CodingService:
             atomic(self.root / "auth-failed.json", {"at": time.time()})
             if not job.get("error_code"):
                 job["error_code"] = "coding_needs_reauth"
+        if relay is not None and reason is None and outcome == "failed" and not job.get("error_code"):
+            if getattr(relay, "quota_reached", False):
+                self.remember_error(job, "coding_quota_reached")
+            elif getattr(relay, "turns_exhausted", False):
+                self.remember_error(job, "coding_turn_limit")
+            elif getattr(relay, "provider_rejected", False):
+                self.remember_error(job, "coding_provider_rejected")
+            elif getattr(relay, "provider_unavailable", False):
+                self.remember_error(job, "coding_provider_unavailable")
         # Status keeps a live phase while git export runs. The ledger stays non-terminal until it finishes.
         self.publish(job, live="collecting")
         patch = None
@@ -524,7 +534,7 @@ class CodingService:
             self.remember_error(job, "checkpoint_export_failed")
             if outcome == "succeeded":
                 outcome = "failed"
-        if job.get("error_code") == "patch_too_large" and outcome == "succeeded":
+        if job.get("error_code") in {"patch_too_large", "patch_not_text"} and outcome == "succeeded":
             outcome = "failed"
         job.update(state=outcome, phase=outcome, stop_confirmed=True)
         if outcome == "succeeded" and patch and reason is None:
@@ -590,18 +600,25 @@ class CodingService:
         # git add and git diff honor .gitignore, so ignored paths are neither read nor exported.
         command("git", "-c", "safe.directory=*", "-c", "core.fsmonitor=false", "-C", str(source),
                 "add", "--intent-to-add", "--all", timeout=15)
-        patch = command("git", "-c", "safe.directory=*", "-c", "core.fsmonitor=false", "-C", str(source),
-                        "diff", "--no-ext-diff", "--no-textconv", job["base_commit"], "--", timeout=15).stdout
-        patch_bytes = patch.encode()
-        if len(patch_bytes) <= ARTIFACT_LIMIT:
+        diff = command("git", "-c", "safe.directory=*", "-c", "core.fsmonitor=false", "-C", str(source),
+                       "diff", "--no-ext-diff", "--no-textconv", job["base_commit"], "--", timeout=15, text=False).stdout
+        patch = None
+        if isinstance(diff, bytes) and b"\x00" not in diff:
+            try:
+                patch = diff.decode("utf-8")
+            except UnicodeError:
+                patch = None
+        if patch is not None and len(diff) <= ARTIFACT_LIMIT:
             path = workspace / "artifacts" / "changes.patch"
             path.unlink(missing_ok=True)
             descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-            with os.fdopen(descriptor, "w") as stream:
-                stream.write(patch)
+            # The exact bytes the verifier receives. No locale encoding or newline translation.
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(diff)
         exported = sandbox.artifacts(job["id"])
         output = self.root / "artifacts" / job["id"]
         output.mkdir(parents=True, mode=0o700, exist_ok=True)
+        collected = []
         for entry in exported:
             artifact_id = hashlib.sha256((job["id"] + ":" + entry["name"]).encode()).hexdigest()[:32]
             media_type = {".html": "text/html", ".css": "text/css", ".js": "text/javascript",
@@ -610,7 +627,7 @@ class CodingService:
                 metadata = {"id": artifact_id, "job_id": job["id"], "kind": "withheld", "name": entry["name"],
                             "media_type": media_type, "sha256": entry["sha256"], "size": entry["size"]}
                 atomic(output / (artifact_id + ".json"), metadata)
-                job["artifacts"].append(metadata)
+                collected.append(metadata)
                 continue
             raw = entry.pop("content").encode()
             if len(raw) > ARTIFACT_LIMIT:
@@ -624,7 +641,8 @@ class CodingService:
             metadata = {"id": artifact_id, "job_id": job["id"], "kind": kind, "name": entry["name"],
                         "media_type": media_type, "sha256": entry["sha256"], "size": len(raw)}
             atomic(output / (artifact_id + ".json"), {**metadata, "content_base64": base64.b64encode(raw).decode()})
-            job["artifacts"].append(metadata)
+            collected.append(metadata)
+        job["artifacts"] = collected
         content = {"base_commit": job["base_commit"], "cli_version": "0.157.1", "exit_code": job.get("exit_code")}
         digest = hashlib.sha256(json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         job["evidence"] = [{"evidence_id": hashlib.sha256((job["id"] + "execution").encode()).hexdigest()[:32],
@@ -633,7 +651,13 @@ class CodingService:
             "version_refs": {**self.version_refs, "codex": "0.157.1", "source": job["base_commit"]}, "content": content,
             "content_digest": digest, "redaction": "fixed_public_fields",
             "limitations": ["No live household or deployment access", "CLI claims remain untrusted"]}]
-        if len(patch_bytes) > ARTIFACT_LIMIT:
+        if patch is None:
+            self.remember_error(job, "patch_not_text")
+            if job.get("state") == "succeeded":
+                job["state"] = "failed"
+                job["phase"] = "failed"
+            return None
+        if len(diff) > ARTIFACT_LIMIT:
             self.remember_error(job, "patch_too_large")
             if job.get("state") == "succeeded":
                 job["state"] = "failed"
@@ -641,7 +665,7 @@ class CodingService:
             return None
         if job["state"] == "succeeded":
             atomic(self.root / "inference-verified.json", {"job_id": job["id"], "at": time.time()})
-        return patch_bytes
+        return diff
 
     def web_preview_record(self, job, sandbox, verify_id, reported):
         """Attach bundle metadata after the verifier is proved stopped. Never stores paths."""
@@ -729,16 +753,25 @@ class CodingService:
                     "exit_code": result.get("exit_code"), "stop_confirmed": True, "trusted_tests": "pinned_baseline",
                     "test_command_sha256": hashlib.sha256(self.verify_program.encode()).hexdigest(), "network": "none"}
                 reported = None
+                reports = []
                 for entry in sandbox.artifacts(id):
                     aid = hashlib.sha256((id + entry["name"]).encode()).hexdigest()[:32]
                     if entry.get("kind") == "withheld" or "content" not in entry:
                         meta = {"id": aid, "job_id": job["id"], "kind": "withheld", "name": entry["name"],
                                 "media_type": "text/plain", "sha256": entry["sha256"], "size": entry["size"]}
                         atomic(self.root / "artifacts" / job["id"] / (aid + ".json"), meta)
-                        job["artifacts"].append(meta)
+                        reports.append(meta)
                         continue
                     if entry["name"] == "web-preview.json":
                         reported = entry["content"]
+                    if entry["name"] == "verification.json":
+                        try:
+                            parsed = json.loads(entry["content"])
+                        except (TypeError, ValueError):
+                            parsed = None
+                        count = parsed.get("tests_executed") if isinstance(parsed, dict) else None
+                        if type(count) is int and 0 <= count <= 1_000_000:
+                            job["verification"]["tests_executed"] = count
                     raw = entry["content"].encode()
                     if len(raw) > ARTIFACT_LIMIT:
                         continue
@@ -746,13 +779,49 @@ class CodingService:
                             "media_type": "text/plain", "sha256": entry["sha256"], "size": len(raw)}
                     atomic(self.root / "artifacts" / job["id"] / (aid + ".json"),
                            {**meta, "content_base64": base64.b64encode(raw).decode()})
-                    job["artifacts"].append(meta)
+                    reports.append(meta)
+                job["artifacts"].extend(reports)
                 job["verification"]["web_preview"] = self.web_preview_record(job, sandbox, id, reported)
             else:
                 job.update(state="stop_unconfirmed", phase="stop_unconfirmed", stop_confirmed=False)
                 self.remember_error(job, "writer_stop_unconfirmed")
             self.publish(job)
             return
+
+    def retry_stop(self, job):
+        """Retry a stop that was not confirmed. Caller holds self.lock.
+
+        Queued, launching and running jobs stay with their execute thread.
+        A confirmed stop is never recorded as succeeded and never runs verify.
+        """
+        if job.get("state") != "stop_unconfirmed":
+            return
+        thread = self.threads.get(job["id"])
+        if thread is not None and thread.is_alive():
+            return
+        sandbox = self.sandboxes.get(job["id"], self.sandbox())
+        result = sandbox.cancel(job.get("sandbox_job_id", job["id"]))
+        if not isinstance(result, dict) or result.get("state") not in TERMINAL:
+            return
+        code = job.get("error_code")
+        if code == "owner_cancelled":
+            outcome = "cancelled"
+        elif code == "broker_restarted":
+            outcome = "interrupted"
+        else:
+            outcome = "failed"
+        if not code:
+            self.remember_error(job, "writer_stop_unconfirmed")
+        sandbox_id = str(job.get("sandbox_job_id") or job["id"])
+        verification = job.get("verification")
+        if sandbox_id.endswith("-verify") and isinstance(verification, dict) and verification.get("state") == "running":
+            verification["state"] = "not_run"
+        if not sandbox_id.endswith("-verify") and not job.get("results_collected"):
+            self.preserve_stopped(job, sandbox)
+        job.update(state=outcome, phase=outcome, stop_confirmed=True)
+        if not self.results_outstanding(job):
+            self.release_workspace(job)
+        self.publish(job)
 
     def cancel(self, id, *, reason="owner_cancelled"):
         with self.lock:
@@ -771,6 +840,9 @@ class CodingService:
                     self.remember_error(job, reason)
                 self.publish(job)
                 return self.view(id)
+            if job["state"] == "stop_unconfirmed":
+                self.retry_stop(job)
+                return self.view(id)
             sandbox = self.sandboxes.get(id, self.sandbox())
             # A missing ledger or a rejected stop must surface. Callers treat that as 409, not as stopped.
             result = sandbox.cancel(job.get("sandbox_job_id", id))
@@ -785,6 +857,13 @@ class CodingService:
             for job in list(self.items.values()):
                 if days is not None:
                     job["retained_until"] = min(job["retained_until"], job["created"] + days * 86400)
+                if job.get("state") == "stop_unconfirmed":
+                    try:
+                        self.retry_stop(job)
+                    except (OSError, ValueError, KeyError, TypeError, SandboxError):
+                        # Retried on the next pass. One silent daemon or lost ledger never blocks
+                        # other jobs, new requests or retention. An explicit cancel still surfaces it.
+                        pass
                 if job.get("stop_confirmed") and self.results_outstanding(job):
                     self.preserve_stopped(job, self.sandboxes.get(job["id"], self.sandbox()))
                 if job.get("stop_confirmed") and not job.get("workspace_released") and not self.results_outstanding(job):

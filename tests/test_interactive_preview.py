@@ -62,6 +62,33 @@ REQUIRED_FIXTURES = {
 }
 
 
+def _web_touched(patch):
+    start = VERIFY_PROGRAM.index("    touched=False\n")
+    end = VERIFY_PROGRAM.index("    if code!=0 or not touched:")
+    namespace = {}
+    exec("def check(patch):\n" + VERIFY_PROGRAM[start:end] + "    return touched\n", namespace)
+    return namespace["check"](patch)
+
+
+def test_quoted_web_paths_count_as_web_changes():
+    assert _web_touched(b"diff --git a/web/src/app.tsx b/web/src/app.tsx\n")
+    assert _web_touched(b'diff --git "a/web/src/\\346\\226\\207.tsx" "b/web/src/\\346\\226\\207.tsx"\n')
+    assert _web_touched(b'--- a/web/src/app.tsx\n')
+    assert _web_touched(b'+++ b/web/src/app.tsx\n')
+    assert _web_touched(b'--- "a/web/src/app.tsx"\n')
+    assert _web_touched(b'+++ "b/web/src/app.tsx"\n')
+    assert _web_touched(b"rename from web/src/old.tsx\n")
+    assert _web_touched(b"rename to web/src/new.tsx\n")
+    assert _web_touched(b'rename from "web/src/old.tsx"\n')
+    assert _web_touched(b'rename to "web/src/new.tsx"\n')
+    assert _web_touched(b"copy from web/src/old.tsx\n")
+    assert _web_touched(b"copy to web/src/new.tsx\n")
+    assert _web_touched(b'copy from "web/src/old.tsx"\n')
+    assert _web_touched(b'copy to "web/src/new.tsx"\n')
+    assert not _web_touched(b"diff --git a/docs/web.md b/docs/web.md\n--- a/docs/web.md\n+++ b/docs/web.md\n")
+    assert not _web_touched(b"diff --git a/README b/README\n")
+
+
 def test_web_build_budget_matches_the_program_copy():
     assert web_build_step_seconds(0) == 120
     assert web_build_step_seconds(100) == 120

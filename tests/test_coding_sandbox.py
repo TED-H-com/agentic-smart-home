@@ -813,6 +813,22 @@ def test_labeled_record_is_stopped_by_status_cancel_and_recover(tmp_path):
     assert {item["job_id"]: item["state"] for item in sandbox.recover()} == {recovered: "interrupted"}
 
 
+def test_inspect_failure_uses_proven_absence_or_a_silent_daemon(tmp_path):
+    calls = []
+    absent = "test-absent-0009"
+    sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path}, execute=_absence_execute(calls, ps=""))
+    sandbox.save({"job_id": absent, "container": "agentic-coding-" + absent,
+                  "container_id": "gone-container", "state": "running"})
+    assert sandbox.cancel(absent)["state"] == "cancelled"
+    assert not any(args[:2] == ("docker", "kill") for args in calls)
+    calls.clear()
+    quiet = "test-silent-0010"
+    sandbox.execute = _absence_execute(calls, version_error=True)
+    sandbox.save({"job_id": quiet, "container": "agentic-coding-" + quiet,
+                  "container_id": "silent-container", "state": "running"})
+    assert sandbox.cancel(quiet)["state"] == "stop_unconfirmed"
+
+
 def test_unanswering_record_stays_stop_unconfirmed(tmp_path, monkeypatch):
     calls = []
     sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path},
@@ -891,11 +907,17 @@ def test_skipped_files_are_listed_and_tampering_stays_fatal(tmp_path):
                 if child.is_file() or child.is_symlink():
                     child.unlink()
     (root / "text.txt").write_bytes(b"hello\x00")
-    with pytest.raises(SandboxError, match="Binary"):
-        read_artifacts(root, Limits())
-    (root / "text.txt").write_bytes(b"\xff\xfe")
-    with pytest.raises(SandboxError, match="UTF-8"):
-        read_artifacts(root, Limits())
+    (root / "noise.log").write_bytes(b"\xff\xfe")
+    (root / "zz.py").write_text("print(1)\n")
+    # Nine bytes is exactly zz.py, and it sorts last. Counting the bad files would skip it.
+    exported = {item["name"]: item for item in read_artifacts(root, Limits(artifact_bytes=9))}
+    assert exported["zz.py"]["content"] == "print(1)\n"
+    assert "text.txt" not in exported and "noise.log" not in exported
+    skipped = json.loads(exported["skipped.json"]["content"])["skipped"]
+    assert {"name": "text.txt", "reason": "not_text"} in skipped
+    assert {"name": "noise.log", "reason": "not_text"} in skipped
+    (root / "noise.log").unlink()
+    (root / "zz.py").unlink()
     (root / "text.txt").write_text("plain\n")
     os.link(root / "text.txt", root / "alias.txt")
     with pytest.raises(SandboxError, match="regular file"):
