@@ -106,14 +106,14 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             page.route("**/api/**", route)
             page.goto(f"http://127.0.0.1:{server.server_port}/#onboarding")
             page.get_by_text("其他設定方式", exact=True).click()
-            panel = page.get_by_role("region", name="Hermes 協調服務")
-            panel.get_by_role("heading", name="登入你的協調助手", exact=True).wait_for()
+            panel = page.get_by_role("region", name="智能管家登入")
+            panel.get_by_role("heading", name="智能管家登入", exact=True).wait_for()
             expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚待登入")
-            expect(panel.get_by_role("button", name="儲存 Hermes 登入")).to_be_disabled()
+            expect(panel.get_by_role("button", name="儲存登入")).to_be_disabled()
             screenshots(page, "needs-auth")
 
-            page.get_by_label("OpenRouter 模型 ID", exact=True).fill("fixture/model")
-            key = page.get_by_label("OpenRouter API key", exact=True)
+            page.get_by_role("textbox", name="OpenRouter 模型 ID", exact=True).fill("fixture/model")
+            key = page.get_by_role("textbox", name="OpenRouter API key", exact=True)
             assert key.get_attribute("type") == "password" and key.get_attribute("autocomplete") == "off"
             key.fill(secret)
             assert secret not in stored(page)
@@ -128,7 +128,7 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
             page.reload()
             page.get_by_text("其他設定方式", exact=True).click()
             expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，待實際回覆驗證")
-            expect(page.get_by_label("OpenRouter API key", exact=True)).to_have_value("")
+            expect(page.get_by_role("textbox", name="OpenRouter API key", exact=True)).to_have_value("")
             assert secret not in stored(page)
 
             # The authoritative backend, not the save operation, supplies verified/reauth states.
@@ -198,7 +198,7 @@ def test_hermes_login_truthful_states_and_gateway_case_continuity():
 
             click_navigation(page, 'Agent 環境')
             expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("已儲存，待實際回覆驗證")
-            panel.get_by_role("button", name="登出 Hermes", exact=True).click()
+            panel.get_by_role("button", name="登出", exact=True).click()
             expect(panel.locator(".section-heading").get_by_role("status")).to_have_text("尚待登入")
             assert secret not in stored(page) and not errors, errors
             browser.close()

@@ -326,10 +326,10 @@ def test_setup_links_session_recovery_and_login_resume():
             expect(page.get_by_text('運作中', exact=True)).to_be_visible()
             assert pause_calls == [{'paused': True}, {'paused': False}]
             hub.get_by_role('link', name='AI 帳號').click()
-            runtime = page.get_by_role('region', name='Agent 執行環境', exact=True)
-            runtime.get_by_role('heading', name='登入外層 Agent', exact=True).wait_for()
+            runtime = page.get_by_role('region', name='開發助手帳號', exact=True)
+            runtime.get_by_role('heading', name='主機的 AI 帳號', exact=True).wait_for()
             codex = runtime.locator('article').filter(has=page.get_by_role('heading', name='Codex', exact=True))
-            codex.get_by_role('button', name='開始官方登入', exact=True).click()
+            codex.get_by_role('button', name='開始登入', exact=True).click()
             page.get_by_text('ABCD-1234', exact=True).wait_for()
             click_navigation(page, '工作台')
             click_navigation(page, 'Agent 環境')
