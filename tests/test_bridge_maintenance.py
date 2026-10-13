@@ -60,7 +60,7 @@ class Supervisor:
         self.revoked = False
         self.repos, self.calls = [], []
         self.app = None
-        self.catalog = {"slug": SLUG, "repository": REPO, "version_latest": "0.8.0", "available": True,
+        self.catalog = {"slug": SLUG, "repository": REPO, "version_latest": "0.9.0", "available": True,
                         "ingress": True, "build": True, "hassio_api": False, "homeassistant_api": False,
                         "auth_api": False, "docker_api": False, "full_access": False, "host_network": False,
                         "host_pid": False}
@@ -78,7 +78,7 @@ class Supervisor:
         return {"id": owner, "is_owner": True, "is_active": True} if not self.revoked else None
 
     def install_app(self):
-        self.app = {**self.catalog, "version": "0.8.0", "protected": True, "ingress_port": 8099,
+        self.app = {**self.catalog, "version": "0.9.0", "protected": True, "ingress_port": 8099,
                     "network": {}, "options": {}, "state": "stopped", "boot": "auto",
                     "privileged": [], "devices": [], "host_ipc": False, "host_uts": False,
                     "host_dbus": False, "apparmor": "default",
