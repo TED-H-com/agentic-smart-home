@@ -109,7 +109,6 @@ class HomeWorkerMaintenance:
                        "stopped_or_removed_app_returns_only_on_owner_repair",
                        "no_heartbeat_restart",
                        "hassio_api_is_not_enabled_for_self_options",
-                       "self_options_with_hassio_api_false_not_verified_on_haos_vm",
                        "credential_configured_is_not_promoted_to_inference_verified"]
         stored = record.get("release") if isinstance(record, dict) else None
         if isinstance(stored, dict) and stored.get("repository") != self.release.repository:
@@ -290,10 +289,13 @@ class HomeWorkerMaintenance:
 
     def pinned(self, data, *, installed):
         # Store listings can omit port and device fields. A field that is present must already match.
+        # Store info reports apparmor "default" until install loads runner/apparmor.txt.
         # The installed readback is the adoption pin and must contain every field.
-        exact = (("privileged", PRIVILEGED), ("devices", DEVICES), ("network", NETWORK), ("apparmor", APPARMOR))
+        exact = (("privileged", PRIVILEGED), ("devices", DEVICES), ("network", NETWORK))
+        apparmor = (APPARMOR,) if installed else (APPARMOR, "default")
         return (isinstance(data, dict) and all(data.get(key) is False for key in SAFE_FLAGS) and
-                all(data.get(key) == expected for key, expected in exact if installed or key in data))
+                all(data.get(key) == expected for key, expected in exact if installed or key in data) and
+                (data.get("apparmor") in apparmor if installed or "apparmor" in data else True))
 
     @staticmethod
     def privilege_view(app):
