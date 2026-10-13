@@ -4,8 +4,8 @@ import { api, desktopLogin, consumeDesktopEntry, download, session, configureDep
 import {SetupGuide,currentRoute,type View} from './setup';
 import './style.css';
 import {Status,Notice,Button,Empty,timestamp} from './ui';
-import {Provider} from './providers';
-import {GatewayPanel,RuntimePanel} from './gateway';
+import {Provider,RuntimePanel} from './providers';
+import {GatewayPanel} from './gateway';
 import {Onboarding} from './bootstrap';
 import {HomeEntry} from './home-entry';
 import {HermesPanel} from './hermes';
