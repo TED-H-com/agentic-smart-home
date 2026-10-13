@@ -66,7 +66,7 @@ function ResultHeader({job}:{job:Job}){const when=job.created_at?timestamp(job.c
 function JobResult({job,onChange,bridge=false,storageScope,onRetry,retryDisabled=false}:{job:Job;onChange:()=>Promise<void>;bridge?:boolean;storageScope?:string;onRetry?:(job:Job)=>Promise<void>;retryDisabled?:boolean}) {
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[retryFault,setRetryFault]=useState('');
   async function operate(action:'cancel'|'reconcile'){setBusy(true);setError('');try{await api(`worker/jobs/${job.id}/${action}`,{});await onChange()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
-  async function retry(){if(!onRetry)return;setBusy(true);setRetryFault('');try{await onRetry(job)}catch(e){setRetryFault((e as Error).message)}finally{setBusy(false)}}
+  async function retry(){if(!onRetry)return;setBusy(true);setRetryFault('');try{await onRetry(job)}catch(e){setRetryFault((e as Error).message);onChange().catch(()=>{})}finally{setBusy(false)}}
   const found=(['facts','inferences','unknowns','next_steps'] as const).flatMap(key=>job[key]||[]);
   const verifier=knownVerifier(job),sentence=jobSentence(job.reason),commit=shortCommit(job.base_commit),retryable=!!onRetry&&terminalStates.has(job.state)&&!!job.reason&&retryReasons.has(job.reason);
   return <>{error&&<Notice error><p>無法更新這份工作。</p><p>{error}</p></Notice>}
