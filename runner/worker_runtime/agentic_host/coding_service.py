@@ -682,8 +682,10 @@ class CodingService:
         remaining = int(job["request"]["expires"] - time.time())
         wall = max(1, min(VERIFICATION_BUDGET_SECONDS, remaining))
         id = job["id"] + "-verify"
-        sandbox = self.sandbox(limits=Limits(disk_mib=512, memory_mib=768, pids=128,
-                                              wall_seconds=wall), inputs={"candidate.patch": patch})
+        # Candidate tests can write here too. Eight files cover the verifier's own four;
+        # the rest is listed as skipped, keeping the job under the Controller's 32.
+        sandbox = self.sandbox(limits=Limits(disk_mib=512, memory_mib=768, pids=128, wall_seconds=wall,
+                                              artifact_files=8), inputs={"candidate.patch": patch})
         job.update(state="running", phase="verifying", stop_confirmed=False, sandbox_job_id=id,
                    verification={"state": "running", "patch_sha256": hashlib.sha256(patch).hexdigest()})
         self.sandboxes[job["id"]] = sandbox

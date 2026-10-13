@@ -220,6 +220,23 @@ async def test_artifacts_validated_atomically_and_bytes_rehashed(workers):
         await workers.artifact(first['id'], metadata['id'])
 
 
+async def test_artifact_list_takes_32_files_and_a_withheld_kind(workers):
+    first = await submit(workers)
+    await workers.advance()
+    result = workers.runners['host'].jobs[first['id']]
+    many = [artifact(name=f'note-{index}.txt') for index in range(32)]
+    many[0] = {**many[0], 'kind': 'withheld'}
+    result.update(state='succeeded', stop_confirmed=True, artifacts=[*many, artifact(name='extra.txt')])
+    await workers.advance()
+    assert not workers.store.list('worker_artifact')
+    assert workers.store.setting('worker_lease')['job_id'] == first['id']
+    result['artifacts'] = many
+    await workers.advance()
+    rows = {row['name']: row for row in workers.store.list('worker_artifact')}
+    assert len(rows) == 32 and rows['note-0.txt']['kind'] == 'withheld'
+    assert workers.get(first['id'])['state'] == 'succeeded' and not workers.store.setting('worker_lease')
+
+
 async def test_retention_tombstone_prevents_context_and_idempotency_resurrection(workers):
     first = await submit(workers)
     await workers.advance()

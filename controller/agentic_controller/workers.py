@@ -33,6 +33,7 @@ LIVE_PHASES = {"launching", "running", "verifying", "collecting"}
 IDENTIFIER = re.compile(r"^[a-f0-9]{32}$")
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
 MAX_ARTIFACT = 180 * 1024
+MAX_ARTIFACTS = 32
 FINDINGS = ("facts", "inferences", "unknowns", "experiments", "next_steps")
 
 
@@ -485,7 +486,8 @@ class Workers:
                     self.event.set()
 
     def artifact_metadata(self, item, values):
-        if not isinstance(values, list) or len(values) > 16:
+        # The broker reports at most 14 run files, 8 verifier files and one skip list per stage.
+        if not isinstance(values, list) or len(values) > MAX_ARTIFACTS:
             raise WorkerError("invalid_artifact", 502)
         result = []
         seen = set()

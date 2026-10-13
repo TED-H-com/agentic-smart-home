@@ -23,13 +23,23 @@ from .manager import atomic
 UID = 10000
 ID = re.compile(r"[a-z0-9][a-z0-9-]{7,63}\Z")
 SHA = re.compile(r"[0-9a-f]{40}\Z")
-# Quoted literals need 8 non-space characters, spaces included. Unquoted tokens need
-# 20 characters and both a letter and a digit, so `api_key: SecretStr` does not match.
+# A key/value secret needs a quoted literal with 8 non-space characters on one line, or a
+# 20+ character token with a letter and a digit that is not a call or an index. Type hints
+# and expressions such as `api_key: SecretStr` or `password=body.password` do not match.
 SECRET = re.compile(rb"(?i)(-----BEGIN [A-Z ]*PRIVATE KEY-----|Bearer\s+[A-Za-z0-9._~+/-]{16,}|"
-                    rb"(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password)\s*[:=]\s*"
-                    rb"(?:\"(?=(?:[^\"]*[^\s\"]){8})[^\"]+\"|'(?=(?:[^']*[^\s']){8})[^']+'|"
-                    rb"(?=[^\s\"']*[A-Za-z])(?=[^\s\"']*[0-9])[^\s\"']{20,})|"
+                    rb"(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password)\s*[\"']?\s*[:=]\s*"
+                    rb"(?:\"(?=(?:[^\"\n]*[^\s\"]){8})[^\"\n]+\"|'(?=(?:[^'\n]*[^\s']){8})[^'\n]+'|"
+                    rb"(?=[\w.~+/=-]*[A-Za-z])(?=[\w.~+/=-]*[0-9])[\w.~+/=-]{20,}(?![\w.~+/=(\[-]))|"
                     rb"sk-[A-Za-z0-9_-]{16,})")
+# Added patch lines are code under review, so only token-like values count there.
+# A test fixture such as password="not-a-real-secret" keeps the diff readable.
+PATCH_SECRET = re.compile(rb"(?i)(-----BEGIN [A-Z ]*PRIVATE KEY-----|Bearer\s+[A-Za-z0-9._~+/-]{16,}|"
+                          rb"(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password)\s*[\"']?\s*[:=]\s*[\"']?"
+                          rb"(?=[\w.~+/=-]*[A-Za-z])(?=[\w.~+/=-]*[0-9])[\w.~+/=-]{20,}(?![\w.~+/=(\[-])|"
+                          rb"sk-[A-Za-z0-9_-]{16,})")
+# The Controller rejects a whole result over 180 KiB per file or with a name it refuses.
+ARTIFACT_FILE_BYTES = 180 * 1024
+SKIPPED_LISTED = 100
 SUFFIXES = {".txt", ".md", ".json", ".py", ".patch", ".diff", ".log"}
 WEB_BUNDLE_SUFFIXES = {".html", ".js", ".css", ".svg", ".json", ".txt", ".png", ".webp", ".woff2", ".ico"}
 WEB_TEXT_SUFFIXES = {".html", ".js", ".css", ".svg", ".json", ".txt"}
@@ -171,20 +181,25 @@ def container_command(name: str, image: str, workspace: Path, limits: Limits, *,
 
 
 def _artifact_skip_reason(relative: str, path: Path, suffixes: set[str]) -> str | None:
-    """Style mistakes are skipped. Links and odd file types are rejected by the caller."""
-    if len(relative) > 240 or "/" in relative or any(ord(char) < 32 for char in relative):
+    """Style mistakes are skipped. Links and odd file types are rejected by the caller.
+
+    Names follow the Controller's rule (160 characters, no backslash). skipped.json is generated.
+    """
+    if (len(relative) > 160 or "/" in relative or "\\" in relative or relative == "skipped.json"
+            or any(ord(char) < 32 for char in relative)):
         return "name_not_allowed"
     if path.suffix not in suffixes:
         return "unsupported_type"
     return None
 
 
-def _secret_scan_bytes(name: str, data: bytes) -> bytes:
+def _secret_found(name: str, data: bytes) -> bool:
     """Patches are scanned on added lines only. Context and deletions are repository content."""
     if not name.endswith((".patch", ".diff")):
-        return data
-    return b"".join(line for line in data.splitlines(keepends=True)
-                    if line.startswith(b"+") and not line.startswith(b"+++"))
+        return SECRET.search(data) is not None
+    added = b"".join(line for line in data.splitlines(keepends=True)
+                     if line.startswith(b"+") and not line.startswith(b"+++"))
+    return PATCH_SECRET.search(added) is not None
 
 
 def read_artifacts(root: Path, limits: Limits):
@@ -240,7 +255,8 @@ def read_artifacts(root: Path, limits: Limits):
                 reason = _artifact_skip_reason(relative, path, suffixes)
                 if reason is None and len(result) >= limits.artifact_files:
                     reason = "file_limit"
-                if reason is None and info.st_size > limits.artifact_bytes - total:
+                if reason is None and (info.st_size > ARTIFACT_FILE_BYTES or
+                                       info.st_size > limits.artifact_bytes - total):
                     reason = "size_limit"
                 if reason:
                     skipped.append({"name": relative, "reason": reason})
@@ -261,15 +277,17 @@ def read_artifacts(root: Path, limits: Limits):
             item = {"name": relative, "sha256": hashlib.sha256(data).hexdigest(),
                     "size": len(data), "untrusted": True,
                     "redaction": "pattern_scan_only; not a guarantee of no secrets"}
-            if SECRET.search(_secret_scan_bytes(relative, data)):
+            if _secret_found(relative, data):
                 item["kind"] = "withheld"
             else:
                 item["content"] = content
             result.append(item)
     if skipped:
-        result = [item for item in result if item["name"] != "skipped.json"]
-        payload = json.dumps({"skipped": skipped}, ensure_ascii=False, sort_keys=True,
-                             separators=(",", ":")).encode()
+        listed = {"skipped": [{"name": item["name"] if len(item["name"]) <= 160 else item["name"][:159] + "…",
+                               "reason": item["reason"]} for item in skipped[:SKIPPED_LISTED]]}
+        if len(skipped) > SKIPPED_LISTED:
+            listed["omitted"] = len(skipped) - SKIPPED_LISTED
+        payload = json.dumps(listed, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
         result.append({"name": "skipped.json", "sha256": hashlib.sha256(payload).hexdigest(),
                        "size": len(payload), "content": payload.decode(), "untrusted": True,
                        "redaction": "pattern_scan_only; not a guarantee of no secrets"})

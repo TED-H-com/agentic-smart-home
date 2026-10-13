@@ -99,6 +99,37 @@ def test_artifacts_reject_traversal_links_specials_secrets_and_quota(tmp_path):
         {"name": "active.html", "reason": "unsupported_type"}]
 
 
+def test_secret_forms_and_controller_name_and_size_rules(tmp_path):
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    (artifacts / "settings.json").write_text('{"password": "hunter2hunter2"}\n')
+    (artifacts / "calls.py").write_text("password = secrets.token_urlsafe(32)\n"
+                                        "api_key = build_key_from_parts_v2(seed)\n")
+    (artifacts / "fixture.patch").write_text(
+        "--- a/tests/test_login.py\n+++ b/tests/test_login.py\n@@ -1 +1,2 @@\n"
+        ' password = "context-line-value-abc"\n+password="not-a-real-secret"\n')
+    (artifacts / "token.patch").write_text("--- a/.env\n+++ b/.env\n@@ -0,0 +1 @@\n+API_KEY=AKIAIOSFODNN7EXAMPLE12\n")
+    (artifacts / ("n" * 157 + ".txt")).write_text("long name\n")
+    (artifacts / "back\\slash.txt").write_text("odd name\n")
+    (artifacts / "skipped.json").write_text("{}\n")
+    (artifacts / "big.log").write_text("x" * (180 * 1024 + 1))
+    exported = {item["name"]: item for item in read_artifacts(artifacts, Limits())}
+    assert exported["settings.json"]["kind"] == "withheld" and "content" not in exported["settings.json"]
+    assert exported["token.patch"]["kind"] == "withheld" and "content" not in exported["token.patch"]
+    assert "content" in exported["calls.py"] and "content" in exported["fixture.patch"]
+    assert json.loads(exported["skipped.json"]["content"]) == {"skipped": [
+        {"name": "back\\slash.txt", "reason": "name_not_allowed"},
+        {"name": "big.log", "reason": "size_limit"},
+        {"name": "n" * 157 + ".t…", "reason": "name_not_allowed"},
+        {"name": "skipped.json", "reason": "name_not_allowed"}]}
+    many = tmp_path / "many"
+    many.mkdir()
+    for index in range(105):
+        (many / f"blob-{index:03}.bin").write_text("x")
+    listing = json.loads(read_artifacts(many, Limits())[-1]["content"])
+    assert len(listing["skipped"]) == 100 and listing["omitted"] == 5
+
+
 def test_unconfirmed_stop_never_releases_writer_or_exports(tmp_path):
     calls = []
     def execute(*args, **kwargs):
@@ -806,8 +837,8 @@ def test_patch_lines_and_narrow_secrets_withhold_one_file(tmp_path):
     (artifacts / "typed.patch").write_text(
         "diff --git a/t.py b/t.py\n--- a/t.py\n+++ b/t.py\n"
         "+api_key: SecretStr\n+api_key: str | None = None\n+password=body.password\n+access_token: str\n"
-        "+api_key=\"1234567\"\n")
-    (artifacts / "leak.patch").write_text("diff --git a/t.py b/t.py\n+++ b/t.py\n+api_key=\"abcdefgh\"\n")
+        "+api_key=\"1234567\"\n+api_key=\"abcdefgh\"\n")
+    (artifacts / "leak.patch").write_text("diff --git a/t.py b/t.py\n+++ b/t.py\n+api_key=\"AKIAIOSFODNN7EXAMPLE12\"\n")
     (artifacts / "quoted.py").write_text("password = '12345678'\napi_key = \"abcd efgh\"\n")
     (artifacts / "token.py").write_text("api_key = abcdefghij1234567890\n")
     (artifacts / "short.py").write_text("api_key = abcdefghij123456789\n")
