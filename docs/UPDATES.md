@@ -31,6 +31,12 @@ sudo agentic-home update-publisher-add --publisher example --repository ghcr.io/
 
 啟動後實際驗證 HTTP、Owner session、版本、HA／Runner 與 pause 狀態。失敗時切回前 image；較晚發現問題時，「退回前一版本」產生新的精確批准。退版保留目前 Live DB，不能拿部署前備份蓋掉新家庭操作。schema 或其他 runtime 已改變時拒絕同格式退版；狀態不確定時保留 `needs_reconcile`。
 
+image 含 `/app/source/agentic-home.bundle` 時，staging 只用 `docker create`／`docker cp` 取出 bundle，不啟動容器。唯一 head 必須等於 manifest `source_commit`，才匯入 Host coding bare repo 的 `refs/agentic/candidate/<image digest>`；此時 HEAD 不動。bundle 由 `scripts/controller_source.py` 在建置時寫入，image digest 已涵蓋它，manifest 格式不變。沒有 bundle 的 image、或主機沒有 coding source 時，照舊部署，該筆 `source_sync` 為 `unavailable`。來源只從已驗證的本機 image 取出，不從網路 fetch。
+
+候選通過 smoke、Controller 再次停止並確認沒有工作、lease 或 `stop_unconfirmed` 後，HEAD 才以 compare-and-swap 移到 `source_commit`，`coding/source.json` 以原子寫入改寫，然後才正式啟動候選。之後任何失敗退回前 image 時，來源一起退回。退版用同樣方式把 HEAD 與 `source.json` 換回更新前。每一步都可重做：中途斷電後，退版會完成同一次移動。HEAD 或 `source.json` 不是這筆更新的前後狀態時，updater 不改動它，前一個 Controller 照常恢復，紀錄留 `needs_reconcile`，需要人工核對 `coding/source.json` 與 bare repo HEAD。
+
+`GET /updates` 增加 `deployed_source_commit`（目前 `source.json` 的 `commit`；檔案缺失或無效時為 null）。每筆記錄增加 `source_sync`：`pending`、`moved`、`unavailable`、`reverted`、`needs_reconcile`。既有欄位保留。已安裝 VM 的更新探測用一個一次性 commit 驗證實際移動與退版；該探測實跑前，這只是離線測試結果。
+
 固定 updater 的 mode-0600 SQLite 快照包含部署時的完整 Controller DB，按目前 `audit_days`（預設 30 天；待同步的較短設定也生效）於啟動、維護狀態讀取及每 15 秒背景檢查清除。`deploying`、`rolling_back` 或 `needs_reconcile` 的復原快照保留到狀態解除；無法安全讀取政策時先保留並重試。資料庫遷移快照也採稽核保存期限。此清理不刪 image，不以舊快照覆蓋 Live DB；自行匯出的備份需另行管理。
 
 Web 不可用時的固定命令：

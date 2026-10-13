@@ -77,7 +77,7 @@ def bundle(destination):
     stage.mkdir(parents=True)
     for directory in ("host", "controller", "runner", "hermes", "bridge", "contracts", "docs", "scripts"):
         shutil.copytree(ROOT / directory, stage / directory,
-                        ignore=shutil.ignore_patterns(*SKIP, "*.pyc", "*.tsbuildinfo"))
+                        ignore=shutil.ignore_patterns(*SKIP, "*.pyc", "*.tsbuildinfo", "agentic-home.bundle"))
     for name in ("README.md", "INSTALL.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md", "providers.lock.json", "upstream.lock.json", "channels.lock.json"):
         shutil.copyfile(ROOT / name, stage / name)
     assets = stage / "assets"
