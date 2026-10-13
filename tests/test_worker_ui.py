@@ -60,6 +60,8 @@ def mount_home_verifier_fixture(page, origin):
             value = {'workers': [], 'active_job_id': None}
         elif path == 'worker/jobs':
             value = {'jobs': [job], 'active_job_id': None}
+        elif path == 'worker/jobs/' + job['id']:
+            value = job
         else:
             raise AssertionError(path)
         route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
@@ -193,6 +195,8 @@ def test_coding_role_login_lost_reply_stop_fence_and_artifact_preview(ui_page):
                                'auth_path': '/api/workers/home-coder/providers/codex/auth',
                                'auth_poll_path': '/api/workers/home-coder/auth/{id}'},
                      'restart_allowed': False, 'limitations': ['workspace_has_no_network']}
+        elif body is None and path.startswith('worker/jobs/') and path.count('/') == 2:
+            value = next(item for item in result['jobs'] if item['id'] == path.rsplit('/', 1)[-1])
         else:
             raise AssertionError(path)
         route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
@@ -504,10 +508,13 @@ def test_coding_job_phase_reason_stop_line_and_source_commit(ui_page):
         'unsupported_provider': '開發助手目前無法執行這個設定。',
         'worker_unavailable': '開發助手目前無法執行這個設定。',
         'runner_identity_changed': '這份工作沒有完成。',
+        'coding_setup_failed': '準備環境失敗，已停止。',
+        'patch_too_large': '修改內容超過可檢視的大小，請縮小範圍再試一次。',
+        'checkpoint_export_failed': '整理成果時失敗，修改內容沒有保留。',
     }
     retryable = {
         'setup_timeout', 'execution_timeout', 'verification_timeout', 'authorization_expired',
-        'authority_revoked', 'owner_cancelled', 'broker_restarted',
+        'authority_revoked', 'owner_cancelled', 'broker_restarted', 'coding_setup_failed',
     }
     host = {'id': 'codex', 'supported': True, 'credential_state': 'configured'}
     workers = [
@@ -531,6 +538,8 @@ def test_coding_job_phase_reason_stop_line_and_source_commit(ui_page):
             value = {'workers': workers, 'active_job_id': None}
         elif value is None and path == 'worker/jobs':
             value = {'jobs': [job], 'active_job_id': None}
+        elif value is None and path == 'worker/jobs/' + job['id']:
+            value = job
         elif value is None:
             raise AssertionError(path)
         route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
@@ -602,6 +611,13 @@ def test_coding_job_phase_reason_stop_line_and_source_commit(ui_page):
     job['phase'] = 'not_a_phase'
     show()
     expect(chip()).to_have_text('處理中')
+    for state, label in (('accepted', '處理中'), ('waiting_for_user', '等待設定'), ('launching', '準備環境')):
+        job.update(state=state, phase='launching' if state == 'launching' else None, reason=None, stop_confirmed=False)
+        show()
+        expect(chip()).to_have_text(label)
+        expect(chip()).to_have_class(re.compile(rf'(^|\s)s-{state if state != "launching" else "launching"}(\s|$)'))
+        expect(page.locator('.worker-results').get_by_role('button', name='停止這份工作', exact=True)).to_be_visible()
+        assert state not in page.locator('body').inner_text()
     job.update(state='succeeded', phase='running', reason=None, stop_confirmed=True)
     show()
     expect(chip()).to_have_text('已完成')
@@ -777,6 +793,11 @@ def test_retry_submits_a_new_coding_job_only_on_the_worker_page(ui_page):
                      'artifact_count': 1, 'evidence_count': 1, 'content_expired': False}]}
         elif value is None and path == f'worker/jobs/{convo_id}':
             value = convo
+        elif value is None and body is None and path.startswith('worker/jobs/') and path.count('/') == 2:
+            job_id = path.rsplit('/', 1)[-1]
+            value = next((item for item in listed['jobs'] if item['id'] == job_id), None)
+            if value is None:
+                raise AssertionError(path)
         elif value is None:
             raise AssertionError(path)
         route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
@@ -882,4 +903,328 @@ def test_retry_submits_a_new_coding_job_only_on_the_worker_page(ui_page):
     page.evaluate('window.scrollTo(0,0)')
     expect(page.get_by_role('button', name='再試一次', exact=True)).to_have_count(0)
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    assert not errors, errors
+
+
+def _listed(job):
+    hidden = {'facts', 'inferences', 'unknowns', 'experiments', 'next_steps'}
+    return {key: value for key, value in job.items() if key not in hidden}
+
+
+def test_coding_detail_shows_findings_changes_and_plain_errors(ui_page):
+    """Fixture page: findings come from the selected job, errors are sentences. Not a real run."""
+    page, origin = ui_page
+    patch = '--- a/button.css\n+++ b/button.css\n@@ -1 +1 @@\n-height: 32px\n+min-height: 44px\n'
+    raw = patch.encode()
+    digest = hashlib.sha256(raw).hexdigest()
+    rich_id, other_id, blank_id = 'a' * 32, 'b' * 32, 'c' * 32
+    fact, other_fact = '門口燈在晚上沒有關閉。', '這份不該在選到之前出現。'
+    artifacts = [
+        {'id': '5' * 32, 'name': 'button.css', 'kind': 'patch', 'media_type': 'text/plain', 'sha256': digest, 'size': len(raw)},
+        {'id': '4' * 32, 'name': 'empty.patch', 'kind': 'patch', 'media_type': 'text/plain', 'sha256': 'ab' * 32, 'size': 0},
+        {'id': '6' * 32, 'name': 'secrets.env', 'kind': 'withheld', 'media_type': 'text/plain', 'sha256': 'cd' * 32, 'size': 12},
+        {'id': '1' * 32, 'name': '現場筆記.txt', 'kind': 'evidence', 'media_type': 'text/plain', 'sha256': 'ef' * 32, 'size': 8},
+        {'id': '2' * 32, 'name': 'pytest.txt', 'kind': 'test_report', 'media_type': 'text/plain', 'sha256': '12' * 32, 'size': 8},
+        {'id': '3' * 32, 'name': 'index.html', 'kind': 'preview_asset', 'media_type': 'text/html', 'sha256': '34' * 32, 'size': 20},
+    ]
+    def job(identifier, goal, state='succeeded'):
+        return {'id': identifier, 'case_id': 'd' * 32, 'worker_id': 'host-coder', 'mode': 'development', 'provider': 'codex',
+                'goal': goal, 'state': state, 'execution_started': True, 'stop_confirmed': state == 'succeeded',
+                'created_at': '2026-10-12T09:00:00Z', 'runtime_location': 'host_worker_container', 'artifacts': []}
+    rich = job(rich_id, '修正門口燈的排程')
+    rich.update(facts=[fact], inferences=['排程沒有送到客廳。'], unknowns=['不確定是哪一個開關。'],
+                next_steps=['明天再看排程。'], experiments=['重現：關燈指令沒有作用。'], artifacts=artifacts,
+                stop_confirmed=True)
+    other = job(other_id, '另一份工作')
+    other['facts'] = [other_fact]
+    blank = job(blank_id, '沒有改到檔案的工作')
+    blank['artifacts'] = [{'id': 'e' * 32, 'name': 'empty.patch', 'kind': 'patch', 'media_type': 'text/plain', 'sha256': 'ab' * 32, 'size': 0}]
+    jobs = {rich_id: rich, other_id: other, blank_id: blank}
+    order = [rich_id, other_id, blank_id]
+    active, flags = {'id': None}, {'detail': False, 'artifact': False, 'preview': False, 'handoff': False, 'submit': None, 'cancel': None}
+    detail_reads, errors = [], []
+    host = {'id': 'codex', 'supported': True, 'credential_state': 'configured', 'auth_methods': ['device_code'], 'models': []}
+    workers = [{'worker_id': 'host-coder', 'available': True, 'state': 'ready', 'reason': '', 'modes': ['research', 'development'],
+                'runtime_location': 'host_worker_container', 'providers': [host]},
+               {'worker_id': 'home-coder', 'available': False, 'state': 'blocked', 'reason': '', 'modes': [], 'providers': []}]
+
+    def route(route):
+        req = route.request
+        path = req.url.split('/api/')[1]
+        body = req.post_data_json if req.method == 'POST' else None
+        if flags['detail'] and body is None and path == f'worker/jobs/{rich_id}':
+            detail_reads.append(rich_id)
+            route.fulfill(status=500, content_type='application/json', body='{"detail":"worker_job_not_found"}')
+            return
+        if flags['artifact'] and '/artifacts/' in path:
+            route.fulfill(status=404, content_type='application/json', body='{"detail":"artifact_not_found"}')
+            return
+        if flags['preview'] and path.endswith('/previews'):
+            route.fulfill(status=409, content_type='application/json', body='{"detail":"capability_expired_or_revoked"}')
+            return
+        if flags['handoff'] and path.endswith('/handoff'):
+            route.fulfill(status=409, content_type='application/json', body='{"detail":"handoff_stop_unconfirmed"}')
+            return
+        if flags['cancel'] and path.endswith('/cancel'):
+            route.fulfill(status=409, content_type='application/json', body=json.dumps({'detail': flags['cancel']}))
+            return
+        if path == 'worker/jobs' and body is not None and flags['submit']:
+            route.fulfill(status=409, content_type='application/json', body=json.dumps({'detail': flags['submit']}))
+            return
+        value = common(path)
+        if value is not None:
+            pass
+        elif path == 'workers':
+            value = {'workers': workers, 'active_job_id': active['id']}
+        elif path == 'worker/jobs' and body is None:
+            value = {'jobs': [_listed(jobs[item]) for item in order], 'active_job_id': active['id']}
+        elif body is None and path.startswith('worker/jobs/') and path.count('/') == 2:
+            job_id = path.rsplit('/', 1)[-1]
+            detail_reads.append(job_id)
+            value = jobs[job_id]
+        elif '/artifacts/' in path:
+            value = {'sha256': digest, 'content_base64': base64.b64encode(raw).decode()}
+        else:
+            raise AssertionError(path)
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
+
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.route('**/api/**', route)
+    page.goto(origin + '/#workers')
+    expect(page.get_by_text(fact, exact=True)).to_be_visible()
+    expect(page.get_by_text('排程沒有送到客廳。', exact=True)).to_be_visible()
+    expect(page.get_by_text('不確定是哪一個開關。', exact=True)).to_be_visible()
+    expect(page.get_by_text('明天再看排程。', exact=True)).to_be_visible()
+    expect(page.get_by_text('重現：關燈指令沒有作用。', exact=True)).to_be_visible()
+    expect(page.get_by_text(other_fact, exact=True)).to_have_count(0)
+    assert detail_reads and set(detail_reads) == {rich_id}
+    changes = page.locator('.worker-findings').filter(has=page.get_by_role('heading', name='變更', exact=True))
+    records = page.locator('.worker-findings').filter(has=page.get_by_role('heading', name='紀錄', exact=True))
+    expect(changes).to_contain_text('button.css')
+    expect(changes).to_contain_text('secrets.env')
+    expect(changes).to_contain_text('這個檔案疑似含有密碼，只保留在主機上。')
+    expect(changes.get_by_role('button', name='查看內容')).to_have_count(1)
+    expect(changes.get_by_text('沒有修改檔案。', exact=True)).to_have_count(0)
+    expect(records).to_contain_text('工作紀錄')
+    expect(records).to_contain_text('測試紀錄')
+    expect(records.get_by_role('button', name='查看內容')).to_have_count(2)
+    expect(changes).not_to_contain_text('工作紀錄')
+    expect(page.locator('h4', has_text='index.html')).to_have_count(0)
+    expect(page.get_by_text('empty.patch', exact=True)).to_have_count(0)
+    expect(page.get_by_text('0 KB', exact=True)).to_have_count(0)
+    visible = page.locator('body').inner_text()
+    for raw_kind in ('preview_asset', 'test_report', 'withheld', 'evidence'):
+        assert raw_kind not in visible
+    coding_frames(page, 'changes-grouped')
+    changes.get_by_role('button', name='查看內容').click()
+    pre = changes.locator('pre')
+    expect(pre.locator('.diff-add')).to_have_text('+min-height: 44px')
+    expect(pre.locator('.diff-del')).to_have_text('-height: 32px')
+    expect(pre.locator('.diff-hunk')).to_have_text('@@ -1 +1 @@')
+    expect(pre.locator('span')).to_have_count(6)
+    assert pre.text_content() == patch
+    coding_frames(page, 'diff-coloured', lambda: expect(pre.locator('.diff-add')).to_have_text('+min-height: 44px'))
+
+    page.locator('.worker-results select').select_option(other_id)
+    expect(page.get_by_text(other_fact, exact=True)).to_be_visible()
+    expect(page.get_by_text(fact, exact=True)).to_have_count(0)
+    assert set(detail_reads) == {rich_id, other_id}
+    page.locator('.worker-results select').select_option(blank_id)
+    expect(page.get_by_text('沒有修改檔案。', exact=True)).to_be_visible()
+    expect(page.get_by_text('empty.patch', exact=True)).to_have_count(0)
+    expect(page.get_by_text('0 KB', exact=True)).to_have_count(0)
+    assert blank_id in detail_reads and set(detail_reads) == {rich_id, other_id, blank_id}
+    coding_frames(page, 'no-patch')
+
+    flags['detail'] = True
+    before = len(detail_reads)
+    page.reload()
+    expect(page.get_by_role('heading', name=rich['goal'], exact=True)).to_be_visible()
+    expect(page.get_by_text(fact, exact=True)).to_have_count(0)
+    expect(page.locator('.worker-results .notice.error')).to_have_count(0)
+    assert detail_reads[before:] and set(detail_reads[before:]) == {rich_id}
+    flags['detail'] = False
+    page.reload()
+    expect(page.get_by_text(fact, exact=True)).to_be_visible()
+
+    flags['artifact'] = True
+    records.get_by_role('button', name='查看內容').first.click()
+    artifact_note = page.locator('.worker-artifact').filter(has_text='現場筆記.txt').locator('.notice.error')
+    expect(artifact_note).to_have_text('這份資料已過期或不存在。')
+    expect(artifact_note).to_have_attribute('data-reason', 'artifact_not_found')
+    assert 'artifact_not_found' not in page.locator('body').inner_text()
+    flags['preview'] = True
+    page.get_by_role('button', name='產生畫面預覽', exact=True).click()
+    preview_note = page.locator('.worker-findings').filter(has=page.get_by_role('heading', name='畫面預覽', exact=True)).locator('.notice.error')
+    expect(preview_note).to_have_text('這次授權已到期，請重新開始。')
+    expect(preview_note).to_have_attribute('data-reason', 'capability_expired_or_revoked')
+    assert 'capability_expired_or_revoked' not in page.locator('body').inner_text()
+    flags['handoff'] = True
+    page.locator('.worker-results details').filter(has=page.locator('summary', has_text='技術資料')).locator('summary').click()
+    page.get_by_role('button', name='下載接手檢查點', exact=True).click()
+    handoff = page.locator('.worker-results > .notice.error')
+    expect(handoff).to_contain_text('還在確認工作已停止，請稍後再試。')
+    expect(handoff).to_have_attribute('data-reason', 'handoff_stop_unconfirmed')
+    assert 'handoff_stop_unconfirmed' not in page.locator('body').inner_text()
+
+    flags['submit'] = 'coding_auth_pending'
+    page.get_by_label('要調查或改善什麼？', exact=True).fill('送出一筆會被拒絕的工作')
+    page.get_by_role('button', name='開始調查', exact=True).click()
+    submit_note = page.locator('.worker-page > .notice.error')
+    expect(submit_note).to_contain_text('開發助手正在登入，完成後再送出。')
+    expect(submit_note).to_have_attribute('data-reason', 'coding_auth_pending')
+    assert 'coding_auth_pending' not in page.locator('body').inner_text()
+    flags['submit'] = 'not_a_mapped_code'
+    page.get_by_role('button', name='開始調查', exact=True).click()
+    expect(submit_note).to_contain_text('這次沒有完成，請稍後再試。')
+    expect(submit_note).to_have_attribute('data-reason', 'not_a_mapped_code')
+    assert 'not_a_mapped_code' not in page.locator('body').inner_text()
+
+    flags['submit'] = None
+    flags['cancel'] = 'worker_job_unconfirmed'
+    rich.update(state='running', stop_confirmed=False)
+    active['id'] = rich_id
+    page.reload()
+    page.get_by_role('button', name='停止這份工作', exact=True).click()
+    stopped = page.locator('.worker-results > .notice.error')
+    expect(stopped).to_contain_text('還在確認工作已停止，請稍後再試。')
+    expect(stopped).to_have_attribute('data-reason', 'worker_job_unconfirmed')
+    assert 'worker_job_unconfirmed' not in page.locator('body').inner_text()
+    page.wait_for_timeout(500)
+    base = len(detail_reads)
+    page.wait_for_timeout(8000)
+    assert len(detail_reads) > base
+    assert set(detail_reads) <= {rich_id, other_id, blank_id}
+    rich.update(state='succeeded', stop_confirmed=True)
+    active['id'] = None
+    expect(page.locator('.worker-result-head .status')).to_have_text('已完成', timeout=12000)
+    page.wait_for_timeout(1500)
+    frozen = len(detail_reads)
+    page.wait_for_timeout(7000)
+    assert len(detail_reads) == frozen
+
+    # The job finishes while the detail read fails: the page shows the finished row, then reads again.
+    rich.update(state='running', stop_confirmed=False)
+    active['id'] = rich_id
+    page.reload()
+    expect(page.get_by_role('button', name='停止這份工作', exact=True)).to_be_visible()
+    expect(page.get_by_text(fact, exact=True)).to_be_visible()
+    flags['detail'] = True
+    rich.update(state='succeeded', stop_confirmed=True)
+    active['id'] = None
+    expect(page.locator('.worker-result-head .status')).to_have_text('已完成', timeout=12000)
+    expect(page.get_by_role('button', name='停止這份工作', exact=True)).to_have_count(0)
+    expect(page.locator('.worker-results .notice.error')).to_have_count(0)
+    flags['detail'] = False
+    expect(page.get_by_text(fact, exact=True)).to_be_visible(timeout=12000)
+    assert not errors, errors
+
+
+def test_coding_login_is_signed_in_and_stops_polling(ui_page):
+    """Fixture login receipt. Not a real Codex account."""
+    page, origin = ui_page
+    auth = {'id': 'a' * 32, 'status': 'failed'}
+    reads, posts, errors = [], [], []
+    fail_read, refuse = {'on': False}, {'on': False}
+    host = {'id': 'codex', 'supported': True, 'credential_state': 'needs_auth', 'auth_methods': ['device_code', 'api_key']}
+    workers = [{'worker_id': 'host-coder', 'available': True, 'state': 'ready', 'reason': '', 'modes': ['research', 'development'],
+                'providers': [host]},
+               {'worker_id': 'home-coder', 'available': False, 'state': 'blocked', 'reason': '', 'modes': [], 'providers': []}]
+
+    def route(route):
+        req = route.request
+        path = req.url.split('/api/')[1]
+        body = req.post_data_json if req.method == 'POST' else None
+        if path == 'workers/host-coder/reconcile':
+            assert body == {}
+            posts.append((path, body))
+            if refuse['on']:
+                route.fulfill(status=409, content_type='application/json', body='{"detail":"coding_auth_stop_unconfirmed"}')
+                return
+            route.fulfill(status=200, content_type='application/json', body='{}')
+            return
+        if path == f"workers/host-coder/auth/{auth['id']}":
+            reads.append(path)
+            if fail_read['on']:
+                route.fulfill(status=500, content_type='application/json', body='{"detail":"bridge_host_unavailable"}')
+                return
+        value = common(path)
+        if value is not None:
+            pass
+        elif path == 'workers':
+            value = {'workers': workers, 'active_job_id': None}
+        elif path == 'worker/jobs':
+            value = {'jobs': [], 'active_job_id': None}
+        elif path == f"workers/host-coder/auth/{auth['id']}":
+            value = auth
+        else:
+            raise AssertionError(path)
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
+
+    def remember():
+        page.evaluate("sessionStorage.setItem('agentic-coding-auth-host-coder','%s')" % ('a' * 32))
+
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.route('**/api/**', route)
+    page.goto(origin + '/#workers')
+    page.get_by_label('要調查或改善什麼？', exact=True).wait_for()
+    for status in ('connected', 'configured', 'succeeded'):
+        auth['status'] = status
+        remember()
+        page.reload()
+        expect(page.get_by_text('已登入 Codex', exact=True)).to_be_visible()
+        expect(page.get_by_role('button', name='重新登入', exact=True)).to_have_count(0)
+        expect(page.get_by_text('登入沒有完成，請重新登入。')).to_have_count(0)
+    auth['status'] = 'stop_unconfirmed'
+    remember()
+    page.reload()
+    expect(page.get_by_text('尚未確認登入程序停止，請先核對後再登入。', exact=True)).to_be_visible()
+    expect(page.get_by_role('button', name='重新登入', exact=True)).to_have_count(0)
+    page.get_by_role('button', name='核對', exact=True).click()
+    expect(page.get_by_role('button', name='登入 Codex 開發助手', exact=True)).to_be_visible()
+    assert posts == [('workers/host-coder/reconcile', {})]
+    assert page.evaluate("sessionStorage.getItem('agentic-coding-auth-host-coder')") is None
+    refuse['on'] = True
+    remember()
+    page.reload()
+    page.get_by_role('button', name='核對', exact=True).click()
+    refused = page.locator('.coding-login .notice.error')
+    expect(refused).to_have_text('還在確認工作已停止，請稍後再試。')
+    expect(refused).to_have_attribute('data-reason', 'coding_auth_stop_unconfirmed')
+    assert 'coding_auth_stop_unconfirmed' not in page.locator('body').inner_text()
+    expect(page.get_by_role('button', name='登入 Codex 開發助手', exact=True)).to_have_count(0)
+    refuse['on'] = False
+    auth.update(status='pending', url='https://auth.openai.com/codex/device')
+    auth.pop('code', None)
+    remember()
+    page.reload()
+    expect(page.get_by_text('正在取得登入代碼…', exact=True)).to_be_visible()
+    expect(page.get_by_text('到官方頁面輸入這個代碼。')).to_have_count(0)
+    link = page.get_by_role('link', name='開啟登入頁')
+    expect(link).to_have_attribute('href', 'https://auth.openai.com/codex/device')
+    auth['url'] = 'https://auth.openai.com/device'
+    expect(link).to_have_attribute('href', 'https://auth.openai.com/device', timeout=6000)
+    auth['url'] = 'https://unexpected.example/collect'
+    expect(link).to_have_count(0, timeout=6000)
+    fail_read['on'] = True
+    seen = len(reads)
+    expect(page.get_by_text('暫時無法讀取登入狀態。', exact=True)).to_be_visible(timeout=15000)
+    expect(page.get_by_role('button', name='重新檢查', exact=True)).to_be_visible()
+    expect(page.get_by_role('button', name='取消登入')).to_have_count(0)
+    frozen = len(reads)
+    assert frozen >= seen + 3
+    page.wait_for_timeout(2500)
+    assert len(reads) == frozen
+    expect(page.locator('.coding-login .notice.error')).to_have_attribute('data-reason', 'bridge_host_unavailable')
+    assert 'bridge_host_unavailable' not in page.locator('body').inner_text()
+    coding_frames(page, 'login-gave-up')
+    fail_read['on'] = False
+    auth.update(url='https://auth.openai.com/codex/device', code='SYNTHETIC-CODE')
+    before = len(reads)
+    page.get_by_role('button', name='重新檢查', exact=True).click()
+    expect(page.get_by_text('SYNTHETIC-CODE', exact=True)).to_be_visible()
+    expect(page.get_by_text('到官方頁面輸入這個代碼。', exact=True)).to_be_visible()
+    page.wait_for_timeout(2500)
+    assert len(reads) > before + 1
+    coding_frames(page, 'login-code')
     assert not errors, errors
