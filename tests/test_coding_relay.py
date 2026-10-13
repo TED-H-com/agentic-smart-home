@@ -41,7 +41,8 @@ REQUEST = b'{"model":"gpt-6-astra"}'
 OLD_REFRESH = "rt-old-refresh-secret"
 NEW_REFRESH = "rt-new-refresh-secret"
 LEAK = "rt-must-never-reach-sandbox"
-SOCK_ROOT = Path("/home/ted-h/agent-work/tmp/pytest/f3a-relay")
+# AF_UNIX paths stay short; the disk scratch root is the one CI and AGENTS.md use.
+SOCK_ROOT = Path.home() / "agent-work/tmp/pytest/relay-sockets"
 
 
 def stamp(when):
