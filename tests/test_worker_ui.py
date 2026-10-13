@@ -1101,6 +1101,21 @@ def test_coding_detail_shows_findings_changes_and_plain_errors(ui_page):
     frozen = len(detail_reads)
     page.wait_for_timeout(7000)
     assert len(detail_reads) == frozen
+
+    # The job finishes while the detail read fails: the page shows the finished row, then reads again.
+    rich.update(state='running', stop_confirmed=False)
+    active['id'] = rich_id
+    page.reload()
+    expect(page.get_by_role('button', name='停止這份工作', exact=True)).to_be_visible()
+    expect(page.get_by_text(fact, exact=True)).to_be_visible()
+    flags['detail'] = True
+    rich.update(state='succeeded', stop_confirmed=True)
+    active['id'] = None
+    expect(page.locator('.worker-result-head .status')).to_have_text('已完成', timeout=12000)
+    expect(page.get_by_role('button', name='停止這份工作', exact=True)).to_have_count(0)
+    expect(page.locator('.worker-results .notice.error')).to_have_count(0)
+    flags['detail'] = False
+    expect(page.get_by_text(fact, exact=True)).to_be_visible(timeout=12000)
     assert not errors, errors
 
 
