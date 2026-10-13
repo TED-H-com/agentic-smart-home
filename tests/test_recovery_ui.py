@@ -34,6 +34,8 @@ BOOTSTRAP_COPY = {
     'timeout': 'AI 帳號回應逾時，請稍後再試。',
 }
 STEPS = ['network', 'runner_pairing', 'cli_auth', 'cli_assist', 'hermes_install', 'hermes_auth', 'channel', 'ha_provision', 'ha_native']
+# Upper bound for changes the UI only sees on its next poll (1.5-3 s); a loaded runner needs the slack.
+POLL = 10_000
 
 
 def _server():
@@ -131,7 +133,8 @@ def test_hermes_login_codes_and_pending_resume():
         panel.get_by_role('button', name='開始登入', exact=True).click()
         for code, (sentence, action, _state) in HERMES_COPY.items():
             expect(panel.get_by_text(sentence, exact=True)).to_be_visible()
-            expect(panel.get_by_text(code, exact=True)).to_be_visible()
+            expect(panel.locator('.recovery-line')).to_have_attribute('data-reason', code)
+            expect(panel.get_by_text(code, exact=True)).to_have_count(0)
             expect(panel.get_by_role('button', name=action, exact=True)).to_have_count(1)
             if code == 'access_denied':
                 _layouts(page, 'hermes')
@@ -142,6 +145,11 @@ def test_hermes_login_codes_and_pending_resume():
                 assert len(posts) == before
             else:
                 expect(panel.get_by_text(HERMES_COPY[queue[before][0]][0], exact=True)).to_be_visible()
+        current.update(state='interrupted', error=None, reason=None)
+        panel.get_by_role('button', name='重新檢查', exact=True).click()
+        expect(panel.locator('.recovery-line')).to_have_count(0)
+        expect(panel.get_by_text('官方登入未完成，請重新開始。', exact=True)).to_be_visible()
+        expect(panel.get_by_role('button', name='重新開始', exact=True)).to_be_visible()
         before = len(posts)
         runtime['pending_auth'] = pending
         page.reload()
@@ -230,7 +238,7 @@ def test_conversation_reauth_link_and_timeout_retry():
         page.wait_for_timeout(400)
         assert posts == []
         page.get_by_role('button', name='送出訊息', exact=True).click()
-        expect(page.get_by_role('button', name='重試', exact=True)).to_be_visible()
+        expect(page.get_by_role('button', name='重試', exact=True)).to_be_visible(timeout=POLL)
         assert len(posts) == 1 and posts[0]['body']['message'] == question and posts[0]['body']['reply_to'] is None
         page.get_by_role('button', name='重試', exact=True).click()
         expect(box).to_have_value(question)
@@ -240,13 +248,20 @@ def test_conversation_reauth_link_and_timeout_retry():
         page.wait_for_timeout(300)
         assert len(posts) == 2 and posts[0]['key'] != posts[1]['key']
         _layouts(page, 'conversation-retry')
+        direct_id = 'c' * 64
+        gateway['preferences']['coordinator'] = 'direct'
+        messages[:] = [{**seed(direct_id, 'needs_reauth', '這個執行環境的登入已失效，請在 Web 重新登入後再送出。'), 'coordinator': 'direct'}]
+        page.evaluate("""id => sessionStorage.setItem('agentic-auth-conversations', JSON.stringify({'host-codex': id}))""", direct_id)
+        page.reload()
+        expect(page.get_by_role('link', name='重新登入 AI 帳號', exact=True)).to_be_visible()
+        expect(page.get_by_role('link', name='重新登入智能管家', exact=True)).to_have_count(0)
         _finish(server, thread, browser, errors)
 
 
-def test_line_qr_epoch_and_pin_restart():
+def test_line_qr_epoch_and_terminal_failures_restart():
     server, thread = _server()
     line = {'status': 'idle', 'channels': [], 'reason': None, 'message': None, 'qr': None, 'pin': None, 'qr_epoch': 0}
-    posts, errors = [], []
+    posts, reads, errors = [], [], []
     gateway = {'step': 0, 'selected': True, 'preferences': {'primary': 'line', 'runtime': 'host', 'provider': 'codex', 'coordinator': 'hermes'},
                'channels': [{'id': name, 'status': 'disabled', 'enabled': False, 'chats': [], 'senders': [], 'has_secret': False, 'reason': None, 'message': None}
                             for name in ('line', 'telegram', 'discord')]}
@@ -259,8 +274,9 @@ def test_line_qr_epoch_and_pin_restart():
             assert request.headers.get('x-agentic-csrf') == 'fixture-csrf'
             assert request.headers.get('idempotency-key')
             posts.append(body)
-            if line['status'] == 'idle':
-                line.update(status='authenticating', qr='https://fixture.example/qr-1', pin=None, qr_epoch=1, reason=None, message=None)
+            if line['status'] in {'idle', 'qr_expired', 'pin_failed', 'login_rejected', 'service_unavailable'}:
+                line.update(status='authenticating', qr=f'https://fixture.example/qr-{len(posts)}', pin=None, qr_epoch=1,
+                            reason=None, message=None)
         elif path == 'deployment':
             result = {'mode': 'host', 'authenticated': True}
         elif path == 'session':
@@ -278,6 +294,8 @@ def test_line_qr_epoch_and_pin_restart():
         else:
             result = {}
         if path == 'gateway/line/login':
+            if body is None:
+                reads.append(line['status'])
             result = line
         route.fulfill(status=200, content_type='application/json', body=json.dumps(result))
 
@@ -293,23 +311,36 @@ def test_line_qr_epoch_and_pin_restart():
         expect(page.get_by_text('已更新 QR code', exact=True)).to_have_count(0)
         first = image.get_attribute('src')
         line.update(qr='https://fixture.example/qr-2', qr_epoch=2)
-        expect(page.get_by_text('已更新 QR code', exact=True)).to_have_count(1)
+        expect(page.get_by_text('已更新 QR code', exact=True)).to_have_count(1, timeout=POLL)
         expect(image).not_to_have_attribute('src', first)
         page.wait_for_timeout(1800)
         expect(page.get_by_text('已更新 QR code', exact=True)).to_have_count(1)
         line.update(status='qr_expired', qr=None, reason='qr_expired', message=None, qr_epoch=2)
-        expect(page.get_by_text('QR code 已過期，正在取得新的。', exact=True)).to_be_visible()
-        expect(page.get_by_role('button', name='重新開始', exact=True)).to_have_count(0)
+        expect(page.get_by_text('QR code 已過期，請重新開始。', exact=True)).to_be_visible(timeout=POLL)
         expect(page.get_by_role('button', name='重新開始', exact=True)).to_be_visible()
-        line.update(status='pin_failed', reason='pin_failed', message=None, qr=None, qr_epoch=2)
-        expect(page.get_by_text('PIN 驗證沒有通過，請重新登入。', exact=True)).to_be_visible()
+        expect(page.get_by_role('button', name='開始 LINE 掃碼登入', exact=True)).to_be_hidden()
+        expect(page.locator('.line-login')).to_have_attribute('data-reason', 'qr_expired')
+        expect(page.get_by_text('qr_expired', exact=True)).to_have_count(0)
+        # The attempt has ended: polling stops until the owner starts again.
+        settled = len(reads)
+        page.wait_for_timeout(2000)
+        assert len(reads) == settled
+        page.get_by_role('button', name='重新開始', exact=True).click()
+        expect(image).to_have_attribute('src', re.compile(r'^data:image/png;base64,'))
+        assert len(posts) == 2 and posts[-1] == {}
+        line.update(status='pin_failed', reason='pin_failed', message=None, qr=None)
+        expect(page.get_by_text('PIN 驗證沒有通過，請重新開始。', exact=True)).to_be_visible(timeout=POLL)
         expect(page.get_by_text('已更新 QR code', exact=True)).to_have_count(0)
         _layouts(page, 'line')
-        before = len(posts)
         page.get_by_role('button', name='重新開始', exact=True).click()
-        page.wait_for_timeout(300)
-        assert len(posts) == before + 1 and posts[-1] == {}
-        _layouts(page, 'line-390')
+        expect(image).to_be_visible()
+        assert len(posts) == 3 and posts[-1] == {}
+        line.update(status='service_unavailable', reason='service_unavailable', message=None, qr=None)
+        expect(page.get_by_text('LINE 服務暫時無法使用，請稍後再試。', exact=True)).to_be_visible(timeout=POLL)
+        expect(page.get_by_role('button', name='重新開始', exact=True)).to_have_count(0)
+        page.get_by_role('button', name='再試一次', exact=True).click()
+        expect(image).to_be_visible()
+        assert len(posts) == 4 and posts[-1] == {}
         _finish(server, thread, browser, errors)
 
 
@@ -348,6 +379,7 @@ def test_telegram_token_focus_and_conflict_sentences():
         page.route('**/api/**', route)
         page.goto(f'http://127.0.0.1:{server.server_port}/#gateway/channels')
         expect(page.get_by_text('Bot token 無效，請重新貼上。', exact=True)).to_be_visible()
+        expect(page.get_by_text('invalid_token', exact=True)).to_have_count(0)
         expect(page.get_by_label('Telegram bot token', exact=True)).to_be_focused()
         _layouts(page, 'telegram-token')
         channels['telegram'].update(status='webhook_conflict', reason='webhook_active', message=None)
@@ -417,7 +449,7 @@ def test_bootstrap_retry_codes_use_one_friendly_sentence():
         notice = page.locator('.onboarding-body .notice.error')
         for index, (code, sentence) in enumerate(BOOTSTRAP_COPY.items()):
             show(code)
-            expect(notice).to_have_text(sentence)
+            expect(notice).to_have_text(sentence, timeout=POLL)
             expect(notice).not_to_contain_text(code)
             expect(notice).not_to_contain_text('Hermes')
             expect(page.get_by_role('button', name='重試這一步', exact=True)).to_have_count(1)
@@ -432,7 +464,7 @@ def test_bootstrap_retry_codes_use_one_friendly_sentence():
         _finish(server, thread, browser, errors)
 
 
-def test_rate_limited_account_has_no_relogin_button():
+def test_rate_limited_account_keeps_one_retry():
     server, thread = _server()
     errors = []
     sentence = '已達用量上限，請稍後再試。'
@@ -469,6 +501,7 @@ def test_rate_limited_account_has_no_relogin_button():
         page.goto(f'http://127.0.0.1:{server.server_port}/#agents')
         card = page.locator('article.provider').filter(has=page.get_by_role('heading', name='Codex', exact=True))
         expect(card.get_by_text(sentence, exact=True)).to_have_count(1)
+        expect(card.get_by_role('button', name='再試一次', exact=True)).to_have_count(1)
         expect(card.get_by_role('button', name='重新開始', exact=True)).to_have_count(0)
         expect(card.get_by_role('button', name='重新登入', exact=True)).to_have_count(0)
         _layouts(page, 'account')

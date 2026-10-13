@@ -30,11 +30,12 @@ export function Provider({provider,state,paired,onChange,runtime,subscriptionFir
   const ended=accountCopy[reason]?friendlySentence(auth?.message,accountCopy[reason]):auth?.status==='expired'?'登入已過期，請重新開始。':auth?.status==='stop_unconfirmed'?'尚未確認登入程序停止，請先核對執行環境。':auth?.message||'登入未完成，請重新開始。';
   const stateSentence=!auth&&reason&&accountCopy[reason]?friendlySentence(state?.message,accountCopy[reason]):!auth&&state?.message?state.message:'';
   return <article className="provider"><div className="section-heading"><h3>{name}</h3><Status value={checking?'checking':pending?'pending':state?.status||'needs_reauth'}/></div>{error&&<Notice error>{error}</Notice>}{connected?<Button onClick={logout}>登出</Button>:<>
-    <form onSubmit={login} hidden={pending||checking||(terminal&&quiet)}>{methods.length>1&&<details><summary>其他登入方式</summary><label>登入方式<select value={method} disabled={busy} onChange={e=>setMethod(e.target.value)}>{methods.map(item=><option key={item} value={item}>{item==='device_code'?'官方訂閱':item==='oauth_token'?'setup-token':'API key'}</option>)}</select></label></details>}{method!=='device_code'&&<label>{method==='api_key'?'API key':'setup-token'}<input type="password" value={secret} onChange={e=>setSecret(e.target.value)} autoComplete="off" required/></label>}<p className="helper-text">{hint}</p>{!(terminal&&quiet)&&<Button type="submit" disabled={!paired||busy}>{busy?'啟動中…':terminal?'重新開始':'開始登入'}</Button>}</form>
+    {terminal&&<Notice error>{ended}</Notice>}
+    {stateSentence&&<Notice error>{stateSentence}</Notice>}
+    <form onSubmit={login} hidden={pending||checking}>{methods.length>1&&<details><summary>其他登入方式</summary><label>登入方式<select value={method} disabled={busy} onChange={e=>setMethod(e.target.value)}>{methods.map(item=><option key={item} value={item}>{item==='device_code'?'官方訂閱':item==='oauth_token'?'setup-token':'API key'}</option>)}</select></label></details>}{method!=='device_code'&&<label>{method==='api_key'?'API key':'setup-token'}<input type="password" value={secret} onChange={e=>setSecret(e.target.value)} autoComplete="off" required/></label>}<p className="helper-text">{hint}</p><Button type="submit" disabled={!paired||busy}>{busy?'啟動中…':terminal?quiet?'再試一次':'重新開始':'開始登入'}</Button></form>
     {pending&&<div className="auth-code" role="status">{auth.code?<div className="code-row"><strong>{auth.code}</strong><CopyButton text={auth.code}>複製</CopyButton></div>:<span>等待官方提供一次性代碼…</span>}{auth.url&&official.test(auth.url)&&<a className="button auth-link" href={auth.url} target="_blank" rel="noreferrer">開啟登入頁 ↗</a>}<p>{provider==='codex'?'必要時請在 ChatGPT 開啟裝置碼登入。':'在官方頁面輸入代碼並確認。'}</p><Button secondary disabled={busy} onClick={cancel}>取消登入</Button></div>}
     {checking&&<div className="auth-code" role="status"><span>正在向官方確認登入資訊…</span><Button secondary disabled={busy} onClick={cancel}>取消</Button></div>}
-    {terminal&&<Notice error>{ended}</Notice>}
-    {stateSentence&&<Notice error>{stateSentence}</Notice>}</>}</article>
+</>}</article>
 }
 
 export function RuntimePanel({only,onChange}:{only?:Runtime;onChange?:()=>void}){

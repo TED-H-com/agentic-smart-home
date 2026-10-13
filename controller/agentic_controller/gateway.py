@@ -46,7 +46,7 @@ CONTINUABLE = {"queued", "planning", "awaiting_user", "awaiting_approval", "succ
 LINE_QR_SECONDS = 180
 LINE_LOGIN_LIMIT = 900
 LINE_LOGIN_TEXT = {
-    "qr_expired": "QR 已過期，請重新整理登入畫面。",
+    "qr_expired": "QR code 已過期，請重新開始 LINE 登入。",
     "pin_failed": "PIN 不正確，請重新開始 LINE 登入。",
     "login_rejected": "LINE 拒絕了這次登入，請改用其他帳號或稍後再試。",
     "service_unavailable": "LINE 登入服務暫時無法連線，請確認本機服務後再試。",

@@ -11,12 +11,14 @@ import type {View} from './setup';
 type Pairing={state:string;code:string|null;expires_at:number|null;chat:string|null};
 const channelOrder=['line','telegram','discord','web'];
 const hints:Record<string,string>={line:'預設推薦',telegram:'自己的 bot',discord:'自己的 bot',web:'先用 Web'};
-const lineRecovery:Record<string,{text:string;action:'start'|'check'}>={
-  qr_expired:{text:'QR code 已過期，正在取得新的。',action:'start'},
-  pin_failed:{text:'PIN 驗證沒有通過，請重新登入。',action:'start'},
-  login_rejected:{text:'LINE 拒絕這次登入，請稍後再試。',action:'start'},
-  service_unavailable:{text:'LINE 服務暫時無法使用。',action:'check'},
+// Each of these ends the login attempt; the one action starts a new attempt.
+const lineRecovery:Record<string,{text:string;action:string}>={
+  qr_expired:{text:'QR code 已過期，請重新開始。',action:'重新開始'},
+  pin_failed:{text:'PIN 驗證沒有通過，請重新開始。',action:'重新開始'},
+  login_rejected:{text:'LINE 拒絕這次登入，請稍後再試。',action:'重新開始'},
+  service_unavailable:{text:'LINE 服務暫時無法使用，請稍後再試。',action:'再試一次'},
 };
+const lineEnded=['ready','unavailable','failed',...Object.keys(lineRecovery)];
 function telegramSentence(channel:any){
   const reason=channel?.reason,status=channel?.status;
   const fallback=reason==='webhook_active'?'這個 Bot 已連到其他服務（webhook），請先在那裡解除。':reason==='poller_conflict'?'這個 Bot 正被另一個程式使用，請先停止它。':status==='invalid_token'||reason==='invalid_token'?'Bot token 無效，請重新貼上。':status==='rate_limited'||reason==='rate_limited'?'Telegram 暫時限制請求，請稍後再試。':status==='unavailable'||reason==='unavailable'?'暫時連不上 Telegram。':'';
@@ -33,28 +35,27 @@ function ChannelPairing({channel,chat,secret,hasSecret,enabled,onChange,onSaved,
 }
 
 export function ChannelSettings({onChange,guided=false,initialChannel,onChannelChange}:{onChange?:()=>void;guided?:boolean;initialChannel?:string;onChannelChange?:(channel:string)=>Promise<void>}){
-  const [data,setData]=useState<any>(null),[channel,setChannel]=useState('line'),[secret,setSecret]=useState(''),[chats,setChats]=useState(''),[senders,setSenders]=useState(''),[login,setLogin]=useState<any>(null),[qr,setQr]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[dirty,setDirty]=useState(false),[qrNote,setQrNote]=useState(''),[qrStale,setQrStale]=useState(false);
+  const [data,setData]=useState<any>(null),[channel,setChannel]=useState('line'),[secret,setSecret]=useState(''),[chats,setChats]=useState(''),[senders,setSenders]=useState(''),[login,setLogin]=useState<any>(null),[qr,setQr]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[dirty,setDirty]=useState(false),[qrNote,setQrNote]=useState('');
   const refresh=useCallback(async()=>{const value=await api('gateway');setData(value);return value},[]);
   const [pairChat,setPairChat]=useState(''),[pairState,setPairState]=useState<(Pairing&{channel:string})|null>(null);
   const pairingChanged=useCallback((value:Pairing,channel:string)=>setPairState({...value,channel}),[]);
-  const seenEpoch=useRef(0),qrWatch=useRef({status:'',epoch:-1,hits:0}),tokenRef=useRef<HTMLInputElement>(null);
+  const seenEpoch=useRef(0),tokenRef=useRef<HTMLInputElement>(null);
   const pendingPair=pairState?.channel===channel&&pairState.state==='pending'?pairState:null;
   const paired=useCallback(()=>{refresh().catch(e=>setError(e.message));onChange?.()},[refresh,onChange]);
   const pairedSaved=useCallback(()=>{setSecret('');refresh().catch(e=>setError(e.message))},[refresh]);
   useEffect(()=>{refresh().then(value=>setChannel(initialChannel||value.preferences.primary)).catch(e=>setError(e.message))},[refresh,initialChannel]);
   useEffect(()=>{if(guided&&channel==='line')api('gateway/line/login').then(setLogin).catch(e=>setError(e.message))},[guided,channel]);
   useEffect(()=>{if(!data||dirty)return;const current=data.channels.find((c:any)=>c.id===channel);setChats(current?.chats.join('\n')||'');setSenders(current?.senders.join('\n')||'')},[channel,data,dirty]);
-  useEffect(()=>{if(!login||['ready','unavailable','failed'].includes(login.status))return;let alive=true;const timer=setInterval(()=>api('gateway/line/login').then(value=>{if(alive)setLogin(value)}).catch(e=>{if(alive)setError(e.message)}),1500);return()=>{alive=false;clearInterval(timer)}},[login?.status]);
+  useEffect(()=>{if(!login||lineEnded.includes(login.status))return;let alive=true;const timer=setInterval(()=>api('gateway/line/login').then(value=>{if(alive)setLogin(value)}).catch(e=>{if(alive)setError(e.message)}),1500);return()=>{alive=false;clearInterval(timer)}},[login?.status]);
   useEffect(()=>{let active=true;setQr('');if(login?.qr)QRCode.toDataURL(login.qr,{width:240,margin:2}).then(value=>{if(active)setQr(value)});return()=>{active=false}},[login?.qr]);
-  useEffect(()=>{if(!login)return;const epoch=Number(login.qr_epoch)||0;if(epoch>0&&seenEpoch.current>0&&epoch>seenEpoch.current)setQrNote('已更新 QR code');else if(login.status!=='authenticating')setQrNote('');if(epoch>0)seenEpoch.current=epoch;if(login.status==='qr_expired'&&qrWatch.current.status==='qr_expired'&&qrWatch.current.epoch===epoch)qrWatch.current.hits+=1;else qrWatch.current={status:login.status,epoch,hits:login.status==='qr_expired'?1:0};setQrStale(login.status==='qr_expired'&&qrWatch.current.hits>=2)},[login]);
+  useEffect(()=>{if(!login)return;const epoch=Number(login.qr_epoch)||0;if(epoch>0&&seenEpoch.current>0&&epoch>seenEpoch.current)setQrNote('已更新 QR code');else if(login.status!=='authenticating')setQrNote('');if(epoch>0)seenEpoch.current=epoch},[login]);
   const current=data?.channels.find((c:any)=>c.id===channel);
   useEffect(()=>{if(channel==='telegram'&&(current?.status==='invalid_token'||current?.reason==='invalid_token'))tokenRef.current?.focus()},[channel,current?.status,current?.reason]);
   const lineStatus=login?.status as string|undefined,lineSpec=lineStatus?lineRecovery[lineStatus]:undefined,lineText=lineSpec?friendlySentence(login?.message,lineSpec.text):'';
-  const lineRestart=lineStatus==='pin_failed'||lineStatus==='login_rejected'||(lineStatus==='qr_expired'&&qrStale),lineRefresh=lineStatus==='qr_expired'&&!qrStale,lineRecheck=lineStatus==='service_unavailable';
+  const lineRestart=!!lineSpec;
   const telegramText=channel==='telegram'?telegramSentence(current):'',telegramRecheck=channel==='telegram'&&(current?.status==='unavailable'||current?.reason==='unavailable');
-  const dedicatedRecheck=lineRestart||lineRefresh||lineRecheck||telegramRecheck;
+  const dedicatedRecheck=lineRestart||telegramRecheck;
   async function startLine(){setBusy(true);setError('');try{setLogin(await api('gateway/line/login',{}))}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
-  async function recheckLine(){setBusy(true);setError('');try{setLogin(await api('gateway/line/login'));await refresh()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
   const ids=(text:string)=>Array.from(new Set(text.split(/[\s,]+/).filter(Boolean)));
   async function choose(id:string){if(id===channel||busy)return;setBusy(true);setError('');try{await onChannelChange?.(id);setChannel(id);setDirty(false);setSecret('');setNotice('')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
   async function save(enabled=true){setBusy(true);setError('');setNotice('');try{if(channel!=='web')await api(`gateway/channels/${channel}`,{enabled,secret,chats:ids(chats),senders:ids(senders)});await api('gateway/preferences',{...data.preferences,primary:channel});setSecret('');setDirty(false);await refresh();onChange?.();setNotice(channel==='web'?'Web 已設為主要入口。':enabled?'設定已儲存，正在連接通訊服務。':'此通道已停用，Web 仍可使用。')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
@@ -64,8 +65,8 @@ export function ChannelSettings({onChange,guided=false,initialChannel,onChannelC
     {error&&<Notice error>{error}</Notice>}{notice&&<Notice>{notice}</Notice>}
     {!data?<p role="status">讀取通訊設定…</p>:<>{channel==='web'?<p>不需要其他帳號，登入後就能對話。</p>:<>
       <p className="connection-state" role="status">{names[channel]} · {connection[current?.status]||'尚未設定'}</p>
-      {channel==='line'?<><p className="helper-text">LINE.js 為非官方協定，建議使用次要帳號。</p><Button hidden={(guided&&login?.status==='authenticating')||lineRestart||lineRefresh||lineRecheck} disabled={busy||login?.status==='authenticating'} onClick={startLine}>{login?.status==='ready'?'重新讀取 LINE 聊天室':'開始 LINE 掃碼登入'}</Button>{qrNote&&<p role="status">{qrNote}</p>}{login&&<div className={`line-login ${qr?'has-qr':''}`} role="status">{qr&&<img src={qr} width={240} height={240} alt="用 LINE 掃描此登入 QR code"/>}<div><p>{lineText||connection[login.status]||login.status}{login.profile&&` · ${login.profile}`}</p>{lineText&&login.reason&&<small className="reason-code">{login.reason}</small>}{qr&&!lineText&&<p>用 LINE 掃描 QR code，再在手機確認。</p>}{login.pin&&<p className="line-pin-prompt">手機驗證碼 <strong className="line-pin">{login.pin}</strong></p>}{login.status==='unavailable'&&<p>請確認服務已啟動後再試。</p>}{lineRestart&&<Button type="button" disabled={busy} onClick={startLine}>重新開始</Button>}{lineRecheck&&<Button type="button" disabled={busy} onClick={recheckLine}>重新檢查</Button>}</div></div>}{!!login?.channels?.length&&<label>{guided?'家庭聊天室':'加入家庭聊天室'}<select aria-label={guided?'家庭聊天室':'加入家庭聊天室'} value={guided?(pendingPair?.chat||pairChat):''} disabled={guided&&!!pendingPair} onChange={e=>{if(guided)setPairChat(e.target.value);else{setChats(Array.from(new Set([...ids(chats),e.target.value])).join('\n'));setDirty(true)}}}><option value="">選擇聊天室…</option>{login.channels.map((c:any)=><option key={c.channelId} value={c.channelId}>{c.name}{!guided&&` · ${c.channelId}`}</option>)}</select></label>}</>:<label>{names[channel]} bot token<input ref={tokenRef} type="password" autoComplete="off" aria-invalid={channel==='telegram'&&(current?.status==='invalid_token'||current?.reason==='invalid_token')||undefined} value={secret} placeholder={current?.has_secret?'已儲存；留空保留原權杖':''} onChange={e=>{setSecret(e.target.value);setDirty(true)}}/></label>}
-      {channel==='telegram'&&telegramText&&<p className="recovery-line" role="status"><span>{telegramText}</span>{current?.reason&&<small className="reason-code">{current.reason}</small>}</p>}
+      {channel==='line'?<><p className="helper-text">LINE.js 為非官方協定，建議使用次要帳號。</p><Button hidden={(guided&&login?.status==='authenticating')||lineRestart} disabled={busy||login?.status==='authenticating'} onClick={startLine}>{login?.status==='ready'?'重新讀取 LINE 聊天室':'開始 LINE 掃碼登入'}</Button>{qrNote&&<p role="status">{qrNote}</p>}{login&&<div className={`line-login ${qr?'has-qr':''}`} role="status" data-reason={lineSpec?lineStatus:undefined}>{qr&&<img src={qr} width={240} height={240} alt="用 LINE 掃描此登入 QR code"/>}<div><p>{lineText||connection[login.status]||login.status}{login.profile&&` · ${login.profile}`}</p>{qr&&!lineText&&<p>用 LINE 掃描 QR code，再在手機確認。</p>}{login.pin&&<p className="line-pin-prompt">手機驗證碼 <strong className="line-pin">{login.pin}</strong></p>}{login.status==='unavailable'&&<p>請確認服務已啟動後再試。</p>}{lineSpec&&<Button type="button" disabled={busy} onClick={startLine}>{lineSpec.action}</Button>}</div></div>}{!!login?.channels?.length&&<label>{guided?'家庭聊天室':'加入家庭聊天室'}<select aria-label={guided?'家庭聊天室':'加入家庭聊天室'} value={guided?(pendingPair?.chat||pairChat):''} disabled={guided&&!!pendingPair} onChange={e=>{if(guided)setPairChat(e.target.value);else{setChats(Array.from(new Set([...ids(chats),e.target.value])).join('\n'));setDirty(true)}}}><option value="">選擇聊天室…</option>{login.channels.map((c:any)=><option key={c.channelId} value={c.channelId}>{c.name}{!guided&&` · ${c.channelId}`}</option>)}</select></label>}</>:<label>{names[channel]} bot token<input ref={tokenRef} type="password" autoComplete="off" aria-invalid={channel==='telegram'&&(current?.status==='invalid_token'||current?.reason==='invalid_token')||undefined} value={secret} placeholder={current?.has_secret?'已儲存；留空保留原權杖':''} onChange={e=>{setSecret(e.target.value);setDirty(true)}}/></label>}
+      {channel==='telegram'&&telegramText&&<p className="recovery-line" role="status" data-reason={current?.reason||current?.status}><span>{telegramText}</span></p>}
       {channel==='telegram'&&!telegramText&&<p className="helper-text">{guided?'向 BotFather 取得 token，再產生配對碼。':'向 BotFather 取得 token，再填聊天室與使用者。'}</p>}
       {telegramRecheck&&<Button type="button" secondary disabled={busy} onClick={()=>refresh().catch(e=>setError(e.message))}>重新檢查</Button>}
       {channel==='discord'&&<p className="helper-text">在 Developer Portal 建立 bot，並允許讀取與傳送訊息。</p>}
