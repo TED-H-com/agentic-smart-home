@@ -2,7 +2,7 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import {api,haPath,requestKey,session} from './api';
 import {Button,Notice,Status,timestamp} from './ui';
 import {Provider} from './providers';
-import {ChannelSettings,ManualOnboarding} from './gateway';
+import {ChannelSettings,ManualOnboarding} from './channels';
 import {HermesPanel} from './hermes';
 import {HomeEntry} from './home-entry';
 import type {View} from './setup';
