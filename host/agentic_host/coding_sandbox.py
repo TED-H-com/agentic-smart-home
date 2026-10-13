@@ -23,9 +23,23 @@ from .manager import atomic
 UID = 10000
 ID = re.compile(r"[a-z0-9][a-z0-9-]{7,63}\Z")
 SHA = re.compile(r"[0-9a-f]{40}\Z")
+# A key/value secret needs a quoted literal with 8 non-space characters on one line, or a
+# 20+ character token with a letter and a digit that is not a call or an index. Type hints
+# and expressions such as `api_key: SecretStr` or `password=body.password` do not match.
 SECRET = re.compile(rb"(?i)(-----BEGIN [A-Z ]*PRIVATE KEY-----|Bearer\s+[A-Za-z0-9._~+/-]{16,}|"
                     rb"(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password)\s*[\"']?\s*[:=]\s*"
-                    rb"[\"']?[^\s\"']{8,}|sk-[A-Za-z0-9_-]{16,})")
+                    rb"(?:\"(?=(?:[^\"\n]*[^\s\"]){8})[^\"\n]+\"|'(?=(?:[^'\n]*[^\s']){8})[^'\n]+'|"
+                    rb"(?=[\w.~+/=-]*[A-Za-z])(?=[\w.~+/=-]*[0-9])[\w.~+/=-]{20,}(?![\w.~+/=(\[-]))|"
+                    rb"sk-[A-Za-z0-9_-]{16,})")
+# Added patch lines are code under review, so only token-like values count there.
+# A test fixture such as password="not-a-real-secret" keeps the diff readable.
+PATCH_SECRET = re.compile(rb"(?i)(-----BEGIN [A-Z ]*PRIVATE KEY-----|Bearer\s+[A-Za-z0-9._~+/-]{16,}|"
+                          rb"(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password)\s*[\"']?\s*[:=]\s*[\"']?"
+                          rb"(?=[\w.~+/=-]*[A-Za-z])(?=[\w.~+/=-]*[0-9])[\w.~+/=-]{20,}(?![\w.~+/=(\[-])|"
+                          rb"sk-[A-Za-z0-9_-]{16,})")
+# The Controller rejects a whole result over 180 KiB per file or with a name it refuses.
+ARTIFACT_FILE_BYTES = 180 * 1024
+SKIPPED_LISTED = 100
 SUFFIXES = {".txt", ".md", ".json", ".py", ".patch", ".diff", ".log"}
 WEB_BUNDLE_SUFFIXES = {".html", ".js", ".css", ".svg", ".json", ".txt", ".png", ".webp", ".woff2", ".ico"}
 WEB_TEXT_SUFFIXES = {".html", ".js", ".css", ".svg", ".json", ".txt"}
@@ -45,7 +59,7 @@ ERROR_CODES = frozenset({
     "sandbox_rejected", "command_failed", "command_timeout", "root_broker_required", "invalid_docker_info",
     "resource_limits_unavailable", "docker_security_unavailable", "state_root_permissions",
     "state_ancestor_permissions", "disk_backing_required", "host_reserve_insufficient",
-    "workspace_mount_unverified",
+    "workspace_mount_unverified", "coding_setup_failed",
 })
 RESOURCE_KEYS = ("MemoryLimit", "SwapLimit", "PidsLimit", "CpuCfsQuota")
 OPERATIONS = {
@@ -166,11 +180,39 @@ def container_command(name: str, image: str, workspace: Path, limits: Limits, *,
     return [*args, "--entrypoint", "/bin/sh", image, "-c", execute]
 
 
+def _artifact_skip_reason(relative: str, path: Path, suffixes: set[str]) -> str | None:
+    """Style mistakes are skipped. Links and odd file types are rejected by the caller.
+
+    Names follow the Controller's rule (160 characters, no backslash). skipped.json is generated.
+    """
+    if (len(relative) > 160 or "/" in relative or "\\" in relative or relative == "skipped.json"
+            or any(ord(char) < 32 for char in relative)):
+        return "name_not_allowed"
+    if path.suffix not in suffixes:
+        return "unsupported_type"
+    return None
+
+
+def _secret_found(name: str, data: bytes) -> bool:
+    """Patches are scanned on added lines only. Context and deletions are repository content."""
+    if not name.endswith((".patch", ".diff")):
+        return SECRET.search(data) is not None
+    added = b"".join(line for line in data.splitlines(keepends=True)
+                     if line.startswith(b"+") and not line.startswith(b"+++"))
+    return PATCH_SECRET.search(added) is not None
+
+
 def read_artifacts(root: Path, limits: Limits):
-    """Caller MUST first prove the writer stopped. Never follows links or emits HTML."""
+    """Caller MUST first prove the writer stopped. Never follows links.
+
+    An unsupported name or a file past the quota is skipped and listed in skipped.json.
+    A secret match is withheld with metadata only. Links, hardlinks, a changed size,
+    and non-UTF-8 or binary content in an allowed text file still fail the export.
+    """
     if root.is_symlink() or not root.is_dir():
         raise SandboxError("Invalid artifact directory")
-    result, total, entries = [], 0, 0
+    result, total, entries, skipped = [], 0, 0, []
+    suffixes = SUFFIXES | ({".html", ".css", ".js", ".svg"} if limits.web_artifacts else set())
     for directory, dirs, files in os.walk(root, followlinks=False):
         entries += len(dirs) + len(files)
         if entries > 512 or len(Path(directory).relative_to(root).parts) > 12:
@@ -202,9 +244,6 @@ def read_artifacts(root: Path, limits: Limits):
                 finally:
                     os.close(descriptor)
                 continue
-            suffixes = SUFFIXES | ({".html", ".css", ".js", ".svg"} if limits.web_artifacts else set())
-            if len(relative) > 240 or path.suffix not in suffixes or any(ord(c) < 32 for c in relative):
-                raise SandboxError("Unsupported artifact path or type")
             try:
                 descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
             except OSError as exc:
@@ -213,16 +252,21 @@ def read_artifacts(root: Path, limits: Limits):
                 info = os.fstat(descriptor)
                 if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
                     raise SandboxError("Artifact must be an unlinked regular file")
-                if len(result) >= limits.artifact_files or info.st_size > limits.artifact_bytes - total:
-                    raise SandboxError("Artifact quota exceeded")
+                reason = _artifact_skip_reason(relative, path, suffixes)
+                if reason is None and len(result) >= limits.artifact_files:
+                    reason = "file_limit"
+                if reason is None and (info.st_size > ARTIFACT_FILE_BYTES or
+                                       info.st_size > limits.artifact_bytes - total):
+                    reason = "size_limit"
+                if reason:
+                    skipped.append({"name": relative, "reason": reason})
+                    continue
                 with os.fdopen(descriptor, "rb", closefd=False) as stream:
                     data = stream.read(limits.artifact_bytes - total + 1)
                 if len(data) != info.st_size or len(data) > limits.artifact_bytes - total:
                     raise SandboxError("Artifact changed or exceeds quota")
             finally:
                 os.close(descriptor)
-            if SECRET.search(data):
-                raise SandboxError("Potential secret in artifact; private review required")
             try:
                 content = data.decode("utf-8")
             except UnicodeError as exc:
@@ -230,9 +274,23 @@ def read_artifacts(root: Path, limits: Limits):
             if "\x00" in content:
                 raise SandboxError("Binary artifacts are unsupported")
             total += len(data)
-            result.append({"name": relative, "sha256": hashlib.sha256(data).hexdigest(),
-                           "size": len(data), "content": content, "untrusted": True,
-                           "redaction": "pattern_scan_only; not a guarantee of no secrets"})
+            item = {"name": relative, "sha256": hashlib.sha256(data).hexdigest(),
+                    "size": len(data), "untrusted": True,
+                    "redaction": "pattern_scan_only; not a guarantee of no secrets"}
+            if _secret_found(relative, data):
+                item["kind"] = "withheld"
+            else:
+                item["content"] = content
+            result.append(item)
+    if skipped:
+        listed = {"skipped": [{"name": item["name"] if len(item["name"]) <= 160 else item["name"][:159] + "…",
+                               "reason": item["reason"]} for item in skipped[:SKIPPED_LISTED]]}
+        if len(skipped) > SKIPPED_LISTED:
+            listed["omitted"] = len(skipped) - SKIPPED_LISTED
+        payload = json.dumps(listed, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+        result.append({"name": "skipped.json", "sha256": hashlib.sha256(payload).hexdigest(),
+                       "size": len(payload), "content": payload.decode(), "untrusted": True,
+                       "redaction": "pattern_scan_only; not a guarantee of no secrets"})
     return result
 
 
@@ -521,6 +579,72 @@ class CodingSandbox:
             raise SandboxError("Container was replaced")
         return info
 
+    def _unmount_workspace(self, job_id):
+        mount = self.root / job_id / "workspace"
+        if os.path.ismount(mount):
+            self.execute("umount", str(mount))
+
+    def _labeled_container_ids(self, job):
+        """Return label matches, or None when the daemon did not answer. None is never proof."""
+        try:
+            version = self.execute("docker", "version", "--format", "{{.Server.Version}}", check=False)
+            if version.returncode != 0:
+                return None
+            listed = self.execute("docker", "ps", "-a", "--no-trunc", "--filter",
+                                  "label=agentic.coding=" + job["container"], "--format", "{{.ID}}", check=False)
+        except (OSError, SandboxError, subprocess.SubprocessError):
+            return None
+        if listed.returncode != 0:
+            return None
+        return [line.strip() for line in listed.stdout.splitlines() if line.strip()]
+
+    def _stop_named_container(self, job):
+        """Kill a labeled container when it is running. Return inspect info once it is stopped."""
+        try:
+            info = self.inspect(job)
+            if info["State"]["Running"] or info["State"].get("Paused"):
+                self.execute("docker", "kill", "--signal", "KILL", job["container"], check=False)
+                self.execute("docker", "wait", job["container"], timeout=15)
+                info = self.inspect(job)
+            if not info["State"]["Running"] and not info["State"].get("Paused"):
+                return info
+        except (OSError, SandboxError, subprocess.SubprocessError, ValueError, KeyError, IndexError, TypeError):
+            return None
+        return None
+
+    def _confirm_writer(self, job):
+        """Prove a record with no container id is absent, or stop the one container found by label.
+
+        Returns 'absent', 'stopped', or 'unknown'. A silent daemon is always 'unknown'.
+        """
+        original = job.get("container_id")
+        if original and self._stop_named_container(job) is not None:
+            return "stopped"
+        found = self._labeled_container_ids(job)
+        if found is None:
+            return "unknown"
+        if not found:
+            return "absent"
+        if len(found) != 1:
+            return "unknown"
+        job["container_id"] = found[0]
+        if self._stop_named_container(job) is not None:
+            self.save(job)
+            return "stopped"
+        if original:
+            job["container_id"] = original
+        else:
+            job.pop("container_id", None)
+        return "unknown"
+
+    def _fail_setup(self, job, exc):
+        code = exc.code if isinstance(exc, SandboxError) else "coding_setup_failed"
+        job.update(state="failed", setup_failure=code)
+        self.save(job)
+        error = SandboxError("Coding setup failed before a writer started", code="coding_setup_failed")
+        error.stopped = True
+        raise error from exc
+
     def prepare(self, job, program):
         directory = self.root / job["job_id"]
         directory.mkdir(mode=0o700)
@@ -596,6 +720,7 @@ class CodingSandbox:
                     raise SandboxError("Job ID reused with different payload")
                 return self.save(previous)
             for path in self.root.glob("*.json"):
+                # failed / cancelled / interrupted already proved absence or a stop.
                 if json.loads(path.read_text())["state"] in {"preparing", "running", "stop_unconfirmed"}:
                     raise SandboxError("Previous writer has not been fenced")
             if sum(path.is_dir() for path in self.root.iterdir()) >= 4:
@@ -613,24 +738,56 @@ class CodingSandbox:
                 self.save(job)  # Persist exact identity before starting the writer.
                 self.execute("docker", "start", job["container"])
                 job["state"] = "running"
-            except (OSError, SandboxError, subprocess.SubprocessError):
+            except (OSError, SandboxError, subprocess.SubprocessError) as exc:
+                proof = self._confirm_writer(job)
+                if proof in {"absent", "stopped"}:
+                    try:
+                        self._unmount_workspace(job["job_id"])
+                    except (OSError, SandboxError, subprocess.SubprocessError):
+                        proof = "unknown"
+                if proof in {"absent", "stopped"}:
+                    self._fail_setup(job, exc)
                 job["state"] = "stop_unconfirmed"
                 self.save(job)
                 raise
             return self.save(job)
 
+    def _record_exit(self, job, info):
+        state = info.get("State") or {}
+        if state.get("Running") or state.get("Paused"):
+            job["state"] = "stop_unconfirmed"
+            return
+        exit_code = state.get("ExitCode")
+        if state.get("Status") in {"exited", "dead"}:
+            job.update(state="succeeded" if exit_code == 0 else "failed", exit_code=exit_code,
+                       oom_killed=state.get("OOMKilled", False))
+        else:
+            job.update(state="failed", exit_code=exit_code)
+
     def status(self, job_id):
         with self.lock():
             job = self.record(job_id)
             if job["state"] in {"running", "preparing", "stop_unconfirmed"}:
-                try:
-                    info = self.inspect(job)
-                    if info["State"].get("Status") in {"exited", "dead"} and not info["State"].get("Paused"):
-                        exit_code = info["State"]["ExitCode"]
-                        job.update(state="succeeded" if exit_code == 0 else "failed", exit_code=exit_code,
-                                   oom_killed=info["State"].get("OOMKilled", False))
-                except SandboxError:
-                    job["state"] = "stop_unconfirmed"
+                if not job.get("container_id"):
+                    proof = self._confirm_writer(job)
+                    if proof == "absent":
+                        job["state"] = "failed"
+                    elif proof == "stopped":
+                        try:
+                            self._record_exit(job, self.inspect(job))
+                        except SandboxError:
+                            job["state"] = "failed"
+                    else:
+                        job["state"] = "stop_unconfirmed"
+                else:
+                    try:
+                        info = self.inspect(job)
+                        if info["State"].get("Status") in {"exited", "dead"} and not info["State"].get("Paused"):
+                            exit_code = info["State"]["ExitCode"]
+                            job.update(state="succeeded" if exit_code == 0 else "failed", exit_code=exit_code,
+                                       oom_killed=info["State"].get("OOMKilled", False))
+                    except SandboxError:
+                        job["state"] = "stop_unconfirmed"
             return self.save(job)
 
     def cancel(self, job_id):
@@ -641,6 +798,10 @@ class CodingSandbox:
             job["state"] = "stop_unconfirmed"
             job.pop("stop_failure", None)
             self.save(job)
+            if not job.get("container_id"):
+                if self._confirm_writer(job) in {"absent", "stopped"}:
+                    job["state"] = "cancelled"
+                return self.save(job)
             try:
                 info = self.inspect(job)
                 if info["State"]["Running"] or info["State"].get("Paused"):
@@ -688,12 +849,20 @@ class CodingSandbox:
             raise SandboxError("Cannot release workspace before writer stop is confirmed")
         with self.lock():
             job = self.record(job_id)
+            if not job.get("container_id"):
+                proof = self._confirm_writer(job)
+                if proof == "stopped":
+                    job = self.record(job_id)
+                elif proof != "absent":
+                    raise SandboxError("Cannot release workspace before writer stop is confirmed")
+                else:
+                    self._unmount_workspace(job_id)
+                    job["state"] = "disposed"
+                    return self.save(job)
             info = self.inspect(job)
             if info["State"]["Running"] or info["State"].get("Paused"):
                 raise SandboxError("Writer still active")
-            mount = self.root / job_id / "workspace"
-            if os.path.ismount(mount):
-                self.execute("umount", str(mount))
+            self._unmount_workspace(job_id)
             self.execute("docker", "rm", job["container"])
             job["state"] = "disposed"
             return self.save(job)

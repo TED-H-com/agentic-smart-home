@@ -1,4 +1,5 @@
 """Coding boundary/protocol evidence; model transport fixtures are not cloud acceptance."""
+import base64
 import hashlib
 import json
 import subprocess
@@ -99,11 +100,112 @@ def test_root_collection_rejects_untrusted_tree_before_git(tmp_path, monkeypatch
         (source / "nested").mkdir()
         (source / "nested/.git").write_text("gitdir: " + str(tmp_path))
     commands = []
-    monkeypatch.setattr(coding_service, "command", lambda *args, **kw: commands.append(args))
+
+    def fake_command(*args, **kwargs):
+        commands.append(args)
+        if "ls-files" in args:
+            name = "nested/.git" if attack == "nested_git" else "trap"
+            return SimpleNamespace(returncode=0, stdout=name + "\0")
+        raise AssertionError("git must not read the candidate after a refused path")
+
+    monkeypatch.setattr(coding_service, "command", fake_command)
     try:
         with pytest.raises(SandboxError):
             service.collect({"id": "a" * 32}, SimpleNamespace(root=tmp_path / "work"))
-        assert not commands and outside.read_text() == "private-content"
+        assert commands and all("ls-files" in args for args in commands)
+        assert outside.read_text() == "private-content"
+    finally:
+        service.close()
+
+
+def committed_source(path):
+    path.mkdir(parents=True)
+    subprocess.check_call(["git", "init", "-b", "main"], cwd=path, stdout=subprocess.DEVNULL)
+    subprocess.check_call(["git", "config", "user.email", "fixture@example.invalid"], cwd=path)
+    subprocess.check_call(["git", "config", "user.name", "Fixture"], cwd=path)
+    (path / "app.py").write_text("value = 1\n")
+    subprocess.check_call(["git", "add", "app.py"], cwd=path, stdout=subprocess.DEVNULL)
+    subprocess.check_call(["git", "commit", "-m", "base"], cwd=path, stdout=subprocess.DEVNULL)
+    return subprocess.check_output(["git", "-C", str(path), "rev-parse", "HEAD"], text=True).strip()
+
+
+def test_collect_ignores_venv_and_node_modules(tmp_path):
+    service = CodingService(SimpleNamespace(root=tmp_path / "host", product=tmp_path / "product"))
+    job_id = "c" * 32
+    workspace = tmp_path / "work" / job_id / "workspace"
+    source = workspace / "source"
+    (workspace / "artifacts").mkdir(parents=True)
+    base = committed_source(source)
+    (source / ".gitignore").write_text(".venv\nnode_modules\n")
+    subprocess.check_call(["git", "add", ".gitignore"], cwd=source, stdout=subprocess.DEVNULL)
+    subprocess.check_call(["git", "commit", "-m", "ignore"], cwd=source, stdout=subprocess.DEVNULL)
+    outside = tmp_path / "venv-target"
+    outside.mkdir()
+    (outside / "pyvenv.cfg").write_text("CANARY-IGNORED-SECRET\n")
+    (source / ".venv").symlink_to(outside, target_is_directory=True)
+    module = source / "node_modules" / "left-pad"
+    module.mkdir(parents=True)
+    (module / "index.js").write_text("CANARY-IGNORED-SECRET\n" + ("x" * 100000))
+    (module / "link.js").symlink_to(outside / "pyvenv.cfg")
+    (source / "app.py").write_text("value = 2\n")
+    job = {"id": job_id, "base_commit": base, "state": "succeeded", "artifacts": []}
+    try:
+        patch = service.collect(job, SimpleNamespace(root=tmp_path / "work", artifacts=lambda job_id: []))
+        assert b"CANARY-IGNORED-SECRET" not in patch and b"value = 2" in patch
+        assert job.get("error_code") is None
+        assert "CANARY-IGNORED-SECRET" not in (workspace / "artifacts" / "changes.patch").read_text()
+    finally:
+        service.close()
+
+
+@pytest.mark.parametrize("visible", ["untracked", "tracked"])
+def test_collect_refuses_a_visible_symlink(tmp_path, visible):
+    service = CodingService(SimpleNamespace(root=tmp_path / "host", product=tmp_path / "product"))
+    job_id = "b" * 32
+    source = tmp_path / "work" / job_id / "workspace" / "source"
+    (source.parent / "artifacts").mkdir(parents=True)
+    base = committed_source(source)
+    outside = tmp_path / "secret.txt"
+    outside.write_text("CANARY-VISIBLE\n")
+    (source / "link.txt").symlink_to(outside)
+    if visible == "tracked":
+        subprocess.check_call(["git", "add", "link.txt"], cwd=source, stdout=subprocess.DEVNULL)
+        subprocess.check_call(["git", "commit", "-m", "link"], cwd=source, stdout=subprocess.DEVNULL)
+        base = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"], text=True).strip()
+    job = {"id": job_id, "base_commit": base, "state": "succeeded", "artifacts": []}
+    try:
+        with pytest.raises(SandboxError, match="links"):
+            service.collect(job, SimpleNamespace(root=tmp_path / "work", artifacts=lambda job_id: []))
+        assert outside.read_text() == "CANARY-VISIBLE\n"
+    finally:
+        service.close()
+
+
+def test_withheld_artifact_route_returns_404(tmp_path):
+    from agentic_host.coding_sandbox import Limits, read_artifacts
+    service = CodingService(SimpleNamespace(root=tmp_path / "host", product=tmp_path / "product"))
+    job_id = "e" * 32
+    workspace = tmp_path / "work" / job_id / "workspace"
+    (workspace / "artifacts").mkdir(parents=True)
+    base = committed_source(workspace / "source")
+    folder = tmp_path / "export"
+    folder.mkdir()
+    (folder / "notes.txt").write_text("hello\n")
+    (folder / "secret.py").write_text('api_key = "abcdefghij"\n')
+    exported = read_artifacts(folder, Limits())
+    job = {"id": job_id, "base_commit": base, "state": "succeeded", "artifacts": []}
+    try:
+        service.collect(job, SimpleNamespace(root=tmp_path / "work", artifacts=lambda job_id: exported))
+        service.items[job_id] = job
+        withheld = next(item for item in job["artifacts"] if item["name"] == "secret.py")
+        kept = next(item for item in job["artifacts"] if item["name"] == "notes.txt")
+        assert withheld["kind"] == "withheld" and kept["kind"] == "evidence"
+        status, body = service.handle("GET", f"/coding/jobs/{job_id}/artifacts/{withheld['id']}")
+        assert status == 404 and body == {"detail": "artifact_withheld"}
+        status, body = service.handle("GET", f"/coding/jobs/{job_id}/artifacts/{kept['id']}")
+        assert status == 200 and base64.b64decode(body["content_base64"]).decode() == "hello\n"
+        stored = json.loads((service.root / "artifacts" / job_id / (withheld["id"] + ".json")).read_text())
+        assert "content_base64" not in stored
     finally:
         service.close()
 
@@ -191,6 +293,12 @@ def test_launcher_keeps_tools_inside_container_and_no_bearer():
     assert "/relay.sock" in script and "SUPERVISOR_TOKEN" not in script
     assert "shell_tool" not in script  # Legacy runner alone disables tools.
     assert "--ephemeral" in script
+    assert "at most 10 extra UTF-8 text files" in script
+    assert ".txt .md .json .py .patch .diff .log" in script
+    assert ".html .css .js .svg when web artifacts are allowed" in script
+    assert "No subfolders except web-preview" in script
+    assert "python -m pytest -q <files>" in script
+    assert "do not create virtualenvs or install packages" in script
 
 
 def test_actual_codex_tool_repair_and_test(request):

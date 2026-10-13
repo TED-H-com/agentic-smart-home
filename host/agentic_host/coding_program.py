@@ -264,8 +264,13 @@ prompt=('You are the '+REQUEST['mode']+' coding worker. Work only in /work/sourc
     'Git metadata is read only. Do not install packages or alter git metadata. '
     'Public source research uses Python urllib.request on http://127.0.0.1:8765/fetch?url='+
     '<URL-encoded https URL>. Only fixed official documentation and GitHub hosts are allowed. '
-    'Write safe text artifacts under /work/artifacts. Finish with facts, inferences, unknowns, '
-    'experiments, next_steps; do not claim deployment or approval.\nGoal: '+REQUEST['goal']+
+    'Under /work/artifacts write at most 10 extra UTF-8 text files. Allowed suffixes are '
+    '.txt .md .json .py .patch .diff .log, plus .html .css .js .svg when web artifacts are allowed. '
+    'No subfolders except web-preview. Never copy secrets or credentials. '
+    'Source changes are exported automatically, so do not copy changed files. '
+    'Python dependencies are preinstalled; run tests with `python -m pytest -q <files>`; '
+    'do not create virtualenvs or install packages. '
+    'Finish with facts, inferences, unknowns, experiments, next_steps; do not claim deployment or approval.\nGoal: '+REQUEST['goal']+
     '\nQuestions: '+json.dumps(REQUEST['questions']))
 if OBSERVED_FROM == 'haos_app':
     prompt += ('\nFor fresh local observations, GET http://127.0.0.1:8765/observe with Python urllib.request. '

@@ -102,6 +102,10 @@ class Spec:
         self.release = None
         self.launches = []
         self.strict_cancel = False
+        self.launch_error = None
+        self.fail_relay = False
+        self.big_patch = False
+        self.withheld_verify = False
 
 
 def boundary(clock, spec):
@@ -128,7 +132,13 @@ def boundary(clock, spec):
                     ["git", "clone", "--no-hardlinks", str(self.repos[repo]), str(workspace / "source")],
                     stdout=subprocess.DEVNULL)
                 (workspace / "source/value.py").write_text("value = 2\n")
+                if spec.big_patch:
+                    (workspace / "source/big.txt").write_text("y" * (180 * 1024))
                 (workspace / "artifacts/findings.txt").write_text(spec.findings)
+            if spec.launch_error == "stopped":
+                error = SandboxError("fixture setup failed", code="command_failed")
+                error.stopped = True
+                raise error
             if spec.hold is not None:
                 spec.hold.set()
                 assert spec.release.wait(5)
@@ -147,6 +157,13 @@ def boundary(clock, spec):
             return {"state": "cancelled", "stop_confirmed": True, "exit_code": None}
 
         def artifacts(self, id):
+            if spec.withheld_verify and str(id).endswith("-verify"):
+                report = "passed\n"
+                return [
+                    {"name": "secret.py", "kind": "withheld", "sha256": "ab" * 32, "size": 20},
+                    {"name": "report.txt", "content": report,
+                     "sha256": hashlib.sha256(report.encode()).hexdigest(), "size": len(report)},
+                ]
             folder = self.root / str(id).removesuffix("-verify") / "workspace/artifacts"
             if str(id).endswith("-verify"):
                 folder = self.root / id / "workspace/artifacts"
@@ -169,6 +186,8 @@ class Relay:
         self.path = path
 
     def start(self):
+        if getattr(self, "fail_relay", False):
+            raise OSError("relay unavailable")
         return None
 
     def close(self):
@@ -184,8 +203,14 @@ def service_for(tmp_path, monkeypatch, clock, spec, *, patch_wall=False):
     if patch_wall:
         monkeypatch.setattr(coding_service.time, "time", clock.time)
     bare = bare_source(tmp_path)
+
+    def make_relay(*args, **kwargs):
+        relay = Relay(*args, **kwargs)
+        relay.fail_relay = spec.fail_relay
+        return relay
+
     return HomeService(tmp_path / "data", packaged_source=bare, sandbox_factory=boundary(clock, spec),
-                       relay_factory=Relay)
+                       relay_factory=make_relay)
 
 
 def wait_thread(service, id):
@@ -203,6 +228,10 @@ def test_parse_findings_all_some_and_none():
     assert partial["inferences"] == [] and partial["unknowns"] == [] and partial["experiments"] == []
     assert parse_findings("no protocol headings") == {key: [] for key in FINDING_KEYS}
     assert parse_findings(None) == {key: [] for key in FINDING_KEYS}
+    varied = parse_findings("## Facts\n- Alpha\n**Next steps:**\n- later\nUnknowns:\nmaybe\nNEXT-STEPS\n- second\n")
+    assert varied["facts"] == ["Alpha"] and varied["unknowns"] == ["maybe"]
+    assert varied["next_steps"] == ["later", "second"]
+    assert varied["inferences"] == [] and varied["experiments"] == []
 
 
 def test_models_match_packaged_catalog():
@@ -509,3 +538,83 @@ def test_sigterm_schedules_shutdown_off_the_signal_thread():
     finally:
         for name, old in previous.items():
             signal.signal(name, old)
+
+
+@pytest.mark.parametrize("mode", ["relay", "launch"])
+def test_setup_failure_ends_failed_and_releases_the_lease(tmp_path, monkeypatch, mode):
+    clock, spec = Clock(), Spec()
+    closed = []
+    if mode == "relay":
+        spec.fail_relay = True
+    else:
+        spec.launch_error = "stopped"
+        spec.launch_mono = 1
+    monkeypatch.setattr(Relay, "close", lambda self: closed.append(self.path))
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        payload = request()
+        service.submit(payload)
+        wait_thread(service, payload["id"])
+        job = service.items[payload["id"]]
+        assert job["state"] == "failed" and job["phase"] == "failed"
+        assert job["error_code"] == "coding_setup_failed" and job["stop_confirmed"] is True
+        assert service.active() is False and closed
+        if mode == "launch":
+            assert job.get("sandbox_attempted") is True and job.get("workspace_released") is True
+        else:
+            assert not job.get("sandbox_attempted")
+        second = request(id="d" * 32)
+        status, body = service.submit(second)
+        assert status == 202 and body["state"] == "queued"
+        assert body.get("error_code") != "coding_writer_or_auth_fence_active"
+    finally:
+        service.close()
+
+
+def test_oversized_patch_fails_and_keeps_findings(tmp_path, monkeypatch):
+    clock, spec = Clock(), Spec()
+    spec.make_workspace = True
+    spec.big_patch = True
+    spec.findings = FINDINGS
+    spec.launch_mono = 1
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        payload = request()
+        service.submit(payload)
+        wait_thread(service, payload["id"])
+        job = service.items[payload["id"]]
+        assert job["state"] == "failed" and job["error_code"] == "patch_too_large"
+        assert job["findings"]["facts"] == ["alpha"] and job["findings"]["next_steps"] == ["epsilon"]
+        assert any(item["name"] == "findings.txt" for item in job["artifacts"])
+        assert not any(item["name"] == "changes.patch" for item in job["artifacts"])
+        workspace = service.root / "work" / payload["id"] / "workspace"
+        assert not (workspace / "artifacts" / "changes.patch").exists()
+        assert not (service.root / "inference-verified.json").exists()
+        assert not any(str(item["id"]).endswith("-verify") for item in spec.launches)
+        assert "verification" not in job
+    finally:
+        service.close()
+
+
+def test_verifier_stores_withheld_artifact_without_content(tmp_path, monkeypatch):
+    clock, spec = Clock(), Spec()
+    spec.make_workspace = True
+    spec.findings = FINDINGS
+    spec.withheld_verify = True
+    spec.launch_mono = 1
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        payload = request()
+        service.submit(payload)
+        wait_thread(service, payload["id"])
+        job = service.items[payload["id"]]
+        assert job["state"] == "succeeded" and job["error_code"] is None
+        withheld = next(item for item in job["artifacts"] if item["name"] == "secret.py")
+        assert withheld["kind"] == "withheld"
+        stored = json.loads((service.root / "artifacts" / payload["id"] / (withheld["id"] + ".json")).read_text())
+        assert stored["kind"] == "withheld" and "content_base64" not in stored
+        report = next(item for item in job["artifacts"] if item["name"] == "report.txt")
+        body = json.loads((service.root / "artifacts" / payload["id"] / (report["id"] + ".json")).read_text())
+        assert "passed" in base64.b64decode(body["content_base64"]).decode()
+    finally:
+        service.close()
