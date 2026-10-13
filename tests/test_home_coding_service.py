@@ -96,7 +96,7 @@ asyncio.run(check())
         result = subprocess.run(["docker", "run", "--rm", "--name", name, "--network=none",
             "--memory=512m", "--memory-swap=512m", "--pids-limit=128", "--cpus=1",
             "--mount", f"type=bind,src={root / 'runner/agentic_runner'},dst=/app/agentic_runner,readonly",
-            "--entrypoint", "python", os.environ.get("AGENTIC_RUNNER_IMAGE", "agentic-home-runner:0.8.0"),
+            "--entrypoint", "python", os.environ.get("AGENTIC_RUNNER_IMAGE", "agentic-home-runner:0.9.0"),
             "-c", script], capture_output=True, text=True, timeout=60)
         assert result.returncode == 0, result.stdout + result.stderr
         value = json.loads(result.stdout)

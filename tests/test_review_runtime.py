@@ -335,7 +335,7 @@ asyncio.run(main())
     try:
         result = subprocess.run(["docker", "run", "--rm", "--name", name, "--network=none", "--read-only",
             "--pids-limit=128", "--memory=1g", "-v", volume + ":/data", "-v", str(source) + ":/app/agentic_runner:ro",
-            "--entrypoint", "python", os.environ.get("AGENTIC_RUNNER_IMAGE", "agentic-home-runner:0.8.0"), "-c", script],
+            "--entrypoint", "python", os.environ.get("AGENTIC_RUNNER_IMAGE", "agentic-home-runner:0.9.0"), "-c", script],
             capture_output=True, text=True, timeout=45)
         assert result.returncode == 0, result.stdout[-3000:] + result.stderr[-3000:]
     finally:

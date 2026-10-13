@@ -397,7 +397,7 @@ server.shutdown();server.server_close()
     try:
         result = subprocess.run(["docker", "run", "--rm", "--name", name, "--network", "none", "--memory", "768m",
             "--memory-swap", "768m", "--pids-limit", "128", "--cpus", "1", "--mount", f"type=bind,src={source / 'host'},dst=/host,readonly",
-            "--env", "PYTHONPATH=/host", "--entrypoint", "python", "agentic-home-runner:0.8.0", "-c", script],
+            "--env", "PYTHONPATH=/host", "--entrypoint", "python", "agentic-home-runner:0.9.0", "-c", script],
             capture_output=True, text=True, timeout=110)
         assert result.returncode == 0, result.stdout + result.stderr
         evidence = json.loads(result.stdout)
@@ -501,7 +501,7 @@ print('trusted completion checked: '+ATTACK)
     try:
         result = subprocess.run(["docker", "run", "--rm", "--name", name, "--network", "none", "--memory", "768m",
             "--memory-swap", "768m", "--pids-limit", "128", "--cpus", "1", "--mount", f"type=bind,src={source / 'host'},dst=/host,readonly",
-            "--env", "PYTHONPATH=/host", "--entrypoint", "python", "agentic-home-runner:0.8.0", "-c", "ATTACK=" + repr(attack) + "\n" + script],
+            "--env", "PYTHONPATH=/host", "--entrypoint", "python", "agentic-home-runner:0.9.0", "-c", "ATTACK=" + repr(attack) + "\n" + script],
             capture_output=True, text=True, timeout=45)
         assert result.returncode == 0, result.stdout + result.stderr
     finally:

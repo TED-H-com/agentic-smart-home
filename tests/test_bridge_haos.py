@@ -29,7 +29,7 @@ from agentic_controller.ha import HAError, HomeAssistant
 ROOT = Path(__file__).parents[1]
 PYTHON = "python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd12803a5c4247979ac7655f4d641"
 BUILDER = "docker:29.7.2-cli@sha256:3f4743208d2338c934d7b8bcfbe1bb54c0b2355c510ad5e0f31c0c4a54bd704e"
-CONTROLLER = "agentic-home-controller:0.8.0"
+CONTROLLER = "agentic-home-controller:0.9.0"
 
 
 class ProbeHA(HomeAssistant):
@@ -372,7 +372,7 @@ async def test_real_haos_sidebar_bridge(tmp_path, request):
                 await ha.request("POST", "/store/reload", supervisor=True, timeout=60)
                 slug = "local_agentic_bridge"
                 catalog = await ha.request("GET", f"/store/addons/{slug}/info", supervisor=True)
-                assert catalog["version_latest"] == "0.8.0" and catalog["build"] is True
+                assert catalog["version_latest"] == "0.9.0" and catalog["build"] is True
                 phase("supervisor_app_install")
                 receipt = await ha.request("POST", f"/store/addons/{slug}/install", {"background": True}, supervisor=True)
                 assert isinstance(receipt, dict) and isinstance(receipt.get("job_id"), str)
@@ -597,7 +597,7 @@ async def test_install_observer_never_confuses_cleaned_job_with_success(outcome)
 def test_public_delivery_evidence_requires_actual_exact_repository(change):
     release = BridgeRelease()
     repositories = [{"slug": "aabbccdd", "source": release.repository}]
-    info = {"repository": "aabbccdd", "slug": "aabbccdd_agentic_bridge", "version": "0.8.0", "build": True}
+    info = {"repository": "aabbccdd", "slug": "aabbccdd_agentic_bridge", "version": "0.9.0", "build": True}
     record = {"managed": True, "repository_id": "aabbccdd", "slug": info["slug"],
               "release": {"repository": release.repository, "app": release.app, "version": release.version}}
     if change == "source":
