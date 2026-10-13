@@ -4,12 +4,14 @@ Real: Chromium, compiled Web, Controller, TLS Runner, installed Codex binary,
 Hermes bridge/AIAgent/official MCP, isolated HA Core and its browser OAuth.
 Fixtures: model responses and root Host network/install/VM lifecycle effects.
 No browser API interception. Only disposable data and synthetic credentials.
+A passive unhandledrejection listener records only a reason's shape and code.
 """
 import asyncio
 import contextlib
 import hashlib
 import json
 import os
+import re
 import secrets
 import socket
 import subprocess
@@ -29,6 +31,107 @@ BASE = "http://localhost:8099"
 CORE = "http://localhost:8123"
 CORE_IMAGE = "ghcr.io/home-assistant/home-assistant:2026.10.1"
 REVISION = json.loads((ROOT / "hermes/hermes.lock.json").read_text())["commit"]
+# Shape only: type, constructor, own keys and a numeric or snake_case code. Never values.
+REJECTION_SHAPE = r"""addEventListener("unhandledrejection", event => {
+  const reason = event.reason, object = reason !== null && typeof reason === "object";
+  const nested = object && reason.error !== null && typeof reason.error === "object" ? reason.error.code : undefined;
+  const code = object ? (nested === undefined ? reason.code : nested) : typeof reason === "number" ? reason : undefined;
+  const safe = typeof code === "number" || (typeof code === "string" && /^[a-z_]{1,40}$/.test(code));
+  window.__agenticE2eRejection?.({kind: reason === null ? "null" : typeof reason,
+    ctor: object ? String(reason.constructor?.name || "").slice(0, 40) : "",
+    keys: object ? Object.keys(reason).slice(0, 8).map(key => String(key).slice(0, 24)) : [],
+    code: safe ? code : null});
+});"""
+# Playwright call-log phrases. Only these labels are kept, never the log text.
+WAIT_STATES = (("not_visible", "element is not visible"), ("not_stable", "element is not stable"),
+               ("not_enabled", "element is not enabled"), ("intercepted", "intercepts pointer events"),
+               ("outside_viewport", "outside of the viewport"), ("detached", "element is not attached"))
+STACK_URL = re.compile(r"(https?://[^\s()]+?):\d+:\d+\)?$")
+# Failure-only reads inside the containers. They print states, codes, counts and
+# ages, never prompts, answers, credentials or URLs.
+BOOTSTRAP_SHAPE = r"""
+import datetime, json, sqlite3, time
+c = sqlite3.connect('/data/controller.sqlite3')
+r = c.execute("select body from records where kind='bootstrap_v1' and id='setup'").fetchone()
+d = json.loads(r[0]) if r else {}
+out = {k: d.get(k) for k in ('state', 'current_step', 'human_action')}
+step = next((s for s in d.get('steps', []) if s.get('id') == d.get('current_step')), {})
+out.update(step_state=step.get('state'), step_code=step.get('code'), transient_errors=d.get('transient_errors', 0),
+           verification=bool(d.get('verification')), waits=sorted(d.get('observation_waits', {})))
+try:
+    out['updated_age_s'] = round(time.time() - datetime.datetime.fromisoformat(d['updated_at']).timestamp(), 1)
+except (KeyError, TypeError, ValueError):
+    out['updated_age_s'] = None
+runs = [json.loads(b) for (b,) in c.execute("select body from records where kind='hermes_run' order by created")]
+out['hermes_runs'] = [[x.get('state'), x.get('error_code')] for x in runs[-5:]]
+# Tool calls the Controller accepted per grant, and evidence rows written: counts only.
+grants = [json.loads(b) for (b,) in c.execute("select body from records where kind='mcp_grant' order by created")]
+out['mcp_grant_calls'] = [[g.get('calls', 0), bool(g.get('revoked'))] for g in grants[-5:]]
+out['case_evidence'] = c.execute("select count(*) from records where kind='case_evidence'").fetchone()[0]
+print(json.dumps(out))
+"""
+# The Hermes image has no ps. Process names, ages, threads, CPU and kernel wait
+# channels plus TCP port states only; never arguments, environment or addresses.
+HERMES_PROCESSES = r"""
+import json, os
+tick = os.sysconf('SC_CLK_TCK')
+uptime = float(open('/proc/uptime').read().split()[0])
+procs, owners = [], {}
+for pid in sorted(int(p) for p in os.listdir('/proc') if p.isdigit()):
+    try:
+        stat = open(f'/proc/{pid}/stat').read()
+        wchan = open(f'/proc/{pid}/wchan').read()[:32]
+        fds = os.listdir(f'/proc/{pid}/fd')
+    except OSError:
+        continue
+    for fd in fds:
+        try:
+            link = os.readlink(f'/proc/{pid}/fd/{fd}')
+        except OSError:
+            continue
+        if link.startswith('socket:['):
+            owners[link[8:-1]] = pid
+    f = stat[stat.rindex(')') + 2:].split()
+    procs.append([pid, int(f[1]), round(uptime - int(f[19]) / tick), int(f[17]), f[0],
+                  stat[stat.index('(') + 1:stat.rindex(')')][:16], round((int(f[11]) + int(f[12])) / tick, 1), wchan])
+# Only these processes' own TCP sockets: pid, local and remote port, state, queued bytes.
+tcp = []
+for table in ('/proc/net/tcp', '/proc/net/tcp6'):
+    try:
+        lines = open(table).read().splitlines()[1:]
+    except OSError:
+        continue
+    for line in lines:
+        f = line.split()
+        if f[9] in owners:
+            tx, rx = (int(x, 16) for x in f[4].split(':'))
+            tcp.append([owners[f[9]], int(f[1].rsplit(':', 1)[1], 16), int(f[2].rsplit(':', 1)[1], 16), f[3], rx, tx])
+print(json.dumps({'processes': procs[:20], 'tcp': tcp[:40]}))
+"""
+HERMES_AUTH_SHAPE = r"""
+import json, pathlib
+p = pathlib.Path('/data/provider.json')
+a = json.loads(p.read_text()) if p.exists() else {}
+print(json.dumps({'state': a.get('state'), 'verified': bool(a.get('verified_at')), 'provider': a.get('provider')}))
+"""
+
+
+def stack_file(stack):
+    """File name of the first stack frame, without query or path. It identifies a bundle chunk."""
+    for line in (stack or "").splitlines():
+        match = STACK_URL.search(line.strip())
+        if match:
+            return urlsplit(match.group(1)).path.rsplit("/", 1)[-1][:80]
+    return None
+
+
+def rejection_shape(origin, value):
+    value = value if isinstance(value, dict) else {}
+    keys = value.get("keys") if isinstance(value.get("keys"), list) else []
+    code = value.get("code")
+    return {"origin": origin, "kind": str(value.get("kind", ""))[:12], "ctor": str(value.get("ctor", ""))[:40],
+            "keys": [str(key)[:24] for key in keys[:8]],
+            "code": code if type(code) is int or (isinstance(code, str) and re.fullmatch(r"[a-z_]{1,40}", code)) else None}
 
 
 async def docker(*args):
@@ -166,6 +269,7 @@ frontend:
 lovelace:
 api:
 websocket_api:
+recorder:
 config:
 onboarding:
 http:
@@ -183,7 +287,7 @@ http:
     host.router.add_get("/status", fixtures.host_status)
     host.router.add_post("/actions", fixtures.host_action)
     host_server = web.AppRunner(host)
-    containers, errors, responses = [], [], []
+    containers, errors, responses, rejections, ws_errors = [], [], [], [], []
     prefix = "agentic-e2e-" + uuid.uuid4().hex[:10]
     started = time.monotonic()
 
@@ -272,8 +376,20 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
             browser = await playwright.chromium.launch(headless=True)
             context = await browser.new_context(viewport={"width": 1440, "height": 960})
             page = await context.new_page()
+            async def rejection(source, value):
+                rejections.append(rejection_shape(urlsplit(source["frame"].url).netloc, value))
+            await context.expose_binding("__agenticE2eRejection", rejection)
+            await context.add_init_script(REJECTION_SHAPE)
+
             def browser_error(source, error):
-                detail = {"origin": urlsplit(source.url).netloc, "name": error.name}
+                message = error.message or ""
+                # A short digest tells repeats apart without keeping text that may hold a token.
+                detail = {"origin": urlsplit(source.url).netloc, "name": error.name,
+                          "message_sha256": hashlib.sha256(message.encode()).hexdigest()[:12]}
+                if message in {"Object", "undefined", "null"} or message.isdigit():
+                    detail["message"] = message
+                if frame := stack_file(error.stack):
+                    detail["stack_file"] = frame
                 try:
                     value = json.loads(error.message)
                     if isinstance(value, dict) and value.get("code") in {"unknown_command", "not_found", "unauthorized", "invalid_format"}:
@@ -281,7 +397,37 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
                 except (ValueError, TypeError):
                     pass
                 errors.append(detail)
+
+            def watch_socket(socket):
+                # HA command types and error codes only. The auth frame has no id
+                # and is never read; values and messages are never kept.
+                if urlsplit(socket.url).path != "/api/websocket":
+                    return
+                sent = {}
+
+                def frames(payload):
+                    try:
+                        value = json.loads(payload)
+                    except (TypeError, ValueError):
+                        return []
+                    return [item for item in (value if isinstance(value, list) else [value]) if isinstance(item, dict)]
+
+                def outgoing(payload):
+                    for item in frames(payload):
+                        kind = item.get("type")
+                        if type(item.get("id")) is int and isinstance(kind, str) and re.fullmatch(r"[a-z0-9_/]{1,60}", kind):
+                            sent[item["id"]] = kind
+
+                def incoming(payload):
+                    for item in frames(payload):
+                        if item.get("type") == "result" and item.get("success") is False:
+                            code = item["error"].get("code") if isinstance(item.get("error"), dict) else None
+                            ws_errors.append({"command": sent.get(item.get("id")), "code": code if isinstance(code, str)
+                                              and re.fullmatch(r"[a-z_]{1,40}", code) else None})
+                socket.on("framesent", outgoing)
+                socket.on("framereceived", incoming)
             page.on("pageerror", lambda e: browser_error(page, e))
+            page.on("websocket", watch_socket)
             page.on("response", lambda response: responses.append({
                 "path": urlsplit(response.url).path, "status": response.status})
                 if urlsplit(response.url).path in {"/api/bootstrap", "/api/bootstrap/start", "/api/runtimes", "/api/status"} else None)
@@ -352,6 +498,7 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
             native = await opened.value
             native.set_default_timeout(60000)
             native.on("pageerror", lambda e: browser_error(native, e))
+            native.on("websocket", watch_socket)
             await native.wait_for_url(CORE + "/**")
             # Authorizing Controller does not log the native browser into its
             # separate OAuth client. Follow HA's own login when it is needed;
@@ -456,7 +603,8 @@ print(json.dumps({'evidence':records('case_evidence'),
     except Exception as exc:
         observations = {"error_type": type(exc).__name__, "host_actions": fixtures.calls,
                         "cli_calls": len(fixtures.cli_requests), "hermes_calls": len(fixtures.hermes_requests),
-                        "browser_error_types": errors, "http_statuses": responses[-20:],
+                        "browser_error_types": errors, "browser_rejections": rejections[-20:], "http_statuses": responses[-20:],
+                        "ha_ws_errors": ws_errors[-20:],
                         "network_error_codes": [code for code in ("ERR_CONNECTION_REFUSED", "ERR_CONNECTION_RESET", "ERR_EMPTY_RESPONSE") if code in str(exc)],
                         "test_lines": [frame.lineno for frame in traceback.extract_tb(exc.__traceback__)
                                        if frame.filename == __file__]}
@@ -465,8 +613,15 @@ print(json.dumps({'evidence':records('case_evidence'),
                 state = json.loads(await docker("inspect", name))[0]["State"]
                 observations[name.rsplit("-", 1)[-1]] = {"status": state["Status"], "exit_code": state["ExitCode"]}
                 if name.endswith("-controller") and state["Running"]:
-                    script = "import sqlite3,json;c=sqlite3.connect('/data/controller.sqlite3');r=c.execute(\"select body from records where kind='bootstrap_v1' and id='setup'\").fetchone();d=json.loads(r[0]) if r else {};print(json.dumps({k:d.get(k) for k in ('state','current_step','human_action')}))"
-                    observations["bootstrap"] = json.loads(await docker("exec", name, "python", "-c", script))
+                    observations["bootstrap"] = json.loads(await docker("exec", name, "python", "-c", BOOTSTRAP_SHAPE))
+                if name.endswith("-hermes") and state["Running"]:
+                    observations["hermes_auth"] = json.loads(await docker("exec", name, "python", "-c", HERMES_AUTH_SHAPE))
+                    observations["hermes_processes"] = json.loads(
+                        await docker("exec", name, "python", "-c", HERMES_PROCESSES))
+        if type(exc).__name__ == "TimeoutError":
+            text = str(exc)
+            observations["wait_states"] = [label for label, phrase in WAIT_STATES if phrase in text] + (
+                [] if "locator resolved to" in text else ["unresolved"])
         print("Safe E2E checkpoints:", json.dumps(observations, ensure_ascii=False))
         # Playwright errors may contain token-bearing URLs or fill values. Keep
         # the failure location and safe observations without copying its message.
