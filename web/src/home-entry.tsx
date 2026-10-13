@@ -41,17 +41,16 @@ export function HomeEntry({automatic=false,completion=false,navigate}:{automatic
     autoAllowed.current=false;setBusy(true);setError('');
     try{setEntry(await readEntry())}catch(e){setEntry(null);setError((e as Error).message)}finally{setBusy(false)}
   }
-  const ready=entry?.state==='ready',setup=entry?.state==='setup';
+  const ready=entry?.state==='ready',setup=entry?.state==='setup',rescue=!busy&&!ready&&!setup;
   return <section className="home-entry settings-section" aria-label="家庭入口">
-    <h2>{completion?'設定完成':busy?'正在確認家庭入口':ready?'家庭已就緒':setup?'繼續設定你的家庭':'家庭暫時無法連接'}</h2>
-    {busy?<p role="status">正在確認 Home Assistant…</p>:<p>{ready?'日常設備與自動化，直接在 Home Assistant 使用。':setup?'已完成的設定會保留。':'外層仍可使用，你可以請管家協助或檢查主機。'}</p>}
+    <h2>{completion?'設定完成':busy?'正在確認家庭入口':ready?'家庭已就緒':setup?'繼續完成設定':'家庭暫時無法連接'}</h2>
+    {busy?<p role="status">正在確認家庭連線。</p>:<p>{ready?'日常操作直接進入家庭。':setup?'已完成的部分會保留。':'可以請智能管家協助，或檢查主機。'}</p>}
     {error&&<Notice error>{error}</Notice>}
     <div className="row-actions">
       {setup?<Button onClick={()=>navigate('onboarding')}>繼續設定</Button>:<a className={`button ${ready?'':'secondary'}`} href={haPath('/')} target="_blank" rel="noreferrer" onClick={()=>{autoAllowed.current=false}}>{ready?'進入家庭':'手動開啟 Home Assistant'} ↗</a>}
       <Button secondary onClick={()=>navigate('gateway')}>智能管家</Button>
-      <button className="text-button" onClick={()=>navigate('host')}>主機維護</button>
-      {!busy&&!ready&&<button className="text-button" onClick={retry}>重新檢查</button>}
+      {rescue&&<button type="button" className="text-button" onClick={()=>navigate('host')}>主機維護</button>}
+      {!busy&&!ready&&<button type="button" className="text-button" onClick={retry}>重新檢查</button>}
     </div>
-    <p className="helper-text">需要回來時，開啟桌面的 Agentic Home。</p>
   </section>
 }
