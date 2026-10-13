@@ -127,7 +127,7 @@ def test_enable_flow_reuses_key_and_maps_owner_fault(ui_page):
     card.get_by_role('button', name='啟用家庭現場', exact=True).wait_for()
     expect(page.locator('.worker-readiness')).to_contain_text('尚未啟用')
     expect(card.locator('.status')).to_have_text('尚未啟用')
-    expect(card).to_contain_text('會在家庭安裝開發助手 App；你停止或移除後不會自動恢復。')
+    expect(card).to_contain_text('會裝到家裡；你停止或移除後不會自動裝回。')
     page.set_viewport_size({'width': 390, 'height': 844})
     in_view(page, card.get_by_role('button', name='啟用家庭現場', exact=True), 844)
     shot(page, 'enable')
@@ -144,6 +144,13 @@ def test_enable_flow_reuses_key_and_maps_owner_fault(ui_page):
     card.get_by_role('button', name='重新安裝', exact=True).click()
     card.locator('summary').filter(has_text='更多').click()
     expect(card).to_contain_text('不會移除 App 或登入資料。')
+    held = [item['path'] for item in posts]
+    card.get_by_role('button', name='停止維護', exact=True).click()
+    expect(card.get_by_text('停止自動維護家庭現場？', exact=True)).to_be_visible()
+    assert [item['path'] for item in posts] == held
+    card.get_by_role('button', name='取消', exact=True).click()
+    assert [item['path'] for item in posts] == held
+    card.get_by_role('button', name='停止維護', exact=True).click()
     card.get_by_role('button', name='停止維護', exact=True).click()
     expect(card).to_contain_text('你已停止維護家庭現場。')
     assert [item['path'] for item in posts] == [
@@ -217,7 +224,8 @@ def test_home_progress_login_repair_poll_and_baseline_copy(ui_page):
     expect(card.get_by_role('status')).not_to_contain_text('job-open-1')
     expect(page.locator('.worker-readiness')).to_contain_text('正在設定')
     expect(page.get_by_role('button', name='開始調查', exact=True)).to_be_disabled()
-    for name in ('啟用家庭現場', '重新檢查', '重新啟動 App', '重新安裝', '重新啟用'):
+    expect(page.get_by_text('先啟用家庭現場。', exact=True)).to_be_visible()
+    for name in ('啟用家庭現場', '重新檢查', '重新啟動', '重新安裝', '重新啟用'):
         expect(card.get_by_role('button', name=name, exact=True)).to_have_count(0)
     tech = card.locator('details').filter(has=page.locator('summary', has_text='技術資料'))
     tech.locator('summary').click()
@@ -239,7 +247,7 @@ def test_home_progress_login_repair_poll_and_baseline_copy(ui_page):
         expect(card.get_by_role('status')).to_have_text(sentence)
         expect(page.locator('.worker-readiness')).to_contain_text('等待家庭就緒')
         expect(card.get_by_role('button', name='重新檢查', exact=True)).to_have_count(0)
-    unavailable = {'home_worker_app_not_published': '這個版本的家庭現場 App 尚未發布。', 'home_worker_paused': 'AI 已暫停，恢復後會繼續。',
+    unavailable = {'home_worker_app_not_published': '這個版本還沒有提供家庭現場。', 'home_worker_paused': 'AI 已暫停，恢復後會繼續。',
                    'home_worker_update_in_progress': '主機更新中，完成後會繼續。', 'home_worker_supervisor_not_healthy': '家庭系統忙碌中，稍後會再試。',
                    'home_worker_worker_unavailable': '家庭現場暫時沒有回應。', 'home_worker_capability_mismatch': '家庭現場暫時沒有回應。',
                    'home_worker_other': '暫時連不上家庭現場。'}
@@ -247,7 +255,11 @@ def test_home_progress_login_repair_poll_and_baseline_copy(ui_page):
         flow.update(state='unavailable', code=code)
         card = show()
         expect(card).to_contain_text(sentence)
-        expect(card.get_by_role('button', name='重新檢查', exact=True)).to_be_visible()
+        retry = card.get_by_role('button', name='重新檢查', exact=True)
+        if code == 'home_worker_app_not_published':
+            expect(retry).to_have_count(0)
+        else:
+            expect(retry).to_be_visible()
     flow.update(state='needs_reconcile', code='home_worker_needs_reconcile')
     card = show()
     link = card.get_by_role('link', name='開啟 HA App 設定')
@@ -265,14 +277,17 @@ def test_home_progress_login_repair_poll_and_baseline_copy(ui_page):
     flow.update(state='degraded', code='home_worker_app_stopped', restart_allowed=False)
     card = show()
     expect(card).to_contain_text('開發工作進行中，完成後再重新啟動。')
-    expect(card.get_by_role('button', name='重新啟動 App', exact=True)).to_have_count(0)
+    expect(card.get_by_role('button', name='重新啟動', exact=True)).to_have_count(0)
     flow['restart_allowed'] = True
     card = show()
     expect(card).to_contain_text('App 停止運作，重新啟動後可繼續使用。')
-    card.get_by_role('button', name='重新啟動 App', exact=True).click()
+    expect(card.locator('.status')).to_have_text('意外停止')
+    expect(card.locator('.status')).to_have_class(re.compile(r'\bs-unavailable\b'))
+    card.get_by_role('button', name='重新啟動', exact=True).click()
     assert posts[-1] == 'host/home-worker/maintenance/restart'
     flow.update(state='user_removed', code='home_worker_user_removed', restart_allowed=False)
     card = show()
+    expect(card).to_contain_text('你已在家庭裡移除開發助手。')
     card.get_by_role('button', name='重新安裝', exact=True).click()
     assert posts[-1] == 'host/home-worker/maintenance/repair'
     flow.update(state='login_ready', code=None, signed=False)
@@ -283,7 +298,8 @@ def test_home_progress_login_repair_poll_and_baseline_copy(ui_page):
     expect(page.get_by_role('region', name='家庭現場開發助手')).to_have_count(0)
     expect(page.locator('.worker-inputs summary').filter(has_text='更多')).to_have_count(1)
     expect(page.get_by_role('button', name='開始調查', exact=True)).to_be_disabled()
-    page.get_by_role('button', name='登入 Codex 開發助手', exact=True).click()
+    expect(page.get_by_text('先登入開發助手。', exact=True)).to_be_visible()
+    page.get_by_role('button', name='開始登入', exact=True).click()
     page.get_by_text('HOME-CODE', exact=True).wait_for()
     assert posts[-1] == 'workers/home-coder/providers/codex/auth'
     page.set_viewport_size({'width': 390, 'height': 844})
@@ -299,9 +315,15 @@ def test_home_progress_login_repair_poll_and_baseline_copy(ui_page):
     expect(page.get_by_text('已登入 Codex', exact=True)).to_be_visible()
     page.get_by_label('要調查或改善什麼？', exact=True).fill('檢查首頁間距')
     expect(page.get_by_role('button', name='開始調查', exact=True)).to_be_enabled()
+    expect(page.get_by_text('先登入開發助手。', exact=True)).to_have_count(0)
+    expect(page.get_by_text('先啟用家庭現場。', exact=True)).to_have_count(0)
     page.locator('.worker-inputs summary').filter(has_text='更多').click()
     expect(page.get_by_role('button', name='停止維護', exact=True)).to_be_visible()
     expect(page.locator('.worker-inputs')).to_contain_text('不會移除 App 或登入資料。')
+    page.get_by_role('button', name='停止維護', exact=True).click()
+    expect(page.get_by_text('停止自動維護家庭現場？', exact=True)).to_be_visible()
+    page.get_by_role('button', name='取消', exact=True).click()
+    assert 'host/home-worker/maintenance/disable' not in posts
     flow.update(state='not_authorized', signed=False, bad=True)
     card = show()
     expect(page.locator('.worker-readiness')).to_contain_text('無法讀取')
@@ -448,9 +470,9 @@ def test_completion_prompt_settings_detail_and_single_host_status(ui_page):
     in_view(page, entry.get_by_role('link', name='進入家庭'), 844)
     shot(page, 'completion')
     entry.get_by_role('button', name='登入開發助手', exact=True).click()
-    page.get_by_role('button', name='登入 Codex 開發助手', exact=True).wait_for()
+    page.get_by_role('button', name='開始登入', exact=True).wait_for()
     assert page.url.endswith('#workers')
-    in_view(page, page.get_by_role('button', name='登入 Codex 開發助手', exact=True), 844)
+    in_view(page, page.get_by_role('button', name='開始登入', exact=True), 844)
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     page.evaluate("location.hash='#onboarding'")
     entry.get_by_role('button', name='略過', exact=True).click()
@@ -639,7 +661,8 @@ def test_home_app_update_states_keys_poll_and_blocked(ui_page):
     assert 1 <= len(gets) <= 2
     flow.update(state='degraded', code='home_worker_app_stopped', operation=None,
                 update={'available': False, 'from': '0.9.0', 'to': '0.9.0', 'blocked_code': None})
-    expect(card.locator('.status')).to_have_text('App 意外停止', timeout=8000)
+    expect(card.locator('.status')).to_have_text('意外停止', timeout=8000)
+    expect(card.locator('.status')).to_have_class(re.compile(r'\bs-unavailable\b'))
     del gets[:]
     page.wait_for_timeout(3000)
     assert len(gets) <= 2
@@ -674,7 +697,8 @@ def test_home_app_update_states_keys_poll_and_blocked(ui_page):
     assert 'home_worker_update_not_allowed' not in card.inner_text()
     flow.update(state='needs_reconcile', code='home_worker_operation_unconfirmed', operation=None, update=None)
     card = show()
-    expect(card.locator('.status')).to_have_text('需要核對')
+    expect(card.locator('.status')).to_have_text('需要確認')
+    expect(card.locator('.status')).to_have_class(re.compile(r'\bs-unavailable\b'))
     expect(card.get_by_text('App 狀態與預期不同，請在家庭檢查後重試。', exact=True)).to_be_visible()
     expect(card.get_by_role('button', name='重新檢查', exact=True)).to_be_visible()
     expect(card.get_by_role('button', name='更新家庭現場 App')).to_have_count(0)

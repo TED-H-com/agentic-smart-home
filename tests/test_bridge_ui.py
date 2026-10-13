@@ -196,7 +196,7 @@ def test_bridge_resumes_outer_case_results_png_and_exact_approval(bridge_browser
     shots(page, "conversation")
 
     page.get_by_label("對話訊息", exact=True).fill("這是尚未送出的草稿")
-    page.get_by_role("link", name="檢查家庭操作").click()
+    page.get_by_role("link", name="查看提案 →", exact=True).click()
     expect(page.get_by_role("heading", name="開啟測試燈", exact=True)).to_be_visible()
     assert not mutations
     shots(page, "approval")
@@ -273,7 +273,7 @@ def test_bridge_expiry_reconnect_identity_and_readonly_artifact_failures(bridge_
     page.get_by_role("button", name="查看成果", exact=True).click()
     before = len([p for _, p in calls if "/artifacts/" in p])
     page.get_by_role("button", name="查看內容", exact=True).click()
-    expect(page.get_by_role("alert")).to_contain_text("超過瀏覽器預覽大小")
+    expect(page.get_by_role("alert")).to_contain_text("檔案太大，無法在這裡顯示")
     assert len([p for _, p in calls if "/artifacts/" in p]) == before
     state["revoked"] = True
     expect(page.get_by_role("region", name="管家連線")).to_be_visible(timeout=7000)

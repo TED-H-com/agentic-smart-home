@@ -488,3 +488,143 @@ def test_interrupted_reply_can_be_sent_again():
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+
+def test_sidebar_reauth_sentence_and_plain_reply():
+    """Bridge reauth is one sentence and no button. A direct reply names 開發助手. Fixture, not a real login."""
+    root = Path(__file__).parents[1]
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory=str(root / "controller/static"))
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    hermes_id, direct_id, proposal_id, task_id = "a" * 64, "b" * 64, "c" * 64, "d" * 32
+    state = {"mode": "host", "focus": "hermes"}
+    errors = []
+    messages = {
+        "hermes": {
+            "id": hermes_id, "thread_id": hermes_id, "source": "web", "runtime": "host", "provider": "codex",
+            "coordinator": "hermes", "state": "failed", "error_code": "needs_reauth", "reason": "needs_reauth",
+            "message": "請看一下走廊的燈", "answer": "這個執行環境的登入已失效。", "created_at": "2026-10-13T08:00:00Z",
+        },
+        "direct": {
+            "id": direct_id, "thread_id": direct_id, "source": "web", "runtime": "host", "provider": "codex",
+            "coordinator": "direct", "state": "failed", "error_code": "needs_reauth", "reason": "needs_reauth",
+            "message": "請直接看玄關", "answer": "登入已失效。", "created_at": "2026-10-13T08:05:00Z",
+        },
+        "proposal": {
+            "id": proposal_id, "thread_id": proposal_id, "source": "web", "runtime": "host", "provider": "codex",
+            "coordinator": "direct", "state": "awaiting_approval", "message": "請看這次的家庭提案",
+            "answer": "提案已準備好。", "task_id": task_id, "delivery": "unconfirmed",
+            "created_at": "2026-10-13T08:10:00Z",
+        },
+    }
+    gateway = {
+        "step": 0, "selected": True, "web": {"status": "connected"},
+        "preferences": {"primary": "web", "runtime": "host", "provider": "codex", "coordinator": "hermes"},
+        "channels": [],
+    }
+
+    def route(route):
+        path = route.request.url.split("/api/", 1)[1].split("?", 1)[0]
+        if path == "deployment":
+            result = {"mode": state["mode"], "authenticated": True, "bridge_state": "ready"}
+        elif path == "session":
+            message = messages[state["focus"]]
+            result = {
+                "principal": "host-owner", "csrf": "fixture-csrf", "mode": state["mode"],
+                "storage_scope": "1" * 64,
+                "resume": {"message_id": message["id"], "thread_id": message["thread_id"], "case_id": None},
+            }
+        elif path == "status":
+            result = {
+                "ha": {"status": "connected"}, "runner": {"protocol": 1, "providers": []},
+                "version": "fixture", "paused": False, "gateway": gateway,
+            }
+        elif path == "tasks":
+            result = {"tasks": []}
+        elif path == "gateway":
+            result = gateway
+        elif path == "gateway/messages":
+            result = {"messages": list(messages.values())}
+        else:
+            raise AssertionError("gateway UI requested an unanswered path: " + path)
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(result))
+
+    def show(page, mode, focus, coordinator):
+        state["mode"] = mode
+        state["focus"] = focus
+        gateway["preferences"]["coordinator"] = coordinator
+        page.evaluate("sessionStorage.clear()")
+        if mode == "host":
+            key = "hermes-host-codex" if coordinator == "hermes" else "host-codex"
+            page.evaluate(
+                "(item) => sessionStorage.setItem(item.storage, JSON.stringify({[item.key]: item.id}))",
+                {"storage": "agentic-auth-conversations-" + ("1" * 64), "key": key, "id": messages[focus]["id"]},
+            )
+        page.reload()
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.route("**/api/**", route)
+            page.goto(f"http://127.0.0.1:{server.server_port}/#gateway")
+            show(page, "host", "hermes", "hermes")
+            link = page.get_by_role("link", name="重新登入智能管家", exact=True)
+            expect(link).to_be_visible()
+            expect(link).to_have_attribute("href", "#agents")
+            expect(page.get_by_text("請到主機重新登入智能管家。", exact=True)).to_have_count(0)
+            expect(page.get_by_role("button", name="重試", exact=True)).to_have_count(0)
+            speaker = page.locator(".assistant-speaker")
+            expect(speaker).to_have_text("智能管家")
+            assert speaker.get_attribute("title") is None
+            assert "needs_reauth" not in (page.locator("body").inner_text() or "")
+
+            show(page, "host", "direct", "direct")
+            account = page.get_by_role("link", name="重新登入 AI 帳號", exact=True)
+            expect(account).to_be_visible()
+            expect(account).to_have_attribute("href", "#agents")
+            expect(page.get_by_text("請到主機重新登入 AI 帳號。", exact=True)).to_have_count(0)
+            expect(page.locator(".assistant-speaker")).to_have_text("開發助手")
+            expect(page.locator(".assistant-speaker")).to_have_attribute("title", "主機 · Codex")
+
+            show(page, "host", "proposal", "direct")
+            proposal = page.get_by_role("link", name="查看提案 →", exact=True)
+            expect(proposal).to_have_attribute("href", f"#home/{task_id}")
+            expect(page.get_by_text("可能還沒送到聊天室。", exact=True)).to_be_visible()
+            expect(page.locator(".assistant-answer .status")).to_have_count(0)
+            expect(page.get_by_text("等待批准", exact=True)).to_have_count(0)
+            expect(page.locator(".assistant-speaker")).to_have_text("開發助手")
+            expect(page.locator(".assistant-speaker")).to_have_attribute("title", "主機 · Codex")
+
+            show(page, "bridge", "hermes", "hermes")
+            expect(page.locator(".bridge-shell")).to_be_visible()
+            expect(page.get_by_text("請到主機重新登入智能管家。", exact=True)).to_be_visible()
+            expect(page.locator(".assistant-answer").get_by_role("link")).to_have_count(0)
+            expect(page.locator(".assistant-answer").get_by_role("button")).to_have_count(0)
+            expect(page.get_by_role("link", name="重新登入智能管家", exact=True)).to_have_count(0)
+            expect(page.get_by_role("link", name="重新登入 AI 帳號", exact=True)).to_have_count(0)
+            expect(page.locator(".assistant-speaker")).to_have_text("智能管家")
+
+            page.get_by_role("button", name="對話紀錄", exact=False).click()
+            page.get_by_role("region", name="對話紀錄").get_by_role("button").filter(has_text="請直接看玄關").click()
+            expect(page.get_by_text("請到主機重新登入 AI 帳號。", exact=True)).to_be_visible()
+            expect(page.locator(".assistant-answer").get_by_role("link")).to_have_count(0)
+            expect(page.locator(".assistant-answer").get_by_role("button")).to_have_count(0)
+            expect(page.locator(".assistant-speaker")).to_have_text("開發助手")
+            expect(page.locator(".assistant-speaker")).to_have_attribute("title", "主機 · Codex")
+
+            page.get_by_role("button", name="對話紀錄", exact=False).click()
+            page.get_by_role("region", name="對話紀錄").get_by_role("button").filter(has_text="請看這次的家庭提案").click()
+            expect(page.get_by_role("link", name="查看提案 →", exact=True)).to_have_attribute("href", f"#home/{task_id}")
+            expect(page.get_by_text("可能還沒送到聊天室。", exact=True)).to_be_visible()
+            expect(page.locator(".assistant-answer .status")).to_have_count(0)
+            expect(page.locator(".assistant-speaker")).to_have_text("開發助手")
+            assert not errors, errors
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
