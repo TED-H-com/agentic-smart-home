@@ -73,15 +73,16 @@ class Supervisor:
         self.catalog_missing, self.corrupt_on_options = False, False
         self.reload_version, self.update_state, self.lose = None, None, None
         self.catalog = {"slug": SLUG, "repository": REPO, "version_latest": RELEASE.version, "available": True,
-                        "apparmor": "profile", "privileged": list(PRIVILEGED), "devices": list(DEVICES),
-                        "network": dict(NETWORK), **{key: False for key in SAFE_FLAGS}}
+                        "apparmor": "default", **{key: False for key in SAFE_FLAGS}}
         self.job = {"uuid": JOB, "reference": SLUG, "done": True, "errors": []}
 
     async def owner(self, owner):
         return {"id": owner, "is_owner": True, "is_active": True} if owner and not self.revoked else None
 
     def install_app(self):
-        self.app = {**self.catalog, "version": RELEASE.version, "options": {}, "state": "stopped", "boot": "auto"}
+        self.app = {**self.catalog, "version": RELEASE.version, "apparmor": "profile",
+                    "privileged": list(PRIVILEGED), "devices": list(DEVICES), "network": dict(NETWORK),
+                    "options": {}, "state": "stopped", "boot": "auto"}
 
     async def request(self, method, path, body=None, *, supervisor, timeout):
         assert supervisor is True and timeout == 30
@@ -107,7 +108,9 @@ class Supervisor:
         elif path == f"/store/addons/{SLUG}/info":
             if self.catalog_missing:
                 raise HAError("missing", 404)
-            value = self.catalog
+            value = dict(self.catalog)
+            if self.app and value.get("apparmor") == "default":
+                value["apparmor"] = "profile"
         elif path == f"/store/addons/{SLUG}/availability":
             value = None
         elif path == "/store/reload":
@@ -204,7 +207,7 @@ def test_pin_matches_runner_config_and_bridge_repository():
 
 @pytest.mark.parametrize("change", [{"hassio_api": True}, {"devices": ["/dev/fuse", "/dev/ttyUSB0"]},
                                     {"privileged": ["NET_ADMIN"]}, {"privileged": ["SYS_ADMIN", "NET_ADMIN"]},
-                                    {"apparmor": "default"}, {"network": {"8443/tcp": None}},
+                                    {"apparmor": "disable"}, {"network": {"8443/tcp": None}},
                                     {"full_access": True}, {"host_network": True}])
 def test_privilege_pin_rejects_widened_apps(manager, change):
     catalog = dict(manager.ha.catalog)
@@ -212,10 +215,38 @@ def test_privilege_pin_rejects_widened_apps(manager, change):
     record = {"slug": SLUG, "repository_id": REPO, "managed": False}
     with pytest.raises(HomeWorkerFault, match="home_worker_app_contract_mismatch"):
         manager.validate_app(catalog, record, installed=False)
+    manager.ha.install_app()
+    manager.ha.app.update(change)
+    with pytest.raises(HomeWorkerFault, match="home_worker_app_contract_mismatch"):
+        manager.validate_app(manager.ha.app, record, installed=True)
+
+
+@pytest.mark.parametrize("value", ["default", "profile"])
+def test_store_pin_accepts_pre_and_post_install_apparmor(manager, value):
+    record = {"slug": SLUG, "repository_id": REPO, "managed": False}
+    assert manager.validate_app({**manager.ha.catalog, "apparmor": value}, record, installed=False)["apparmor"] == value
+
+
+@pytest.mark.parametrize("value", ["disable", None, "", "unconfined", True])
+def test_store_pin_rejects_invalid_apparmor(manager, value):
+    record = {"slug": SLUG, "repository_id": REPO, "managed": False}
+    with pytest.raises(HomeWorkerFault, match="home_worker_app_contract_mismatch"):
+        manager.validate_app({**manager.ha.catalog, "apparmor": value}, record, installed=False)
+
+
+@pytest.mark.parametrize("value", ["default", "disable"])
+def test_installed_pin_requires_loaded_apparmor_profile(manager, value):
+    record = {"slug": SLUG, "repository_id": REPO, "managed": False}
+    manager.ha.install_app()
+    manager.ha.app["apparmor"] = value
+    with pytest.raises(HomeWorkerFault, match="home_worker_app_contract_mismatch"):
+        manager.validate_app(manager.ha.app, record, installed=True)
 
 
 def test_store_listing_may_omit_port_fields_that_the_install_must_show(manager):
     record = {"slug": SLUG, "repository_id": REPO, "managed": False}
+    assert {"privileged", "devices", "network"}.isdisjoint(manager.ha.catalog)
+    assert manager.validate_app(manager.ha.catalog, record, installed=False)["apparmor"] == "default"
     listed = {key: value for key, value in manager.ha.catalog.items()
               if key not in {"privileged", "devices", "network", "apparmor"}}
     assert manager.validate_app(listed, record, installed=False)["slug"] == SLUG
@@ -397,11 +428,18 @@ async def test_repair_is_a_no_op_while_settled(manager):
 
 
 async def test_pair_uses_fixed_host_and_status_never_contains_the_code(manager):
+    store_before = await manager.ha.request("GET", f"/store/addons/{SLUG}/info", supervisor=True, timeout=30)
+    assert store_before["apparmor"] == "default" and {"privileged", "devices", "network"}.isdisjoint(store_before)
+    manager.ha.calls.clear()
     status = await login_ready(manager)
+    store_after = await manager.ha.request("GET", f"/store/addons/{SLUG}/info", supervisor=True, timeout=30)
+    assert store_after["apparmor"] == "profile" and {"privileged", "devices", "network"}.isdisjoint(store_after)
+    assert len(manager.ha.posts("/install")) == 1 and len(manager.ha.posts("/start")) == 1
+    assert len(manager.ha.posts("/options")) == 1
     paired = manager.runner.paired[0]
     assert paired["pairing"] == {"host": HOST, "port": PORT, "fingerprint": FINGERPRINT, "code": CODE}
     assert paired["principal"] == "host-owner" and paired["controller_id"] == "d" * 32
-    assert manager.ha.app["options"] == {}
+    assert manager.ha.app["options"] == {} and manager.ha.app["apparmor"] == "profile"
     assert manager.ha.app["privileged"] == PRIVILEGED and manager.ha.app["devices"] == DEVICES
     assert manager.ha.app["hassio_api"] is False and manager.ha.app["network"] == NETWORK
     assert manager.store.setting("runner_haos")["fingerprint"] == FINGERPRINT
@@ -410,6 +448,13 @@ async def test_pair_uses_fixed_host_and_status_never_contains_the_code(manager):
     assert CODE not in blob and NEW_CODE not in blob and "runner-bearer-secret" not in blob
     assert status["login"]["show"] is True and status["login"]["worker_id"] == "home-coder"
     assert status["state"] == "login_ready" and status["stage"] == "login"
+    assert status["limitations"] == [
+        "supervisor_trusted_repository_not_atomic_digest_pin",
+        "stopped_or_removed_app_returns_only_on_owner_repair",
+        "no_heartbeat_restart",
+        "hassio_api_is_not_enabled_for_self_options",
+        "credential_configured_is_not_promoted_to_inference_verified",
+    ]
     assert not any("/auth" in path for _, path in manager.runner.calls)
 
 
@@ -699,3 +744,23 @@ async def test_failed_build_can_be_retried_by_the_owner_at_once(manager):
             break
         await manager.tick()
     assert manager.status()["state"] == "login_ready" and len(manager.ha.posts("/install")) == 2
+
+
+async def test_installed_app_with_default_apparmor_is_never_started(manager):
+    installed = manager.ha.install_app
+
+    def install_without_profile():
+        installed()
+        manager.ha.app["apparmor"] = "default"
+
+    manager.ha.install_app = install_without_profile
+    await manager.authorize()
+    for _ in range(10):
+        await manager.tick()
+        if manager.status()["state"] in {"needs_reconcile", "user_modified"}:
+            break
+    status = manager.status()
+    assert status["state"] in {"needs_reconcile", "user_modified"}
+    assert status["code"] == "home_worker_app_contract_mismatch"
+    assert len(manager.ha.posts("/install")) == 1
+    assert not manager.ha.posts("/start")
