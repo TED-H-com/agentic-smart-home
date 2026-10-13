@@ -7,8 +7,7 @@ FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca92
 WORKDIR /opt/web-toolchain
 COPY web-toolchain/package.json web-toolchain/package-lock.json ./
 RUN npm ci --no-audit --no-fund \
- && find /opt/web-toolchain -type d -exec chmod 0755 {} + \
- && find /opt/web-toolchain -type f -exec chmod 0644 {} + \
+ && chmod -R u=rwX,go=rX /opt/web-toolchain \
  && chown -R root:root /opt/web-toolchain
 
 FROM python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd12803a5c4247979ac7655f4d641
