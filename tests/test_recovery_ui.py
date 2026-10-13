@@ -527,6 +527,59 @@ def test_channel_poll_waits_while_the_form_is_dirty():
         _finish(server, thread, browser, errors)
 
 
+def test_channel_read_failure_clears_on_the_next_good_read():
+    server, thread = _server()
+    preferences = {'primary': 'line', 'runtime': 'host', 'provider': 'codex', 'coordinator': 'hermes'}
+    channels = {name: {'id': name, 'status': 'disabled', 'enabled': False, 'chats': [], 'senders': [], 'has_secret': False, 'reason': None, 'message': None}
+                for name in ('line', 'telegram', 'discord')}
+    channels['line'].update(status='connected', enabled=True, chats=['room-1'], senders=['user-1'])
+    gateway, publish = _channel_gateway(channels, preferences)
+    failing, errors = {'gateway': False}, []
+
+    def route(route):
+        request = route.request
+        path = request.url.split('/api/')[1].split('?')[0]
+        assert request.method == 'GET', path
+        if path == 'deployment':
+            result = {'mode': 'host', 'authenticated': True}
+        elif path == 'session':
+            result = {'principal': 'host-owner', 'csrf': 'fixture-csrf', 'mode': 'host'}
+        elif path == 'status':
+            result = {'ha': {'status': 'connected'}, 'runner': {'protocol': 1, 'providers': []}, 'version': 'fixture', 'paused': False}
+        elif path == 'tasks':
+            result = {'tasks': []}
+        elif path == 'gateway' and failing['gateway']:
+            route.fulfill(status=503, content_type='application/json', body=json.dumps({'detail': '暫時無法回應'}))
+            return
+        elif path == 'gateway':
+            result = publish()
+        elif path == 'gateway/messages':
+            result = {'messages': []}
+        else:
+            result = {}
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(result))
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(viewport={'width': 390, 'height': 844})
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        page.route('**/api/**', route)
+        page.clock.install()
+        page.goto(f'http://127.0.0.1:{server.server_port}/#gateway/channels')
+        settings = page.get_by_role('region', name='對外通訊設定')
+        failed = settings.get_by_role('alert').filter(has_text='暫時無法回應')
+        expect(settings.get_by_role('radio', name='LINE 建議', exact=True)).to_be_checked()
+        failing['gateway'] = True
+        page.clock.run_for(5_500)
+        expect(failed).to_be_visible()
+        # The next good read clears it; nothing to press.
+        failing['gateway'] = False
+        page.clock.run_for(5_500)
+        expect(failed).to_have_count(0)
+        expect(settings.get_by_role('alert')).to_have_count(0)
+        _finish(server, thread, browser, errors)
+
+
 def test_bootstrap_retry_codes_use_one_friendly_sentence():
     server, thread = _server()
     flow = {'contract': 1, 'id': 'bootstrap-fixture', 'state': 'blocked', 'provider': 'codex', 'channel': 'line',
