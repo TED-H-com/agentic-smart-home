@@ -9,6 +9,7 @@ import yaml
 from agentic_controller.bridge_maintenance import BridgeRelease
 from agentic_controller.ha import HAError
 from agentic_controller.home_worker_maintenance import (
+    APP_START_TIMEOUT,
     DEVICES,
     HOST,
     JOB_TIMEOUT,
@@ -70,6 +71,7 @@ class FakeRunner:
 class Supervisor:
     def __init__(self):
         self.token, self.revoked, self.repos, self.calls = "fixture-ha-token", False, [], []
+        self.timeouts = []
         self.app, self.healthy, self.publish = None, True, True
         self.code, self.before, self.fail = CODE, None, None
         self.catalog_missing, self.corrupt_on_options = False, False
@@ -88,8 +90,11 @@ class Supervisor:
                     "options": {}, "state": "stopped", "boot": "auto"}
 
     async def request(self, method, path, body=None, *, supervisor, timeout):
-        assert supervisor is True and timeout == 30
+        expected_timeout = APP_START_TIMEOUT if method == "POST" and path in {
+            f"/addons/{SLUG}/start", f"/addons/{SLUG}/restart"} else 30
+        assert supervisor is True and timeout == expected_timeout
         self.calls.append((method, path, copy.deepcopy(body)))
+        self.timeouts.append((method, path, timeout))
         if self.before:
             await self.before(method, path)
         if self.fail == (method, path):
@@ -1031,3 +1036,56 @@ async def test_controller_start_runs_the_observation_loop(manager):
     finally:
         await manager.close()
     assert manager.task is None
+
+
+async def test_fresh_enable_and_pairing_restart_wait_for_supervisor_app_start_timeout(manager):
+    assert APP_START_TIMEOUT == 150
+    await manager.authorize()
+    await drive(manager, "start")
+
+    async def slow_start(method, path):
+        if method == "POST" and path == f"/addons/{SLUG}/start":
+            assert manager.ha.timeouts[-1] == ("POST", f"/addons/{SLUG}/start", 150)
+            manager.clock.now += 45
+
+    manager.ha.before = slow_start
+    status = await manager.tick()
+    assert (status["state"], status["stage"], status["code"]) == ("running", "start", None)
+    assert status["operation"]["kind"] == "start" and status["operation"]["state"] == "acknowledged"
+    manager.ha.before = None
+
+    # Next tick sees the App started and advances to pair without ever entering unavailable.
+    status = await manager.tick()
+    assert (status["state"], status["stage"], status["code"]) == ("running", "pair", None)
+    assert "operation" not in status
+
+    # An expired pairing code triggers the single pairing restart with timeout 150.
+    manager.runner.fail = RunnerError("expired", 409)
+    manager.runner.consume_fail = True
+    status = await manager.tick()
+    assert status["stage"] == "pair" and status["operation"]["kind"] == "restart"
+    status = await login_ready(manager)
+    assert status["state"] == "login_ready"
+
+    start_calls = [item for item in manager.ha.timeouts if item[1] in {
+        f"/addons/{SLUG}/start", f"/addons/{SLUG}/restart"}]
+    other_calls = [item for item in manager.ha.timeouts if item[1] not in {
+        f"/addons/{SLUG}/start", f"/addons/{SLUG}/restart"}]
+    assert start_calls == [("POST", f"/addons/{SLUG}/start", 150), ("POST", f"/addons/{SLUG}/restart", 150)]
+    assert other_calls and all(timeout == 30 for _, _, timeout in other_calls)
+    other_paths = {(method, path) for method, path, _ in other_calls}
+    for expected in (
+        ("GET", "/store/repositories"),
+        ("POST", "/store/repositories"),
+        ("GET", "/store/addons"),
+        ("GET", f"/store/addons/{SLUG}/info"),
+        ("GET", f"/store/addons/{SLUG}/availability"),
+        ("POST", f"/store/addons/{SLUG}/install"),
+        ("GET", "/addons"),
+        ("GET", f"/addons/{SLUG}/info"),
+        ("GET", "/supervisor/info"),
+        ("GET", "/info"),
+        ("GET", f"/jobs/{JOB}"),
+        ("POST", f"/addons/{SLUG}/options"),
+    ):
+        assert expected in other_paths
