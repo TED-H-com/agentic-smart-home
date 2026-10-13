@@ -30,7 +30,9 @@ backup_exclude:
   - coding/*
 stage: experimental
 options: {}
-schema: {}
+schema:
+  pairing_fingerprint: str?
+  pairing_code: str?
 watchdog: http://[HOST]:8099/health
 ports:
   8443/tcp: 8443

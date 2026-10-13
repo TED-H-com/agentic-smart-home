@@ -46,7 +46,7 @@ Hermes runtime 一次一個 run，5 分鐘 deadline、最多 12 次模型 iterat
 
 既有 `home_operator` 限制保留，沒有為新增 coding 全域打開工具。Controller 分別保存 Host／HAOS Runner 的 TLS 指紋與配對 bearer，provider 認證留在各自的私有 profile。內層是實際 HAOS Runner App，不是在 HAOS 唯讀根目錄安裝 npm，也不是 Home Coding Worker 驗收的替代品。
 
-內層位址固定為產品 VM 的 `192.168.177.2:8443`。HAOS 建立後，在 App 商店加入 `https://github.com/teddashh/agentic-smart-home`、安裝 Runner、保留 8443，將一次性配對 JSON 貼到外層 Web；Runner ZIP 可作本機 App 來源。
+內層位址固定為產品 VM 的 `192.168.177.2:8443`。完成首次設定後，Owner 可明確啟動家庭現場助手維護：沿用側欄同一條發行 repository，安裝商店裡的 `agentic_runner`，保留 8443，並以 App options 中的一次性指紋完成配對。配對碼不進入維護紀錄或瀏覽器回應。商店沒有此 App 時不改裝本機 ZIP。App 記錄仍印出配對 JSON，供手動恢復。`hassio_api: false` 下的 self-options 尚未在真 HAOS VM 驗證。詳見 [Onboarding](ONBOARDING.md) 與 [Workers](WORKERS.md)。
 
 Codex 支援 device code／API key；Claude 支援 API key／setup token；Grok 支援官方 device code／xAI API key；Antigravity 目前只整合 Gemini API key。CLI 的 API-key 登入檢查會執行一次簡短官方推論、可能使用額度；Hermes 引導亦在保存 configured 後自動提交驗證提問。
 
