@@ -105,7 +105,9 @@ def serve(path="/run/agentic-home/host.sock"):
     jobs = Jobs(manager)
     from .coding_service import CodingService
     coding = CodingService(manager)
-    network, previews, updater = Network(manager), Previews(manager), Updater(manager)
+    network = Network(manager)
+    previews = Previews(manager, bundles=coding.root / "web-previews")
+    updater = Updater(manager)
     try:
         viewer = preview_server(previews)
         threading.Thread(target=viewer.serve_forever, daemon=True).start()

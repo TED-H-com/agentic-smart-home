@@ -241,6 +241,9 @@ async def test_preview_projection_never_leaks_local_capability(system):
     value = bridge.preview_view({'id': identifier, 'state': 'ready', 'preview_urls': {'390': 'http://127.0.0.2:8100/p/secret/390.png'}, 'capability': 'secret', 'container': 'secret'})
     assert value['preview_urls'] == {'390': f'api/bridge/previews/{identifier}/390.png'}
     assert 'secret' not in json.dumps(value)
+    interactive = bridge.preview_view({'id': identifier, 'state': 'ready', 'mode': 'interactive',
+        'interactive_url': 'http://127.0.0.2:8100/i/' + 'a' * 43 + '/', 'capability': 'secret'})
+    assert 'interactive_url' not in interactive and '127.0.0.2' not in json.dumps(interactive)
 
 
 async def test_invalid_private_file_fails_closed_without_blocking(system):

@@ -1396,21 +1396,28 @@
       },
       "WorkerPreview": {
         "additionalProperties": false,
+        "description": "Screenshot stays the default. Interactive carries no artifact bytes.",
         "properties": {
           "artifact_ids": {
+            "default": [],
             "items": {
               "pattern": "^[a-f0-9]{32}$",
               "type": "string"
             },
             "maxItems": 16,
-            "minItems": 1,
             "title": "Artifact Ids",
             "type": "array"
+          },
+          "mode": {
+            "default": "screenshot",
+            "enum": [
+              "screenshot",
+              "interactive"
+            ],
+            "title": "Mode",
+            "type": "string"
           }
         },
-        "required": [
-          "artifact_ids"
-        ],
         "title": "WorkerPreview",
         "type": "object"
       },

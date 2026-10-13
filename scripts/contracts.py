@@ -14,6 +14,7 @@ from agentic_controller.models import (
     BootstrapStatus,
     HomeEntry,
     Policy,
+    WorkerPreview,
     provider_schema,
 )
 from agentic_controller.operations import NetworkPreferences, UpdateStage
@@ -21,7 +22,6 @@ from agentic_controller.store import Store
 from agentic_controller.work import (
     EvidenceQuery,
     HermesAuth,
-    WorkerPreview,
     WorkerQuery,
     WorkerStart,
     WorkerSubmit,
