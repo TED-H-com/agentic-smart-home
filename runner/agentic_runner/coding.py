@@ -5,6 +5,7 @@ import asyncio
 import hashlib
 import json
 import os
+import time
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -206,13 +207,33 @@ def routes(app, broker):
                 if body.method == "device_code":
                     await credentials.begin_device_auth(body.id)
                     original = credentials.auth_sessions[body.id]["_task"]
+
+                    async def release_auth_fence(auth_id):
+                        # 1, 2, 4 … seconds, capped at 60, for at most 10 minutes.
+                        # Retry transport errors and HTTP 5xx only. Stop on success,
+                        # any other 4xx, or while a stop is still unconfirmed.
+                        delay, deadline = 1, time.monotonic() + 600
+                        while not credentials.unconfirmed and time.monotonic() < deadline:
+                            try:
+                                response = await forward("POST", "/auth-release", {"id": auth_id})
+                            except HTTPException as exc:
+                                retryable = exc.status_code >= 500
+                            else:
+                                retryable = response.status_code >= 500
+                            if not retryable or credentials.unconfirmed:
+                                return
+                            remaining = deadline - time.monotonic()
+                            if remaining <= 0:
+                                return
+                            await asyncio.sleep(min(delay, 60, remaining))
+                            delay = min(delay * 2, 60)
+
                     async def release():
                         await asyncio.gather(original, return_exceptions=True)
                         state = credentials.auth_sessions[body.id]
                         receipts[body.id].update(status=state["status"], code=None, url=None)
                         save_receipt(receipt_path, receipts)
-                        if not credentials.unconfirmed:
-                            await forward("POST", "/auth-release", {"id": body.id})
+                        await release_auth_fence(body.id)
                     credentials.auth_sessions[body.id]["_release"] = asyncio.create_task(release())
                     device_pending = True
                 else:

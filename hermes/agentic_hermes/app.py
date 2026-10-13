@@ -6,9 +6,11 @@ MCP uses a different, per-run grant and still authorizes every operation there.
 
 import asyncio
 import ctypes
+import fcntl
 import hashlib
 import hmac
 import json
+import logging
 import os
 import shutil
 import signal
@@ -29,12 +31,24 @@ from .oauth import public as public_auth
 
 TERMINAL = {"succeeded", "failed", "cancelled", "interrupted"}
 TURN_ERRORS = {"needs_reauth", "runtime_unavailable", "inference_failed", "rate_limited", "provider_unavailable", "timeout"}
-PRIVATE = {"scope_id", "digest", "key", "message", "auth_epoch"}
+PRIVATE = {"scope_id", "digest", "key", "message", "auth_epoch", "instance"}
 MAX_HISTORY = 192 * 1024
 
 
 def now():
     return datetime.now(UTC).isoformat()
+
+
+def current_instance():
+    """Boot and PID namespace of this process, or None when either is unavailable."""
+    try:
+        boot_id = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+        pid_namespace = os.readlink("/proc/self/ns/pid")
+    except OSError:
+        return None
+    if not boot_id or not pid_namespace:
+        return None
+    return {"boot_id": boot_id, "pid_namespace": pid_namespace}
 
 
 def digest(value):
@@ -131,6 +145,10 @@ class Runtime:
         self.tasks, self.processes, self.groups = {}, {}, {}
         self.unconfirmed = set()
         self._closing = False
+        self._closed = False
+        self._instance_fd = None
+        self._instance_held = False
+        self._acquire_instance_lock()
         self.auth_lock = asyncio.Lock()
         self.auth_changing = False
         self.context_days = RetentionInput.model_validate(
@@ -142,7 +160,10 @@ class Runtime:
         for row in self.db.execute("SELECT body FROM records WHERE kind='run'").fetchall():
             run = json.loads(row[0])
             if run["state"] == "stop_unconfirmed":
-                self.unconfirmed.add(run["run_id"])
+                if self.proven_stopped(run):
+                    self.transition(run, "interrupted", "runtime_restarted")
+                else:
+                    self.unconfirmed.add(run["run_id"])
             elif run["state"] not in TERMINAL:
                 self.transition(run, "interrupted", "runtime_restarted")
         self.device_login = DeviceLogin(self)
@@ -153,6 +174,50 @@ class Runtime:
             if folder.name not in self.unconfirmed:
                 shutil.rmtree(folder, ignore_errors=True)
         self.prune()
+
+    def _acquire_instance_lock(self):
+        """Hold the data-directory lock for this process. A busy lock is not fatal."""
+        try:
+            fd = os.open(self.directory / "instance.lock", os.O_CREAT | os.O_RDWR | os.O_CLOEXEC, 0o600)
+        except OSError:
+            return
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            os.close(fd)
+            logging.getLogger(__name__).warning(
+                "hermes instance lock is busy; unconfirmed stops stay unconfirmed")
+        except OSError:
+            os.close(fd)
+        else:
+            self._instance_fd = fd
+            self._instance_held = True
+
+    def _release_instance_lock(self):
+        fd, self._instance_fd = self._instance_fd, None
+        self._instance_held = False
+        if fd is None:
+            return
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
+
+    def note_instance(self, item):
+        identity = current_instance()
+        if identity:
+            item["instance"] = identity
+
+    def proven_stopped(self, item):
+        """A prior stop is proven only after this process owns the lock and the old instance is gone."""
+        stored = item.get("instance")
+        current = current_instance()
+        if not self._instance_held or not isinstance(stored, dict) or not isinstance(current, dict):
+            return False
+        boot_differs = isinstance(stored.get("boot_id"), str) and stored.get("boot_id") != current.get("boot_id")
+        namespace_differs = (isinstance(stored.get("pid_namespace"), str) and
+                             stored.get("pid_namespace") != current.get("pid_namespace"))
+        return boot_differs or namespace_differs
 
     def prune(self):
         """Configured context TTL, including completed answer/evidence payloads.
@@ -435,9 +500,12 @@ class Runtime:
             raise TimeoutError("Process group stop cannot be confirmed") from exc
 
     def mark_unconfirmed(self, run):
+        self.note_instance(run)
         self.unconfirmed.add(run["run_id"])
         if run["state"] != "stop_unconfirmed":
             self.transition(run, "stop_unconfirmed", "stop_unconfirmed")
+        elif run.get("instance"):
+            self.put("run", run["run_id"], run)
 
     async def execute(self, run, body, session):
         scratch = self.directory / "turns" / body.run_id
@@ -540,8 +608,11 @@ class Runtime:
 
     async def close(self):
         self._closing = True
-        await self.stop_all(require_confirmed=False)
-        self.db.close()
+        if not self._closed:
+            await self.stop_all(require_confirmed=False)
+            self.db.close()
+            self._closed = True
+        self._release_instance_lock()
 
 
 def create_app(runtime):
