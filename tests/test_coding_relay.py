@@ -33,6 +33,9 @@ from agentic_host.coding_relay import (  # noqa: E402
     credential_metadata_ok,
     credentials,
     refresh_due,
+    select_request_headers,
+    select_response_headers,
+    upstream,
     write_auth,
 )
 from agentic_host.coding_sandbox import SandboxError  # noqa: E402
@@ -750,3 +753,453 @@ def test_refresh_uses_public_tls_on_the_fixed_token_host(tmp_path, monkeypatch):
     # An unreachable token host is transient: the still valid token is tried, and no sign-in is demanded.
     assert [host for host, _ in seen] == [TOKEN_HOST, "chatgpt.com"]
     assert OLD_REFRESH not in str(failure.value) and not relay.auth_failed
+
+
+THREAD_ID = "22222222-2222-4222-8222-222222222222"
+SESSION_ID = "11111111-1111-4111-8111-111111111111"
+PARENT_ID = "33333333-3333-4333-8333-333333333333"
+WINDOW_ID = THREAD_ID + ":0"
+TURN_META = '{"turn_id":"turn-1","request_kind":"turn"}'
+CANONICAL_REQUEST = {
+    "x-openai-internal-codex-responses-lite": "true",
+    "originator": "codex_cli_rs",
+    "x-codex-turn-state": "ts-1",
+    "x-codex-beta-features": "analytics_plan_history,remote_compaction_v2",
+    "session-id": SESSION_ID,
+    "thread-id": THREAD_ID,
+    "x-client-request-id": THREAD_ID,
+    "x-codex-window-id": WINDOW_ID,
+    "x-codex-parent-thread-id": PARENT_ID,
+    "x-codex-turn-metadata": TURN_META,
+    "x-openai-subagent": "review",
+    "x-openai-memgen-request": "true",
+    "x-codex-routing-hint": "model=gpt-6-astra",
+}
+
+
+def wire_headers(mapping):
+    return b"".join(f"{name}: {value}\r\n".encode() for name, value in mapping.items())
+
+
+def split_headers(raw):
+    head = raw.split(b"\r\n\r\n", 1)[0].decode()
+    found = {}
+    for line in head.split("\r\n")[1:]:
+        if ":" not in line:
+            continue
+        name, value = line.split(":", 1)
+        found.setdefault(name.lower(), value[1:] if value.startswith(" ") else value)
+    return found
+
+
+def live_auth(tmp_path, access):
+    path = tmp_path / "auth.json"
+    install_auth(path, auth_value(access, OLD_REFRESH, stamp(time.time()), jwt_token({"kind": "id"})))
+    return path
+
+
+def test_header_selectors_reject_smuggled_and_unknown_values():
+    injected = "ts-1\r\nX-Injected: yes"
+    assert select_request_headers([
+        ("X-Codex-Turn-State", injected), ("X-Codex-Turn-State", "ts-1")], chatgpt=True) == {}
+    assert select_request_headers({"x-codex-turn-state": "ts\x001"}, chatgpt=True) == {}
+    assert select_request_headers({"originator": "bad\norigin"}, chatgpt=True) == {}
+    assert select_request_headers([
+        ("Originator", "codex_cli_rs"), ("originator", "other")], chatgpt=True) == {"originator": "codex_cli_rs"}
+    assert select_request_headers([
+        ("originator", None), ("originator", "codex_cli_rs")], chatgpt=True) == {}
+    assert select_request_headers({"x-codex-installation-id": SESSION_ID}, chatgpt=True) == {}
+    guardian = "guardian:" + SESSION_ID
+    assert select_request_headers({"session-id": guardian}, chatgpt=False) == {"session-id": guardian}
+    consolidated = "memory_consolidation:" + THREAD_ID
+    assert select_request_headers({"session-id": consolidated}, chatgpt=True) == {"session-id": consolidated}
+    assert select_request_headers({"session-id": "Guardian:" + SESSION_ID}, chatgpt=True) == {}
+    hint = "model=gpt-6-astra;tier=priority"
+    assert select_request_headers({"x-codex-routing-hint": hint}, chatgpt=True) == {"x-codex-routing-hint": hint}
+    assert select_request_headers({"x-codex-routing-hint": hint}, chatgpt=False) == {}
+    assert select_request_headers({"x-codex-routing-hint": "model="}, chatgpt=True) == {}
+    assert select_request_headers({"x-codex-turn-metadata": "[]"}, chatgpt=True) == {}
+    assert select_request_headers({"x-codex-turn-metadata": "x" * 8193}, chatgpt=True) == {}
+    assert select_request_headers({"x-openai-internal-codex-responses-lite": "TRUE"}, chatgpt=True) == {}
+    assert select_response_headers({
+        "Set-Cookie": "a=b", "X-Codex-Turn-State": "ts-1", "X-Evil": "nope"}) == {"x-codex-turn-state": "ts-1"}
+    assert select_response_headers({"X-Models-Etag": 'W/"abc"'}) == {"x-models-etag": 'W/"abc"'}
+    assert select_response_headers({"x-codex-rate-limit-reached-type": "rate_limit_reached"}) == {
+        "x-codex-rate-limit-reached-type": "rate_limit_reached"}
+    assert select_response_headers({"x-codex-rate-limit-reached-type": "nope"}) == {}
+    assert select_response_headers({"x-codex-credits-has-credits": "TRUE"}) == {"x-codex-credits-has-credits": "TRUE"}
+    assert select_response_headers({"x-codex-credits-has-credits": "yes"}) == {}
+    assert select_response_headers({"x-codex-primary-used-percent": "12.5"}) == {"x-codex-primary-used-percent": "12.5"}
+    assert select_response_headers({"x-codex-primary-used-percent": "1e2"}) == {}
+    assert select_response_headers({"x-codex-other-primary-used-percent": "1"}) == {
+        "x-codex-other-primary-used-percent": "1"}
+    assert select_response_headers({"x--primary-used-percent": "1"}) == {}
+    assert select_response_headers({"x-error-json": "eyJ9", "x-openai-authorization-error": "no"}) == {}
+    many = [(f"x-lim{index}-primary-used-percent", "1") for index in range(45)]
+    assert len(select_response_headers(many)) == 40
+
+
+def test_proxy_selector_matches_relay():
+    namespace = {}
+    source = sandbox_proxy(str(sock_path("rules")), port=0, idle=30)
+    assert "refresh_token" not in source and "auth.openai.com" not in source
+    assert "select_request_headers(self.headers,chatgpt=True)" in source
+    exec(compile(source, "proxy-rules", "exec"), namespace)
+    proxy = namespace["server"]
+    request_cases = [
+        (CANONICAL_REQUEST, True),
+        (CANONICAL_REQUEST, False),
+        ({"X-Codex-Turn-State": "ts-1\r\nX-Injected: yes", "Originator": "codex_cli_rs"}, True),
+        ({"Authorization": "Bearer stolen", "Cookie": "a=b", "x-oai-attestation": "device"}, True),
+        ({"x-codex-routing-hint": "model=gpt-6-astra", "originator": "Codex Desktop"}, False),
+        ({"session-id": "guardian:" + SESSION_ID, "x-codex-beta-features": "Bad"}, True),
+        ([(f"x-lim{index}-primary-used-percent", "1") for index in range(5)], True),
+    ]
+    response_cases = [
+        {"X-Codex-Turn-State": "ts-1", "Set-Cookie": "a=b", "X-Models-Etag": 'W/"abc"'},
+        {"x-codex-primary-used-percent": "12.5", "x-codex-primary-window-minutes": "60",
+         "x-codex-credits-balance": "9.5", "x-evil": "no"},
+        [(f"x-lim{index}-primary-used-percent", "1") for index in range(45)],
+    ]
+    try:
+        for headers, chatgpt in request_cases:
+            assert namespace["select_request_headers"](headers, chatgpt=chatgpt) == select_request_headers(
+                headers, chatgpt=chatgpt)
+        for headers in response_cases:
+            assert namespace["select_response_headers"](headers) == select_response_headers(headers)
+    finally:
+        proxy.shutdown()
+        proxy.server_close()
+
+
+def test_upstream_user_agent_is_fixed_and_response_headers_are_filtered(monkeypatch):
+    captured = {}
+
+    class Fake:
+        def __init__(self, host, timeout=None):
+            self.sock = None
+            self.status = 200
+
+        def request(self, method, path, body=None, headers=None):
+            captured["headers"] = dict(headers)
+
+        def getresponse(self):
+            return self
+
+        def getheader(self, name, default=None):
+            return "text/event-stream"
+
+        def getheaders(self):
+            return [("X-Codex-Turn-State", "ts-1"), ("Set-Cookie", "a=b"), ("X-Models-Etag", 'W/"abc"')]
+
+        def read1(self, size):
+            return b""
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("agentic_host.coding_relay.PublicTLS", Fake)
+    result = upstream("chatgpt.com", "/backend-api/codex/responses", "POST", b"{}",
+                      {"User-Agent": "evil-agent", "Accept": "text/event-stream"})
+    try:
+        assert captured["headers"]["User-Agent"] == "agentic-home-coding/1"
+        assert "evil-agent" not in captured["headers"].values()
+        assert result.headers == {"x-codex-turn-state": "ts-1", "x-models-etag": 'W/"abc"'}
+    finally:
+        result.abort()
+
+
+def test_codex_headers_reach_upstream_and_cannot_override_relay_auth(tmp_path, monkeypatch):
+    patch_owner(monkeypatch)
+    access = jwt_token({"exp": int(time.time()) + 30 * 86400})
+    seen = []
+
+    def transport(host, route, method, body, headers, maximum=None):
+        seen.append((host, dict(headers), body))
+        return (200, "text/event-stream", b"data: ok\n\n", {
+            "X-Codex-Turn-State": "ts-1", "X-Codex-Primary-Used-Percent": "12.5",
+            "X-Codex-Primary-Window-Minutes": "60", "X-Codex-Primary-Reset-At": "1704069000",
+            "OpenAI-Model": "gpt-6-astra", "Set-Cookie": "session=secret", "X-Evil": "nope",
+            "X-OpenAI-Authorization-Error": "account", "X-Error-Json": "eyJ9"})
+
+    relay = start_relay(tmp_path, monkeypatch, transport, credential_path=live_auth(tmp_path, access))
+    try:
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client.connect(str(relay.path))
+        client.sendall(http_request(extra=wire_headers({
+            "X-OpenAI-Internal-Codex-Responses-Lite": "true", "Originator": "codex_cli_rs",
+            "X-Codex-Turn-State": "ts-1", "X-Codex-Beta-Features": "analytics_plan_history,remote_compaction_v2",
+            "Session-Id": SESSION_ID, "Thread-Id": THREAD_ID, "X-Client-Request-Id": THREAD_ID,
+            "X-Codex-Window-Id": WINDOW_ID, "X-Codex-Parent-Thread-Id": PARENT_ID,
+            "X-Codex-Turn-Metadata": TURN_META, "X-OpenAI-Subagent": "review",
+            "X-OpenAI-Memgen-Request": "true", "X-Codex-Routing-Hint": "model=gpt-6-astra",
+            "Authorization": "Bearer stolen", "Cookie": "a=b", "ChatGPT-Account-Id": "evil",
+            "OpenAI-Beta": "responses=evil", "User-Agent": "evil-agent", "Accept": "text/plain",
+            "Content-Type": "text/plain", "X-Oai-Attestation": "device-secret",
+            "X-Not-A-Codex-Header": "nope", "X-Api-Key": "sk-injected",
+            "X-Codex-Installation-Id": SESSION_ID,
+        })))
+        data = recv_rest(client, timeout=2)
+        client.close()
+    finally:
+        relay.close()
+    host, headers, body = seen[0]
+    assert host == "chatgpt.com" and json.loads(body)["store"] is False
+    for name, value in CANONICAL_REQUEST.items():
+        assert headers[name] == value
+    assert headers["Authorization"] == "Bearer " + access
+    assert headers["ChatGPT-Account-Id"] == "acct-1"
+    assert headers["OpenAI-Beta"] == "responses=experimental"
+    assert headers["Content-Type"] == "application/json" and headers["Accept"] == "text/event-stream"
+    forwarded = {key.lower(): value for key, value in headers.items()}
+    assert "stolen" not in forwarded["authorization"] and forwarded["chatgpt-account-id"] == "acct-1"
+    assert "user-agent" not in forwarded and "x-oai-attestation" not in forwarded
+    assert "x-codex-installation-id" not in forwarded and "x-not-a-codex-header" not in forwarded
+    assert "sk-injected" not in " ".join(headers.values()) and "device-secret" not in " ".join(headers.values())
+    returned = split_headers(data)
+    assert returned["x-codex-turn-state"] == "ts-1"
+    assert returned["x-codex-primary-used-percent"] == "12.5"
+    assert returned["x-codex-primary-window-minutes"] == "60"
+    assert returned["x-codex-primary-reset-at"] == "1704069000"
+    assert returned["openai-model"] == "gpt-6-astra"
+    lowered = data.lower()
+    assert b"set-cookie" not in lowered and b"session=secret" not in data
+    assert b"x-evil" not in lowered and b"x-error-json" not in lowered and b"authorization-error" not in lowered
+    assert data.startswith(b"HTTP/1.1 200") and b"data: ok" in data
+
+
+def test_invalid_headers_are_dropped_without_failing_the_request(tmp_path, monkeypatch):
+    patch_owner(monkeypatch)
+    access = jwt_token({"exp": int(time.time()) + 30 * 86400})
+    seen = []
+
+    def transport(host, route, method, body, headers, maximum=None):
+        seen.append(dict(headers))
+        return 200, "text/event-stream", b"data: ok\n\n"
+
+    relay = start_relay(tmp_path, monkeypatch, transport, credential_path=live_auth(tmp_path, access))
+    try:
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client.connect(str(relay.path))
+        client.sendall(http_request(extra=wire_headers({
+            "Originator": "codex_cli_rs", "X-Codex-Turn-State": "t" * 2000,
+            "X-OpenAI-Internal-Codex-Responses-Lite": "TRUE", "X-Codex-Beta-Features": "Bad-Feature",
+            "Authorization": "Bearer stolen", "Cookie": "a=b", "X-Oai-Attestation": "device-secret",
+            "X-Unknown-Header": "nope",
+        })))
+        data = recv_rest(client, timeout=2)
+        client.close()
+    finally:
+        relay.close()
+    headers = {key.lower(): value for key, value in seen[0].items()}
+    assert headers["originator"] == "codex_cli_rs"
+    assert "x-codex-turn-state" not in headers and "x-openai-internal-codex-responses-lite" not in headers
+    assert "x-codex-beta-features" not in headers and "x-oai-attestation" not in headers
+    assert "cookie" not in headers and headers["authorization"] == "Bearer " + access
+    assert data.startswith(b"HTTP/1.1 200") and b"device-secret" not in data and b"stolen" not in data
+
+
+def test_refresh_retry_repeats_forwarded_headers(tmp_path, monkeypatch):
+    patch_owner(monkeypatch)
+    access = jwt_token({"exp": int(time.time()) + 30 * 86400})
+    path = live_auth(tmp_path, access)
+    new_access = jwt_token({"exp": int(time.time()) + 30 * 86400, "kind": "access"})
+    new_id = jwt_token({"exp": int(time.time()) + 30 * 86400, "kind": "id"})
+    token_reply = (200, "application/json", json.dumps(
+        {"access_token": new_access, "id_token": new_id, "refresh_token": NEW_REFRESH}).encode())
+    seen = []
+
+    def transport(host, route, method, body, headers, maximum=None):
+        seen.append((host, dict(headers)))
+        if host == TOKEN_HOST:
+            return token_reply
+        if headers.get("Authorization") == "Bearer " + access:
+            return 401, "application/json", b'{"error":"expired"}'
+        return (200, "text/event-stream", b"data: retried\n\n",
+                {"x-codex-turn-state": "ts-2", "Set-Cookie": "session=secret"})
+
+    relay = start_relay(tmp_path, monkeypatch, transport, credential_path=path)
+    try:
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client.connect(str(relay.path))
+        client.sendall(http_request(extra=wire_headers({
+            "X-OpenAI-Internal-Codex-Responses-Lite": "true", "Originator": "codex_cli_rs",
+            "X-Codex-Turn-State": "ts-1", "X-Codex-Routing-Hint": "model=gpt-6-astra",
+            "Authorization": "Bearer stolen", "X-Oai-Attestation": "device-secret",
+        })))
+        data = recv_rest(client, timeout=2)
+        client.close()
+    finally:
+        relay.close()
+    model = [headers for host, headers in seen if host == "chatgpt.com"]
+    assert [host for host, _headers in seen] == ["chatgpt.com", TOKEN_HOST, "chatgpt.com"]
+    assert len(model) == 2
+    for headers in model:
+        assert headers["originator"] == "codex_cli_rs" and headers["x-codex-turn-state"] == "ts-1"
+        assert headers["x-openai-internal-codex-responses-lite"] == "true"
+        assert headers["x-codex-routing-hint"] == "model=gpt-6-astra"
+        assert "x-oai-attestation" not in {key.lower() for key in headers}
+        assert "stolen" not in headers["Authorization"] and headers["ChatGPT-Account-Id"] == "acct-1"
+    assert model[0]["Authorization"] == "Bearer " + access
+    assert model[1]["Authorization"] == "Bearer " + new_access
+    token = [headers for host, headers in seen if host == TOKEN_HOST]
+    assert token and "originator" not in token[0] and "x-codex-turn-state" not in token[0]
+    assert split_headers(data)["x-codex-turn-state"] == "ts-2"
+    assert b"set-cookie" not in data.lower() and b"session=secret" not in data
+
+
+def test_proactive_refresh_keeps_forwarded_headers(tmp_path, monkeypatch):
+    patch_owner(monkeypatch)
+    soon = jwt_token({"exp": int(time.time()) + 60})
+    path = live_auth(tmp_path, soon)
+    new_access = jwt_token({"exp": int(time.time()) + 30 * 86400, "kind": "access"})
+    new_id = jwt_token({"exp": int(time.time()) + 30 * 86400, "kind": "id"})
+    seen = []
+
+    def transport(host, route, method, body, headers, maximum=None):
+        seen.append((host, dict(headers)))
+        if host == TOKEN_HOST:
+            return 200, "application/json", json.dumps(
+                {"access_token": new_access, "id_token": new_id, "refresh_token": NEW_REFRESH}).encode()
+        return 200, "text/event-stream", b"data: ok\n\n"
+
+    relay = Relay(tmp_path / "unused.sock", path, time.time() + 30, transport=transport)
+    relay._bind_client_headers({
+        "originator": "codex_cli_rs", "x-codex-routing-hint": "model=gpt-6-astra",
+        "Authorization": "Bearer stolen"})
+    try:
+        status, _, raw = relay.request("POST", "/v1/responses", REQUEST)
+    finally:
+        relay._clear_client_headers()
+    assert status == 200 and raw == b"data: ok\n\n"
+    assert seen[0][0] == TOKEN_HOST and "originator" not in seen[0][1]
+    assert seen[1][0] == "chatgpt.com"
+    assert seen[1][1]["originator"] == "codex_cli_rs"
+    assert seen[1][1]["x-codex-routing-hint"] == "model=gpt-6-astra"
+    assert seen[1][1]["Authorization"] == "Bearer " + new_access
+
+
+def test_api_key_path_forwards_only_the_shared_subset(tmp_path, monkeypatch):
+    patch_owner(monkeypatch)
+    path = tmp_path / "key.json"
+    install_auth(path, auth_value(jwt_token({"exp": int(time.time()) + 60}), OLD_REFRESH, stamp(time.time()),
+                                  jwt_token({"kind": "id"}), OPENAI_API_KEY="sk-test-key"))
+    seen = []
+
+    def transport(host, route, method, body, headers, maximum=None):
+        seen.append((host, route, dict(headers)))
+        return 200, "text/event-stream", b"data: ok\n\n"
+
+    relay = start_relay(tmp_path, monkeypatch, transport, credential_path=path)
+    try:
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client.connect(str(relay.path))
+        client.sendall(http_request(extra=wire_headers({
+            "X-OpenAI-Internal-Codex-Responses-Lite": "true", "Originator": "codex_cli_rs",
+            "X-Codex-Turn-State": "ts-1", "Session-Id": SESSION_ID, "Thread-Id": THREAD_ID,
+            "X-Codex-Routing-Hint": "model=gpt-6-astra", "X-Oai-Attestation": "device-secret",
+            "Authorization": "Bearer stolen", "ChatGPT-Account-Id": "evil",
+            "OpenAI-Beta": "responses=evil",
+        })))
+        data = recv_rest(client, timeout=2)
+        client.close()
+    finally:
+        relay.close()
+    assert len(seen) == 1 and seen[0][0] == "api.openai.com" and seen[0][1] == "/v1/responses"
+    headers = seen[0][2]
+    assert headers["Authorization"] == "Bearer sk-test-key"
+    assert headers["x-openai-internal-codex-responses-lite"] == "true"
+    assert headers["originator"] == "codex_cli_rs" and headers["x-codex-turn-state"] == "ts-1"
+    assert headers["session-id"] == SESSION_ID and headers["thread-id"] == THREAD_ID
+    lowered = {key.lower() for key in headers}
+    assert "x-codex-routing-hint" not in lowered and "x-oai-attestation" not in lowered
+    assert "openai-beta" not in lowered and "chatgpt-account-id" not in lowered
+    assert "stolen" not in headers["Authorization"] and data.startswith(b"HTTP/1.1 200")
+
+
+def test_fetch_ignores_sandbox_model_headers(tmp_path, monkeypatch):
+    seen = []
+
+    def transport(host, route, method, body, headers, maximum=None):
+        seen.append((host, dict(headers), body))
+        return 200, "text/plain", b"documentation"
+
+    relay = start_relay(tmp_path, monkeypatch, transport)
+    try:
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client.connect(str(relay.path))
+        client.sendall(b"GET /fetch?url=https://docs.python.org/3/ HTTP/1.1\r\nHost: localhost\r\n"
+                       b"Originator: codex_cli_rs\r\nAuthorization: Bearer stolen\r\nContent-Length: 0\r\n\r\n")
+        data = recv_rest(client, timeout=2)
+        client.close()
+    finally:
+        relay.close()
+    assert seen[0][0] == "docs.python.org"
+    assert seen[0][1] == {"Accept": "text/plain,application/json,text/html"}
+    assert seen[0][2] is None and b"documentation" in data and b"stolen" not in data
+
+
+def test_sandbox_proxy_forwards_allowlisted_headers_both_ways(tmp_path):
+    path = sock_path("proxy-upstream")
+    ready, seen = threading.Event(), []
+
+    def upstream_server():
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server.bind(str(path))
+        server.listen(1)
+        ready.set()
+        server.settimeout(5)
+        conn, _ = server.accept()
+        try:
+            data = b""
+            conn.settimeout(2)
+            while b"\r\n\r\n" not in data:
+                data += conn.recv(65536)
+            seen.append(data)
+            body = b"data: ok\n\n"
+            head = (b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n"
+                    b"X-Codex-Turn-State: ts-1\r\nSet-Cookie: session=secret\r\nX-Evil: nope\r\nContent-Length: "
+                    + str(len(body)).encode() + b"\r\nConnection: close\r\n\r\n")
+            conn.sendall(head + body)
+        finally:
+            conn.close()
+            server.close()
+
+    thread = threading.Thread(target=upstream_server, daemon=True)
+    thread.start()
+    assert ready.wait(2)
+    namespace = {}
+    exec(compile(sandbox_proxy(str(path), port=0, idle=30), "proxy-headers", "exec"), namespace)
+    proxy = namespace["server"]
+    try:
+        client = socket.create_connection(("127.0.0.1", proxy.server_address[1]), timeout=2)
+        client.sendall(http_request(extra=wire_headers({
+            "Originator": "codex_cli_rs", "X-OpenAI-Internal-Codex-Responses-Lite": "true",
+            "X-Codex-Turn-State": "ts-1", "X-Codex-Routing-Hint": "model=gpt-6-astra",
+            "Session-Id": SESSION_ID, "Authorization": "Bearer " + LEAK, "Cookie": "a=b",
+            "X-Oai-Attestation": "device-secret", "X-Unknown": "nope",
+        })))
+        data = recv_rest(client, timeout=2)
+        client.close()
+        blocked = socket.create_connection(("127.0.0.1", proxy.server_address[1]), timeout=2)
+        blocked.sendall(b"POST /v1/responses HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n"
+                        b"Content-Length: 2\r\n\r\n{}")
+        rejected = recv_rest(blocked, timeout=2)
+        blocked.close()
+    finally:
+        proxy.shutdown()
+        proxy.server_close()
+        thread.join(2)
+    request = seen[0]
+    assert b"originator: codex_cli_rs" in request.lower()
+    assert b"x-openai-internal-codex-responses-lite: true" in request.lower()
+    assert b"x-codex-turn-state: ts-1" in request.lower()
+    assert b"x-codex-routing-hint: model=gpt-6-astra" in request.lower()
+    assert b"session-id: " + SESSION_ID.encode() in request.lower()
+    assert b"authorization" not in request.lower() and LEAK.encode() not in request
+    assert b"cookie" not in request.lower() and b"device-secret" not in request and b"x-unknown" not in request.lower()
+    returned = split_headers(data)
+    assert returned["x-codex-turn-state"] == "ts-1"
+    assert b"set-cookie" not in data.lower() and b"session=secret" not in data and b"x-evil" not in data.lower()
+    assert b"chunked" in data.lower() and b"data: ok" in data
+    assert b"413" in rejected and b"HTTP/1." in rejected
