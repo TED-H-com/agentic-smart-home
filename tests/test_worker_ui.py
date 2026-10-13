@@ -287,6 +287,105 @@ def test_coding_role_login_lost_reply_stop_fence_and_artifact_preview(ui_page):
     assert not errors
 
 
+def test_maintenance_reads_recover_and_action_errors_stay_plain(ui_page):
+    page, origin = ui_page
+    network = {'lan': 'dhcp', 'remote': 'disabled', 'managed': False, 'tailscale': {'state': 'NeedsLogin'}}
+    releases = {'trusted_publisher_configured': True, 'records': [], 'deployed_source_commit': None}
+    failing, errors = {'network': True, 'updates': False}, []
+
+    def route(route):
+        path = route.request.url.split('/api/')[1]
+        value = common(path)
+        if value is None and failing.get(path):
+            route.fulfill(status=503, content_type='application/json', body=json.dumps({'detail': '暫時無法回應'}))
+            return
+        if value is not None:
+            pass
+        elif path == 'network':
+            value = network
+        elif path == 'network/preferences':
+            route.fulfill(status=409, content_type='application/json', body=json.dumps({'detail': '主機正在套用其他網路設定，請稍後再試。'}))
+            return
+        elif path == 'updates':
+            value = releases
+        else:
+            raise AssertionError(path)
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
+
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.route('**/api/**', route)
+    page.clock.install()
+    page.goto(origin + '/#host')
+    page.locator('summary').filter(has_text='網路與遠端').click()
+    unread = page.get_by_role('alert').filter(has_text='無法讀取網路狀態。')
+    expect(unread).to_contain_text('暫時無法回應')
+    # The next good background read clears it; nothing to press.
+    failing['network'] = False
+    page.clock.run_for(4_500)
+    expect(unread).to_have_count(0)
+    page.get_by_role('radio', name='路由器保留固定 IP').check()
+    page.get_by_role('button', name='保存連線偏好').click()
+    refused = page.get_by_role('alert').filter(has_text='主機正在套用其他網路設定，請稍後再試。')
+    expect(refused).to_be_visible()
+    expect(refused).not_to_contain_text('無法讀取網路狀態')
+    expect(refused.get_by_role('button')).to_have_count(0)
+    # A good background read does not hide the action's own error.
+    page.clock.run_for(4_500)
+    expect(refused).to_be_visible()
+    page.locator('summary').filter(has_text='版本').click()
+    failing['updates'] = True
+    page.clock.run_for(4_500)
+    stale = page.get_by_role('alert').filter(has_text='暫時無法回應')
+    expect(stale).to_be_visible()
+    failing['updates'] = False
+    page.clock.run_for(4_500)
+    expect(stale).to_have_count(0)
+    assert not errors
+
+
+def test_host_answer_read_failure_clears_when_the_answer_arrives(ui_page):
+    page, origin = ui_page
+    task = {'id': 'e' * 32, 'state': 'planning', 'answer': None}
+    failing, errors = {'task': False}, []
+
+    def route(route):
+        request = route.request
+        path = request.url.split('/api/')[1]
+        if path == 'status':
+            value = {**common('status'), 'runner': {'protocol': 1, 'providers': [{'provider': 'codex', 'status': 'connected'}]}}
+        elif path == 'host/ask':
+            assert request.post_data_json == {'message': '家庭為什麼沒有啟動？', 'provider': 'codex'}
+            value = task
+        elif path == 'host/tasks/' + task['id']:
+            if failing['task']:
+                route.fulfill(status=503, content_type='application/json', body=json.dumps({'detail': '暫時無法回應'}))
+                return
+            value = task
+        else:
+            value = common(path)
+            if value is None:
+                raise AssertionError(path)
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
+
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.route('**/api/**', route)
+    page.clock.install()
+    page.goto(origin + '/#host')
+    page.get_by_label('想問什麼？', exact=True).fill('家庭為什麼沒有啟動？')
+    failing['task'] = True
+    page.get_by_role('button', name='送出', exact=True).click()
+    expect(page.get_by_text('正在讀取主機狀況…', exact=False)).to_be_visible()
+    page.clock.run_for(2_500)
+    failed = page.get_by_role('alert').filter(has_text='暫時無法回應')
+    expect(failed).to_be_visible()
+    failing['task'] = False
+    task.update(state='succeeded', answer={'message': '家庭正在啟動，請稍候。', 'suggested_action': 'none'})
+    page.clock.run_for(2_500)
+    expect(page.get_by_text('家庭正在啟動，請稍候。', exact=True)).to_be_visible()
+    expect(failed).to_have_count(0)
+    assert not errors
+
+
 def test_network_and_digest_bound_update_review(ui_page):
     page, origin = ui_page
     network = {'lan': 'dhcp', 'remote': 'disabled', 'managed': False, 'tailscale': {'state': 'NeedsLogin'}}

@@ -1,4 +1,4 @@
-import {useCallback,useEffect,useState} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 import {api,haPath,session} from './api';
 import {names,plainError} from './labels';
 import {MaintenanceSettings} from './maintenance';
@@ -23,12 +23,14 @@ export function HostLogin({onLogin,expired=false,desktopError=false}:{onLogin:()
 export function HostPanel({onConnected,onAgent,appStatus}:{onConnected:()=>void;onAgent:()=>void;appStatus:any}){
   const [status,setStatus]=useState<any>(null),[token,setToken]=useState(''),[busy,setBusy]=useState('');
   const [error,setError]=useState<Fault|null>(null),[connectionError,setConnectionError]=useState<Fault|null>(null),[notice,setNotice]=useState('');
+  // An answer-read failure clears itself once the next read of that answer succeeds.
+  const answerFault=useRef(false);
   const [restore,setRestore]=useState(''),[diagnosis,setDiagnosis]=useState<any>(null),[editToken,setEditToken]=useState(false);
   const [question,setQuestion]=useState(''),[provider,setProvider]=useState('codex'),[providerChosen,setProviderChosen]=useState(false),[answer,setAnswer]=useState<any>(null),[confirmShutdown,setConfirmShutdown]=useState(false);
   const reload=useCallback(async()=>{try{const result=await api('host/status');setStatus(result);setConnectionError(null)}catch(e){setConnectionError(plainError(e))}},[]);
   useEffect(()=>{let alive=true;let timer:ReturnType<typeof setTimeout>;const poll=async()=>{await reload();if(alive)timer=setTimeout(poll,4000)};poll();return()=>{alive=false;clearTimeout(timer)}},[reload]);
   useEffect(()=>{const id=sessionStorage.getItem('agentic-host-task');if(id)api(`host/tasks/${id}`).then(setAnswer).catch(()=>sessionStorage.removeItem('agentic-host-task'))},[]);
-  useEffect(()=>{if(answer?.state!=='planning')return;let alive=true;let timer:ReturnType<typeof setTimeout>;const poll=async()=>{try{const result=await api(`host/tasks/${answer.id}`);if(alive)setAnswer(result)}catch(e){if(alive)setError(plainError(e))}if(alive)timer=setTimeout(poll,2000)};timer=setTimeout(poll,2000);return()=>{alive=false;clearTimeout(timer)}},[answer?.id,answer?.state]);
+  useEffect(()=>{if(answer?.state!=='planning')return;let alive=true;let timer:ReturnType<typeof setTimeout>;const poll=async()=>{try{const result=await api(`host/tasks/${answer.id}`);if(alive){setAnswer(result);if(answerFault.current){answerFault.current=false;setError(null)}}}catch(e){if(alive){answerFault.current=true;setError(plainError(e))}}if(alive)timer=setTimeout(poll,2000)};timer=setTimeout(poll,2000);return()=>{alive=false;clearTimeout(timer)}},[answer?.id,answer?.state]);
   const providers=appStatus?.runner?.providers||[];
   useEffect(()=>{if(!appStatus||providerChosen)return;const first=providers.find((p:any)=>p.status==='connected');if(first)setProvider(first.provider);setProviderChosen(true)},[appStatus,providerChosen]);
   const providerReady=providers.some((p:any)=>p.provider===provider&&p.status==='connected');
