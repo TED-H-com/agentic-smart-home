@@ -1,4 +1,6 @@
 import copy
+import re
+from pathlib import Path
 
 import pytest
 from agentic_controller.engine import Engine
@@ -8,6 +10,21 @@ from agentic_controller.store import Store
 
 SOURCE = "input_boolean.agentic_motion_test"
 TARGET = "input_boolean.agentic_lamp_test"
+
+
+def redact_junit(text, home=None):
+    """Public JUnit evidence never names this machine or its home directory."""
+    home = home or str(Path.home())
+    text = re.sub(r'(<testsuite\b[^>]*?\shostname=)"[^"]*"', r'\1"redacted"', text)
+    return re.sub(re.escape(home) + r"(?![\w.-])", "~", text)
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish(session):
+    # Runs after the junitxml plugin has written its file.
+    path = session.config.getoption("xmlpath", None)
+    if path and Path(path).is_file():
+        Path(path).write_text(redact_junit(Path(path).read_text(encoding="utf-8")), encoding="utf-8")
 
 
 def pytest_addoption(parser):
