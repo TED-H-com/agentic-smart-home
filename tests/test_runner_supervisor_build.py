@@ -59,9 +59,13 @@ LIMITATIONS = ('local_source_delivery_not_public_stable_channel',
 VM_PROFILE = 'host/profiles/laptop-amd64.json'
 CHECK_NAMES = frozenset({'supervisor_healthy', 'exact_head_source_delivered', 'pinned_bases_preloaded',
     'store_catalog_build_version', 'supervisor_build_install_completed', 'real_app_contract_installed',
-    'app_started', 'real_app_contract_configured', 'container_contract', 'docker_socket_not_mounted',
-    'image_version_label', 'app_health_200', 'codex_version_pinned', 'worker_source_matches_lock',
-    'custom_apparmor_enforcing', 'docker_socket_absent'})
+    'app_started', 'pairing_published_to_own_options', 'real_app_contract_configured', 'container_contract',
+    'docker_socket_not_mounted', 'image_version_label', 'app_health_200', 'pairing_fingerprint_matches_tls',
+    'codex_version_pinned', 'worker_source_matches_lock', 'custom_apparmor_enforcing', 'docker_socket_absent'})
+PAIRING_KEYS = frozenset({'pairing_fingerprint', 'pairing_code'})
+PAIRING_CODE = re.compile(r'[A-Za-z0-9_-]{16,128}')
+CONTRACT_KEYS = ('slug', 'version', 'hassio_api', 'homeassistant_api', 'docker_api', 'full_access', 'host_network',
+                 'host_pid', 'apparmor', 'privileged', 'devices', 'auto_update', 'watchdog', 'network', 'auth_api', 'ingress')
 CLEANUP_NAMES = frozenset({'vm_removed', 'disk_fixture_ownership_restored', 'network_removed'})
 HEX40 = re.compile(r'[a-f0-9]{40}')
 HEX64 = re.compile(r'[a-f0-9]{64}')
@@ -75,6 +79,12 @@ HEALTH_PROBE = ("import json,urllib.request,urllib.error\n"
                 "except urllib.error.HTTPError as error: status=error.code\n"
                 "except OSError: status=None\n"
                 "print(json.dumps({'status':status}))")
+# Digest of the certificate the App actually serves to the Controller on 8443.
+TLS_PROBE = ("import hashlib,json,ssl\n"
+             "try: value={'tls_sha256':hashlib.sha256(ssl.PEM_cert_to_DER_cert("
+             "ssl.get_server_certificate(('127.0.0.1',8443),timeout=5))).hexdigest()}\n"
+             "except (OSError,ValueError) as error: value={'tls_error_type':type(error).__name__}\n"
+             "print(json.dumps(value))")
 # Runs inside the built App. Reads only the image's packaged source and process
 # attributes; the product validator performs no network access.
 APP_PROBE = r'''
@@ -181,19 +191,39 @@ def upstream_flags(last):
             if type(last.get(key)) is bool}
 
 
+def pairing_options(options):
+    """State of the one-time pairing the real App publishes into its own options."""
+    if options == {}:
+        return 'absent'
+    published = (isinstance(options, dict) and set(options) == PAIRING_KEYS
+        and isinstance(options['pairing_fingerprint'], str) and HEX64.fullmatch(options['pairing_fingerprint']) is not None
+        and isinstance(options['pairing_code'], str) and PAIRING_CODE.fullmatch(options['pairing_code']) is not None)
+    return 'published' if published else 'invalid'
+
+
 def real_app_contract(info, config, slug, *, configured=True):
-    value = app_contract(info, config, slug, configured=configured)
-    assert info.get('privileged') == ['SYS_ADMIN'], 'runner_app_capabilities_changed'
-    assert info.get('network') == {'8443/tcp': 8443}, 'runner_app_network_changed'
-    assert info.get('auth_api') is False, 'runner_app_auth_api_enabled'
-    assert info.get('ingress') is True, 'runner_app_ingress_missing'
-    return {**value, 'network': {'8443/tcp': 8443}, 'ingress': True, 'auth_api': False}
+    # An unpaired real App publishes its one-time pairing into its own options;
+    # the shared fixture contract expects empty options. Every assertion below
+    # sees only public contract fields, so a pytest failure diff cannot print
+    # the pairing code or the ingress entry.
+    state = pairing_options(info.get('options'))
+    assert state != 'invalid', 'runner_app_options_not_pairing_shape'
+    assert configured or state == 'absent', 'runner_app_options_before_start_not_empty'
+    public = {key: info[key] for key in CONTRACT_KEYS if key in info} | {'options': {}}
+    value = app_contract(public, config, slug, configured=configured)
+    assert public.get('privileged') == ['SYS_ADMIN'], 'runner_app_capabilities_changed'
+    assert public.get('network') == {'8443/tcp': 8443}, 'runner_app_network_changed'
+    assert public.get('auth_api') is False, 'runner_app_auth_api_enabled'
+    assert public.get('ingress') is True, 'runner_app_ingress_missing'
+    return {**value, 'network': {'8443/tcp': 8443}, 'ingress': True, 'auth_api': False, 'pairing_options': state}
 
 
 class PollingReads:
     """Install observation only reads: transport loss is retried within a bound, never an effect.
 
     HAError stays semantic (a cleaned-up job is not found) and is never retried here.
+    App info reaches the shared observer as public contract fields only, so its
+    failure diff cannot print fields such as the ingress entry.
     """
 
     def __init__(self, ha, *, attempts=3, delay=5):
@@ -203,11 +233,15 @@ class PollingReads:
         assert method == 'GET', 'install_observer_effect_forbidden'
         for attempt in range(1, self.attempts + 1):
             try:
-                return await self.ha.request(method, path, data, **kwargs)
+                value = await self.ha.request(method, path, data, **kwargs)
+                break
             except (aiohttp.ClientError, TimeoutError):
                 if attempt == self.attempts:
                     raise
                 await asyncio.sleep(self.delay)
+        if re.fullmatch(r'/addons/[a-z0-9_]+/info', path) and isinstance(value, dict):
+            return {key: value[key] for key in (*CONTRACT_KEYS, 'state', 'options') if key in value}
+        return value
 
 
 def app_probe_checks(raw, slug, lock):
@@ -524,23 +558,39 @@ async def test_real_supervisor_builds_home_coding_app(tmp_path, request):
         await ha.request('POST', f'/addons/{SLUG}/options', {'options': {}, 'boot': 'auto', 'watchdog': False,
             'auto_update': False}, supervisor=True)
         await ha.request('POST', f'/addons/{SLUG}/start', supervisor=True, timeout=120)
+        # From here the App info holds the pairing code and the inspect output holds
+        # SUPERVISOR_TOKEN: assertions only see fixed values extracted from them.
         deadline = time.monotonic() + 180
         while True:
-            info = await ha.request('GET', f'/addons/{SLUG}/info', supervisor=True)
-            if info.get('state') == 'started':
+            state = (await ha.request('GET', f'/addons/{SLUG}/info', supervisor=True)).get('state')
+            if state == 'started':
                 break
-            assert info.get('state') != 'error', 'runner_app_start_failed'
+            assert state != 'error', 'runner_app_start_failed'
             assert time.monotonic() < deadline, 'runner_app_start_timeout'
             await asyncio.sleep(3)
         evidence['checks']['app_started'] = True
+        phase('app_self_published_pairing')
+        # An unpaired App publishes its one-time pairing into its own options while
+        # hassio_api stays false. The values are compared, never exported.
+        for _ in range(20):
+            info = await ha.request('GET', f'/addons/{SLUG}/info', supervisor=True)
+            published = pairing_options(info.get('options')) == 'published'
+            if published:
+                break
+            await asyncio.sleep(3)
+        assert published, 'runner_app_pairing_not_published'
+        fingerprint = info['options']['pairing_fingerprint']
+        evidence['checks']['pairing_published_to_own_options'] = True
         evidence['app_contract'] = real_app_contract(info, config, SLUG)
+        del info
         evidence['checks']['real_app_contract_configured'] = True
         phase('app_container_contract')
         installed = json.loads(remote('docker inspect ' + APP_CONTAINER))[0]
         evidence['app_container_observation'] = container_projection(installed, SLUG)
         container_contract(installed, SLUG)
         evidence['checks']['container_contract'] = True
-        assert not docker_socket_mounted(installed), 'runner_app_docker_socket_mounted'
+        mounted = docker_socket_mounted(installed)
+        assert not mounted, 'runner_app_docker_socket_mounted'
         evidence['checks']['docker_socket_not_mounted'] = True
         image = installed.get('Image')
         assert isinstance(image, str) and re.fullmatch(r'sha256:[a-f0-9]{64}', image), 'runner_installed_image_identity_invalid'
@@ -558,10 +608,15 @@ async def test_real_supervisor_builds_home_coding_app(tmp_path, request):
             if isinstance(health, dict) and health.get('status') == 200:
                 break
             await asyncio.sleep(2)
-        if isinstance(health, dict) and type(health.get('status')) is int:
-            evidence['health_status'] = health['status']
-        assert evidence.get('health_status') == 200, 'runner_app_health_not_200'
+        status = health.get('status') if isinstance(health, dict) else None
+        if type(status) is int:
+            evidence['health_status'] = status
+        assert status == 200, 'runner_app_health_not_200'
         evidence['checks']['app_health_200'] = True
+        served = json.loads(remote('docker exec ' + APP_CONTAINER + ' python -c ' + shlex.quote(TLS_PROBE), timeout=30))
+        matches = isinstance(served, dict) and served.get('tls_sha256') == fingerprint
+        assert matches, 'runner_pairing_fingerprint_differs_from_served_tls'
+        evidence['checks']['pairing_fingerprint_matches_tls'] = True
         phase('app_pinned_cli_and_worker_source')
         evidence['codex_version'] = cli_version(remote('docker exec ' + APP_CONTAINER + ' codex --version', timeout=60))
         assert evidence['codex_version'] == codex_pin, 'runner_codex_version_differs_from_lock'
@@ -841,14 +896,14 @@ def test_evidence_projection_drops_unknown_keys_and_private_values():
 
 
 class FlakyReads:
-    def __init__(self, *errors):
-        self.errors, self.calls = list(errors), []
+    def __init__(self, *errors, value=None):
+        self.errors, self.calls, self.value = list(errors), [], value
 
     async def request(self, method, path, data=None, **kwargs):
         self.calls.append((method, path))
         if self.errors:
             raise self.errors.pop(0)
-        return {'path': path}
+        return {'path': path} if self.value is None else self.value
 
 
 async def test_install_polling_retries_only_bounded_transport_loss_on_reads():
@@ -865,3 +920,51 @@ async def test_install_polling_retries_only_bounded_transport_loss_on_reads():
     with pytest.raises(AssertionError, match='install_observer_effect_forbidden'):
         await PollingReads(effect, delay=0).request('POST', '/store/addons/x/install', {'background': True})
     assert effect.calls == []
+
+
+async def test_install_polling_passes_only_public_app_info_to_shared_observer():
+    raw = {**real_info(), 'state': 'stopped', 'options': {}, 'ingress_entry': '/api/hassio_ingress/' + 'q' * 43,
+           'ip_address': '172.30.33.2', 'long_description': 'free text'}
+    value = await PollingReads(FlakyReads(value=raw), delay=0).request('GET', f'/addons/{SLUG}/info', supervisor=True)
+    assert set(value) == {*CONTRACT_KEYS, 'state', 'options'} and value['state'] == 'stopped'
+    listed = {'addons': [{'slug': SLUG}]}
+    assert await PollingReads(FlakyReads(value=listed), delay=0).request('GET', '/addons', supervisor=True) == listed
+
+
+CODE = 'fixturePairingCode_' + 'Z' * 24
+
+
+def pairing_info(**changes):
+    return {**real_info(), 'options': {'pairing_fingerprint': 'f' * 64, 'pairing_code': CODE},
+            'ingress_entry': '/api/hassio_ingress/' + 'q' * 43, **changes}
+
+
+@pytest.mark.parametrize('options,state', [
+    ({}, 'absent'), ({'pairing_fingerprint': 'f' * 64, 'pairing_code': CODE}, 'published'),
+    ({'pairing_fingerprint': 'F' * 64, 'pairing_code': CODE}, 'invalid'),
+    ({'pairing_fingerprint': 'f' * 64, 'pairing_code': 'short'}, 'invalid'),
+    ({'pairing_fingerprint': 'f' * 64, 'pairing_code': CODE, 'extra': 1}, 'invalid'),
+    ({'pairing_code': CODE}, 'invalid'), (None, 'invalid'), ([], 'invalid'),
+])
+def test_pairing_options_states(options, state):
+    assert pairing_options(options) == state
+
+
+def test_real_app_contract_accepts_self_published_pairing_without_exporting_it():
+    config = yaml.safe_load(process(['git', '-C', str(ROOT), 'show', 'HEAD:runner/config.yaml']))
+    result = real_app_contract(pairing_info(), config, SLUG)
+    assert result['pairing_options'] == 'published' and CODE not in json.dumps(result) and 'f' * 64 not in json.dumps(result)
+
+
+@pytest.mark.parametrize('changes,configured', [
+    ({'options': {'pairing_fingerprint': 'f' * 64, 'pairing_code': CODE, 'extra': CODE}}, True),
+    ({}, False), ({'privileged': ['SYS_ADMIN', 'NET_ADMIN']}, True), ({'auth_api': True}, True),
+    ({'hassio_api': True}, True), ({'apparmor': 'disable'}, True), ({'watchdog': True}, True),
+    ({'ingress': None}, True), ({'slug': 'other'}, True),
+])
+def test_real_app_contract_failures_never_print_pairing_code_or_ingress_entry(changes, configured):
+    config = yaml.safe_load(process(['git', '-C', str(ROOT), 'show', 'HEAD:runner/config.yaml']))
+    with pytest.raises(AssertionError) as caught:
+        real_app_contract(pairing_info(**changes), config, SLUG, configured=configured)
+    message = str(caught.value)
+    assert CODE not in message and 'hassio_ingress' not in message and 'f' * 64 not in message
