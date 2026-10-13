@@ -2,7 +2,7 @@
 
 產品從外層 Linux 開始；Web 引導先完成 CLI、Hermes 與通訊，再自動建立／啟動 HAOS。firstboot 只啟動外層服務，因此家庭尚未準備好仍能先登入助手。完整順序見 [自動 onboarding](docs/ONBOARDING.md)。
 
-以下 ISO／TAR 步驟描述最近完成精確媒體驗證的 0.7.0。0.8.0 是原始碼／App 預覽，尚未完成新版 ISO 驗收；不能將以下舊媒體視為已含 Home coding。新候選媒體依 [README](README.md) 建置，Git repository 不包含大型 TAR／ISO。候選 hash、一次性 VM 與硬體測試的實際結果以 [驗證紀錄](docs/VERIFICATION.md) 為準；歷史安裝結果不自動算成本候選驗收。這是 v3 技術預覽，Host Codex coding 已接通；Home coding 須通過真 HAOS App 隔離驗證。
+以下 ISO／TAR 步驟描述最近完成精確媒體驗證的 0.7.0。0.8.0 是原始碼／App 預覽，尚未完成新版 ISO 驗收；不能將以下舊媒體視為已含 Home coding。新候選媒體依 [README](README.md) 建置，Git repository 不包含大型 TAR／ISO。候選 hash、一次性 VM 與硬體測試的實際結果以 [驗證紀錄](docs/VERIFICATION.md) 為準；歷史安裝結果不自動算成本候選驗收。這是 v3 技術預覽，Host Codex coding 已接通，Home coding 已通過真 HAOS App 工程測試；真雲端與家庭試跑仍待驗收。
 
 ## A. 整台重灌
 

@@ -1,19 +1,19 @@
 {
-  "source_commit": "c19610ae52322066f6d25e2d88c57f040de29641",
-  "headSha": "c19610ae52322066f6d25e2d88c57f040de29641",
+  "source_commit": "7b2c4bd29d78f7f2f61e4e52d16569b8b08b20a0",
+  "headSha": "7b2c4bd29d78f7f2f61e4e52d16569b8b08b20a0",
   "conclusion": "success",
-  "run_id": 38330431861,
+  "run_id": 38332485177,
   "branch": "feat/home-coding-worker-0.8",
-  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38330431861",
-  "createdAt": "2026-10-13T01:05:14Z",
-  "updatedAt": "2026-10-13T01:17:00Z",
+  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38332485177",
+  "createdAt": "2026-10-13T01:30:48Z",
+  "updatedAt": "2026-10-13T01:44:07Z",
   "pytest": {
-    "tests": 1121,
+    "tests": 1126,
     "failures": 0,
     "errors": 0,
     "skipped": 7,
-    "passed": 1114,
-    "seconds": 435.462
+    "passed": 1119,
+    "seconds": 468.929
   },
   "skips": [
     {
@@ -53,17 +53,17 @@
     }
   ],
   "artifact": {
-    "id": 11783180949,
+    "id": 11783757130,
     "name": "agentic-home-0.8.0",
-    "bytes": 53110588,
-    "sha256": "64a140e3040b631a21fb21d218b00669925cf9647df0431aa8390a9e6b2e9a46",
+    "bytes": 53248504,
+    "sha256": "08ce8daf7b5c554aee103905b80c23c8766f6a004e1cb0e9e1920fe3f045181d",
     "github_digest_verified": true
   },
   "source_archive": {
     "path": "dist/agentic-home-0.8.0-source.zip",
-    "bytes": 27613383,
-    "sha256": "7ec064f0d045df5414c2a1529328240d57c892cfe1635a9b76165824694ff68f",
-    "manifest_files": 1073,
+    "bytes": 27685850,
+    "sha256": "f2606d2d10078a2d0f9bc356b8c6d4c62747c89e24da9966fe27523f408e9b31",
+    "manifest_files": 1078,
     "all_manifest_entries_verified": true,
     "runtime_and_config_files_checked": 203,
     "matches_exact_commit_and_workspace": true,

@@ -6,9 +6,17 @@
 
 候選來源 [`c19610ae`](https://github.com/teddashh/agentic-smart-home/commit/c19610ae52322066f6d25e2d88c57f040de29641) 的本機完整 `--real-ha --containers` 回歸為 **1116 passed、5 skipped／385.46 秒**，見 [JUnit](../evidence/pytest-0.8.0.xml)。五個跳過項是獨立 HAOS 邊界、備份、側欄 App、Home worker 及完整 Linux 安裝案例；Home worker 接著另跑真平台測試，沒有把跳過算成通過。Home 映像內的研究來源固定為 [`bf831fc8`](https://github.com/teddashh/agentic-smart-home/commit/bf831fc8e6082c886b988f4e1cbdfecab5238380)，由獨立 lock 記錄，與 App 執行碼來源分開追溯。
 
-同一來源的 [GitHub CI 38330431861](https://github.com/teddashh/agentic-smart-home/actions/runs/38330431861) 為 **1114 passed、7 skipped／435.462 秒**，見 [CI 與來源核對](../evidence/github-ci-0.8.0.json)及 [JUnit](../evidence/pytest-0.8.0-github.xml)。GitHub artifact digest、source ZIP 的 1073 個 manifest 項目，以及 203 份執行碼／配置／編譯資產均核對成功；Bridge 與 Controller UI 相同。CI 額外跳過 UID 1000 桌面專項及本機 QEMU builder 探針；獨立建置的映像 ID 不宣稱與本機相同。
+同一來源的 [GitHub CI 38330431861](https://github.com/teddashh/agentic-smart-home/actions/runs/38330431861) 為 **1114 passed、7 skipped／435.462 秒**，見 [CI 與來源核對](../evidence/github-ci-0.8.0-runtime.json)及 [JUnit](../evidence/pytest-0.8.0-runtime-github.xml)。GitHub artifact digest、source ZIP 的 1073 個 manifest 項目，以及 203 份執行碼／配置／編譯資產均核對成功；Bridge 與 Controller UI 相同。CI 額外跳過 UID 1000 桌面專項及本機 QEMU builder 探針；獨立建置的映像 ID 不宣稱與本機相同。
+
+最終 harness 來源 `7b2c4bd29d78f7f2f61e4e52d16569b8b08b20a0` 的 [GitHub CI 38332485177](https://github.com/teddashh/agentic-smart-home/actions/runs/38332485177) 為 **1119 passed、7 skipped／468.929 秒**，見 [最終 CI 核對](../evidence/github-ci-0.8.0.json)及 [JUnit](../evidence/pytest-0.8.0-github.xml)。Artifact digest、1078 項 source ZIP manifest 與 203 份 runtime／配置／編譯資產均核對成功，且與本機來源相同。相較上輪只增加重啟觀測的 harness 測試，產品執行碼未改。收尾文件與平台證據另行提交；精確受測來源、映像及限制見 [0.8.0 交付紀錄](../evidence/release-0.8.0.json)。
 
 本版沒有重建或驗收整套 Linux ISO。下方 0.7.0 媒體保留原始來源與 hash，不包含本次 Home worker。真 HAOS 工程測試使用產品映像衍生 App，另加明示的模型 transport／診斷 fixture；不能代替真帳號、自主研究品質、家庭 helpers 或更新／退版的 E2 產品驗收。
+
+**真 HAOS Home worker 第十二輪完整通過，324.151 秒**，見 [平台結果](../evidence/home-worker-haos.json)及 [JUnit](../evidence/home-worker-haos.xml)。平台為 HAOS 18.3／Core 2026.10.1／Supervisor 2026.09.3；來源／harness 為 `7b2c4bd29d78f7f2f61e4e52d16569b8b08b20a0`，runtime／映像沿用 `c19610ae`，無未提交執行碼。JUnit 的 **54 passed** 是一個真 VM 整合案例加 53 個 harness 單元測試。整合包含真 Codex 工具修改來源、38 項獨立基準測試、30 項 worker 邊界檢查及 15 項整合檢查；Controller 經真正配對 TLS 取得同 case 產物與內容指紋。
+
+App 內實際觸發磁碟 ENOSPC、CPU throttling、PID 上限及 OOM；TLS 取消 1.349 秒後確認子程序、FUSE、cgroup 與工作磁碟已回收。正常停止／重啟不重播；突然終止／重啟以新的程序 start ticks、Docker StartedAt 及核對過的 App 身份證明新程序已啟動，namespace 編號可重用。原工作仍為 `stop_unconfirmed`、保留 lease，新工作未啟動、模型請求未重播。此限制不能靠重新開頁或重啟 App 繞過。outer／VM／network 移除及磁碟 ownership 恢復四項清理均成功。
+
+第八至十一輪的登入目錄、verifier 路徑、Core 連接埠及重啟觀測失敗均保留原始 receipt，沒有回填成功。詳細原因見 [Workers](WORKERS.md)；接續位置、來源與交付步驟見 [開發交接](HANDOFF_HOME_WORKER_0.8.md)。32 個產品驗收案例仍為 2 passed、30 not_run。
 
 ## 0.7.0 側欄整合候選
 

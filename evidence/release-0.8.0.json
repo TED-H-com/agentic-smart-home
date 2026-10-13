@@ -1,0 +1,98 @@
+{
+  "version": "0.8.0",
+  "delivery": "source_and_haos_app_engineering_preview",
+  "runtime_source_commit": "c19610ae52322066f6d25e2d88c57f040de29641",
+  "test_harness_commit": "7b2c4bd29d78f7f2f61e4e52d16569b8b08b20a0",
+  "packaged_research_source": {
+    "repo_id": "agentic-home",
+    "repository": "https://github.com/teddashh/agentic-smart-home.git",
+    "commit": "bf831fc8e6082c886b988f4e1cbdfecab5238380"
+  },
+  "latest_verified_full_installation_media": "0.7.0",
+  "new_iso_validation": "not_run",
+  "local_images": {
+    "agentic-home-controller:0.8.0": "sha256:416ad3647d5d0035ad94806ef08f0b6eb58ad0292d241d12d8ca5c039e17189d",
+    "agentic-home-runner:0.8.0": "sha256:f80d0e4bdaed66cd5501fd23569715efb3603d832d2387341f12405eaf58d6e6",
+    "agentic-home-linejs:0.8.0": "sha256:b1a7212c5ef01674d5453b7b7f834200fe8b4cd7ee74b61631f4b1c6bac99f5f",
+    "agentic-home-hermes:0.8.0": "sha256:2d2b3eaa79d52b90539af33272f9b070df514d6393f1bc809cf3ff8a33c7bf6a",
+    "agentic-home-preview:0.8.0": "sha256:d9a37012342a88febc30ffd2d56e01d27df8787b1020ac3e282f336f388c1c1f",
+    "agentic-home-bridge:0.8.0": "sha256:bd90f2f9a47551558b7a4fb04fe7acd5c8720309c7d235006a2e77e96bb19839"
+  },
+  "local_images_scope": "Locally built 0.8.0 images. CI images are independently built and not claimed to have identical IDs.",
+  "local_regression": {
+    "source_commit": "c19610ae52322066f6d25e2d88c57f040de29641",
+    "junit": "evidence/pytest-0.8.0.xml",
+    "tests": 1121,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 5,
+    "passed": 1116,
+    "seconds": 385.44
+  },
+  "ci": {
+    "evidence": "evidence/github-ci-0.8.0.json",
+    "junit": "evidence/pytest-0.8.0-github.xml",
+    "run_id": 38332485177,
+    "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38332485177",
+    "source_commit": "7b2c4bd29d78f7f2f61e4e52d16569b8b08b20a0",
+    "tests": 1126,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 7,
+    "passed": 1119,
+    "seconds": 468.929
+  },
+  "haos_worker": {
+    "evidence": "evidence/home-worker-haos.json",
+    "junit": "evidence/home-worker-haos.xml",
+    "status": "passed",
+    "receipt_seconds": 324.151,
+    "junit_scope": "1 actual VM integration case and 53 harness unit tests",
+    "junit_result": {
+      "tests": 54,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "passed": 54,
+      "seconds": 324.334
+    },
+    "haos": "18.3",
+    "core": "2026.10.1",
+    "supervisor": "2026.09.3",
+    "independent_baseline_tests": 38,
+    "boundary_checks_passed": 30,
+    "integration_checks_passed": 15,
+    "tls_cancel_seconds": 1.349,
+    "recovery_limit": "abrupt same-boot unknown work remains fenced until trusted stop proof; VM removed at teardown",
+    "cleanup": {
+      "outer_removed": true,
+      "vm_removed": true,
+      "disk_fixture_ownership_restored": true,
+      "network_removed": true
+    }
+  },
+  "accepted_product_cases": 2,
+  "remaining_product_cases": 30,
+  "not_run": [
+    "Real cloud Home coding login and autonomous research",
+    "Owner household E1/E2 pilot",
+    "0.8.0 full Linux ISO installation",
+    "Automatic Home App installation and role login",
+    "Claude/Antigravity/Grok tools-enabled coding",
+    "Full product or App cross-version update and rollback"
+  ],
+  "fixture_scope": [
+    "Actual Supervisor installs a test App derived from the product Runner image; exact layers, permissions and AppArmor are checked.",
+    "Actual Codex tools execute against pinned product source; model transport responses and diagnostic helper are explicit fixtures.",
+    "App network observation does not prove Core or whole-HAOS health."
+  ],
+  "source_audit": "evidence/source-audit-home-worker.json",
+  "handoff": "docs/HANDOFF_HOME_WORKER_0.8.md",
+  "evidence_sha256": {
+    "evidence/home-worker-haos.json": "7a1264e4ac51627efbad51e6902fcaa3fb3dcca0f755653b0c1d9d86466452d3",
+    "evidence/home-worker-haos.xml": "03ef2e2a64d81c79161375f3f4473805bc9e7f589df8576fd886186203ec6f31",
+    "evidence/pytest-0.8.0.xml": "fb93cb12ed054878408b73a6f2735bae7a23b193ba9740d53c9a448314ec7827",
+    "evidence/github-ci-0.8.0.json": "d19668aaf630db28292d3a9ea663b92a3db6a05d1f6bc40d10927f0daa800d65",
+    "evidence/pytest-0.8.0-github.xml": "a912a23b82fa7448fcc07d711cb18e8bf5ef3e1e2663d37b7fcde61e02a89055"
+  }
+}

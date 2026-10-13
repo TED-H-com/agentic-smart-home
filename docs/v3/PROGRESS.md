@@ -1,6 +1,8 @@
 # Plan v3 進度與驗收帳本（團隊維護）
 
-更新：2026-10-12。Owner 原稿基準為 0.3.1／`3ad476a712009469521c3f9838a44ef35ba29f76`。本檔獨立記錄實作狀態，不修改六份原稿；前版為 **0.4.0 v3 技術預覽，CI 145 passed／2 skipped，精確 ISO 完整 VM 測試 1 passed；完成 E0 工程媒體與獨立救援範圍，Owner laptop／真帳號及 E1、E2 尚未完成**。
+**目前：0.8.0 來源／App 工程預覽已完成真 Home coding worker 與完整 HAOS 工程案例，V3-10 為 implemented。模型 transport 是固定 fixture，真雲端／Owner 家庭及 E1／E2 尚未驗收；32 案維持 2 passed、30 not_run。最新完整 ISO 為 0.7.0，本輪沒有新 ISO 驗證。** 詳見下方 [Home coding 增量](#home-coding-080-工程增量)。
+
+更新：2026-10-12。Owner 原稿基準為 0.3.1／`3ad476a712009469521c3f9838a44ef35ba29f76`。本檔獨立記錄實作狀態，不修改六份原稿；早期交付為 **0.4.0 v3 技術預覽，CI 145 passed／2 skipped，精確 ISO 完整 VM 測試 1 passed；完成 E0 工程媒體與獨立救援範圍，Owner laptop／真帳號及 E1、E2 尚未完成**。
 
 
 0.5.0 開發新增 CLI 先行的自動 onboarding：持久九步流程、桌面單次登入、官方最新 Hermes 相容性檢查、Hermes 原生 Codex OAuth、LINE／Telegram 配對碼、自動 HAOS 啟動及 HA 官方瀏覽器授權。這是 Owner 的新流程，不改六份原稿。當版CI為210 passed／3 skipped；精確0.5.0 ISO在一次性VM為1 passed／1310.79秒。T3-01與T3-05的E0工程範圍已重驗，其他30項不批次升級，詳見 [版本驗證](../VERIFICATION.md)。通用 Host／Home coding、真雲端家庭與固定產品更新／退版仍未完成。
@@ -11,7 +13,7 @@
 
 0.6.0 最終 CI **469 passed／4 skipped**；精確 ISO／harness `6847a03` 完整安裝 **1 passed／1789.412 秒**，含真 Codex 工具／固定模型 transport、最新版 Hermes、官方 HAOS、同 schema Controller 更新／退版、快照恢復與外層重啟。只更新 T3-01／T3-05 的 E0 工程證據，其餘 30 案仍為 `not_run`；真家庭與雲端整案不得以 fixture 代替。後續原生首頁與上游 adapter 整合見 [入口流程](../ONBOARDING.md#原生家庭首頁與智能管家)及 [相容邊界](../ADAPTERS.md)；當時 HA 側欄外層 bridge 尚未整合，本輪接續見下方 0.7.0。
 
-Home 隔離基礎已有 [真 HAOS 18.3 App 證據](../../evidence/haos-app-boundary.json)：預設設定無法建立 mount namespace；增加 `SYS_ADMIN` 與限定 cgroup2 掛載位置的 AppArmor 診斷設定後，可在獨立 App cgroup namespace 委派資源限制並實際觸發記憶體 OOM kill。這修正了「平台無可行隔離路徑」的假設；當時尚未實作 Home coding launcher、模型憑證／出站／工作區完整隔離。最新實作與仍失敗的平台測試見下方 Home 增量，32 個案例的狀態不變。
+Home 隔離基礎已有 [真 HAOS 18.3 App 證據](../../evidence/haos-app-boundary.json)：預設設定無法建立 mount namespace；增加 `SYS_ADMIN` 與限定 cgroup2 掛載位置的 AppArmor 診斷設定後，可在獨立 App cgroup namespace 委派資源限制並實際觸發記憶體 OOM kill。這修正了「平台無可行隔離路徑」的假設；當時尚未實作 Home coding launcher、模型憑證／出站／工作區完整隔離。最新實作與第十二輪通過的平台測試見下方 Home 增量，32 個案例的狀態不變。
 
 0.6.1 接續原生 HA 日常入口、返回救援／管家、Hermes 私有接點 facade、候選 contract gate 與 Linux 固定動作能力檢查。真 Core 導向與對話接續已在隔離 E2E 通過，最終 CI **598 passed／5 skipped**，同來源 `083b80e` 精確 ISO 完整安裝 **1 passed／1568.186 秒**，包含最新 Hermes、HAOS、Controller 更新／退版及重啟，見 [最新紀錄](../VERIFICATION.md)；這些工程能力不新增真家庭驗收 passed 案例。
 
@@ -37,17 +39,19 @@ Host 已新增輕量唯讀 `GET /jobs/{id}`、`job --id`／`wait --id`；沿原 
 
 最終安裝已完成 Ubuntu／outer-only firstboot、五映像核對、單次登入、Controller 停止救援、隔離 sandbox、真 Codex 工具／獨立驗證、隨附受測 Hermes 準備、HAOS 啟動、Controller 更新／保留新 DB 退版、冷快照還原及外層重啟。真 installed updater 的三次固定 probe 已驗支援映像通過、帶 revoked bridge 歷史時缺契約映像被拒、無該歷史時同衍生映像通過；另驗 pending App 操作阻擋及資源清理，見 [安裝後更新證據](../../evidence/installed-update-laptop-amd64-0.7.0.json)。缺契約映像、publisher／registry delivery 與模型 transport 均為明示 fixture；沒有將舊版 standalone Host compatibility 觀測算入本輪。
 
-剩餘架構缺口包括 Home App coding 的完整平台驗證與交付、同一 CLI／BAT live session 接手、雙 worker 真互補研究、原生 Assist、App 跨版本 migration／退版及舊 Host 的受控升級。App 更新已有 [下一增量設計](../reviews/2026-10-12-APP-UPDATE-NEXT.md)，U1–U8 未實作／待驗；目前 updater 仍只處理同 schema Controller。Owner laptop、真雲端／bot、實體家庭、相鄰 Core 與 72 小時試跑均未驗，E1／E2 未完成。原有 32 案維持 2 項 E0 工程 passed（本輪重驗）、30 項 not_run，不因本輪 CI 或相關工程能力批次升級。
+剩餘架構缺口包括 Home App 真雲端自主研究與現場驗收、同一 CLI／BAT live session 接手、雙 worker 真互補研究、原生 Assist、App 跨版本 migration／退版及舊 Host 的受控升級。App 更新已有 [下一增量設計](../reviews/2026-10-12-APP-UPDATE-NEXT.md)，U1–U8 未實作／待驗；目前 updater 仍只處理同 schema Controller。Owner laptop、真雲端／bot、實體家庭、相鄰 Core 與 72 小時試跑均未驗，E1／E2 未完成。原有 32 案維持 2 項 E0 工程 passed（本輪重驗）、30 項 not_run，不因本輪 CI 或相關工程能力批次升級。
 
-## Home coding 開發增量（尚未發行）
+## Home coding 0.8.0 工程增量
 
-Owner 要求實作真正內層 worker 後，已新增 HomeService／HomeSandbox，沿用現有配對 TLS、持久 jobs、同 case evidence／artifacts、獨立 Codex coding 登入與固定 verifier。來源使用 App 內受固定 commit 核對的 bare repo，每件工作另建 clone；Home 專屬觀測只讀 App 事實與無帳號 Core API 連通性，標記 `haos_app`。`home_operator` 不解除既有限制。本輪目標是 **0.8.0 來源／App 預覽**，平台驗證仍在進行；不是 0.7.0 已發行媒體的新能力，也沒有重驗新 ISO。最新完整 ISO 證據仍為上方 0.7.0。
+Owner 要求實作真正內層 worker 後，已新增 HomeService／HomeSandbox，沿用現有配對 TLS、持久 jobs、同 case evidence／artifacts、獨立 Codex coding 登入與固定 verifier。來源使用 App 內受固定 commit 核對的 bare repo，每件工作另建 clone；Home 專屬觀測只讀 App 事實與無帳號 Core API 連通性，標記 `haos_app`。`home_operator` 不解除既有限制。本輪為 **0.8.0 來源／App 工程預覽**，第十二輪完整平台案例已通過；不是 0.7.0 已發行媒體的新能力，也沒有重驗新 ISO。最新完整 ISO 證據仍為上方 0.7.0。
+
+**當前工程結果：第十二輪 passed，receipt 324.151 秒**，來源／harness `7b2c4bd29d78f7f2f61e4e52d16569b8b08b20a0`，產品 runtime／映像沿用 `c19610ae`，封裝研究來源固定為公開 `bf831fc8e6082c886b988f4e1cbdfecab5238380`；[完整證據](../../evidence/home-worker-haos.json)。真 HAOS App 內 Codex 工具／patch、38 項獨立測試、同 case 內容及 digest、App 對 Core 80 的額外觀測、30 項 worker 邊界、硬磁碟／CPU／PID／記憶體限制、TLS 取消與正常重啟均通過。突然停止再啟動後仍保留 `stop_unconfirmed` 與原 lease，新工作未啟動、模型請求未重播；App 新程序及 Docker 啟動紀錄已核對，即使 namespace 編號重用也不誤當停止證明。VM／容器／磁碟暫存均已清理。這是固定模型 transport 與文件註解 patch 的工程測試，真雲端自主研究及 E2 仍未驗收。
 
 真 HAOS harness 透過官方 Supervisor 安裝衍生 Runner App，明示只增加固定模型 transport／診斷 helper；保留產品 base layers、config 和 AppArmor。第六輪隔離啟動失敗仍保留 [原始結果](../../evidence/home-worker-haos-run6-isolation-failure.json)，後續修正不回改歷史。第八輪已通過硬 ext4 quota、CPU throttling、PID／記憶體耗盡、descendant 取消與資源回收，以及 enforcing profile、單一 `/dev/fuse` 規則與真 TLS 配對；其後因 coding 登入目錄權限失敗，整案仍為 failed，見 [第八輪](../../evidence/home-worker-haos-run8-role-login-failure.json)。
 
 第九輪真 Codex 工具程序退出碼 0、產生來源 patch，30 項 namespace／秘密／FD／唯讀目錄／seccomp／出站邊界檢查全數 true；同一工作回報 6 份產物與 3 筆證據。獨立 verifier **37 passed／1 failed**，因固定測試搬移後找不到基準 `scripts/restore_controller.py` 而讓工作維持 failed，見 [第九輪](../../evidence/home-worker-haos-run9-verifier-layout-failure.json)。上述各輪 VM／容器／磁碟暫存均已清除；不得將 CLI 的成功升格為 verifier 或整案成功。
 
-第十輪來源工作成功，獨立 verifier **38 passed**、30 項 worker 邊界檢查通過，case／觀測來源及內容 digest 均相符。整案仍失敗：probe 固定 8123，但真 Core 使用 80；現場唯讀讀回確認 80 回應 401、8123 拒絕連線。見 [第十輪原始失敗](../../evidence/home-worker-haos-run10-observation-failure.json)與 [獨立去密診斷](../../evidence/home-worker-haos-run10-observation-diagnostic.json)。VM／容器／磁碟暫存均已清除，沒有回改 failed。修正為固定 `homeassistant` 的 80 → 8123 有界無帳號探測。第十一輪已通過來源修改／獨立測試、同 case 內容／指紋、Core 80 回應 401、TLS 取消與正常重啟；最後因測試要求 PID namespace 編號必須改變而失敗，見 [原始結果](../../evidence/home-worker-haos-run11-restart-observer-failure.json)。[現場去密診斷](../../evidence/home-worker-haos-run11-restart-observer-diagnostic.json)證實 namespace 編號可重用，產品仍保留未知工作與原 lease；後續新工作阻擋／不重播斷言尚未執行。資源已清理，測試改用新程序 start ticks 加 Docker StartedAt 排除舊快取，完整重跑待執行。固定模型回應和文件註解 patch 只驗工程連線，不證明真雲端自主研究或真實問題修復。V3-10 保持 `in_progress`，T3-13／T3-15、E2 及其餘 30 案維持 `not_run`；詳見 [Home worker 範圍](../WORKERS.md#home-coding-開發增量尚未交付)。
+第十輪來源工作成功，獨立 verifier **38 passed**、30 項 worker 邊界檢查通過，case／觀測來源及內容 digest 均相符。整案仍失敗：probe 固定 8123，但真 Core 使用 80；現場唯讀讀回確認 80 回應 401、8123 拒絕連線。見 [第十輪原始失敗](../../evidence/home-worker-haos-run10-observation-failure.json)與 [獨立去密診斷](../../evidence/home-worker-haos-run10-observation-diagnostic.json)。VM／容器／磁碟暫存均已清除，沒有回改 failed。修正為固定 `homeassistant` 的 80 → 8123 有界無帳號探測。第十一輪已通過來源修改／獨立測試、同 case 內容／指紋、Core 80 回應 401、TLS 取消與正常重啟；最後因測試要求 PID namespace 編號必須改變而失敗，見 [原始結果](../../evidence/home-worker-haos-run11-restart-observer-failure.json)。[現場去密診斷](../../evidence/home-worker-haos-run11-restart-observer-diagnostic.json)證實 namespace 編號可重用，產品仍保留未知工作與原 lease；後續新工作阻擋／不重播斷言尚未執行。資源已清理；測試改用新程序 start ticks 加 Docker StartedAt 排除舊快取與 namespace 編號重用，後續第十二輪完整重跑通過，原第十一輪仍為 failed。固定模型回應和文件註解 patch 只驗工程連線，不證明真雲端自主研究或真實問題修復。V3-10 更新為工程實作 `implemented`，T3-13／T3-15、E2 及其餘 30 案維持 `not_run`；詳見 [Home worker 範圍](../WORKERS.md#home-coding-080-工程預覽)。
 
 ## 16 項開發工作
 
@@ -61,10 +65,10 @@ Owner 要求實作真正內層 worker 後，已新增 HomeService／HomeSandbox�
 | V3-04 | P0 / E0 / B | implemented | E0 獨立診斷／support；0.6.0 增加 root console publisher 登錄及固定 updater。0.7.0 精確媒體已驗 Controller 停止救援／固定 updater，並交付原工作 ID 唯讀續查；真家庭試跑另驗 |
 | V3-05 | P0 / E0 / C | implemented | 0.7.0 source/harness cd0fe577，五映像、固定 Tailscale 套件及 public source bundle；精確 ISO 完整安裝 1 passed／2288.830s，VM／磁碟暫存已清理；實體 laptop 尚未執行 |
 | V3-06 | P0 / E1 / A | implemented | MCP → Controller → TLS Runner → broker 持久派工、同 case handles／ACL／去重；Codex tools 真程序＋模型 transport fixture，真模型帳號未驗 |
-| V3-07 | P0 / E1 / B | implemented | 真 Codex 工具執行、私有 clone、patch、獨立 verifier；bearer 留 relay、封鎖管理／私網出站、ext4／cgroup／watchdog。僅 Host Codex coding enabled |
+| V3-07 | P0 / E1 / B | implemented | 真 Codex 工具執行、私有 clone、patch、獨立 verifier；bearer 留 relay、封鎖管理／私網出站、ext4／cgroup／watchdog。本項記錄 Host Codex coding；Home 見 V3-10 |
 | V3-08 | P0 / E1 / A+B | in_progress | lease／實際 writer 停止與重啟 reconcile 已交付；可匯出停止後 checkpoint。live_session:false，尚非直接加入同一 BAT／CLI session |
 | V3-09 | P0 / E1 / C | implemented | Web 問題派工、差異／SHA-256 成果、network-none renderer 三尺寸 PNG、獨立短效 origin／撤銷；真 Owner UI 問題與雲端整案未驗 |
-| V3-10 | P1 / E2 / A+B | in_progress | HomeService／HomeSandbox 真 App Codex／獨立 verifier／30 項邊界／同 case／Core 觀測／TLS 取消／正常重啟已取得工程證據；[第十一輪](../../evidence/home-worker-haos-run11-restart-observer-failure.json) 因測試誤要求 namespace 編號改變而整案失敗。已改新程序／Docker 啟動觀測，完整重跑及最後未知 writer fencing 待驗；真雲端未驗、未發行 |
+| V3-10 | P1 / E2 / A+B | implemented | 0.8.0 HomeService／HomeSandbox 真 HAOS App 第十二輪完整工程案例 passed：Codex／38 項獨立 verifier／30 項邊界／同 case／Core 觀測／TLS 取消／正常重啟／突然中斷 fencing 與無重播，見 [證據](../../evidence/home-worker-haos.json)。固定模型 transport，真雲端自主研究與 E2 待驗；沒有新 ISO 聲明 |
 | V3-11 | P1 / E2 / A+B | in_progress | 同 case 工作者狀態、下一輪 Hermes 證據 handle、觀測位置與 ACL 已接通；雙層互補研究與 bot 主動完成通知未驗／未交付 |
 | V3-12 | P1 / E2 / A+C | implemented | home.observe／propose／proposal_status 接回既有 Engine，精確 Owner 批准、撤權／暫停競態保護；真模型 helpers 整案待驗 |
 | V3-13 | P1 / E2 / C | implemented | schema 3 私有遷移 snapshot；Ed25519 publisher／digest、獨立 probe、精確批准、quiesce／backup／health／保留新 DB 退版。真 installed probe 已驗 revoked bridge 契約及 pending App 操作阻擋；缺契約映像是明示衍生 fixture。僅同 schema 外層 Controller，不是全產品／HAOS 更新器 |
@@ -136,4 +140,4 @@ ISO SHA-256：`44d163dba7ff629cc287213cbbb9a4836381d24e45531533efa0051ca9625868`
 
 所有本輪測試位於磁碟basetemp／可清理容器；產品安裝僅發生在一次性VM，結束後VM／容器／磁碟暫存均已清除。沒有在開發host執行installer、沒有真家庭副作用或公開家庭資料。失敗與成功證據皆綁確切commit／digest；32案中2案通過上述範圍，其餘30案仍為not_run。
 
-下一個產品驗收切片是在 Owner laptop 用真帳號，透過智能管家完成一件 Host 研究／修正／獨立測試／預覽的真實問題；相關受控出站、帳號隔離與 PNG 預覽已交付工程實作。Home coding 本輪先完成真 App 隔離啟動與完整工程鏈，再進自主研究、家庭現場驗證及受控更新／退版整案。失敗的邊界不能以 fixture 宣稱可用；離線 Python、固定模型 transport 與 HAOS lifecycle 不能代替 E1／E2。
+下一個產品驗收切片是在 Owner laptop 用真帳號，透過智能管家完成一件 Host 研究／修正／獨立測試／預覽的真實問題；相關受控出站、帳號隔離與 PNG 預覽已交付工程實作。Home coding 的真 App 隔離與完整工程鏈已通過，接著驗真雲端自主研究、雙 worker 互補調查、家庭現場驗證及受控更新／退版整案。失敗的邊界不能以 fixture 宣稱可用；離線 Python、固定模型 transport 與 HAOS lifecycle 不能代替 E1／E2。

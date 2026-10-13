@@ -1,6 +1,6 @@
 {
   "kind": "real_haos_home_coding_worker",
-  "status": "failed",
+  "status": "passed",
   "observed_from": "haos_app",
   "haos_image": "18.3",
   "delivery": "local_supervisor_derived_transport_fixture",
@@ -26,10 +26,11 @@
     "additional_app_namespace_view": true,
     "fenced_checkpoint_handoff": true,
     "actual_tls_cancel_stops_descendants_and_releases_lease": true,
-    "graceful_app_restart_keeps_confirmed_stop_without_replay": true
+    "graceful_app_restart_keeps_confirmed_stop_without_replay": true,
+    "abrupt_same_boot_restart_retains_lease_and_prevents_replay": true
   },
-  "phase": "abrupt_app_restart_keeps_unknown_writer_fenced",
-  "source_commit": "c19610ae52322066f6d25e2d88c57f040de29641",
+  "phase": "completed",
+  "source_commit": "7b2c4bd29d78f7f2f61e4e52d16569b8b08b20a0",
   "runtime_source_uncommitted": false,
   "runner_base_image_id": "sha256:f80d0e4bdaed66cd5501fd23569715efb3603d832d2387341f12405eaf58d6e6",
   "controller_image_id": "sha256:416ad3647d5d0035ad94806ef08f0b6eb58ad0292d241d12d8ca5c039e17189d",
@@ -37,7 +38,7 @@
   "supervisor": "2026.09.3",
   "app_config_sha256": "e196816f62fe3c63772e638f018e698d27cdaed97020c5573ba0cb820a79d0c6",
   "app_apparmor_sha256": "e5806ce5ccc65cb1e1332774f0b6b96b7af650f20a76cb6516d0f018862d7753",
-  "fixture_helper_sha256": "93d5b9cd6e6fd183176ceecec246587964a749e1629f30afe4faab1d2a817b68",
+  "fixture_helper_sha256": "c339fab1de3ebb9cff4da4e57f06898a2c2a3decae105b736a837703ddd02b71",
   "runner_oci_config_digest": "sha256:723421606a3de30f4edd9c8de292ecf1762f196d66c3951ff56b386a9b7b399f",
   "registry_fixture": {
     "scope": "disposable_haos_loopback_only",
@@ -80,16 +81,16 @@
       "Running": true,
       "Paused": false,
       "Restarting": false,
-      "OOMKilled": false,
+      "OOMKilled": true,
       "Dead": false,
       "Status": "running",
       "ExitCode": 0
     }
   },
   "actual_apparmor_profile": "local_agentic_runner",
-  "derived_fixture_image_id": "sha256:2ae3765c71984fdf80c012dd2e8caff604e2a55e3e68b920678c08c4fa4bae5a",
+  "derived_fixture_image_id": "sha256:ade013110e79842d5d148ec4954f4993bc56939d90e6025f5a4edd904cf1c3d3",
   "startup_boundaries": {
-    "cancel_seconds": 0.231,
+    "cancel_seconds": 0.236,
     "checks": {
       "actual_cpu_throttling": true,
       "actual_ext4_enospc": true,
@@ -108,12 +109,12 @@
         "burst_usec": 0,
         "nice_usec": 0,
         "nr_bursts": 0,
-        "nr_periods": 5,
+        "nr_periods": 4,
         "nr_throttled": 0,
-        "system_usec": 10145,
+        "system_usec": 7215,
         "throttled_usec": 0,
-        "usage_usec": 67977,
-        "user_usec": 57831
+        "usage_usec": 67004,
+        "user_usec": 59788
       },
       "memory.events": {
         "high": 0,
@@ -156,10 +157,10 @@
         "nr_bursts": 0,
         "nr_periods": 2,
         "nr_throttled": 0,
-        "system_usec": 59951,
+        "system_usec": 56912,
         "throttled_usec": 0,
-        "usage_usec": 78936,
-        "user_usec": 18984
+        "usage_usec": 75205,
+        "user_usec": 18293
       },
       "memory.events": {
         "high": 0,
@@ -183,12 +184,12 @@
         "burst_usec": 0,
         "nice_usec": 0,
         "nr_bursts": 0,
-        "nr_periods": 44,
+        "nr_periods": 42,
         "nr_throttled": 40,
-        "system_usec": 10823,
-        "throttled_usec": 3948777,
-        "usage_usec": 4118674,
-        "user_usec": 4107851
+        "system_usec": 16863,
+        "throttled_usec": 3979055,
+        "usage_usec": 4094975,
+        "user_usec": 4078112
       },
       "memory.events": {
         "high": 0,
@@ -223,15 +224,15 @@
         "nr_bursts": 0,
         "nr_periods": 8,
         "nr_throttled": 0,
-        "system_usec": 34730,
+        "system_usec": 30012,
         "throttled_usec": 0,
-        "usage_usec": 115105,
-        "user_usec": 80375
+        "usage_usec": 108259,
+        "user_usec": 78246
       },
       "memory.events": {
         "high": 0,
         "low": 0,
-        "max": 231,
+        "max": 201,
         "oom": 0,
         "oom_group_kill": 0,
         "oom_kill": 0
@@ -248,9 +249,9 @@
         "pids"
       ],
       "namespace_ids": {
-        "cgroup_ns": 4026532350,
+        "cgroup_ns": 4026532351,
         "mnt_ns": 4026532875,
-        "pid_ns": 4026532349
+        "pid_ns": 4026532350
       },
       "observed_from": "haos_app",
       "private_cgroup_root": true,
@@ -261,25 +262,27 @@
   },
   "app_observation": {
     "apparmor_enforcing": true,
-    "boot_id_sha256": "962ad6305858a0bdb8ac4325d414ce5f9840d118dc68038a2e4c052e371b5bc1",
+    "boot_id_sha256": "4bdba8e88434d2e5f3844e0e1f7080398ec92492871a220cf19f14258f88bfd5",
     "docker_socket_present": false,
     "fuse_device_openable": true,
     "fuse_device_present": true,
     "host_socket_present": false,
     "namespaces": {
-      "cgroup": 4026532350,
+      "cgroup": 4026532351,
       "mnt": 4026532875,
-      "net": 4026532351,
-      "pid": 4026532349
+      "net": 4026532352,
+      "pid": 4026532350
     },
     "observed_from": "haos_app",
+    "process_id": 1,
+    "process_start_ticks": 15507,
     "supervisor_token_present": true,
     "uid": 0
   },
   "last_job": {
-    "id": "30d976c098d04040a6b1ec9a31398c4b",
-    "job_id": "30d976c098d04040a6b1ec9a31398c4b",
-    "case_id": "bc64ee5ca1d14597b149b0f148bed857",
+    "id": "93021da3cd3c472ca05cfc411d300679",
+    "job_id": "93021da3cd3c472ca05cfc411d300679",
+    "case_id": "fe66c990ccff4f8baa9b77ebaf6e3ab6",
     "state": "running",
     "stop_confirmed": false,
     "execution_started": true,
@@ -289,9 +292,9 @@
     "verification": {}
   },
   "source_job": {
-    "id": "ff741aafb6ca4e64b37b754ca99356d3",
-    "job_id": "ff741aafb6ca4e64b37b754ca99356d3",
-    "case_id": "bc64ee5ca1d14597b149b0f148bed857",
+    "id": "a498b20ce3684506adcf037ccc4099fb",
+    "job_id": "a498b20ce3684506adcf037ccc4099fb",
+    "case_id": "fe66c990ccff4f8baa9b77ebaf6e3ab6",
     "state": "succeeded",
     "stop_confirmed": true,
     "execution_started": true,
@@ -343,8 +346,8 @@
   },
   "namespace_comparison": {
     "app": {
-      "pid_ns": 4026532349,
-      "cgroup_ns": 4026532350,
+      "pid_ns": 4026532350,
+      "cgroup_ns": 4026532351,
       "mnt_ns": 4026532875
     },
     "worker": {
@@ -360,7 +363,7 @@
   },
   "model_fixture": {
     "pytest_passed": true,
-    "requests": 4,
+    "requests": 6,
     "source_marker": true,
     "tool_output_received": true
   },
@@ -454,8 +457,8 @@
         "available": false
       },
       "diagnostic_namespace_ids": {
-        "pid_ns": 4026532349,
-        "cgroup_ns": 4026532350,
+        "pid_ns": 4026532350,
+        "cgroup_ns": 4026532351,
         "mnt_ns": 4026532875
       }
     },
@@ -474,12 +477,12 @@
         "available": false
       },
       "diagnostic_namespace_ids": {
-        "pid_ns": 4026532349,
-        "cgroup_ns": 4026532350,
+        "pid_ns": 4026532350,
+        "cgroup_ns": 4026532351,
         "mnt_ns": 4026532875
       }
     },
-    "seconds": 1.903
+    "seconds": 1.349
   },
   "graceful_restart": {
     "before": {
@@ -516,15 +519,15 @@
         "available": false
       },
       "diagnostic_namespace_ids": {
-        "pid_ns": 4026532349,
-        "cgroup_ns": 4026532350,
+        "pid_ns": 4026532350,
+        "cgroup_ns": 4026532351,
         "mnt_ns": 4026532875
       }
     },
     "job": {
-      "id": "74cc1bac626b42839cc3f3287eae0827",
-      "job_id": "74cc1bac626b42839cc3f3287eae0827",
-      "case_id": "bc64ee5ca1d14597b149b0f148bed857",
+      "id": "5dc7cf1be1614af690be2623659cfbe8",
+      "job_id": "5dc7cf1be1614af690be2623659cfbe8",
+      "case_id": "fe66c990ccff4f8baa9b77ebaf6e3ab6",
       "state": "cancelled",
       "stop_confirmed": true,
       "execution_started": true,
@@ -532,233 +535,116 @@
       "artifact_count": 2,
       "evidence_count": 2,
       "verification": {}
-    }
+    },
+    "generation_before": {
+      "container_id": "d06afd24e1af2f30bcb4095d6f5ea70c8b3ffd7e0b834c8420ddd9c753c1d49c",
+      "started_at": "2026-10-13T01:34:10.087634699Z",
+      "started_at_epoch": 1791855250.087634,
+      "host_pid": 3359,
+      "running": true
+    },
+    "generation_after": {
+      "container_id": "ac0c3384560f151552e963dafc5bcb4cdcea455535a9c323375c806178e55a68",
+      "started_at": "2026-10-13T01:35:34.663083106Z",
+      "started_at_epoch": 1791855334.663083,
+      "host_pid": 4466,
+      "running": true
+    },
+    "process_start_ticks_before": 15507,
+    "process_start_ticks_after": 23965
   },
-  "error_type": "AssertionError",
-  "error_code": "unclassified_fixture_error",
-  "errno": null,
-  "owned_runtime_observation": {
-    "vm": {
-      "state_returncode": 0,
-      "state": {
-        "Running": true,
-        "Paused": false,
-        "Restarting": false,
-        "OOMKilled": false,
-        "Dead": false,
-        "Pid": 3389751,
-        "ExitCode": 0,
-        "Status": "running"
+  "abrupt_restart": {
+    "before": {
+      "record_present": true,
+      "pulse_present": true,
+      "workspace_mounted": true,
+      "workspace_image_present": true,
+      "state": "running",
+      "cgroup_present": true,
+      "cgroup_populated": true,
+      "fuse_cgroup_present": true,
+      "fuse_cgroup_populated": true,
+      "stderr_summary": {
+        "available": true,
+        "scanned_bytes": 0,
+        "truncated": false,
+        "bubblewrap": false,
+        "permission_denied": false,
+        "operation_not_permitted": false,
+        "pivot_root": false,
+        "mount": false,
+        "namespace": false,
+        "missing_file": false,
+        "python_exception": false,
+        "no_space": false,
+        "missing_module": false,
+        "pytest_collection": false,
+        "root_mount_propagation": false,
+        "proc_mount": false,
+        "loopback_setup": false,
+        "private_fd_lookup": false
       },
-      "events_returncode": 0,
-      "events": [
-        {
-          "action": "create",
-          "timeNano": 1791853942078907873
-        },
-        {
-          "action": "start",
-          "timeNano": 1791853942188887781
-        }
-      ]
-    },
-    "outer": {
-      "state_returncode": 0,
-      "state": {
-        "Running": true,
-        "Paused": false,
-        "Restarting": false,
-        "OOMKilled": false,
-        "Dead": false,
-        "Pid": 3408459,
-        "ExitCode": 0,
-        "Status": "running"
+      "launcher_diagnostic": {
+        "available": false
       },
-      "events_returncode": 0,
-      "events": [
-        {
-          "action": "create",
-          "timeNano": 1791854155974268190
-        },
-        {
-          "action": "start",
-          "timeNano": 1791854156075025476
-        }
-      ]
-    }
-  },
-  "failure_app_state": "started",
-  "failure_startup": {
-    "state": "ready",
-    "checks": {}
-  },
-  "failure_boundaries": {
-    "status": "passed",
-    "cleanup": "passed",
-    "observed_from": "haos_app",
-    "checks": {
-      "actual_cpu_throttling": true,
-      "actual_ext4_enospc": true,
-      "actual_memory_oom_kill": true,
-      "actual_pid_limit": true,
-      "descendant_cancel_and_cgroup_empty": true,
-      "worker_and_fuse_cgroups_reclaimed": true
+      "diagnostic_namespace_ids": {
+        "pid_ns": 4026532350,
+        "cgroup_ns": 4026532351,
+        "mnt_ns": 4026532875
+      }
     },
-    "entry_boundary_checks": {
-      "effective_capabilities_zero": true,
-      "inherited_directory_fds_absent": true,
-      "nested_user_namespace_denied": true,
-      "no_new_privileges": true,
-      "private_coding_path_absent": true,
-      "private_workspace_fds_absent": true,
-      "seccomp_filter_active": true,
-      "staging_path_absent": true,
-      "worker_fuse_device_unavailable": true
+    "generation_before": {
+      "container_id": "ac0c3384560f151552e963dafc5bcb4cdcea455535a9c323375c806178e55a68",
+      "started_at": "2026-10-13T01:35:34.663083106Z",
+      "started_at_epoch": 1791855334.663083,
+      "host_pid": 4466,
+      "running": true
     },
-    "last_job": {
-      "state": "cancelled",
-      "stop_confirmed": true,
+    "process_start_ticks_before": 23965,
+    "generation_after": {
+      "container_id": "eef5b3013ab539d25bfe68ee52867683631c36d8901cf15fdc891d83470f805f",
+      "started_at": "2026-10-13T01:36:16.350264324Z",
+      "started_at_epoch": 1791855376.350264,
+      "host_pid": 5003,
+      "running": true
+    },
+    "process_start_ticks_after": 28133,
+    "same_haos_boot": true,
+    "namespace_ids_changed": false,
+    "job": {
+      "id": "93021da3cd3c472ca05cfc411d300679",
+      "job_id": "93021da3cd3c472ca05cfc411d300679",
+      "case_id": "fe66c990ccff4f8baa9b77ebaf6e3ab6",
+      "state": "stop_unconfirmed",
+      "stop_confirmed": false,
+      "execution_started": true,
+      "runtime_location": "haos_app",
       "artifact_count": 0,
       "evidence_count": 0,
-      "verification": {},
-      "oom_killed": false,
-      "cgroup_populated": false
+      "reason": "broker_restarted",
+      "verification": {}
     },
-    "quota_counters": {
-      "cgroup.events": {
-        "frozen": 0,
-        "populated": 0
-      },
-      "cpu.stat": {
-        "burst_usec": 0,
-        "nr_bursts": 0,
-        "nr_periods": 8,
-        "nr_throttled": 0,
-        "system_usec": 34730,
-        "throttled_usec": 0,
-        "usage_usec": 115105,
-        "user_usec": 80375
-      },
-      "memory.events": {
-        "high": 0,
-        "low": 0,
-        "max": 231,
-        "oom": 0,
-        "oom_group_kill": 0,
-        "oom_kill": 0
-      },
-      "pids.events": {
-        "max": 0
-      }
+    "exact_lease_retained": true,
+    "queued_job": {
+      "id": "df6c22f30b504db0bbfb9e050c1e6e2a",
+      "job_id": "df6c22f30b504db0bbfb9e050c1e6e2a",
+      "case_id": "f304ab9cb5e745fca53cde2ab0b555dd",
+      "state": "queued",
+      "stop_confirmed": false,
+      "execution_started": false,
+      "artifact_count": 0,
+      "evidence_count": 0,
+      "verification": {}
     },
-    "pid-cpu_counters": {
-      "cgroup.events": {
-        "frozen": 0,
-        "populated": 0
-      },
-      "cpu.stat": {
-        "burst_usec": 0,
-        "nr_bursts": 0,
-        "nr_periods": 44,
-        "nr_throttled": 40,
-        "system_usec": 10823,
-        "throttled_usec": 3948777,
-        "usage_usec": 4118674,
-        "user_usec": 4107851
-      },
-      "memory.events": {
-        "high": 0,
-        "low": 0,
-        "max": 0,
-        "oom": 0,
-        "oom_group_kill": 0,
-        "oom_kill": 0
-      },
-      "pids.events": {
-        "max": 1
-      }
-    },
-    "memory_counters": {
-      "cgroup.events": {
-        "frozen": 0,
-        "populated": 0
-      },
-      "cpu.stat": {
-        "burst_usec": 0,
-        "nr_bursts": 0,
-        "nr_periods": 2,
-        "nr_throttled": 0,
-        "system_usec": 59951,
-        "throttled_usec": 0,
-        "usage_usec": 78936,
-        "user_usec": 18984
-      },
-      "memory.events": {
-        "high": 0,
-        "low": 0,
-        "max": 18,
-        "oom": 1,
-        "oom_group_kill": 1,
-        "oom_kill": 5
-      },
-      "pids.events": {
-        "max": 0
-      }
-    },
-    "descendant_counters": {
-      "cgroup.events": {
-        "frozen": 0,
-        "populated": 0
-      },
-      "cpu.stat": {
-        "burst_usec": 0,
-        "nr_bursts": 0,
-        "nr_periods": 5,
-        "nr_throttled": 0,
-        "system_usec": 10145,
-        "throttled_usec": 0,
-        "usage_usec": 67977,
-        "user_usec": 57831
-      },
-      "memory.events": {
-        "high": 0,
-        "low": 0,
-        "max": 0,
-        "oom": 0,
-        "oom_group_kill": 0,
-        "oom_kill": 0
-      },
-      "pids.events": {
-        "max": 0
-      }
-    }
+    "model_request_count_unchanged": true,
+    "new_writer_started": false
   },
-  "app_stderr_summary": {
-    "available": true,
-    "scanned_bytes": 385,
-    "truncated": false,
-    "bubblewrap": false,
-    "permission_denied": false,
-    "operation_not_permitted": false,
-    "pivot_root": false,
-    "mount": false,
-    "namespace": false,
-    "missing_file": false,
-    "python_exception": false,
-    "no_space": false,
-    "missing_module": false,
-    "pytest_collection": false,
-    "root_mount_propagation": false,
-    "proc_mount": false,
-    "loopback_setup": false,
-    "private_fd_lookup": false
-  },
-  "failure_hold_seconds": 180,
+  "recovery_limit": "abrupt same-boot unknown work remains fenced until trusted stop proof; VM removed at teardown",
   "cleanup": {
     "outer_removed": true,
     "vm_removed": true,
     "disk_fixture_ownership_restored": true,
     "network_removed": true
   },
-  "duration_seconds": 530.982
+  "duration_seconds": 324.151
 }
