@@ -110,7 +110,10 @@ function codingDetail(value:any){
   const list=Array.isArray(value?.workers)?value.workers:null;
   if(!list) return '';
   const worker=list.find((item:any)=>item&&item.worker_id==='host-coder');
-  const provider=Array.isArray(worker?.providers)?worker.providers.find((item:any)=>item&&item.id==='codex'):null;
+  if(!worker) return '';
+  // Same reading as the 開發助手 page chip: a signed-in account cannot run jobs without the sandbox.
+  if(worker.available!==true) return '尚未連接';
+  const provider=Array.isArray(worker.providers)?worker.providers.find((item:any)=>item&&item.id==='codex'):null;
   const state=provider?.credential_state;
   if(typeof state!=='string'||!state) return '';
   return ['configured','inference_verified','connected'].includes(state)?'已就緒':'需要登入';

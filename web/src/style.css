@@ -72,7 +72,7 @@ main{min-width:0}
 .task-row p{font-size:var(--xs);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .status{display:inline-flex;align-items:center;font-size:var(--xs);font-weight:500;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:2px var(--s2);white-space:nowrap}
 .s-connected,.s-succeeded{color:var(--accent);background:var(--accent-soft);border-color:transparent}
-.s-awaiting_approval,.s-verifying,.s-awaiting_user,.s-needs_reauth,.s-waiting_for_user,.s-pending,.s-checking{color:var(--warning);background:var(--warning-bg);border-color:transparent}
+.s-awaiting_approval,.s-verifying,.s-awaiting_user,.s-needs_reauth,.s-retry_later,.s-waiting_for_user,.s-pending,.s-checking{color:var(--warning);background:var(--warning-bg);border-color:transparent}
 .s-failed,.s-needs_reconcile,.s-unavailable{color:var(--error);background:var(--error-bg);border-color:transparent}
 .task-detail{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:var(--s6)}
 .task-detail>h2{font-size:18px;overflow-wrap:anywhere}

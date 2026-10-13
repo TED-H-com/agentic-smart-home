@@ -98,7 +98,7 @@ function HomeWorker({record,readError,fault,busy,onAct,onReload}:{record:HomeRec
   const operation=record.operation?[record.operation.kind,record.operation.state,record.operation.job_id,record.operation.deadline].filter(Boolean).join(' · '):'';
   return <section className="home-worker" aria-label="家庭現場開發助手"><div className="section-heading"><h3>家庭現場</h3><span className={`status ${readinessClass(homeChips[record.state])}`}>{homeChips[record.state]}</span></div>
     <p role={progress?'status':undefined}>{homeSentence(record)}</p>
-    {fault&&<Notice error><p>{faultSentence(fault)}</p>{fault==='home_worker_setup_required'&&<a className="text-button" href="#onboarding">前往初次設定</a>}<small>{fault}</small></Notice>}
+    {fault&&<Notice error reason={fault}><p>{faultSentence(fault)}</p>{fault==='home_worker_setup_required'&&<a className="text-button" href="#onboarding">前往初次設定</a>}{faultSentence(fault)==='這項操作沒有完成。'&&<small>{fault}</small>}</Notice>}
     {action&&<Button type="button" disabled={busy} onClick={()=>onAct(action.action)}>{action.label}</Button>}
     {record.state==='not_authorized'&&<><p className="helper-text">會在家庭安裝開發助手 App；你停止或移除後不會自動恢復。</p><details><summary>詳細說明</summary><p>App 需要 SYS_ADMIN 與 /dev/fuse 來建立隔離工作區，不取得家庭管理權限。</p><p>程式工作在沒有網路的工作區執行，登入資料只存在家庭裡。</p></details></>}
     {link&&<a className="external-link" href={haPath('/hassio/dashboard')} target={haTarget()} rel="noreferrer">開啟 HA App 設定 ↗</a>}

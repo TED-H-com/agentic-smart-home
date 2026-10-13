@@ -133,7 +133,8 @@ def test_enable_flow_reuses_key_and_maps_owner_fault(ui_page):
     expect(card).to_contain_text('程式工作在沒有網路的工作區執行，登入資料只存在家庭裡。')
     card.get_by_role('button', name='啟用家庭現場', exact=True).click()
     expect(card.locator('.notice.error')).to_contain_text('請用家庭擁有者帳號登入後再試。')
-    expect(card.locator('.notice.error small')).to_have_text('home_worker_owner_required')
+    expect(card.locator('.notice.error')).to_have_attribute('data-reason', 'home_worker_owner_required')
+    expect(card.locator('.notice.error small')).to_have_count(0)
     card.get_by_role('button', name='啟用家庭現場', exact=True).click()
     card.get_by_role('button', name='重新安裝', exact=True).wait_for()
     card.get_by_role('button', name='重新安裝', exact=True).click()
@@ -307,7 +308,8 @@ def test_home_progress_login_repair_poll_and_baseline_copy(ui_page):
     card.get_by_role('button', name='啟用家庭現場', exact=True).click()
     expect(card).to_contain_text('先完成初次設定。')
     expect(card.get_by_role('link', name='前往初次設定')).to_have_attribute('href', '#onboarding')
-    expect(card.locator('.notice.error small')).to_have_text('home_worker_setup_required')
+    expect(card.locator('.notice.error')).to_have_attribute('data-reason', 'home_worker_setup_required')
+    expect(card.locator('.notice.error small')).to_have_count(0)
     flow['refuse'] = None
     show_job['on'] = True
     page.set_viewport_size({'width': 1440, 'height': 900})
@@ -472,6 +474,11 @@ def test_completion_prompt_settings_detail_and_single_host_status(ui_page):
     page.reload()
     expect(hub.locator('a[href="#workers"]')).to_contain_text('已就緒')
     assert hub_text('#workers') == '開發助手已就緒'
+    # A signed-in account without a working sandbox reads like the 開發助手 page chip.
+    coding['available'] = False
+    page.reload()
+    expect(hub.locator('a[href="#workers"]')).to_contain_text('尚未連接')
+    coding['available'] = True
     coding['fail'] = True
     with page.expect_response(lambda response: response.url.endswith('/api/workers') and response.status == 500):
         page.reload()

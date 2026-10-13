@@ -501,6 +501,8 @@ def test_rate_limited_account_keeps_one_retry():
         page.goto(f'http://127.0.0.1:{server.server_port}/#agents')
         card = page.locator('article.provider').filter(has=page.get_by_role('heading', name='Codex', exact=True))
         expect(card.get_by_text(sentence, exact=True)).to_have_count(1)
+        # The saved login is kept, so the card never claims it must sign in again.
+        expect(card.locator('.section-heading .status')).to_have_text('稍後再試')
         expect(card.get_by_role('button', name='再試一次', exact=True)).to_have_count(1)
         expect(card.get_by_role('button', name='重新開始', exact=True)).to_have_count(0)
         expect(card.get_by_role('button', name='重新登入', exact=True)).to_have_count(0)

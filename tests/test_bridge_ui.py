@@ -75,7 +75,7 @@ def bridge_browser():
             result = {"csrf": "fixture-bridge-csrf", "mode": state["mode"], "principal": state["owner"],
                       "storage_scope": state["scope"], "resume": {"message_id": messages[0]["id"],
                       "thread_id": messages[0]["thread_id"], "case_id": messages[0]["case_id"]} if messages else None}
-        elif state["mode"] == "host" and path in {"status", "tasks", "services", "retention"}:
+        elif state["mode"] == "host" and path in {"status", "tasks", "services", "retention", "workers"}:
             result = {"ha": {"status": "connected"}, "runner": {"protocol": 1}, "version": "0.7.0 fixture",
                       "tasks": [], "services": [], "audit_days": 30, "context_days": 7}
         elif state["mode"] == "host" and path.startswith("host/bridge/maintenance"):
