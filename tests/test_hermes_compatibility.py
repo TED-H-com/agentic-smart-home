@@ -4,6 +4,7 @@ import importlib
 import json
 import os
 import subprocess
+import time
 import types
 import uuid
 from pathlib import Path
@@ -36,7 +37,12 @@ def upstream(monkeypatch):
     def poll(issuer, *, device_auth_id, user_code, poll_interval):
         return {"authorization_code": "fixture-private-code", "code_verifier": "fixture-private-verifier"}
 
+    def download(force_refresh=False):
+        raise AssertionError("catalog download")
+
     modules = {
+        "agent.model_metadata": types.SimpleNamespace(fetch_model_metadata=download, _model_metadata_cache={},
+                                                      _model_metadata_cache_time=0, _MODEL_CACHE_TTL=3600),
         "run_agent": types.SimpleNamespace(AIAgent=Agent),
         "model_tools": types.SimpleNamespace(handle_function_call=dispatch),
         "tools.mcp_tool_discovery": types.SimpleNamespace(discover_mcp_tools=lambda *, allowed_mcp_names: ["mcp__agentic__host_status"]),
@@ -71,11 +77,14 @@ def test_complete_consumed_contract_and_lifecycle(upstream):
     assert state["options"]["enabled_toolsets"] == ["mcp-agentic"]
     assert state["options"]["skip_memory"] and state["options"]["skip_background_review"]
     assert not state["options"]["load_soul_identity"] and state["options"]["fallback_model"] is None
+    # The turn's catalog is a fresh in-process cache, so pricing never downloads one.
+    catalog = modules["agent.model_metadata"]
+    assert catalog._model_metadata_cache and time.time() - catalog._model_metadata_cache_time < 5
     adapter.finish_device(adapter.request_device())
     assert len(state["saved"]) == 1
 
 
-@pytest.mark.parametrize("failure", ["missing_module", "missing_symbol", "not_callable", "new_required_parameter", "removed_parameter", "changed_tool_mapping", "changed_issuer"])
+@pytest.mark.parametrize("failure", ["missing_module", "missing_symbol", "not_callable", "new_required_parameter", "removed_parameter", "changed_tool_mapping", "changed_issuer", "changed_catalog_cache"])
 def test_incompatible_upstream_rejected_without_execution(upstream, monkeypatch, failure):
     modules, state = upstream
     if failure == "missing_module":
@@ -92,6 +101,8 @@ def test_incompatible_upstream_rejected_without_execution(upstream, monkeypatch,
         modules["tools.mcp_tool_discovery"].discover_mcp_tools = lambda: []
     elif failure == "changed_tool_mapping":
         modules["tools.mcp_tool_schema"].mcp_prefixed_tool_name = lambda server, name: name
+    elif failure == "changed_catalog_cache":
+        del modules["agent.model_metadata"]._model_metadata_cache
     else:
         modules["hermes_cli.auth_codex"].CODEX_OAUTH_TOKEN_URL = "https://other.invalid/token"
     with pytest.raises(IncompatibleUpstream) as error:

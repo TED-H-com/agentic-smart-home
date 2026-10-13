@@ -729,6 +729,10 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                     raise HTTPException(503, "bridge_owner_unavailable") from None
                 return {**maintenance.status(), "bridge": bridge.status()}
 
+        @app.post("/api/host/bridge/maintenance/update")
+        async def bridge_maintenance_update(request: Request):
+            return await maintenance_action(maintenance.update, request)
+
         @app.post("/api/host/bridge/maintenance/disable")
         async def bridge_disable():
             await bridge.revoke()
@@ -763,6 +767,10 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         @app.post("/api/host/home-worker/maintenance/repair")
         async def home_worker_repair(request: Request):
             return await home_worker_action(home_worker.repair, request)
+
+        @app.post("/api/host/home-worker/maintenance/update")
+        async def home_worker_maintenance_update(request: Request):
+            return await home_worker_action(home_worker.update, request)
 
         @app.post("/api/host/home-worker/maintenance/disable")
         async def home_worker_disable(request: Request):

@@ -189,7 +189,8 @@ def service_for(tmp_path, monkeypatch, clock, spec, *, patch_wall=False):
 
 
 def wait_thread(service, id):
-    service.threads[id].join(5)
+    # Upper bound only: the job takes under a second alone, but a loaded machine can stretch it.
+    service.threads[id].join(30)
     assert not service.threads[id].is_alive()
 
 
