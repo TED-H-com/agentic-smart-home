@@ -5,7 +5,9 @@ No cloud account, physical device or real HAOS is used by these tests.
 
 import asyncio
 import base64
+import fcntl
 import json
+import logging
 import os
 import signal
 import subprocess
@@ -427,6 +429,169 @@ async def test_unconfirmed_stop_blocks_replacement_and_survives_restart(client, 
         await restarted.close()
     # The shared fixture closes this Runtime once more; make that harmless.
     runtime.unconfirmed.clear()
+
+
+async def _stamp_unconfirmed(client, runtime, monkeypatch, identity):
+    """Leave one auth item and one run at stop_unconfirmed, each stamped with identity."""
+    monkeypatch.setattr("agentic_hermes.app.current_instance", lambda: dict(identity))
+    entered = asyncio.Event()
+
+    async def oauth_fixture(item, home):
+        entered.set()
+        await asyncio.Event().wait()
+
+    async def unknown_stop(identifier):
+        raise TimeoutError("fixture unknown stop")
+
+    monkeypatch.setattr(runtime.device_login, "invoke", oauth_fixture)
+    monkeypatch.setattr(runtime, "stop_process", unknown_stop)
+    response = await client.post(
+        "/v1/auth/device", json={"provider": "openai-codex", "model": "gpt-6-astra"},
+        headers={"Idempotency-Key": "restart-login"})
+    assert response.status_code == 202, response.text
+    auth_id = response.json()["auth_id"]
+    await entered.wait()
+    cancelled = await client.post(f"/v1/auth/device/{auth_id}/cancel")
+    assert cancelled.json()["state"] == "stop_unconfirmed" and "instance" not in cancelled.json()
+    assert runtime.get("auth", auth_id)["instance"] == identity
+    (runtime.directory / "turns" / auth_id).mkdir(exist_ok=True)
+    run_id = uuid.uuid4().hex
+    runtime.put("run", run_id, {
+        "run_id": run_id, "session_id": "s" * 32, "case_id": "fixture-case", "scope_id": SCOPE,
+        "state": "stop_unconfirmed", "error": "stop_unconfirmed", "answer": "",
+        "created_at": datetime.now(UTC).isoformat(), "updated_at": datetime.now(UTC).isoformat(),
+        "event_cursor": 0, "usage": None, "instance": dict(identity),
+    })
+    (runtime.directory / "turns" / run_id).mkdir()
+    return auth_id, run_id
+
+
+def _restart_client(restarted):
+    return httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=create_app(restarted)), base_url="http://runtime",
+        headers={"Authorization": "Bearer " + TOKEN})
+
+
+async def test_new_namespace_interrupts_unconfirmed_stops_and_accepts_a_run(client, runtime, monkeypatch):
+    identity = {"boot_id": "boot-old", "pid_namespace": "pid:[111]"}
+    auth_id, run_id = await _stamp_unconfirmed(client, runtime, monkeypatch, identity)
+    # This run differs only by boot id once the namespace moves to pid:[222].
+    runtime.put("run", run_id, {**runtime.get("run", run_id), "instance": {
+        "boot_id": "boot-other", "pid_namespace": "pid:[222]"}})
+    assert runtime._instance_held
+    assert fcntl.fcntl(runtime._instance_fd, fcntl.F_GETFD) & fcntl.FD_CLOEXEC
+    await runtime.close()
+    await runtime.close()
+    identity["pid_namespace"] = "pid:[222]"
+    restarted = Runtime(runtime.directory, TOKEN, upstream=runtime.upstream)
+    try:
+        assert not restarted.unconfirmed
+        auth, run = restarted.get("auth", auth_id), restarted.get("run", run_id)
+        assert auth["state"] == "interrupted" and auth["error"] == "runtime_restarted"
+        assert run["state"] == "interrupted" and run["error"] == "runtime_restarted"
+        assert auth["instance"]["pid_namespace"] == "pid:[111]"
+        assert run["instance"]["boot_id"] == "boot-other"
+        assert not (restarted.directory / "turns" / auth_id).exists()
+        assert not (restarted.directory / "turns" / run_id).exists()
+        async with _restart_client(restarted) as restarted_client:
+            auth_view = await restarted_client.get("/v1/auth/device/" + auth_id)
+            run_view = await restarted_client.get(f"/v1/runs/{run_id}?scope_id={SCOPE}")
+            assert auth_view.json()["state"] == "interrupted" and "instance" not in auth_view.json()
+            assert run_view.json()["state"] == "interrupted" and "instance" not in run_view.json()
+            assert restarted.capabilities()["execution_state"] == "idle"
+
+            async def answer(payload, scratch, identifier):
+                return {"answer": "已恢復", "history": []}
+
+            monkeypatch.setattr(restarted, "invoke", answer)
+            await configure(restarted_client)
+            sid = await session(restarted_client, key="after-restart")
+            accepted = await restarted_client.post(
+                f"/v1/sessions/{sid}/runs", json=request_body(), headers={"Idempotency-Key": "resumed"})
+            assert accepted.status_code == 202, accepted.text
+            await drain(restarted)
+            assert restarted.get("run", accepted.json()["run_id"])["state"] == "succeeded"
+            assert not restarted.unconfirmed
+    finally:
+        await restarted.close()
+        await restarted.close()
+    runtime.unconfirmed.clear()
+
+
+async def test_same_namespace_keeps_unconfirmed_stops(client, runtime, monkeypatch):
+    identity = {"boot_id": "boot-same", "pid_namespace": "pid:[333]"}
+    auth_id, run_id = await _stamp_unconfirmed(client, runtime, monkeypatch, identity)
+    await runtime.close()
+    restarted = Runtime(runtime.directory, TOKEN, upstream=runtime.upstream)
+    try:
+        assert restarted.unconfirmed == {auth_id, run_id}
+        assert restarted.get("auth", auth_id)["state"] == "stop_unconfirmed"
+        assert restarted.get("run", run_id)["state"] == "stop_unconfirmed"
+        assert (restarted.directory / "turns" / auth_id).is_dir()
+        assert (restarted.directory / "turns" / run_id).is_dir()
+        async with _restart_client(restarted) as restarted_client:
+            sid = await session(restarted_client, key="kept-session")
+            blocked = await restarted_client.post(
+                f"/v1/sessions/{sid}/runs", json=request_body(), headers={"Idempotency-Key": "kept-run"})
+            assert blocked.status_code == 409 and blocked.json()["detail"]["code"] == "stop_unconfirmed"
+    finally:
+        await restarted.close()
+    runtime.unconfirmed.clear()
+
+
+async def test_busy_instance_lock_keeps_unconfirmed_stops(client, runtime, monkeypatch, caplog):
+    identity = {"boot_id": "boot-busy", "pid_namespace": "pid:[444]"}
+    auth_id, run_id = await _stamp_unconfirmed(client, runtime, monkeypatch, identity)
+    await runtime.close()
+    held = os.open(runtime.directory / "instance.lock", os.O_RDWR | os.O_CLOEXEC)
+    try:
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        identity["pid_namespace"] = "pid:[555]"
+        with caplog.at_level(logging.WARNING, logger="agentic_hermes.app"):
+            restarted = Runtime(runtime.directory, TOKEN, upstream=runtime.upstream)
+        try:
+            assert "hermes instance lock is busy; unconfirmed stops stay unconfirmed" in caplog.text
+            assert "instance.lock" not in caplog.text and str(runtime.directory) not in caplog.text
+            assert restarted.unconfirmed == {auth_id, run_id}
+            assert restarted.get("auth", auth_id)["state"] == "stop_unconfirmed"
+            assert restarted.get("run", run_id)["state"] == "stop_unconfirmed"
+            assert not restarted._instance_held
+        finally:
+            await restarted.close()
+            await restarted.close()
+    finally:
+        os.close(held)
+    runtime.unconfirmed.clear()
+
+
+async def test_stop_without_instance_survives_a_new_namespace(tmp_path, monkeypatch):
+    identity = {"boot_id": "boot-old", "pid_namespace": "pid:[111]"}
+    monkeypatch.setattr("agentic_hermes.app.current_instance", lambda: dict(identity))
+    upstream = tmp_path / "upstream"
+    upstream.mkdir()
+    (upstream / "run_agent.py").write_text("# fixture\n")
+    service = Runtime(tmp_path / "data", TOKEN, upstream=upstream)
+    run_id = uuid.uuid4().hex
+    service.put("run", run_id, {
+        "run_id": run_id, "session_id": "s" * 32, "case_id": "fixture-case", "scope_id": SCOPE,
+        "state": "stop_unconfirmed", "error": "stop_unconfirmed", "answer": "",
+        "created_at": datetime.now(UTC).isoformat(), "updated_at": datetime.now(UTC).isoformat(),
+        "event_cursor": 0, "usage": None,
+    })
+    (service.directory / "turns" / run_id).mkdir()
+    await service.close()
+    await service.close()
+    identity["boot_id"] = "boot-new"
+    identity["pid_namespace"] = "pid:[222]"
+    restarted = Runtime(tmp_path / "data", TOKEN, upstream=upstream)
+    try:
+        assert run_id in restarted.unconfirmed
+        assert restarted.get("run", run_id)["state"] == "stop_unconfirmed"
+        assert "instance" not in restarted.get("run", run_id)
+        assert (restarted.directory / "turns" / run_id).is_dir()
+    finally:
+        await restarted.close()
+        await restarted.close()
 
 
 async def test_runtime_revoked_credentials_cannot_resume_or_leak(client, runtime, monkeypatch):
