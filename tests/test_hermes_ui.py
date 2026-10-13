@@ -231,7 +231,13 @@ def test_signed_in_hermes_summary_and_login_poll_stops_after_errors():
         request = route.request
         path = request.url.split("/api/")[1].split("?")[0]
         if request.method == "POST":
-            raise AssertionError("Unexpected API write: " + path)
+            if path != "hermes/auth" or not phase.get("replace"):
+                raise AssertionError("Unexpected API write: " + path)
+            sent = request.post_data_json
+            assert sent["provider"] == "openrouter" and sent["model"] == "vendor/model-a"
+            runtime.update(provider="openrouter", model=sent["model"])
+            route.fulfill(status=200, content_type="application/json", body=json.dumps({"state": "configured"}))
+            return
         if path == "deployment":
             result = {"mode": "host", "authenticated": True}
         elif path == "session":
@@ -285,6 +291,17 @@ def test_signed_in_hermes_summary_and_login_poll_stops_after_errors():
             expect(panel.locator(".hermes-login-form")).to_be_visible()
             expect(panel.get_by_role("radio", name="官方訂閱登入", exact=True)).to_be_checked()
             shot(page, "replace-login")
+            # A finished replacement folds back into the signed-in line.
+            panel.get_by_role("radio", name="OpenRouter API key", exact=True).check()
+            panel.get_by_label("OpenRouter 模型 ID", exact=True).fill("vendor/model-a")
+            panel.locator("input[type=password]").fill("fixture-key-not-a-secret")
+            phase["replace"] = True
+            panel.get_by_role("button", name="儲存登入", exact=True).click()
+            expect(panel.locator(".setup-facts span")).to_have_text("已登入 · OpenRouter")
+            expect(panel.locator(".hermes-login-form")).to_have_count(0)
+            expect(panel.get_by_text("更換後會先登出目前的帳號。", exact=True)).to_have_count(0)
+            phase["replace"] = False
+            runtime.update(provider="openai-codex", model="gpt-6-astra")
 
             runtime["state"] = "needs_auth"
             phase["poll"] = True
