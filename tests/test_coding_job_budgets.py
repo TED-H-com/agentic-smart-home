@@ -898,3 +898,35 @@ def test_cancel_of_an_unconfirmed_stop_uses_the_retry(tmp_path, monkeypatch):
         assert viewed["stop_confirmed"] is True and "verification" not in service.items[payload["id"]]
     finally:
         service.close()
+
+
+def test_a_failing_stop_retry_never_jams_other_requests(tmp_path, monkeypatch):
+    clock, spec = Clock(), Spec()
+    spec.launch_mono = 1
+    spec.make_workspace = True
+    service = service_for(tmp_path, monkeypatch, clock, spec)
+    try:
+        stuck = _stopped_job(service, request())
+        older = _stopped_job(service, request(id="c" * 32))
+        # The sandbox ledger has no record of this id, so every stop retry raises.
+        spec.strict_cancel = True
+        stuck.update(state="stop_unconfirmed", phase="stop_unconfirmed", stop_confirmed=False,
+                     error_code="execution_timeout", results_collected=True, sandbox_job_id="d" * 32)
+        older["retained_until"] = time.time() - 1
+        service.prune()
+        assert stuck["state"] == "stop_unconfirmed" and stuck["stop_confirmed"] is False
+        # The same pass still applied retention to the job after it.
+        assert older["state"] == "expired" and older["content_expired"] is True
+        assert service.handle("POST", "/coding/retention", {"context_days": 7}) == (200, {"context_days": 7})
+        # A new job gets an explainable refusal while a writer may still run, not a rejected request.
+        status, body = service.handle("POST", "/coding/jobs", request(id="e" * 32))
+        assert status == 202 and body["error_code"] == "coding_writer_or_auth_fence_active"
+        # The owner's explicit stop still reports the failure instead of claiming a stop.
+        status, body = service.handle("POST", "/coding/jobs/" + stuck["id"] + "/cancel")
+        assert status == 409 and body == {"detail": "coding_operation_rejected"}
+        assert stuck["state"] == "stop_unconfirmed"
+        spec.strict_cancel = False
+        service.prune()
+        assert stuck["state"] == "failed" and stuck["error_code"] == "execution_timeout"
+    finally:
+        service.close()

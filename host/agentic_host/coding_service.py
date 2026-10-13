@@ -213,7 +213,7 @@ class CodingService:
         while not self.closed.wait(60):
             try:
                 self.prune()
-            except (OSError, ValueError, SandboxError):
+            except (OSError, ValueError, KeyError, TypeError, SandboxError):
                 pass
 
     def persist(self):
@@ -612,8 +612,9 @@ class CodingService:
             path = workspace / "artifacts" / "changes.patch"
             path.unlink(missing_ok=True)
             descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-            with os.fdopen(descriptor, "w") as stream:
-                stream.write(patch)
+            # The exact bytes the verifier receives. No locale encoding or newline translation.
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(diff)
         exported = sandbox.artifacts(job["id"])
         output = self.root / "artifacts" / job["id"]
         output.mkdir(parents=True, mode=0o700, exist_ok=True)
@@ -857,7 +858,12 @@ class CodingService:
                 if days is not None:
                     job["retained_until"] = min(job["retained_until"], job["created"] + days * 86400)
                 if job.get("state") == "stop_unconfirmed":
-                    self.retry_stop(job)
+                    try:
+                        self.retry_stop(job)
+                    except (OSError, ValueError, KeyError, TypeError, SandboxError):
+                        # Retried on the next pass. One silent daemon or lost ledger never blocks
+                        # other jobs, new requests or retention. An explicit cancel still surfaces it.
+                        pass
                 if job.get("stop_confirmed") and self.results_outstanding(job):
                     self.preserve_stopped(job, self.sandboxes.get(job["id"], self.sandbox()))
                 if job.get("stop_confirmed") and not job.get("workspace_released") and not self.results_outstanding(job):
