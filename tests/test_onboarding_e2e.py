@@ -291,19 +291,23 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
             await page.get_by_role("button", name="開啟管理中心").click()
             await page.locator(".onboarding-body").get_by_role("button", name="開始設定", exact=True).click()
             await page.locator(".bootstrap-auth").wait_for()
-            # A wrapping label includes the nested select option text. Scope to
-            # this selected CLI instead of requiring an incorrect exact name.
-            await page.locator(".bootstrap-auth").get_by_label("登入方式").select_option("api_key")
+            # Other sign-in methods sit in a fold. A wrapping label includes the nested
+            # select option text, so scope to this selected CLI instead of an exact name.
+            auth = page.locator(".bootstrap-auth")
+            await auth.get_by_text("其他登入方式", exact=True).click()
+            await auth.get_by_label("登入方式").select_option("api_key")
             await page.get_by_label("API key", exact=True).fill("e2e-synthetic-cli-key-no-cloud")
-            await page.get_by_role("button", name="開始官方登入", exact=True).click()
-            await page.get_by_label("Hermes 登入方式").select_option("openrouter")
+            await page.get_by_role("button", name="開始登入", exact=True).click()
+            hermes = page.get_by_role("region", name="智能管家登入")
+            await hermes.get_by_role("radio", name="OpenRouter API key", exact=True).check()
             assert fixtures.calls == ["bootstrap_hermes"] and len(fixtures.cli_requests) == 1
             await page.reload()
-            await page.get_by_label("Hermes 登入方式").select_option("openrouter")
-            await page.get_by_label("OpenRouter 模型 ID").fill("fixture/model")
-            await page.get_by_label("OpenRouter API key", exact=True).fill("e2e-synthetic-hermes-key-no-cloud")
-            await page.get_by_role("button", name="儲存 Hermes 登入").click()
-            await page.get_by_role("button", name="Web 先用 Web，稍後連接通訊", exact=True).click()
+            await hermes.get_by_role("radio", name="OpenRouter API key", exact=True).check()
+            await hermes.get_by_role("textbox", name="OpenRouter 模型 ID", exact=True).fill("fixture/model")
+            await hermes.get_by_role("textbox", name="OpenRouter API key", exact=True).fill(
+                "e2e-synthetic-hermes-key-no-cloud")
+            await hermes.get_by_role("button", name="儲存登入").click()
+            await page.get_by_role("radio", name="Web 先用 Web", exact=True).click()
             await page.get_by_role("heading", name="設定你的家庭").wait_for()
             assert fixtures.calls == ["bootstrap_hermes", "provision"]
             # A real Controller restart resumes the same persisted operation IDs.

@@ -333,9 +333,9 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             shots(page, 'native-owner')
             page.get_by_text('進階：使用權杖', exact=True).click()
             expect(page.get_by_text('權杖不會交給 AI。', exact=False)).to_be_visible()
-            page.get_by_label('HA owner 權杖').fill('fixture-private-home-token')
-            page.get_by_label('HA owner 權杖').press('Enter')
-            expect(page.get_by_label('HA owner 權杖')).to_have_value('')
+            page.get_by_label('家庭權杖').fill('fixture-private-home-token')
+            page.get_by_label('家庭權杖').press('Enter')
+            expect(page.get_by_label('家庭權杖')).to_have_value('')
             assert 'fixture-private-home-token' not in stored(page)
             assert page.get_by_role('heading', name='設定完成').count() == 0
             flow.update(state='completed', current_step=None, human_action=None)
