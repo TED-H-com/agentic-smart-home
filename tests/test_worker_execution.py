@@ -14,7 +14,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "host"))
 from agentic_host.coding_program import program  # noqa: E402
-from agentic_host.coding_relay import Relay  # noqa: E402
+from agentic_host.coding_relay import MAX_CALLS, Relay  # noqa: E402
 from agentic_host.coding_sandbox import SandboxError  # noqa: E402
 from agentic_host.coding_service import CodingService  # noqa: E402
 from agentic_runner.app import Broker, create_api  # noqa: E402
@@ -181,6 +181,43 @@ def test_collect_refuses_a_visible_symlink(tmp_path, visible):
         service.close()
 
 
+def test_retried_collect_keeps_unique_artifact_ids(tmp_path):
+    service = CodingService(SimpleNamespace(root=tmp_path / "host", product=tmp_path / "product"))
+    job_id = "d" * 32
+    workspace = tmp_path / "work" / job_id / "workspace"
+    (workspace / "artifacts").mkdir(parents=True)
+    base = committed_source(workspace / "source")
+    calls = {"n": 0}
+
+    def artifacts(_job_id):
+        calls["n"] += 1
+        items = [
+            {"name": "notes.txt", "content": "hello\n",
+             "sha256": hashlib.sha256(b"hello\n").hexdigest(), "size": 6},
+            {"name": "more.txt", "content": "world\n",
+             "sha256": hashlib.sha256(b"world\n").hexdigest(), "size": 6},
+        ]
+        if calls["n"] == 1:
+            def broken():
+                yield items[0]
+                raise OSError("export broke")
+            return broken()
+        return items
+
+    job = {"id": job_id, "base_commit": base, "state": "succeeded", "artifacts": [{"id": "previous"}]}
+    sandbox = SimpleNamespace(root=tmp_path / "work", artifacts=artifacts)
+    try:
+        with pytest.raises(OSError, match="export broke"):
+            service.collect(job, sandbox)
+        assert job["artifacts"] == [{"id": "previous"}]
+        service.collect(job, sandbox)
+        ids = [item["id"] for item in job["artifacts"]]
+        assert len(ids) == len(set(ids)) == 2
+        assert {item["name"] for item in job["artifacts"]} == {"notes.txt", "more.txt"}
+    finally:
+        service.close()
+
+
 def test_withheld_artifact_route_returns_404(tmp_path):
     from agentic_host.coding_sandbox import Limits, read_artifacts
     service = CodingService(SimpleNamespace(root=tmp_path / "host", product=tmp_path / "product"))
@@ -224,12 +261,14 @@ def test_relay_selected_model_and_call_deadline(tmp_path, monkeypatch):
     with pytest.raises(SandboxError):
         relay.request("POST", "/v1/responses", b'{"model":"gpt-6-astra","tools":[{"type":"mcp"}]}')
     assert not forwarded
-    relay.calls = 80
-    with pytest.raises(SandboxError):
+    relay.calls = MAX_CALLS
+    with pytest.raises(SandboxError, match="Relay authorization expired or exhausted"):
         relay.request("POST", "/v1/responses", b'{"model":"gpt-6-astra"}')
-    relay.calls, relay.deadline = 0, time.time() - 1
-    with pytest.raises(SandboxError):
+    assert relay.turns_exhausted is True and relay.calls == MAX_CALLS
+    relay.calls, relay.deadline, relay.turns_exhausted = 0, time.time() - 1, False
+    with pytest.raises(SandboxError, match="Relay authorization expired or exhausted"):
         relay.request("POST", "/v1/responses", b'{"model":"gpt-6-astra"}')
+    assert relay.turns_exhausted is False and relay.calls == 0
 
 
 async def test_coding_endpoints_paired_and_role_separate(tmp_path, monkeypatch):

@@ -20,6 +20,7 @@ from agentic_host.coding_relay import (  # noqa: E402
     CHATGPT_CLIENT_ID,
     FETCH_LIMIT,
     IDLE_TIMEOUT,
+    MAX_CALLS,
     MAX_CREDENTIAL,
     MAX_REQUEST,
     MAX_RESPONSE,
@@ -541,6 +542,7 @@ def test_refresh_rules_write_back_and_one_retry(tmp_path, monkeypatch):
     soon_value = auth_value(live_soon, OLD_REFRESH, stamp(time.time()), jwt_token({"kind": "id-old"}))
     path, calls, status, _, raw, relay = run(soon_value, [(503, "application/json", b"{}"), model_reply])
     assert status == 200 and raw == b"data: ok\n\n" and not relay.auth_failed
+    assert not relay.provider_unavailable and not relay.quota_reached and not relay.provider_rejected
     assert [item[0] for item in calls] == [TOKEN_HOST, "chatgpt.com"]
     assert calls[1][3]["Authorization"] == "Bearer " + live_soon
 
@@ -1223,3 +1225,77 @@ def test_sandbox_proxy_forwards_allowlisted_headers_both_ways(tmp_path):
     assert b"set-cookie" not in data.lower() and b"session=secret" not in data and b"x-evil" not in data.lower()
     assert b"chunked" in data.lower() and b"data: ok" in data
     assert b"413" in rejected and b"HTTP/1." in rejected
+
+
+def _chatgpt_relay(tmp_path, monkeypatch, replies):
+    patch_owner(monkeypatch)
+    path = tmp_path / "auth.json"
+    live_far = jwt_token({"exp": int(time.time()) + 30 * 86400})
+    install_auth(path, auth_value(live_far, OLD_REFRESH, stamp(time.time()), jwt_token({"kind": "id"})))
+    pending = list(replies)
+
+    def transport(host, route, method, body, headers, maximum=None):
+        return pending.pop(0)
+
+    return Relay(tmp_path / "flags.sock", path, time.time() + 30, transport=transport)
+
+
+def _token_reply():
+    new_access = jwt_token({"exp": int(time.time()) + 30 * 86400, "kind": "access"})
+    new_id = jwt_token({"exp": int(time.time()) + 30 * 86400, "kind": "id-token"})
+    return (200, "application/json", json.dumps({"access_token": new_access, "id_token": new_id,
+            "refresh_token": NEW_REFRESH, "token_type": "bearer"}).encode())
+
+
+@pytest.mark.parametrize("status,flag", [
+    (429, "quota_reached"),
+    (400, "provider_rejected"),
+    (404, "provider_rejected"),
+    (422, "provider_rejected"),
+    (503, "provider_unavailable"),
+    (403, "auth_failed"),
+])
+def test_final_provider_status_sets_one_flag(tmp_path, monkeypatch, status, flag):
+    body = b'{"error":"fixture-status","code":' + str(status).encode() + b'}'
+    relay = _chatgpt_relay(tmp_path, monkeypatch, [(status, "application/json", body)])
+    assert relay.quota_reached is relay.provider_rejected is relay.provider_unavailable is False
+    assert relay.turns_exhausted is relay.auth_failed is False
+    got, content_type, raw = relay.request("POST", "/v1/responses", REQUEST)
+    assert got == status and content_type == "application/json" and raw == body
+    for name in ("quota_reached", "provider_rejected", "provider_unavailable", "turns_exhausted", "auth_failed"):
+        assert getattr(relay, name) is (name == flag)
+
+
+def test_successful_refresh_leaves_provider_flags_clear(tmp_path, monkeypatch):
+    relay = _chatgpt_relay(tmp_path, monkeypatch, [
+        (401, "application/json", b'{"error":"expired"}'), _token_reply(),
+        (200, "text/event-stream", b"data: refreshed\n\n")])
+    status, _, raw = relay.request("POST", "/v1/responses", REQUEST)
+    assert status == 200 and raw == b"data: refreshed\n\n"
+    assert relay.auth_failed is relay.quota_reached is relay.provider_rejected is False
+    assert relay.provider_unavailable is relay.turns_exhausted is False
+
+
+def test_final_401_after_refresh_is_only_reauth(tmp_path, monkeypatch):
+    body = b'{"error":"still-expired"}'
+    relay = _chatgpt_relay(tmp_path, monkeypatch, [
+        (401, "application/json", b'{"error":"expired"}'), _token_reply(),
+        (401, "application/json", body)])
+    status, _, raw = relay.request("POST", "/v1/responses", REQUEST)
+    assert status == 401 and raw == body
+    assert relay.auth_failed is True
+    assert relay.quota_reached is relay.provider_rejected is relay.provider_unavailable is relay.turns_exhausted is False
+
+
+def test_call_cap_sets_turns_exhausted_and_keeps_the_message(tmp_path, monkeypatch):
+    relay = _chatgpt_relay(tmp_path, monkeypatch, [(200, "application/json", b"{}")] * (MAX_CALLS + 2))
+    relay.calls = MAX_CALLS - 1
+    status, _, raw = relay.request("POST", "/v1/responses", REQUEST)
+    assert status == 200 and raw == b"{}" and relay.calls == MAX_CALLS and relay.turns_exhausted is False
+    with pytest.raises(SandboxError, match="Relay authorization expired or exhausted"):
+        relay.request("POST", "/v1/responses", REQUEST)
+    assert relay.turns_exhausted is True and relay.calls == MAX_CALLS
+    expired = Relay(tmp_path / "expired.sock", tmp_path / "missing.json", time.time() - 1)
+    with pytest.raises(SandboxError, match="Relay authorization expired or exhausted"):
+        expired.request("POST", "/v1/responses", REQUEST)
+    assert expired.turns_exhausted is False and expired.calls == 0
