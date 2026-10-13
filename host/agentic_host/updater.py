@@ -10,6 +10,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import sqlite3
 import stat
 import tempfile
@@ -25,6 +26,7 @@ from .fence import fence
 from .manager import HostError, atomic, sync_path
 from .publisher import TRUST, public_key
 from .resources import ready
+from .source import SHA40, source_identity
 
 DIGEST = re.compile(r"[a-f0-9]{64}")
 IMAGE = re.compile(r"sha256:[a-f0-9]{64}")
@@ -35,6 +37,12 @@ RECOVERY_STATES = {"deploying", "rolling_back", "needs_reconcile"}
 # Advertise only from this fixed updater implementation. It protects bridge
 # operations and requires the candidate probe to preserve bridge authority.
 INGRESS_BRIDGE_CONTRACT = 1
+# The signed image digest covers the bundle. Bounds reject a huge copy before
+# import. Source objects come only from that local bundle, never from a fetch URL.
+SOURCE_BUNDLE_MAX_BYTES = 256 * 1024 * 1024
+SOURCE_DOCKER_TIMEOUT = 120
+SOURCE_GIT_TIMEOUT = 180
+SOURCE_SYNC = {"pending", "moved", "unavailable", "reverted", "needs_reconcile"}
 
 
 class UpdateError(HostError):
@@ -119,6 +127,9 @@ class Updater:
     def __init__(self, manager):
         self.manager, self.run = manager, manager.run
         self.root = manager.root / "updates"
+        self.coding = manager.root.parent / "coding"
+        self.source_repo = self.coding / "source"
+        self.source_lock = self.coding / "source.json"
         self.root.mkdir(mode=0o700, exist_ok=True)
         self.path = self.root / "records.json"
         self.environment = manager.root / "runtime.env"
@@ -132,6 +143,8 @@ class Updater:
             if value["state"] == "staging":
                 value.update(state="failed", error_code="update_staging_interrupted")
             elif value["state"] in {"deploying", "rolling_back"}:
+                if value.get("source_sync") in {"pending", "moved", "reverted"}:
+                    value["source_sync"] = "needs_reconcile"
                 value.update(state="needs_reconcile", error_code="update_interrupted")
         atomic(self.path, self.records)
         self.expire_snapshots()
@@ -241,7 +254,10 @@ class Updater:
             atomic(self.path, self.records)
 
     def public(self, record):
-        return {k: v for k, v in record.items() if k not in {"signature"}}
+        value = {k: v for k, v in record.items() if k not in {"signature", "source_lock_before"}}
+        if value.get("source_sync") not in SOURCE_SYNC:
+            value["source_sync"] = "needs_reconcile" if "source_sync" in value else "unavailable"
+        return value
 
     def stage(self, body):
         if not isinstance(body, dict) or set(body) != {"manifest", "signature"}:
@@ -271,9 +287,190 @@ class Updater:
             metadata = json.loads(self.run("docker", "image", "inspect", image).stdout)[0]
             if metadata.get("Os") != "linux" or metadata.get("Architecture") != "amd64" or metadata.get("Config", {}).get("Volumes"):
                 raise UpdateError("update_image_runtime_invalid")
+            self.stage_source(record)
             self.update(record, state="staged", base_image=self.image(), approval_id=secrets.token_urlsafe(32), approval_expires_at=time.time() + 600)
         except Exception as exc:
             self.update(record, state="failed", error_code=str(exc) if isinstance(exc, UpdateError) else "update_stage_failed")
+
+    def _command(self, *args, timeout=SOURCE_GIT_TIMEOUT, check=True):
+        result = self.run(*args, timeout=timeout, check=False)
+        if check and result.returncode:
+            raise UpdateError("update_source_command_failed")
+        return result
+
+    def _git(self, *args, repo=None, timeout=SOURCE_GIT_TIMEOUT, check=True):
+        # No repository hooks, and no background gc racing the compare-and-swap.
+        return self._command("git", "-c", "core.hooksPath=/dev/null", "-c", "gc.auto=0", "-c", "maintenance.auto=false",
+                             "--git-dir", str(repo or self.source_repo), *args, timeout=timeout, check=check)
+
+    def _rev(self, ref="HEAD", repo=None):
+        value = self._git("rev-parse", "--verify", ref, repo=repo).stdout.strip()
+        if not SHA40.fullmatch(value):
+            raise UpdateError("update_source_command_failed")
+        return value
+
+    def _read_lock(self):
+        path = self.source_lock
+        if path.is_symlink() or not path.is_file():
+            raise UpdateError("update_source_unavailable")
+        try:
+            value = json.loads(path.read_text())
+        except (OSError, ValueError):
+            raise UpdateError("update_source_unavailable") from None
+        if not isinstance(value, dict) or value.get("repo_id") != "agentic-home":
+            raise UpdateError("update_source_unavailable")
+        commit = value.get("commit")
+        if not isinstance(commit, str) or not SHA40.fullmatch(commit):
+            raise UpdateError("update_source_unavailable")
+        return value
+
+    def _lock_or_none(self):
+        try:
+            return self._read_lock()
+        except UpdateError:
+            return None
+
+    def _require_repo(self):
+        if self.source_repo.is_symlink() or not self.source_repo.is_dir() or self.source_lock.is_symlink():
+            raise UpdateError("update_source_unavailable")
+        return self.source_repo
+
+    @staticmethod
+    def _discard(path):
+        if path.is_symlink() or path.is_file():
+            path.unlink()
+        elif path.is_dir():
+            shutil.rmtree(path)
+
+    def _extract_bundle(self, image, destination):
+        """Copy the bundle out of a created container. Never start it."""
+        if not IMAGE.fullmatch(image):
+            raise UpdateError("update_source_extract_failed")
+        name = "agentic-update-source-" + secrets.token_hex(8)
+        self._discard(destination)
+        try:
+            self._command("docker", "create", "--name", name, image, timeout=SOURCE_DOCKER_TIMEOUT)
+            result = self._command("docker", "cp", name + ":/app/source/agentic-home.bundle", str(destination),
+                                   timeout=SOURCE_DOCKER_TIMEOUT, check=False)
+            if result.returncode:
+                self._discard(destination)
+                detail = (result.stderr or "") + (result.stdout or "")
+                if "No such container:path" in detail or "Could not find the file" in detail:
+                    return False
+                raise UpdateError("update_source_extract_failed")
+            try:
+                info = destination.lstat()
+            except OSError:
+                raise UpdateError("update_source_extract_failed") from None
+            if not stat.S_ISREG(info.st_mode) or not 32 <= info.st_size <= SOURCE_BUNDLE_MAX_BYTES:
+                raise UpdateError("update_source_bundle_invalid")
+            return True
+        finally:
+            self._command("docker", "rm", "-f", name, timeout=SOURCE_DOCKER_TIMEOUT, check=False)
+
+    def _verify_bundle(self, bundle, source_commit):
+        with tempfile.TemporaryDirectory(prefix="verify-", dir=self.root) as temporary:
+            empty = Path(temporary) / "empty"
+            self._command("git", "init", "-q", "-b", "main", str(empty), timeout=SOURCE_GIT_TIMEOUT)
+            verified = self._command("git", "-C", str(empty), "bundle", "verify", str(bundle), timeout=SOURCE_GIT_TIMEOUT, check=False)
+            if verified.returncode:
+                raise UpdateError("update_source_bundle_invalid")
+        listed = self._command("git", "bundle", "list-heads", str(bundle), timeout=SOURCE_GIT_TIMEOUT)
+        heads = []
+        for line in listed.stdout.splitlines():
+            parts = line.split()
+            if len(parts) != 2 or not SHA40.fullmatch(parts[0]):
+                raise UpdateError("update_source_bundle_invalid")
+            heads.append(parts[0])
+        if heads != [source_commit]:
+            raise UpdateError("update_source_bundle_invalid")
+
+    def stage_source(self, record):
+        if not DIGEST.fullmatch(record.get("candidate_digest", "")):
+            raise UpdateError("update_source_bundle_invalid")
+        if not any(path.is_symlink() or path.exists() for path in (self.source_repo, self.source_lock)):
+            # This Host has no coding source. The image still deploys as before.
+            record["source_sync"] = "unavailable"
+            return
+        bundle = self.root / ("source-" + record["candidate_digest"] + ".bundle")
+        try:
+            if not self._extract_bundle(record["manifest"]["image_id"], bundle):
+                record["source_sync"] = "unavailable"
+                return
+            self._accept_bundle(record, bundle)
+        finally:
+            self._discard(bundle)
+
+    def _accept_bundle(self, record, bundle):
+        source_commit = record["manifest"]["source_commit"]
+        ref = "refs/agentic/candidate/" + record["manifest"]["image_id"].removeprefix("sha256:")
+        self._verify_bundle(bundle, source_commit)
+        self._require_repo()
+        before = self._rev("HEAD")
+        lock = self._read_lock()
+        if lock["commit"] != before:
+            raise UpdateError("update_source_unavailable")
+        with tempfile.TemporaryDirectory(prefix="candidate-", dir=self.root) as temporary:
+            staging = Path(temporary) / "repo"
+            self._command("git", "clone", "--bare", "--no-hardlinks", str(bundle), str(staging), timeout=SOURCE_GIT_TIMEOUT)
+            if self._rev("HEAD", repo=staging) != source_commit:
+                raise UpdateError("update_source_bundle_invalid")
+            self._git("fsck", "--full", repo=staging)
+            # Local path only. The + applies to the candidate ref, never to HEAD.
+            if self._git("fetch", "--no-tags", str(staging), "+HEAD:" + ref, check=False).returncode:
+                raise UpdateError("update_source_bundle_invalid")
+        if self._rev("HEAD") != before:
+            raise UpdateError("update_source_diverged")
+        if self._rev(ref) != source_commit:
+            raise UpdateError("update_source_bundle_invalid")
+        self._git("fsck", "--full")
+        record.update(source_sync="pending", source_before=before, source_candidate=source_commit, source_ref=ref,
+                      source_lock_before=lock)
+
+    def _moved_lock(self, record):
+        install = record["source_lock_before"].get("install_commit") or record["source_before"]
+        return {"repo_id": "agentic-home", "commit": record["source_candidate"], "install_commit": install,
+                "previous_commit": record["source_before"], "image_id": record["manifest"]["image_id"],
+                "candidate_digest": record["candidate_digest"]}
+
+    def align_source(self, record, image, *, idle=None):
+        """Make coding HEAD and source.json match the image that runs next.
+
+        The caller has stopped the Controller, so no coding job can bind a
+        commit. ``idle`` proves no job is active before any change. HEAD moves
+        by compare-and-swap and source.json is replaced atomically, so a rerun
+        after an interruption at any point finishes the same move. An unknown
+        HEAD or source.json is never overwritten.
+        """
+        sync = record.get("source_sync")
+        if sync in {None, "unavailable"}:
+            record["source_sync"] = "unavailable"
+            return
+        before, candidate, previous = record.get("source_before"), record.get("source_candidate"), record.get("source_lock_before")
+        if (not all(isinstance(value, str) and SHA40.fullmatch(value) for value in (before, candidate))
+                or not isinstance(previous, dict) or candidate != record["manifest"]["source_commit"]
+                or record.get("source_ref") != "refs/agentic/candidate/" + record["manifest"]["image_id"].removeprefix("sha256:")):
+            raise UpdateError("update_source_diverged")
+        moved = self._moved_lock(record)
+        forward = image == record["manifest"]["image_id"]
+        commit, lock = (candidate, moved) if forward else (before, previous)
+        head, current = self._rev("HEAD"), self._lock_or_none()
+        if head not in {before, candidate} or current not in (previous, moved):
+            raise UpdateError("update_source_diverged")
+        if head != commit or current != lock:
+            if idle:
+                idle()
+            # update-ref refuses a missing object and an unexpected old value.
+            if head != commit and self._git("update-ref", "HEAD", commit, head, check=False).returncode and self._rev("HEAD") == head:
+                raise UpdateError("update_source_move_failed")
+            if current != lock:
+                try:
+                    atomic(self.source_lock, lock)
+                except OSError:
+                    raise UpdateError("update_source_move_failed") from None
+            if self._rev("HEAD") != commit or self._lock_or_none() != lock:
+                raise UpdateError("update_source_diverged")
+        record["source_sync"] = "moved" if forward else ("pending" if sync == "pending" else "reverted")
 
     def compose(self, *args, **kwargs):
         if not self.environment.exists():
@@ -470,6 +667,9 @@ class Updater:
             # restart the same proven artifact. Household AI stays paused.
             self.stop()
             offline_check(self.database, schema)
+            # Still stopped and idle: no coding job can bind a commit while the
+            # coding source follows the artifact.
+            self.align_source(record, target)
             clear_gate(self.database, record["candidate_digest"])
             self.activate(target)
             final = self.health()
@@ -479,7 +679,7 @@ class Updater:
                         finished_at=time.time(), current_database_preserved=True, mutations_paused=True)
         except Exception as exc:
             code = str(exc) if isinstance(exc, UpdateError) else "update_deployment_failed"
-            state = "failed"
+            state, source = "failed", True
             if stopped and previous:
                 try:
                     self.stop()
@@ -488,6 +688,12 @@ class Updater:
                     if switched:
                         offline_check(self.database, schema)
                         self.probe(previous, schema)
+                    try:
+                        self.align_source(record, previous, idle=lambda: offline_check(self.database, schema))
+                    except Exception:
+                        # The previous Controller still returns. A source that
+                        # cannot be confirmed is left as found for reconciliation.
+                        source = False
                     self.activate(previous)
                     self.health()
                     if gated:
@@ -499,6 +705,9 @@ class Updater:
                     state = "deployed" if rollback else ("rolled_back" if switched else "failed")
                 except Exception:
                     state, code = "needs_reconcile", "update_fallback_unconfirmed"
+            if not source or (state == "needs_reconcile" and record.get("source_sync") in {"pending", "moved", "reverted"}):
+                state = "needs_reconcile"
+                record["source_sync"] = "needs_reconcile"
             self.update(record, state=state, error_code=code, current_database_preserved=True)
 
     def status(self):
@@ -508,7 +717,8 @@ class Updater:
         except UpdateError:
             trusted = False
         return {"contract": 1, "scope": "controller_only_same_schema", "trusted_publisher_configured": trusted,
-                "runtime_digest": self.runtime_digest(), "records": [self.public(r) for r in self.records.values()]}
+                "runtime_digest": self.runtime_digest(), "deployed_source_commit": source_identity(self.coding)["source_commit"],
+                "records": [self.public(r) for r in self.records.values()]}
 
     def handle(self, method, path, body=None):
         if method == "GET" and path == "/updates":

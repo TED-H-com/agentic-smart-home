@@ -44,6 +44,8 @@ SAFE_ERRORS = {
     "update_rollback_revision_changed", "update_smoke_mismatch", "update_activation_mismatch",
     "update_final_smoke_mismatch", "update_staging_interrupted", "update_interrupted",
     "update_deployment_failed", "update_fallback_unconfirmed",
+    "update_source_bundle_invalid", "update_source_diverged", "update_source_move_failed", "update_source_unavailable",
+    "update_source_extract_failed", "update_source_command_failed",
     "host_memory_reserve_required", "host_resource_limits_unavailable", "container_identity_invalid",
     "container_stop_unconfirmed", "container_ownership_unconfirmed", "root_broker_required",
     "disk_backing_required", "host_reserve_insufficient", "workspace_mount_unverified",
@@ -648,6 +650,8 @@ def main():
     fixture.mkdir(mode=0o700)
     environment_before = service.environment.read_bytes() if service.environment.exists() else None
     records_before = service.path.read_bytes()
+    source_json_before = service.source_lock.read_bytes()
+    source_head_before = run("git", "--git-dir", str(service.source_repo), "rev-parse", "HEAD").stdout.strip()
     original = service.image()
     baseline = service.health()
     with sqlite3.connect(service.database.as_uri() + "?mode=ro", uri=True) as db:
@@ -663,7 +667,19 @@ def main():
     try:
         checkpoint("build_fixed_label_candidate")
         run("docker", "tag", original, base_tag)
-        (fixture / "Dockerfile").write_text(f"FROM {base_tag}\nLABEL agentic.disposable.update={identity}\n")
+        # One disposable commit on top of the installed source, so the deploy
+        # really moves coding HEAD and the rollback really returns it.
+        clone = fixture / "source-clone"
+        run("git", "clone", "--bare", "--no-hardlinks", "--", str(service.source_repo), str(clone), timeout=180)
+        tree = run("git", "--git-dir", str(clone), "rev-parse", "HEAD^{tree}").stdout.strip()
+        source_commit = run("git", "-c", "user.name=Disposable fixture", "-c", "user.email=fixture@example.invalid",
+                            "--git-dir", str(clone), "commit-tree", tree, "-p", source_head_before,
+                            "-m", "Disposable update fixture").stdout.strip()
+        run("git", "--git-dir", str(clone), "update-ref", "HEAD", source_commit)
+        run("git", "--git-dir", str(clone), "bundle", "create", str(fixture / "agentic-home.bundle"), "HEAD", timeout=180)
+        shutil.rmtree(clone)
+        (fixture / "Dockerfile").write_text(f"FROM {base_tag}\nLABEL agentic.disposable.update={identity}\n"
+                                            "COPY agentic-home.bundle /app/source/agentic-home.bundle\n")
         run("docker", "build", "--network", "none", "--pull=false", "-t", candidate_tag, str(fixture), timeout=180)
         candidate = run("docker", "image", "inspect", "--format", "{{.Id}}", candidate_tag).stdout.strip()
         assert re.fullmatch(r"sha256:[a-f0-9]{64}", candidate) and candidate != original
@@ -680,7 +696,7 @@ def main():
         import agentic_host.updater as module
         module.TRUST = fixture / "absent-system-trust.json"
         manifest = {"format": 1, "publisher": "disposable-fixture", "version": baseline["version"],
-                    "source_commit": "e" * 40, "image": "ghcr.io/disposable-fixture/controller@" + candidate,
+                    "source_commit": source_commit, "image": "ghcr.io/disposable-fixture/controller@" + candidate,
                     "image_id": candidate, "compatibility": {"schema": schema, "worker_contract": 1, "runner_protocol": 1,
                     "runtime_digest": service.runtime_digest(), "ha_core_versions": [baseline["ha_version"] or "2026.10.1"]},
                     "tests": [{"name": "disposable-fixture-only", "result": "passed", "sha256": hashlib.sha256(b"fixture-label-only").hexdigest()}],
@@ -727,6 +743,10 @@ def main():
         service.handle("POST", "/updates/apply", {"candidate_digest": digest, "approval_id": record["approval_id"]})
         wait({"deployed"})
         assert service.image() == candidate
+        assert record["source_sync"] == "moved" and service.status()["deployed_source_commit"] == source_commit
+        assert run("git", "--git-dir", str(service.source_repo), "rev-parse", "HEAD").stdout.strip() == source_commit
+        moved = json.loads(service.source_lock.read_text())
+        assert moved["commit"] == source_commit and moved["previous_commit"] == source_head_before
         # This is a synthetic durable post-deployment record in the real Live
         # database, written while its owner is stopped. It represents the data
         # that would be lost by restoring the pre-deployment snapshot.
@@ -744,6 +764,9 @@ def main():
         wait({"rolled_back"})
         checkpoint("rollback_readback_and_row_preservation")
         assert service.image() == original
+        assert record["source_sync"] == "reverted"
+        assert run("git", "--git-dir", str(service.source_repo), "rev-parse", "HEAD").stdout.strip() == source_head_before
+        assert json.loads(service.source_lock.read_text()) == json.loads(source_json_before)
         with sqlite3.connect(service.database.as_uri() + "?mode=ro", uri=True) as db:
             assert db.execute("SELECT body FROM records WHERE kind='update_vm_fixture' AND id=?", (marker,)).fetchone()
             assert db.execute("PRAGMA user_version").fetchone()[0] == schema
@@ -752,8 +775,9 @@ def main():
         result = {"state": "passed", "observed_from": "disposable_installed_linux_vm_root",
                   "actual": ["ed25519_signature_verification", "bounded_candidate_probe", "compose_activation", "authenticated_owner_smoke",
                              "consistent_snapshot", "schema3", "maintenance_gate", "same_database_rollback", "post_deployment_row_preserved",
-                             "revoked_bridge_fixed_probe_enforced", "pending_bridge_operation_blocked", "isolated_probe_cleanup_verified"],
-                  "fixtures": ["ephemeral_publisher", "preloaded_registry_delivery", "candidate_changes_only_image_label", "synthetic_post_deployment_record",
+                             "revoked_bridge_fixed_probe_enforced", "pending_bridge_operation_blocked", "isolated_probe_cleanup_verified",
+                             "coding_source_moved_with_image_and_rolled_back"],
+                  "fixtures": ["ephemeral_publisher", "preloaded_registry_delivery", "candidate_changes_label_and_source_bundle", "synthetic_post_deployment_record",
                                "synthetic_missing_bridge_contract_image", "isolated_structure_only_revoked_bridge"],
                   "real_cloud": False, "real_publisher_release": False, "original_image": original, "candidate_image": candidate,
                   "registry_delivery_calls": len(deliveries), "final_schema": schema, "rollback_restored_backup": False,
@@ -784,6 +808,15 @@ def main():
             service.environment.chmod(0o600)
         service.path.write_bytes(records_before)
         service.path.chmod(0o600)
+        # The coding source returns to its exact installed state as well.
+        if run("git", "--git-dir", str(service.source_repo), "rev-parse", "HEAD", check=False).stdout.strip() != source_head_before:
+            run("git", "--git-dir", str(service.source_repo), "update-ref", "HEAD", source_head_before)
+        if service.source_lock.read_bytes() != source_json_before:
+            service.source_lock.write_bytes(source_json_before)
+            service.source_lock.chmod(0o600)
+        if candidate:
+            run("git", "--git-dir", str(service.source_repo), "update-ref", "-d",
+                "refs/agentic/candidate/" + candidate.removeprefix("sha256:"), check=False)
         run("docker", "image", "rm", candidate_tag, base_tag, timeout=30, check=False)
         if candidate:
             run("docker", "image", "rm", candidate, timeout=30, check=False)

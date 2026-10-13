@@ -12,6 +12,7 @@ npm ci --prefix web
 npm run build --prefix web
 uv run playwright install --with-deps chromium
 uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner, package_bridge; package_runner(); package_bridge()"
+uv run python scripts/controller_source.py
 docker build -t agentic-home-controller:0.8.0 controller
 docker build -t agentic-home-runner:0.8.0 runner
 docker build -t agentic-home-linejs:0.8.0 host/linejs

@@ -144,6 +144,26 @@ async def test_runner_queued_acceptance_is_not_safe_to_cancel_locally(workers):
     assert not workers.store.setting('worker_lease')
 
 
+async def test_capabilities_copy_only_exact_source_commits(workers):
+    def reporting(runner, source, install):
+        original = runner.call
+        async def call(method, path, body=None):
+            value = await original(method, path, body)
+            if path == '/coding/capabilities':
+                value.update(source_commit=source, install_commit=install)
+            return value
+        runner.call = call
+    reporting(workers.runners['host'], 'a' * 40, 'b' * 40)
+    reporting(workers.runners['haos'], 'A' * 40, '../' + 'c' * 37)
+    found = {w['worker_id']: w for w in (await workers.capabilities())['workers']}
+    assert (found['host-coder']['source_commit'], found['host-coder']['install_commit']) == ('a' * 40, 'b' * 40)
+    assert (found['home-coder']['source_commit'], found['home-coder']['install_commit']) == (None, None)
+    workers.runners['host'].offline = True
+    found = {w['worker_id']: w for w in (await workers.capabilities())['workers']}
+    assert found['host-coder']['observed_from'] == 'controller'
+    assert (found['host-coder']['source_commit'], found['host-coder']['install_commit']) == (None, None)
+
+
 async def test_scope_revocation_during_capabilities_never_commits(workers):
     original = workers.capabilities
     async def revoke():

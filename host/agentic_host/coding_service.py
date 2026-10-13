@@ -19,6 +19,7 @@ from .coding_program import digest_request, program, verification_program
 from .coding_relay import Relay, credentials
 from .coding_sandbox import CodingSandbox, Limits, SandboxError, command
 from .manager import atomic
+from .source import source_identity
 
 # Slugs with visibility "list" in runner/agentic_runner/codex-models.json, catalog order.
 # Hidden catalog entries stay out of the picker. gpt-6-astra stays the default.
@@ -287,10 +288,14 @@ class CodingService:
                 credential_state = "needs_reauth"
         except (OSError, ValueError, SandboxError):
             pass
+        # The commit a new job binds: source.json beside the ledger (host) or the packaged source (Home).
+        identity = {"source_commit": None, "install_commit": None}
+        if self.source_lock_path.name == "source.json":
+            identity = source_identity(self.source_lock_path.parent)
         return {"work_contract_major": 1, "worker_id": self.worker_id, "runtime_location": self.runtime_location,
                 "available": ready, "state": "ready" if ready else "blocked", "reason": reason,
                 "modes": ["research", "development"] if ready else [],
-                "max_wall_seconds": EXECUTION_BUDGET_SECONDS,
+                "max_wall_seconds": EXECUTION_BUDGET_SECONDS, **identity,
                 "budgets": {"setup_seconds": SETUP_BUDGET_SECONDS, "execution_seconds": EXECUTION_BUDGET_SECONDS,
                             "verification_seconds": VERIFICATION_BUDGET_SECONDS},
                 "providers": [{"id": "codex", "supported": ready, "models": MODELS,

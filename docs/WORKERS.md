@@ -12,7 +12,7 @@ Web 會保留調查、差異、檔案指紋與實際程序觀測。worker 自己
 
 ## 執行邊界
 
-- Host 安裝包含只針對本 public repo `HEAD` 的 Git bundle，以及 commit／bundle SHA-256；建置拒絕未提交的產品來源。installer 驗證後放到 root-owned `/var/lib/agentic-home/coding/source` bare repo。每個 worker 再建獨立 clone，不共用可写 Git metadata。
+- Host 安裝包含只針對本 public repo `HEAD` 的 Git bundle，以及 commit／bundle SHA-256；建置拒絕未提交的產品來源。installer 驗證後放到 root-owned `/var/lib/agentic-home/coding/source` bare repo。每個 worker 再建獨立 clone，不共用可写 Git metadata。簽署的 Controller 更新成功後，這個 bare repo 才前進到該 image 的 `source_commit`；退版把它和 image 一起退回。`source.json` 的 `commit` 仍是 worker 研究的 HEAD，`install_commit` 記住安裝時的 commit。再次執行安裝不會用安裝 bundle 覆蓋已移動且 `install_commit` 仍相符的 repo。提交時 `base_commit` 為 null，Host 綁定當時的 HEAD；明確傳入過期 SHA 仍拒絕為 `coding_source_revision_mismatch`。`GET /updates` 的 `deployed_source_commit` 與每筆 `source_sync` 給畫面顯示目前研究的來源。
 - 固定 Host broker 持有 Docker 與 ext4 volume。Runner 只有固定 Unix broker 接點；模型程序無 Docker socket、Controller／HA／Supervisor bearer、Owner cookies 或 provider bearer。
 - Host worker UID 10000、network none、read-only root、capabilities 限制、cgroups CPU／memory／PID 配额與固定 watchdog。所有可寫工作目錄在有界 ext4 磁碟；不能以輪詢資料夾大小代替 quota。
 - provider／公開文件出站經受控 Unix relay。上游 HTTPS 主機、IP、方法與路徑受限；拒私網 DNS 與任意 redirect／遠端 MCP，provider bearer 在 broker 加入。模型與公開來源的請求數、內容大小與期限受限。

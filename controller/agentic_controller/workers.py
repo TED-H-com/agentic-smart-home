@@ -46,6 +46,10 @@ def code(value, fallback="worker_unavailable"):
     return value if isinstance(value, str) and re.fullmatch(r"[a-z][a-z0-9_]{0,80}", value) else fallback
 
 
+def commit_sha(value):
+    return value if isinstance(value, str) and re.fullmatch(r"[a-f0-9]{40}", value) else None
+
+
 def heartbeat_fresh(item, now=None):
     """True while the broker reports a live phase and a recent heartbeat.
 
@@ -81,7 +85,8 @@ class Workers:
     def unavailable(worker, reason):
         return {"worker_id": worker, "work_contract_major": 1, "available": False, "supported": False,
                 "state": "blocked", "reason": reason, "runtime_location": LOCATIONS[worker],
-                "observed_from": "controller", "modes": [], "providers": []}
+                "observed_from": "controller", "source_commit": None, "install_commit": None,
+                "modes": [], "providers": []}
 
     def runner(self, worker):
         return self.runners[WORKER_SCOPES[worker]]
@@ -114,6 +119,8 @@ class Workers:
                     "supported": any(p["supported"] for p in providers), "state": code(raw.get("state"), "blocked"),
                     "reason": code(raw.get("reason")) if raw.get("reason") else None,
                     "runtime_location": raw["runtime_location"], "observed_from": "paired_runner",
+                    "source_commit": commit_sha(raw.get("source_commit")),
+                    "install_commit": commit_sha(raw.get("install_commit")),
                     "modes": [m for m in raw.get("modes", []) if m in {"research", "development"}],
                     "providers": providers, "selected_provider": self.preference(worker)["provider"],
                     "selected_model": self.preference(worker)["model"], "observed_at": utcnow()}
