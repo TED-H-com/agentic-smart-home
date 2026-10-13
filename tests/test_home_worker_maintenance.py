@@ -1,4 +1,5 @@
 """Supervisor contract fixtures only: no real App installation, account or HAOS VM."""
+import asyncio
 import copy
 import json
 from pathlib import Path
@@ -927,3 +928,14 @@ async def test_unreadable_supervisor_state_is_transient(manager, fault):
     manager.ha.app["state"] = "started"
     assert (await manager.tick())["state"] == "login_ready"
     assert len(manager.ha.posts()) == sent
+
+
+async def test_controller_start_runs_the_observation_loop(manager):
+    # Controller startup calls start(); in-memory observation state must never shadow the loop method.
+    await manager.start()
+    try:
+        await asyncio.sleep(0.05)
+        assert manager.task is not None and not manager.task.done()
+    finally:
+        await manager.close()
+    assert manager.task is None

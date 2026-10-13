@@ -142,7 +142,7 @@ class BridgeMaintenance:
         self.lock, self.task = asyncio.Lock(), None
         # (App state, first seen) of the current uninterrupted run. Never persisted: a
         # Controller restart or HAOS reboot cannot prove the App kept running meanwhile.
-        self.run, self.app_read = None, False
+        self.observed_run, self.app_read = None, False
 
     def record(self):
         return self.store.setting(KEY)
@@ -383,7 +383,7 @@ class BridgeMaintenance:
             raise BridgeFault("bridge_observation_unavailable", "unavailable")
         if state != "running":
             # The App may be stopped and restarted inside this window: start every grace again.
-            self.run = None
+            self.observed_run = None
             self.save(record, stopped_since=None)
             raise BridgeFault("bridge_supervisor_busy", "waiting")
 
@@ -558,13 +558,13 @@ class BridgeMaintenance:
                 raise  # Persisted intent remains available to exact readback after restart.
             except BridgeFault as exc:
                 if not self.app_read:
-                    self.run = None  # A gap in observation is not an uninterrupted run.
+                    self.observed_run = None  # A gap in observation is not an uninterrupted run.
                 current = self.record()
                 if current and current["id"] == record["id"] and current["enabled"]:
                     self.save(current, state=exc.state, code=exc.code)
             except Exception:
                 if not self.app_read:
-                    self.run = None
+                    self.observed_run = None
                 # A failed read is not proof of absence, stopped state or an unhealthy App.
                 current = self.record()
                 if current and current["id"] == record["id"] and current["enabled"]:
@@ -663,8 +663,8 @@ class BridgeMaintenance:
             self.save(record, enabled=False, state="user_removed", code="bridge_app_removed")
             return
         self.app_read = True
-        if self.run is None or self.run[0] != app["state"]:
-            self.run = (app["state"], self.clock())
+        if self.observed_run is None or self.observed_run[0] != app["state"]:
+            self.observed_run = (app["state"], self.clock())
         # Any other observation interrupts a pending stop confirmation.
         self.save(record, app_state=app["state"], version=app["version"], observed_at=utcnow(),
                   stopped_since=record.get("stopped_since") if app["state"] == "stopped" else None)
@@ -730,7 +730,7 @@ class BridgeMaintenance:
         if stage != "monitor":
             raise BridgeFault("bridge_state_invalid", "needs_reconcile")
         # Both graces: the persisted one after our own effects, and this process's own observed run.
-        fresh = self.clock() < record.get("grace_until", 0) or self.clock() - self.run[1] < STARTUP_GRACE
+        fresh = self.clock() < record.get("grace_until", 0) or self.clock() - self.observed_run[1] < STARTUP_GRACE
         if app["state"] != "started":
             if app["state"] == "startup" and fresh:
                 self.save(record, state="starting", code="bridge_app_starting")
