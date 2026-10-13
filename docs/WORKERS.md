@@ -17,7 +17,10 @@ Web 會保留調查、差異、檔案指紋與實際程序觀測。worker 自己
 - Host worker UID 10000、network none、read-only root、capabilities 限制、cgroups CPU／memory／PID 配额與固定 watchdog。所有可寫工作目錄在有界 ext4 磁碟；不能以輪詢資料夾大小代替 quota。
 - provider／公開文件出站經受控 Unix relay。上游 HTTPS 主機、IP、方法與路徑受限；拒私網 DNS 與任意 redirect／遠端 MCP，provider bearer 在 broker 加入。模型與公開來源的請求數、內容大小與期限受限。
 - 中繼把 provider 回應逐段轉給 sandbox（chunked，每段 flush）。位元組之間的閒置上限是 300 秒；工作 deadline 仍限制總時間。回應累計超過 8 MiB 就中止，不先緩衝整份本文。ChatGPT OAuth 依固定版 Codex 的規則向固定的 `https://auth.openai.com/oauth/token` 更新：JWT 有到期時間時，只在 5 分鐘內到期才更新；沒有時，`last_refresh` 早於 8 天才更新。provider 在尚未送出任何回應位元組前回 401 時，只更新並重試該請求一次。更新端點回 401、`invalid_grant` 或 `refresh_token_expired`／`refresh_token_reused`／`refresh_token_invalidated`，或第二次 401／403，才記 `auth_failed` 並以 `needs_reauth` 回報。連線失敗、逾時或 5xx 是暫時性的，不要求重新登入。refresh token 與 id token 只留在憑證檔。API key 不呼叫該端點。中繼與 sandbox proxy 只雙向轉送固定的 Codex Responses 標頭（lite、originator、turn-state、beta、session／thread／window id、turn metadata；routing hint 只在 ChatGPT 路徑），其餘含憑證、attestation 與 Set-Cookie 一律丟棄。這是程式行為，不是真帳號驗收。
-- 任務初期最多 300 秒、同時一個 coding job。writer 和 verifier 都必須證明停止，才釋出全域 lease。關頁或 HTTP 回覆遺失不表示取消。
+- 同時一個 coding job。準備（clone 與映像掛載）、執行、驗證各有 300 秒，用 `time.monotonic()` 計時。執行預算從容器實際跑起來才開始，不從送出開始。Owner 授權的 `expires` 仍是原本的授權截止，不會被預算拉長；逾時原因分別是 `setup_timeout`、`execution_timeout`、`verification_timeout`、`authorization_expired`。Owner 按取消是 `owner_cancelled`。取消不會清掉已寫下的 `error_code`。writer 和 verifier 都必須證明停止，才釋出全域 lease。關頁或 HTTP 回覆遺失不表示取消。
+- Broker 收到 SIGTERM／SIGINT 後，沿原本的 fenced stop 停掉 sandbox，在有限時間內 `collect()` 再結束。下次啟動先從 workspace 收集上次還在跑的 job，標成 `interrupted`（`broker_restarted`），保留 diff／findings／artifacts，不重跑。還沒進 sandbox 的排隊 job 直接標 `interrupted`（`broker_restarted`）。結果還沒 collect 的執行 workspace 不會被 prune 刪掉。`stop_unconfirmed` 的圍欄維持原樣。
+- 狀態讀取不跟 launch、git、collect 共用鎖。`phase` 含 `queued`、`launching`、`running`、`verifying`、`collecting`，並帶 `heartbeat_at`。Controller 在 launching／running／verifying／collecting 且 heartbeat 仍新時不會標 `needs_reconcile`；job 真的消失、回執不合或 heartbeat 過期才會。
+- 完成、逾時或中斷的 job 都留結果。沒有自動重試。「再試一次」是新的一次送出：Owner 用新的 `Idempotency-Key` 呼叫 `POST /api/worker/jobs`；Hermes 用新的 `idempotency_key` 呼叫 MCP `worker.submit`。同一個 key 只會取回舊 job。
 - 成果在確認停止後匯出，拒 symlink／hardlink／特殊檔案、越界、超量、非允許類型及可辨識的憑證格式。去密模式不能證明所有內容都適合公開；成果留在本機。
 
 ### Home coding 0.8.0 工程預覽

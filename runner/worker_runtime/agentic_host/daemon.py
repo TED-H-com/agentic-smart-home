@@ -2,6 +2,7 @@ import copy
 import json
 import os
 import re
+import signal
 import socket
 import socketserver
 import struct
@@ -78,6 +79,24 @@ class Jobs:
 
 class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
     daemon_threads = True
+
+
+def install_broker_stops(server, coding):
+    """SIGTERM and SIGINT unblock serve_forever. close() collects on the caller thread.
+
+    shutdown() must run off the main thread: serve_forever waits for it there.
+    """
+    def handler(signum, frame):
+        coding.closing = True
+        coding.closed.set()
+        # shutdown() waits until serve_forever returns, so a second signal must not call it.
+        if getattr(handler, "started", False):
+            return
+        handler.started = True
+        threading.Thread(target=server.shutdown, name="broker-shutdown", daemon=True).start()
+
+    previous = {name: signal.signal(name, handler) for name in (signal.SIGTERM, signal.SIGINT)}
+    return previous
 
 
 def serve(path="/run/agentic-home/host.sock"):
@@ -183,9 +202,12 @@ def serve(path="/run/agentic-home/host.sock"):
     with Server(path, Handler) as server:
         os.chown(path, 0, 1000)
         os.chmod(path, 0o660)
+        previous_stops = install_broker_stops(server, coding)
         try:
             server.serve_forever()
         finally:
+            for name in (signal.SIGTERM, signal.SIGINT):
+                signal.signal(name, previous_stops.get(name, signal.SIG_DFL))
             if viewer:
                 viewer.shutdown()
                 viewer.server_close()

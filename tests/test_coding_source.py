@@ -106,6 +106,24 @@ def test_source_identity_is_null_when_missing_or_invalid(tmp_path):
     assert source_identity(coding) == {'source_commit': 'b' * 40, 'install_commit': 'a' * 40}
 
 
+def test_host_capabilities_report_the_source_a_new_job_binds(tmp_path):
+    from types import SimpleNamespace
+
+    from agentic_host.coding_service import CodingService
+    coding = tmp_path / 'coding'
+    coding.mkdir()
+    (coding / 'source.json').write_text(json.dumps({'repo_id': 'agentic-home', 'commit': 'b' * 40, 'install_commit': 'a' * 40}))
+    service = CodingService(SimpleNamespace(root=tmp_path / 'runner', product=tmp_path / 'product'), root=coding)
+    try:
+        caps = service.capabilities()
+        assert (caps['source_commit'], caps['install_commit']) == ('b' * 40, 'a' * 40)
+        (coding / 'source.json').write_text('not-json')
+        caps = service.capabilities()
+        assert (caps['source_commit'], caps['install_commit']) == (None, None)
+    finally:
+        service.close()
+
+
 def test_provision_keeps_moved_repo_and_rejects_a_foreign_one(source, tmp_path):
     builder, repo, product, assets = source
     lock = builder.coding_source(assets, repo)

@@ -181,11 +181,12 @@ def test_packaged_identity_rejected_before_source_copy(packaged, tmp_path, attac
 
 
 def test_home_identity_credentials_refusal_receipt_and_no_host_runtime(packaged, tmp_path):
-    bare, _ = packaged
+    bare, lock = packaged
     service = HomeService(tmp_path / "data", packaged_source=bare, sandbox_factory=BoundaryFixture)
     try:
         caps = service.capabilities()
         assert caps["worker_id"] == "home-coder" and caps["runtime_location"] == "haos_app"
+        assert caps["source_commit"] == lock["commit"] and caps["install_commit"] is None
         assert caps["available"] is True and caps["providers"][0]["credential_state"] == "needs_auth"
         payload = request()
         status, job = service.handle("POST", "/coding/jobs", payload)

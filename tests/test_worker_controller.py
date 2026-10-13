@@ -144,6 +144,26 @@ async def test_runner_queued_acceptance_is_not_safe_to_cancel_locally(workers):
     assert not workers.store.setting('worker_lease')
 
 
+async def test_capabilities_copy_only_exact_source_commits(workers):
+    def reporting(runner, source, install):
+        original = runner.call
+        async def call(method, path, body=None):
+            value = await original(method, path, body)
+            if path == '/coding/capabilities':
+                value.update(source_commit=source, install_commit=install)
+            return value
+        runner.call = call
+    reporting(workers.runners['host'], 'a' * 40, 'b' * 40)
+    reporting(workers.runners['haos'], 'A' * 40, '../' + 'c' * 37)
+    found = {w['worker_id']: w for w in (await workers.capabilities())['workers']}
+    assert (found['host-coder']['source_commit'], found['host-coder']['install_commit']) == ('a' * 40, 'b' * 40)
+    assert (found['home-coder']['source_commit'], found['home-coder']['install_commit']) == (None, None)
+    workers.runners['host'].offline = True
+    found = {w['worker_id']: w for w in (await workers.capabilities())['workers']}
+    assert found['host-coder']['observed_from'] == 'controller'
+    assert (found['host-coder']['source_commit'], found['host-coder']['install_commit']) == (None, None)
+
+
 async def test_scope_revocation_during_capabilities_never_commits(workers):
     original = workers.capabilities
     async def revoke():
@@ -295,6 +315,60 @@ async def test_retention_propagates_all_peers_and_failed_sync_is_not_saved(worke
     assert workers.store.setting('retention') == policy and not workers.store.setting('retention_pending')
     assert any(c[1] == '/retention' for c in workers.runners['host'].calls)
     assert any(c[1] == '/retention' for c in workers.runners['haos'].calls)
+
+
+async def test_fresh_heartbeat_skips_needs_reconcile_until_stale_or_lost(workers):
+    first = await submit(workers)
+    await workers.advance()
+    host = workers.runners['host']
+    host.jobs[first['id']].update(state='launching', phase='launching', heartbeat_at=time.time())
+    await workers.advance()
+    assert workers.get(first['id'])['state'] == 'launching'
+    assert workers.get(first['id'])['phase'] == 'launching'
+    host.offline = True
+    await workers.advance()
+    assert workers.get(first['id'])['state'] == 'launching'
+    workers.save(workers.get(first['id']), heartbeat_at=time.time() - 120)
+    await workers.advance()
+    assert workers.get(first['id'])['state'] == 'needs_reconcile'
+    assert workers.get(first['id'])['reason'] == 'runner_response_unconfirmed'
+
+
+async def test_lost_job_reconciles_even_with_a_fresh_heartbeat(workers):
+    first = await submit(workers)
+    await workers.advance()
+    host = workers.runners['host']
+    host.jobs[first['id']].update(state='running', phase='running', heartbeat_at=time.time())
+    await workers.advance()
+    assert workers.get(first['id'])['phase'] == 'running'
+    del host.jobs[first['id']]
+    await workers.advance()
+    lost = workers.get(first['id'])
+    assert lost['state'] == 'needs_reconcile' and lost['reason'] == 'worker_job_unconfirmed'
+
+
+async def test_running_grant_expiry_is_authorization_expired(workers):
+    first = await submit(workers)
+    await workers.advance()
+    item = workers.get(first['id'])
+    # The wire job carries the grant itself, so both run out together.
+    assert item['request']['expires'] == item['authority']['expires']
+    item['request']['expires'] = item['authority']['expires'] = time.time() - 1
+    workers.store.put('work_job', item)
+    await workers.advance()
+    result = workers.get(first['id'])
+    assert result['state'] == 'cancelled' and result['reason'] == 'authorization_expired'
+
+
+async def test_expired_grant_after_an_owner_change_is_a_revocation(workers):
+    first = await submit(workers)
+    await workers.advance()
+    item = workers.get(first['id'])
+    item['request']['expires'] = item['authority']['expires'] = time.time() - 1
+    workers.store.put('work_job', item)
+    workers.store.set_setting('owner', 'replacement-owner')
+    await workers.advance()
+    assert workers.get(first['id'])['reason'] == 'authority_revoked'
 
 
 async def test_cancel_while_lookup_is_waiting_cannot_dispatch_after_local_stop(workers):

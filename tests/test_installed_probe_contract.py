@@ -28,6 +28,7 @@ async def actual_capabilities(tmp_path, monkeypatch, store):
     service = object.__new__(CodingService)
     service.root = tmp_path
     service.credential_path = tmp_path / "absent-role-auth.json"
+    service.source_lock_path = tmp_path / "source.json"
     # This unit test substitutes only the prior hard-boundary observation.
     # The installed VM performs the actual Docker/namespace/quota checks.
     service.capability_cache = (time.monotonic(), True, None)
