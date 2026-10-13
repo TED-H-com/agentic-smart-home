@@ -11,6 +11,8 @@ import aiohttp
 from .models import digest, utcnow
 
 TESTED_CORE_VERSIONS = frozenset({"2026.10.1"})
+# MCP tool calls must wait longer than this. See hermes MCP_TOOL_TIMEOUT.
+HA_CLIENT_TIMEOUT = 30
 
 class HAError(Exception):
     def __init__(self, message, status=502):
@@ -31,13 +33,15 @@ class HomeAssistant:
     async def start(self):
         self.session = aiohttp.ClientSession(
             headers={"Authorization": f"Bearer {self.token}"},
-            timeout=aiohttp.ClientTimeout(total=30), trust_env=False)
+            timeout=aiohttp.ClientTimeout(total=HA_CLIENT_TIMEOUT), trust_env=False)
 
     async def close(self):
         if self.session:
             await self.session.close()
 
-    async def request(self, method, path, data=None, *, supervisor=False, missing_ok=False, timeout=30):
+    async def request(self, method, path, data=None, *, supervisor=False, missing_ok=False, timeout=None):
+        if timeout is None:
+            timeout = HA_CLIENT_TIMEOUT
         if supervisor and self.external:
             # Core's authenticated owner WebSocket forwards to Supervisor. No Supervisor token leaves HAOS.
             return await self.ws("supervisor/api", endpoint=path, method=method.lower(), data=data or {},

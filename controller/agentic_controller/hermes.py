@@ -29,6 +29,36 @@ from .work import HermesAuth
 from .workers import Workers
 
 TERMINAL = {"succeeded", "failed", "cancelled", "interrupted", "needs_auth", "needs_reauth"}
+_PASSTHROUGH = {"needs_auth", "needs_reauth", "not_found", "session_busy", "idempotency_conflict",
+                "scope_mismatch", "stop_unconfirmed", "session_expired", "expired", "access_denied",
+                "slow_down", "expired_token", "oauth_failed", "rate_limited", "provider_unavailable", "timeout"}
+NEXT_STEP = {
+    "needs_auth": "請先在 Web 登入 Hermes。",
+    "needs_reauth": "登入已失效，請重新登入原帳號後再送出。",
+    "session_busy": "Hermes 正在處理另一份工作，請等它完成後再送出。",
+    "session_expired": "這段對話已到期，請開始新對話。",
+    "expired": "這段對話已到期，請開始新對話。",
+    "rate_limited": "供應商暫時限制請求，請稍後再送出同一則訊息。",
+    "provider_unavailable": "模型服務暫時無法連線，請稍後再試。",
+    "timeout": "這次回覆逾時，請稍後再送出。",
+    "runtime_unavailable": "協調服務暫時無法連線，請稍後再試。",
+    "inference_failed": "這次回覆未完成，請稍後再送出。",
+    "stop_unconfirmed": "上一份工作尚未確認停止，請查看協調服務；目前無法啟動新工作。",
+}
+_LOGIN_HTTP = {
+    "stop_unconfirmed": (409, "尚未確認前一次登入程序已停止，請重新檢查狀態。"),
+    "access_denied": (409, "官方登入被拒絕，請重新開始授權。"),
+    "slow_down": (429, "官方登入暫時忙碌，請稍後再試，不要重複開啟授權。"),
+    "expired_token": (409, "官方授權已過期，請重新開始。"),
+    "oauth_failed": (409, "官方登入未完成，請重新檢查後再試。"),
+}
+
+
+def raise_login(exc, fallback):
+    if exc.code in _LOGIN_HTTP:
+        status, message = _LOGIN_HTTP[exc.code]
+        raise HTTPException(status, {"code": exc.code, "message": message, "reason": exc.code}) from exc
+    raise HTTPException(503, fallback) from exc
 
 
 class HermesError(Exception):
@@ -56,9 +86,7 @@ class HermesClient:
                     value = json.loads(raw)
                     if response.status >= 300:
                         code = value.get("detail", {}).get("code") if isinstance(value.get("detail"), dict) else None
-                        raise HermesError(code if code in {"needs_auth", "needs_reauth", "not_found",
-                            "session_busy", "idempotency_conflict", "scope_mismatch", "stop_unconfirmed",
-                            "session_expired", "expired"} else "runtime_unavailable")
+                        raise HermesError(code if code in _PASSTHROUGH else "runtime_unavailable")
                     if not isinstance(value, dict):
                         raise HermesError("invalid_response")
                     return value
@@ -177,9 +205,17 @@ class Coordinator:
             authorized()
             state = result["state"]
             self.store.put("hermes_run", {**run, "state": state, "updated_at": utcnow()})
+            error = result.get("error") if state != "succeeded" else None
+            if not isinstance(error, str) or error not in NEXT_STEP:
+                error = None
+            if state == "succeeded":
+                answer = str(result.get("answer") or "")
+            else:
+                answer = NEXT_STEP.get(error) or "Hermes 未完成回覆，請檢查登入與服務狀態。"
             response = {"state": "succeeded" if state == "succeeded" else "failed",
-                    "answer": str(result.get("answer") or "Hermes 未完成回覆，請檢查登入與服務狀態。")[:16000],
-                    "case_id": case["case_id"], "hermes_run_id": run_id}
+                    "answer": answer[:16000], "case_id": case["case_id"], "hermes_run_id": run_id}
+            if error:
+                response.update(error_code=error, reason=error)
             linked = self.store.get("conversation", item["id"]) or {}
             if linked.get("task_id"):
                 response["task_id"] = linked["task_id"]
@@ -187,7 +223,7 @@ class Coordinator:
                 if task.get("state") == "awaiting_approval":
                     response.update(state="awaiting_approval", answer="已準備家庭操作提案。請開啟 Web 工作台檢查內容並批准；目前尚未執行。")
             return response
-        except (asyncio.CancelledError, HermesError, TimeoutError, KeyError, TypeError):
+        except (asyncio.CancelledError, HermesError, TimeoutError, KeyError, TypeError) as exc:
             self.revoke(run_id)
             # Stop acknowledgement is deliberately distinct from cancellation intent.
             state = "stop_unconfirmed"
@@ -196,6 +232,8 @@ class Coordinator:
                 if stopped.get("state") in TERMINAL:
                     state = stopped["state"]
             self.store.put("hermes_run", {**run, "state": state, "updated_at": utcnow()})
+            if isinstance(exc, TimeoutError):
+                raise HermesError("timeout") from exc
             raise
         finally:
             self.revoke(run_id)
@@ -248,13 +286,21 @@ def routes(app, coordinator, store):
             raise HTTPException(400, "缺少有效的 Idempotency-Key")
         previous = store.request("hermes_device_auth", key, digest(body.model_dump()))
         if not previous:
+            try:
+                runtime = await coordinator.client.call("GET", "/v1/capabilities")
+            except HermesError as exc:
+                raise_login(exc, "Hermes 官方登入服務尚未就緒；重試請沿用同一識別碼")
+            pending = runtime.get("pending_auth") if isinstance(runtime, dict) else None
+            if isinstance(pending, dict) and pending.get("state") == "pending" and pending.get("auth_id"):
+                store.request("hermes_device_auth", key, digest(body.model_dump()), str(pending["auth_id"]))
+                return pending
             store.set_setting("hermes_auth_epoch", uuid.uuid4().hex)
             store.request("hermes_device_auth", key, digest(body.model_dump()), "started")
             await coordinator.recover()
         try:
             return await coordinator.client.call("POST", "/v1/auth/device", body.model_dump(), key)
         except HermesError as exc:
-            raise HTTPException(503, "Hermes 官方登入服務尚未就緒；重試請沿用同一識別碼") from exc
+            raise_login(exc, "Hermes 官方登入服務尚未就緒；重試請沿用同一識別碼")
 
     @app.get("/api/hermes/auth/device/{auth_id}")
     async def device_auth_status(auth_id: str):
@@ -263,7 +309,7 @@ def routes(app, coordinator, store):
         try:
             return await coordinator.client.call("GET", "/v1/auth/device/" + auth_id)
         except HermesError as exc:
-            raise HTTPException(503, "Hermes 登入狀態暫時無法確認") from exc
+            raise_login(exc, "Hermes 登入狀態暫時無法確認")
 
     @app.post("/api/hermes/auth/device/{auth_id}/cancel")
     async def device_auth_cancel(auth_id: str, body: BootstrapRetry):
@@ -272,7 +318,7 @@ def routes(app, coordinator, store):
         try:
             return await coordinator.client.call("POST", "/v1/auth/device/" + auth_id + "/cancel", {})
         except HermesError as exc:
-            raise HTTPException(503, "Hermes 登入停止尚未確認") from exc
+            raise_login(exc, "Hermes 登入停止尚未確認")
 
     @app.post("/api/hermes/auth")
     async def auth(body: HermesAuth):

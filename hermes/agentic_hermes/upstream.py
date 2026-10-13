@@ -193,8 +193,7 @@ class HermesAdapter:
         error = None
         if result.get("failed") or not result["completed"] or result.get("interrupted"):
             reason = str(result.get("error", "")) + str(result.get("turn_exit_reason", ""))
-            error = "needs_reauth" if any(part in reason.lower() for part in
-                ("401", "unauthorized", "authentication", "invalid api key")) else "inference_failed"
+            error = classify_provider_failure(reason)
         answer, history = result.get("final_response", ""), result.get("messages", [])
         require(error is not None or (isinstance(answer, str) and isinstance(history, list)
                                       and all(isinstance(item, dict) for item in history)))
@@ -202,3 +201,24 @@ class HermesAdapter:
         require(all(value is None or (type(value) is int and value >= 0) for value in usage.values()))
         return {"answer": answer if error is None else "", "history": history if error is None else [],
                 "error": error, "usage": usage, "tools": sorted(names)}
+
+
+# Known provider tokens only. The raw body is never returned.
+_AUTH_TOKENS = ("401", "403", "unauthorized", "authentication", "invalid api key", "relogin")
+_RATE_TOKENS = ("429", "quota", "rate limit", "rate_limit", "too many requests", "insufficient_quota")
+_TIMEOUT_TOKENS = ("timeout", "timed out", "deadline", "408", "504")
+_PROVIDER_TOKENS = ("500", "502", "503", "bad gateway", "service unavailable", "connection", "network")
+
+
+def classify_provider_failure(reason):
+    """Map a provider failure to a stable code. Do not treat a bare 'limit' as rate limiting."""
+    text = str(reason or "").lower()
+    if any(part in text for part in _AUTH_TOKENS):
+        return "needs_reauth"
+    if any(part in text for part in _RATE_TOKENS):
+        return "rate_limited"
+    if any(part in text for part in _TIMEOUT_TOKENS):
+        return "timeout"
+    if any(part in text for part in _PROVIDER_TOKENS):
+        return "provider_unavailable"
+    return "inference_failed"

@@ -13,8 +13,12 @@ import sys
 from pathlib import Path
 
 from .models import TOOLS
-from .upstream import HermesAdapter
+from .upstream import HermesAdapter, classify_provider_failure
 from .upstream import guarded_dispatch as guarded_dispatch
+
+# Must stay strictly above the controller HA client timeout (HA_CLIENT_TIMEOUT = 30).
+# This process must not import the controller.
+MCP_TOOL_TIMEOUT = 45
 
 SYSTEM = """You are Hermes, the sole coordinator for Agentic Smart Home.
 Use only the provided Controller MCP tools. Controller authorizes scope, workers,
@@ -32,6 +36,25 @@ home.propose for a precise reviewed action or automation. A proposal remains
 awaiting Owner approval in the Web task; never describe it as already executed.
 Respond in the user's language. Budget at most 12 model iterations per run.
 """
+
+
+def classify_turn(exc):
+    """Stable turn code. Never classify from the exception text; it can carry provider bodies."""
+    status = getattr(exc, "status_code", None)
+    if status is None:
+        status = getattr(exc, "status", None)
+    code = str(getattr(exc, "code", "") or getattr(exc, "error", "") or "")
+    if isinstance(exc, TimeoutError) or status in {408, 504}:
+        return "timeout"
+    if status in {401, 403} or getattr(exc, "relogin_required", False):
+        return "needs_reauth"
+    if status == 429:
+        return "rate_limited"
+    if isinstance(status, int) and status >= 500:
+        return "provider_unavailable"
+    if isinstance(exc, (ConnectionError, OSError)):
+        return "provider_unavailable"
+    return classify_provider_failure(code)
 
 
 def main():
@@ -56,7 +79,7 @@ def main():
         "mcp_servers": {"agentic": {
             "url": os.environ["AGENTIC_MCP_URL"],
             "headers": {"Authorization": "Bearer ${AGENTIC_MCP_TOKEN}"},
-            "timeout": 30, "connect_timeout": 10,
+            "timeout": MCP_TOOL_TIMEOUT, "connect_timeout": 10,
             "tools": {"include": list(TOOLS)},
         }},
         "plugins": {"enabled": [], "disabled": ["*"]},
@@ -86,8 +109,7 @@ def main():
         )
     except Exception as exc:
         # Exception bodies can contain provider headers; never expose them.
-        error = "needs_reauth" if getattr(exc, "status_code", None) in {401, 403} or getattr(exc, "relogin_required", False) else "runtime_unavailable"
-        safe = {"answer": "", "history": [], "error": error, "usage": None}
+        safe = {"answer": "", "history": [], "error": classify_turn(exc), "usage": None}
     if provider == "openai-codex":
         # Refresh can rotate during inference. Only this role's own store is read,
         # and neither access nor refresh tokens leave the private process boundary.

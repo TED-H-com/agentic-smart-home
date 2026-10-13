@@ -7,6 +7,7 @@ import json
 import os
 import re
 import secrets
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -18,8 +19,8 @@ from pydantic import ValidationError
 
 from .channels import TRANSPORTS, ChannelError, line_admin
 from .ha import HAError
+from .hermes import NEXT_STEP, HermesError
 from .hermes import TERMINAL as HERMES_TERMINAL
-from .hermes import HermesError
 from .host import host_call
 from .models import (
     AgentLogin,
@@ -42,6 +43,24 @@ from .models import (
 from .runner import RunnerError, cancel_and_confirm
 
 CONTINUABLE = {"queued", "planning", "awaiting_user", "awaiting_approval", "succeeded"}
+LINE_QR_SECONDS = 180
+LINE_LOGIN_LIMIT = 900
+LINE_LOGIN_TEXT = {
+    "qr_expired": "QR 已過期，請重新整理登入畫面。",
+    "pin_failed": "PIN 不正確，請重新開始 LINE 登入。",
+    "login_rejected": "LINE 拒絕了這次登入，請改用其他帳號或稍後再試。",
+    "service_unavailable": "LINE 登入服務暫時無法連線，請確認本機服務後再試。",
+}
+_LINE_REJECT = ("reject", "unofficial", "banned", "blocked", "denied")
+_RUNNER_CATEGORIES = {"needs_reauth", "rate_limited", "timeout", "provider_unavailable", "stop_unconfirmed"}
+_DIRECT_NEXT = {
+    "needs_reauth": "這個執行環境的登入已失效，請在 Web 重新登入後再送出。",
+    "rate_limited": "供應商暫時限制請求，請稍後再送出。",
+    "timeout": "這次回覆逾時，請稍後再送出。",
+    "provider_unavailable": "執行環境暫時無法連線，請稍後再試。",
+}
+_TELEGRAM_STATES = {"invalid_token", "webhook_conflict", "rate_limited", "unavailable"}
+_TELEGRAM_REASONS = {"invalid_token", "webhook_active", "poller_conflict", "rate_limited", "unavailable"}
 
 
 class ConversationError(Exception):
@@ -58,6 +77,8 @@ class Gateway:
         self.coordinator = coordinator
         self.bridge_valid = lambda item: True
         self.pairing_lock, self.pairing_timers = asyncio.Lock(), {}
+        self.reasons, self.channel_messages = {}, {}
+        self._submit_locks, self._submit_guard, self._loop = {}, threading.Lock(), None
 
     def preferences(self):
         return GatewayPreferences.model_validate(self.store.setting("gateway", {}))
@@ -186,7 +207,8 @@ class Gateway:
                 "selected": self.store.setting("gateway_selected", False),
                 "channels": [{"id": name, **{k: v for k, v in self.config(name).items() if k != "secret"},
                     "has_secret": bool(self.config(name).get("secret")),
-                    "status": self.states.get(name, "connecting" if self.config(name)["enabled"] else "disabled")}
+                    "status": self.states.get(name, "connecting" if self.config(name)["enabled"] else "disabled"),
+                    "reason": self.reasons.get(name), "message": self.channel_messages.get(name)}
                     for name in TRANSPORTS]}
 
     async def start(self):
@@ -219,6 +241,8 @@ class Gateway:
         config = self.config(name)
         listen = config["enabled"] or self.pairing(name)["state"] == "pending"
         self.states[name] = "connecting" if listen else "disabled"
+        self.reasons.pop(name, None)
+        self.channel_messages.pop(name, None)
         if listen:
             self.workers[name] = asyncio.create_task(self.watch(name, config))
 
@@ -229,6 +253,8 @@ class Gateway:
             self.transports[name] = adapter
             def state(value):
                 self.states[name] = value
+                self.reasons.pop(name, None)
+                self.channel_messages.pop(name, None)
             async def receive(id, chat, sender, text, adapter=adapter):
                 nonlocal config
                 pairing = self.consume_pairing(name, id, chat, sender, text, config)
@@ -264,8 +290,14 @@ class Gateway:
                 state("unavailable")
             except asyncio.CancelledError:
                 raise
-            except (aiohttp.ClientError, ChannelError, TimeoutError, ValueError, KeyError, TypeError):
-                state("unavailable")
+            except (aiohttp.ClientError, ChannelError, TimeoutError, ValueError, KeyError, TypeError) as exc:
+                # LINE message-socket failures stay unavailable. QR states belong to begin_line_login.
+                if name == "telegram" and isinstance(exc, ChannelError) and exc.code in _TELEGRAM_STATES:
+                    self.states[name] = exc.code
+                    self.reasons[name] = exc.reason if exc.reason in _TELEGRAM_REASONS else exc.code
+                    self.channel_messages[name] = str(exc)
+                else:
+                    state("unavailable")
             finally:
                 self.transports.pop(name, None)
             await asyncio.sleep(backoff)
@@ -327,6 +359,31 @@ class Gateway:
             previous = parent.get("reply_to")
         return {"turns": turns, "truncated": truncated or bool(previous)}
 
+    def _thread_lock(self, key):
+        with self._submit_guard:
+            lock = self._submit_locks.get(key)
+            if lock is None:
+                lock = threading.Lock()
+                self._submit_locks[key] = lock
+            return lock
+
+    def _start_task(self, item, config):
+        task = asyncio.create_task(self.execute(item, config))
+        self.running["chat-" + item["id"]] = task
+        task.add_done_callback(lambda done, item_id=item["id"]: self.running.pop("chat-" + item_id, None))
+
+    def _schedule(self, item, config):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError as exc:
+            loop = self._loop
+            if loop is None or loop.is_closed():
+                raise RuntimeError("gateway loop is not running") from exc
+            loop.call_soon_threadsafe(self._start_task, item, config)
+            return
+        self._loop = loop
+        self._start_task(item, config)
+
     def submit(self, body, source, chat, sender, event, config=None, *, bridge_pairing_id=None):
         if body.coordinator == "hermes":
             body = body.model_copy(update={"runtime": "host", "provider": "codex"})
@@ -342,44 +399,51 @@ class Gateway:
         if body.new_conversation:
             request_body["new_conversation"] = True
         request_digest = digest(request_body)
-        prior = self.store.get("conversation", id)
-        if prior:
-            if prior["request_digest"] != request_digest or prior.get("sender") != sender or prior.get("source") != source:
-                raise HTTPException(409, "此訊息 ID 已用於不同內容")
-            return prior
-        if self.store.request("gateway", id, request_digest):
-            raise HTTPException(410, "此訊息已處理，內容已依保存設定清理")
-        if self.store.setting("paused", False):
-            raise HTTPException(409, "AI 已暫停")
-        if len(self.running) >= 10:
-            raise HTTPException(429, "任務佇列已滿，請稍後再試")
-        scope = self.scope(body, source, chat, sender, config)
-        parent = None
+        # The thread key is fixed before the lock. scope() reads settings and must not run under it
+        # after another thread has already inserted, so the key uses this snapshot.
         if body.reply_to:
-            parent = self.store.conversation(id=body.reply_to)
-            if not parent or parent.get("scope") != scope or parent["state"] not in CONTINUABLE:
-                raise HTTPException(409, "這段對話已失效或不屬於目前的 Agent，請開始新對話")
+            thread_key = "thread:" + body.reply_to
         elif source != "web" and not body.new_conversation:
-            candidate = self.store.conversation(scope=scope)
-            if candidate and candidate["state"] in CONTINUABLE:
-                parent = candidate
-        rate_key = (source, chat, sender)
-        now = time.monotonic()
-        recent = [t for t in self.rates.get(rate_key, []) if t > now - 60]
-        if len(recent) >= 10:
-            raise HTTPException(429, "請稍候再送出訊息")
-        self.rates[rate_key] = [*recent, now]
-        item = {"id": id, "source": source, "chat": chat, "sender": sender, **body.model_dump(),
-                "reply_to": parent["id"] if parent else None, "thread_id": parent["thread_id"] if parent else id,
-                "scope": scope, "request_digest": request_digest, "state": "queued", "created_at": utcnow(), "answer": ""}
-        if bridge_pairing_id:
-            item["bridge_pairing_id"] = bridge_pairing_id
-        self.store.put("conversation", item)
-        self.store.request("gateway", id, item["request_digest"], id)
-        task = asyncio.create_task(self.execute(item, config))
-        self.running["chat-" + id] = task
-        task.add_done_callback(lambda done: self.running.pop("chat-" + id, None))
-        return item
+            thread_key = "scope:" + self.scope(body, source, chat, sender, config)
+        else:
+            thread_key = "id:" + id
+        with self._thread_lock(thread_key):
+            prior = self.store.get("conversation", id)
+            if prior:
+                if prior["request_digest"] != request_digest or prior.get("sender") != sender or prior.get("source") != source:
+                    raise HTTPException(409, "此訊息 ID 已用於不同內容")
+                return prior
+            if self.store.request("gateway", id, request_digest):
+                raise HTTPException(410, "此訊息已處理，內容已依保存設定清理")
+            if self.store.setting("paused", False):
+                raise HTTPException(409, "AI 已暫停")
+            if len(self.running) >= 10:
+                raise HTTPException(429, "任務佇列已滿，請稍後再試")
+            scope = self.scope(body, source, chat, sender, config)
+            parent = None
+            if body.reply_to:
+                parent = self.store.conversation(id=body.reply_to)
+                if not parent or parent.get("scope") != scope or parent["state"] not in CONTINUABLE:
+                    raise HTTPException(409, "這段對話已失效或不屬於目前的 Agent，請開始新對話")
+            elif source != "web" and not body.new_conversation:
+                candidate = self.store.conversation(scope=scope)
+                if candidate and candidate["state"] in CONTINUABLE:
+                    parent = candidate
+            rate_key = (source, chat, sender)
+            now = time.monotonic()
+            recent = [t for t in self.rates.get(rate_key, []) if t > now - 60]
+            if len(recent) >= 10:
+                raise HTTPException(429, "請稍候再送出訊息")
+            self.rates[rate_key] = [*recent, now]
+            item = {"id": id, "source": source, "chat": chat, "sender": sender, **body.model_dump(),
+                    "reply_to": parent["id"] if parent else None, "thread_id": parent["thread_id"] if parent else id,
+                    "scope": scope, "request_digest": request_digest, "state": "queued", "created_at": utcnow(), "answer": ""}
+            if bridge_pairing_id:
+                item["bridge_pairing_id"] = bridge_pairing_id
+            self.store.put("conversation", item)
+            self.store.request("gateway", id, item["request_digest"], id)
+            self._schedule(item, config)
+            return item
 
     async def execute(self, item, config):
         runner = self.runners[item["runtime"]]
@@ -463,22 +527,26 @@ class Gateway:
         except HermesError as exc:
             run = self.store.get("hermes_run", result["hermes_run_id"]) if result.get("hermes_run_id") else None
             uncertain = exc.code == "stop_unconfirmed" or bool(run and run.get("state") not in HERMES_TERMINAL)
+            code = "stop_unconfirmed" if uncertain else exc.code
             result.update(state="needs_reconcile" if uncertain else "failed",
-                          answer="上一份工作尚未確認停止，請查看協調服務；目前無法啟動新工作。" if uncertain else
-                          "請先在 Web 登入 Hermes。" if exc.code in {"needs_auth", "needs_reauth"}
-                          else "Hermes 正在處理另一份工作，請等它完成後再送出。" if exc.code == "session_busy"
-                          else "這段對話已到期，請開始新對話。" if exc.code in {"session_expired", "expired"}
-                          else "Hermes 尚未完成回覆，請檢查協調服務與登入狀態。",
-                          error_code="stop_unconfirmed" if uncertain else exc.code)
-        except (RunnerError, HAError, ValidationError, TimeoutError):
+                          answer=NEXT_STEP.get(code, "Hermes 尚未完成回覆，請檢查協調服務與登入狀態。"),
+                          error_code=code, reason=code)
+        except (RunnerError, HAError, ValidationError, TimeoutError) as exc:
+            category = runner_category(exc) if direct_dispatched and not result.get("hermes_run_id") and not result.get("task_id") else None
             confirmed = not direct_dispatched or await cancel_and_confirm(runner, job_id)
             if result.get("hermes_run_id"):
                 run = self.store.get("hermes_run", result["hermes_run_id"]) or {}
                 confirmed = run.get("state") in HERMES_TERMINAL
-            result.update(state="failed" if confirmed else "needs_reconcile",
-                error_code=None if confirmed else "stop_unconfirmed",
-                answer="Agent 尚未完成回覆，請在 Web 檢查此執行環境的配對、登入與連線。" if confirmed else
-                       "Runner 尚未確認原程序已停止；請先查看診斷並核對原工作。")
+            if category == "stop_unconfirmed":
+                confirmed = False
+            if category and category != "stop_unconfirmed" and confirmed:
+                result.update(state="failed", error_code=category, reason=category, answer=_DIRECT_NEXT[category])
+            else:
+                result.update(state="failed" if confirmed else "needs_reconcile",
+                    error_code=None if confirmed else "stop_unconfirmed",
+                    reason=None if confirmed else "stop_unconfirmed",
+                    answer="Agent 尚未完成回覆，請在 Web 檢查此執行環境的配對、登入與連線。" if confirmed else
+                           "Runner 尚未確認原程序已停止；請先查看診斷並核對原工作。")
         self.store.put("conversation", result)
         if item["source"] != "web":
             # A changed audience/token must never receive an in-flight response from the previous configuration.
@@ -529,42 +597,114 @@ class Gateway:
     async def begin_line_login(self):
         if self.line_task and not self.line_task.done():
             return self.line_login
-        self.line_login = {"status": "connecting", "qr": None, "pin": None, "channels": [], "expires": time.time() + 180}
+        self.line_login = {"status": "connecting", "qr": None, "pin": None, "channels": [],
+                           "expires": time.time() + LINE_QR_SECONDS, "reason": None, "message": None, "qr_epoch": 0}
+
+        def line_tokens(frame):
+            parts = [frame[key].lower() for key in ("code", "reason", "error", "message", "state")
+                     if isinstance(frame.get(key), str)]
+            return " ".join(parts)
+
+        def line_rejected(frame):
+            text = line_tokens(frame)
+            return any(token in text for token in _LINE_REJECT)
+
+        def fail(status):
+            self.line_login.update(status=status, reason=status, message=LINE_LOGIN_TEXT[status], qr=None, pin=None)
+
+        def timed_out():
+            if self.line_login.get("pin"):
+                fail("pin_failed")
+            elif self.line_login.get("qr"):
+                fail("qr_expired")
+            else:
+                fail("service_unavailable")
+
+        def show_qr(frame):
+            url = frame.get("url") if isinstance(frame.get("url"), str) else frame.get("qr")
+            if not isinstance(url, str) or not url or len(url) > 2048:
+                return
+            self.line_login.update(qr=url, status="authenticating", pin=None, reason=None, message=None,
+                                   expires=time.time() + LINE_QR_SECONDS,
+                                   qr_epoch=int(self.line_login.get("qr_epoch") or 0) + 1)
+
         async def consume():
             started = False
+            overall = time.time() + LINE_LOGIN_LIMIT
             try:
-                async with asyncio.timeout(180), line_admin() as socket:
-                    async for event in socket:
+                async with line_admin() as socket:
+                    while True:
+                        now = time.time()
+                        deadline = min(self.line_login.get("expires") or overall, overall)
+                        if now >= deadline:
+                            timed_out()
+                            return
+                        try:
+                            event = await asyncio.wait_for(socket.receive(), timeout=deadline - now)
+                        except TimeoutError:
+                            timed_out()
+                            return
                         if event.type != aiohttp.WSMsgType.TEXT:
+                            if event.type in {aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSING,
+                                              aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.ERROR}:
+                                fail("service_unavailable")
+                                return
                             continue
                         frame = event.json()
+                        if not isinstance(frame, dict):
+                            continue
                         kind = frame.get("type")
                         if kind == "auth:state":
-                            self.line_login["status"] = frame["state"]
-                            if frame["state"] in {"idle", "error"} and not started:
+                            state = frame.get("state")
+                            if state in {"idle", "restoring", "ready", "authenticating"}:
+                                self.line_login["status"] = state
+                            if state in {"idle", "error"} and not started:
                                 started = True
                                 await socket.send_json({"type": "auth:start"})
-                        elif kind == "auth:qr":
-                            self.line_login.update(qr=frame["url"], status="authenticating")
+                            if state == "failed" or line_rejected(frame):
+                                fail("login_rejected" if line_rejected(frame) or not self.line_login.get("pin") else "pin_failed")
+                                return
+                        elif kind in {"auth:qr", "qr"}:
+                            show_qr(frame)
                         elif kind == "auth:pin":
-                            self.line_login["pin"] = frame["code"]
+                            code = frame.get("code")
+                            if isinstance(code, str) and code:
+                                self.line_login.update(pin=code[:32], reason=None)
                         elif kind == "auth:ready":
-                            self.line_login.update(status="ready", qr=None, pin=None,
+                            self.line_login.update(status="ready", qr=None, pin=None, reason=None, message=None,
                                                    profile=frame["profile"].get("displayName", ""))
                             await socket.send_json({"type": "channels:refresh"})
                         elif kind == "channels":
                             self.line_login["channels"] = [{k: c[k] for k in ("channelId", "name", "kind")} for c in frame["channels"]]
                             if self.line_login["status"] == "ready":
                                 return
-                        elif kind == "error":
-                            self.line_login.update(status="failed", qr=None, pin=None)
+                        elif kind == "error" or line_rejected(frame):
+                            if line_rejected(frame):
+                                fail("login_rejected")
+                            elif self.line_login.get("pin"):
+                                fail("pin_failed")
+                            else:
+                                fail("login_rejected")
                             return
-            except (aiohttp.ClientError, ChannelError, TimeoutError, ValueError):
-                self.line_login.update(status="unavailable", qr=None, pin=None)
+            except (aiohttp.ClientError, ChannelError, TimeoutError, ValueError, KeyError):
+                fail("service_unavailable")
             finally:
                 self.line_login.update(qr=None, pin=None)
         self.line_task = asyncio.create_task(consume())
         return self.line_login
+
+
+def runner_category(exc):
+    """Read a stable category from a runner job error. Unrecognized text stays unclassified."""
+    if isinstance(exc, TimeoutError):
+        return "timeout"
+    if not isinstance(exc, RunnerError):
+        return None
+    text = str(exc)
+    if text.startswith("CLI 超時"):
+        return "timeout"
+    head = text.split("：", 1)[0].split(":", 1)[0].strip()
+    return head if head in _RUNNER_CATEGORIES else None
 
 
 def routes(app, gateway, store, runners, controller_id):
