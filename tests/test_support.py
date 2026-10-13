@@ -149,3 +149,16 @@ def test_owner_rescue_cli_never_calls_controller_or_host_daemon(monkeypatch, cap
     cli.main()
     assert json.loads(capsys.readouterr().out)["state"] == "written"
     assert json.loads(destination.read_text())["report"]["status"] == "fixture"
+
+
+def test_junit_evidence_redacts_machine_name_and_home():
+    from conftest import redact_junit
+    home = "/home/someone"
+    xml = ('<testsuites><testsuite name="pytest" hostname="private-box" tests="1">'
+           '<testcase><failure message="/home/someone/agent-work/tmp/x and /home/someone.d and /home/someone2"/>'
+           '</testcase></testsuite></testsuites>')
+    out = redact_junit(xml, home)
+    assert 'hostname="redacted"' in out and "private-box" not in out
+    assert "~/agent-work/tmp/x" in out and "/home/someone/" not in out
+    # Only the exact home directory is replaced, not a longer sibling name.
+    assert "/home/someone.d" in out and "/home/someone2" in out

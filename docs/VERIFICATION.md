@@ -336,7 +336,7 @@ pytest-disktmp uv run pytest -q tests/test_haos_vm.py --haos-vm
 pytest-disktmp uv run pytest -q tests/test_linux_install.py --linux-install
 ```
 
-所有暫存磁碟、SQLite、SSH key 都使用磁碟上的 pytest wrapper 目錄；測試容器、虛擬磁碟和憑證結束後刪除。
+所有暫存磁碟、SQLite、SSH key 都使用磁碟上的 pytest wrapper 目錄；測試容器、虛擬磁碟和憑證結束後刪除。JUnit 檔寫入後，`hostname` 記為 `redacted`，家目錄路徑記為 `~`；舊版本已提交的證據保持原樣，以免破壞既有封存雜湊。
 
 ## Fixtures 與限制
 
