@@ -652,7 +652,6 @@ class HomeWorkerMaintenance:
             if peer and peer.get("host") == HOST and peer.get("port") == PORT and peer.get("fingerprint"):
                 # Already paired, for example by the manual JSON flow. The poll checks the TLS pin now.
                 await self.begin_clear(record, token, app, peer["fingerprint"])
-                await self.observe_worker(record)
                 return
             deadline = record.get("pair_deadline")
             if deadline is None:
@@ -700,8 +699,10 @@ class HomeWorkerMaintenance:
 
     async def begin_clear(self, record, token, app, fingerprint):
         if app.get("options") == {}:
-            self.save(record, stage="login", state="login_ready", operation=None, code="home_worker_login_required",
-                      fingerprint=fingerprint, failed_code_hash=None, privilege_view=None)
+            # Offer login only after the capability poll confirms a reachable worker and its auth state.
+            self.save(record, stage="login", operation=None, fingerprint=fingerprint,
+                      failed_code_hash=None, privilege_view=None)
+            await self.observe_worker(record)
             return
         self.save(record, fingerprint=fingerprint, privilege_view=self.privilege_view(app), failed_code_hash=None)
         await self.effect(record, token, "clear_options", f"/addons/{record['slug']}/options", {"options": {}})
@@ -722,8 +723,8 @@ class HomeWorkerMaintenance:
                 self.waiting(record)
                 return
             raise HomeWorkerFault("home_worker_options_unconfirmed", "needs_reconcile")
-        self.save(record, stage="login", state="login_ready", operation=None, code="home_worker_login_required",
-                  privilege_view=None, failed_code_hash=None)
+        self.save(record, stage="login", operation=None, privilege_view=None, failed_code_hash=None)
+        await self.observe_worker(record)
 
     async def advance_observe(self, record, token):
         operation = record.get("operation") or {}
