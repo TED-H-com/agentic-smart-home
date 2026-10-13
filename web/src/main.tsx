@@ -14,6 +14,7 @@ import {TaskDetail,type Task} from './task-detail';
 import {BridgeApp} from './bridge';
 import {BridgeMaintenance} from './bridge-maintenance';
 import {HostLogin,HostPanel} from './host';
+import {connection,names} from './labels';
 
 type Entity = {entity_id:string; name:string; domain:string; area:string|null; state:string; availability:string; observed_at:string; actions:string[]};
 type Permission = {entity_id:string; read:boolean; write:string; purpose:string};
@@ -105,16 +106,37 @@ function Automations({onTask,onEdit,onCreate}:{onTask:(t:Task)=>void;onEdit:(id:
   return <><div className="section-intro"><p>只列出這裡建立、並留有紀錄的規則。</p><a className="external-link" href={haPath("/config/automation/dashboard")} target={haTarget()} rel="noreferrer">開啟家庭自動化 ↗</a></div>{error&&<Notice error>{error}</Notice>}{items.map(a=><article className="automation-row" key={a.id}><div><span className="eyebrow">{a.enabled?'已啟用':'已停用'}</span><h2>{a.intent.title}</h2><p><code>{a.intent.trigger.entity_id}</code> {a.intent.trigger.from_state} → {a.intent.trigger.to_state}</p><code className="subtle">{a.id}</code></div><div className="row-actions"><Button secondary onClick={()=>onEdit(a.id)}>修改</Button><Button secondary disabled={busy===a.id} onClick={()=>propose(a.id,a.enabled?'disable':'enable')}>{a.enabled?'預覽停用':'預覽啟用'}</Button><details className="more-actions"><summary>更多</summary><Button secondary disabled={busy===a.id} onClick={()=>propose(a.id,'rollback')}>預覽回復</Button></details></div></article>)}{!items.length&&<Empty title="還沒有自動化" action={<Button secondary onClick={onCreate}>建立需求</Button>}>描述需求並批准後，規則會出現在這裡。</Empty>}</>
 }
 
+function codingDetail(value:any){
+  const list=Array.isArray(value?.workers)?value.workers:null;
+  if(!list) return '';
+  const worker=list.find((item:any)=>item&&item.worker_id==='host-coder');
+  const provider=Array.isArray(worker?.providers)?worker.providers.find((item:any)=>item&&item.id==='codex'):null;
+  const state=provider?.credential_state;
+  if(typeof state!=='string'||!state) return '';
+  return ['configured','inference_verified','connected'].includes(state)?'已就緒':'需要登入';
+}
+function channelDetail(status:any){
+  const gateway=status?.gateway;
+  if(!gateway||gateway.selected!==true) return '';
+  const primary=gateway.preferences?.primary;
+  if(typeof primary!=='string'||!names[primary]) return '';
+  let state='';
+  if(primary==='web') state=typeof gateway.web?.status==='string'?gateway.web.status:'';
+  else if(Array.isArray(gateway.channels)){const current=gateway.channels.find((item:any)=>item&&item.id===primary);state=typeof current?.status==='string'?current.status:'';}
+  const label=connection[state];
+  return label?`${names[primary]} · ${label}`:'';
+}
 function Settings({status,onChange,hostMode}:{status:any;onChange:()=>void;hostMode:boolean}){
   const [sidebarOpen,setSidebarOpen]=useState(false);
-  const [pairing,setPairing]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[services,setServices]=useState<any[]>([]),[passphrase,setPassphrase]=useState('');
+  const [pairing,setPairing]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[services,setServices]=useState<any[]>([]),[passphrase,setPassphrase]=useState(''),[coding,setCoding]=useState('');
   async function loadServices(){setServices((await api('services')).services)}
   useEffect(()=>{loadServices().catch(e=>setError(e.message))},[]);
+  useEffect(()=>{if(!hostMode)return;let alive=true;api('workers').then(value=>{if(alive)setCoding(codingDetail(value))}).catch(()=>{});return()=>{alive=false}},[hostMode]);
   async function pair(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await api('pair',JSON.parse(pairing));setPairing('');setNotice('執行環境已配對');onChange()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
   async function service(id:string,action:string){setError('');try{await api(`services/${id}`,{action});await loadServices()}catch(e){setError((e as Error).message)}}
   const providers=status?.runner?.providers;
   const accountState=Array.isArray(providers)?(providers.some((item:any)=>item.status==='connected')?'已登入':'尚未登入'):'';
-  const hub:[string,string,string][]=[[ '#agents','AI 帳號',accountState],[ '#gateway/channels','通訊',''],[ '#workers','開發助手',''],[ '#host','主機維護',''],[ '#home','家庭提案',''],[ '#onboarding','初次設定','']];
+  const hub:[string,string,string][]=[[ '#agents','AI 帳號',accountState],[ '#gateway/channels','通訊',channelDetail(status)],[ '#workers','開發助手',coding],[ '#host','主機維護',''],[ '#home','家庭提案',''],[ '#onboarding','初次設定','']];
   if(hostMode)return <div className="settings-layout settings-simple">
     {error&&<Notice error>{error}</Notice>}{notice&&<Notice>{notice}</Notice>}
     <section className="settings-ai" aria-labelledby="settings-ai-title"><div><h2 id="settings-ai-title">AI 助手</h2><p className="settings-ai-state">{status?.paused?'已暫停':'運作中'}</p></div><Button secondary={!status?.paused} disabled={!status} onClick={async()=>{try{await api('pause',{paused:!status?.paused});await onChange()}catch(e){setError((e as Error).message)}}}>{status?.paused?'恢復 AI':'暫停 AI'}</Button><p className="helper-text">暫停時不接新需求，家中自動化照常運作。</p></section>
