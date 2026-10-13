@@ -16,7 +16,7 @@
     "host/agentic_host/fence.py": "2828f677c5b6ef768726d6a4827ad1bab842367e03c0df526375ec0f1d4d2ce7",
     "host/agentic_host/manager.py": "c3ab7c7bfbd5d87c534ef715ebb26f7485688b1dc49c3f00eb40ebb62efbfbe8",
     "host/agentic_host/network.py": "92cb4cef24f2248af6b6199d0498adfbc035d6497d2dfa0df0fd7853b8ffd91e",
-    "host/agentic_host/preview.py": "c5f28685a99b77842240740f06a96b4581523210b8446a8496fd6c6332934b1f",
+    "host/agentic_host/preview.py": "a3be4b9fca5ec574e526788c140cfe3a3c58d81d7d38118222eaea86a4a39ed3",
     "host/agentic_host/proxy.py": "d307b950017e3daa2d041cbce3369133a90cd65f0580eba92db9b166f5b16c8d",
     "host/agentic_host/publisher.py": "f7bb178d18104f8fb7c6c12be07f127b8d236a12d231b0505e04945d412a2df4",
     "host/agentic_host/resources.py": "e75637f41d19c9613b05c1bcef947b664a3e7789c7bad85b2645e5912619e42d",

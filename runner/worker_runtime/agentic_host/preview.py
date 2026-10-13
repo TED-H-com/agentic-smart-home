@@ -258,7 +258,8 @@ class Previews:
     def read_png(self, capability, width):
         with self.lock:
             record = next((r for r in self.records.values() if secrets.compare_digest(r["capability"], capability)), None)
-            if record is None or record["state"] != "ready" or record["expires_at"] <= time.time() or width not in WIDTHS:
+            if (record is None or record.get("mode") == "interactive" or record["state"] != "ready"
+                    or record["expires_at"] <= time.time() or width not in WIDTHS):
                 return None
             data = (self.root / record["id"] / f"{width}.png").read_bytes()
             if png(data, width) != record["image_digests"][str(width)]:
@@ -414,6 +415,9 @@ def preview_server(previews, address=("127.0.0.2", 8100)):
                 self.serve_interactive()
                 return
             self.send_error(501)
+
+        # The demo API refuses every write the same way.
+        do_PUT = do_PATCH = do_DELETE = do_POST
 
     server = ThreadingHTTPServer(address, Handler)
     previews.public_host = address[0]

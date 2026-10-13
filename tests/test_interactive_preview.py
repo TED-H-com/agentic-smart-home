@@ -26,7 +26,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from agentic_controller.models import WorkerPreview as ModelPreview  # noqa: E402
 from agentic_controller.operations import Operations  # noqa: E402
 from agentic_controller.store import Conflict  # noqa: E402
-from agentic_controller.work import WorkerPreview  # noqa: E402
 from agentic_controller.workers import WorkerError  # noqa: E402
 from agentic_host.coding_program import (  # noqa: E402
     VERIFY_PROGRAM,
@@ -362,8 +361,12 @@ def test_interactive_server_refuses_host_worker_and_expiry(tmp_path):
         assert b"preview-csrf" in raw(f"/i/{cap}/api/session")[2]
         missing = raw(f"/i/{cap}/api/missing")
         assert missing[0] == 404 and "預覽沒有這項資料" in missing[2].decode()
-        denied = raw(f"/i/{cap}/api/tasks", method="POST")
-        assert denied[0] == 403 and "預覽不會執行操作" in denied[2].decode()
+        for method in ("POST", "PUT", "PATCH", "DELETE"):
+            denied = raw(f"/i/{cap}/api/tasks", method=method)
+            assert denied[0] == 403 and "預覽不會執行操作" in denied[2].decode(), method
+        # An interactive capability never opens the screenshot route.
+        assert service.read_png(cap, 1440) is None
+        assert raw(f"/p/{cap}/1440.png")[0] == 404
         assert raw(f"/i/{cap}/", host="localhost:8099")[0] == 404
         assert raw(f"/i/{cap}/", extra={"Service-Worker": "script"})[0] == 404
         assert raw(f"/i/{'b' * 43}/")[0] == 404
@@ -433,8 +436,8 @@ def test_preview_model_keeps_screenshot_default():
         ModelPreview(mode="interactive", artifact_ids=[JOB])
     with pytest.raises(ValidationError):
         ModelPreview()
-    legacy = WorkerPreview(artifact_ids=[JOB])
-    assert legacy.artifact_ids == [JOB] and not hasattr(legacy, "mode")
+    screenshot = ModelPreview(artifact_ids=[JOB])
+    assert screenshot.mode == "screenshot" and screenshot.artifact_ids == [JOB]
 
 
 class _Jobs:
@@ -499,7 +502,7 @@ async def test_preview_idempotency_includes_mode(store, monkeypatch):
     workers = _Jobs("built")
     operations = Operations(store, workers, host_mode=True)
     request = SimpleNamespace(headers={"idempotency-key": "same-preview"}, state=SimpleNamespace())
-    await operations.preview("a" * 32, WorkerPreview(artifact_ids=["c" * 32]), request)
+    await operations.preview("a" * 32, ModelPreview(artifact_ids=["c" * 32]), request)
     with pytest.raises(Conflict):
         await operations.preview("a" * 32, ModelPreview(mode="interactive"), request)
     assert calls[-1][2]["artifact_digest"]
