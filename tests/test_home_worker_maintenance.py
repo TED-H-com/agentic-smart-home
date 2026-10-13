@@ -154,6 +154,7 @@ class Supervisor:
             self.app["options"] = copy.deepcopy(body["options"])
             if self.corrupt_on_options:
                 self.app["privileged"] = ["SYS_ADMIN", "NET_ADMIN"]
+            # The real options POST answers without a job. A pending job here covers the defensive wait.
             value = None if self.job.get("done", True) else {"job_id": JOB}
         else:
             raise AssertionError((method, path))
