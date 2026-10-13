@@ -19,6 +19,9 @@ from .upstream import guarded_dispatch as guarded_dispatch
 # Must stay strictly above the controller HA client timeout (HA_CLIENT_TIMEOUT = 30).
 # This process must not import the controller.
 MCP_TOOL_TIMEOUT = 45
+# A configured window skips Hermes' context detection, which otherwise downloads provider
+# model catalogs in every fresh process. Compression is off and turns are short.
+CONTEXT_LENGTH = 128_000
 
 SYSTEM = """You are Hermes, the sole coordinator for Agentic Smart Home.
 Use only the provided Controller MCP tools. Controller authorizes scope, workers,
@@ -74,7 +77,8 @@ def main():
     home = Path(os.environ["HERMES_HOME"])
     provider = payload.get("provider", "openrouter")
     config = {
-        "model": {"provider": provider, "default": payload["model"], "openai_runtime": "codex_responses"},
+        "model": {"provider": provider, "default": payload["model"], "openai_runtime": "codex_responses",
+                  "context_length": CONTEXT_LENGTH},
         "auth": {"adopt_external_logins": False},
         "mcp_servers": {"agentic": {
             "url": os.environ["AGENTIC_MCP_URL"],

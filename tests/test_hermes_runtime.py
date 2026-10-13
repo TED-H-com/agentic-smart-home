@@ -461,13 +461,22 @@ def test_hermes_builtin_dispatch_is_refused_even_if_model_invents_tools():
 
 @contextmanager
 def protocol_server(auth_error=False, controller=False, native=False):
-    observed = {"model_calls": [], "tool_calls": []}
+    observed = {"model_calls": [], "tool_calls": [], "egress": []}
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
             pass
 
+        def do_CONNECT(self):
+            # The child's proxy points here: any HTTPS call beyond loopback is egress.
+            observed["egress"].append(self.path)
+            self.send_response(403)
+            self.end_headers()
+            self.close_connection = True
+
         def do_GET(self):
+            if self.path.startswith("http"):
+                observed["egress"].append(self.path.split("/")[2])
             self.send_response(405)
             self.end_headers()
 
@@ -635,9 +644,10 @@ def test_real_pinned_hermes_uses_only_controller_mcp(tmp_path, request, monkeypa
         name = "agentic-hermes-test-" + uuid.uuid4().hex[:12]
         if python := os.environ.get("AGENTIC_HERMES_TEST_PYTHON"):
             command = [python, "-m", "agentic_hermes.child"]
-            env = {"PATH": "/usr/bin:/bin", "HOME": str(home), "HERMES_HOME": str(home / ".hermes"), "TMPDIR": str(home / "tmp"), "PYTHONPATH": str(Path(__file__).parents[1] / "hermes") + ":" + os.environ["AGENTIC_HERMES_TEST_UPSTREAM"], "AGENTIC_MCP_URL": mcp["url"], "AGENTIC_PROVIDER_URL": url + "/v1"}
+            env = {"PATH": "/usr/bin:/bin", "HOME": str(home), "HERMES_HOME": str(home / ".hermes"), "TMPDIR": str(home / "tmp"), "PYTHONPATH": str(Path(__file__).parents[1] / "hermes") + ":" + os.environ["AGENTIC_HERMES_TEST_UPSTREAM"], "AGENTIC_MCP_URL": mcp["url"], "AGENTIC_PROVIDER_URL": url + "/v1",
+                   "HTTPS_PROXY": url, "HTTP_PROXY": url, "NO_PROXY": "127.0.0.1,localhost"}
         else:
-            command = ["docker", "run", *source_mounts(), "--rm", "--name", name, "-i", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "--network=host", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{home}:/scratch", "-e", "HOME=/scratch", "-e", "HERMES_HOME=/scratch/.hermes", "-e", "TMPDIR=/scratch/tmp", "-e", "PYTHONPATH=/app:/opt/hermes", "-e", "AGENTIC_MCP_URL=" + mcp["url"], "-e", "AGENTIC_PROVIDER_URL=" + url + "/v1", "--entrypoint=python", os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.8.0"), "-m", "agentic_hermes.child"]
+            command = ["docker", "run", *source_mounts(), "--rm", "--name", name, "-i", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "--network=host", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{home}:/scratch", "-e", "HOME=/scratch", "-e", "HERMES_HOME=/scratch/.hermes", "-e", "TMPDIR=/scratch/tmp", "-e", "PYTHONPATH=/app:/opt/hermes", "-e", "AGENTIC_MCP_URL=" + mcp["url"], "-e", "AGENTIC_PROVIDER_URL=" + url + "/v1", "-e", "HTTPS_PROXY=" + url, "-e", "HTTP_PROXY=" + url, "-e", "NO_PROXY=127.0.0.1,localhost", "--entrypoint=python", os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.8.0"), "-m", "agentic_hermes.child"]
             env = None
         if native:
             payload.update(provider="openai-codex", model="gpt-6-astra", api_key="")
@@ -651,6 +661,8 @@ def test_real_pinned_hermes_uses_only_controller_mcp(tmp_path, request, monkeypa
                 subprocess.run(["docker", "rm", "-fv", name], capture_output=True, check=False)
         assert result.returncode == 0, result.stderr[-3000:]
         body = json.loads(result.stdout)
+        # Only the provider and the Controller: no model catalog or other download.
+        assert observed["egress"] == []
         if auth_error:
             assert body["error"] == "needs_reauth", (body, result.stderr[-2000:])
             assert body["answer"] == "" and body["history"] == []
