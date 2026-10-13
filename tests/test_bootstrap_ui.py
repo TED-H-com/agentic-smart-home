@@ -1,5 +1,6 @@
 """Guided setup UI against protocol fixtures; no real OAuth/HA acceptance claim."""
 import json
+import re
 import threading
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -174,7 +175,7 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             page.on('pageerror', lambda error, errors=errors: errors.append(str(error)))
             page.route('**/api/**', route)
             page.goto(f'http://127.0.0.1:{server.server_port}/#onboarding')
-            page.get_by_role('heading', name='先選一個 AI 助手', exact=True).wait_for()
+            page.get_by_role('heading', name='先選一個 AI 帳號', exact=True).wait_for()
             assert page.locator('article.provider').count() == 0
             expect(page.locator('.onboarding-body').get_by_role('heading')).to_have_count(1)
             expect(page.locator('.topbar .ha-status')).to_have_count(0)
@@ -183,9 +184,9 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             page.get_by_role('radio', name='Codex ChatGPT 訂閱', exact=True).focus()
             page.keyboard.press('ArrowRight')
             expect(page.get_by_role('radio', name='Claude Code Claude 訂閱', exact=True)).to_be_checked()
-            expect(page.get_by_text('Claude Code 使用官方 setup-token', exact=False)).to_be_visible()
-            page.get_by_role('radio', name='Antigravity Gemini API key', exact=True).check()
-            expect(page.get_by_text('Google 訂閱登入尚未整合', exact=False)).to_be_visible()
+            expect(page.get_by_text('Claude Code 使用官方 setup-token', exact=False)).to_have_count(0)
+            page.get_by_role('radio', name='Antigravity Gemini API 金鑰', exact=True).check()
+            expect(page.get_by_text('Google 訂閱登入尚未整合', exact=False)).to_have_count(0)
             page.get_by_role('radio', name='Grok Build Grok 訂閱', exact=True).check()
             shots(page, 'choose')
             start = page.locator('.onboarding-body').get_by_role('button', name='開始設定', exact=True)
@@ -196,7 +197,7 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             expect(page.get_by_role('button', name='稍後再設定', exact=True)).to_be_visible()
             assert page.get_by_role('link', name='主機狀態', exact=True).count() == 0
             page.get_by_text('詳細說明', exact=True).click()
-            expect(page.get_by_text('開始即同意安裝並維護智能管家 App', exact=False)).to_be_visible()
+            expect(page.get_by_text('開始即會安裝並維護智能管家側欄；不改家庭的系統更新，你停止或移除後不會自動裝回，可隨時在設定撤銷。', exact=True)).to_be_visible()
             expect(page.get_by_role('button', name='選單', exact=True)).to_have_count(0)
             expect(page.locator('#main-navigation')).to_have_count(0)
             page.locator('.onboarding-body').get_by_role('button', name='開始設定', exact=True).click()
@@ -232,9 +233,9 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             oauth = page.get_by_role('region', name='智能管家登入')
             oauth.get_by_role('button', name='開始登入', exact=True).wait_for()
             expect(oauth.get_by_label('模型 ID', exact=True)).to_have_value('gpt-6-astra')
-            oauth.get_by_role('radio', name='OpenRouter API key', exact=True).check()
+            oauth.get_by_role('radio', name='OpenRouter 金鑰', exact=True).check()
             expect(oauth.get_by_text('系統會呼叫模型一次來驗證連線，供應商可能計費。', exact=False)).to_be_visible()
-            oauth.get_by_role('radio', name='官方訂閱登入', exact=True).check()
+            oauth.get_by_role('radio', name='ChatGPT 訂閱', exact=True).check()
             expect(oauth.get_by_label('模型 ID', exact=True)).to_have_value('gpt-6-astra')
             oauth.get_by_role('button', name='開始登入', exact=True).click()
             page.get_by_text('HERMES-FIXTURE', exact=True).wait_for()
@@ -252,24 +253,30 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             page.get_by_text('HERMES-FIXTURE', exact=True).wait_for()
             runtime.update(state='configured', model='gpt-6-astra')
             device['state'] = 'configured'
-            expect(oauth.locator('.section-heading').get_by_role('status')).to_have_text('已儲存，待實際回覆驗證')
+            expect(oauth.locator('.section-heading').get_by_role('status')).to_have_text('已儲存，尚未驗證')
+            expect(oauth.get_by_text('gpt-6-astra', exact=True)).to_have_count(0)
+            expect(oauth.get_by_text('已可對話', exact=True)).to_have_count(0)
             assert page.get_by_role('heading', name='選擇你的通訊入口').count() == 0
             runtime.update(state='ready', auth_verified_at='2026-10-12T08:01:00Z')
             stage('channel', 'waiting_input', {'kind': 'channel_setup', 'channel': 'line'})
             page.get_by_role('heading', name='選擇你的通訊入口', exact=True).wait_for()
-            expect(page.get_by_role('radio', name='LINE 預設推薦', exact=True)).to_be_checked()
-            expect(page.get_by_role('radio', name='Discord 自己的 bot', exact=True)).to_be_visible()
-            expect(page.get_by_text('LINE.js 為非官方協定，建議使用次要帳號。', exact=True)).to_be_visible()
+            expect(page.get_by_role('radio', name='LINE 建議', exact=True)).to_be_checked()
+            expect(page.get_by_role('radio', name='Discord', exact=True)).to_be_visible()
+            expect(page.get_by_role('radio', name='Telegram', exact=True)).to_be_visible()
+            expect(page.get_by_text('LINE 使用非官方方式連線，建議用次要帳號。', exact=True)).to_be_visible()
+            expect(page.get_by_text('家庭變更仍需在這裡批准。', exact=True)).to_have_count(0)
             page.get_by_role('button', name='開始 LINE 掃碼登入').click()
-            page.get_by_alt_text('用 LINE 掃描此登入 QR code').wait_for()
+            page.get_by_alt_text('用 LINE 掃描這個 QR').wait_for()
             page.get_by_text('123456', exact=True).wait_for()
             shots(page, 'line')
             line.update(status='ready', qr=None, pin=None,
                         channels=[{'channelId': 'c11111111111111111111111111111111', 'name': '家庭測試聊天室'}])
             page.get_by_label('家庭聊天室', exact=True).select_option('c11111111111111111111111111111111')
             expect(page.get_by_label('允許的使用者 ID')).not_to_be_visible()
+            expect(page.get_by_role('button', name='重新讀取 LINE 聊天室', exact=True)).to_be_visible()
             page.get_by_role('button', name='產生通訊配對碼', exact=True).click()
             page.get_by_label('通訊配對指令').wait_for()
+            expect(page.get_by_role('button', name='重新讀取 LINE 聊天室', exact=True)).to_have_count(0)
             expect(page.get_by_label('通訊配對指令')).to_have_text('/pair PAIR-FIXTURE')
             page.get_by_role('button', name='複製配對指令', exact=True).click()
             assert page.evaluate('navigator.clipboard.readText()') == '/pair PAIR-FIXTURE'
@@ -286,13 +293,14 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             page.get_by_role('button', name='產生通訊配對碼', exact=True).click()
             page.get_by_role('button', name='取消這次配對', exact=True).click()
             page.get_by_role('button', name='產生通訊配對碼', exact=True).wait_for()
-            page.get_by_role('radio', name='Telegram 自己的 bot', exact=True).click()
-            expect(page.get_by_role('radio', name='Telegram 自己的 bot', exact=True)).to_be_checked()
-            page.get_by_label('Telegram bot token').fill('123456:fixture-private-telegram-token')
+            page.get_by_role('radio', name='Telegram', exact=True).click()
+            expect(page.get_by_role('radio', name='Telegram', exact=True)).to_be_checked()
+            page.get_by_label('Telegram 機器人權杖').fill('123456:fixture-private-telegram-token')
             expect(page.get_by_label('允許的聊天室 ID')).not_to_be_visible()
+            expect(page.get_by_text('向 Telegram 的 BotFather 取得權杖，再產生配對碼。', exact=True)).to_be_visible()
             page.get_by_role('button', name='產生通訊配對碼', exact=True).click()
             page.get_by_label('通訊配對指令').wait_for()
-            expect(page.get_by_label('Telegram bot token')).to_have_value('')
+            expect(page.get_by_label('Telegram 機器人權杖')).to_have_value('')
             assert '123456:fixture-private-telegram-token' not in stored(page)
             page.get_by_role('button', name='取消這次配對', exact=True).click()
             expect(page.get_by_role('button', name='產生通訊配對碼', exact=True)).to_be_enabled()
@@ -302,19 +310,28 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             page.get_by_text('帳號已配對。正在確認通訊連線', exact=False).wait_for()
             # Paired audience alone must not claim the external channel is connected.
             expect(page.get_by_role('heading', name='選擇你的通訊入口', exact=True)).to_be_visible()
-            page.get_by_role('radio', name='Web 先用 Web', exact=True).click()
+            page.get_by_role('radio', name='Web 不需帳號', exact=True).click()
             page.get_by_text('正在建立家庭環境', exact=False).wait_for()
             assert calls[-1][0:2] == ('bootstrap/preferences', {'channel': 'web'})
             failure['read'] = True
-            page.get_by_role('alert').filter(has_text='fixture disconnected').wait_for()
+            disconnected = page.get_by_role('alert').filter(has_text='請重試連線。')
+            disconnected.wait_for()
+            expect(disconnected).to_contain_text('這次沒有完成，請稍後再試。')
+            assert 'fixture disconnected' not in (page.locator('body').inner_text() or '')
+            assert '恢復連線後會從這裡繼續。' not in (page.locator('body').inner_text() or '')
             assert page.get_by_role('heading', name='設定完成').count() == 0
             shots(page, 'disconnected')
             failure['read'] = False
             stage('ha_native', 'waiting_input', {'kind': 'ha_native_onboarding'})
             page.get_by_role('button', name='重試連線', exact=True).click()
             page.get_by_role('heading', name='設定你的家庭', exact=True).wait_for()
-            expect(page.get_by_role('link', name='開啟 Home Assistant 設定')).to_have_attribute('href', 'http://127.0.0.1:8123/')
-            expect(page.get_by_text('授權有效一年，可隨時在 Home Assistant 撤銷。', exact=False)).to_be_visible()
+            home_settings = page.get_by_role('link', name='開啟家庭設定')
+            expect(home_settings).to_have_attribute('href', 'http://127.0.0.1:8123/')
+            expect(home_settings).to_have_class(re.compile(r'secondary'))
+            expect(page.get_by_role('button', name='授權連接家庭', exact=True)).not_to_have_class(re.compile(r'secondary'))
+            expect(page.get_by_text('建立家庭擁有者帳號後回來。', exact=True)).to_be_visible()
+            expect(page.get_by_text('在家庭確認授權。', exact=True)).to_be_visible()
+            expect(page.get_by_text('授權有效一年，可隨時在家庭撤銷。', exact=True)).to_be_visible()
             shots(page, 'native-home')
             page.get_by_role('button', name='授權連接家庭', exact=True).click()
             page.get_by_role('alert').filter(has_text='家庭授權位置不正確').wait_for()
@@ -326,7 +343,7 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             authorization.update(state='failed', error_code='ha_owner_required')
             page.go_back()
             page.get_by_role('heading', name='設定你的家庭', exact=True).wait_for()
-            page.get_by_role('alert').filter(has_text='家庭授權尚未完成').wait_for()
+            page.get_by_role('alert').filter(has_text='家庭授權尚未完成，請用家庭擁有者帳號重試。').wait_for()
             authorization.update(state='expired', error_code=None)
             page.get_by_role('alert').filter(has_text='家庭授權已過期').wait_for()
             authorization.update(state='connected', error_code=None)
@@ -419,7 +436,7 @@ def test_desktop_ticket_is_consumed_once_and_never_persisted():
                 page.route('**/api/**', route)
                 page.goto(f'http://127.0.0.1:{server.server_port}/#desktop-login={fragment}')
                 if scenario == 'valid':
-                    page.get_by_role('heading', name='先選一個 AI 助手', exact=True).wait_for()
+                    page.get_by_role('heading', name='先選一個 AI 帳號', exact=True).wait_for()
                     assert calls[0] == 'deployment'
                     assert calls.count('host/desktop-login') == 1
                     expect(page.get_by_label('主機登入金鑰')).to_have_count(0)
@@ -440,7 +457,7 @@ def test_desktop_ticket_is_consumed_once_and_never_persisted():
                 assert first_count == (0 if scenario == 'malformed' else 1)
                 page.reload()
                 if scenario == 'valid':
-                    page.get_by_role('heading', name='先選一個 AI 助手', exact=True).wait_for()
+                    page.get_by_role('heading', name='先選一個 AI 帳號', exact=True).wait_for()
                 else:
                     page.get_by_label('主機登入金鑰').wait_for()
                 assert calls.count('host/desktop-login') == first_count
@@ -579,7 +596,8 @@ def test_native_entry_failures_keep_rescue_and_never_restart_setup(native_entry_
     page.get_by_role('heading', name='家庭暫時無法連接').wait_for()
     expect(page.locator('.topbar .ha-status')).to_have_count(0)
     fallback = page.get_by_role('region', name='家庭入口')
-    expect(fallback.get_by_role('link', name='手動開啟 Home Assistant')).to_have_attribute('href', 'http://127.0.0.1:8123/')
+    expect(fallback.get_by_role('link', name='開啟家庭')).to_have_attribute('href', 'http://127.0.0.1:8123/')
+    expect(fallback.get_by_role('button', name='重新檢查', exact=True)).to_have_count(0)
     expect(fallback.get_by_role('button', name='智能管家', exact=True)).to_be_enabled()
     expect(fallback.get_by_role('button', name='主機維護', exact=True)).to_be_enabled()
     assert page.url == origin + '/#entry' and state['native_visits'] == 0
@@ -592,14 +610,57 @@ def test_native_entry_failures_keep_rescue_and_never_restart_setup(native_entry_
             page.screenshot(path=str(Path(__file__).parents[1] / f'evidence/ui/native-home/unavailable-{width}.png'), full_page=True)
     state['failure'] = False
     state['entry'] = {'contract_version': 1, 'state': 'ready', 'native_path': '/', 'reason_code': None}
-    fallback.get_by_role('button', name='重新檢查').click()
-    page.get_by_role('heading', name='家庭已就緒').wait_for()
-    assert state['native_visits'] == 0  # A retry requires an explicit entry action.
+    page.get_by_role('heading', name='家庭已就緒').wait_for(timeout=12000)
+    assert state['native_visits'] == 0  # The rescue poll must not open the home.
     with page.expect_popup() as opened:
         fallback.get_by_role('link', name='進入家庭').click()
     opened.value.get_by_role('heading', name='Native Home Assistant fixture').wait_for()
     assert page.url == origin + '/#entry'
     opened.value.close()
+
+
+RESCUE = [
+    ('home_unavailable', '家庭暫時沒有回應，可能還在啟動。'),
+    ('maintenance', '主機正在更新，完成後會自動恢復。'),
+    ('home_not_bound', '還沒有連接家庭。'),
+    ('home_identity_changed', '家庭擁有者已變更，請重新連接家庭。'),
+    ('home_contract_changed', '家庭版本已變更，請直接開啟家庭。'),
+    ('not_a_known_code', '家庭暫時無法連接。'),
+]
+
+
+def test_home_entry_rescue_polls_each_reason_and_stops_when_ready(native_entry_ui):
+    page, origin, state = native_entry_ui
+    state['entry'] = {'contract_version': 1, 'state': 'unavailable', 'native_path': '/', 'reason_code': 'home_unavailable'}
+    page.goto(origin + '/')
+    entry = page.get_by_role('region', name='家庭入口')
+    page.get_by_role('heading', name='家庭暫時無法連接').wait_for()
+    expect(entry.get_by_role('button', name='重新檢查', exact=True)).to_have_count(0)
+    line = entry.locator('p[data-reason]')
+    link = entry.get_by_role('link', name='開啟家庭')
+    for index, (code, sentence) in enumerate(RESCUE):
+        seen = state['calls'].count(('GET', 'host/home-entry'))
+        state['entry'] = {'contract_version': 1, 'state': 'unavailable', 'native_path': '/', 'reason_code': code}
+        expect(line).to_have_text(sentence, timeout=12000)
+        expect(line).to_have_attribute('data-reason', code)
+        expect(entry.get_by_text(code, exact=True)).to_have_count(0)
+        if index:
+            assert state['calls'].count(('GET', 'host/home-entry')) > seen
+        assert page.url == origin + '/#entry' and state['native_visits'] == 0
+        if code == 'home_contract_changed':
+            expect(link).to_have_class(re.compile(r'(^|\s)button(\s|$)'))
+            expect(entry.get_by_role('button', name='主機維護', exact=True)).to_have_count(0)
+            expect(entry.get_by_role('button', name='智能管家', exact=True)).to_have_class(re.compile(r'(^|\s)secondary(\s|$)'))
+    expect(entry.get_by_role('button', name='主機維護', exact=True)).to_be_enabled()
+    expect(entry.get_by_role('button', name='主機維護', exact=True)).not_to_have_class(re.compile(r'secondary'))
+    expect(link).to_have_class(re.compile(r'(^|\s)text-button(\s|$)'))
+    state['entry'] = {'contract_version': 1, 'state': 'ready', 'native_path': '/', 'reason_code': None}
+    page.get_by_role('heading', name='家庭已就緒').wait_for(timeout=12000)
+    assert state['native_visits'] == 0 and page.url == origin + '/#entry'
+    page.wait_for_timeout(1000)
+    settled = state['calls'].count(('GET', 'host/home-entry'))
+    page.wait_for_timeout(6000)
+    assert state['calls'].count(('GET', 'host/home-entry')) == settled
 
 
 @pytest.mark.parametrize('fragment,heading', [('#gateway', '智能管家'), ('#host', '主機維護'), ('#home/pending-approval', '家庭提案')])

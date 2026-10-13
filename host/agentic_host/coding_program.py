@@ -385,9 +385,12 @@ def _web_build(code):
         return
     touched=False
     for line in patch.splitlines():
-        if line.startswith(b'diff --git ') and (b' a/web/' in line or b' b/web/' in line):
+        if line.startswith(b'diff --git ') and (b' a/web/' in line or b' b/web/' in line
+                or b'"a/web/' in line or b'"b/web/' in line):
             touched=True
-        elif line.startswith((b'--- a/web/', b'+++ b/web/', b'rename from web/', b'rename to web/')):
+        elif line.startswith((b'--- a/web/', b'+++ b/web/', b'--- "a/web/', b'+++ "b/web/',
+                b'rename from web/', b'rename to web/', b'rename from "web/', b'rename to "web/',
+                b'copy from web/', b'copy to web/', b'copy from "web/', b'copy to "web/')):
             touched=True
     if code!=0 or not touched:
         _web_status('not_applicable',None)

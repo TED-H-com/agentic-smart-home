@@ -196,13 +196,14 @@ def test_bridge_resumes_outer_case_results_png_and_exact_approval(bridge_browser
     shots(page, "conversation")
 
     page.get_by_label("對話訊息", exact=True).fill("這是尚未送出的草稿")
-    page.get_by_role("link", name="檢查家庭操作").click()
+    page.get_by_role("link", name="查看提案 →", exact=True).click()
     expect(page.get_by_role("heading", name="開啟測試燈", exact=True)).to_be_visible()
     assert not mutations
     shots(page, "approval")
     state["fail_approve"] = True
     page.get_by_role("button", name="批准並執行", exact=True).click()
-    expect(page.get_by_role("alert")).to_contain_text("fixture_approval_reply_lost")
+    expect(page.get_by_role("alert")).to_contain_text("這次沒有完成，請稍後再試。")
+    assert "fixture_approval_reply_lost" not in (page.locator("body").inner_text() or "")
     page.get_by_role("button", name="批准並執行", exact=True).click()
     expect(page.get_by_text("已核對執行結果。", exact=True)).to_be_visible()
     approvals = [m for m in mutations if m[0].endswith("/approve")]
@@ -230,7 +231,8 @@ def test_bridge_resumes_outer_case_results_png_and_exact_approval(bridge_browser
     state["fail_send"] = True
     page.get_by_label("對話訊息", exact=True).fill("接續檢查，不另開 case")
     page.get_by_role("button", name="送出訊息").click()
-    expect(page.get_by_role("alert")).to_contain_text("fixture_response_lost_retry_same_request")
+    expect(page.get_by_role("alert")).to_contain_text("這次沒有完成，請稍後再試。")
+    assert "fixture_response_lost_retry_same_request" not in (page.locator("body").inner_text() or "")
     expect(page.get_by_label("對話訊息", exact=True)).to_have_value("接續檢查，不另開 case")
     # Polling already sees the accepted result; retry must retain its original parent/key.
     expect(page.get_by_text("已接續同一份工作。", exact=True)).to_be_visible(timeout=7000)
@@ -271,7 +273,7 @@ def test_bridge_expiry_reconnect_identity_and_readonly_artifact_failures(bridge_
     page.get_by_role("button", name="查看成果", exact=True).click()
     before = len([p for _, p in calls if "/artifacts/" in p])
     page.get_by_role("button", name="查看內容", exact=True).click()
-    expect(page.get_by_role("alert")).to_contain_text("超過瀏覽器預覽大小")
+    expect(page.get_by_role("alert")).to_contain_text("檔案太大，無法在這裡顯示")
     assert len([p for _, p in calls if "/artifacts/" in p]) == before
     state["revoked"] = True
     expect(page.get_by_role("region", name="管家連線")).to_be_visible(timeout=7000)
@@ -291,7 +293,14 @@ def test_bridge_blocked_states_never_open_outer_controls(bridge_browser, bridge_
     state["bridge_state"] = bridge_state
     page.goto(base + "#host")
     expect(page.get_by_role("region", name="管家連線")).to_be_visible()
-    expect(page.get_by_role("button", name="重新連線", exact=True)).to_be_visible()
+    reconnect = page.get_by_role("button", name="重新連線", exact=True)
+    expect(reconnect).to_be_visible()
+    if bridge_state == "owner_required":
+        expect(page.get_by_role("heading", name="請用家庭擁有者開啟", exact=True)).to_be_visible()
+        expect(page.get_by_text("回到家庭，改以家庭擁有者的帳號開啟側欄。", exact=True)).to_be_visible()
+        expect(reconnect).to_have_class(re.compile(r"(^|\s)secondary(\s|$)"))
+    else:
+        expect(reconnect).not_to_have_class(re.compile(r"secondary"))
     assert calls and all(path == "deployment" for _, path in calls)
     assert not mutations and not page.locator('input[type="password"]').count()
     shots(page, bridge_state)
@@ -332,11 +341,11 @@ def test_outer_sidebar_maintenance_explicit_authority_and_revocation(bridge_brow
     page.goto(base + "#settings")
     expect(page.get_by_role("heading", name="設定", exact=True)).to_be_visible()
     assert not any("bridge/maintenance" in path for _, path in calls)
-    page.get_by_text("HA 智能管家側欄", exact=True).click()
+    page.get_by_text("智能管家側欄", exact=True).click()
     panel = page.get_by_role("region", name="側欄維護")
     expect(panel.get_by_text("尚未啟用", exact=True)).to_be_visible()
     assert not mutations
-    panel.get_by_role("button", name="啟用側欄並自動維護").click()
+    panel.get_by_role("button", name="啟用側欄", exact=True).click()
     expect(panel.get_by_text("側欄服務可用", exact=True)).to_be_visible()
     panel.get_by_text("更多", exact=True).click()
     panel.get_by_role("button", name="停止自動維護", exact=True).click()
@@ -346,10 +355,21 @@ def test_outer_sidebar_maintenance_explicit_authority_and_revocation(bridge_brow
     expect(panel.get_by_text("你已移除 App", exact=True)).to_be_visible(timeout=7000)
     expect(panel.get_by_role("button", name="檢查側欄連線")).to_have_count(0)
     panel.get_by_text("撤銷側欄連接", exact=True).click()
+    held = len(mutations)
     panel.get_by_role("button", name="撤銷連接", exact=True).click()
+    confirm = panel.get_by_role("group", name="撤銷側欄連接？家庭規則不受影響。")
+    expect(confirm).to_be_visible()
+    page.wait_for_timeout(300)
+    assert len(mutations) == held
+    confirm.get_by_role("button", name="取消", exact=True).click()
+    expect(confirm).to_have_count(0)
+    assert len(mutations) == held
+    panel.get_by_role("button", name="撤銷連接", exact=True).click()
+    panel.get_by_role("button", name="撤銷", exact=True).click()
     expect(panel.get_by_text("已撤銷連接", exact=True)).to_be_visible()
     assert [m[0].rsplit("/", 1)[1] for m in mutations] == ["authorize", "policy", "disable"]
-    panel.get_by_role("button", name="重新啟用側欄並自動維護", exact=True).click()
+    assert mutations[-1][1] == {}
+    panel.get_by_role("button", name="重新啟用側欄", exact=True).click()
     expect(panel.get_by_text("側欄服務可用", exact=True)).to_be_visible()
     assert mutations[-1][1] == {"auto_repair": True}
 
@@ -418,7 +438,7 @@ def test_sidebar_app_update_states_keys_and_poll(bridge_browser):
         # Same-URL goto does not reload, and a second click would close the fold.
         page.goto(base + "#settings")
         page.reload()
-        page.get_by_text("HA 智能管家側欄", exact=True).click()
+        page.get_by_text("智能管家側欄", exact=True).click()
         panel = page.get_by_role("region", name="側欄維護")
         expect(panel).to_be_visible()
         return panel
@@ -512,7 +532,7 @@ def test_sidebar_app_update_states_keys_and_poll(bridge_browser):
     assert "bridge_update_not_allowed" not in panel.inner_text()
     generic = _bridge_record("needs_reconcile", "bridge_operation_unconfirmed")
     panel = show(generic)
-    expect(panel.get_by_text("需要核對", exact=True)).to_be_visible()
+    expect(panel.get_by_text("需要確認", exact=True)).to_be_visible()
     expect(panel.get_by_role("button", name="檢查側欄連線", exact=True)).to_be_visible()
     expect(panel.get_by_role("button", name="更新側欄 App")).to_have_count(0)
     assert "bridge_operation_unconfirmed" not in panel.inner_text()
