@@ -10,6 +10,8 @@ import aiohttp
 import httpx
 import pytest
 from agentic_controller.app import create_app
+from agentic_controller.gateway import Gateway
+from agentic_controller.hermes import Coordinator
 from agentic_controller.models import ChannelConfig, ChatInput, canonical
 from agentic_controller.runner import Runner, RunnerError
 from conftest import TARGET
@@ -639,6 +641,8 @@ async def test_direct_chat_keeps_the_runner_category(system, store, monkeypatch)
     await drain(app)
     item = store.get('conversation', response.json()['id'])
     assert item['state'] == 'needs_reconcile' and item['error_code'] == 'stop_unconfirmed'
+    assert item['reason'] == 'stop_unconfirmed' and item.get('job_id')
+    assert item['answer'] == '正在確認上一個回覆已停止，完成後可以重新送出。'
 
 
 async def test_line_qr_refresh_and_distinct_login_failures(system, monkeypatch):
@@ -874,3 +878,155 @@ async def test_concurrent_submits_share_one_thread_and_one_execution(system):
         assert executed.count(same[0]['id']) == 1
     finally:
         gateway.store, gateway.execute, gateway.scope = original
+
+
+class _RestartHermes:
+    def __init__(self):
+        self.calls, self.terminal = [], set()
+        self.fail_once = False
+        self.failed = False
+
+    async def call(self, method, path, body=None, key=None):
+        self.calls.append((method, path))
+        if method == 'POST' and path.endswith('/cancel'):
+            if self.fail_once and not self.failed:
+                self.failed = True
+                raise RuntimeError('fixture bridge blip')
+            run_id = path.split('/')[3]
+            return {'state': 'cancelled' if run_id in self.terminal else 'running'}
+        raise AssertionError('replayed hermes call ' + method + ' ' + path)
+
+
+class _RestartRunner:
+    def __init__(self):
+        self.runs, self.cancels, self.terminal, self.hanging = [], [], set(), set()
+
+    async def run(self, job):
+        self.runs.append(job['id'])
+        raise AssertionError('replayed runner job')
+
+    async def call(self, method, path, body=None):
+        self.cancels.append(path)
+        job_id = path.split('/')[2]
+        if job_id in self.hanging:
+            await asyncio.sleep(5)
+        return {'state': 'cancelled' if job_id in self.terminal else 'stop_unconfirmed'}
+
+
+def _stop(message_id, **fields):
+    return {'id': message_id, 'state': 'needs_reconcile', 'error_code': 'stop_unconfirmed',
+            'source': 'web', 'message': '重啟前的需求 ' + message_id, 'created_at': '2026-10-13T00:00:00Z', **fields}
+
+
+async def _until(store, message_id, state):
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        item = store.get('conversation', message_id)
+        if item and item['state'] == state:
+            return item
+        await asyncio.sleep(0.01)
+    return store.get('conversation', message_id)
+
+
+async def test_restart_settles_a_confirmed_stop_and_keeps_checking_the_rest(store, monkeypatch):
+    monkeypatch.setattr('agentic_controller.gateway.RECONCILE_INTERVAL', 0.05)
+    monkeypatch.setattr('agentic_controller.gateway.RECONCILE_WINDOW', 30)
+    monkeypatch.setattr('agentic_controller.gateway.RECONCILE_ITEM_TIMEOUT', 0.05)
+    hermes, runner, household = _RestartHermes(), _RestartRunner(), []
+    hermes.terminal.add('run-done')
+    runner.terminal.add('job-done')
+    runner.hanging.add('job-hang')
+
+    async def plan_home(*args, **kwargs):
+        household.append((args, kwargs))
+        raise AssertionError('replayed household action')
+
+    store.put('hermes_run', {'id': 'run-done', 'state': 'running', 'message_id': 'conv-hermes-done', 'scope': 's'})
+    store.put('hermes_run', {'id': 'run-later', 'state': 'running', 'message_id': 'conv-hermes-later', 'scope': 's'})
+    store.put('task', {'id': 'task-done', 'state': 'awaiting_approval'})
+    store.put('task', {'id': 'task-later', 'state': 'executing'})
+    store.put('conversation', _stop('conv-hermes-done', hermes_run_id='run-done', coordinator='hermes'))
+    store.put('conversation', _stop('conv-hermes-later', hermes_run_id='run-later', coordinator='hermes',
+                                    reason='stop_unconfirmed'))
+    store.put('conversation', _stop('conv-job-done', job_id='job-done', runtime='host'))
+    store.put('conversation', _stop('conv-job-later', job_id='job-later', runtime='host'))
+    store.put('conversation', _stop('conv-job-hang', job_id='job-hang', runtime='host'))
+    store.put('conversation', _stop('conv-job-stuck', job_id='job-stuck', runtime='host'))
+    store.put('conversation', _stop('conv-home-done', task_id='task-done', runtime='haos'))
+    store.put('conversation', _stop('conv-home-later', task_id='task-later', runtime='haos'))
+    gateway = Gateway(store, {'host': runner, 'haos': runner}, None, plan_home, {}, Coordinator(store, hermes))
+    try:
+        started = time.monotonic()
+        await gateway.start()
+        assert time.monotonic() - started < 2
+        done = store.get('conversation', 'conv-hermes-done')
+        assert done['state'] == 'interrupted' and done['error_code'] is None
+        assert done['reason'] == 'runtime_restarted' and done['answer'] == '處理已中斷，請重新送出。'
+        assert store.get('hermes_run', 'run-done')['state'] == 'cancelled'
+        for message_id in ('conv-hermes-later', 'conv-job-later', 'conv-job-hang', 'conv-job-stuck', 'conv-home-later'):
+            assert store.get('conversation', message_id)['state'] == 'needs_reconcile'
+        job_done = store.get('conversation', 'conv-job-done')
+        assert job_done['state'] == 'interrupted' and job_done['error_code'] is None and job_done['reason'] is None
+        assert job_done['answer'] == '處理已中斷，請重新送出。'
+        home_done = store.get('conversation', 'conv-home-done')
+        assert home_done['state'] == 'interrupted' and home_done['error_code'] is None
+        assert runner.runs == [] and household == []
+        assert hermes.calls and all(method == 'POST' and path.endswith('/cancel') for method, path in hermes.calls)
+        store.put('hermes_run', {'id': 'run-outsider', 'state': 'running', 'message_id': 'conv-outsider', 'scope': 's'})
+        hermes.fail_once = True
+        hermes.terminal.add('run-later')
+        runner.hanging.clear()
+        runner.terminal.update({'job-later', 'job-hang'})
+        store.put('task', {'id': 'task-later', 'state': 'awaiting_user'})
+        for message_id in ('conv-hermes-later', 'conv-job-later', 'conv-job-hang', 'conv-home-later'):
+            settled = await _until(store, message_id, 'interrupted')
+            assert settled['state'] == 'interrupted' and settled['error_code'] is None
+            assert settled['answer'] == '處理已中斷，請重新送出。'
+        assert store.get('conversation', 'conv-hermes-later')['reason'] == 'runtime_restarted'
+        assert store.get('conversation', 'conv-job-later')['reason'] is None
+        assert store.get('conversation', 'conv-job-stuck')['state'] == 'needs_reconcile'
+        assert store.get('hermes_run', 'run-outsider')['state'] == 'running'
+        assert not any('run-outsider' in path for _, path in hermes.calls)
+        assert hermes.failed and runner.runs == [] and household == []
+        assert all(method == 'POST' and path.endswith('/cancel') for method, path in hermes.calls)
+        assert all(path.endswith('/cancel') for path in runner.cancels)
+    finally:
+        await gateway.close()
+
+
+async def test_reconcile_loop_stops_on_close_and_when_the_window_ends(store, monkeypatch):
+    hermes = _RestartHermes()
+    runner = _RestartRunner()
+    store.put('hermes_run', {'id': 'run-pending', 'state': 'running', 'message_id': 'conv-pending', 'scope': 's'})
+    store.put('conversation', _stop('conv-pending', hermes_run_id='run-pending'))
+    monkeypatch.setattr('agentic_controller.gateway.RECONCILE_INTERVAL', 30)
+    monkeypatch.setattr('agentic_controller.gateway.RECONCILE_WINDOW', 1800)
+    gateway = Gateway(store, {'host': runner, 'haos': runner}, None, None, {}, Coordinator(store, hermes))
+    await gateway.start()
+    task = gateway._reconcile_task
+    assert task and not task.done()
+    seen = len(hermes.calls)
+    await asyncio.wait_for(gateway.close(), 1)
+    assert task.cancelled()
+    await asyncio.sleep(0.05)
+    assert len(hermes.calls) == seen
+    assert store.get('conversation', 'conv-pending')['state'] == 'needs_reconcile'
+    assert runner.runs == []
+
+    monkeypatch.setattr('agentic_controller.gateway.RECONCILE_INTERVAL', 0.02)
+    monkeypatch.setattr('agentic_controller.gateway.RECONCILE_WINDOW', 0.2)
+    again = Gateway(store, {'host': runner, 'haos': runner}, None, None, {}, Coordinator(store, hermes))
+    try:
+        await again.start()
+        loop = again._reconcile_task
+        initial = len(hermes.calls)
+        await asyncio.wait_for(loop, 1)
+        assert loop.done() and not loop.cancelled()
+        assert len(hermes.calls) > initial
+        frozen = len(hermes.calls)
+        await asyncio.sleep(0.15)
+        assert len(hermes.calls) == frozen
+        assert store.get('conversation', 'conv-pending')['state'] == 'needs_reconcile'
+        assert runner.runs == [] and all(path.endswith('/cancel') for _, path in hermes.calls)
+    finally:
+        await again.close()
