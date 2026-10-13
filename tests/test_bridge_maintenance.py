@@ -867,3 +867,14 @@ async def test_startup_after_a_gap_gets_a_fresh_grace_then_needs_reconcile(manag
     status = await manager.tick()
     assert (status["state"], status["code"]) == ("needs_reconcile", "bridge_app_state_unconfirmed")
     assert not manager.ha.writes("/restart")
+
+
+async def test_controller_start_runs_the_observation_loop(manager):
+    # Controller startup calls start(); in-memory observation state must never shadow the loop method.
+    await manager.start()
+    try:
+        await asyncio.sleep(0.05)
+        assert manager.task is not None and not manager.task.done()
+    finally:
+        await manager.close()
+    assert manager.task is None
