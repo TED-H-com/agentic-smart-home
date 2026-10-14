@@ -21,6 +21,8 @@ from .ha import HAError, HomeAssistant
 from .models import Strict
 from .runner import RunnerError, cancel_and_confirm
 
+STOP_UNCONFIRMED = "還在確認查詢已停止，請稍後再問一次。"
+
 
 class Unlock(Strict):
     key: str = Field(min_length=20, max_length=200)
@@ -228,14 +230,14 @@ def routes(app, auth, ha, store, runner, controller_id):
                 confirmed = await cancel_and_confirm(runner, id)
                 store.put("host_task", {**item, "state": "cancelled" if confirmed else "needs_reconcile",
                     "error_code": None if confirmed else "stop_unconfirmed",
-                    "message": "查詢已取消" if confirmed else "Runner 尚未確認原程序已停止；請查看診斷並核對原工作。"})
+                    # The page already says a cancelled query was cancelled.
+                    "message": None if confirmed else STOP_UNCONFIRMED})
                 raise
             except Exception:
                 confirmed = await cancel_and_confirm(runner, id)
                 store.put("host_task", {**item, "state": "failed" if confirmed else "needs_reconcile",
                     "error_code": None if confirmed else "stop_unconfirmed",
-                    "message": "Agent 查詢未完成，請檢查官方登入或供應商狀態。" if confirmed else
-                               "Runner 尚未確認原程序已停止；請查看診斷並核對原工作。"})
+                    "message": "這次沒有取得回答，請確認 AI 帳號可以使用後再問一次。" if confirmed else STOP_UNCONFIRMED})
 
         task = asyncio.create_task(execute())
         app.state.running[id] = task
