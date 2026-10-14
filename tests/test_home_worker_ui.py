@@ -196,6 +196,11 @@ def test_home_progress_login_repair_poll_and_baseline_copy(ui_page):
             route.fulfill(status=200, content_type='application/json',
                           body=json.dumps({'id': 'b' * 32, 'status': 'pending', 'url': 'https://auth.openai.com/codex/device', 'code': 'HOME-CODE'}))
             return
+        if path == POLL_PATH.format(id='b' * 32).removeprefix('/api/'):
+            # Polls keep the login pending, so a slow run still captures the code.
+            route.fulfill(status=200, content_type='application/json',
+                          body=json.dumps({'id': 'b' * 32, 'status': 'pending', 'url': 'https://auth.openai.com/codex/device', 'code': 'HOME-CODE'}))
+            return
         home_cred = 'configured' if flow['signed'] else 'needs_auth'
         value = {'deployment': {'mode': 'host', 'authenticated': True},
                  'session': {'principal': 'host-owner', 'csrf': 'fixture-csrf'},

@@ -537,6 +537,13 @@ def test_sidebar_app_update_states_keys_and_poll(bridge_browser):
     expect(panel.get_by_role("button", name="更新側欄 App")).to_have_count(0)
     assert "bridge_operation_unconfirmed" not in panel.inner_text()
     assert "bridge_supervisor_job_failed" not in panel.inner_text()
+    # Waiting continues by itself, so it offers no check to press.
+    for code in ("bridge_home_unreachable", "bridge_supervisor_busy"):
+        panel = show(_bridge_record("waiting", code))
+        expect(panel.get_by_text("等待家庭就緒", exact=True)).to_be_visible()
+        expect(panel.get_by_role("button", name="檢查側欄連線")).to_have_count(0)
+        expect(panel.get_by_text("撤銷側欄連接", exact=True)).to_be_visible()
+        assert code not in panel.inner_text()
 
 
 def test_bridge_view_skips_host_maintenance_and_interactive_preview(bridge_browser):
