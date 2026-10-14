@@ -10,6 +10,7 @@ import asyncio
 import re
 import time
 import uuid
+from functools import partial
 
 from fastapi import HTTPException, Request
 
@@ -57,7 +58,7 @@ class Bootstrap:
     def __init__(self, store, runner, coordinator, gateway, ha, controller_id, *, host_request=None):
         self.store, self.runner, self.coordinator, self.gateway = store, runner, coordinator, gateway
         self.ha, self.controller_id = ha, controller_id
-        self.host_request = host_request or host.host_call
+        self.host_request = host_request or partial(host.host_call, store=store)
         self.lock, self.task = asyncio.Lock(), None
 
     def record(self):

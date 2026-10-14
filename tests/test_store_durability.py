@@ -702,6 +702,7 @@ def test_outgoing_session_helpers_require_an_explicit_store():
                         names[alias.asname or alias.name] = alias.name
                     if node.module == 'functools' and alias.name == 'partial':
                         partials.add(alias.asname or alias.name)
+        checked = set()
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
@@ -713,11 +714,20 @@ def test_outgoing_session_helpers_require_an_explicit_store():
                       function.attr if isinstance(function, ast.Attribute) else None)
             if helper not in {'client_session', 'host_call', 'broker_call'}:
                 continue
+            checked.add(id(function))
             sites.append((path.name, node.lineno, helper))
             store = (args[0] if helper == 'client_session' and args else next(
                 (keyword.value for keyword in node.keywords if keyword.arg == 'store'), None))
             if store is None or isinstance(store, ast.Constant) and store.value is None:
                 violations.append((path.name, node.lineno, helper))
+        # A bare reference becomes a call elsewhere (`self.host_request = ... or host.host_call`)
+        # that no call-site check sees; bind the store with partial(..., store=...) instead.
+        for node in ast.walk(tree):
+            if id(node) in checked:
+                continue
+            if (isinstance(node, ast.Name) and node.id in names or
+                    isinstance(node, ast.Attribute) and node.attr in {'client_session', 'host_call', 'broker_call'}):
+                violations.append((path.name, node.lineno, 'reference'))
     assert {site[2] for site in sites} == {'client_session', 'host_call', 'broker_call'}
     assert not violations, violations
 
