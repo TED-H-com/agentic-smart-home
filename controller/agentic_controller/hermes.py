@@ -34,17 +34,17 @@ _PASSTHROUGH = {"needs_auth", "needs_reauth", "not_found", "session_busy", "idem
                 "scope_mismatch", "stop_unconfirmed", "session_expired", "expired", "access_denied",
                 "slow_down", "expired_token", "oauth_failed", "rate_limited", "provider_unavailable", "timeout"}
 NEXT_STEP = {
-    "needs_auth": "請先在 Web 登入 Hermes。",
+    "needs_auth": "請先登入智能管家。",
     "needs_reauth": "登入已失效，請重新登入原帳號後再送出。",
-    "session_busy": "Hermes 正在處理另一份工作，請等它完成後再送出。",
+    "session_busy": "智能管家正在處理另一則訊息，請等它完成後再送出。",
     "session_expired": "這段對話已到期，請開始新對話。",
     "expired": "這段對話已到期，請開始新對話。",
     "rate_limited": "供應商暫時限制請求，請稍後再送出同一則訊息。",
     "provider_unavailable": "模型服務暫時無法連線，請稍後再試。",
     "timeout": "這次回覆逾時，請稍後再送出。",
-    "runtime_unavailable": "協調服務暫時無法連線，請稍後再試。",
+    "runtime_unavailable": "智能管家暫時無法連線，請稍後再試。",
     "inference_failed": "這次回覆未完成，請稍後再送出。",
-    "stop_unconfirmed": "上一份工作尚未確認停止，請查看協調服務；目前無法啟動新工作。",
+    "stop_unconfirmed": "還在確認上一則回覆已停止，確認前不能送出新訊息。",
 }
 _LOGIN_HTTP = {
     "stop_unconfirmed": (409, "尚未確認前一次登入程序已停止，請重新檢查狀態。"),
@@ -217,7 +217,7 @@ class Coordinator:
             if state == "succeeded":
                 answer = str(result.get("answer") or "")
             else:
-                answer = NEXT_STEP.get(error) or "Hermes 未完成回覆，請檢查登入與服務狀態。"
+                answer = NEXT_STEP.get(error) or "智能管家沒有完成回覆，請確認登入狀態後再送出。"
             response = {"state": "succeeded" if state == "succeeded" else "failed",
                     "answer": answer[:16000], "case_id": case["case_id"], "hermes_run_id": run_id}
             if error:

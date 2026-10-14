@@ -216,6 +216,41 @@ async def send(client, text, key, **fields):
                              headers={'Idempotency-Key': key})
 
 
+async def test_proposal_reply_shows_what_its_task_says_now(system, store):
+    app, client, _, inner = system
+    store.set_setting('owner', 'owner')
+    client.headers['X-Agentic-CSRF'] = (await client.get('/api/session')).json()['csrf']
+    inner.answer = {'message': '提出操作', 'action': {'entity_id': TARGET, 'action': 'turn_off'}}
+
+    async def propose(key, **fields):
+        sent = (await send(client, '關燈', key, runtime='haos', **fields)).json()
+        await drain(app)
+        return store.get('conversation', sent['id'])
+
+    async def shown(saved):
+        item = next(item for item in (await client.get('/api/gateway/messages')).json()['messages'] if item['id'] == saved['id'])
+        # The saved state decides whether the conversation can go on; progress only labels it.
+        assert item['state'] == 'awaiting_approval'
+        return item.get('progress'), item['answer']
+
+    deployed, declined = await propose('deployed'), await propose('declined')
+    assert await shown(deployed) == (None, deployed['answer'])
+    store.transition(store.get('task', deployed['task_id']), 'executing', message='已批准，準備備份與部署')
+    assert await shown(deployed) == ('executing', '已批准，準備備份與部署')
+    store.transition(store.get('task', deployed['task_id']), 'verifying', message='已部署並啟用，正在等待真實狀態觸發')
+    # A deployed rule waiting for a real trigger counts as done.
+    assert await shown(deployed) == ('succeeded', '已部署並啟用，正在等待真實狀態觸發')
+    assert (await client.post(f"/api/tasks/{deployed['task_id']}/cancel")).status_code == 200
+    assert await shown(deployed) == ('cancelled', '任務追蹤已取消；已部署規則保持原狀')
+    # Nothing was deployed for a declined proposal, so its cancel says the home did not change.
+    assert (await client.post(f"/api/tasks/{declined['task_id']}/cancel")).status_code == 200
+    assert await shown(declined) == ('cancelled', '已取消，沒有變更家庭')
+    assert [store.get('conversation', saved['id']) for saved in (deployed, declined)] == [deployed, declined]
+    # After declining, the owner can say what to change in the same conversation.
+    followup = await propose('after-decline', reply_to=declined['id'])
+    assert followup['thread_id'] == declined['thread_id'] and followup['state'] == 'awaiting_approval'
+
+
 async def test_followups_wait_for_parent_and_keep_idempotency(system):
     app, client, outer, _ = system
     started, release = asyncio.Event(), asyncio.Event()

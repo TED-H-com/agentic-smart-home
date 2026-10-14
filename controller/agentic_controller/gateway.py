@@ -442,6 +442,19 @@ class Gateway:
     def public_message(item):
         return {k: v for k, v in item.items() if k not in {"scope", "request_digest", "bridge_pairing_id"}}
 
+    def present(self, item):
+        """A proposal reply is saved once, while it awaits approval; add what its task says now.
+
+        The saved state still decides whether the conversation can go on, so the owner can answer
+        a declined or failed proposal. A deployed rule waiting for a real trigger counts as done.
+        """
+        public = self.public_message(item)
+        if item.get("state") == "awaiting_approval" and item.get("task_id"):
+            task = self.store.get("task", item["task_id"])
+            if task and task["state"] != "awaiting_approval" and task.get("message"):
+                public.update(progress="succeeded" if task["state"] == "verifying" else task["state"], answer=task["message"])
+        return public
+
     def owner_messages(self, owner):
         return [item for item in self.store.list("conversation", 10000) if item.get("source") == "web"
                 and item.get("chat") == "owner" and item.get("sender") == owner and item.get("coordinator") == "hermes"
@@ -544,7 +557,7 @@ class Gateway:
             if body.reply_to:
                 parent = self.store.conversation(id=body.reply_to)
                 if not parent or parent.get("scope") != scope or parent["state"] not in CONTINUABLE:
-                    raise HTTPException(409, "這段對話已失效或不屬於目前的 Agent，請開始新對話")
+                    raise HTTPException(409, "這段對話已無法接續，請開始新對話")
             elif source != "web" and not body.new_conversation:
                 candidate = self.store.conversation(scope=scope)
                 if candidate and candidate["state"] in CONTINUABLE:
@@ -652,7 +665,7 @@ class Gateway:
             uncertain = exc.code == "stop_unconfirmed" or bool(run and run.get("state") not in HERMES_TERMINAL)
             code = "stop_unconfirmed" if uncertain else exc.code
             result.update(state="needs_reconcile" if uncertain else "failed",
-                          answer=NEXT_STEP.get(code, "Hermes 尚未完成回覆，請檢查協調服務與登入狀態。"),
+                          answer=NEXT_STEP.get(code, "智能管家沒有完成回覆，請確認登入狀態後再送出。"),
                           error_code=code, reason=code)
         except (RunnerError, HAError, ValidationError, TimeoutError) as exc:
             category = runner_category(exc) if direct_dispatched and not result.get("hermes_run_id") and not result.get("task_id") else None
@@ -668,7 +681,7 @@ class Gateway:
                 result.update(state="failed" if confirmed else "needs_reconcile",
                     error_code=None if confirmed else "stop_unconfirmed",
                     reason=None if confirmed else "stop_unconfirmed",
-                    answer="Agent 尚未完成回覆，請在 Web 檢查此執行環境的配對、登入與連線。" if confirmed else
+                    answer="這次沒有完成回覆，請檢查配對、登入與連線後再送出。" if confirmed else
                            _RECONCILE_ANSWER)
             if direct_dispatched and result.get("state") == "needs_reconcile":
                 result["job_id"] = job_id
@@ -911,13 +924,13 @@ def routes(app, gateway, store, runners, controller_id):
         if getattr(request.state, "bridge_identity", None):
             values, size = [], 0
             for item in gateway.owner_messages(request.state.principal)[:30]:
-                public = gateway.public_message(item)
+                public = gateway.present(item)
                 size += len(canonical(public).encode())
                 if size > 700000:
                     break
                 values.append(public)
             return {"messages": values}
-        return {"messages": [gateway.public_message(item) for item in store.list("conversation", 100)]}
+        return {"messages": [gateway.present(item) for item in store.list("conversation", 100)]}
 
     @app.post("/api/gateway/messages", status_code=202)
     async def message(body: ChatInput, request: Request):
