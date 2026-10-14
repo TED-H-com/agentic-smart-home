@@ -92,6 +92,9 @@ async def exercise_surface(store, ha, tmp_path, monkeypatch, surface, acknowledg
             assert item["state"] == expected
             if expected == "needs_reconcile":
                 assert item["error_code"] == "stop_unconfirmed"
+            if surface == "host":
+                # The host page shows this sentence as it is and already says when a query was cancelled.
+                assert item["message"] == (None if expected == "cancelled" else "還在確認查詢已停止，請稍後再問一次。")
             assert runner.cancellations == [f"/jobs/{runner.jobs[0]['id']}/cancel"]
             store.recover()
             assert store.get(kind, identifier)["state"] == expected
@@ -103,6 +106,32 @@ async def exercise_surface(store, ha, tmp_path, monkeypatch, surface, acknowledg
         for task in list(app.state.running.values()):
             task.cancel()
         await asyncio.gather(*list(app.state.running.values()), return_exceptions=True)
+        await app.state.gateway.close()
+
+
+async def test_host_question_failure_names_the_next_step(store, ha, tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENTIC_DATA", str(tmp_path))
+    (tmp_path / "access-key").write_text("review-cancellation-fixture-key")
+
+    async def host_status(*, store=None):
+        return {"vm": "running", "kvm": True, "provisioned": True, "network": {}, "storage_free_bytes": 123456789}
+
+    monkeypatch.setattr("agentic_controller.host.host_call", host_status)
+    runner = CancellationRunner("failed", fail_run=True)
+    app = create_app(store=store, ha=ha, runner=runner, inner_runner=runner, host_mode=True)
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost:8099",
+                                    headers={"Origin": "http://localhost:8099"}) as client:
+            assert (await client.post("/api/host/login", json={"key": "review-cancellation-fixture-key"})).status_code == 200
+            client.headers.update({"X-Agentic-CSRF": (await client.get("/api/session")).json()["csrf"],
+                                   "Idempotency-Key": "host-question-failure"})
+            created = await client.post("/api/host/ask", json={"message": "synthetic host failure", "provider": "codex"})
+            assert created.status_code == 202, created.text
+            await asyncio.gather(*list(app.state.running.values()), return_exceptions=True)
+            item = (await client.get(f"/api/host/tasks/{created.json()['id']}")).json()
+        assert item["state"] == "failed" and item["error_code"] is None
+        assert item["message"] == "這次沒有取得回答，請確認 AI 帳號可以使用後再問一次。"
+    finally:
         await app.state.gateway.close()
 
 
