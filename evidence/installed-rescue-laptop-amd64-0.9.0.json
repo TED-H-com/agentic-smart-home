@@ -3,7 +3,7 @@
   "controller_stopped": true,
   "diagnostics": {
     "format": "agentic-support-v1",
-    "collected_at": "2026-10-13T13:38:43.259094+00:00",
+    "collected_at": "2026-10-14T21:17:04.668643+00:00",
     "runtime_location": "outer_host_console",
     "model_backend": "none",
     "ha_backend": "none",
@@ -14,7 +14,7 @@
         "evidence_id": "support-1",
         "observed_from": "outer_host_console",
         "target_component": "installation",
-        "observed_at": "2026-10-13T13:38:43.259094+00:00",
+        "observed_at": "2026-10-14T21:17:04.668643+00:00",
         "version_refs": {
           "support_format": 1,
           "installed_application": "0.9.0"
@@ -36,7 +36,7 @@
         "evidence_id": "support-2",
         "observed_from": "outer_host_console",
         "target_component": "host_os",
-        "observed_at": "2026-10-13T13:38:43.259094+00:00",
+        "observed_at": "2026-10-14T21:17:04.668643+00:00",
         "version_refs": {
           "support_format": 1,
           "installed_application": "0.9.0"
@@ -56,7 +56,7 @@
         "evidence_id": "support-3",
         "observed_from": "outer_host_console",
         "target_component": "product_storage",
-        "observed_at": "2026-10-13T13:38:43.259094+00:00",
+        "observed_at": "2026-10-14T21:17:04.668643+00:00",
         "version_refs": {
           "support_format": 1,
           "installed_application": "0.9.0"
@@ -64,11 +64,11 @@
         "collection_method": "statvfs_product_data_filesystem",
         "status": "collected",
         "reason": "ok",
-        "content_digest": "fd130310292dc53d97649bc083a9490f80a5b24fde0a99f0b4d54b5f2d091b26",
+        "content_digest": "bdab75ec5808b653068a416d7a721d0f24fd40ab397d7c3da244fae590e28f61",
         "data": {
           "total_bytes": 125114646528,
-          "used_bytes": 21889531904,
-          "free_bytes": 96822353920
+          "used_bytes": 21904125952,
+          "free_bytes": 96807759872
         },
         "redaction": "reviewed_fields_only_no_raw_logs",
         "limitations": [
@@ -79,7 +79,7 @@
         "evidence_id": "support-4",
         "observed_from": "outer_host_console",
         "target_component": "agentic-home.service",
-        "observed_at": "2026-10-13T13:38:43.259094+00:00",
+        "observed_at": "2026-10-14T21:17:04.668643+00:00",
         "version_refs": {
           "support_format": 1,
           "installed_application": "0.9.0"
@@ -104,7 +104,7 @@
         "evidence_id": "support-5",
         "observed_from": "outer_host_console",
         "target_component": "agentic-home-host.service",
-        "observed_at": "2026-10-13T13:38:43.259094+00:00",
+        "observed_at": "2026-10-14T21:17:04.668643+00:00",
         "version_refs": {
           "support_format": 1,
           "installed_application": "0.9.0"
@@ -129,7 +129,7 @@
         "evidence_id": "support-6",
         "observed_from": "outer_host_console",
         "target_component": "agentic-home-proxy.service",
-        "observed_at": "2026-10-13T13:38:43.259094+00:00",
+        "observed_at": "2026-10-14T21:17:04.668643+00:00",
         "version_refs": {
           "support_format": 1,
           "installed_application": "0.9.0"
@@ -154,7 +154,7 @@
         "evidence_id": "support-7",
         "observed_from": "outer_host_console",
         "target_component": "agentic-home-firstboot.service",
-        "observed_at": "2026-10-13T13:38:43.259094+00:00",
+        "observed_at": "2026-10-14T21:17:04.668643+00:00",
         "version_refs": {
           "support_format": 1,
           "installed_application": "0.9.0"
@@ -179,7 +179,7 @@
         "evidence_id": "support-8",
         "observed_from": "outer_host_console",
         "target_component": "docker.service",
-        "observed_at": "2026-10-13T13:38:43.259094+00:00",
+        "observed_at": "2026-10-14T21:17:04.668643+00:00",
         "version_refs": {
           "support_format": 1,
           "installed_application": "0.9.0"
@@ -204,7 +204,7 @@
         "evidence_id": "support-9",
         "observed_from": "outer_host_console",
         "target_component": "libvirtd.service",
-        "observed_at": "2026-10-13T13:38:43.259094+00:00",
+        "observed_at": "2026-10-14T21:17:04.668643+00:00",
         "version_refs": {
           "support_format": 1,
           "installed_application": "0.9.0"
@@ -229,7 +229,7 @@
         "evidence_id": "support-10",
         "observed_from": "outer_host_console",
         "target_component": "managed_haos_vm",
-        "observed_at": "2026-10-13T13:38:43.259094+00:00",
+        "observed_at": "2026-10-14T21:17:04.668643+00:00",
         "version_refs": {
           "support_format": 1,
           "installed_application": "0.9.0"
@@ -252,7 +252,7 @@
         "evidence_id": "support-11",
         "observed_from": "outer_host_console",
         "target_component": "product_service_log_severity",
-        "observed_at": "2026-10-13T13:38:43.259094+00:00",
+        "observed_at": "2026-10-14T21:17:04.668643+00:00",
         "version_refs": {
           "support_format": 1,
           "installed_application": "0.9.0"

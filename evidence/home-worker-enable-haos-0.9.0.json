@@ -1,0 +1,196 @@
+{
+  "kind": "real_haos_home_worker_enable",
+  "status": "passed",
+  "checks": {
+    "exact_head": true,
+    "stable_branch_is_exact_head": true,
+    "supervisor_healthy": true,
+    "pinned_bases_preloaded": true,
+    "bridge_auto_enroll": true,
+    "bridge_heartbeat": true,
+    "home_worker_enable": true,
+    "login_ready_contract": true,
+    "shared_repository": true,
+    "real_app_contract": true,
+    "persisted_record": true,
+    "tls_fingerprint": true,
+    "container_contract": true,
+    "cold_backup": true,
+    "full_reboot": true,
+    "recovery_identity": true
+  },
+  "delivery": "local_git_daemon_exact_head_stable_branch",
+  "limitations": [
+    "no_cloud_login_model_or_coding_executed",
+    "inference_is_protocol_fixture",
+    "host_contract_is_unix_socket_fixture",
+    "builder_and_pinned_bases_preloaded_registry_not_blocked",
+    "local_git_transport_not_github"
+  ],
+  "observed_from": "supervisor_git_store_outer_controller_and_app_container",
+  "target": "disposable_official_haos_vm",
+  "method": "one_click_enable_cold_partial_backup_full_host_reboot",
+  "observed_at_epoch": 1791998818.7887328,
+  "haos_image": "18.3",
+  "phase": "completion",
+  "source_commit": "90614e51d5e4758f1fd95a6213701bc5e07bcd13",
+  "runner_git_tree": "4a6a3672970dfc6b04edb42000147c1eaf6bb28f",
+  "bridge_git_tree": "ab544827aa746d28d0bb9cc1b1b05328f00f94ce",
+  "controller_git_tree": "43dff96998d30986e93df05998d243e6dfd4e7ab",
+  "haos_vm_profile": {
+    "memory_mib": 4096,
+    "vcpus": 2,
+    "disk_gib": 64
+  },
+  "core": "2026.10.1",
+  "supervisor": "2026.09.3",
+  "preloaded_images": [
+    "docker:29.7.2-cli@sha256:3f4743208d2338c934d7b8bcfbe1bb54c0b2355c510ad5e0f31c0c4a54bd704e",
+    "node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20",
+    "python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd12803a5c4247979ac7655f4d641"
+  ],
+  "preload_digest_resolution": {
+    "builder_tag": true,
+    "node_digest": false,
+    "python_digest": false
+  },
+  "enable_transitions": [
+    [
+      "repository",
+      "running",
+      null
+    ],
+    [
+      "install",
+      "running",
+      null
+    ],
+    [
+      "install",
+      "waiting",
+      "home_worker_observation_pending"
+    ],
+    [
+      "start",
+      "running",
+      null
+    ],
+    [
+      "pair",
+      "running",
+      null
+    ],
+    [
+      "login",
+      "login_ready",
+      "home_worker_login_required"
+    ]
+  ],
+  "enable_seconds": 522.59,
+  "app_container_observation": {
+    "apparmor_profile": "159bbdf5_agentic_runner",
+    "cap_add": [
+      "SYS_ADMIN"
+    ],
+    "unknown_cap_count": 0,
+    "privileged": false,
+    "host_pid": false,
+    "host_network": false,
+    "device_cgroup_rules": [
+      "c 10:229 rwm"
+    ],
+    "unrecognized_device_rule_count": 0,
+    "direct_device_mapping_count": 0,
+    "state": {
+      "Running": true,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Status": "running",
+      "ExitCode": 0
+    }
+  },
+  "cold_backup_observation": {
+    "samples": 52,
+    "supervisor_states": [
+      "freeze",
+      "running"
+    ],
+    "app_stopped_seen": true
+  },
+  "home_backup_transitions": [
+    [
+      "login",
+      "login_ready",
+      "home_worker_login_required"
+    ],
+    [
+      "login",
+      "waiting",
+      "home_worker_supervisor_busy"
+    ],
+    [
+      "login",
+      "login_ready",
+      "home_worker_login_required"
+    ]
+  ],
+  "bridge_backup_transitions": [
+    [
+      "monitor",
+      "healthy",
+      null
+    ]
+  ],
+  "home_recovery_transitions": [
+    [
+      "login",
+      "waiting",
+      "home_worker_home_unreachable"
+    ],
+    [
+      "login",
+      "waiting",
+      "home_worker_supervisor_busy"
+    ],
+    [
+      "login",
+      "login_ready",
+      "home_worker_login_required"
+    ]
+  ],
+  "bridge_recovery_transitions": [
+    [
+      "monitor",
+      "waiting",
+      "bridge_home_unreachable"
+    ],
+    [
+      "monitor",
+      "waiting",
+      "bridge_supervisor_busy"
+    ],
+    [
+      "monitor",
+      "healthy",
+      null
+    ]
+  ],
+  "reboot_observation": {
+    "samples": 18,
+    "supervisor_states": [
+      "running",
+      "startup"
+    ],
+    "app_stopped_while_supervisor_not_running": true
+  },
+  "cleanup": {
+    "outer_removed": true,
+    "git_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "duration_seconds": 1303.131
+}

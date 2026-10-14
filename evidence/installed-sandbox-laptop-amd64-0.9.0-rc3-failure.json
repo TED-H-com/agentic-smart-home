@@ -1,0 +1,24 @@
+{
+  "kind": "installed_offline_coding_sandbox",
+  "runtime_location": "disposable_outer_linux_vm",
+  "observed_from": "host_container_in_disposable_outer_vm",
+  "model_backend": "none",
+  "ha_backend": "none",
+  "device_kind": "none",
+  "cloud_login": "not_run",
+  "home_worker": "not_run",
+  "E1": "not_run",
+  "E2": "not_run",
+  "result": "failed",
+  "installed_release": "0.9.0",
+  "runner_image_id": "sha256:e46af6ec0bf6617a92ab80c6acc1d7b3b0048340951d90fad565e12608e67023",
+  "quota_job": {
+    "state": "failed",
+    "exit_code": 137,
+    "oom_killed": false
+  },
+  "stage": "quota_completion",
+  "error": "quota_job_did_not_succeed",
+  "cleanup": "passed",
+  "duration_seconds": 40.89
+}

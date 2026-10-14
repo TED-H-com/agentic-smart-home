@@ -37,8 +37,8 @@
     "docker_socket_absent": true
   },
   "phase": "completed",
-  "source_commit": "a0c0e709f907dcd2025ea4278c5837da05a1e45e",
-  "runner_git_tree": "38f19798432b5e036a4174f9d4ea0b3ccc06bda4",
+  "source_commit": "90614e51d5e4758f1fd95a6213701bc5e07bcd13",
+  "runner_git_tree": "4a6a3672970dfc6b04edb42000147c1eaf6bb28f",
   "runtime_source_uncommitted": false,
   "haos_vm_profile": {
     "profile": "laptop-amd64",
@@ -47,7 +47,7 @@
     "disk_gib": 64
   },
   "delivered_file_count": 55,
-  "delivered_tree_sha256": "76ec08b3f0fd82bd016e8203db10cfbdd6876c269318d7b38042c8c52bd910e3",
+  "delivered_tree_sha256": "ffd0c5efd59d634c8d453db419c656830cc8582b2fe5bf795939fc4766d95c25",
   "app_config_sha256": "0d36bd1c1c55897877a7d677663ad2d6aa1112d541144cda9936621529ca4553",
   "app_apparmor_sha256": "e5806ce5ccc65cb1e1332774f0b6b96b7af650f20a76cb6516d0f018862d7753",
   "core": "2026.10.1",
@@ -68,7 +68,7 @@
   },
   "install_confirmation": "app_postcondition_job_unavailable",
   "install_job_reported_errors": false,
-  "build_seconds": 201.5,
+  "build_seconds": 374.2,
   "app_contract": {
     "slug": "local_agentic_runner",
     "version": "0.9.0",
@@ -114,7 +114,7 @@
       "ExitCode": 0
     }
   },
-  "installed_image_id": "sha256:b739bcbf43c370de334cb69cb865d25d4168469bab076d0003d84c856f98d41c",
+  "installed_image_id": "sha256:37dddf4cd3192cc31035779a9d9e5768c096c2b105bcd2d827ef5ae307ca3a7e",
   "health_status": 200,
   "codex_version": "0.157.1",
   "app_probe": {
@@ -129,5 +129,5 @@
     "disk_fixture_ownership_restored": true,
     "network_removed": true
   },
-  "duration_seconds": 383.224
+  "duration_seconds": 928.181
 }

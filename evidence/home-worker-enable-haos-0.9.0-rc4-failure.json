@@ -1,0 +1,193 @@
+{
+  "kind": "real_haos_home_worker_enable",
+  "status": "failed",
+  "checks": {
+    "exact_head": true,
+    "stable_branch_is_exact_head": true,
+    "supervisor_healthy": true,
+    "pinned_bases_preloaded": true,
+    "bridge_auto_enroll": true,
+    "bridge_heartbeat": true,
+    "home_worker_enable": true,
+    "login_ready_contract": true,
+    "shared_repository": true,
+    "real_app_contract": true,
+    "persisted_record": true,
+    "tls_fingerprint": true,
+    "container_contract": true
+  },
+  "delivery": "local_git_daemon_exact_head_stable_branch",
+  "limitations": [
+    "no_cloud_login_model_or_coding_executed",
+    "inference_is_protocol_fixture",
+    "host_contract_is_unix_socket_fixture",
+    "builder_and_pinned_bases_preloaded_registry_not_blocked",
+    "local_git_transport_not_github"
+  ],
+  "observed_from": "supervisor_git_store_outer_controller_and_app_container",
+  "target": "disposable_official_haos_vm",
+  "method": "one_click_enable_cold_partial_backup_full_host_reboot",
+  "observed_at_epoch": 1791965350.122477,
+  "haos_image": "18.3",
+  "phase": "cold_backup",
+  "source_commit": "281c1b516f111ec6e0ba69e67b7e4d9e94d32279",
+  "runner_git_tree": "17b12b1d929d1d5e3d9d50714e55cfe27e9609b7",
+  "bridge_git_tree": "e2f75092e7d5ec45459225cbca654b523f0a14b7",
+  "controller_git_tree": "0111bb2c6c76016b3e06c4c1d590410a6bff8bb3",
+  "haos_vm_profile": {
+    "memory_mib": 4096,
+    "vcpus": 2,
+    "disk_gib": 64
+  },
+  "core": "2026.10.1",
+  "supervisor": "2026.09.3",
+  "preloaded_images": [
+    "docker:29.7.2-cli@sha256:3f4743208d2338c934d7b8bcfbe1bb54c0b2355c510ad5e0f31c0c4a54bd704e",
+    "node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20",
+    "python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd12803a5c4247979ac7655f4d641"
+  ],
+  "preload_digest_resolution": {
+    "builder_tag": true,
+    "node_digest": false,
+    "python_digest": false
+  },
+  "enable_transitions": [
+    [
+      "repository",
+      "running",
+      null
+    ],
+    [
+      "install",
+      "running",
+      null
+    ],
+    [
+      "install",
+      "waiting",
+      "home_worker_home_unreachable"
+    ],
+    [
+      "install",
+      "waiting",
+      "home_worker_observation_pending"
+    ],
+    [
+      "start",
+      "running",
+      null
+    ],
+    [
+      "pair",
+      "running",
+      null
+    ],
+    [
+      "login",
+      "login_ready",
+      "home_worker_login_required"
+    ]
+  ],
+  "enable_seconds": 248.059,
+  "app_container_observation": {
+    "apparmor_profile": "159bbdf5_agentic_runner",
+    "cap_add": [
+      "SYS_ADMIN"
+    ],
+    "unknown_cap_count": 0,
+    "privileged": false,
+    "host_pid": false,
+    "host_network": false,
+    "device_cgroup_rules": [
+      "c 10:229 rwm"
+    ],
+    "unrecognized_device_rule_count": 0,
+    "direct_device_mapping_count": 0,
+    "state": {
+      "Running": true,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Status": "running",
+      "ExitCode": 0
+    }
+  },
+  "cold_backup_observation": {
+    "samples": 59,
+    "supervisor_states": [
+      "freeze"
+    ],
+    "app_stopped_seen": true
+  },
+  "error_type": "AssertionError",
+  "error_code": "bridge_disruption_showed_failure",
+  "upstream_error": {},
+  "lifecycle_before_cleanup": {
+    "vm": {
+      "state_returncode": 0,
+      "state": {
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 2793672,
+        "ExitCode": 0,
+        "Status": "running"
+      },
+      "events_returncode": 0,
+      "events": [
+        {
+          "action": "create",
+          "timeNano": 1791965526080993154
+        },
+        {
+          "action": "start",
+          "timeNano": 1791965526703816766
+        }
+      ]
+    },
+    "outer": {
+      "state_returncode": 0,
+      "state": {
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 2853167,
+        "ExitCode": 0,
+        "Status": "running"
+      },
+      "events_returncode": 0
+    },
+    "git": {
+      "state_returncode": 0,
+      "events_returncode": 0
+    }
+  },
+  "failure_app_states": {
+    "home": "stopped",
+    "bridge": "started"
+  },
+  "supervisor_log_signatures": {
+    "update_required": false,
+    "job_missing": false,
+    "build_failure": false,
+    "registry_failure": false,
+    "no_space": false,
+    "permission": false,
+    "network_failure": false,
+    "not_installed": false
+  },
+  "failure_hold_seconds": 0,
+  "cleanup": {
+    "outer_removed": true,
+    "git_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "duration_seconds": 1157.486
+}

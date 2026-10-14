@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="272.257" timestamp="2026-10-14T04:37:22.747177-04:00" hostname="redacted"><testcase classname="tests.test_haos_boundary" name="test_actual_haos_app_boundary" time="272.235"><failure message="AssertionError: Error: Post &quot;http://supervisor/addons/local_agentic_boundary_protected_baseline/start&quot;: context deadline exceeded (Client.Timeout exceeded while awaiting headers)&#10;  &#10;assert 'Error:' not in 'Error: Post...g headers)\n'&#10;  &#10;  'Error:' is contained here:&#10;    Error: Post &quot;http://supervisor/addons/local_agentic_boundary_protected_baseline/start&quot;: context deadline exceeded (Client.Timeout exceeded while awaiting headers)&#10;  ? ++++++">tests/test_haos_boundary.py:146: in test_actual_haos_app_boundary
+    assert "Error:" not in started, started[-1000:]
+E   AssertionError: Error: Post "http://supervisor/addons/local_agentic_boundary_protected_baseline/start": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+E     
+E   assert 'Error:' not in 'Error: Post...g headers)\n'
+E     
+E     'Error:' is contained here:
+E       Error: Post "http://supervisor/addons/local_agentic_boundary_protected_baseline/start": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+E     ? ++++++</failure></testcase></testsuite></testsuites>
