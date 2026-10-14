@@ -50,6 +50,10 @@ STATES = TERMINAL | {'accepted', 'queued', 'launching', 'dispatching', 'running'
 HEX32 = re.compile(r'^[a-f0-9]{32}$')
 HEX64 = re.compile(r'^[a-f0-9]{64}$')
 REGISTRY = 'registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e'
+# Hang bounds only. The slow shared test disk stalls Supervisor and Controller writes for tens of seconds;
+# App start and restart must outlast the product's own 150 s wait.
+APP_OPERATION_SECONDS = 300
+JOB_STOP_SECONDS = 120
 
 
 def failure_hold_seconds(value):
@@ -582,7 +586,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             evidence['install_confirmation'] = await observe_install(ha, slug, receipt['job_id'], config)
             await ha.request('POST', f'/addons/{slug}/options', {'options': {}, 'boot': 'auto', 'watchdog': False,
                 'auto_update': False}, supervisor=True)
-            await ha.request('POST', f'/addons/{slug}/start', supervisor=True, timeout=120)
+            await ha.request('POST', f'/addons/{slug}/start', supervisor=True, timeout=APP_OPERATION_SECONDS)
             info = await ha.request('GET', f'/addons/{slug}/info', supervisor=True)
             evidence['app_contract'] = app_contract(info, config, slug)
             installed = json.loads(remote('docker inspect ' + app_container))[0]
@@ -790,8 +794,8 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
                 mode(kind)
                 reply = await api('POST', '/api/worker/jobs', {'worker_id': 'home-coder', 'mode': 'research',
                     'case_id': case_id, 'goal': 'Hold the explicit disposable descendant probe.'}, expected=202, key='home-' + kind)
-                await wait_job(reply['id'], stopped=False, timeout=90)
-                deadline = time.monotonic() + 45
+                await wait_job(reply['id'], stopped=False, timeout=180)
+                deadline = time.monotonic() + JOB_STOP_SECONDS
                 while time.monotonic() < deadline:
                     proof = job_proof(reply['id'])
                     if proof.get('pulse_present') and proof.get('cgroup_populated'):
@@ -834,7 +838,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             held, before = await submit_held('cancel')
             cancel_started = time.monotonic()
             await api('POST', '/api/worker/jobs/' + held['id'] + '/cancel', {}, expected=202)
-            cancelled = await wait_job(held['id'], timeout=45)
+            cancelled = await wait_job(held['id'], timeout=JOB_STOP_SECONDS)
             assert cancelled['state'] == 'cancelled' and cancelled['stop_confirmed']
             proof = await reclaimed(held['id'])
             assert (await api('GET', '/api/workers'))['active_job_id'] is None
@@ -846,12 +850,12 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             held, before = await submit_held('restart')
             previous = app_json('/data/home-worker-fixture/app-observation.json')
             generation = container_generation(json.loads(remote('docker inspect ' + app_container))[0])
-            await ha.request('POST', f'/addons/{slug}/stop', supervisor=True, timeout=120)
+            await ha.request('POST', f'/addons/{slug}/stop', supervisor=True, timeout=APP_OPERATION_SECONDS)
             stopped_app = await ha.request('GET', f'/addons/{slug}/info', supervisor=True)
             assert stopped_app['state'] == 'stopped', 'supervisor_stop_not_observed'
-            await ha.request('POST', f'/addons/{slug}/start', supervisor=True, timeout=120)
+            await ha.request('POST', f'/addons/{slug}/start', supervisor=True, timeout=APP_OPERATION_SECONDS)
             current, after = await restarted_app(previous, generation)
-            stopped = await wait_job(held['id'], timeout=45)
+            stopped = await wait_job(held['id'], timeout=JOB_STOP_SECONDS)
             assert stopped['state'] in {'cancelled', 'interrupted'} and stopped['stop_confirmed'], 'graceful_worker_stop_unconfirmed'
             assert (await api('GET', '/api/workers'))['active_job_id'] is None, 'graceful_worker_lease_not_released'
             evidence['graceful_restart'] = {'before': before, 'job': job_projection(stopped),
@@ -872,14 +876,14 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             killed = container_generation(json.loads(remote('docker inspect ' + app_container))[0])
             assert killed['running'] is False, 'abrupt_app_stop_not_observed'
             prior_transport = stopped_transport()['crash']['requests']
-            await ha.request('POST', f'/addons/{slug}/start', supervisor=True, timeout=120)
+            await ha.request('POST', f'/addons/{slug}/start', supervisor=True, timeout=APP_OPERATION_SECONDS)
             current, after = await restarted_app(previous, generation)
             evidence['abrupt_restart'].update(generation_after=after,
                 process_start_ticks_after=current['process_start_ticks'],
                 same_haos_boot=current['boot_id_sha256'] == previous['boot_id_sha256'],
                 namespace_ids_changed=current['namespaces'] != previous['namespaces'])
             assert current['boot_id_sha256'] == previous['boot_id_sha256'], 'abrupt_restart_haos_boot_changed'
-            deadline = time.monotonic() + 45
+            deadline = time.monotonic() + JOB_STOP_SECONDS
             while time.monotonic() < deadline:
                 uncertain = await api('GET', '/api/worker/jobs/' + held['id'])
                 if uncertain['state'] == 'stop_unconfirmed':
