@@ -2,6 +2,7 @@ import time
 
 import pytest
 from agentic_controller.engine import Rejected
+from agentic_controller.ha import HAError
 from agentic_controller.models import (
     AutomationIntent,
     EntityPermission,
@@ -58,6 +59,20 @@ async def test_no_write_before_approval_and_deploy_is_staged(engine, intent, ha)
     assert "initial_state" not in ha.writes[1]
     assert engine.store.get("task", p["task_id"])["state"] == "verifying"
     assert engine.store.get("owned", p["resource_id"])["last_hash"] == digest(ha.configs[p["resource_id"]])
+
+
+async def test_failed_backup_changes_nothing_and_says_so(engine, intent, ha):
+    p = await proposal(engine, intent)
+
+    async def refused(name):
+        raise HAError("HA supervisor/api: unknown_error")
+    ha.backup = refused
+    assert engine.approve(p, "owner", p["digest"], "key")
+    await engine.deploy(p, "owner")
+    task = engine.store.get("task", p["task_id"])
+    assert (task["state"], task["message"]) == ("failed", "Home Assistant 備份沒有完成，沒有變更家庭；請稍後再試一次。")
+    assert not ha.writes and not ha.calls
+    assert engine.store.get("operation", p["id"])["phase"] == "backup_prepared"
 
 
 async def test_replaying_approval_does_not_repeat_writes(engine, intent, ha):

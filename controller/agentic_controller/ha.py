@@ -229,6 +229,10 @@ class HomeAssistant:
         return conflicts
 
     async def backup(self, name):
+        # Core answers its API while it is still starting; a Supervisor backup of it then fails.
+        core = await self.request("GET", "/config")
+        if core.get("state", "RUNNING") != "RUNNING":
+            raise HAError("Home Assistant 還在啟動；等它啟動完成後再部署")
         if self.external:
             status = await self.request("GET", "/supervisor/info", supervisor=True)
             if status.get("healthy") is not True:

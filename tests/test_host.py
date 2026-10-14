@@ -8,7 +8,7 @@ from xml.etree import ElementTree as ET
 import httpx
 import pytest
 from agentic_controller.app import create_app
-from agentic_controller.ha import HomeAssistant
+from agentic_controller.ha import HAError, HomeAssistant
 
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "host"))
@@ -159,21 +159,36 @@ async def test_host_auth_works_without_ha_and_rejects_forged_ingress(store, ha, 
         assert (await client.get("/api/session", headers={"Host": "evil.test"})).status_code == 403
 
 
+class ExternalBackup(HomeAssistant):
+    def __init__(self, core_state="RUNNING"):
+        super().__init__("test", external=True)
+        self.core_state, self.calls = core_state, []
+
+    async def request(self, method, path, data=None, *, supervisor=False, **kwargs):
+        if not supervisor:
+            self.calls.append(("core", path))
+            return {"state": self.core_state}
+        return await super().request(method, path, data, supervisor=supervisor, **kwargs)
+
+    async def ws(self, command, **kwargs):
+        self.calls.append((command, kwargs))
+        return {"slug": "abcdef12", "homeassistant": True, "healthy": True}
+
+
 async def test_external_backup_uses_owner_websocket_and_waits_for_completion():
-    class External(HomeAssistant):
-        def __init__(self):
-            super().__init__("test", external=True)
-            self.calls = []
-
-        async def ws(self, command, **kwargs):
-            self.calls.append((command, kwargs))
-            return {"slug": "abcdef12", "homeassistant": True, "healthy": True}
-
-    ha = External()
+    ha = ExternalBackup()
     assert (await ha.backup("test"))["id"] == "abcdef12"
-    first = ha.calls[1]
-    assert first[0] == "supervisor/api" and first[1]["endpoint"] == "/backups/new/partial"
-    assert first[1]["data"]["background"] is False and first[1]["_receive_timeout"] == 610
+    assert ha.calls[0] == ("core", "/config")
+    backup = ha.calls[2]
+    assert backup[0] == "supervisor/api" and backup[1]["endpoint"] == "/backups/new/partial"
+    assert backup[1]["data"]["background"] is False and backup[1]["_receive_timeout"] == 610
+
+
+async def test_backup_waits_until_home_assistant_has_started():
+    ha = ExternalBackup("NOT_RUNNING")
+    with pytest.raises(HAError, match="還在啟動"):
+        await ha.backup("test")
+    assert ha.calls == [("core", "/config")]
 
 
 async def test_external_agent_diagnoses_with_ha_unavailable_without_running_host_action(store, ha, tmp_path, monkeypatch):
