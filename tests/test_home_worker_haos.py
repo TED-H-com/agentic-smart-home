@@ -62,6 +62,49 @@ def failure_hold_seconds(value):
     return int(value)
 
 
+# A 500 that names blob unknown is the registry's reason, so that phrase wins.
+_PUSH_HTTP_5XX = re.compile(
+    r'(?:http(?:/\d(?:\.\d)?)?\s+5\d\d\b|status(?:\s+code)?[: ]+5\d\d\b|'
+    r'\b5\d\d\b\s+(?:internal server error|bad gateway|service unavailable|gateway time-?out))')
+
+
+def classify_registry_push_failure(output, *, timed_out=False):
+    """One fixed code from captured push bytes. Those bytes never enter evidence or the assertion."""
+    if timed_out:
+        return 'timeout'
+    if isinstance(output, bytes):
+        text = output[:65536].decode(errors='replace').lower()
+    elif isinstance(output, str):
+        text = output[:65536].lower()
+    else:
+        return 'other'
+    if 'connection refused' in text:
+        return 'connection_refused'
+    if 'blob unknown' in text or 'blob_unknown' in text:
+        return 'blob_unknown'
+    if (_PUSH_HTTP_5XX.search(text) or 'internal server error' in text or 'bad gateway' in text
+            or 'service unavailable' in text or 'gateway timeout' in text or 'gateway time-out' in text):
+        return 'http_5xx'
+    if (any(phrase in text for phrase in ('connection reset', 'unexpected eof', 'broken pipe', 'closed network connection'))
+            or re.search(r'\beof\b', text)):
+        return 'connection_reset_or_eof'
+    if 'timeout' in text or 'deadline exceeded' in text:
+        return 'timeout'
+    return 'other'
+
+
+def registry_container_state(raw):
+    """Running, Restarting, OOMKilled, Dead, ExitCode and Status only. No logs or error prose."""
+    if not isinstance(raw, dict):
+        return {}
+    result = {key: raw[key] for key in ('Running', 'Restarting', 'OOMKilled', 'Dead') if type(raw.get(key)) is bool}
+    if raw.get('Status') in {'created', 'running', 'paused', 'restarting', 'removing', 'exited', 'dead'}:
+        result['Status'] = raw['Status']
+    if type(raw.get('ExitCode')) is int and -255 <= raw['ExitCode'] <= 255:
+        result['ExitCode'] = raw['ExitCode']
+    return result
+
+
 def container_projection(raw, slug):
     """Project inspect without environment, mounts, labels or arbitrary names."""
     known = {'CHOWN', 'DAC_OVERRIDE', 'DAC_READ_SEARCH', 'FOWNER', 'FSETID', 'KILL', 'SETGID', 'SETUID', 'SETPCAP',
@@ -445,6 +488,23 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
         assert value in {'source', 'cancel', 'restart', 'crash'}
         remote('docker exec -i ' + app_container + " sh -c 'cat > /data/home-worker-fixture/mode'", input=value.encode())
 
+    async def wait_registry_endpoint():
+        # Empty JSON from /v2/ is the registry's own ready response. A failed exec is not ready yet.
+        for _ in range(20):
+            try:
+                ready = json.loads(remote(
+                    'docker exec ' + registry_container + ' wget -q -O - http://127.0.0.1:5000/v2/', timeout=5))
+                if ready == {}:
+                    return
+            except (AssertionError, ValueError):
+                pass
+            await asyncio.sleep(.25)
+        raise AssertionError('disposable_registry_readiness_timeout')
+
+    # upstream_flags lives in the Supervisor build test. A module-level import cycles:
+    # that module imports the contracts defined above.
+    from test_runner_supervisor_build import upstream_flags
+
     try:
         phase('prepare_disposable_disks')
         evidence['source_commit'] = process(['git', '-C', str(ROOT), 'rev-parse', 'HEAD']).decode().strip()
@@ -543,28 +603,56 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
                 result = subprocess.run([*ssh, 'docker load'], stdin=stream, capture_output=True, timeout=600)
             assert result.returncode == 0, 'haos_product_image_preload_failed'
             phase('disposable_loopback_registry')
+            evidence['registry_step'] = 'inspect_preloaded'
             loaded_base = json.loads(remote('docker image inspect ' + shlex.quote(runner_image)))[0]
             loaded_registry = json.loads(remote('docker image inspect registry:3.0.0'))[0]
             assert loaded_base['RootFS']['Layers'] == base_identity['layers'], 'loaded_base_layers_changed'
             assert loaded_registry['RootFS']['Layers'] == registry_identity['layers'], 'loaded_registry_layers_changed'
-            remote('docker run -d --name ' + registry_container + ' --network host --memory 128m --cpus 1 '
-                '--pids-limit 64 -e REGISTRY_HTTP_ADDR=127.0.0.1:5000 registry:3.0.0')
-            for _ in range(20):
-                try:
-                    ready = json.loads(remote('docker exec ' + registry_container + ' wget -q -O - http://127.0.0.1:5000/v2/', timeout=5))
-                    if ready == {}:
-                        break
-                except (AssertionError, ValueError):
-                    pass
-                await asyncio.sleep(.25)
-            else:
-                raise AssertionError('disposable_registry_readiness_timeout')
+            # 512m and 256 pids: multi-gigabyte layer uploads on the shared slow disk outgrew 128m/64.
+            # This registry is loopback-only inside the disposable VM.
+            evidence['registry_step'] = 'start_registry'
+            remote('docker run -d --name ' + registry_container + ' --network host --memory 512m --cpus 1 '
+                '--pids-limit 256 -e REGISTRY_HTTP_ADDR=127.0.0.1:5000 registry:3.0.0')
+            evidence['registry_step'] = 'registry_ready'
+            await wait_registry_endpoint()
+            evidence['registry_step'] = 'tag_base'
             local_tag = '127.0.0.1:5000/agentic-home-runner:fixture'
             remote('docker tag ' + shlex.quote(runner_image) + ' ' + local_tag)
             # The product is amd64. Do not publish a Docker29 index containing
             # attestations or rely on local image Id/RepoDigests semantics.
-            push_output = remote('docker push --platform linux/amd64 ' + local_tag, timeout=600).decode()
-            digests = re.findall(r'digest: (sha256:[a-f0-9]{64})(?:\s|$)', push_output)
+            # remote() would discard a failed push as fixture_command_failed_ssh_1. Classify it; three attempts at most.
+            evidence['registry_step'] = 'push_base'
+            evidence['registry_push_failures'] = []
+            push_output = None
+            for attempt in range(1, 4):
+                evidence['registry_push_attempts'] = attempt
+                if attempt > 1:
+                    # Disk pressure can exit the registry. Start it only when it is not running,
+                    # then use the same /v2/ probe as the first readiness wait.
+                    running = False
+                    with contextlib.suppress(AssertionError, ValueError, subprocess.TimeoutExpired):
+                        raw = json.loads(remote(
+                            "docker inspect --format '{{json .State}}' " + registry_container, timeout=10))
+                        running = registry_container_state(raw).get('Running') is True
+                    if not running:
+                        remote('docker start ' + registry_container, timeout=30)
+                    await wait_registry_endpoint()
+                try:
+                    completed = subprocess.run([*ssh, 'docker push --platform linux/amd64 ' + local_tag],
+                                               capture_output=True, timeout=600)
+                except subprocess.TimeoutExpired:
+                    evidence['registry_push_failures'].append(classify_registry_push_failure(b'', timed_out=True))
+                    continue
+                if completed.returncode == 0:
+                    push_output = completed.stdout
+                    break
+                # The error is on stderr; a long progress log must not push it past the classifier cap.
+                captured = (completed.stderr or b'')[:32768] + b'\n' + (completed.stdout or b'')[:32768]
+                evidence['registry_push_failures'].append(classify_registry_push_failure(captured))
+            else:
+                raise AssertionError('local_registry_push_failed')
+            evidence['registry_step'] = 'inspect_manifest'
+            digests = re.findall(r'digest: (sha256:[a-f0-9]{64})(?:\s|$)', push_output.decode())
             assert len(set(digests)) == 1, 'local_registry_manifest_identity_missing'
             refs = ['127.0.0.1:5000/agentic-home-runner@' + digests[-1]]
             registry_manifest = json.loads(remote('docker manifest inspect --insecure ' + refs[0]))
@@ -572,6 +660,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             evidence['registry_fixture'] = {'scope': 'disposable_haos_loopback_only', 'upstream': REGISTRY,
                 'registry_config_digest': registry_identity['config_digest'], 'base_reference': refs[0],
                 'base_config_digest_verified': True}
+            evidence['registry_step'] = 'deliver_app_source'
             (staging / 'Dockerfile').write_text(f'FROM {refs[0]}\nCOPY probe.py /app/home_worker_haos_probe.py\n'
                 'COPY fixture-marker /opt/home-worker-test-fixture\nCMD ["python","-m","home_worker_haos_probe","serve"]\n')
             with tarfile.open(tmp_path / 'runner.tar.gz', 'w:gz') as archive:
@@ -580,9 +669,30 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
                 result = subprocess.run([*ssh, 'mkdir -p /mnt/data/supervisor/apps/local && tar xzf - -C /mnt/data/supervisor/apps/local'],
                     stdin=stream, capture_output=True, timeout=60)
             assert result.returncode == 0, 'haos_fixture_source_delivery_failed'
-            await ha.request('POST', '/store/reload', supervisor=True, timeout=60)
-            catalog = await ha.request('GET', f'/store/addons/{slug}/info', supervisor=True)
-            assert catalog['version_latest'] == version and catalog['build'] is True, 'runner_catalog_changed'
+            # Issue #59: one store reload/read failed transiently and only HAError was kept.
+            # Same bound as the Supervisor build catalog: 10 tries, 3 s apart, fixed flags only.
+            reloaded, catalog, failures = False, None, []
+            for attempt in range(1, 11):
+                ha.last_error = None
+                try:
+                    if not reloaded:
+                        evidence['registry_step'] = 'reload_store'
+                        await ha.request('POST', '/store/reload', supervisor=True, timeout=60)
+                        reloaded = True
+                    evidence['registry_step'] = 'read_catalog'
+                    catalog = await ha.request('GET', f'/store/addons/{slug}/info', supervisor=True)
+                    break
+                except (HAError, aiohttp.ClientError, TimeoutError) as error:
+                    failures.append({'attempt': attempt, 'step': 'read' if reloaded else 'reload',
+                        'error_type': type(error).__name__ if type(error) in (HAError, TimeoutError) else 'ClientError',
+                        **upstream_flags(ha.last_error)})
+                    if attempt < 10:
+                        await asyncio.sleep(3)
+            ha.last_error = None
+            evidence['store_catalog'] = {'attempts': len(failures) + (catalog is not None), 'failures': failures}
+            assert isinstance(catalog, dict), 'runner_store_catalog_unavailable'
+            assert catalog.get('version_latest') == version and catalog.get('build') is True, 'runner_catalog_changed'
+            evidence['registry_step'] = 'done'
             phase('official_supervisor_install')
             receipt = await ha.request('POST', f'/store/addons/{slug}/install', {'background': True}, supervisor=True)
             evidence['install_confirmation'] = await observe_install(ha, slug, receipt['job_id'], config)
@@ -915,12 +1025,18 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
         evidence.update(status='interrupted' if interrupted else 'failed', **failure_receipt(error, source_files=(Path(__file__),)))
         evidence['owned_runtime_observation'] = lifecycle_observation({'vm': vm, 'outer': outer}, wall_started)
         if ha is not None:
+            if ha.last_error is not None:
+                evidence['upstream_error'] = upstream_flags(ha.last_error)
             try:
                 info = await ha.request('GET', f'/addons/{slug}/info', supervisor=True, timeout=5)
                 evidence['failure_app_state'] = info.get('state') if info.get('state') in {'started', 'stopped', 'error', 'unknown'} else 'unknown'
             except Exception as observation_error:
                 evidence['failure_app_observation_error'] = type(observation_error).__name__
         if ssh is not None:
+            if evidence['phase'] == 'disposable_loopback_registry':
+                with contextlib.suppress(Exception):
+                    evidence['registry_container_state'] = registry_container_state(json.loads(remote(
+                        "docker inspect --format '{{json .State}}' " + registry_container, timeout=10)))
             with contextlib.suppress(Exception):
                 evidence['app_container_observation'] = container_projection(json.loads(remote('docker inspect ' + app_container, timeout=10))[0], slug)
             for filename in ('startup', 'boundaries'):
@@ -1188,6 +1304,60 @@ def test_failure_receipts_keep_fixed_codes_and_drop_private_nested_values():
     fixed = 'actual_capability_set_changed'
     assert failure_receipt(AssertionError(fixed), source_files=(Path(__file__),))['error_code'] == fixed
     assert failure_receipt(AssertionError(secret), source_files=(Path(__file__),))['error_code'] == 'unclassified_fixture_error'
+
+
+@pytest.mark.parametrize('output,code', [
+    (b'dial tcp 127.0.0.1:5000: connect: connection refused', 'connection_refused'),
+    ('connection refused', 'connection_refused'),
+    (b'read: connection reset by peer', 'connection_reset_or_eof'),
+    (b'Get "http://127.0.0.1:5000/v2/": unexpected EOF', 'connection_reset_or_eof'),
+    (b'Get "http://127.0.0.1:5000/v2/": EOF', 'connection_reset_or_eof'),
+    (b'use of closed network connection', 'connection_reset_or_eof'),
+    (b'write: broken pipe', 'connection_reset_or_eof'),
+    (b'received unexpected HTTP status: 500 Internal Server Error', 'http_5xx'),
+    (b'HTTP/1.1 502 Bad Gateway', 'http_5xx'),
+    (b'503 Service Unavailable', 'http_5xx'),
+    (b'504 Gateway Timeout', 'http_5xx'),
+    (b'error from registry: blob unknown to registry', 'blob_unknown'),
+    (b'BLOB_UNKNOWN', 'blob_unknown'),
+    (b'blob unknown to registry: 500 Internal Server Error', 'blob_unknown'),
+    (b'Client.Timeout exceeded while awaiting headers', 'timeout'),
+    (b'context deadline exceeded', 'timeout'),
+    (b'i/o timeout', 'timeout'),
+    (b'private-secret unexplained', 'other'),
+    (b'Get "http://127.0.0.1:5000/v2/": retrying in 500 ms', 'other'),
+    (None, 'other'),
+])
+def test_registry_push_failure_is_one_fixed_code_without_the_output(output, code):
+    result = classify_registry_push_failure(output)
+    assert result == code
+    assert result in {'connection_refused', 'connection_reset_or_eof', 'http_5xx', 'blob_unknown', 'timeout', 'other'}
+    assert 'private' not in result
+
+
+def test_registry_push_timeout_and_cap_do_not_publish_partial_output():
+    assert classify_registry_push_failure(b'connection refused private-secret', timed_out=True) == 'timeout'
+    assert classify_registry_push_failure(b'a' * 65536 + b'connection refused') == 'other'
+    assert classify_registry_push_failure(b'private-secret ' * 20 + b'connection refused') == 'connection_refused'
+
+
+def test_registry_container_state_keeps_only_typed_docker_fields():
+    raw = {'Running': True, 'Restarting': False, 'OOMKilled': False, 'Dead': False, 'Paused': True,
+           'ExitCode': 137, 'Status': 'exited', 'Error': 'private-secret', 'Pid': 9, 'FinishedAt': 'private'}
+    result = registry_container_state(raw)
+    assert result == {'Running': True, 'Restarting': False, 'OOMKilled': False, 'Dead': False,
+                      'ExitCode': 137, 'Status': 'exited'}
+    assert 'private' not in json.dumps(result)
+    assert registry_container_state({'Status': 'paused', 'Paused': True}) == {'Status': 'paused'}
+    assert registry_container_state({'Running': 'true', 'ExitCode': '1', 'Status': 'weird', 'Error': 'x'}) == {}
+    assert registry_container_state(None) == {}
+    assert registry_container_state({'ExitCode': 999, 'Status': 'dead', 'OOMKilled': False}) == {
+        'Status': 'dead', 'OOMKilled': False}
+
+
+@pytest.mark.parametrize('code', ['local_registry_push_failed', 'runner_store_catalog_unavailable'])
+def test_registry_fixture_failure_codes_are_literal_receipts(code):
+    assert failure_receipt(AssertionError(code), source_files=(Path(__file__),))['error_code'] == code
 
 
 def test_stopped_container_receipt_archive_rejects_symlink_and_oversize():
