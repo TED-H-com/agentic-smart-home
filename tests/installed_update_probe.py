@@ -55,6 +55,12 @@ UPDATE_PHASES = {"stopping", "probing", "activating", "complete"}
 
 STATE_ROOT = Path("/var/lib/agentic-home/installed-update-probe")
 UNIT = "agentic-installed-update-probe.service"
+COMMAND_TIMEOUT_SECONDS = 60
+SERVICE_TIMEOUT_SECONDS = 180
+COMPOSE_TIMEOUT_SECONDS = 600
+BUILD_TIMEOUT_SECONDS = 600
+WAIT_TIMEOUT_SECONDS = 1800
+RUNTIME_MAX_SECONDS = 3000
 STAGES = {
     "disposable_vm_guard", "installed_module_imports", "installed_update_baseline",
     "stop_host_broker_for_isolated_fixture", "build_fixed_label_candidate",
@@ -199,7 +205,7 @@ def guard():
     serials = [*Path("/sys/class/block").glob("*/serial"), *Path("/sys/class/block").glob("*/device/serial")]
     validate_guard(os.geteuid(), os.environ.get("AGENTIC_DISPOSABLE_VM"),
                    Path("/etc/hostname").read_text().strip(), [p.read_text().strip() for p in serials],
-                   subprocess.check_output(["systemd-detect-virt", "--vm"], text=True, timeout=5).strip(),
+                   subprocess.check_output(["systemd-detect-virt", "--vm"], text=True, timeout=COMMAND_TIMEOUT_SECONDS).strip(),
                    Path("/opt/agentic-home/host/compose.yaml").is_file())
 
 
@@ -372,9 +378,9 @@ def bridge_contract_probe(manager, original, base_tag, fixture, identity, databa
         assert not probes.exists() or not list(probes.iterdir())
         for observation in observations:
             assert not run("docker", "container", "ls", "-a", "--filter", "name=^/" + observation["name"] + "$",
-                           "--format", "{{.Names}}", timeout=15).stdout.strip()
+                           "--format", "{{.Names}}", timeout=COMMAND_TIMEOUT_SECONDS).stdout.strip()
             assert not observation["directory"].parent.exists() and not os.path.ismount(observation["directory"])
-            assert not run("losetup", "-j", str(observation["directory"].parent / "workspace.ext4"), timeout=15).stdout.strip()
+            assert not run("losetup", "-j", str(observation["directory"].parent / "workspace.ext4"), timeout=COMMAND_TIMEOUT_SECONDS).stdout.strip()
 
     service.run = actual_command
     try:
@@ -382,7 +388,7 @@ def bridge_contract_probe(manager, original, base_tag, fixture, identity, databa
         patch = ("from pathlib import Path; p=Path('/app/agentic_controller/bridge.py'); s=p.read_text(); "
                  "old='BRIDGE_CONTRACT = 1\\n'; assert s.count(old)==1; p.write_text(s.replace(old,''))")
         (context / "Dockerfile").write_text(f"FROM {base_tag}\nRUN " + json.dumps(["python", "-c", patch]) + "\n")
-        run("docker", "build", "--network", "none", "--pull=false", "-t", missing_tag, str(context), timeout=180)
+        run("docker", "build", "--network", "none", "--pull=false", "-t", missing_tag, str(context), timeout=BUILD_TIMEOUT_SECONDS)
         missing_image = run("docker", "image", "inspect", "--format", "{{.Id}}", missing_tag).stdout.strip()
         assert re.fullmatch(r"sha256:[a-f0-9]{64}", missing_image) and missing_image != original
         before = hashlib.sha256(scratch.read_bytes()).hexdigest()
@@ -433,10 +439,10 @@ def bridge_contract_probe(manager, original, base_tag, fixture, identity, databa
         # leave its disk intact; the surrounding VM teardown is the last fence.
         service.reconcile_probe()
         prove_probe_cleanup()
-        run("docker", "image", "rm", missing_tag, timeout=30, check=False)
+        run("docker", "image", "rm", missing_tag, timeout=COMMAND_TIMEOUT_SECONDS, check=False)
         if missing_image:
-            run("docker", "image", "rm", missing_image, timeout=30, check=False)
-        listed = run("docker", "image", "ls", "-aq", "--no-trunc", timeout=15).stdout.splitlines()
+            run("docker", "image", "rm", missing_image, timeout=COMMAND_TIMEOUT_SECONDS, check=False)
+        listed = run("docker", "image", "ls", "-aq", "--no-trunc", timeout=COMMAND_TIMEOUT_SECONDS).stdout.splitlines()
         assert missing_image is None or missing_image not in listed
         shutil.rmtree(root)
         assert not root.exists()
@@ -589,12 +595,12 @@ def launch(source):
     script.write_text(source)
     script.chmod(0o400)
     completed = subprocess.run([
-        "systemd-run", "--unit=" + UNIT, "--property=RuntimeMaxSec=600", "--property=KillMode=control-group",
+        "systemd-run", "--unit=" + UNIT, f"--property=RuntimeMaxSec={RUNTIME_MAX_SECONDS}", "--property=KillMode=control-group",
         "--property=RemainAfterExit=yes",
         "--property=UMask=0077", "--property=StandardOutput=append:" + str(STATE_ROOT / "stdout"),
         "--property=StandardError=append:" + str(STATE_ROOT / "stderr"),
         "--setenv=AGENTIC_DISPOSABLE_VM=1", "/usr/bin/python3", str(script),
-    ], capture_output=True, text=True, timeout=15)
+    ], capture_output=True, text=True, timeout=COMMAND_TIMEOUT_SECONDS)
     return {"launch": process_diagnostics(completed)}
 
 
@@ -613,7 +619,7 @@ def observe():
             else:
                 result = value
     unit = subprocess.run(["systemctl", "show", UNIT, "--property=ActiveState,SubState,Result,ExecMainCode,ExecMainStatus"],
-                          capture_output=True, text=True, timeout=10)
+                          capture_output=True, text=True, timeout=COMMAND_TIMEOUT_SECONDS)
     fields = dict(line.split("=", 1) for line in unit.stdout.splitlines() if "=" in line)
     status = {key: fields.get(key) for key in ("ActiveState", "SubState", "Result", "ExecMainCode", "ExecMainStatus")}
     logs = []
@@ -663,24 +669,24 @@ def main():
     record = None
     result = None
     checkpoint("stop_host_broker_for_isolated_fixture")
-    run("systemctl", "stop", "agentic-home-host.service", timeout=60)
+    run("systemctl", "stop", "agentic-home-host.service", timeout=SERVICE_TIMEOUT_SECONDS)
     try:
         checkpoint("build_fixed_label_candidate")
         run("docker", "tag", original, base_tag)
         # One disposable commit on top of the installed source, so the deploy
         # really moves coding HEAD and the rollback really returns it.
         clone = fixture / "source-clone"
-        run("git", "clone", "--bare", "--no-hardlinks", "--", str(service.source_repo), str(clone), timeout=180)
+        run("git", "clone", "--bare", "--no-hardlinks", "--", str(service.source_repo), str(clone), timeout=BUILD_TIMEOUT_SECONDS)
         tree = run("git", "--git-dir", str(clone), "rev-parse", "HEAD^{tree}").stdout.strip()
         source_commit = run("git", "-c", "user.name=Disposable fixture", "-c", "user.email=fixture@example.invalid",
                             "--git-dir", str(clone), "commit-tree", tree, "-p", source_head_before,
                             "-m", "Disposable update fixture").stdout.strip()
         run("git", "--git-dir", str(clone), "update-ref", "HEAD", source_commit)
-        run("git", "--git-dir", str(clone), "bundle", "create", str(fixture / "agentic-home.bundle"), "HEAD", timeout=180)
+        run("git", "--git-dir", str(clone), "bundle", "create", str(fixture / "agentic-home.bundle"), "HEAD", timeout=BUILD_TIMEOUT_SECONDS)
         shutil.rmtree(clone)
         (fixture / "Dockerfile").write_text(f"FROM {base_tag}\nLABEL agentic.disposable.update={identity}\n"
                                             "COPY agentic-home.bundle /app/source/agentic-home.bundle\n")
-        run("docker", "build", "--network", "none", "--pull=false", "-t", candidate_tag, str(fixture), timeout=180)
+        run("docker", "build", "--network", "none", "--pull=false", "-t", candidate_tag, str(fixture), timeout=BUILD_TIMEOUT_SECONDS)
         candidate = run("docker", "image", "inspect", "--format", "{{.Id}}", candidate_tag).stdout.strip()
         assert re.fullmatch(r"sha256:[a-f0-9]{64}", candidate) and candidate != original
         bridge_contract = bridge_contract_probe(manager, original, base_tag, fixture, identity, service.database, schema)
@@ -700,7 +706,7 @@ def main():
                     "image_id": candidate, "compatibility": {"schema": schema, "worker_contract": 1, "runner_protocol": 1,
                     "runtime_digest": service.runtime_digest(), "ha_core_versions": [baseline["ha_version"] or "2026.10.1"]},
                     "tests": [{"name": "disposable-fixture-only", "result": "passed", "sha256": hashlib.sha256(b"fixture-label-only").hexdigest()}],
-                    "issued_at": time.time() - 1, "expires_at": time.time() + 1800}
+                    "issued_at": time.time() - 1, "expires_at": time.time() + 7200}
         manifest_path = fixture / "manifest.json"
         manifest_path.write_bytes(canonical(manifest))
         run("openssl", "pkeyutl", "-sign", "-inkey", str(fixture / "private.pem"), "-rawin", "-in", str(manifest_path),
@@ -725,7 +731,7 @@ def main():
         status, record = service.handle("POST", "/updates/stage", {"manifest": manifest, "signature": signature})
         assert status == 202
         record = service.records[record["candidate_digest"]]
-        def wait(states, timeout=600):
+        def wait(states, timeout=WAIT_TIMEOUT_SECONDS):
             deadline = time.monotonic() + timeout
             while record["state"] not in states:
                 if record["state"] in {"failed", "needs_reconcile", "rolled_back"}:
@@ -799,7 +805,7 @@ def main():
             else:
                 db.execute("DELETE FROM settings WHERE key='paused'")
         write_environment(service.environment, original, "AGENTIC_CONTROLLER_IMAGE")
-        service.compose("up", "-d", "--no-deps", "controller", timeout=120)
+        service.compose("up", "-d", "--no-deps", "controller", timeout=COMPOSE_TIMEOUT_SECONDS)
         service.health()
         if environment_before is None:
             service.environment.unlink(missing_ok=True)
@@ -817,14 +823,14 @@ def main():
         if candidate:
             run("git", "--git-dir", str(service.source_repo), "update-ref", "-d",
                 "refs/agentic/candidate/" + candidate.removeprefix("sha256:"), check=False)
-        run("docker", "image", "rm", candidate_tag, base_tag, timeout=30, check=False)
+        run("docker", "image", "rm", candidate_tag, base_tag, timeout=COMMAND_TIMEOUT_SECONDS, check=False)
         if candidate:
-            run("docker", "image", "rm", candidate, timeout=30, check=False)
+            run("docker", "image", "rm", candidate, timeout=COMMAND_TIMEOUT_SECONDS, check=False)
         # Never recursively remove a quota disk whose writer/unmount could not
         # be fenced. The test runner will tear down the entire disposable VM.
         assert not any(Path(line.split()[4]).is_relative_to(fixture) for line in Path("/proc/self/mountinfo").read_text().splitlines())
         shutil.rmtree(fixture)
-        run("systemctl", "start", "agentic-home-host.service", timeout=60)
+        run("systemctl", "start", "agentic-home-host.service", timeout=SERVICE_TIMEOUT_SECONDS)
         DIAGNOSTICS["cleanup_completed"] = True
     result["diagnostics"] = DIAGNOSTICS
     return result

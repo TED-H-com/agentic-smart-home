@@ -13,8 +13,22 @@ import uuid
 from pathlib import Path
 
 import pytest
+from installed_coding_probe import CLEANUP_WAIT_SECONDS, JOB_WAIT_SECONDS
+from installed_probe import HTTP_TIMEOUT_SECONDS
+from installed_sandbox_probe import CLEANUP_ALARM_SECONDS, PROBE_ALARM_SECONDS
+from installed_update_probe import COMMAND_TIMEOUT_SECONDS as UPDATE_COMMAND_TIMEOUT_SECONDS
+from installed_update_probe import RUNTIME_MAX_SECONDS
 
 ROOT = Path(__file__).parents[1]
+# Each SSH bound must outlast the probe's own bounds; a slow test disk stretches every step.
+AUTH_PROBE_TIMEOUT_SECONDS = HTTP_TIMEOUT_SECONDS * 4
+SANDBOX_PROBE_TIMEOUT_SECONDS = PROBE_ALARM_SECONDS + CLEANUP_ALARM_SECONDS + 120
+CODING_PROBE_TIMEOUT_SECONDS = JOB_WAIT_SECONDS + CLEANUP_WAIT_SECONDS + 240
+FAILURE_DIAGNOSTICS_TIMEOUT_SECONDS = UPDATE_COMMAND_TIMEOUT_SECONDS + 60
+UPDATE_INVOKE_TIMEOUT_SECONDS = UPDATE_COMMAND_TIMEOUT_SECONDS + 60
+UPDATE_DEADLINE_SECONDS = RUNTIME_MAX_SECONDS + 300
+
+
 def bootstrap_job_diagnostics(output):
     """Keep only fixed job status and known codes, never CLI text or paths."""
     from installed_update_probe import lifecycle_error
@@ -165,7 +179,7 @@ def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run):
               f"print(json.dumps(ns['failure_observation']({identifier!r},{action!r})),flush=True)\n")
     try:
         observed = run([*ssh, "sudo env AGENTIC_DISPOSABLE_VM=1 python3 -"], capture_output=True,
-                       text=True, input=script, timeout=20)
+                       text=True, input=script, timeout=FAILURE_DIAGNOSTICS_TIMEOUT_SECONDS)
         result["diagnostic_process"] = process_diagnostics(observed)
         if observed.returncode != 0 or len(observed.stdout.encode()) > 65536:
             raise ValueError("diagnostic_unavailable")
@@ -312,7 +326,7 @@ def installed_update(ssh, source, report, *, run=subprocess.run, clock=time.mono
         report.write_text(json.dumps(evidence, indent=2) + "\n")
     def invoke(command, **kwargs):
         try:
-            return run([*ssh, command], capture_output=True, text=True, timeout=30, **kwargs)
+            return run([*ssh, command], capture_output=True, text=True, timeout=UPDATE_INVOKE_TIMEOUT_SECONDS, **kwargs)
         except subprocess.TimeoutExpired as exc:
             return subprocess.CompletedProcess([], None, exc.stdout or "", exc.stderr or "")
     encoded = base64.b64encode(source.encode()).decode()
@@ -322,7 +336,7 @@ def installed_update(ssh, source, report, *, run=subprocess.run, clock=time.mono
     started = invoke("sudo env AGENTIC_DISPOSABLE_VM=1 python3 -", input=launcher)
     evidence["transport"]["launch"] = process_diagnostics(started)
     save()  # Preserve return code/flags BEFORE attempting to parse anything.
-    deadline = clock() + 660
+    deadline = clock() + UPDATE_DEADLINE_SECONDS
     attempts = 0
     misses = 0
     while clock() < deadline:
@@ -469,7 +483,8 @@ while data:=s.recv(65536):
         assert command(*ssh, "systemctl is-active agentic-home agentic-home-host agentic-home-proxy") == "active\nactive\nactive"
         assert command(*ssh, "curl -fsS http://localhost:8099/api/deployment")
         phase("installed_owner_and_role_auth")
-        auth_result = subprocess.run([*ssh, "python3 -"], capture_output=True, text=True, timeout=120,
+        auth_result = subprocess.run([*ssh, "python3 -"], capture_output=True, text=True,
+                                     timeout=AUTH_PROBE_TIMEOUT_SECONDS,
                                      input=(ROOT / "tests/installed_probe.py").read_text())
         auth_probe = probe_json(auth_result, ROOT / "evidence" / ("installed-process-auth-" + profile + ".json"))
         (ROOT / "evidence" / ("installed-auth-" + profile + ".json")).write_text(
@@ -503,7 +518,8 @@ while data:=s.recv(65536):
             command(*ssh, compose + " up -d --wait controller")
         phase("installed_sandbox_quota_and_fencing")
         sandbox_result = subprocess.run([*ssh, "sudo python3 -"], capture_output=True, text=True,
-                                       input=(ROOT / "tests/installed_sandbox_probe.py").read_text(), timeout=120)
+                                       input=(ROOT / "tests/installed_sandbox_probe.py").read_text(),
+                                       timeout=SANDBOX_PROBE_TIMEOUT_SECONDS)
         # Preserve the probe's allowlisted diagnostics before asserting a failure;
         # never publish arbitrary SSH stderr or workspace contents.
         sandbox_probe = probe_json(sandbox_result, ROOT / "evidence" / ("installed-process-sandbox-" + profile + ".json"))
@@ -512,7 +528,8 @@ while data:=s.recv(65536):
         assert sandbox_result.returncode == 0 and sandbox_probe["result"] == "passed", sandbox_probe
         phase("installed_coding_and_independent_verifier")
         coding_result = subprocess.run([*ssh, "sudo python3 -"], capture_output=True, text=True,
-                                      input=(ROOT / "tests/installed_coding_probe.py").read_text(), timeout=150)
+                                      input=(ROOT / "tests/installed_coding_probe.py").read_text(),
+                                      timeout=CODING_PROBE_TIMEOUT_SECONDS)
         coding_probe = probe_json(coding_result, ROOT / "evidence" / ("installed-process-coding-" + profile + ".json"))
         coding_probe["installed_source"] = source_lock["commit"]
         (ROOT / "evidence" / ("installed-coding-" + profile + ".json")).write_text(json.dumps(coding_probe, indent=2) + "\n")

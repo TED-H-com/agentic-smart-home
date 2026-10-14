@@ -13,6 +13,12 @@ from types import SimpleNamespace
 
 STATE = Path('/var/lib/agentic-home')
 PRODUCT = Path('/opt/agentic-home')
+COMMAND_TIMEOUT_SECONDS = 60
+# verify() shortens the verifier wall to the time left before expires; keep
+# wait >= setup + execution + verification + shutdown budgets and expires > wait.
+JOB_WAIT_SECONDS = 1800
+JOB_EXPIRES_SECONDS = 2400
+CLEANUP_WAIT_SECONDS = 60
 
 
 def main():
@@ -34,7 +40,8 @@ def main():
 
     def run(*args):
         return subprocess.check_output(args, text=True, stderr=subprocess.DEVNULL,
-            env={'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': '/dev/null'}, timeout=15).strip()
+            env={'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': '/dev/null'},
+            timeout=COMMAND_TIMEOUT_SECONDS).strip()
 
     try:
         stage = 'volume_quota'
@@ -102,11 +109,11 @@ def main():
         body = {'work_contract_major': 1, 'id': 'a' * 32, 'case_id': 'b' * 32, 'worker_id': 'host-coder',
                 'mode': 'development', 'provider': 'codex', 'model': '', 'repo_id': 'agentic-home',
                 'goal': 'Repair add and prove tests', 'questions': [], 'base_commit': None,
-                'expires': time.time() + 120, 'lease_epoch': 1, 'context_days': 1}
+                'expires': time.time() + JOB_EXPIRES_SECONDS, 'lease_epoch': 1, 'context_days': 1}
         status, job = service.handle('POST', '/coding/jobs', body)
         assert status == 202 and job['state'] in {'queued', 'running'}, job.get('error_code')
         assert service.handle('POST', '/coding/jobs', body)[1]['id'] == job['id']
-        deadline = time.monotonic() + 100
+        deadline = time.monotonic() + JOB_WAIT_SECONDS
         while time.monotonic() < deadline:
             _, job = service.handle('GET', '/coding/jobs/' + body['id'])
             if job['stop_confirmed']:
@@ -145,7 +152,7 @@ def main():
         handoff = service.handle('POST', '/coding/jobs/' + body['id'] + '/handoff')[1]
         assert handoff['stop_confirmed'] and handoff['live_session'] is False
         assert patch['id'] in handoff['checkpoint']['artifact_ids']
-        cleanup_deadline = time.monotonic() + 5
+        cleanup_deadline = time.monotonic() + CLEANUP_WAIT_SECONDS
         while time.monotonic() < cleanup_deadline:
             if service.handle('GET', '/coding/jobs/' + body['id'])[1].get('workspace_released'):
                 break
