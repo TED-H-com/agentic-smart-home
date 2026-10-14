@@ -1,4 +1,6 @@
 export const errorSentence:Record<string,string>={
+  home_worker_home_unreachable:'Home Assistant 沒有回應，請稍後再試。',
+  bridge_home_unreachable:'Home Assistant 沒有回應，請稍後再試。',
   coding_auth_pending:'開發助手正在登入，完成後再送出。',
   coding_job_must_stop_before_auth:'請先停止進行中的工作。',
   coding_job_or_auth_must_stop:'請先停止進行中的工作。',

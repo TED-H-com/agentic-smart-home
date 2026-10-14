@@ -109,6 +109,23 @@ def transition(values, raw, prefix='home_worker_'):
         values.append(value)
 
 
+def disruption_record(record, prefix='home_worker_', since=None):
+    # Only the restarted Controller's fresh writes describe what its Owner sees.
+    if since is not None:
+        try:
+            fresh = datetime.fromisoformat(record['updated_at']).timestamp() > since
+        except (KeyError, TypeError, ValueError):
+            fresh = False
+        if not fresh:
+            return
+    if prefix == 'home_worker_':
+        check_ok = bool(record.get('state') in {'running', 'waiting', 'login_ready', 'ready'})
+        assert check_ok, 'home_worker_disruption_showed_failure'
+    else:
+        check_ok = bool(record.get('state') in {'running', 'waiting', 'starting', 'healthy'})
+        assert check_ok, 'bridge_disruption_showed_failure'
+
+
 def recovered(record, state, stage, since):
     # A record persisted before the disruption is not recovery; it needs a later App observation.
     try:
@@ -707,6 +724,8 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
                     home, bridge = setting(database, 'home_worker_maintenance'), setting(database, 'bridge_maintenance')
                     transition(homes, home)
                     transition(bridges, bridge, 'bridge_')
+                    disruption_record(home, since=reboot_since if name == 'recovery' else None)
+                    disruption_record(bridge, 'bridge_', since=reboot_since if name == 'recovery' else None)
                     check_ok = bool(home.get('state') not in FAILED)
                     assert check_ok, 'home_worker_failed_after_disruption'
                     check_ok = bool(bridge.get('state') not in FAILED)
@@ -736,6 +755,8 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             evidence['cold_backup_observation'] = summary
             deadline = time.monotonic() + 600
             while True:
+                disruption_record(setting(database, 'home_worker_maintenance'))
+                disruption_record(setting(database, 'bridge_maintenance'), 'bridge_')
                 supervisor_state = (await ha.request('GET', '/info', supervisor=True)).get('state')
                 runner_state, sidebar_state = await app_state(slug), await app_state(bridge_slug)
                 sample(summary, supervisor_state, runner_state, sidebar_state)
@@ -768,11 +789,19 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
                 await asyncio.sleep(2)
             check_ok = bool(down)
             assert check_ok, 'core_reboot_down_not_observed'
+            reboot_since = time.time()
             docker('restart', outer)
+            homes = evidence['home_recovery_transitions'] = []
+            bridges = evidence['bridge_recovery_transitions'] = []
             outer_url = await outer_ready()
             deadline = time.monotonic() + 600
             while True:
                 outer_alive()
+                home, bridge = setting(database, 'home_worker_maintenance'), setting(database, 'bridge_maintenance')
+                transition(homes, home)
+                transition(bridges, bridge, 'bridge_')
+                disruption_record(home, since=reboot_since)
+                disruption_record(bridge, 'bridge_', since=reboot_since)
                 try:
                     await ha.request('GET', '/config', timeout=3)
                     break
@@ -782,13 +811,14 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
                     await asyncio.sleep(2)
             summary = sample_summary(boot=True)
             evidence['reboot_observation'] = summary
-            homes = evidence['home_recovery_transitions'] = []
-            bridges = evidence['bridge_recovery_transitions'] = []
             deadline = time.monotonic() + 600
             while True:
                 outer_alive()
-                transition(homes, setting(database, 'home_worker_maintenance'))
-                transition(bridges, setting(database, 'bridge_maintenance'), 'bridge_')
+                home, bridge = setting(database, 'home_worker_maintenance'), setting(database, 'bridge_maintenance')
+                transition(homes, home)
+                transition(bridges, bridge, 'bridge_')
+                disruption_record(home, since=reboot_since)
+                disruption_record(bridge, 'bridge_', since=reboot_since)
                 try:
                     supervisor_state = (await ha.request('GET', '/info', supervisor=True)).get('state')
                     runner_state, sidebar_state = await app_state(slug), await app_state(bridge_slug)
@@ -1021,9 +1051,32 @@ def test_failure_receipt_recognizes_enable_assertion_codes():
     for code in ('home_worker_failed_after_disruption', 'bridge_not_recovered', 'app_restarted_after_reboot',
                  'maintenance_changed_apps_after_cold_backup', 'home_worker_status_ownership',
                  'owned_enable_resources_not_removed', 'outer_controller_exited', 'outer_controller_not_ready',
-                 'home_worker_enable_showed_failure'):
+                 'home_worker_enable_showed_failure', 'home_worker_disruption_showed_failure',
+                 'bridge_disruption_showed_failure'):
         receipt = failure_receipt(AssertionError(code), source_files=CODE_SOURCES)
         assert receipt['error_code'] == code
         assert evidence_projection(receipt)['error_code'] == code
     receipt = failure_receipt(AssertionError('private-token-value'), source_files=CODE_SOURCES)
     assert 'private-token-value' not in json.dumps(evidence_projection(receipt))
+
+
+@pytest.mark.parametrize('prefix,allowed', [
+    ('home_worker_', {'running', 'waiting', 'login_ready', 'ready'}),
+    ('bridge_', {'running', 'waiting', 'starting', 'healthy'}),
+])
+def test_disruption_records_only_allow_calm_states(prefix, allowed):
+    for state in allowed:
+        disruption_record({'state': state}, prefix)
+    for state in {'unavailable', 'needs_reconcile', 'user_disabled', None}:
+        with pytest.raises(AssertionError, match=prefix + 'disruption_showed_failure'):
+            disruption_record({'state': state}, prefix)
+
+
+@pytest.mark.parametrize('updated_at', [None, 'invalid', '1970-01-01T00:00:09+00:00', '1970-01-01T00:00:10+00:00'])
+def test_disruption_ignores_records_before_controller_restart(updated_at):
+    disruption_record({'state': 'unavailable', 'updated_at': updated_at}, since=10)
+
+
+def test_disruption_checks_new_controller_writes():
+    with pytest.raises(AssertionError, match='home_worker_disruption_showed_failure'):
+        disruption_record({'state': 'unavailable', 'updated_at': '1970-01-01T00:00:11+00:00'}, since=10)

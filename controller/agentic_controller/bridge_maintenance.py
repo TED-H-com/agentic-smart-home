@@ -34,7 +34,7 @@ from dataclasses import asdict, dataclass
 from fastapi import HTTPException
 
 from . import VERSION
-from .ha import HAError
+from .ha import HAError, HAUnreachable
 from .models import digest, utcnow
 
 KEY = "bridge_maintenance"
@@ -564,6 +564,18 @@ class BridgeMaintenance:
                 current = self.record()
                 if current and current["id"] == record["id"] and current["enabled"]:
                     self.save(current, state=exc.state, code=exc.code)
+            except HAUnreachable:
+                if not self.app_read:
+                    self.observed_run = None
+                # HA may be booting or restarting; wait for fresh observations.
+                current = self.record()
+                if current and current["id"] == record["id"] and current["enabled"]:
+                    operation = current.get("operation")
+                    expired = operation and self.clock() >= operation["deadline"]
+                    if expired:
+                        self.save(current, state="needs_reconcile", code="bridge_operation_unconfirmed")
+                    else:
+                        self.save(current, state="waiting", code="bridge_home_unreachable", stopped_since=None)
             except Exception:
                 if not self.app_read:
                     self.observed_run = None

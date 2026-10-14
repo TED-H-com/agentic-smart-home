@@ -679,8 +679,12 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
             return guard
 
         async def maintenance_action(method, request, **kwargs):
+            from .ha import HAUnreachable
+
             try:
                 return await method(commit_guard=maintenance_guard(request), **kwargs)
+            except HAUnreachable:
+                raise HTTPException(409, "bridge_home_unreachable") from None
             except BridgeFault as exc:
                 raise HTTPException(409, exc.code) from None
 
@@ -752,8 +756,12 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
             return guard
 
         async def home_worker_action(method, request, **kwargs):
+            from .ha import HAUnreachable
+
             try:
                 return await method(commit_guard=home_worker_guard(request), **kwargs)
+            except HAUnreachable:
+                raise HTTPException(409, "home_worker_home_unreachable") from None
             except HomeWorkerFault as exc:
                 raise HTTPException(409, exc.code) from None
 
