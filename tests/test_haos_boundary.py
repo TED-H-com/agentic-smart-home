@@ -17,6 +17,23 @@ PYTHON = "python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd
 BUILDER = "docker:29.7.2-cli@sha256:3f4743208d2338c934d7b8bcfbe1bb54c0b2355c510ad5e0f31c0c4a54bd704e"
 
 
+def cli_client_timed_out(output):
+    # CLI gives up on its own HTTP timeout while Supervisor keeps working; only Supervisor's readback decides.
+    text = output.lower()
+    return "context deadline exceeded" in text or "client.timeout exceeded" in text
+
+
+def test_cli_client_timeout_is_unconfirmed():
+    gave_up = ('Error: Post "http://supervisor/addons/local_x/start": '
+               "context deadline exceeded (Client.Timeout exceeded while awaiting headers)")
+    assert cli_client_timed_out(gave_up)
+    assert cli_client_timed_out("context deadline exceeded")
+    assert cli_client_timed_out("Client.Timeout exceeded while awaiting headers")
+    assert not cli_client_timed_out("Error: unknown application")
+    assert not cli_client_timed_out("Error: connection refused")
+    assert not cli_client_timed_out("")
+
+
 def docker(*args, timeout=120):
     return subprocess.check_output(["docker", *args], text=True, timeout=timeout).strip()
 
@@ -137,13 +154,37 @@ profile agentic-boundary flags=(attach_disconnected,mediate_deleted) {
                 if "supervisor needs to be updated first" in installed and not update_requested:
                     shell("ha supervisor update", 240)
                     update_requested = True
-                elif not any(message in installed.lower() for message in
-                             ("updated first", "in progress", "connection refused", "not ready", "starting", "already installed")):
+                elif not cli_client_timed_out(installed) and not any(
+                        message in installed.lower() for message in
+                        ("updated first", "in progress", "connection refused", "not ready", "starting", "already installed")):
                     break
                 time.sleep(3)
             assert "Error:" not in installed and '"result":"error"' not in installed, installed[-1000:] + shell("ha supervisor logs | tail -20")[-3000:]
-            started = shell("ha apps start local_" + slug, 600)
-            assert "Error:" not in started, started[-1000:]
+            try:
+                started = shell("ha apps start local_" + slug, 600)
+            except subprocess.TimeoutExpired as expired:
+                parts = []
+                for part in (expired.stdout, expired.stderr):
+                    if isinstance(part, bytes):
+                        parts.append(part.decode(errors="replace"))
+                    elif part:
+                        parts.append(part)
+                started = "".join(parts)
+                confirm_start = True
+            else:
+                confirm_start = "Error:" in started and cli_client_timed_out(started)
+                if not confirm_start:
+                    assert "Error:" not in started, started[-1000:]
+            if confirm_start:
+                state, start_deadline = None, time.monotonic() + 600
+                while time.monotonic() < start_deadline:
+                    state = app_info(slug).get("state")
+                    if state == "started":
+                        break
+                    assert state != "error", started[-1000:] + " state=" + str(state)
+                    time.sleep(3)
+                else:
+                    raise AssertionError(started[-1000:] + " state=" + str(state))
             logs, line, logs_deadline = "", None, time.monotonic() + 300
             while line is None and time.monotonic() < logs_deadline:
                 time.sleep(5)
@@ -159,7 +200,8 @@ profile agentic-boundary flags=(attach_disconnected,mediate_deleted) {
             assert result["observed_from"] == "haos_app" and not result["docker_socket_present"]
             evidence["profiles"][label] = result
             (ROOT / "evidence/haos-app-boundary.json").write_text(json.dumps(evidence, indent=2) + "\n")
-            shell("ha apps stop local_" + slug, 300)
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                shell("ha apps stop local_" + slug, 300)
         (ROOT / "evidence/haos-app-boundary.json").write_text(json.dumps(evidence, indent=2) + "\n")
     finally:
         subprocess.run(["docker", "stop", "-t", "10", name], capture_output=True)
