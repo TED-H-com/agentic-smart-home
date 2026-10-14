@@ -50,6 +50,7 @@ uv run pytest -q --basetemp "$agentic_test_tmp"
 | Coding 隔離基礎 | `tests/test_coding_sandbox.py --containers` | 真 Docker 的 network／process／resource negatives；不等於真 cloud CLI、完整 ext4 lifecycle 或 HAOS App |
 | 智能管家 App | `tests/test_bridge_app.py tests/test_bridge_controller.py tests/test_bridge_maintenance.py tests/test_bridge_ui.py` | transport／Owner／CSRF／同 case 與復原，API／模型 fixtures；真 HAOS 另跑 `tests/test_bridge_haos.py --haos-vm` |
 | Home coding App | `tests/test_home_coding_service.py tests/test_home_sandbox.py tests/test_home_worker_haos.py`；真平台另加 `--haos-vm` | 單元／故障恢復與一次性官方 HAOS；真 Codex 工具、磁碟配額、cgroup、固定模型 transport，不含真雲端帳號 |
+| 一鍵啟用家庭現場 | `tests/test_runner_supervisor_build.py tests/test_home_worker_enable_haos.py --haos-vm` | 一次性官方 HAOS：真 Supervisor 從測試自己的 git daemon（HEAD 當 `stable`）建置安裝側欄和家庭現場；Controller 一鍵啟用到可登入，再做 cold 備份和整台重開，全程不需修復；不登入、不跑模型 |
 | Core | `tests/test_real_ha.py --real-ha` | 真官方 Core；Supervisor backup 與 Agent intent 仍有 fixture |
 | 受控 Runner／Supervisor | `tests/test_container.py --containers` | 真 CLI、TLS、UID、schema／backup filter；模型為本機 fixture |
 
