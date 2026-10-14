@@ -32,8 +32,20 @@ BUILDER = "docker:29.7.2-cli@sha256:3f4743208d2338c934d7b8bcfbe1bb54c0b2355c510a
 CONTROLLER = "agentic-home-controller:0.9.0"
 
 
+class NoControllerState:
+    """A test probe acts for the tester; it has no Controller state to persist first."""
+
+    async def durable(self):
+        return None
+
+
 class ProbeHA(HomeAssistant):
     last_error = None
+
+    async def start(self):
+        if self.store is None:
+            self.store = NoControllerState()
+        await super().start()
 
     async def ws(self, command, *, _receive_timeout=20, **kwargs):
         async with await self.ws_connect() as stream:
