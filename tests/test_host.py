@@ -251,6 +251,32 @@ def test_desktop_key_is_not_distributed_to_additional_linux_accounts(tmp_path, m
     assert not (tmp_path / "1002/Agentic-Home.txt").exists()
 
 
+def test_installer_pairs_the_runner_before_the_controller_starts(tmp_path, monkeypatch):
+    import inspect
+    install = module("host/install.py")
+    monkeypatch.setattr(install, "STATE", tmp_path)
+    (tmp_path / "pairing").mkdir()
+    (tmp_path / "pairing/runner.json").write_text(json.dumps({"host": "localhost", "port": 8443, "code": "c"}))
+    calls = []
+    monkeypatch.setattr(install, "run", lambda *args: calls.append((list(args), None)))
+    monkeypatch.setattr(install.subprocess, "run", lambda args, **kwargs: calls.append((list(args), kwargs)))
+    install.pair_runner()
+    compose = ["docker", "compose", "--env-file", str(tmp_path / "host/runtime.env"),
+               "-f", str(install.TARGET / "host/compose.yaml")]
+    assert all(args[:len(compose)] == compose for args, _ in calls)
+    assert [args[len(compose):len(compose) + 2] for args, _ in calls] == [["stop", "controller"], ["up", "-d"], ["run", "--rm"]]
+    (up, up_options), (pair, pair_options) = calls[1:]
+    assert up[-1] == "runner" and "--wait" in up and up_options["timeout"]
+    # A running Controller keeps its database in memory and is its only writer: never write through exec.
+    assert "exec" not in pair and pair[pair.index("controller") + 1:pair.index("controller") + 3] == ["python", "-c"]
+    assert json.loads(pair_options["input"]) == {"host": "localhost", "port": 8443, "code": "c",
+                                                 "principal": "host-owner", "protocol": 1}
+    assert pair_options["check"] and pair_options["timeout"]
+    source = inspect.getsource(install.install)
+    assert '"enable", "--now", "agentic-home-host", "agentic-home-proxy")' in source
+    assert source.index("pair_runner()") < source.index('"restart", "agentic-home"')
+
+
 def test_installed_manifest_matches_release_and_owner_console_permissions(tmp_path, monkeypatch):
     import stat
     import tomllib

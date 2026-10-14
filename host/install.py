@@ -173,12 +173,19 @@ def install(profile, bases):
         if actual != expected:
             raise HostError("Loaded image ID differs from release: " + tag)
     run("systemctl", "daemon-reload")
-    run("systemctl", "enable", "--now", "agentic-home-host", "agentic-home-proxy", "agentic-home")
-    # Pair automatically as part of trusted machine bootstrap (no model sees this code or HA credentials).
-    pair_file = STATE / "pairing/runner.json"
-    pairing = json.loads(pair_file.read_text()) if pair_file.exists() else {}
-    payload = {**pairing, "principal": "host-owner", "protocol": 1}
-    script = """import asyncio,json,sys,uuid
+    run("systemctl", "enable", "--now", "agentic-home-host", "agentic-home-proxy")
+    run("systemctl", "enable", "agentic-home")
+    pair_runner()
+    # Firstboot starts the outer services; restart also covers a repeated install. The durable
+    # Web onboarding creates HAOS automatically after CLI, Hermes and channel setup, or an explicit skip.
+    run("systemctl", "restart", "agentic-home")
+    record_installation(profile)
+    print("Agentic Home installed. Open http://localhost:8099; view local login key: sudo agentic-home access-key")
+    if profile["desktop"]:
+        run("systemctl", "start", "gdm3")
+
+
+PAIR_RUNNER = """import asyncio,json,sys,uuid
 from pathlib import Path
 from agentic_controller.store import Store
 from agentic_controller.runner import Runner
@@ -193,14 +200,22 @@ async def main():
  s.close()
 asyncio.run(main())
 """
-    subprocess.run(["docker", "compose", "-f", str(TARGET / "host/compose.yaml"), "exec", "-T", "-u", "1000:1000",
-                    "controller", "python", "-c", script], input=json.dumps(payload), text=True, check=True)
-    # Firstboot starts the outer services. The durable Web onboarding creates
-    # HAOS automatically after CLI, Hermes and channel setup, or an explicit skip.
-    record_installation(profile)
-    print("Agentic Home installed. Open http://localhost:8099; view local login key: sudo agentic-home access-key")
-    if profile["desktop"]:
-        run("systemctl", "start", "gdm3")
+
+
+def pair_runner():
+    """Pair automatically as part of trusted machine bootstrap (no model sees this code or HA credentials).
+
+    A running Controller keeps its database in memory and is its only writer, so a one-off
+    Controller container writes the pairing while the service is stopped.
+    """
+    compose = ["docker", "compose", "--env-file", str(STATE / "host/runtime.env"), "-f", str(TARGET / "host/compose.yaml")]
+    run(*compose, "stop", "controller")
+    subprocess.run([*compose, "up", "-d", "--no-deps", "--wait", "runner"], check=True, timeout=600)
+    pair_file = STATE / "pairing/runner.json"
+    pairing = json.loads(pair_file.read_text()) if pair_file.exists() else {}
+    payload = {**pairing, "principal": "host-owner", "protocol": 1}
+    subprocess.run([*compose, "run", "--rm", "--no-deps", "-T", "-u", "1000:1000", "controller", "python", "-c", PAIR_RUNNER],
+                   input=json.dumps(payload), text=True, check=True, timeout=600)
 
 
 def record_installation(profile):
