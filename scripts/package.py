@@ -49,8 +49,10 @@ def main():
     distribution = ROOT / "dist"
     distribution.mkdir(exist_ok=True)
     source = []
-    for directory in ("controller", "runner", "hermes", "bridge", "web", "scripts", "contracts", "tests", "docs", "evidence", "host", ".github"):
+    for directory in ("controller", "runner", "hermes", "bridge", "web", "scripts", "contracts", "tests", "docs", "evidence", "host", ".github", "site"):
         source += [(path, "agentic-home/" + str(path.relative_to(ROOT))) for path in files(ROOT / directory)]
+    # site/demo is the Pages build of web/demo, not source.
+    source = [entry for entry in source if not entry[0].is_relative_to(ROOT / "site/demo")]
     for path in sorted(ROOT.iterdir()):
         if path.is_file() and path.suffix in {".md", ".json", ".toml", ".lock", ".yaml"}:
             source.append((path, "agentic-home/" + path.name))
