@@ -51,7 +51,7 @@ SAFE_FLAGS = ("hassio_api", "homeassistant_api", "auth_api", "docker_api", "full
 TERMINAL = {"disabled", "user_disabled", "user_removed", "user_modified", "needs_reconcile", "blocked"}
 HELD = {"disabled", "user_disabled", "user_removed", "user_modified"}
 # One channel for every release. `stable` is moved to the release commit at publish time.
-STABLE_REPOSITORY = "https://github.com/teddashh/agentic-smart-home#stable"
+STABLE_REPOSITORY = "https://github.com/TED-H-com/agentic-smart-home#stable"
 UPDATE_BODY = {"backup": False, "background": True}
 
 

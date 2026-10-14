@@ -832,7 +832,7 @@ def test_real_app_contract_rejects_widened_or_changed_app(change):
 
 
 def test_app_probe_checks_compare_without_exporting_raw_values():
-    lock = {'repo_id': 'agentic-home', 'repository': 'https://github.com/teddashh/agentic-smart-home.git', 'commit': 'c' * 40}
+    lock = {'repo_id': 'agentic-home', 'repository': 'https://github.com/TED-H-com/agentic-smart-home.git', 'commit': 'c' * 40}
     raw = {'apparmor_profile': SLUG + ' (enforce)', 'docker_socket_present': False, 'source_lock': dict(lock),
            'validated_commit': 'c' * 40}
     assert app_probe_checks(raw, SLUG, lock) == {'custom_apparmor_enforcing': True, 'docker_socket_absent': True,

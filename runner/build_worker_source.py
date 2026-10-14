@@ -5,7 +5,7 @@ import re
 import subprocess
 from pathlib import Path
 
-REPOSITORY = "https://github.com/teddashh/agentic-smart-home.git"
+REPOSITORY = "https://github.com/TED-H-com/agentic-smart-home.git"
 
 
 def source_lock(path):

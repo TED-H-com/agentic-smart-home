@@ -82,7 +82,7 @@ HA Assist／語音接入另行驗收。真家庭、雲端帳號與實體 laptop 
 
 HAOS／Core／Supervisor 與其他 Apps 仍由 HA 原生更新管理；外層只修自家 App／adapter。HA 內的「回到家庭」回原生頁面；Linux 桌面入口與明確外層連結仍可取得設定、登入及獨立救援，不把這些控制項放入側欄。相對路徑、撤權及 PNG 預覽邊界見 [Adapters](ADAPTERS.md)。
 
-Host 更新之後，側欄 App 不會自動換版。信任 repository 是 `https://github.com/teddashh/agentic-smart-home#stable`，版本等於 `agentic_controller.VERSION`。同一渠道上較舊的安裝變成 `update_available`：側欄服務繼續跑，但不重啟、不修復、不重配對。這段期間心跳只讀 `listener_ready` 與 `service_last_seen`，缺心跳不會變成 `degraded`。Owner 用無 body 的 `POST /api/host/bridge/maintenance/update` 更新到恰好這個版本。商店版本較高是 `bridge_release_ahead`（要先更新主機）；較低會重新載入商店一次，仍較低則 `waiting`／`bridge_release_not_published`。舊 `#release/X.Y.Z` 紀錄不能原地更新，狀態是 `needs_reconcile`／`bridge_release_channel_changed`：在 HA 移除舊 App 後，再從管理中心啟用。不會自動解除安裝，也不改權限或 options。
+Host 更新之後，側欄 App 不會自動換版。信任 repository 是 `https://github.com/TED-H-com/agentic-smart-home#stable`，版本等於 `agentic_controller.VERSION`。同一渠道上較舊的安裝變成 `update_available`：側欄服務繼續跑，但不重啟、不修復、不重配對。這段期間心跳只讀 `listener_ready` 與 `service_last_seen`，缺心跳不會變成 `degraded`。Owner 用無 body 的 `POST /api/host/bridge/maintenance/update` 更新到恰好這個版本。商店版本較高是 `bridge_release_ahead`（要先更新主機）；較低會重新載入商店一次，仍較低則 `waiting`／`bridge_release_not_published`。舊 `#release/X.Y.Z` 紀錄不能原地更新，狀態是 `needs_reconcile`／`bridge_release_channel_changed`：在 HA 移除舊 App 後，再從管理中心啟用。不會自動解除安裝，也不改權限或 options。
 
 ## 啟用家庭現場助手
 
