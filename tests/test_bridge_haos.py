@@ -17,6 +17,7 @@ import shutil
 import sqlite3
 import subprocess
 import tarfile
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -49,16 +50,26 @@ class ProbeHA(HomeAssistant):
             return result["result"]
 
 HOST_CONTRACT_FIXTURE = r'''
-import json
+import json, os, threading
 from aiohttp import web
 
 def host_contract_app(receipt):
-    reads = 0
+    reads, written, lock = 0, 0, threading.Lock()
+    def record(count):
+        nonlocal written
+        # The receipt is evidence only. This answer shares the Controller's event loop and its 5 s
+        # Host proof bound, and a VM backup can stall a test-disk write for longer than that.
+        with lock:
+            if count > written:
+                pending = receipt.with_name(receipt.name + '.pending')
+                pending.write_text(json.dumps({'kind':'unix_host_contract_fixture_not_installed_host',
+                    'ingress_bridge_contract':1,'status_reads':count}))
+                os.replace(pending, receipt)
+                written = count
     async def status(request):
         nonlocal reads
         reads += 1
-        receipt.write_text(json.dumps({'kind':'unix_host_contract_fixture_not_installed_host',
-            'ingress_bridge_contract':1,'status_reads':reads}))
+        threading.Thread(target=record, args=(reads,), daemon=True).start()
         return web.json_response({'controller_update':{'ingress_bridge_contract':1}})
     app = web.Application()
     app.router.add_get('/status', status, allow_head=False)
@@ -668,9 +679,52 @@ async def test_host_capability_fixture_uses_real_unix_http_and_exposes_no_action
             for method, path in (("POST", "/actions"), ("POST", "/status"), ("HEAD", "/status"), ("GET", "/unknown")):
                 async with client.request(method, "http://localhost" + path, json={}) as response:
                     assert response.status == 404
+        deadline = time.monotonic() + 10
+        while not receipt.exists():
+            assert time.monotonic() < deadline, "host_fixture_receipt_missing"
+            await asyncio.sleep(.05)
         value = json.loads(receipt.read_text())
         assert value == {"kind": "unix_host_contract_fixture_not_installed_host",
                          "ingress_bridge_contract": 1, "status_reads": 1}
     finally:
+        await server.cleanup()
+        socket.unlink(missing_ok=True)
+
+
+async def test_host_capability_fixture_answers_while_its_receipt_write_is_stalled(tmp_path):
+    from aiohttp import web
+    namespace = {}
+    exec(HOST_CONTRACT_FIXTURE, namespace)
+
+    class StalledDisk:
+        """The receipt's final rename waits, as a test-disk write does during a VM backup."""
+        release = threading.Event()
+
+        def replace(self, source, target):
+            assert self.release.wait(30)
+            os.replace(source, target)
+
+    namespace["os"] = disk = StalledDisk()
+    receipt = tmp_path / "receipt.json"
+    server = web.AppRunner(namespace["host_contract_app"](receipt))
+    socket = tmp_path.parent / "bridge-stalled.sock"
+    await server.setup()
+    try:
+        await web.UnixSite(server, str(socket)).start()
+        async with aiohttp.ClientSession(connector=aiohttp.UnixConnector(path=str(socket))) as client:
+            for _ in range(3):
+                started = time.monotonic()
+                async with client.get("http://localhost/status") as response:
+                    assert response.status == 200
+                    assert await response.json() == {"controller_update": {"ingress_bridge_contract": 1}}
+                assert time.monotonic() - started < 2
+        assert not receipt.exists()
+        disk.release.set()
+        deadline = time.monotonic() + 10
+        while not receipt.exists() or json.loads(receipt.read_text())["status_reads"] != 3:
+            assert time.monotonic() < deadline, "host_fixture_receipt_not_latest"
+            await asyncio.sleep(.05)
+    finally:
+        disk.release.set()
         await server.cleanup()
         socket.unlink(missing_ok=True)
