@@ -419,12 +419,16 @@ def test_update_source_commit_and_sync_are_plain_and_short():
     manifest_sha = 'b' * 40
     deployed = {'present': True, 'value': deployed_sha}
     sync = {'value': 'moved'}
+    failure = {'code': None}
     errors = []
     labels = {'pending': '程式碼同步中', 'moved': '程式碼已同步', 'reverted': '程式碼已還原', 'needs_reconcile': '程式碼需要處理'}
+    source_blocked = '開發助手的程式碼無法跟著這個版本同步，所以沒有更新。'
 
     def payload():
-        record = {'candidate_digest': 'c' * 64, 'state': 'deployed',
+        record = {'candidate_digest': 'c' * 64, 'state': 'failed' if failure['code'] else 'deployed',
                   'manifest': {'version': '0.8.0', 'source_commit': manifest_sha, 'tests': [{'name': 'browser', 'result': 'passed'}]}}
+        if failure['code']:
+            record['error_code'] = failure['code']
         if sync['value'] is not None:
             record['source_sync'] = sync['value']
         body = {'trusted_publisher_configured': True, 'records': [record]}
@@ -513,6 +517,23 @@ def test_update_source_commit_and_sync_are_plain_and_short():
             expect(page.get_by_text('目前程式版本', exact=False)).to_have_count(0)
             page.get_by_text('技術資料', exact=True).click()
             expect(page.get_by_text(manifest_sha, exact=True)).to_be_visible()
+            failure['code'] = 'update_source_bundle_missing'
+            refold()
+            expect(page.get_by_text(source_blocked, exact=True)).to_be_visible()
+            assert 'update_source_bundle_missing' not in page.locator('body').inner_text()
+            for width in (1440, 390):
+                page.set_viewport_size({'width': width, 'height': 900 if width == 1440 else 844})
+                page.evaluate('window.scrollTo(0,0)')
+                page.wait_for_timeout(200)
+                expect(page.get_by_text(source_blocked, exact=True)).to_be_visible()
+                assert 'update_source_bundle_missing' not in page.locator('body').inner_text()
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), width
+                page.screenshot(path=str(output / f'source-missing-{width}.png'), full_page=True)
+            page.set_viewport_size({'width': 1440, 'height': 900})
+            failure['code'] = 'update_image_digest_mismatch'
+            refold()
+            expect(page.get_by_text(source_blocked, exact=True)).to_have_count(0)
+            assert 'update_image_digest_mismatch' not in page.locator('body').inner_text()
             assert not errors, errors
             browser.close()
     finally:
