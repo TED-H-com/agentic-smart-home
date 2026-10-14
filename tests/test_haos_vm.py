@@ -64,13 +64,16 @@ async def test_real_haos_boot_owner_and_supervisor_backup(tmp_path, request):
                 await asyncio.sleep(3)
             else:
                 raise AssertionError("HAOS Core did not become ready; inspect isolated VM console")
+            # Password hashing and auth storage writes right after boot can take over 5 s on loaded disks; do not retry if timed out.
             async with session.post(base + "/api/onboarding/users", json={"client_id": base + "/",
                                     "name": "Disposable Test Owner", "username": "test-owner",
-                                    "password": secrets.token_urlsafe(32), "language": "en"}) as response:
+                                    "password": secrets.token_urlsafe(32), "language": "en"},
+                                    timeout=aiohttp.ClientTimeout(total=120)) as response:
                 onboarding = await response.json()
                 assert response.status == 200
             async with session.post(base + "/auth/token", data={"grant_type": "authorization_code",
-                                    "code": onboarding["auth_code"], "client_id": base + "/"}) as response:
+                                    "code": onboarding["auth_code"], "client_id": base + "/"},
+                                    timeout=aiohttp.ClientTimeout(total=120)) as response:
                 auth = await response.json()
                 assert response.status == 200
         ha = DiagnosticHA(auth["access_token"], base + "/api", base.replace("http:", "ws:") + "/api/websocket", external=True)
