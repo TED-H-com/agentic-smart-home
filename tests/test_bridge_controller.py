@@ -213,6 +213,8 @@ async def test_revoke_stops_exact_bridge_run_revokes_mcp_without_stopping_host(s
     app, bridge, _, _, _, runtime = system
     runtime.pending = True
     result = await call(system, '/api/gateway/messages', 'POST', {'message': 'long research', 'coordinator': 'hermes'})
+    # A rare earlier failure had no response id; report its fixed error code if it recurs.
+    assert result.status_code == 202, result.json().get('detail')
     for _ in range(20):
         if store.list('mcp_grant'):
             break

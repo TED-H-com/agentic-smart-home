@@ -20,6 +20,10 @@ class HAError(Exception):
         self.status = status
 
 
+class HAUnreachable(HAError):
+    """Home Assistant did not answer the request."""
+
+
 class HomeAssistant:
     def __init__(self, token, base="http://supervisor/core/api", websocket="ws://supervisor/core/websocket",
                  supervisor="http://supervisor", external=False):
@@ -66,7 +70,9 @@ class HomeAssistant:
                         raise HAError("Supervisor 操作未成功")
                     return result.get("data", {})
                 return result
-        except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
+        except (aiohttp.ClientError, TimeoutError) as exc:
+            raise HAUnreachable("Home Assistant 連線中斷或回應無效") from exc
+        except ValueError as exc:
             raise HAError("Home Assistant 連線中斷或回應無效") from exc
 
     async def ws_connect(self):
@@ -91,9 +97,18 @@ class HomeAssistant:
                 result = await ws.receive_json(timeout=_receive_timeout)
                 if result.get("id") != 1 or result.get("success") is not True:
                     code = result.get("error", {}).get("code", "invalid_response")
+                    if command == "supervisor/api" and code == "unknown_command":
+                        # Core is up, but its Supervisor integration has not loaded yet.
+                        raise HAUnreachable(f"HA {command}: {code}")
                     raise HAError(f"HA {command}: {code}")
                 return result["result"]
-        except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
+        except aiohttp.WSServerHandshakeError as exc:
+            if exc.status in {401, 403}:
+                raise HAError("HA WebSocket 認證失敗", exc.status) from exc
+            raise HAUnreachable("HA WebSocket 連線中斷") from exc
+        except (aiohttp.ClientError, TimeoutError, aiohttp.WSMessageTypeError) as exc:
+            raise HAUnreachable("HA WebSocket 連線中斷") from exc
+        except ValueError as exc:
             raise HAError("HA WebSocket 連線中斷") from exc
 
     async def owner(self, user_id):

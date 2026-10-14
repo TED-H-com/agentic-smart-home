@@ -29,7 +29,7 @@ from .bridge_maintenance import BridgeFault, BridgeMaintenance
 from .engine import Engine, Rejected
 from .gateway import Gateway
 from .gateway import routes as gateway_routes
-from .ha import HAError, HomeAssistant
+from .ha import HAError, HAUnreachable, HomeAssistant
 from .ha_oauth import routes as ha_oauth_routes
 from .hermes import Coordinator
 from .hermes import routes as hermes_routes
@@ -681,6 +681,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         async def maintenance_action(method, request, **kwargs):
             try:
                 return await method(commit_guard=maintenance_guard(request), **kwargs)
+            except HAUnreachable:
+                raise HTTPException(409, "bridge_home_unreachable") from None
             except BridgeFault as exc:
                 raise HTTPException(409, exc.code) from None
 
@@ -754,6 +756,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         async def home_worker_action(method, request, **kwargs):
             try:
                 return await method(commit_guard=home_worker_guard(request), **kwargs)
+            except HAUnreachable:
+                raise HTTPException(409, "home_worker_home_unreachable") from None
             except HomeWorkerFault as exc:
                 raise HTTPException(409, exc.code) from None
 

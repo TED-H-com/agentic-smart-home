@@ -196,6 +196,11 @@ def test_home_progress_login_repair_poll_and_baseline_copy(ui_page):
             route.fulfill(status=200, content_type='application/json',
                           body=json.dumps({'id': 'b' * 32, 'status': 'pending', 'url': 'https://auth.openai.com/codex/device', 'code': 'HOME-CODE'}))
             return
+        if path == POLL_PATH.format(id='b' * 32).removeprefix('/api/'):
+            # Polls keep the login pending, so a slow run still captures the code.
+            route.fulfill(status=200, content_type='application/json',
+                          body=json.dumps({'id': 'b' * 32, 'status': 'pending', 'url': 'https://auth.openai.com/codex/device', 'code': 'HOME-CODE'}))
+            return
         home_cred = 'configured' if flow['signed'] else 'needs_auth'
         value = {'deployment': {'mode': 'host', 'authenticated': True},
                  'session': {'principal': 'host-owner', 'csrf': 'fixture-csrf'},
@@ -239,7 +244,7 @@ def test_home_progress_login_repair_poll_and_baseline_copy(ui_page):
         card = show()
         expect(card.get_by_role('status')).to_have_text(sentence)
         expect(card.get_by_role('button', name='重新檢查', exact=True)).to_have_count(0)
-    waiting = {'home_worker_app_starting': 'App 啟動中…', 'home_worker_pairing_pending': '等待配對…',
+    waiting = {'home_worker_home_unreachable': 'Home Assistant 沒有回應，恢復後自動繼續。', 'home_worker_app_starting': 'App 啟動中…', 'home_worker_pairing_pending': '等待配對…',
                'home_worker_coding_busy': '等目前的開發工作完成。', 'home_worker_observation_pending': '正在確認…', None: '稍候會自動繼續。'}
     for code, sentence in waiting.items():
         flow.update(state='waiting', stage=None, code=code)

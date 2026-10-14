@@ -471,7 +471,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             '-device virtio-scsi-pci -device scsi-hd,drive=disk '
             '-drive file=/lab/config.ext4,format=raw,if=virtio '
             '-netdev user,id=net,hostfwd=tcp:0.0.0.0:8123-:80,hostfwd=tcp:0.0.0.0:2222-:22222,'
-            'hostfwd=tcp:0.0.0.0:8443-:8443 -device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log')
+            'hostfwd=tcp:0.0.0.0:8443-:8443 -device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log', timeout=600)
         ports = json.loads(docker('inspect', vm))[0]['NetworkSettings']['Ports']
         base = 'http://127.0.0.1:' + ports['8123/tcp'][0]['HostPort']
         ssh = ['ssh', '-i', str(tmp_path / 'key'), '-p', ports['2222/tcp'][0]['HostPort'], '-o', 'BatchMode=yes',
@@ -527,14 +527,14 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             evidence['fixture_helper_sha256'] = hashlib.sha256((staging / 'probe.py').read_bytes()).hexdigest()
             docker('image', 'inspect', BUILDER)
             registry_host = json.loads(docker('image', 'inspect', REGISTRY))[0]
-            docker('save', '-o', str(tmp_path / 'bases.tar'), runner_image, 'docker:29.7.2-cli', 'registry:3.0.0', timeout=180)
+            docker('save', '-o', str(tmp_path / 'bases.tar'), runner_image, 'docker:29.7.2-cli', 'registry:3.0.0', timeout=600)
             base_identity = saved_image_identity(tmp_path / 'bases.tar', runner_image)
             registry_identity = saved_image_identity(tmp_path / 'bases.tar', 'registry:3.0.0')
             assert base_identity['layers'] == base_image['RootFS']['Layers'], 'exported_base_layers_changed'
             assert registry_identity['layers'] == registry_host['RootFS']['Layers'], 'exported_registry_layers_changed'
             evidence['runner_oci_config_digest'] = base_identity['config_digest']
             with (tmp_path / 'bases.tar').open('rb') as stream:
-                result = subprocess.run([*ssh, 'docker load'], stdin=stream, capture_output=True, timeout=240)
+                result = subprocess.run([*ssh, 'docker load'], stdin=stream, capture_output=True, timeout=600)
             assert result.returncode == 0, 'haos_product_image_preload_failed'
             phase('disposable_loopback_registry')
             loaded_base = json.loads(remote('docker image inspect ' + shlex.quote(runner_image)))[0]
@@ -557,7 +557,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             remote('docker tag ' + shlex.quote(runner_image) + ' ' + local_tag)
             # The product is amd64. Do not publish a Docker29 index containing
             # attestations or rely on local image Id/RepoDigests semantics.
-            push_output = remote('docker push --platform linux/amd64 ' + local_tag, timeout=180).decode()
+            push_output = remote('docker push --platform linux/amd64 ' + local_tag, timeout=600).decode()
             digests = re.findall(r'digest: (sha256:[a-f0-9]{64})(?:\s|$)', push_output)
             assert len(set(digests)) == 1, 'local_registry_manifest_identity_missing'
             refs = ['127.0.0.1:5000/agentic-home-runner@' + digests[-1]]
@@ -637,7 +637,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             docker('run', '-d', '--name', outer, '--network', network, '--ip', '192.168.177.1',
                 '--memory', '768m', '--cpus', '1', '--pids-limit', '128', '--user', f'{os.getuid()}:{os.getgid()}',
                 '-p', '127.0.0.1::8099', '-e', 'PYTHONPATH=/app', '-e', 'AGENTIC_DATA=/lab/outer-data', '-e', 'AGENTIC_HOST_MODE=1',
-                '-v', f'{tmp_path}:/lab', controller_image, 'python', '/lab/outer.py')
+                '-v', f'{tmp_path}:/lab', controller_image, 'python', '/lab/outer.py', timeout=600)
             outer_ports = json.loads(docker('inspect', outer))[0]['NetworkSettings']['Ports']
             origin = 'http://127.0.0.1:' + outer_ports['8099/tcp'][0]['HostPort']
             # The random host port is only a disposable transport forward.

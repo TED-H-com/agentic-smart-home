@@ -109,6 +109,25 @@ def transition(values, raw, prefix='home_worker_'):
         values.append(value)
 
 
+def written_after(record, since):
+    try:
+        return datetime.fromisoformat(record['updated_at']).timestamp() > since
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def disruption_record(record, prefix='home_worker_', since=None):
+    # Only the restarted Controller's fresh writes describe what its Owner sees.
+    if since is not None and not written_after(record, since):
+        return
+    if prefix == 'home_worker_':
+        check_ok = bool(record.get('state') in {'running', 'waiting', 'login_ready', 'ready'})
+        assert check_ok, 'home_worker_disruption_showed_failure'
+    else:
+        check_ok = bool(record.get('state') in {'running', 'waiting', 'starting', 'healthy'})
+        assert check_ok, 'bridge_disruption_showed_failure'
+
+
 def recovered(record, state, stage, since):
     # A record persisted before the disruption is not recovery; it needs a later App observation.
     try:
@@ -455,7 +474,7 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
                 docker('image', 'inspect', '--format', '{{.Id}}', image)
             except AssertionError:
                 raise AssertionError('pinned_image_not_present_locally') from None
-        docker('save', '-o', str(tmp_path / 'bases.tar'), builder_tag, node, PYTHON, timeout=180)
+        docker('save', '-o', str(tmp_path / 'bases.tar'), builder_tag, node, PYTHON, timeout=600)
         phase('prepare_disposable_disks')
         with lzma.open(ROOT / 'build/cache/haos_ova-18.3.qcow2.xz', 'rb') as src, (tmp_path / 'haos.qcow2').open('wb') as dst:
             shutil.copyfileobj(src, dst, 1024 * 1024)
@@ -480,7 +499,7 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             '-device virtio-scsi-pci -device scsi-hd,drive=disk '
             '-drive file=/lab/config.ext4,format=raw,if=virtio '
             '-netdev user,id=net,hostfwd=tcp:0.0.0.0:8123-:80,hostfwd=tcp:0.0.0.0:2222-:22222,hostfwd=tcp:0.0.0.0:8443-:8443 '
-            '-device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log')
+            '-device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log', timeout=600)
         ports = json.loads(docker('inspect', vm))[0]['NetworkSettings']['Ports']
         base = 'http://127.0.0.1:' + ports['8123/tcp'][0]['HostPort']
         ssh = ['ssh', '-i', str(tmp_path / 'key'), '-p', ports['2222/tcp'][0]['HostPort'], '-o', 'BatchMode=yes',
@@ -492,7 +511,7 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
                 '--user', f'{os.getuid()}:{os.getgid()}', '-e', 'HOME=/tmp', '--memory', '256m', '--cpus', '1',
                 '--pids-limit', '64', '-v', f'{tmp_path / "git"}:/srv/git:ro', '--entrypoint', 'git',
                 'agentic-home-runner:' + VERSION, 'daemon', '--reuseaddr', '--export-all', '--base-path=/srv/git',
-                '--listen=0.0.0.0', '--port=9418', '/srv/git')
+                '--listen=0.0.0.0', '--port=9418', '/srv/git', timeout=600)
             for _ in range(30):
                 try:
                     published = stable_commit(process(['git', 'ls-remote', LOCAL_URL.split('#')[0],
@@ -505,7 +524,8 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             else:
                 raise AssertionError('stable_branch_is_exact_head')
         evidence['checks']['stable_branch_is_exact_head'] = True
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8),
+        # Bounds a hung request only: the shared test disk can stall writes in the VM and the Controller for seconds.
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30),
                                          cookie_jar=aiohttp.CookieJar(unsafe=True)) as client:
             for _ in range(240):
                 try:
@@ -554,13 +574,15 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
         evidence['checks']['supervisor_healthy'] = True
         phase('preload_builder_and_pinned_bases')
         for _ in range(5):
-            if subprocess.run([*ssh, 'true'], capture_output=True, timeout=15).returncode == 0:
-                break
+            # A probe that times out on a loaded host is only not ready yet.
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                if subprocess.run([*ssh, 'true'], capture_output=True, timeout=15).returncode == 0:
+                    break
             await asyncio.sleep(3)
         else:
             raise AssertionError('haos_ssh_readiness_timeout')
         with (tmp_path / 'bases.tar').open('rb') as stream:
-            loaded = subprocess.run([*ssh, 'docker load'], stdin=stream, capture_output=True, timeout=240)
+            loaded = subprocess.run([*ssh, 'docker load'], stdin=stream, capture_output=True, timeout=600)
         assert loaded.returncode == 0, 'haos_base_preload_failed'
         evidence['preloaded_images'] = [BUILDER, node, PYTHON]
         evidence['checks']['pinned_bases_preloaded'] = True
@@ -583,7 +605,7 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             '-e', 'AGENTIC_HOST_MODE=1', '-v', f'{tmp_path}:/lab',
             '-v', f'{tmp_path / "host-socket"}:/run/agentic-home',
             '-v', f'{ROOT / "controller/agentic_controller"}:/app/agentic_controller:ro',
-            '-v', f'{ROOT / "controller/static"}:/app/static:ro', CONTROLLER, 'python', '/lab/outer.py')
+            '-v', f'{ROOT / "controller/static"}:/app/static:ro', CONTROLLER, 'python', '/lab/outer.py', timeout=600)
         outer_url = await outer_ready()
         database = tmp_path / 'outer-data/controller.sqlite3'
         phase('bridge_auto_enroll')
@@ -612,7 +634,8 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
         assert check_ok, 'bridge_heartbeat_timeout'
         evidence['checks']['bridge_heartbeat'] = True
         headers = {'Host': 'localhost:8099', 'Origin': 'http://localhost:8099', 'Sec-Fetch-Site': 'same-origin'}
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15),
+        # A hung Controller request, not latency: synchronous SQLite commits wait for the slow test disk.
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60),
                 cookie_jar=aiohttp.CookieJar(unsafe=True), headers=headers) as client:
             async def status():
                 async with client.get(outer_url + '/api/host/home-worker/maintenance') as response:
@@ -707,6 +730,8 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
                     home, bridge = setting(database, 'home_worker_maintenance'), setting(database, 'bridge_maintenance')
                     transition(homes, home)
                     transition(bridges, bridge, 'bridge_')
+                    disruption_record(home, since=reboot_since if name == 'recovery' else None)
+                    disruption_record(bridge, 'bridge_', since=reboot_since if name == 'recovery' else None)
                     check_ok = bool(home.get('state') not in FAILED)
                     assert check_ok, 'home_worker_failed_after_disruption'
                     check_ok = bool(bridge.get('state') not in FAILED)
@@ -736,6 +761,8 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             evidence['cold_backup_observation'] = summary
             deadline = time.monotonic() + 600
             while True:
+                disruption_record(setting(database, 'home_worker_maintenance'))
+                disruption_record(setting(database, 'bridge_maintenance'), 'bridge_')
                 supervisor_state = (await ha.request('GET', '/info', supervisor=True)).get('state')
                 runner_state, sidebar_state = await app_state(slug), await app_state(bridge_slug)
                 sample(summary, supervisor_state, runner_state, sidebar_state)
@@ -768,11 +795,24 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
                 await asyncio.sleep(2)
             check_ok = bool(down)
             assert check_ok, 'core_reboot_down_not_observed'
+            reboot_since = time.time()
             docker('restart', outer)
+            homes = evidence['home_recovery_transitions'] = []
+            bridges = evidence['bridge_recovery_transitions'] = []
+
+            def reboot_sample():
+                # The old Controller's last write during HAOS shutdown is not what the restarted one shows.
+                home, bridge = setting(database, 'home_worker_maintenance'), setting(database, 'bridge_maintenance')
+                for record, values, prefix in ((home, homes, 'home_worker_'), (bridge, bridges, 'bridge_')):
+                    if written_after(record, reboot_since):
+                        transition(values, record, prefix)
+                        disruption_record(record, prefix)
+
             outer_url = await outer_ready()
             deadline = time.monotonic() + 600
             while True:
                 outer_alive()
+                reboot_sample()
                 try:
                     await ha.request('GET', '/config', timeout=3)
                     break
@@ -782,13 +822,10 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
                     await asyncio.sleep(2)
             summary = sample_summary(boot=True)
             evidence['reboot_observation'] = summary
-            homes = evidence['home_recovery_transitions'] = []
-            bridges = evidence['bridge_recovery_transitions'] = []
             deadline = time.monotonic() + 600
             while True:
                 outer_alive()
-                transition(homes, setting(database, 'home_worker_maintenance'))
-                transition(bridges, setting(database, 'bridge_maintenance'), 'bridge_')
+                reboot_sample()
                 try:
                     supervisor_state = (await ha.request('GET', '/info', supervisor=True)).get('state')
                     runner_state, sidebar_state = await app_state(slug), await app_state(bridge_slug)
@@ -1021,9 +1058,32 @@ def test_failure_receipt_recognizes_enable_assertion_codes():
     for code in ('home_worker_failed_after_disruption', 'bridge_not_recovered', 'app_restarted_after_reboot',
                  'maintenance_changed_apps_after_cold_backup', 'home_worker_status_ownership',
                  'owned_enable_resources_not_removed', 'outer_controller_exited', 'outer_controller_not_ready',
-                 'home_worker_enable_showed_failure'):
+                 'home_worker_enable_showed_failure', 'home_worker_disruption_showed_failure',
+                 'bridge_disruption_showed_failure'):
         receipt = failure_receipt(AssertionError(code), source_files=CODE_SOURCES)
         assert receipt['error_code'] == code
         assert evidence_projection(receipt)['error_code'] == code
     receipt = failure_receipt(AssertionError('private-token-value'), source_files=CODE_SOURCES)
     assert 'private-token-value' not in json.dumps(evidence_projection(receipt))
+
+
+@pytest.mark.parametrize('prefix,allowed', [
+    ('home_worker_', {'running', 'waiting', 'login_ready', 'ready'}),
+    ('bridge_', {'running', 'waiting', 'starting', 'healthy'}),
+])
+def test_disruption_records_only_allow_calm_states(prefix, allowed):
+    for state in allowed:
+        disruption_record({'state': state}, prefix)
+    for state in {'unavailable', 'needs_reconcile', 'user_disabled', None}:
+        with pytest.raises(AssertionError, match=prefix + 'disruption_showed_failure'):
+            disruption_record({'state': state}, prefix)
+
+
+@pytest.mark.parametrize('updated_at', [None, 'invalid', '1970-01-01T00:00:09+00:00', '1970-01-01T00:00:10+00:00'])
+def test_disruption_ignores_records_before_controller_restart(updated_at):
+    disruption_record({'state': 'unavailable', 'updated_at': updated_at}, since=10)
+
+
+def test_disruption_checks_new_controller_writes():
+    with pytest.raises(AssertionError, match='home_worker_disruption_showed_failure'):
+        disruption_record({'state': 'unavailable', 'updated_at': '1970-01-01T00:00:11+00:00'}, since=10)

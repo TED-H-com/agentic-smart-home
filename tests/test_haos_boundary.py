@@ -1,5 +1,6 @@
 """Actual HAOS App namespace evidence. Every disk, App and credential is disposable."""
 import base64
+import contextlib
 import json
 import lzma
 import os
@@ -28,10 +29,10 @@ def test_actual_haos_app_boundary(tmp_path, request):
     with lzma.open(ROOT / "build/cache/haos_ova-18.3.qcow2.xz", "rb") as source, (tmp_path / "haos.qcow2").open("wb") as target:
         shutil.copyfileobj(source, target, 1024 * 1024)
     for reference in (PYTHON, BUILDER):
-        docker("pull", reference, timeout=180)
+        docker("pull", reference, timeout=600)
     # Preload exact public images, avoiding slow repeated downloads through QEMU user networking.
     subprocess.run(["docker", "save", "-o", str(tmp_path / "images.tar"), "docker:29.7.2-cli", PYTHON],
-                   check=True, timeout=120)
+                   check=True, timeout=600)
     shutil.copyfile(ROOT / "tests/haos_boundary_probe.py", tmp_path / "probe.py")
     subprocess.run(["ssh-keygen", "-t", "ed25519", "-N", "", "-f", str(tmp_path / "key")], check=True, capture_output=True)
     (tmp_path / "config").mkdir()
@@ -51,15 +52,16 @@ def test_actual_haos_app_boundary(tmp_path, request):
                "-device virtio-scsi-pci -device scsi-hd,drive=disk "
                "-drive file=/lab/config.ext4,format=raw,if=virtio "
                "-netdev user,id=net,hostfwd=tcp:0.0.0.0:2222-:22222 -device virtio-net-pci,netdev=net -display none "
-               "-serial file:/lab/serial.log")
+               "-serial file:/lab/serial.log", timeout=600)
         port = json.loads(docker("inspect", name))[0]["NetworkSettings"]["Ports"]["2222/tcp"][0]["HostPort"]
         ssh = ["ssh", "-i", str(tmp_path / "key"), "-p", port, "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes",
                "-o", "StrictHostKeyChecking=no", "-o", f"UserKnownHostsFile={tmp_path / 'known_hosts'}",
                "-o", "ConnectTimeout=5", "root@127.0.0.1"]
         for _ in range(120):
-            ready = subprocess.run([*ssh, "true"], capture_output=True, timeout=8)
-            if ready.returncode == 0:
-                break
+            # A probe that times out on a loaded host is only not ready yet.
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                if subprocess.run([*ssh, "true"], capture_output=True, timeout=8).returncode == 0:
+                    break
             time.sleep(3)
         else:
             raise AssertionError("HAOS official CONFIG-key SSH import did not become ready")
@@ -69,7 +71,7 @@ def test_actual_haos_app_boundary(tmp_path, request):
             return result.stdout + result.stderr
 
         with (tmp_path / "images.tar").open("rb") as images:
-            loaded = subprocess.run([*ssh, "docker load"], stdin=images, capture_output=True, timeout=180)
+            loaded = subprocess.run([*ssh, "docker load"], stdin=images, capture_output=True, timeout=600)
         assert loaded.returncode == 0, "Pinned diagnostic image preload failed"
         evidence = {"observed_from": "real_haos_app", "haos_image": "18.3", "cloud_account": "not_used",
                     "diagnostic_base": PYTHON, "supervisor_builder": BUILDER,

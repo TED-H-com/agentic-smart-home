@@ -879,3 +879,24 @@ def test_actual_update_cleanup_survives_checkpoint_failure_and_preserves_primary
     if cleanup_fails:
         assert result["diagnostics"]["cleanup_error_type"] == "PermissionError"
     assert "private" not in json.dumps(result)
+
+
+def test_install_waits_are_wall_clock_bounded():
+    from test_linux_install import remote_ok, wait_until
+
+    now, probes = [0.0], []
+
+    def pause(seconds):
+        now[0] += seconds
+    assert not wait_until(lambda: probes.append(now[0]), 30, clock=lambda: now[0], pause=pause)
+    assert probes == [0, 5, 10, 15, 20, 25]
+    assert wait_until(lambda: now[0] >= 40, 30, clock=lambda: now[0], pause=pause)
+
+    def run(args, **kwargs):
+        assert kwargs == {"capture_output": True, "timeout": 60}
+        if args[-1] == "slow":
+            raise subprocess.TimeoutExpired(args, 60)
+        return subprocess.CompletedProcess(args, 0 if args[-1] == "ok" else 1)
+    assert remote_ok(["ssh"], "ok", run=run)
+    assert not remote_ok(["ssh"], "missing", run=run)
+    assert not remote_ok(["ssh"], "slow", run=run)

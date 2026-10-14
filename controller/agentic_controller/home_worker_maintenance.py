@@ -34,7 +34,7 @@ from .bridge_maintenance import (
     version_gate,
     version_order,
 )
-from .ha import HAError
+from .ha import HAError, HAUnreachable
 from .models import digest, utcnow
 from .runner import RunnerError
 
@@ -464,6 +464,16 @@ class HomeWorkerMaintenance:
                 if current and current["id"] == record["id"] and current["enabled"]:
                     extra = {"enabled": False} if exc.state in USER_STOP else {}
                     self.save(current, state=exc.state, code=exc.code, **extra)
+            except HAUnreachable:
+                # HA may be booting or restarting; wait for fresh observations.
+                current = self.record()
+                if current and current["id"] == record["id"] and current["enabled"]:
+                    operation = current.get("operation")
+                    expired = operation and self.clock() >= operation["deadline"]
+                    if expired:
+                        self.save(current, state="needs_reconcile", code="home_worker_operation_unconfirmed")
+                    else:
+                        self.save(current, state="waiting", code="home_worker_home_unreachable", stopped_since=None)
             except Exception:
                 current = self.record()
                 if current and current["id"] == record["id"] and current["enabled"]:

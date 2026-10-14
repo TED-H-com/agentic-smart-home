@@ -15,7 +15,7 @@ from agentic_controller.bridge_maintenance import (
     BridgeMaintenance,
     BridgeRelease,
 )
-from agentic_controller.ha import HAError
+from agentic_controller.ha import HAError, HAUnreachable
 
 RELEASE = BridgeRelease()
 REPO = "aabbccdd"
@@ -965,3 +965,124 @@ async def test_start_and_restart_use_supervisor_app_start_timeout(manager):
     assert [item for item in manager.ha.timeouts if item[0] == "POST"] == [
         ("POST", f"/store/addons/{SLUG}/update", 30)]
     assert all(timeout == 30 for _, _, timeout in manager.ha.timeouts)
+
+
+@pytest.mark.parametrize("error,expired", [(HAUnreachable("fixture"), False), (HAError("fixture", 401), False),
+                                          (HAUnreachable("fixture"), True)])
+async def test_home_outage_preserves_intent_and_recovers(manager, monkeypatch, error, expired):
+    await healthy(manager)
+    manager.save(manager.record(), stopped_since=manager.clock())
+    if expired:
+        manager.save(manager.record(), operation={"kind": "start", "deadline": manager.clock() - 1})
+    before = copy.deepcopy(manager.record())
+    calls = copy.deepcopy(manager.ha.calls)
+    owner = manager.ha.owner
+
+    async def fail(*args):
+        raise error
+
+    monkeypatch.setattr(manager.ha, "owner", fail)
+    result = await manager.tick()
+    state = "needs_reconcile" if expired else "waiting" if isinstance(error, HAUnreachable) else "unavailable"
+    code = "bridge_" + ("operation_unconfirmed" if expired else
+                          "home_unreachable" if isinstance(error, HAUnreachable) else "observation_unavailable")
+    assert result["state"] == state and result["code"] == code
+    after = manager.record()
+    changed = {"state", "code", "updated_at"}
+    if isinstance(error, HAUnreachable) and not expired:
+        changed.add("stopped_since")
+        assert after["stopped_since"] is None
+    assert {k: v for k, v in before.items() if k not in changed} == {k: v for k, v in after.items() if k not in changed}
+    assert manager.ha.calls == calls
+    if not expired:
+        monkeypatch.setattr(manager.ha, "owner", owner)
+        assert (await manager.tick())["state"] == "healthy"
+
+
+@pytest.mark.parametrize("path", ["/info", f"/addons/{SLUG}/info"])
+async def test_mid_observation_home_outage_waits(manager, monkeypatch, path):
+    await healthy(manager)
+    if path == "/info":
+        manager.ha.app["state"] = "stopped"
+    request = manager.ha.request
+
+    async def fail(method, target, *args, **kwargs):
+        if target == path:
+            raise HAUnreachable("fixture")
+        return await request(method, target, *args, **kwargs)
+
+    monkeypatch.setattr(manager.ha, "request", fail)
+    assert (await manager.tick())["code"] == "bridge_home_unreachable"
+
+
+async def test_home_outage_requires_new_stop_confirmation(manager, monkeypatch):
+    await healthy(manager)
+    manager.ha.app["state"] = "stopped"
+    await manager.tick()
+    manager.clock.now += STOP_CONFIRM_SECONDS
+    owner = manager.ha.owner
+
+    async def fail(*args):
+        raise HAUnreachable("fixture")
+
+    monkeypatch.setattr(manager.ha, "owner", fail)
+    await manager.tick()
+    monkeypatch.setattr(manager.ha, "owner", owner)
+    assert (await manager.tick())["state"] == "waiting"
+    manager.clock.now += STOP_CONFIRM_SECONDS - 1
+    assert (await manager.tick())["state"] == "waiting"
+    manager.clock.now += 1
+    assert (await manager.tick())["state"] == "user_disabled"
+
+
+async def test_repair_route_home_outage_is_calm_and_preserves_record(manager, monkeypatch, tmp_path):
+    import httpx
+    from agentic_controller.app import create_app
+
+    await healthy(manager)
+    monkeypatch.setenv("AGENTIC_DATA", str(tmp_path))
+    monkeypatch.setenv("AGENTIC_LINE_CONFIG", str(tmp_path / "line-config/gateway.json"))
+    (tmp_path / "access-key").write_text("fixture-machine-access-key")
+    async def host_status():
+        return {"controller_update": {"ingress_bridge_contract": 1}}
+
+    app = create_app(store=manager.store, ha=manager.ha, host_mode=True, bridge_host_status=host_status)
+    await app.state.ingress_bridge.require_host()
+    monkeypatch.setattr(app.state.bridge_maintenance, "bridge", manager.bridge)
+
+    before = copy.deepcopy(manager.record())
+
+    async def fail(*args):
+        raise HAUnreachable("fixture")
+
+    monkeypatch.setattr(manager.ha, "owner", fail)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost:8099",
+                                 headers={"Origin": "http://localhost:8099"}) as client:
+        assert (await client.post("/api/host/login", json={"key": "fixture-machine-access-key"})).status_code == 200
+        client.headers["X-Agentic-CSRF"] = (await client.get("/api/session")).json()["csrf"]
+        response = await client.post("/api/host/bridge/maintenance/repair", json={})
+    assert response.status_code == 409 and response.json()["detail"] == "bridge_home_unreachable"
+    assert manager.record() == before
+    if getattr(app.state, "gateway", None):
+        await app.state.gateway.close()
+
+
+async def test_home_outage_resets_started_run_before_auto_repair(manager, monkeypatch):
+    await healthy(manager)
+    manager.clock.now += 3600
+    owner = manager.ha.owner
+
+    async def fail(*args):
+        raise HAUnreachable("fixture")
+
+    monkeypatch.setattr(manager.ha, "owner", fail)
+    assert (await manager.tick())["state"] == "waiting"
+    assert manager.observed_run is None
+    monkeypatch.setattr(manager.ha, "owner", owner)
+    assert (await manager.tick())["code"] == "bridge_heartbeat_pending"
+    manager.clock.now += STARTUP_GRACE - 1
+    await manager.tick()
+    assert not manager.ha.writes("/restart")
+    manager.clock.now += 1
+    await manager.tick()
+    assert len(manager.ha.writes("/restart")) == 1
