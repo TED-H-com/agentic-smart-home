@@ -1,5 +1,6 @@
 """Full Linux installation rehearsal. Every disk/credential is temporary and isolated."""
 import base64
+import contextlib
 import hashlib
 import importlib.util
 import json
@@ -36,6 +37,23 @@ def bootstrap_job_diagnostics(output):
 
 def command(*args, **kwargs):
     return subprocess.run(args, check=True, capture_output=True, text=True, **kwargs).stdout.strip()
+
+
+def wait_until(ready, seconds, *, clock=time.monotonic, pause=time.sleep):
+    """Wall-clock bound. A slow test disk stretches every phase and every probe."""
+    deadline = clock() + seconds
+    while clock() < deadline:
+        if ready():
+            return True
+        pause(5)
+    return False
+
+
+def remote_ok(ssh, script, *, run=subprocess.run):
+    # A probe that times out on a loaded host is only not ready yet.
+    with contextlib.suppress(subprocess.TimeoutExpired):
+        return run([*ssh, script], capture_output=True, timeout=60).returncode == 0
+    return False
 
 
 def probe_json(result, diagnostic_path):
@@ -414,14 +432,14 @@ while data:=s.recv(65536):
                   "-p", "127.0.0.1::2222", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0"]
         phase("ubuntu_installation")
         command(*common, *qemu, "-cdrom", "/lab/test.iso", "-boot", "d")
-        for _ in range(180):
+        def powered_off():
             state = json.loads(command("docker", "inspect", name))[0]["State"]
-            if not state["Running"]:
-                assert state["ExitCode"] == 0 and not state["OOMKilled"]
-                break
-            time.sleep(5)
-        else:
-            raise AssertionError("Linux installer did not power off within 15 minutes")
+            if state["Running"]:
+                return False
+            assert state["ExitCode"] == 0 and not state["OOMKilled"]
+            return True
+        if not wait_until(powered_off, 1800):
+            raise AssertionError("Linux installer did not power off within 30 minutes")
         command("docker", "rm", "-fv", name)
         phase("installed_firstboot")
         command(*common, *qemu)
@@ -429,12 +447,8 @@ while data:=s.recv(65536):
                "-o", f"ProxyCommand=docker exec -i {name} python3 /lab/ssh-proxy.py",
                "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5",
                "tester@127.0.0.1"]
-        for _ in range(240):
-            result = subprocess.run([*ssh, "test -f /var/lib/agentic-home/installed.json"], capture_output=True)
-            if result.returncode == 0:
-                break
-            time.sleep(5)
-        else:
+        # Firstboot has no time limit. On a slow test disk it ran for more than 20 minutes.
+        if not wait_until(lambda: remote_ok(ssh, "test -f /var/lib/agentic-home/installed.json"), 3600):
             logs = subprocess.run([*ssh, "journalctl -u agentic-home-firstboot --no-pager -n 50"], capture_output=True, text=True)
             raise AssertionError("Firstboot did not complete: " + logs.stdout[-4000:])
         phase("installed_identity_and_images")
@@ -536,18 +550,17 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
         command(*ssh, "agentic-home provision")
         host = json.loads(command(*ssh, "agentic-home status"))
         assert host["vm"] == "running" and host["provisioned"]
+        def ha_ready():
+            response = subprocess.run([*ssh, "curl --max-time 3 -fsS http://localhost:8123/api/onboarding"],
+                                      capture_output=True)
+            try:
+                return response.returncode == 0 and isinstance(json.loads(response.stdout), list)
+            except ValueError:
+                return False
         def wait_ha(stage):
             phase(stage)
-            for _ in range(180):
-                response = subprocess.run([*ssh, "curl --max-time 3 -fsS http://localhost:8123/api/onboarding"],
-                                          capture_output=True)
-                try:
-                    if response.returncode == 0 and isinstance(json.loads(response.stdout), list):
-                        return
-                except ValueError:
-                    pass
-                time.sleep(5)
-            raise AssertionError("Nested HAOS HTTP did not become ready")
+            if not wait_until(ha_ready, 1800):
+                raise AssertionError("Nested HAOS HTTP did not become ready")
 
         wait_ha("nested_haos_first_boot")
         phase("installed_controller_update_rollback")
@@ -566,12 +579,7 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
         phase("outer_reboot_and_haos_autostart")
         subprocess.run([*ssh, "sudo systemctl reboot"], capture_output=True)
         time.sleep(15)
-        for _ in range(120):
-            result = subprocess.run([*ssh, "systemctl is-active agentic-home"], capture_output=True)
-            if result.returncode == 0:
-                break
-            time.sleep(5)
-        else:
+        if not wait_until(lambda: remote_ok(ssh, "systemctl is-active agentic-home"), 1800):
             raise AssertionError("Outer product did not restart")
         assert json.loads(command(*ssh, "agentic-home status"))["vm"] == "running"
         assert hermes_image() == candidate_id

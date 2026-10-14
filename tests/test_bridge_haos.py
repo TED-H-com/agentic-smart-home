@@ -361,9 +361,9 @@ async def test_real_haos_sidebar_bridge(tmp_path, request):
                     archive.add(staging, arcname="agentic_bridge")
                 for reference in (PYTHON, BUILDER):
                     docker("image", "inspect", reference)
-                docker("save", "-o", str(tmp_path / "bases.tar"), PYTHON, "docker:29.7.2-cli", timeout=120)
+                docker("save", "-o", str(tmp_path / "bases.tar"), PYTHON, "docker:29.7.2-cli", timeout=600)
                 with (tmp_path / "bases.tar").open("rb") as stream:
-                    loaded = subprocess.run([*ssh, "docker load"], stdin=stream, capture_output=True, timeout=180)
+                    loaded = subprocess.run([*ssh, "docker load"], stdin=stream, capture_output=True, timeout=600)
                 assert loaded.returncode == 0, "haos_base_preload_failed"
                 with (tmp_path / "bridge.tar.gz").open("rb") as stream:
                     delivered = subprocess.run([*ssh, "mkdir -p /mnt/data/supervisor/apps/local && tar xzf - -C /mnt/data/supervisor/apps/local"],

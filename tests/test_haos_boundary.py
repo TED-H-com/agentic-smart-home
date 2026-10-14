@@ -29,10 +29,10 @@ def test_actual_haos_app_boundary(tmp_path, request):
     with lzma.open(ROOT / "build/cache/haos_ova-18.3.qcow2.xz", "rb") as source, (tmp_path / "haos.qcow2").open("wb") as target:
         shutil.copyfileobj(source, target, 1024 * 1024)
     for reference in (PYTHON, BUILDER):
-        docker("pull", reference, timeout=180)
+        docker("pull", reference, timeout=600)
     # Preload exact public images, avoiding slow repeated downloads through QEMU user networking.
     subprocess.run(["docker", "save", "-o", str(tmp_path / "images.tar"), "docker:29.7.2-cli", PYTHON],
-                   check=True, timeout=120)
+                   check=True, timeout=600)
     shutil.copyfile(ROOT / "tests/haos_boundary_probe.py", tmp_path / "probe.py")
     subprocess.run(["ssh-keygen", "-t", "ed25519", "-N", "", "-f", str(tmp_path / "key")], check=True, capture_output=True)
     (tmp_path / "config").mkdir()
@@ -71,7 +71,7 @@ def test_actual_haos_app_boundary(tmp_path, request):
             return result.stdout + result.stderr
 
         with (tmp_path / "images.tar").open("rb") as images:
-            loaded = subprocess.run([*ssh, "docker load"], stdin=images, capture_output=True, timeout=180)
+            loaded = subprocess.run([*ssh, "docker load"], stdin=images, capture_output=True, timeout=600)
         assert loaded.returncode == 0, "Pinned diagnostic image preload failed"
         evidence = {"observed_from": "real_haos_app", "haos_image": "18.3", "cloud_account": "not_used",
                     "diagnostic_base": PYTHON, "supervisor_builder": BUILDER,
