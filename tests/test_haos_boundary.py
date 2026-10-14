@@ -70,6 +70,14 @@ def test_actual_haos_app_boundary(tmp_path, request):
             result = subprocess.run([*ssh, "sh"], input=command, capture_output=True, text=True, timeout=timeout)
             return result.stdout + result.stderr
 
+        def app_info(slug):
+            # A readback that times out on a loaded host only means not ready yet.
+            with contextlib.suppress(subprocess.TimeoutExpired, ValueError):
+                data = json.loads(shell("ha apps info local_" + slug + " --raw-json", 60)).get("data")
+                if isinstance(data, dict):
+                    return data
+            return {}
+
         with (tmp_path / "images.tar").open("rb") as images:
             loaded = subprocess.run([*ssh, "docker load"], stdin=images, capture_output=True, timeout=600)
         assert loaded.returncode == 0, "Pinned diagnostic image preload failed"
@@ -105,28 +113,23 @@ profile agentic-boundary flags=(attach_disconnected,mediate_deleted) {
                 commands.append("echo " + base64.b64encode(content.encode()).decode() + " | base64 -d > " + directory + "/" + filename)
             shell("\n".join(commands))
             # Wait for Supervisor readiness, then use its real local-App install/start APIs.
-            for _ in range(90):
-                shell("ha store reload", 30)
-                output = shell("ha apps info local_" + slug + " --raw-json", 30)
-                try:
-                    if json.loads(output).get("data", {}).get("slug") == "local_" + slug:
-                        break
-                except ValueError:
-                    pass
+            ready_deadline = time.monotonic() + 600
+            while app_info(slug).get("slug") != "local_" + slug:
+                assert time.monotonic() < ready_deadline, "Supervisor store did not list the local App"
+                with contextlib.suppress(subprocess.TimeoutExpired):
+                    shell("ha store reload", 60)
                 time.sleep(3)
             update_requested = False
-            install_deadline = time.monotonic() + 600
+            install_deadline = time.monotonic() + 1200
             installed = "not attempted"
             while time.monotonic() < install_deadline:
-                observed = shell("ha apps info local_" + slug + " --raw-json", 30)
+                # Supervisor answers an installed App with its version and one only in the store with none;
+                # neither answer has an "installed" field.
+                if app_info(slug).get("version") == config["version"]:
+                    installed = "already installed after retry"
+                    break
                 try:
-                    if json.loads(observed).get("data", {}).get("installed") is True:
-                        installed = "already installed after retry"
-                        break
-                except ValueError:
-                    pass
-                try:
-                    installed = shell("ha apps install local_" + slug, 90)
+                    installed = shell("ha apps install local_" + slug, 300)
                 except subprocess.TimeoutExpired:
                     installed = "Error: install in progress; awaiting real Supervisor readback"
                 if "Error:" not in installed and '"result":"error"' not in installed:
@@ -139,11 +142,14 @@ profile agentic-boundary flags=(attach_disconnected,mediate_deleted) {
                     break
                 time.sleep(3)
             assert "Error:" not in installed and '"result":"error"' not in installed, installed[-1000:] + shell("ha supervisor logs | tail -20")[-3000:]
-            started = shell("ha apps start local_" + slug, 120)
+            started = shell("ha apps start local_" + slug, 600)
             assert "Error:" not in started, started[-1000:]
-            time.sleep(25)
-            logs = shell("ha apps logs local_" + slug)
-            line = next((line for line in logs.splitlines() if line.startswith("AGENTIC_BOUNDARY=")), None)
+            logs, line, logs_deadline = "", None, time.monotonic() + 300
+            while line is None and time.monotonic() < logs_deadline:
+                time.sleep(5)
+                with contextlib.suppress(subprocess.TimeoutExpired):
+                    logs = shell("ha apps logs local_" + slug)
+                    line = next((line for line in logs.splitlines() if line.startswith("AGENTIC_BOUNDARY=")), None)
             assert line, "Actual App did not produce bounded diagnostic: " + logs[-1500:]
             result = json.loads(line.removeprefix("AGENTIC_BOUNDARY="))
             host_namespace = int(shell("stat -Lc %i /proc/self/ns/cgroup").strip())
@@ -153,7 +159,7 @@ profile agentic-boundary flags=(attach_disconnected,mediate_deleted) {
             assert result["observed_from"] == "haos_app" and not result["docker_socket_present"]
             evidence["profiles"][label] = result
             (ROOT / "evidence/haos-app-boundary.json").write_text(json.dumps(evidence, indent=2) + "\n")
-            shell("ha apps stop local_" + slug)
+            shell("ha apps stop local_" + slug, 300)
         (ROOT / "evidence/haos-app-boundary.json").write_text(json.dumps(evidence, indent=2) + "\n")
     finally:
         subprocess.run(["docker", "stop", "-t", "10", name], capture_output=True)

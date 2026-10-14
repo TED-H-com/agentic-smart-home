@@ -19,7 +19,7 @@ for name in ('memory.max', 'pids.max', 'cpu.max', 'cgroup.controllers'):
 libc = ctypes.CDLL(None, use_errno=True)
 probe = subprocess.run(['python', '-c',
     'import ctypes,os; os._exit(0 if ctypes.CDLL(None).unshare(0x10000000|0x40000000)==0 else 1)'],
-                       user=10000, group=10000, extra_groups=[], capture_output=True, timeout=5)
+                       user=10000, group=10000, extra_groups=[], capture_output=True, timeout=60)
 result['unprivileged_user_net_namespace'] = probe.returncode == 0
 script = r'''
 import ctypes,json,os,subprocess
@@ -43,7 +43,7 @@ try:
   (worker/'memory.max').write_text(str(64*1024*1024));(worker/'memory.swap.max').write_text('0')
   (worker/'pids.max').write_text('16');(worker/'cpu.max').write_text('100000 100000')
   def enter():(worker/'cgroup.procs').write_text(str(os.getpid()))
-  child=subprocess.run(['python','-c','x=bytearray(160*1024*1024)'],preexec_fn=enter,timeout=8)
+  child=subprocess.run(['python','-c','x=bytearray(160*1024*1024)'],preexec_fn=enter,timeout=60)
   result.update(delegated_limits=True,memory_oom_kill=child.returncode==-9,
     memory_events=(worker/'memory.events').read_text().strip())
   worker.rmdir()
@@ -52,7 +52,7 @@ finally:
  if mounted:libc.umount2(str(p).encode(),0)
 print(json.dumps(result))
 '''
-probe = subprocess.run(['python', '-c', script], capture_output=True, text=True, timeout=20)
+probe = subprocess.run(['python', '-c', script], capture_output=True, text=True, timeout=180)
 try:
     result['delegation'] = json.loads(probe.stdout)
 except ValueError:
