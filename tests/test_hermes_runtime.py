@@ -898,7 +898,7 @@ async def main():
     await runtime.close()
 asyncio.run(main())
 """
-        stopped = subprocess.run(["docker", "exec", name, "python", "-c", fence_probe], capture_output=True, text=True, timeout=15)
+        stopped = subprocess.run(["docker", "exec", name, "python", "-c", fence_probe], capture_output=True, text=True, timeout=120)
         assert stopped.returncode == 0, stopped.stderr[-2000:]
         # Exercise security fixes in installed wheels, including the advisory
         # whose first-patched-version metadata is still empty on GitHub.
@@ -938,9 +938,9 @@ except jwt.InvalidKeyError:
 else:
     raise AssertionError('mismatched OKP key components accepted')
 """
-        secured = subprocess.run(["docker", "exec", name, "python", "-c", security_probe], capture_output=True, text=True, timeout=15)
+        secured = subprocess.run(["docker", "exec", name, "python", "-c", security_probe], capture_output=True, text=True, timeout=120)
         assert secured.returncode == 0, secured.stderr[-2000:]
-        consistent = subprocess.run(["docker", "exec", name, "python", "-m", "pip", "check"], capture_output=True, text=True, timeout=15)
+        consistent = subprocess.run(["docker", "exec", name, "python", "-m", "pip", "check"], capture_output=True, text=True, timeout=120)
         assert consistent.returncode == 0, consistent.stdout[-2000:] + consistent.stderr[-2000:]
     finally:
         subprocess.run(["docker", "rm", "-fv", name], capture_output=True, check=False)

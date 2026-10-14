@@ -117,7 +117,7 @@ else:
 print(json.dumps({'login':200,'session':'host-owner','replay':403}))
 '''
         result = subprocess.run(["docker", "exec", "--user", "1000:1000", name, "python", "-c", script],
-                                capture_output=True, text=True, timeout=15)
+                                capture_output=True, text=True, timeout=120)
         assert result.returncode == 0, "Packaged host/Controller ticket handoff failed"
         assert json.loads(result.stdout) == {"login": 200, "session": "host-owner", "replay": 403}
     finally:

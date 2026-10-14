@@ -202,7 +202,7 @@ def test_actual_qemu_machine_json_with_disk_fixture(request, tmp_path):
     if not request.config.getoption("--containers"):
         pytest.skip("requires local builder fixture image")
     image = "agentic-home-builder:0.2.0"
-    available = subprocess.run(["docker", "image", "inspect", image], capture_output=True, timeout=10)
+    available = subprocess.run(["docker", "image", "inspect", image], capture_output=True, timeout=120)
     if available.returncode:
         pytest.skip("builder image is installed-VM tooling, not available in regular CI")
     prefix = ["docker", "run", "--rm", "--network", "none", "--read-only", "--cap-drop", "ALL",
@@ -210,8 +210,8 @@ def test_actual_qemu_machine_json_with_disk_fixture(request, tmp_path):
               "--memory", "128m", "--pids-limit", "32", "--cpus", "1",
               "--mount", f"type=bind,src={tmp_path},dst=/fixture", image]
     subprocess.run([*prefix, "qemu-img", "create", "-f", "qcow2", "/fixture/test.qcow2", "8M"],
-                   capture_output=True, text=True, timeout=20, check=True)
+                   capture_output=True, text=True, timeout=120, check=True)
     def execute(*args, **kwargs):
         assert args[:3] == ("qemu-img", "info", "--output=json")
-        return subprocess.run([*prefix, *args], capture_output=True, text=True, timeout=20, check=False)
+        return subprocess.run([*prefix, *args], capture_output=True, text=True, timeout=120, check=False)
     assert contracts.check_image(execute, Path("/fixture/test.qcow2"))

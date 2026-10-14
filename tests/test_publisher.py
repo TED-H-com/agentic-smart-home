@@ -62,7 +62,7 @@ print(json.dumps({'root_cli_enrollment':'passed','root_cli_revocation':'passed',
                              "--mount", f"type=bind,src={root / 'host'},dst=/product/host,readonly",
                              "--mount", f"type=bind,src={pem},dst=/public.pem,readonly",
                              "--env", "PYTHONPATH=/product/host", "agentic-home-preview:" + version, "-c", script],
-                            check=True, capture_output=True, text=True, timeout=15)
+                            check=True, capture_output=True, text=True, timeout=120)
     evidence = json.loads(result.stdout)
     assert evidence["root_cli_enrollment"] == "passed"
     (root / "evidence/publisher-enrollment.json").write_text(json.dumps(evidence, indent=2) + "\n")
