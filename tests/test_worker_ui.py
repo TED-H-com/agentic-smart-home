@@ -258,7 +258,7 @@ def test_coding_role_login_lost_reply_stop_fence_and_artifact_preview(ui_page):
     assert len([item for item in calls if item[0] == 'worker/jobs']) == 1
     page.get_by_role('button', name='確認已停止').click()
     page.get_by_role('radio', name='修改並測試', exact=True).check()
-    page.get_by_role('button', name='開始修正與測試', exact=True).click()
+    page.get_by_role('button', name='開始修改並測試', exact=True).click()
     page.get_by_text('獨立測試程序：12 項通過。', exact=True).wait_for()
     page.locator('.worker-artifact').filter(has_text='candidate.patch').get_by_role('button', name='查看內容').click()
     expect(page.locator('.worker-artifact pre').first).to_contain_text('+min-height: 44px')
@@ -281,7 +281,7 @@ def test_coding_role_login_lost_reply_stop_fence_and_artifact_preview(ui_page):
     page.keyboard.press('ArrowRight')
     expect(page.get_by_role('radio', name='家庭現場', exact=True)).to_be_checked()
     page.get_by_label('要調查或改善什麼？', exact=True).fill('調查家庭現況')
-    expect(page.get_by_role('button', name='開始修正與測試', exact=True)).to_be_disabled()
+    expect(page.get_by_role('button', name='開始修改並測試', exact=True)).to_be_disabled()
     expect(page.locator('.worker-readiness')).to_contain_text('尚未啟用')
     expect(page.get_by_text('先啟用家庭現場。', exact=True)).to_be_visible()
     assert not errors
@@ -982,7 +982,7 @@ def test_retry_submits_a_new_coding_job_only_on_the_worker_page(ui_page):
     page.get_by_text('模型設定', exact=True).click()
     page.get_by_label('開發模型', exact=True).fill(original['model'])
     page.get_by_label('要調查或改善什麼？', exact=True).fill(original['goal'])
-    page.get_by_role('button', name='開始修正與測試', exact=True).click()
+    page.get_by_role('button', name='開始修改並測試', exact=True).click()
     retry = page.locator('.worker-results').get_by_role('button', name='再試一次', exact=True)
     expect(retry).to_be_enabled()
     expect(page.get_by_label('要調查或改善什麼？', exact=True)).to_have_value('')
@@ -997,7 +997,7 @@ def test_retry_submits_a_new_coding_job_only_on_the_worker_page(ui_page):
     page.get_by_role('textbox', name='要調查或改善什麼？', exact=True).fill(original['goal'])
     page.get_by_role('combobox', name='開發模型', exact=True).fill(original['model'])
     page.get_by_role('radio', name='修改並測試', exact=True).check()
-    page.get_by_role('button', name='開始修正與測試', exact=True).click()
+    page.get_by_role('button', name='開始修改並測試', exact=True).click()
     expect(page.locator('.worker-results select')).to_have_value('3' * 32)
     assert posts[2][1] == original and posts[2][2] not in {posts[0][2], posts[1][2]}
     fail['on'] = True
