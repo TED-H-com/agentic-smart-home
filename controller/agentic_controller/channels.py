@@ -9,6 +9,8 @@ from contextlib import asynccontextmanager
 
 import aiohttp
 
+from .durability import client_session, durable
+
 
 class ChannelError(Exception):
     def __init__(self, message, code="unavailable", *, status=None, reason=None, detail=""):
@@ -41,9 +43,9 @@ def telegram_failure(status, description=""):
 
 
 @asynccontextmanager
-async def line_admin():
+async def line_admin(store):
     # LINE.js uses an HttpOnly cookie AND matching Origin for its local admin socket.
-    async with aiohttp.ClientSession(cookie_jar=aiohttp.CookieJar(unsafe=True),
+    async with client_session(store, cookie_jar=aiohttp.CookieJar(unsafe=True),
                                      timeout=aiohttp.ClientTimeout(total=15), trust_env=False) as session:
         async with session.get("http://127.0.0.1:3789/", allow_redirects=False) as response:
             if response.status != 200:
@@ -83,7 +85,7 @@ class LineTransport:
 
     async def run(self, receive, state):
         me = None
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30), trust_env=False) as session:
+        async with client_session(self.store, timeout=aiohttp.ClientTimeout(total=30), trust_env=False) as session:
             async with session.ws_connect("http://127.0.0.1:3789/api/ws", heartbeat=20, max_msg_size=262144,
                     headers={"Authorization": "Bearer " + self.config["secret"]}) as socket:
                 self.socket = socket
@@ -121,6 +123,7 @@ class LineTransport:
         future = asyncio.get_running_loop().create_future()
         self.pending[id] = future
         try:
+            await durable(self.store)
             await self.socket.send_json({"type": "message:send", "requestId": id, "chatId": chat, "text": text[:1900]})
             if not await asyncio.wait_for(future, 20):
                 raise ChannelError("LINE 未確認訊息送達")
@@ -141,7 +144,7 @@ class TelegramTransport:
             raise telegram_failure(exc.status, exc.detail) from exc
 
     async def run(self, receive, state):
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=40), trust_env=False) as session:
+        async with client_session(self.store, timeout=aiohttp.ClientTimeout(total=40), trust_env=False) as session:
             self.session = session
             result = await self._call(session, "POST", self.base + "/getMe")
             if not result.get("ok"):
@@ -206,7 +209,7 @@ class DiscordTransport:
         self.base = "https://discord.com/api/v10"
 
     async def run(self, receive, state):
-        async with aiohttp.ClientSession(headers={"Authorization": "Bot " + self.config["secret"]},
+        async with client_session(self.store, headers={"Authorization": "Bot " + self.config["secret"]},
                 timeout=aiohttp.ClientTimeout(total=30), trust_env=False) as session:
             self.session = session
             me = await json_request(session, "GET", self.base + "/users/@me")

@@ -35,7 +35,7 @@ async def test_preview_lost_reply_recovers_exact_manifest_and_never_persists_byt
     workers = Files()
     operations = Operations(store, workers)
     saved, calls = {}, []
-    async def broker(method, path, body=None):
+    async def broker(method, path, body=None, *, store=None):
         calls.append((method,path,body))
         if method == 'GET':
             if path.split('/')[-1] in saved:
@@ -66,7 +66,7 @@ async def test_preview_scope_recheck_after_artifact_fetch(store, monkeypatch):
         store.set_setting('hermes_web_epoch', 'revoked')
         return data
     workers.artifact = revoke
-    async def broker(method, path, body=None):
+    async def broker(method, path, body=None, *, store=None):
         assert method == 'GET'  # Revocation must prevent renderer launch.
         raise HTTPException(404)
     monkeypatch.setattr('agentic_controller.operations.broker_call', broker)
@@ -76,9 +76,9 @@ async def test_preview_scope_recheck_after_artifact_fetch(store, monkeypatch):
 
 
 @pytest.mark.parametrize('path', ['/../actions','http://attacker','/updates/../../actions','/coding/jobs','/previews/a/revoke'])
-async def test_owner_broker_rejects_arbitrary_destinations_without_socket(path):
+async def test_owner_broker_rejects_arbitrary_destinations_without_socket(path, store):
     with pytest.raises(HTTPException) as error:
-        await broker_call('POST', path, {})
+        await broker_call('POST', path, {}, store=store)
     assert error.value.status_code == 422
 
 

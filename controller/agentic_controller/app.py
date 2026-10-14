@@ -51,6 +51,7 @@ from .models import (
     utcnow,
 )
 from .operations import routes as operation_routes
+from .response_durability import ResponseDurabilityMiddleware
 from .runner import Runner, RunnerError, cancel_and_confirm
 from .store import Conflict, Store
 from .workers import routes as worker_routes
@@ -128,6 +129,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     host_mode = os.environ.get("AGENTIC_HOST_MODE") == "1" if host_mode is None else host_mode
     store = store or Store(root / "controller.sqlite3")
     ha = ha or (external_ha(root) if host_mode else HomeAssistant(os.environ.get("SUPERVISOR_TOKEN", "")))
+    ha.store = store
     runner = runner or Runner(store)
     inner_runner = inner_runner or Runner(store, "haos")
     gateway, bootstrap, bridge, maintenance, home_worker = None, None, None, None, None
@@ -215,7 +217,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         try:
             peer = request.client.host if request.client else ""
             if request.url.path == "/health" and peer in {"127.0.0.1", "::1", ingress_ip}:
-                return JSONResponse({"status": "ok", "version": VERSION})
+                return JSONResponse({"status": "failed" if store.failed else "ok", "version": VERSION},
+                                    status_code=503 if store.failed else 200)
             identity = bridge.identity(request) if bridge else None
             if identity:
                 request.state.bridge_identity = identity
@@ -410,6 +413,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         result = await runner.call("GET", "/auth/" + id)
         if result.get("status") == "connected":
             store.set_setting("onboarding", {**store.setting("onboarding", {}), "agent_connected": True})
+            await store.durable()
         return result
 
     @app.post("/api/providers/{provider}/logout")
@@ -620,7 +624,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     @app.post("/api/backups/export")
     async def export(body: BackupInput):
         path = store.path.parent / ("export-" + uuid.uuid4().hex + ".sqlite3")
-        store.snapshot(path)
+        await store.snapshot(path)
         try:
             salt, nonce = os.urandom(16), os.urandom(12)
             key = await asyncio.to_thread(hashlib.pbkdf2_hmac, "sha256", body.passphrase.encode(), salt, 390000, 32)
@@ -725,7 +729,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                     unchanged()
                     if not active:
                         raise BridgeFault("bridge_owner_required")
-                    bridge.repair_unused_pairing()
+                    await bridge.repair_unused_pairing(commit_guard=unchanged)
                 except BridgeFault as exc:
                     raise HTTPException(409, exc.code) from None
                 except (HAError, TimeoutError, OSError):
@@ -791,6 +795,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     static = Path(static or Path(__file__).resolve().parent.parent / "static")
     if static.is_dir():
         app.mount("/", StaticFiles(directory=static, html=True), name="web")
+    app.add_middleware(ResponseDurabilityMiddleware, store=store)
     return app
 
 

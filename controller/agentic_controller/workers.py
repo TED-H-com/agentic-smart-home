@@ -209,8 +209,8 @@ class Workers:
         if item["state"] not in TERMINAL or not item.get("stop_confirmed", False):
             minimal.update(cancel_requested=True, state="cancel_requested", reason="context_expired")
         self.store.put("work_job", minimal)
-        with self.store.db:
-            self.store.db.execute("DELETE FROM records WHERE kind IN ('worker_artifact','case_evidence') "
+        with self.store.transaction() as tx:
+            tx.execute("DELETE FROM records WHERE kind IN ('worker_artifact','case_evidence') "
                                   "AND json_extract(body,'$.job_id')=?", (item["id"],))
 
     def public(self, item):
@@ -298,11 +298,11 @@ class Workers:
                 "runner_identity": digest(peer), **{name: [] for name in FINDINGS}}
             if commit_guard:
                 commit_guard()
-            with self.store.db:
+            with self.store.transaction() as tx:
                 timestamp = utcnow()
-                self.store.db.execute("INSERT INTO records VALUES (?,?,?,?,?)",
+                tx.execute("INSERT INTO records VALUES (?,?,?,?,?)",
                     ("work_job", identifier, canonical(item), timestamp, timestamp))
-                self.store.db.execute("INSERT INTO requests VALUES (?,?,?,?)", (scope, key, fingerprint, identifier))
+                tx.execute("INSERT INTO requests VALUES (?,?,?,?)", (scope, key, fingerprint, identifier))
             if not reason:
                 self.wake()
             return self.public(item)
@@ -497,14 +497,14 @@ class Workers:
         now = utcnow()
         updated = {**item, **updates, "updated_at": now}
         rows = [("worker_artifact", row) for row in artifact_rows] + [("case_evidence", row) for row in evidence_rows] + [("work_job", updated)]
-        with self.store.db:
+        with self.store.transaction() as tx:
             for kind, row in rows:
-                self.store.db.execute("INSERT INTO records VALUES (?,?,?,?,?) ON CONFLICT(kind,id) "
+                tx.execute("INSERT INTO records VALUES (?,?,?,?,?) ON CONFLICT(kind,id) "
                     "DO UPDATE SET body=excluded.body,updated=excluded.updated", (kind, row["id"], canonical(row), now, now))
             if state in TERMINAL and stopped:
                 lease = self.store.setting("worker_lease")
                 if lease and lease["job_id"] == identifier and lease["epoch"] == item["lease_epoch"]:
-                    self.store.db.execute("UPDATE settings SET value='null' WHERE key='worker_lease'")
+                    tx.execute("UPDATE settings SET value='null' WHERE key='worker_lease'")
                     self.event.set()
 
     def artifact_metadata(self, item, values):
@@ -660,7 +660,8 @@ class Workers:
             job = self.store.get("work_job", preview["job_id"])
             if not job or job.get("content_expired"):
                 try:
-                    await broker_call("POST", "/previews/" + preview["id"] + "/revoke", {})
+                    await self.store.durable()
+                    await broker_call("POST", "/previews/" + preview["id"] + "/revoke", {}, store=self.store)
                 except HTTPException as exc:
                     if exc.status_code != 404:
                         raise WorkerError("retention_sync_pending", 503) from exc
@@ -718,9 +719,9 @@ class Workers:
                         lookup = uuid.uuid4().hex
                         settings = {"worker_auth_epoch": uuid.uuid4().hex,
                             "worker_auth_pending": {"worker_id": worker, "id": lookup, "state": "dispatching", "kind": "login", "runner_identity": peer_identity}}
-                        with self.store.db:
-                            self.store.db.execute("INSERT INTO requests VALUES (?,?,?,?)", (scope, key, fingerprint, lookup))
-                            self.store.db.executemany("INSERT OR REPLACE INTO settings VALUES (?,?)",
+                        with self.store.transaction() as tx:
+                            tx.execute("INSERT INTO requests VALUES (?,?,?,?)", (scope, key, fingerprint, lookup))
+                            tx.executemany("INSERT OR REPLACE INTO settings VALUES (?,?)",
                                                      [(name, canonical(value)) for name, value in settings.items()])
             elif method == "POST":
                 if self.store.setting("worker_lease"):
@@ -781,13 +782,18 @@ class Workers:
             if isinstance(pairing, str) and re.fullmatch(r"[A-Z0-9]{4,8}-[A-Z0-9]{4,8}", pairing):
                 result["code"] = pairing
             pending = self.store.setting("worker_auth_pending")
+            auth_changed = False
             if (pending and pending.get("worker_id") == worker and
                 pending.get("id") == response.get("id")):
                 if reconciled or response.get("status") in {"connected", "configured", "succeeded", "failed", "cancelled", "expired", "disconnected", "interrupted"}:
                     self.store.set_setting("worker_auth_pending", None)
+                    auth_changed = True
                     self.event.set()
                 elif isinstance(response.get("id"), str) and IDENTIFIER.fullmatch(response["id"]):
                     self.store.set_setting("worker_auth_pending", {**pending, "state": code(response.get("status"), "pending")})
+                    auth_changed = True
+            if method == "GET" and auth_changed:
+                await self.store.durable()
             return result
 
 

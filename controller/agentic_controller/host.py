@@ -16,6 +16,7 @@ from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import Field
 
+from .durability import client_session, durable, file_io
 from .ha import HAError, HomeAssistant
 from .models import Strict
 from .runner import RunnerError, cancel_and_confirm
@@ -105,10 +106,10 @@ class HostSession:
         return response
 
 
-async def host_call(method="GET", body=None):
+async def host_call(method="GET", body=None, *, store):
     connector = aiohttp.UnixConnector(path="/run/agentic-home/host.sock")
     try:
-        async with aiohttp.ClientSession(connector=connector, timeout=aiohttp.ClientTimeout(total=30)) as session:
+        async with client_session(store, connector=connector, timeout=aiohttp.ClientTimeout(total=30)) as session:
             async with session.request(method, "http://localhost/" + ("status" if method == "GET" else "actions"),
                                        json=body) as response:
                 result = await response.json()
@@ -149,6 +150,7 @@ async def pair_runner(store, runner, controller_id, *, commit_guard=None):
 async def connect_home_owner(auth, ha, store, token, *, commit_guard=None):
     """Verify the candidate owner before replacing the current HA connection."""
     candidate = HomeAssistant(token, ha.base, ha.websocket, external=True)
+    candidate.store = store
     await candidate.start()
     try:
         user = await candidate.ws("auth/current_user")
@@ -165,13 +167,25 @@ async def connect_home_owner(auth, ha, store, token, *, commit_guard=None):
     if store.setting("owner") not in {None, user["id"]}:
         raise HTTPException(409, "這是另一個家庭；請先備份並使用獨立 Controller 資料目錄")
     path = auth.root / "ha-token"
-    temp = path.with_suffix(".new")
-    with temp.open("w") as stream:
-        os.chmod(temp, 0o600)
-        stream.write(token)
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.replace(temp, path)
+    temp = path.with_name("ha-token." + uuid.uuid4().hex + ".new")
+
+    def save_token():
+        with temp.open("w") as stream:
+            os.chmod(temp, 0o600)
+            stream.write(token)
+            stream.flush()
+            os.fsync(stream.fileno())
+    await durable(store)
+    try:
+        await file_io(save_token)
+        await durable(store)
+        if commit_guard is not None:
+            commit_guard()
+        if store.setting("owner") not in {None, user["id"]}:
+            raise HTTPException(409, "這是另一個家庭；請先備份並使用獨立 Controller 資料目錄")
+        os.replace(temp, path)
+    finally:
+        temp.unlink(missing_ok=True)
     ha.token = token
     if ha.session:
         ha.session.headers["Authorization"] = "Bearer " + token
@@ -192,7 +206,7 @@ def routes(app, auth, ha, store, runner, controller_id):
         existing = store.request("host_ask", key, digest(body.model_dump()))
         if existing:
             return store.get("host_task", existing)
-        observed = await host_call()
+        observed = await host_call(store=store)
         observations = {k: observed[k] for k in ("vm", "kvm", "provisioned", "network", "storage_free_bytes")}
         id = uuid.uuid4().hex
         item = {"id": id, "state": "planning", "request": body.message, "observations": observations,
@@ -248,7 +262,8 @@ def routes(app, auth, ha, store, runner, controller_id):
 
     @app.post("/api/host/desktop-login")
     async def desktop_login(body: DesktopLogin):
-        return auth.desktop_login(body.ticket)
+        await durable(store)
+        return await file_io(auth.desktop_login, body.ticket)
 
     @app.post("/api/host/logout")
     async def logout():
@@ -263,7 +278,7 @@ def routes(app, auth, ha, store, runner, controller_id):
 
     @app.get("/api/host/status")
     async def status():
-        result = await host_call()
+        result = await host_call(store=store)
         result["ha_connected"] = bool(store.setting("owner"))
         return result
 
@@ -272,7 +287,8 @@ def routes(app, auth, ha, store, runner, controller_id):
         key = request.headers.get("idempotency-key", "")
         if not key:
             raise HTTPException(400, "缺少 Idempotency-Key")
-        return await host_call("POST", {"id": key, **body.model_dump()})
+        await durable(store)
+        return await host_call("POST", {"id": key, **body.model_dump()}, store=store)
 
     @app.post("/api/host/connect")
     async def connect(body: ConnectHA, request: Request):
@@ -290,7 +306,7 @@ def routes(app, auth, ha, store, runner, controller_id):
 
     @app.get("/api/host/diagnosis")
     async def diagnosis():
-        host = await host_call()
+        host = await host_call(store=store)
         findings = []
         if not host["kvm"]:
             findings.append("Linux 無法使用硬體虛擬化，請檢查韌體 VT-x / AMD-V。")

@@ -191,10 +191,10 @@ def test_restart_preserves_unknown_side_effect_and_sources(store):
     assert store.get("task", "a")["sources"] == [SOURCE]
 
 
-def test_snapshot_contains_wal_commits(store, tmp_path):
+async def test_snapshot_contains_wal_commits(store, tmp_path):
     store.set_setting("marker", "committed")
     path = tmp_path / "backup.sqlite3"
-    store.snapshot(path)
+    await store.snapshot(path)
     restored = Store(path)
     assert restored.setting("marker") == "committed"
     restored.close()

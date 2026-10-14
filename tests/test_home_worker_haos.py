@@ -270,8 +270,11 @@ class InferenceFixture:
 ha=HomeAssistant(identity['token'],'http://192.168.177.2:8123/api',
     'ws://192.168.177.2:8123/api/websocket',external=True)
 app=create_app(store=store,ha=ha,host_mode=True,hermes_client=InferenceFixture())
-asyncio.run(uvicorn.Server(uvicorn.Config(app,host='0.0.0.0',port=8099,
-    proxy_headers=False,access_log=False,log_level='warning')).serve())
+try:
+    asyncio.run(uvicorn.Server(uvicorn.Config(app,host='0.0.0.0',port=8099,
+        proxy_headers=False,access_log=False,log_level='warning')).serve())
+finally:
+    store.close()
 '''
 
 
@@ -868,10 +871,16 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
                 'haos_host': host_ns, 'worker_pid_cgroup_mount_distinct_from_app': True}
             evidence['model_fixture'] = transport
             phase('stored_same_case_observation')
-            with contextlib.closing(sqlite3.connect(f"file:{tmp_path / 'outer-data/controller.sqlite3'}?mode=ro", uri=True)) as database:
-                rows = [json.loads(row[0]) for row in database.execute(
-                    "SELECT body FROM records WHERE kind='case_evidence' AND json_extract(body,'$.job_id')=?", (job['id'],))]
-            stored = stored_observation_projection(rows, case_id, job['base_commit'])
+            deadline = time.monotonic() + 30
+            while True:
+                with contextlib.closing(sqlite3.connect(f"file:{tmp_path / 'outer-data/controller.sqlite3'}?mode=ro", uri=True)) as database:
+                    rows = [json.loads(row[0]) for row in database.execute(
+                        "SELECT body FROM records WHERE kind='case_evidence' AND json_extract(body,'$.job_id')=?", (job['id'],))]
+                stored = stored_observation_projection(rows, case_id, job['base_commit'])
+                if stored['records_present']:
+                    break
+                assert time.monotonic() < deadline, 'home_observation_not_persisted'
+                await asyncio.sleep(.25)
             evidence['stored_observation'] = stored
             assert stored['records_present'] and stored['same_case'], 'home_observation_case_mismatch'
             assert stored['all_from_haos_app'], 'home_observation_origin_mismatch'

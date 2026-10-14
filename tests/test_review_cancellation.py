@@ -47,7 +47,7 @@ async def exercise_surface(store, ha, tmp_path, monkeypatch, surface, acknowledg
     (tmp_path / "access-key").write_text("review-cancellation-fixture-key")
     store.set_setting("owner", "owner")
 
-    async def host_status():
+    async def host_status(*, store=None):
         return {"vm": "not_created", "kvm": True, "provisioned": False,
                 "network": {}, "storage_free_bytes": 123456789}
 

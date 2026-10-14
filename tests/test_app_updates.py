@@ -249,11 +249,11 @@ async def test_legacy_bridge_repository_is_not_uninstalled(manager):
 def accept_repair_pairing(bridge):
     original = bridge.prepare_pairing
 
-    def rotate(*, repair=False):
+    async def rotate(*, repair=False):
         if repair:
             bridge.options = {**bridge.options, "pairing_id": "c" * 32, "token": "v" * 64}
             bridge.state = "prepared"
-        return original()
+        return await original()
 
     bridge.prepare_pairing = rotate
 

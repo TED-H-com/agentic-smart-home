@@ -3,6 +3,8 @@ import re
 
 import aiohttp
 
+from .durability import client_session
+
 
 class RunnerError(Exception):
     def __init__(self, message, status_code=None):
@@ -37,7 +39,7 @@ class Runner:
         try:
             pin = aiohttp.Fingerprint(bytes.fromhex(peer["fingerprint"]))
             headers = {"Authorization": "Bearer " + peer["token"]} if peer.get("token") else {}
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=45), trust_env=False) as session:
+            async with client_session(self.store, timeout=aiohttp.ClientTimeout(total=45), trust_env=False) as session:
                 async with session.request(method, f"https://{peer['host']}:8443{path}", json=data,
                                            ssl=pin, headers=headers, allow_redirects=False) as response:
                     if response.content_length and response.content_length > 262144:

@@ -225,7 +225,13 @@ class BridgeMaintenance:
                 if previous["state"] == "disabled":
                     return await self.reconnect(previous, token, auto_repair, commit_guard)
                 return self.status()
-            options = self.bridge.prepare_pairing()
+            options = await self.bridge.prepare_pairing()
+            if commit_guard:
+                commit_guard()
+            if owner != self.store.setting("owner") or token != self.ha.token or self.record() != previous:
+                raise BridgeFault("bridge_authorization_changed", "needs_reconcile")
+            self.effect_gate()
+            self.host_guard()
             self.validate_options(options)
             record = {"id": uuid.uuid4().hex, "owner": owner, "enabled": True, "managed": False,
                       "state": "pending", "stage": "repository", "code": None,
@@ -267,7 +273,8 @@ class BridgeMaintenance:
         if not await self.ha.owner(previous["owner"]):
             raise BridgeFault("bridge_owner_required", "needs_reconcile")
         unchanged()
-        options = self.bridge.prepare_pairing(repair=True)
+        options = await self.bridge.prepare_pairing(repair=True)
+        unchanged()
         self.validate_options(options)
         # Only the fingerprint/hash is in the maintenance ledger, never the token.
         record = {**previous, "id": uuid.uuid4().hex, "reconnect_of": generation,
@@ -689,7 +696,7 @@ class BridgeMaintenance:
                 return
             if operation or self.settings_digest(app) != record["initial_settings_digest"]:
                 raise BridgeFault("bridge_options_changed_or_unconfirmed", "needs_reconcile")
-            options = self.bridge.prepare_pairing()
+            options = await self.bridge.prepare_pairing()
             self.validate_options(options)
             if digest(options) != record["options_digest"]:
                 raise BridgeFault("bridge_pairing_changed", "needs_reconcile")

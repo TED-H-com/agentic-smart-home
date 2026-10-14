@@ -303,7 +303,8 @@ async def test_owner_routes_work_without_ha_and_require_csrf(store, ha, tmp_path
 def test_schema_three_refuses_old_binary_and_private_snapshot(tmp_path):
     path = tmp_path / 'store.sqlite3'
     old = Store(path)
-    old.db.execute('PRAGMA user_version=2')
+    with old.transaction() as tx:
+        tx.execute('PRAGMA user_version=2')
     old.close()
     new = Store(path)
     assert new.db.execute('PRAGMA user_version').fetchone()[0] == 3

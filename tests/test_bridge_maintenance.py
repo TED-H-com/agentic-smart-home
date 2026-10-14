@@ -47,7 +47,7 @@ class Bridge:
             from fastapi import HTTPException
             raise HTTPException(503, "bridge_host_contract_required")
 
-    def prepare_pairing(self):
+    async def prepare_pairing(self):
         self.preparations += 1
         return copy.deepcopy(self.options)
 
@@ -563,11 +563,11 @@ async def test_explicit_reconnect_rotates_only_own_unchanged_app_then_waits_new_
     manager.bridge.state = "revoked"
     original = manager.bridge.prepare_pairing
 
-    def rotate(*, repair=False):
+    async def rotate(*, repair=False):
         if repair:
             manager.bridge.options.update(pairing_id="c" * 32, token="v" * 64)
             manager.bridge.state = "prepared"
-        return original()
+        return await original()
 
     manager.bridge.prepare_pairing = rotate
     assert (await manager.authorize(auto_repair=True))["state"] == "pending"
@@ -929,13 +929,13 @@ async def test_start_and_restart_use_supervisor_app_start_timeout(manager):
     original = manager.bridge.prepare_pairing
     counter = 0
 
-    def rotate(*, repair=False):
+    async def rotate(*, repair=False):
         nonlocal counter
         if repair:
             counter += 1
             manager.bridge.options.update(pairing_id=f"{counter:032x}", token=str(counter) * 64)
             manager.bridge.state = "prepared"
-        return original()
+        return await original()
 
     manager.bridge.prepare_pairing = rotate
     for initial_state, expected_kind in (("started", "restart"), ("stopped", "start")):

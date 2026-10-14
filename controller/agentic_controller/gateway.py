@@ -19,6 +19,7 @@ from fastapi import HTTPException, Request
 from pydantic import ValidationError
 
 from .channels import TRANSPORTS, ChannelError, line_admin
+from .durability import durable, file_io
 from .ha import HAError
 from .hermes import NEXT_STEP, HermesError
 from .hermes import TERMINAL as HERMES_TERMINAL
@@ -79,6 +80,7 @@ class ConversationError(Exception):
 class Gateway:
     def __init__(self, store, runners, engine, plan_home, running, coordinator=None):
         self.store, self.runners, self.engine = store, runners, engine
+        self.line_config_lock = asyncio.Lock()
         self.plan_home, self.running = plan_home, running
         self.workers, self.states, self.transports, self.rates = {}, {}, {}, {}
         self.line_login = None
@@ -105,17 +107,25 @@ class Gateway:
         return {"state": state, "code": record.get("code") if state == "pending" else None,
                 "expires_at": record.get("expires_at"), "chat": record.get("chat"), "sender": record.get("sender")}
 
+    async def line_config(self, enabled, chats):
+        async with self.line_config_lock:
+            await durable(self.store)
+            await file_io(self._line_config, enabled, list(chats))
+
     @staticmethod
-    def line_config(enabled, chats):
+    def _line_config(enabled, chats):
         path = Path(os.environ.get("AGENTIC_LINE_CONFIG", "/line-config/gateway.json"))
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        temp = path.with_suffix(".new")
+        temp = path.with_name(path.name + "." + uuid.uuid4().hex + ".new")
         fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, "w") as stream:
-            json.dump({"enabled": enabled, "chats": chats}, stream)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temp, path)
+        try:
+            with os.fdopen(fd, "w") as stream:
+                json.dump({"enabled": enabled, "chats": chats}, stream)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temp, path)
+        finally:
+            temp.unlink(missing_ok=True)
 
     def pair_timer(self, channel):
         previous = self.pairing_timers.pop(channel, None)
@@ -131,7 +141,7 @@ class Gateway:
                 self.store.set_setting("channel_pairing_" + channel, {**current, "state": "expired", "code": None})
                 if channel == "line" and not self.config(channel)["enabled"]:
                     with contextlib.suppress(OSError):
-                        self.line_config(False, [])
+                        await self.line_config(False, [])
                 await self.restart(channel)
         self.pairing_timers[channel] = asyncio.create_task(expire())
 
@@ -154,11 +164,11 @@ class Gateway:
                 if body.secret:
                     raise HTTPException(422, "LINE 通訊憑證由本機服務管理")
                 try:
-                    self.line_config(True, [body.chat])
+                    await self.line_config(True, [body.chat])
                     token = token or await self.line_token()
                 except (OSError, aiohttp.ClientError, ChannelError, TimeoutError):
                     with contextlib.suppress(OSError):
-                        self.line_config(False, [])
+                        await self.line_config(False, [])
                     raise HTTPException(503, "LINE 配對服務尚未就緒") from None
             elif body.chat is not None or not re.fullmatch(r"\d+:[A-Za-z0-9_-]+", token):
                 raise HTTPException(422, "請輸入 Telegram bot token；聊天室會從配對訊息取得")
@@ -206,7 +216,7 @@ class Gateway:
                 self.store.set_setting("channel_pairing_" + channel, {**record, "state": "cancelled", "code": None})
                 if channel == "line" and not self.config(channel)["enabled"]:
                     with contextlib.suppress(OSError):
-                        self.line_config(False, [])
+                        await self.line_config(False, [])
                 await self.restart(channel)
                 self.pair_timer(channel)
             return self.pairing(channel)
@@ -603,7 +613,7 @@ class Gateway:
             else:
                 observed = {}
                 with contextlib.suppress(HTTPException):
-                    raw = await host_call()
+                    raw = await host_call(store=self.store)
                     observed = {k: raw[k] for k in ("vm", "kvm", "provisioned", "storage_free_bytes") if k in raw}
                 direct_dispatched = True
                 answer = await runner.run({"id": job_id, "provider": item["provider"], "model": "",
@@ -688,7 +698,7 @@ class Gateway:
         async with asyncio.timeout(15):
             while True:
                 try:
-                    async with line_admin() as socket:
+                    async with line_admin(self.store) as socket:
                         async for event in socket:
                             if event.type != aiohttp.WSMsgType.TEXT:
                                 continue
@@ -697,6 +707,7 @@ class Gateway:
                                 if not frame.get("enabled"):
                                     break
                                 requested = True
+                                await durable(self.store)
                                 await socket.send_json({"type": "api:token:create"})
                             elif frame.get("type") == "api:token":
                                 return frame["token"]
@@ -747,7 +758,7 @@ class Gateway:
             started = False
             overall = time.time() + LINE_LOGIN_LIMIT
             try:
-                async with line_admin() as socket:
+                async with line_admin(self.store) as socket:
                     while True:
                         now = time.time()
                         deadline = min(self.line_login.get("expires") or overall, overall)
@@ -775,6 +786,7 @@ class Gateway:
                                 self.line_login["status"] = state
                             if state in {"idle", "error"} and not started:
                                 started = True
+                                await durable(self.store)
                                 await socket.send_json({"type": "auth:start"})
                             if state == "failed" or line_rejected(frame):
                                 fail("login_rejected" if line_rejected(frame) or not self.line_login.get("pin") else "pin_failed")
@@ -788,6 +800,7 @@ class Gateway:
                         elif kind == "auth:ready":
                             self.line_login.update(status="ready", qr=None, pin=None, reason=None, message=None,
                                                    profile=frame["profile"].get("displayName", ""))
+                            await durable(self.store)
                             await socket.send_json({"type": "channels:refresh"})
                         elif kind == "channels":
                             self.line_login["channels"] = [{k: c[k] for k in ("channelId", "name", "kind")} for c in frame["channels"]]
@@ -865,7 +878,7 @@ def routes(app, gateway, store, runners, controller_id):
             if any(not re.fullmatch(r"[ucrs][0-9a-f]{32}", id) for id in body.chats):
                 raise HTTPException(422, "LINE 聊天室 ID 格式不正確")
             try:
-                gateway.line_config(body.enabled, body.chats)
+                await gateway.line_config(body.enabled, body.chats)
             except OSError:
                 raise HTTPException(503, "LINE.js 設定目錄尚未安裝，請使用完整 Linux 套件") from None
             if body.enabled and not config["secret"]:

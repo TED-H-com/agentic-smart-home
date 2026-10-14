@@ -102,9 +102,9 @@ class Household:
                     'request': source['message'], 'state': 'planning', 'created_at': now, 'updated_at': now,
                     'message': '正在驗證家庭提案；尚未批准或執行', 'proposal_id': None, 'evidence_ids': body.evidence_ids}
             self.coordinator.authorize(token)
-            with self.store.db:
-                self.store.db.execute('INSERT INTO records VALUES (?,?,?,?,?)', ('task', task_id, canonical(task), now, now))
-                self.store.db.execute('INSERT INTO requests VALUES (?,?,?,?)', (scope, body.idempotency_key, digest(payload), task_id))
+            with self.store.transaction() as tx:
+                tx.execute('INSERT INTO records VALUES (?,?,?,?,?)', ('task', task_id, canonical(task), now, now))
+                tx.execute('INSERT INTO requests VALUES (?,?,?,?)', (scope, body.idempotency_key, digest(payload), task_id))
             try:
                 await self.engine.propose(task, body.automation, body.action,
                     commit_guard=lambda: self.guard(token, policy, task_id))

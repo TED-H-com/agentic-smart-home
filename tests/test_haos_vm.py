@@ -30,7 +30,7 @@ def docker(*args):
     return subprocess.check_output(["docker", *args], text=True).strip()
 
 
-async def test_real_haos_boot_owner_and_supervisor_backup(tmp_path, request):
+async def test_real_haos_boot_owner_and_supervisor_backup(tmp_path, request, store):
     if not request.config.getoption("--haos-vm"):
         pytest.skip("Use --haos-vm for isolated KVM validation")
     assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
@@ -77,6 +77,7 @@ async def test_real_haos_boot_owner_and_supervisor_backup(tmp_path, request):
                 auth = await response.json()
                 assert response.status == 200
         ha = DiagnosticHA(auth["access_token"], base + "/api", base.replace("http:", "ws:") + "/api/websocket", external=True)
+        ha.store = store
         await ha.start()
         try:
             owner = await ha.ws("auth/current_user")

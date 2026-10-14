@@ -38,7 +38,7 @@ async def system(store, ha, tmp_path, monkeypatch):
     monkeypatch.setenv('AGENTIC_LINE_CONFIG', str(tmp_path/'line-config/gateway.json'))
     (tmp_path/'access-key').write_text('fixture-machine-access-key')
     outer, inner = FixtureRunner('host'), FixtureRunner('haos')
-    async def offline():
+    async def offline(*, store=None):
         raise HTTPException(503, 'fixture offline')
     monkeypatch.setattr('agentic_controller.gateway.host_call', offline)
     app = create_app(store=store, ha=ha, runner=outer, inner_runner=inner, host_mode=True)
@@ -346,8 +346,8 @@ async def test_history_is_bounded_and_retention_applies_before_cleanup(system, s
     assert len(canonical(history).encode()) <= 8192 and history['truncated']
     assert all(len(turn[key].encode()) <= 2048 for turn in history['turns'] for key in ('request', 'answer'))
     assert history['turns'][-1]['request'].endswith('…')
-    with store.db:
-        store.db.execute("UPDATE records SET created='2000-01-01' WHERE kind='conversation'")
+    with store.transaction() as tx:
+        tx.execute("UPDATE records SET created='2000-01-01' WHERE kind='conversation'")
     assert store.get('conversation', previous)  # Periodic pruning has not run yet.
     assert (await send(client, 'expired', 'expired', reply_to=previous)).status_code == 409
     store.prune()
@@ -532,8 +532,8 @@ async def test_pairing_uses_fixed_vm_and_does_not_replace_host_identity(store):
 
 async def test_prune_removes_conversation_context(store):
     store.put('conversation',{'id':'old','message':'private context'})
-    with store.db:
-        store.db.execute("UPDATE records SET created='2000-01-01' WHERE kind='conversation'")
+    with store.transaction() as tx:
+        tx.execute("UPDATE records SET created='2000-01-01' WHERE kind='conversation'")
     store.prune()
     assert not store.list('conversation')
 
@@ -579,7 +579,7 @@ async def test_line_token_waits_for_reload_and_requests_only_once(system, monkey
                     'type': 'api:token', 'token': 'fixture-token'})
 
     @asynccontextmanager
-    async def admin():
+    async def admin(store=None):
         connections.append(True)
         yield Socket(enabled=len(connections) > 1)
 
@@ -659,7 +659,7 @@ async def test_line_qr_refresh_and_distinct_login_failures(system, monkeypatch):
             sent.append(payload)
 
     @asynccontextmanager
-    async def admin():
+    async def admin(store=None):
         yield Socket()
 
     def text(payload):
@@ -708,7 +708,7 @@ async def test_line_qr_refresh_and_distinct_login_failures(system, monkeypatch):
             return None
 
     @asynccontextmanager
-    async def down():
+    async def down(store=None):
         yield Closed()
 
     monkeypatch.setattr('agentic_controller.gateway.line_admin', down)

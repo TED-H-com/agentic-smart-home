@@ -2,6 +2,7 @@
 import asyncio
 import json
 import os
+import threading
 import time
 import uuid
 
@@ -52,7 +53,7 @@ async def system(store, ha, monkeypatch, tmp_path):
     app = create_app(store=store, ha=ha, host_mode=True, hermes_client=runtime, bridge_host_status=host_status)
     bridge = app.state.ingress_bridge
     await bridge.require_host()
-    options = bridge.prepare_pairing()
+    options = await bridge.prepare_pairing()
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=bridge.transport, client=('192.168.177.2', 1)),
             base_url='https://192.168.177.1:8444', headers={'Authorization': 'Bearer ' + options['token']}) as client:
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://localhost:8099',
@@ -175,21 +176,21 @@ async def test_history_resource_acl_excludes_channels_other_owners_and_manual_jo
 
 async def test_pairing_restart_replay_private_permissions_rotation_and_revocation(system, store, ha):
     app, bridge, _, _, options, _ = system
-    assert bridge.prepare_pairing() == options
+    assert await bridge.prepare_pairing() == options
     another = IngressBridge(app, store, ha, app.state.gateway, app.state.coordinator, store.setting('csrf_secret'),
                             host_status=bridge.host_status)
     with pytest.raises(HTTPException, match='bridge_host_contract_required'):
-        another.prepare_pairing()
+        await another.prepare_pairing()
     await another.require_host()
-    assert another.prepare_pairing() == options
+    assert await another.prepare_pairing() == options
     assert options['token'] not in json.dumps(bridge.status()) and options['token'] not in store.path.read_bytes().decode(errors='ignore')
     assert bridge.root.stat().st_mode & 0o777 == 0o700
     assert all(path.stat().st_mode & 0o777 == 0o600 for path in bridge.root.iterdir())
     await bridge.revoke()
     assert (await call(system)).status_code == 401
     with pytest.raises(HTTPException, match='bridge_pairing_needs_repair'):
-        bridge.prepare_pairing()
-    repaired = bridge.prepare_pairing(repair=True)
+        await bridge.prepare_pairing()
+    repaired = await bridge.prepare_pairing(repair=True)
     assert repaired['pairing_id'] != options['pairing_id'] and repaired['token'] != options['token']
     assert (await call(system)).status_code == 401
 
@@ -254,7 +255,7 @@ async def test_invalid_private_file_fails_closed_without_blocking(system):
     token.unlink()
     os.mkfifo(token, 0o600)
     with pytest.raises(HTTPException, match='bridge_pairing_needs_repair'):
-        bridge.prepare_pairing()
+        await bridge.prepare_pairing()
 
 
 async def test_preview_guard_rechecks_pairing_after_await(system):
@@ -426,7 +427,7 @@ async def test_old_csrf_is_not_accepted_after_pairing_repair(system):
     _, bridge, client, _, options, _ = system
     token = bridge.csrf(OWNER, options['pairing_id'], int(time.time())+3600)
     await bridge.revoke()
-    new = bridge.prepare_pairing(repair=True)
+    new = await bridge.prepare_pairing(repair=True)
     client.headers['Authorization'] = 'Bearer ' + new['token']
     response = await call(system, '/api/gateway/messages', 'POST', {'message': 'no replay', 'coordinator': 'hermes'},
                           pairing_id=new['pairing_id'], csrf=token)
@@ -439,7 +440,8 @@ async def test_expired_context_cannot_resume_or_authorize_case_before_pruner_run
     case_id = await seed_case(system, store)
     identifier = store.list('conversation')[0]['id']
     old = (datetime.now(UTC)-timedelta(days=2)).isoformat()
-    store.db.execute("UPDATE records SET created=? WHERE kind='conversation' AND id=?", (old, identifier))
+    with store.transaction() as tx:
+        tx.execute("UPDATE records SET created=? WHERE kind='conversation' AND id=?", (old, identifier))
     store.db.commit()
     store.set_setting('retention_pending', {'audit_days': 30, 'context_days': 1})
     assert store.get('conversation', identifier)  # Prove no periodic deletion was needed.
@@ -485,7 +487,7 @@ async def test_legacy_or_malformed_host_cannot_create_bridge_authority(store, ha
     assert result['state'] == 'unavailable' and result['code'] == 'bridge_host_contract_required'
     assert manager.record() is None and not bridge.record() and not bridge.root.exists()
     with pytest.raises(HTTPException, match='bridge_host_contract_required'):
-        bridge.prepare_pairing(repair=True)
+        await bridge.prepare_pairing(repair=True)
     await bridge.close()
 
 
@@ -633,7 +635,8 @@ async def test_explicit_initial_repair_recovers_orphan_or_corrupt_private_identi
     app, bridge, _, _, options, _ = system
     store.put('bootstrap_v1', {'id': 'setup', 'state': 'completed', 'run_id': 'fixture'})
     if orphan:
-        store.db.execute("DELETE FROM settings WHERE key='ingress_bridge'")
+        with store.transaction() as tx:
+            tx.execute("DELETE FROM settings WHERE key='ingress_bridge'")
         store.db.commit()
         (bridge.root / ('.' + 'f'*32)).write_bytes(b'partial private write')
         (bridge.root / ('.' + 'f'*32)).chmod(0o600)
@@ -641,17 +644,17 @@ async def test_explicit_initial_repair_recovers_orphan_or_corrupt_private_identi
         (bridge.root / 'tls.key').write_bytes(b'partial key')
     store.set_setting('bridge_enrollment', {'state': 'unavailable', 'code': 'bridge_owner_observation_unavailable'})
     with pytest.raises(HTTPException):
-        bridge.prepare_pairing()
+        await bridge.prepare_pairing()
     response = await initial_repair(system)
     assert response.status_code == 200, response.text
     assert response.json()['state'] == 'not_authorized'
-    current = bridge.prepare_pairing()
+    current = await bridge.prepare_pairing()
     assert current['pairing_id'] != options['pairing_id']
     assert current['token'] not in response.text
     assert app.state.bridge_maintenance.record() is None
     assert not list(bridge.root.glob('.*'))
     assert (await initial_repair(system)).status_code == 200
-    assert bridge.prepare_pairing() == current
+    assert await bridge.prepare_pairing() == current
     # Existing explicit enrollment still works; no Supervisor side effect occurs in repair.
     response = await system[3].post('/api/host/bridge/maintenance/authorize', json={'auto_repair': True})
     assert response.status_code == 200 and response.json()['state'] == 'pending'
@@ -663,7 +666,8 @@ async def test_explicit_initial_repair_recovers_orphan_or_corrupt_private_identi
 async def test_initial_repair_never_overwrites_unsafe_private_paths(system, store, tmp_path, unsafe):
     _, bridge, _, _, options, _ = system
     store.put('bootstrap_v1', {'id': 'setup', 'state': 'completed'})
-    store.db.execute("DELETE FROM settings WHERE key='ingress_bridge'")
+    with store.transaction() as tx:
+        tx.execute("DELETE FROM settings WHERE key='ingress_bridge'")
     store.db.commit()
     target = bridge.root / 'service-token'
     target.unlink()
@@ -734,3 +738,46 @@ async def test_initial_repair_rechecks_authority_after_owner_await(system, store
     assert response.status_code == 409
     assert bridge.record()['pairing_id'] == options['pairing_id']
     assert app.state.bridge_maintenance.record() is None or changed == 'manager'
+
+
+async def test_concurrent_first_pairing_reuses_one_private_generation(store, ha, monkeypatch, tmp_path):
+    monkeypatch.setenv('AGENTIC_DATA', str(tmp_path))
+    store.set_setting('owner', OWNER)
+    ha.token = 'fixture-only-owner-token'
+
+    async def host_status():
+        return {'controller_update': {'ingress_bridge_contract': 1}}
+
+    app = create_app(store=store, ha=ha, host_mode=True, hermes_client=Runtime(), bridge_host_status=host_status)
+    bridge = app.state.ingress_bridge
+    await bridge.require_host()
+    entered, release = threading.Event(), threading.Event()
+    original = bridge._private_write
+    writes = []
+
+    def held_write(name, value):
+        writes.append(name)
+        if name == 'tls.key':
+            entered.set()
+            if not release.wait(10):
+                raise TimeoutError('fixture pairing write was not released')
+        original(name, value)
+
+    monkeypatch.setattr(bridge, '_private_write', held_write)
+    first = asyncio.create_task(bridge.prepare_pairing())
+    second = None
+    try:
+        assert await asyncio.to_thread(entered.wait, 10)
+        second = asyncio.create_task(bridge.prepare_pairing())
+        await asyncio.sleep(0)
+        assert not second.done() and bridge.record() == {}
+        release.set()
+        one, two = await asyncio.gather(first, second)
+        assert one == two
+        assert writes == ['tls.key', 'tls.pem', 'service-token']
+        assert bridge.record()['pairing_id'] == one['pairing_id']
+        assert (bridge.root / 'service-token').read_text() == one['token']
+    finally:
+        release.set()
+        await asyncio.gather(first, *([second] if second else []), return_exceptions=True)
+        await bridge.close()

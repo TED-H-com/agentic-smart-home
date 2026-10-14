@@ -33,8 +33,20 @@ BUILDER = "docker:29.7.2-cli@sha256:3f4743208d2338c934d7b8bcfbe1bb54c0b2355c510a
 CONTROLLER = "agentic-home-controller:0.9.0"
 
 
+class NoControllerState:
+    """A test probe acts for the tester; it has no Controller state to persist first."""
+
+    async def durable(self):
+        return None
+
+
 class ProbeHA(HomeAssistant):
     last_error = None
+
+    async def start(self):
+        if self.store is None:
+            self.store = NoControllerState()
+        await super().start()
 
     async def ws(self, command, *, _receive_timeout=20, **kwargs):
         async with await self.ws_connect() as stream:
@@ -113,13 +125,15 @@ async def main():
     await web.UnixSite(host, '/run/agentic-home/host.sock').start()
     try:
         await app.state.ingress_bridge.require_host()
-        options = app.state.ingress_bridge.prepare_pairing()
+        options = await app.state.ingress_bridge.prepare_pairing()
+        await store.durable()
         Path('/lab/pairing.json').write_text(json.dumps(options))
         if settings['public']:
             store.put('bootstrap_v1', {'id':'setup','run_id':'d'*32,'state':'completed','bridge_auto_enroll':True})
         await uvicorn.Server(uvicorn.Config(app, host='0.0.0.0',port=8099,
             proxy_headers=False,access_log=False,log_level='warning')).serve()
     finally:
+        store.close()
         await host.cleanup()
 asyncio.run(main())
 '''
@@ -523,7 +537,10 @@ async def test_real_haos_sidebar_bridge(tmp_path, request):
             stopped = await ha.request("GET", f"/addons/{slug}/info", supervisor=True)
             assert stopped["state"] == "stopped"
             if public:
-                assert setting(database, "bridge_maintenance")["state"] == "user_disabled"
+                deadline = time.monotonic() + 30
+                while setting(database, "bridge_maintenance").get("state") != "user_disabled":
+                    assert time.monotonic() < deadline, "manual_stop_observation_not_persisted"
+                    await asyncio.sleep(.25)
             evidence["checks"]["manual_stop_remains_stopped"] = True
             host_fixture = json.loads((tmp_path / "host-contract-fixture.json").read_text())
             assert (host_fixture["kind"] == "unix_host_contract_fixture_not_installed_host" and

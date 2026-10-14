@@ -100,9 +100,10 @@ async def test_real_core_proposal_deploy_trigger_restart(real_container, tmp_pat
             auth = await response.json()
             assert response.status == 200, "Could not obtain isolated test authorization"
     ha = RealCore(auth["access_token"], base + "/api", base.replace("http:", "ws:") + "/api/websocket")
+    store = Store(tmp_path / "controller.sqlite3")
+    ha.store = store
     await ha.start()
     observer = asyncio.create_task(ha.watch())
-    store = Store(tmp_path / "controller.sqlite3")
     try:
         owner = await ha.ws("auth/current_user")
         owner_id = owner["id"]

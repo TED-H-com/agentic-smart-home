@@ -182,7 +182,7 @@ async def test_external_agent_diagnoses_with_ha_unavailable_without_running_host
     from agentic_controller import host
     calls = []
 
-    async def host_call(method="GET", body=None):
+    async def host_call(method="GET", body=None, *, store):
         calls.append(method)
         assert method == "GET"
         return {"vm": "shut off", "kvm": True, "provisioned": True, "network": "nat", "storage_free_bytes": 10**11}
