@@ -445,13 +445,13 @@ class Gateway:
     def present(self, item):
         """A proposal reply is saved once, while it awaits approval; show what its task says now.
 
-        The state stays continuable: the composer only replies after a continuable latest message.
+        A deployed rule waiting for a real trigger counts as done, so the conversation can go on.
         """
         public = self.public_message(item)
         if item.get("state") == "awaiting_approval" and item.get("task_id"):
             task = self.store.get("task", item["task_id"])
             if task and task["state"] != "awaiting_approval" and task.get("message"):
-                public.update(state="succeeded", answer=task["message"])
+                public.update(state="succeeded" if task["state"] == "verifying" else task["state"], answer=task["message"])
         return public
 
     def owner_messages(self, owner):

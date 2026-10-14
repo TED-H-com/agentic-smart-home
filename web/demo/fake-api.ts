@@ -90,7 +90,7 @@ export function installDemo(){
       if(path==='tasks')result={tasks};
       else if(path.startsWith('tasks/'))result=tasks.find(t=>t.id===path.slice(6));
       // Like the Controller's Gateway.present(): a saved proposal reply shows what its task says now.
-      else if(path==='gateway/messages')result={...data[path],messages:messages.map(m=>{const task=m.state==='awaiting_approval'&&tasks.find(t=>t.id===m.task_id);return task&&task.state!=='awaiting_approval'&&task.message?{...m,state:'succeeded',answer:task.message}:m})};
+      else if(path==='gateway/messages')result={...data[path],messages:messages.map(m=>{const task=m.state==='awaiting_approval'&&tasks.find(t=>t.id===m.task_id);return task&&task.state!=='awaiting_approval'&&task.message?{...m,state:task.state==='verifying'?'succeeded':task.state,answer:task.message}:m})};
       else if(path==='worker/jobs')result=data[path];
       else if(/^worker\/jobs\/[^/]+\/artifacts\//.test(path)){const job=jobs.find(j=>j.id===path.split('/')[2]);if(job?.artifacts.some((a:Row)=>a.id===path.split('/')[4]))result={content_base64:btoa(String.fromCharCode(...bytes)),sha256:digest}}
       else if(/^worker\/jobs\/[^/]+$/.test(path))result=jobs.find(j=>j.id===path.slice(12));
@@ -111,7 +111,7 @@ export function installDemo(){
       else if(/^automations\/[^/]+\/propose$/.test(path)){const rule=data.automations.automations.find((r:Row)=>r.id===path.split('/')[1]);if(rule&&['disable','enable','rollback'].includes(body.action))result=proposal(rule.intent.title,body.action==='enable'?'upsert':body.action,rule)}
       else if(path==='worker/jobs'){if(jobStarts.size){status=409;result={detail:'請等目前的示範工作完成。'}}else{result={...clone(initialJob),id:nextId(32),goal:String(body.goal||'示範調查').slice(0,4000),worker_id:body.worker_id==='home-coder'?'home-coder':'host-coder',mode:body.mode==='development'?'development':'research',state:'running',phase:'queued',stop_confirmed:false,facts:[],artifacts:[],verification:null,created_at:time(serial*1000)};jobs.unshift(result);jobStarts.set(result.id,performance.now());}}
       else if(/^worker\/jobs\/[^/]+\/cancel$/.test(path)){const job=jobs.find(j=>j.id===path.split('/')[2]);if(job){jobStarts.delete(job.id);Object.assign(job,{state:'cancelled',stop_confirmed:true});result={id:job.id}}}
-      else if(/^tasks\/[^/]+\/cancel$/.test(path)){const task=tasks.find(t=>t.id===path.split('/')[1]);if(task){starts.delete(task.id);task.state='cancelled';task.message='任務追蹤已取消；已部署規則保持原狀';result={id:task.id}}}
+      else if(/^tasks\/[^/]+\/cancel$/.test(path)){const task=tasks.find(t=>t.id===path.split('/')[1]);if(task){starts.delete(task.id);task.message=task.state==='verifying'?'任務追蹤已取消；已部署規則保持原狀':'已取消，沒有變更家庭';task.state='cancelled';result={id:task.id}}}
       else if(path==='pause'){data.status.paused=!!body.paused;result={ok:true}}
       if(result===undefined){status=409;result={detail:'示範中無法進行這個操作。'}}
     }else{status=409;result={detail:'示範中無法進行這個操作。'}}

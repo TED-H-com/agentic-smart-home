@@ -550,7 +550,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
             if not running[id].cancelling():
                 running[id].cancel()
         elif task["state"] in {"awaiting_user", "awaiting_approval", "verifying"}:
-            store.transition(task, "cancelled", message="任務追蹤已取消；已部署規則保持原狀")
+            store.transition(task, "cancelled", message="任務追蹤已取消；已部署規則保持原狀"
+                             if task["state"] == "verifying" else "已取消，沒有變更家庭")
         return get("task", id)
 
     @app.post("/api/proposals/{id}/approve", status_code=202)
