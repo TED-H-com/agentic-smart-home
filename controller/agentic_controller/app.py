@@ -460,7 +460,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                     decision = Decision.model_validate(result)
                     if decision.inspect_entities:
                         if not set(decision.inspect_entities) <= permissions:
-                            raise Rejected("Agent 要求讀取未授權設備")
+                            raise Rejected("需要讀取尚未授權的設備，請先在「設備」授權後再試")
                         context["additional_observations"] = list((await engine.permitted(set(decision.inspect_entities), available=False)).values())
                         continue
                     if decision.automation or decision.action:
@@ -473,14 +473,14 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         except asyncio.CancelledError:
             confirmed = job_id is None or await cancel_and_confirm(selected_runner, job_id)
             store.transition(task, "cancelled" if confirmed else "needs_reconcile",
-                message="已取消，沒有變更家庭" if confirmed else "Runner 尚未確認原程序已停止；請先查看診斷並核對原工作。",
+                message="已取消，沒有變更家庭" if confirmed else "還在確認分析已停止；沒有變更家庭，請稍後再查看。",
                 error_code=None if confirmed else "stop_unconfirmed")
             raise
         except (RunnerError, HAError, Rejected, TimeoutError, ValidationError) as exc:
             confirmed = job_id is None or await cancel_and_confirm(selected_runner, job_id)
-            message = "Agent 回覆不符合操作契約" if isinstance(exc, ValidationError) else str(exc) or "任務逾時"
+            message = "AI 回覆格式不正確，沒有變更家庭，請再試一次" if isinstance(exc, ValidationError) else str(exc) or "任務逾時"
             store.transition(task, "failed" if confirmed else "needs_reconcile",
-                message=message if confirmed else "Runner 尚未確認原程序已停止；請先查看診斷並核對原工作。",
+                message=message if confirmed else "還在確認分析已停止；沒有變更家庭，請稍後再查看。",
                 error_code=None if confirmed else "stop_unconfirmed")
 
     @app.post("/api/tasks", status_code=202)

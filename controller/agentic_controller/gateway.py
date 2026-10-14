@@ -556,7 +556,7 @@ class Gateway:
             if body.reply_to:
                 parent = self.store.conversation(id=body.reply_to)
                 if not parent or parent.get("scope") != scope or parent["state"] not in CONTINUABLE:
-                    raise HTTPException(409, "這段對話已失效或不屬於目前的 Agent，請開始新對話")
+                    raise HTTPException(409, "這段對話已無法接續，請開始新對話")
             elif source != "web" and not body.new_conversation:
                 candidate = self.store.conversation(scope=scope)
                 if candidate and candidate["state"] in CONTINUABLE:
@@ -664,7 +664,7 @@ class Gateway:
             uncertain = exc.code == "stop_unconfirmed" or bool(run and run.get("state") not in HERMES_TERMINAL)
             code = "stop_unconfirmed" if uncertain else exc.code
             result.update(state="needs_reconcile" if uncertain else "failed",
-                          answer=NEXT_STEP.get(code, "Hermes 尚未完成回覆，請檢查協調服務與登入狀態。"),
+                          answer=NEXT_STEP.get(code, "智能管家沒有完成回覆，請確認登入狀態後再送出。"),
                           error_code=code, reason=code)
         except (RunnerError, HAError, ValidationError, TimeoutError) as exc:
             category = runner_category(exc) if direct_dispatched and not result.get("hermes_run_id") and not result.get("task_id") else None
@@ -680,7 +680,7 @@ class Gateway:
                 result.update(state="failed" if confirmed else "needs_reconcile",
                     error_code=None if confirmed else "stop_unconfirmed",
                     reason=None if confirmed else "stop_unconfirmed",
-                    answer="Agent 尚未完成回覆，請在 Web 檢查此執行環境的配對、登入與連線。" if confirmed else
+                    answer="這次沒有完成回覆，請檢查配對、登入與連線後再送出。" if confirmed else
                            _RECONCILE_ANSWER)
             if direct_dispatched and result.get("state") == "needs_reconcile":
                 result["job_id"] = job_id
