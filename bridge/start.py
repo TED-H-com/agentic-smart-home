@@ -13,5 +13,6 @@ if os.getuid() == 0:
     os.setgroups([])
     os.setgid(10003)
     os.setuid(10003)
+# The Supervisor ingress proxy pools connections and does not retry a POST.
 uvicorn.run(create_app(options=options), host="0.0.0.0", port=8099,
-            proxy_headers=False, access_log=False, log_level="warning")
+            proxy_headers=False, access_log=False, log_level="warning", timeout_keep_alive=75)

@@ -418,7 +418,9 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
 
     async def outer_ready():
         # Serving means the lifespan, with both maintenance loops, started; the host port changes on restart.
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as probe:
+        # Blocking SSH calls run inside this loop; a pooled connection could outlive uvicorn's 5 s keep-alive.
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5),
+                                         connector=aiohttp.TCPConnector(force_close=True)) as probe:
             for _ in range(120):
                 ports = outer_alive()['NetworkSettings']['Ports']
                 address = 'http://127.0.0.1:' + ports['8099/tcp'][0]['HostPort']
@@ -635,8 +637,10 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
         evidence['checks']['bridge_heartbeat'] = True
         headers = {'Host': 'localhost:8099', 'Origin': 'http://localhost:8099', 'Sec-Fetch-Site': 'same-origin'}
         # A hung Controller request, not latency: synchronous SQLite commits wait for the slow test disk.
+        # Blocking SSH calls run inside this loop; a pooled connection could outlive uvicorn's 5 s keep-alive.
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60),
-                cookie_jar=aiohttp.CookieJar(unsafe=True), headers=headers) as client:
+                cookie_jar=aiohttp.CookieJar(unsafe=True), headers=headers,
+                connector=aiohttp.TCPConnector(force_close=True)) as client:
             async def status():
                 async with client.get(outer_url + '/api/host/home-worker/maintenance') as response:
                     check_ok = bool(response.status == 200)

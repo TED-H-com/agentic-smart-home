@@ -1,8 +1,19 @@
+import ast
 import json
+from pathlib import Path
 
 import httpx
 import pytest
-from agentic_bridge.app import MAX_REQUEST, Options, RelayError, create_app, load_options
+from agentic_bridge.app import (
+    MAX_REQUEST,
+    RELAY_KEEPALIVE_SECONDS,
+    Options,
+    Relay,
+    RelayError,
+    create_app,
+    load_options,
+)
+from agentic_controller.bridge import TRANSPORT_KEEPALIVE_SECONDS
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
@@ -122,6 +133,22 @@ async def test_first_page_gates_on_real_transport_result_without_exposing_detail
         response = await browser.get("/api/deployment", headers=HEADERS)
     assert response.status_code == 200
     assert response.json() == {"mode": "bridge", "authenticated": authenticated, "bridge_state": state}
+
+
+async def test_relay_keepalive_closes_before_the_controller_transport():
+    assert 0 < RELAY_KEEPALIVE_SECONDS < TRANSPORT_KEEPALIVE_SECONDS
+    options = Options(protocol=1, host="192.168.177.1", port=8444, fingerprint="b" * 64,
+                      token="c" * 43, pairing_id="d" * 32)
+    relay = Relay(options)
+    await relay.start()
+    try:
+        assert relay.session.connector._keepalive_timeout == RELAY_KEEPALIVE_SECONDS
+    finally:
+        await relay.close()
+    tree = ast.parse((Path(__file__).parents[1] / "controller/agentic_controller/bridge.py").read_text())
+    values = [keyword.value for node in ast.walk(tree) if isinstance(node, ast.Call)
+              for keyword in node.keywords if keyword.arg == "timeout_keep_alive"]
+    assert len(values) == 1 and isinstance(values[0], ast.Name) and values[0].id == "TRANSPORT_KEEPALIVE_SECONDS"
 
 
 def test_options_restrict_destination_and_reject_partial_or_symlink_config(tmp_path):
