@@ -221,9 +221,9 @@ os.chown(root,uid,gid,follow_symlinks=False)
                         "--memory", "64m", "--pids-limit", "16", "--log-driver", "none",
                         "--mount", f"type=bind,src={directory},dst=/fixture", "--entrypoint", "python", image,
                         "-I", "-c", script, str(uid), str(gid)],
-                       check=True, capture_output=True, timeout=20)
+                       check=True, capture_output=True, timeout=120)
     finally:
-        subprocess.run(["docker", "rm", "-fv", name], capture_output=True, timeout=20, check=False)
+        subprocess.run(["docker", "rm", "-fv", name], capture_output=True, timeout=120, check=False)
 
 
 @pytest.mark.parametrize("actual_container,foreign_owner", [(False, False), (True, False), (True, True)],
@@ -316,7 +316,7 @@ def test_fixed_probe_launch_and_database_handles_close_before_volume_release(
         os.umask(old_umask)
         try:
             for name in containers:
-                subprocess.run(["docker", "rm", "-fv", name], capture_output=True, timeout=20, check=False)
+                subprocess.run(["docker", "rm", "-fv", name], capture_output=True, timeout=120, check=False)
         finally:
             if actual_container and directory.exists():
                 probe_fixture_owner(directory, image, os.getuid(), os.getgid())

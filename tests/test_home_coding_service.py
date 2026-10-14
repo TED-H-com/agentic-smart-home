@@ -103,7 +103,7 @@ asyncio.run(check())
         assert value["uid"] == 1010 and value["actual_codex_local_key_storage"] is True
         assert value["real_account_verified"] is False and value["parent_traversal_without_listing"] is True
     finally:
-        subprocess.run(["docker", "rm", "-fv", name], capture_output=True, check=False, timeout=15)
+        subprocess.run(["docker", "rm", "-fv", name], capture_output=True, check=False, timeout=120)
 
 
 @pytest.fixture

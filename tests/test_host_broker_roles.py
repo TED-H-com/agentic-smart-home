@@ -63,4 +63,4 @@ print(json.dumps(result))
                                      "state": "needs_reconcile"}}
         assert probe(1001) == dict.fromkeys(paths, "filesystem_denied")
     finally:
-        subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=20)
+        subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=120)
