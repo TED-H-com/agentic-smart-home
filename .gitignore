@@ -20,3 +20,6 @@ web/test-results/
 **/node_modules/
 *.tsbuildinfo
 controller/source/agentic-home.bundle
+
+# GitHub Pages demo (built separately from the product)
+site/demo/
