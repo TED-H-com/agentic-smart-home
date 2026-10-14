@@ -76,9 +76,9 @@ async def test_preview_scope_recheck_after_artifact_fetch(store, monkeypatch):
 
 
 @pytest.mark.parametrize('path', ['/../actions','http://attacker','/updates/../../actions','/coding/jobs','/previews/a/revoke'])
-async def test_owner_broker_rejects_arbitrary_destinations_without_socket(path):
+async def test_owner_broker_rejects_arbitrary_destinations_without_socket(path, store):
     with pytest.raises(HTTPException) as error:
-        await broker_call('POST', path, {})
+        await broker_call('POST', path, {}, store=store)
     assert error.value.status_code == 422
 
 

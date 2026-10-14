@@ -63,7 +63,7 @@ class UpdateApply(UpdateOffer):
     approval_id: Annotated[str, Field(pattern=r'^[A-Za-z0-9_-]{32,100}$')]
 
 
-async def broker_call(method, path, body=None, *, store=None):
+async def broker_call(method, path, body=None, *, store):
     """Only trusted route code supplies a method/path; no configurable network target."""
     allowed = (method == 'GET' and (path in {'/network', '/updates'} or
         re.fullmatch(r'/updates/[a-f0-9]{64}|/previews/[a-f0-9]{32}', path))) or (
@@ -182,52 +182,52 @@ def routes(app, store, workers, *, host_mode=False):
 
     @app.get('/api/network')
     async def network():
-        return await broker_call('GET', '/network')
+        return await broker_call('GET', '/network', store=store)
 
     @app.post('/api/network/preferences')
     async def preferences(body: NetworkPreferences):
         await durable(store)
-        return await broker_call('POST', '/network/preferences', body.model_dump())
+        return await broker_call('POST', '/network/preferences', body.model_dump(), store=store)
 
     @app.post('/api/network/login')
     async def login(body: WorkerAction):
         await durable(store)
-        return await broker_call('POST', '/network/login', {})
+        return await broker_call('POST', '/network/login', {}, store=store)
 
     @app.post('/api/network/revoke')
     async def revoke(body: WorkerAction):
         await durable(store)
-        return await broker_call('POST', '/network/revoke', {})
+        return await broker_call('POST', '/network/revoke', {}, store=store)
 
     @app.get('/api/updates')
     async def updates():
-        return await broker_call('GET', '/updates')
+        return await broker_call('GET', '/updates', store=store)
 
     @app.post('/api/updates/stage', status_code=202)
     async def stage(body: UpdateStage):
         await durable(store)
-        return await broker_call('POST', '/updates/stage', body.model_dump(by_alias=True))
+        return await broker_call('POST', '/updates/stage', body.model_dump(by_alias=True), store=store)
 
     @app.post('/api/updates/apply', status_code=202)
     async def apply(body: UpdateApply):
         await durable(store)
-        return await broker_call('POST', '/updates/apply', body.model_dump())
+        return await broker_call('POST', '/updates/apply', body.model_dump(), store=store)
 
     @app.post('/api/updates/rollback-offer')
     async def rollback_offer(body: UpdateOffer):
         await durable(store)
-        return await broker_call('POST', '/updates/rollback-offer', body.model_dump())
+        return await broker_call('POST', '/updates/rollback-offer', body.model_dump(), store=store)
 
     @app.post('/api/updates/rollback', status_code=202)
     async def rollback(body: UpdateApply):
         await durable(store)
-        return await broker_call('POST', '/updates/rollback', body.model_dump())
+        return await broker_call('POST', '/updates/rollback', body.model_dump(), store=store)
 
     @app.get('/api/updates/{candidate_digest}')
     async def update_status(candidate_digest: str):
         if not re.fullmatch(r'[a-f0-9]{64}', candidate_digest):
             raise HTTPException(422, 'invalid_candidate_digest')
-        return await broker_call('GET', '/updates/' + candidate_digest)
+        return await broker_call('GET', '/updates/' + candidate_digest, store=store)
 
     @app.post('/api/worker/jobs/{identifier}/previews', status_code=202)
     async def preview(identifier: str, body: WorkerPreview, request: Request):
@@ -238,7 +238,7 @@ def routes(app, store, workers, *, host_mode=False):
         if not store.get('worker_preview', identifier):
             raise WorkerError('preview_not_found', 404)
         await durable(store)
-        return await broker_call('POST', '/previews/' + identifier + '/revoke', {})
+        return await broker_call('POST', '/previews/' + identifier + '/revoke', {}, store=store)
 
     @app.get('/api/worker/previews/{identifier}')
     async def preview_status(identifier: str):

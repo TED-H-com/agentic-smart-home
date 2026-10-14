@@ -10,7 +10,7 @@ from aiohttp import web
 
 
 @asynccontextmanager
-async def client(handler):
+async def client(handler, store):
     app = web.Application()
     app.router.add_route('*', '/{path:.*}', handler)
     runner = web.AppRunner(app)
@@ -20,6 +20,7 @@ async def client(handler):
     port = site._server.sockets[0].getsockname()[1]
     ha = HomeAssistant('fixture', base=f'http://127.0.0.1:{port}',
                        websocket=f'ws://127.0.0.1:{port}/ws')
+    ha.store = store
     await ha.start()
     try:
         yield ha
@@ -29,12 +30,13 @@ async def client(handler):
 
 
 @pytest.mark.parametrize('method', ['request', 'ws'])
-async def test_connection_refused_is_unreachable(method):
+async def test_connection_refused_is_unreachable(method, store):
     with socket.socket() as sock:
         sock.bind(('127.0.0.1', 0))
         port = sock.getsockname()[1]
     ha = HomeAssistant('fixture', base=f'http://127.0.0.1:{port}',
                        websocket=f'ws://127.0.0.1:{port}/ws')
+    ha.store = store
     await ha.start()
     try:
         with pytest.raises(HAUnreachable):
@@ -44,7 +46,7 @@ async def test_connection_refused_is_unreachable(method):
 
 
 @pytest.mark.parametrize('method', ['request', 'ws'])
-async def test_timeout_is_unreachable(method):
+async def test_timeout_is_unreachable(method, store):
     async def handler(request):
         if method == 'request':
             await asyncio.sleep(.1)
@@ -59,7 +61,7 @@ async def test_timeout_is_unreachable(method):
         await ws.close()
         return ws
 
-    async with client(handler) as ha:
+    async with client(handler, store) as ha:
         with pytest.raises(HAUnreachable):
             await (ha.request('GET', '/', timeout=.01) if method == 'request'
                    else ha.ws('fixture', _receive_timeout=.01))
@@ -69,7 +71,7 @@ async def test_timeout_is_unreachable(method):
     ('close', 'fixture', True), ('invalid', 'fixture', False), ('failure', 'fixture', False), ('auth', 'fixture', False),
     ('handshake-401', 'fixture', False), ('handshake-403', 'fixture', False), ('handshake-502', 'fixture', True),
     ('unknown_command', 'supervisor/api', True), ('unknown_command', 'fixture', False)])
-async def test_websocket_reply_classification(reply, command, unreachable):
+async def test_websocket_reply_classification(reply, command, unreachable, store):
     async def handler(request):
         if reply.startswith('handshake'):
             return web.Response(status=int(reply.split('-')[1]))
@@ -88,7 +90,7 @@ async def test_websocket_reply_classification(reply, command, unreachable):
         await ws.close()
         return ws
 
-    async with client(handler) as ha:
+    async with client(handler, store) as ha:
         with pytest.raises(HAError) as error:
             await ha.ws(command)
         assert isinstance(error.value, HAUnreachable) is unreachable
@@ -98,11 +100,11 @@ async def test_websocket_reply_classification(reply, command, unreachable):
 
 
 @pytest.mark.parametrize('status,body', [(200, 'invalid JSON'), (401, '{}')])
-async def test_http_answers_are_plain_errors(status, body):
+async def test_http_answers_are_plain_errors(status, body, store):
     async def handler(request):
         return web.Response(status=status, text=body)
 
-    async with client(handler) as ha:
+    async with client(handler, store) as ha:
         with pytest.raises(HAError) as error:
             await ha.request('GET', '/')
         assert not isinstance(error.value, HAUnreachable)
@@ -110,11 +112,11 @@ async def test_http_answers_are_plain_errors(status, body):
             assert error.value.status == 401
 
 
-async def test_handshake_transport_timeout_is_unreachable(monkeypatch):
+async def test_handshake_transport_timeout_is_unreachable(monkeypatch, store):
     async def handler(request):
         return web.json_response({})
 
-    async with client(handler) as ha:
+    async with client(handler, store) as ha:
         async def timeout(*args, **kwargs):
             raise aiohttp.ConnectionTimeoutError('fixture')
         monkeypatch.setattr(ha.session, 'ws_connect', timeout)
@@ -122,18 +124,18 @@ async def test_handshake_transport_timeout_is_unreachable(monkeypatch):
             await ha.ws('fixture')
 
 
-async def test_supervisor_failure_answer_stays_plain_error():
+async def test_supervisor_failure_answer_stays_plain_error(store):
     async def handler(request):
         return web.json_response({'result': 'error'})
 
-    async with client(handler) as ha:
+    async with client(handler, store) as ha:
         ha.supervisor = ha.base
         with pytest.raises(HAError) as error:
             await ha.request('GET', '/', supervisor=True)
         assert not isinstance(error.value, HAUnreachable)
 
 
-async def test_invalid_handshake_contract_stays_plain_error():
+async def test_invalid_handshake_contract_stays_plain_error(store):
     async def handler(request):
         ws = web.WebSocketResponse()
         await ws.prepare(request)
@@ -141,7 +143,7 @@ async def test_invalid_handshake_contract_stays_plain_error():
         await ws.close()
         return ws
 
-    async with client(handler) as ha:
+    async with client(handler, store) as ha:
         with pytest.raises(HAError, match='握手無效') as error:
             await ha.ws('fixture')
         assert not isinstance(error.value, HAUnreachable)

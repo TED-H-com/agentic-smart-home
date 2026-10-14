@@ -771,8 +771,12 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             evidence['cold_backup_observation'] = summary
             deadline = time.monotonic() + 600
             while True:
-                disruption_record(setting(database, 'home_worker_maintenance'))
-                disruption_record(setting(database, 'bridge_maintenance'), 'bridge_')
+                home = setting(database, 'home_worker_maintenance')
+                bridge = setting(database, 'bridge_maintenance')
+                transition(evidence.setdefault('home_backup_transitions', []), home)
+                transition(evidence.setdefault('bridge_backup_transitions', []), bridge, 'bridge_')
+                disruption_record(home)
+                disruption_record(bridge, 'bridge_')
                 supervisor_state = (await ha.request('GET', '/info', supervisor=True)).get('state')
                 runner_state, sidebar_state = await app_state(slug), await app_state(bridge_slug)
                 sample(summary, supervisor_state, runner_state, sidebar_state)

@@ -43,7 +43,7 @@ def telegram_failure(status, description=""):
 
 
 @asynccontextmanager
-async def line_admin(store=None):
+async def line_admin(store):
     # LINE.js uses an HttpOnly cookie AND matching Origin for its local admin socket.
     async with client_session(store, cookie_jar=aiohttp.CookieJar(unsafe=True),
                                      timeout=aiohttp.ClientTimeout(total=15), trust_env=False) as session:

@@ -70,7 +70,7 @@ class HermesError(Exception):
 
 class HermesClient:
     """The endpoint is installed configuration, never a model or browser input."""
-    def __init__(self, store=None):
+    def __init__(self, store):
         self.store = store
 
     async def call(self, method, path, body=None, key=None):

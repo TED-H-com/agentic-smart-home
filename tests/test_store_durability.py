@@ -3,6 +3,8 @@ import ast
 import asyncio
 import gc
 import os
+import selectors
+import signal
 import sqlite3
 import subprocess
 import sys
@@ -154,18 +156,27 @@ async def test_transaction_rollback_and_parameter_copy(live, held_commit):
 
         def __conform__(self, protocol):
             return self.value
+    class AdaptedString(str):
+        value = 'subclass-original'
+
+        def __conform__(self, protocol):
+            return self.value
     adapted = Adapted()
+    subclass = AdaptedString('raw')
     with live.transaction() as tx:
         tx.execute('INSERT INTO settings VALUES (?,?)', ('immutable', value))
         tx.execute('INSERT INTO settings VALUES (?,?)', ('adapted', adapted))
+        tx.execute('INSERT INTO settings VALUES (?,?)', ('subclass', subclass))
     value[:] = b'modified'
     adapted.value = 'adapted-modified'
+    subclass.value = 'subclass-modified'
     tx.statements.append(("UPDATE settings SET value=? WHERE key='immutable'", ('bypass',)))
     release.set()
     await live.durable()
     with disk_connect(live) as disk:
         assert disk.execute("SELECT value FROM settings WHERE key='immutable'").fetchone()[0] == b'original'
         assert disk.execute("SELECT value FROM settings WHERE key='adapted'").fetchone()[0] == 'adapted-original'
+        assert disk.execute("SELECT value FROM settings WHERE key='subclass'").fetchone()[0] == 'subclass-original'
 
 
 @pytest.fixture
@@ -238,7 +249,12 @@ async def local_ha(live):
         return ws
 
     app = web.Application()
+    async def host_status(request):
+        received.append(('http', request.method, request.path))
+        return web.json_response({'controller_update': {'ingress_bridge_contract': 1}})
+
     app.router.add_get('/api/config', config)
+    app.router.add_get('/api/host-status', host_status)
     app.router.add_get('/api/websocket', websocket)
     server = web.AppRunner(app)
     await server.setup()
@@ -438,9 +454,12 @@ async def test_fail_stop_preserves_memory_and_health_reports_503(real_app, live,
         await live.durable()
     _, client = real_app
     assert (await client.get('/health')).status_code == 503
-    response = await client.post('/api/durability-fixture-not-found')
+    before_pause = live.setting('paused', False)
+    response = await client.post('/api/pause', json={'paused': not before_pause})
     assert response.status_code == 503
     assert '資料' in response.json()['detail']
+    assert live.setting('paused', False) == before_pause
+    assert (await client.get('/api/status')).status_code == 200
 
 
 def test_outgoing_session_construction_is_centralized():
@@ -514,3 +533,269 @@ async def test_mixed_workload_and_snapshot_match_disk(live, tmp_path):
         assert list(disk.iterdump()) == memory
     with sqlite3.connect(snapshot) as disk:
         assert list(disk.iterdump()) == memory
+
+
+async def test_host_proof_refresh_keeps_running_during_long_commit(real_app, live, local_ha, monkeypatch):
+    app, _ = real_app
+    ha, received = local_ha
+    entered, release = threading.Event(), threading.Event()
+    ticks = []
+
+    def hold():
+        entered.set()
+        assert release.wait(20)
+
+    async def host_status():
+        async with client_session(live) as session:
+            async with session.get(ha.base + '/host-status') as response:
+                return await response.json()
+
+    async def ticker():
+        while True:
+            ticks.append(asyncio.get_running_loop().time())
+            await asyncio.sleep(.025)
+
+    async def concurrent_writes():
+        for index in range(100):
+            live.set_setting('host-proof-write', index)
+            assert live.setting('host-proof-write') == index
+            await asyncio.sleep(.05)
+
+    bridge = app.state.ingress_bridge
+    bridge.host_status = host_status
+    monkeypatch.setattr(store_journal, 'before_disk_commit', hold)
+    live.set_setting('host-proof-held', True)
+    await wait_entered(entered)
+    ticking = asyncio.create_task(ticker())
+    writing = asyncio.create_task(concurrent_writes())
+    pending = asyncio.create_task(live.durable())
+    try:
+        await asyncio.wait_for(bridge.require_host(force=True), 1)
+        assert bridge.host_current()
+        # Exceed the fixed five-second Host proof timeout while the disk stays held.
+        await asyncio.sleep(2.6)
+        assert not pending.done()
+        await asyncio.wait_for(bridge.require_host(force=True), 1)
+        assert bridge.host_current()
+        await asyncio.sleep(2.6)
+        assert not pending.done()
+        await asyncio.wait_for(writing, 1)
+        await asyncio.wait_for(bridge.require_host(force=True), 1)
+        assert bridge.host_current()
+        assert received.count(('http', 'GET', '/api/host-status')) == 3
+        assert len(ticks) >= 100
+        assert max(right - left for left, right in zip(ticks[:-1], ticks[1:], strict=True)) < .5
+        release.set()
+        await asyncio.wait_for(pending, 3)
+        await live.durable()
+    finally:
+        release.set()
+        for task in (ticking, writing, pending):
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(ticking, writing, pending, return_exceptions=True)
+
+
+@pytest.mark.parametrize('method', ['execute', 'executemany', 'executescript', 'commit', 'rollback',
+                                     'tx-commit', 'tx-rollback'])
+async def test_direct_memory_write_is_denied_even_inside_transaction(live, method):
+    before = live._journal.seq
+    with pytest.raises(sqlite3.DatabaseError):
+        with live.transaction() as tx:
+            tx.execute('INSERT INTO settings VALUES (?,?)', ('must-rollback', 'true'))
+            if method == 'execute':
+                live.db.execute("INSERT INTO settings VALUES ('bypass','true')")
+            elif method == 'executemany':
+                live.db.executemany('INSERT INTO settings VALUES (?,?)', [('bypass', 'true')])
+            elif method == 'executescript':
+                live.db.executescript("INSERT INTO settings VALUES ('bypass','true');")
+            elif method in {'commit', 'rollback'}:
+                getattr(live.db, method)()
+            else:
+                tx.execute('COMMIT' if method == 'tx-commit' else 'ROLLBACK')
+    assert live.setting('must-rollback') is None
+    assert live.setting('bypass') is None
+    assert live._journal.seq == before
+    await live.durable()
+
+
+@pytest.mark.parametrize('container', ['mapping', 'string', 'generator'])
+def test_transaction_rejects_non_sequence_parameter_containers(live, container):
+    params = {'key': 'unexpected', 'value': 'true'} if container == 'mapping' else (
+        'xy' if container == 'string' else (value for value in ['unexpected', 'true']))
+    before = list(live.db.iterdump())
+    with pytest.raises(TypeError):
+        with live.transaction() as tx:
+            tx.execute('INSERT INTO settings VALUES (?,?)', params)
+    assert list(live.db.iterdump()) == before
+
+
+def test_executemany_rolls_back_when_a_parameter_container_is_invalid(live):
+    with pytest.raises(TypeError):
+        with live.transaction() as tx:
+            tx.executemany('INSERT INTO settings VALUES (?,?)',
+                           [('must-rollback', 'true'), {'key': 'unexpected', 'value': 'true'}])
+    assert live.setting('must-rollback') is None
+
+
+def test_store_transactions_have_no_coroutine_suspension():
+    root = Path(__file__).resolve().parents[1] / 'controller/agentic_controller'
+    violations = []
+    for path in root.rglob('*.py'):
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(node, (ast.With, ast.AsyncWith)):
+                continue
+            transactions = [item for item in node.items if isinstance(item.context_expr, ast.Call)
+                            and isinstance(item.context_expr.func, ast.Attribute)
+                            and item.context_expr.func.attr == 'transaction']
+            if transactions:
+                if isinstance(node, ast.AsyncWith):
+                    violations.append((str(path.relative_to(root)), node.lineno))
+                for statement in node.body:
+                    for nested in ast.walk(statement):
+                        if isinstance(nested, (ast.Await, ast.AsyncFor, ast.AsyncWith, ast.Yield, ast.YieldFrom)):
+                            violations.append((str(path.relative_to(root)), nested.lineno))
+    assert not violations, violations
+
+
+async def test_unexpected_writer_publish_failure_fails_waiters_and_future_writes(live, held_commit,
+                                                                              tmp_path, monkeypatch):
+    entered, release, _ = held_commit
+
+    def fail_publish(seq):
+        raise RuntimeError('fixture unexpected writer death')
+
+    monkeypatch.setattr(live._journal, 'publish', fail_publish)
+    live.set_setting('before-publish-failure', True)
+    await wait_entered(entered)
+    pending = asyncio.create_task(live.durable())
+    snapshot = asyncio.create_task(live.snapshot(tmp_path / 'must-not-hang.sqlite3'))
+    await asyncio.sleep(0)
+    release.set()
+    with pytest.raises(RuntimeError):
+        await asyncio.wait_for(pending, 3)
+    with pytest.raises(RuntimeError):
+        await asyncio.wait_for(snapshot, 3)
+    assert live.failed
+    before = list(live.db.iterdump())
+    with pytest.raises(RuntimeError):
+        live.set_setting('after-writer-death', True)
+    assert list(live.db.iterdump()) == before
+    with pytest.raises(RuntimeError):
+        await asyncio.wait_for(live.durable(), 1)
+    await asyncio.to_thread(live._journal.thread.join, 3)
+    assert not live._journal.thread.is_alive()
+
+
+def test_outgoing_session_helpers_require_an_explicit_store():
+    root = Path(__file__).resolve().parents[1] / 'controller/agentic_controller'
+    violations = []
+    sites = []
+    for path in root.rglob('*.py'):
+        tree = ast.parse(path.read_text())
+        names = {name: name for name in ('client_session', 'host_call', 'broker_call')}
+        partials = {'partial'}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    if alias.name in names:
+                        names[alias.asname or alias.name] = alias.name
+                    if node.module == 'functools' and alias.name == 'partial':
+                        partials.add(alias.asname or alias.name)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            function, args = node.func, node.args
+            if ((isinstance(function, ast.Name) and function.id in partials
+                 or isinstance(function, ast.Attribute) and function.attr == 'partial') and args):
+                function, args = args[0], args[1:]
+            helper = (names.get(function.id) if isinstance(function, ast.Name) else
+                      function.attr if isinstance(function, ast.Attribute) else None)
+            if helper not in {'client_session', 'host_call', 'broker_call'}:
+                continue
+            sites.append((path.name, node.lineno, helper))
+            store = (args[0] if helper == 'client_session' and args else next(
+                (keyword.value for keyword in node.keywords if keyword.arg == 'store'), None))
+            if store is None or isinstance(store, ast.Constant) and store.value is None:
+                violations.append((path.name, node.lineno, helper))
+    assert {site[2] for site in sites} == {'client_session', 'host_call', 'broker_call'}
+    assert not violations, violations
+
+
+def test_session_helper_refuses_missing_or_none_store():
+    with pytest.raises(TypeError):
+        client_session()
+    with pytest.raises(ValueError):
+        client_session(None)
+
+
+def test_uvicorn_sigterm_drains_unawaited_store_write(tmp_path):
+    path = tmp_path / 'sigterm.sqlite3'
+    script = """
+import asyncio, os, socket, sys, threading, time
+from pathlib import Path
+import uvicorn
+from agentic_controller import store_journal
+from agentic_controller.app import create_app
+from agentic_controller.store import Store
+
+class FixtureHA:
+    connected = False
+    last_observed = None
+    async def start(self):
+        pass
+    async def close(self):
+        pass
+    async def watch(self):
+        while True:
+            await asyncio.sleep(600)
+
+async def main():
+    path = Path(sys.argv[1])
+    os.environ['AGENTIC_DATA'] = str(path.parent)
+    store = Store(path)
+    app = create_app(store=store, ha=FixtureHA(), host_mode=False)
+    server = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=0,
+        access_log=False, log_level='warning', timeout_graceful_shutdown=45))
+    sock = socket.socket()
+    sock.bind(('127.0.0.1', 0))
+    entered = threading.Event()
+    def hold():
+        entered.set()
+        time.sleep(2)
+    async def write_when_started():
+        while not server.started:
+            await asyncio.sleep(.01)
+        await store.durable()
+        store_journal.before_disk_commit = hold
+        store.set_setting('sigterm-unawaited', {'persisted': True})
+        assert await asyncio.to_thread(entered.wait, 10)
+        print('READY', flush=True)
+    writing = asyncio.create_task(write_when_started())
+    try:
+        await server.serve(sockets=[sock])
+        await writing
+    finally:
+        sock.close()
+
+asyncio.run(main())
+"""
+    env = dict(os.environ)
+    env['PYTHONPATH'] = os.pathsep.join(sys.path)
+    process = subprocess.Popen([sys.executable, '-c', script, str(path)], env=env,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        with selectors.DefaultSelector() as ready:
+            ready.register(process.stdout, selectors.EVENT_READ)
+            assert ready.select(45), 'uvicorn child did not start'
+            assert process.stdout.readline().strip() == 'READY'
+        process.send_signal(signal.SIGTERM)
+        _, stderr = process.communicate(timeout=45)
+        assert process.returncode in {0, -signal.SIGTERM}, stderr
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate(timeout=10)
+    with sqlite3.connect(path) as disk:
+        assert disk.execute("SELECT value FROM settings WHERE key='sigterm-unawaited'").fetchone()[0] == '{"persisted":true}'
+        assert disk.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'

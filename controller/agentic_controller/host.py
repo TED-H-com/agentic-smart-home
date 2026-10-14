@@ -106,7 +106,7 @@ class HostSession:
         return response
 
 
-async def host_call(method="GET", body=None, *, store=None):
+async def host_call(method="GET", body=None, *, store):
     connector = aiohttp.UnixConnector(path="/run/agentic-home/host.sock")
     try:
         async with client_session(store, connector=connector, timeout=aiohttp.ClientTimeout(total=30)) as session:
@@ -206,7 +206,7 @@ def routes(app, auth, ha, store, runner, controller_id):
         existing = store.request("host_ask", key, digest(body.model_dump()))
         if existing:
             return store.get("host_task", existing)
-        observed = await host_call()
+        observed = await host_call(store=store)
         observations = {k: observed[k] for k in ("vm", "kvm", "provisioned", "network", "storage_free_bytes")}
         id = uuid.uuid4().hex
         item = {"id": id, "state": "planning", "request": body.message, "observations": observations,
@@ -278,7 +278,7 @@ def routes(app, auth, ha, store, runner, controller_id):
 
     @app.get("/api/host/status")
     async def status():
-        result = await host_call()
+        result = await host_call(store=store)
         result["ha_connected"] = bool(store.setting("owner"))
         return result
 
@@ -288,7 +288,7 @@ def routes(app, auth, ha, store, runner, controller_id):
         if not key:
             raise HTTPException(400, "缺少 Idempotency-Key")
         await durable(store)
-        return await host_call("POST", {"id": key, **body.model_dump()})
+        return await host_call("POST", {"id": key, **body.model_dump()}, store=store)
 
     @app.post("/api/host/connect")
     async def connect(body: ConnectHA, request: Request):
@@ -306,7 +306,7 @@ def routes(app, auth, ha, store, runner, controller_id):
 
     @app.get("/api/host/diagnosis")
     async def diagnosis():
-        host = await host_call()
+        host = await host_call(store=store)
         findings = []
         if not host["kvm"]:
             findings.append("Linux 無法使用硬體虛擬化，請檢查韌體 VT-x / AMD-V。")

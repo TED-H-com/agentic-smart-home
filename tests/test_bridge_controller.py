@@ -2,6 +2,7 @@
 import asyncio
 import json
 import os
+import threading
 import time
 import uuid
 
@@ -737,3 +738,46 @@ async def test_initial_repair_rechecks_authority_after_owner_await(system, store
     assert response.status_code == 409
     assert bridge.record()['pairing_id'] == options['pairing_id']
     assert app.state.bridge_maintenance.record() is None or changed == 'manager'
+
+
+async def test_concurrent_first_pairing_reuses_one_private_generation(store, ha, monkeypatch, tmp_path):
+    monkeypatch.setenv('AGENTIC_DATA', str(tmp_path))
+    store.set_setting('owner', OWNER)
+    ha.token = 'fixture-only-owner-token'
+
+    async def host_status():
+        return {'controller_update': {'ingress_bridge_contract': 1}}
+
+    app = create_app(store=store, ha=ha, host_mode=True, hermes_client=Runtime(), bridge_host_status=host_status)
+    bridge = app.state.ingress_bridge
+    await bridge.require_host()
+    entered, release = threading.Event(), threading.Event()
+    original = bridge._private_write
+    writes = []
+
+    def held_write(name, value):
+        writes.append(name)
+        if name == 'tls.key':
+            entered.set()
+            if not release.wait(10):
+                raise TimeoutError('fixture pairing write was not released')
+        original(name, value)
+
+    monkeypatch.setattr(bridge, '_private_write', held_write)
+    first = asyncio.create_task(bridge.prepare_pairing())
+    second = None
+    try:
+        assert await asyncio.to_thread(entered.wait, 10)
+        second = asyncio.create_task(bridge.prepare_pairing())
+        await asyncio.sleep(0)
+        assert not second.done() and bridge.record() == {}
+        release.set()
+        one, two = await asyncio.gather(first, second)
+        assert one == two
+        assert writes == ['tls.key', 'tls.pem', 'service-token']
+        assert bridge.record()['pairing_id'] == one['pairing_id']
+        assert (bridge.root / 'service-token').read_text() == one['token']
+    finally:
+        release.set()
+        await asyncio.gather(first, *([second] if second else []), return_exceptions=True)
+        await bridge.close()

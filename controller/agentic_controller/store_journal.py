@@ -33,14 +33,29 @@ class Journal:
     def __init__(self, disk):
         self.disk = disk
         self.queue = queue.Queue()
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.seq = self.durable_seq = 0
         self.error = None
+        self.closed = False
         self.waiters = []
         self.thread = threading.Thread(target=self.run, name="controller-store-writer", daemon=True)
         self.thread.start()
 
+    def fail(self, error):
+        with self.lock:
+            if self.error is None:
+                self.error = error
+                logging.getLogger(__name__).error("Controller database journal failed")
+            waiters, self.waiters = self.waiters, []
+        for _, loop, future in waiters:
+            try:
+                _notify(loop, future, RuntimeError("資料庫持久化失敗"))
+            except Exception:
+                pass
+
     def check(self):
+        if not self.closed and not self.thread.is_alive():
+            self.fail(RuntimeError("Database writer stopped"))
         if self.error:
             raise RuntimeError("資料庫持久化失敗") from self.error
 
@@ -67,6 +82,7 @@ class Journal:
 
     def run(self):
         pending = None
+        item = None
         try:
             while True:
                 item = pending if pending is not None else self.queue.get()
@@ -117,16 +133,35 @@ class Journal:
                             self.disk.rollback()
                         except Exception:
                             pass
-                        with self.lock:
-                            self.error = error
-                        logging.getLogger(__name__).error("Controller database journal failed")
+                        self.fail(error)
                 self.publish(batch[-1][0])
                 if stop:
                     break
+        except BaseException as error:
+            self.fail(error)
+            items = [pending] if pending is not None else []
+            if item is not None and isinstance(item[0], Path):
+                items.append(item)
+            while True:
+                try:
+                    items.append(self.queue.get_nowait())
+                except queue.Empty:
+                    break
+            for item in items:
+                if item is not None and isinstance(item[0], Path):
+                    _, loop, future = item
+                    try:
+                        _notify(loop, future, RuntimeError("資料庫持久化失敗"))
+                    except Exception:
+                        pass
         finally:
-            self.disk.close()
+            try:
+                self.disk.close()
+            except BaseException as error:
+                self.fail(error)
 
     def close(self):
+        self.closed = True
         self.queue.put(None)
         self.thread.join()
 
@@ -137,8 +172,15 @@ def close_store(journal, memory):
 
 
 def _parameter(value):
-    if value is None or isinstance(value, (str, bytes, int, float)):
+    if value is None or type(value) in (str, bytes, int, float):
         return value
+    if isinstance(value, (str, bytes, int, float)):
+        try:
+            return _parameter(sqlite3.adapt(value))
+        except sqlite3.ProgrammingError:
+            for native in (str, bytes, int, float):
+                if isinstance(value, native):
+                    return native(value)
     try:
         # SQLite also accepts other buffer providers, such as array.array.
         return bytes(memoryview(value))
@@ -148,13 +190,23 @@ def _parameter(value):
 
 
 class Transaction:
-    def __init__(self, db):
-        self.db = db
+    def __init__(self, store):
+        self.store = store
+        self.db = store.db
         self.statements = []
+        self.active = True
 
     def execute(self, sql, params=()):
+        if not self.active:
+            raise RuntimeError("Store transaction is closed")
+        if not isinstance(params, (list, tuple)):
+            raise TypeError("SQL parameters must be a list or tuple")
         params = tuple(_parameter(value) for value in params)
-        cursor = self.db.execute(sql, params)
+        self.store._recording = True
+        try:
+            cursor = self.db.execute(sql, params)
+        finally:
+            self.store._recording = False
         self.statements.append((sql, params))
         return cursor
 

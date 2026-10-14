@@ -261,6 +261,7 @@ async def test_real_core_oauth_to_revocable_persistent_owner_binding(real_contai
     await wait_ready(base)
     auth = HostSession(tmp_path, "isolated-core-oauth-secret")
     ha = HomeAssistant("", base + "/api", base.replace("http:", "ws:") + "/api/websocket", external=True)
+    ha.store = store
     await ha.start()
     service = HomeAuthorization(auth, ha, store)
     state = begin(service)

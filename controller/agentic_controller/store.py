@@ -74,10 +74,14 @@ class Store:
         self.db.execute("PRAGMA temp_store=MEMORY")
         self._journal = Journal(disk)
         self._writing = False
+        self._recording = False
+        self._controlling = False
         owner = weakref.ref(self)
         def authorize(action, arg1, arg2, database, source):
             store = owner()
-            if store is not None and store._writing:
+            if action == sqlite3.SQLITE_TRANSACTION:
+                return sqlite3.SQLITE_OK if store is not None and store._controlling else sqlite3.SQLITE_DENY
+            if store is not None and store._recording:
                 return sqlite3.SQLITE_OK
             allowed = {sqlite3.SQLITE_SELECT, sqlite3.SQLITE_READ, sqlite3.SQLITE_FUNCTION,
                        sqlite3.SQLITE_RECURSIVE}
@@ -92,7 +96,11 @@ class Store:
 
     @property
     def failed(self):
-        return self._journal.error is not None
+        try:
+            self._journal.check()
+        except RuntimeError:
+            return True
+        return False
 
     @contextmanager
     def transaction(self):
@@ -101,20 +109,27 @@ class Store:
         if self._writing:
             raise RuntimeError("Nested store transaction")
         self._writing = True
-        tx = Transaction(self.db)
+        tx = Transaction(self)
         try:
+            self._controlling = True
             self.db.execute("BEGIN")
+            self._controlling = False
             yield tx
             with self._journal.lock:
                 self._journal.check()
+                self._controlling = True
                 self.db.commit()
+                self._controlling = False
                 if tx.statements:
                     self._journal.seq += 1
                     self._journal.queue.put((self._journal.seq, tuple(tx.statements)))
         except BaseException:
+            self._controlling = True
             self.db.rollback()
             raise
         finally:
+            tx.active = False
+            self._controlling = False
             self._writing = False
 
     async def durable(self):
