@@ -8,11 +8,29 @@ from urllib.parse import quote
 
 import aiohttp
 
+from .durability import client_session, durable
 from .models import digest, utcnow
 
 TESTED_CORE_VERSIONS = frozenset({"2026.10.1"})
 # MCP tool calls must wait longer than this. See hermes MCP_TOOL_TIMEOUT.
 HA_CLIENT_TIMEOUT = 30
+# These commands observe Core state or subscribe to observations. Unknown
+# commands stay fenced so a newly added mutation cannot silently bypass storage.
+READ_ONLY_WS_COMMANDS = frozenset({
+    "auth", "ping", "get_states", "get_config", "get_services", "subscribe_events",
+    "auth/current_user", "config/auth/list", "auth/refresh_tokens",
+    "config/entity_registry/list", "config/device_registry/list", "config/area_registry/list",
+    "config/floor_registry/list", "config/label_registry/list",
+    "cloud/status", "config_entries/get", "validate_config", "automation/config",
+})
+
+
+def read_only_ws(command, fields):
+    if command == "supervisor/api":
+        method = fields.get("method")
+        return isinstance(method, str) and method.upper() in {"GET", "HEAD", "OPTIONS"}
+    return command in READ_ONLY_WS_COMMANDS
+
 
 class HAError(Exception):
     def __init__(self, message, status=502):
@@ -29,13 +47,14 @@ class HomeAssistant:
                  supervisor="http://supervisor", external=False):
         self.token, self.base, self.websocket, self.supervisor = token, base.rstrip("/"), websocket, supervisor
         self.external = external
+        self.store = None
         self.session = None
         self.connected = False
         self.last_observed = None
         self.observations = deque(maxlen=1000)
 
     async def start(self):
-        self.session = aiohttp.ClientSession(
+        self.session = client_session(self.store,
             headers={"Authorization": f"Bearer {self.token}"},
             timeout=aiohttp.ClientTimeout(total=HA_CLIENT_TIMEOUT), trust_env=False)
 
@@ -93,6 +112,8 @@ class HomeAssistant:
         try:
             ws = await self.ws_connect()
             async with ws:
+                if not read_only_ws(command, kwargs):
+                    await durable(self.store)
                 await ws.send_json({"id": 1, "type": command, **kwargs})
                 result = await ws.receive_json(timeout=_receive_timeout)
                 if result.get("id") != 1 or result.get("success") is not True:

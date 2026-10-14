@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import sqlite3
 import stat
 import time
 import uuid
+import weakref
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .models import canonical, utcnow
+from .store_journal import Journal, Transaction, close_store
 
 
 class Conflict(Exception):
@@ -17,14 +21,14 @@ class Conflict(Exception):
 
 
 class Store:
-    """One process owns this WAL database. Every state transition is committed first."""
+    """Immediate in-memory state; FULL disk commits fenced at effect boundaries."""
 
     def __init__(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.path = path
         path.touch(mode=0o600, exist_ok=True)
         path.chmod(0o600)
-        self.db = sqlite3.connect(path)
+        self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         version = self.db.execute("PRAGMA user_version").fetchone()[0]
         if version not in (0, 1, 2, 3):
@@ -62,6 +66,59 @@ class Store:
             COMMIT;
         """)
         path.chmod(0o600)
+        disk = self.db
+        self.db = sqlite3.connect(":memory:", check_same_thread=False, cached_statements=0)
+        self.db.row_factory = sqlite3.Row
+        disk.backup(self.db)
+        # Large sorts and temporary b-trees must not spill onto the loop's disk.
+        self.db.execute("PRAGMA temp_store=MEMORY")
+        self._journal = Journal(disk)
+        self._writing = False
+        owner = weakref.ref(self)
+        def authorize(action, arg1, arg2, database, source):
+            store = owner()
+            if store is not None and store._writing:
+                return sqlite3.SQLITE_OK
+            allowed = {sqlite3.SQLITE_SELECT, sqlite3.SQLITE_READ, sqlite3.SQLITE_FUNCTION,
+                       sqlite3.SQLITE_RECURSIVE}
+            read_pragmas = {"table_info", "table_xinfo", "index_info", "index_xinfo",
+                            "index_list", "foreign_key_list"}
+            if action in allowed or (action == sqlite3.SQLITE_PRAGMA and
+                                      (arg2 is None or arg1 in read_pragmas)):
+                return sqlite3.SQLITE_OK
+            return sqlite3.SQLITE_DENY
+        self.db.set_authorizer(authorize)
+        self._finalizer = weakref.finalize(self, close_store, self._journal, self.db)
+
+    @property
+    def failed(self):
+        return self._journal.error is not None
+
+    @contextmanager
+    def transaction(self):
+        with self._journal.lock:
+            self._journal.check()
+        if self._writing:
+            raise RuntimeError("Nested store transaction")
+        self._writing = True
+        tx = Transaction(self.db)
+        try:
+            self.db.execute("BEGIN")
+            yield tx
+            with self._journal.lock:
+                self._journal.check()
+                self.db.commit()
+                if tx.statements:
+                    self._journal.seq += 1
+                    self._journal.queue.put((self._journal.seq, tuple(tx.statements)))
+        except BaseException:
+            self.db.rollback()
+            raise
+        finally:
+            self._writing = False
+
+    async def durable(self):
+        await self._journal.durable()
 
     def setting(self, key, default=None):
         row = self.db.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
@@ -72,8 +129,8 @@ class Store:
 
     def set_settings(self, values):
         """Commit related authorization settings atomically."""
-        with self.db:
-            self.db.executemany("INSERT OR REPLACE INTO settings VALUES (?,?)",
+        with self.transaction() as tx:
+            tx.executemany("INSERT OR REPLACE INTO settings VALUES (?,?)",
                                 [(key, canonical(value)) for key, value in values.items()])
 
     def get(self, kind, id):
@@ -82,8 +139,8 @@ class Store:
 
     def put(self, kind, body):
         now = utcnow()
-        with self.db:
-            self.db.execute("""INSERT INTO records VALUES (?,?,?,?,?)
+        with self.transaction() as tx:
+            tx.execute("""INSERT INTO records VALUES (?,?,?,?,?)
                 ON CONFLICT(kind,id) DO UPDATE SET body=excluded.body,updated=excluded.updated""",
                 (kind, body["id"], canonical(body), now, now))
         return body
@@ -101,8 +158,8 @@ class Store:
                 raise Conflict("相同 Idempotency-Key 已用於不同內容")
             return row[1]
         if result is not None:
-            with self.db:
-                self.db.execute("INSERT INTO requests VALUES (?,?,?,?)", (scope, key, request_digest, result))
+            with self.transaction() as tx:
+                tx.execute("INSERT INTO requests VALUES (?,?,?,?)", (scope, key, request_digest, result))
         return None
 
     def conversation(self, *, id=None, scope=None):
@@ -119,8 +176,8 @@ class Store:
         return json.loads(row[0]) if row else None
 
     def event(self, task_id, kind, body):
-        with self.db:
-            self.db.execute("INSERT INTO events(task_id,at,kind,body) VALUES (?,?,?,?)",
+        with self.transaction() as tx:
+            tx.execute("INSERT INTO events(task_id,at,kind,body) VALUES (?,?,?,?)",
                             (task_id, utcnow(), kind, canonical(body)))
 
     def events(self, task_id):
@@ -130,10 +187,10 @@ class Store:
     def transition(self, task, state, **fields):
         current = self.get("task", task["id"]) or task
         task = {**current, **fields, "state": state, "updated_at": utcnow()}
-        with self.db:
-            self.db.execute("UPDATE records SET body=?,updated=? WHERE kind='task' AND id=?",
+        with self.transaction() as tx:
+            tx.execute("UPDATE records SET body=?,updated=? WHERE kind='task' AND id=?",
                             (canonical(task), utcnow(), task["id"]))
-            self.db.execute("INSERT INTO events(task_id,at,kind,body) VALUES (?,?,?,?)",
+            tx.execute("INSERT INTO events(task_id,at,kind,body) VALUES (?,?,?,?)",
                             (task["id"], utcnow(), state, canonical(fields)))
         return task
 
@@ -147,11 +204,13 @@ class Store:
             elif task["state"] in {"queued", "planning"}:
                 self.transition(task, "failed", message="處理程序已重啟，請重新送出需求")
 
-    def snapshot(self, path: Path):
-        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        with sqlite3.connect(path) as target:
-            self.db.backup(target)
-        path.chmod(0o600)
+    async def snapshot(self, path: Path):
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+        with self._journal.lock:
+            self._journal.check()
+            self._journal.queue.put((path, loop, future))
+        await future
 
     def prune(self):
         days = self.setting("retention", {"audit_days": 30, "context_days": 7})
@@ -160,15 +219,15 @@ class Store:
             days = {key: min(days[key], pending[key]) for key in ("audit_days", "context_days")}
         cutoff = (datetime.now(UTC) - timedelta(days=days["audit_days"])).isoformat()
         context_cutoff = (datetime.now(UTC) - timedelta(days=days["context_days"])).isoformat()
-        with self.db:
-            self.db.execute("DELETE FROM records WHERE kind='conversation' AND created < ?", (context_cutoff,))
+        with self.transaction() as tx:
+            tx.execute("DELETE FROM records WHERE kind='conversation' AND created < ?", (context_cutoff,))
             # Capability hashes and context-bearing evidence expire independently
             # of audit handles. Idempotency tombstones deliberately remain.
-            self.db.execute("DELETE FROM records WHERE kind='mcp_grant' AND json_extract(body,'$.expires') < ?",
+            tx.execute("DELETE FROM records WHERE kind='mcp_grant' AND json_extract(body,'$.expires') < ?",
                             (time.time(),))
-            self.db.execute("DELETE FROM records WHERE kind IN ('hermes_case','case_evidence') AND created < ?",
+            tx.execute("DELETE FROM records WHERE kind IN ('hermes_case','case_evidence') AND created < ?",
                             (context_cutoff,))
-            self.db.execute("DELETE FROM records WHERE kind='hermes_run' AND created < ? "
+            tx.execute("DELETE FROM records WHERE kind='hermes_run' AND created < ? "
                             "AND json_extract(body,'$.state') IN ('succeeded','failed','cancelled','interrupted','blocked')",
                             (cutoff,))
         for task in self.list("host_task", 10000):
@@ -183,14 +242,14 @@ class Store:
                 task["sources_expired"] = True
                 self.put("task", task)
             if terminal and task["updated_at"] < cutoff and task.get("proposal_id") not in protected:
-                with self.db:
-                    self.db.execute("DELETE FROM records WHERE kind='task' AND id=?", (task["id"],))
+                with self.transaction() as tx:
+                    tx.execute("DELETE FROM records WHERE kind='task' AND id=?", (task["id"],))
                     for kind in ("proposal", "approval", "operation"):
-                        self.db.execute("DELETE FROM records WHERE kind=? AND id=?", (kind, task.get("proposal_id")))
-        with self.db:
-            self.db.execute("DELETE FROM events WHERE at < ?", (cutoff,))
+                        tx.execute("DELETE FROM records WHERE kind=? AND id=?", (kind, task.get("proposal_id")))
+        with self.transaction() as tx:
+            tx.execute("DELETE FROM events WHERE at < ?", (cutoff,))
             # Context-bearing planning events are temporary working data, not permanent audit.
-            self.db.execute("DELETE FROM events WHERE at < ? AND kind='planning'", (context_cutoff,))
+            tx.execute("DELETE FROM events WHERE at < ? AND kind='planning'", (context_cutoff,))
         snapshots = self.path.parent / "snapshots"
         if snapshots.is_dir():
             for path in snapshots.glob("*.sqlite3"):
@@ -211,4 +270,7 @@ class Store:
                 pass  # Another cleanup already removed this exact entry.
 
     def close(self):
-        self.db.close()
+        self._finalizer()
+        # Explicit flush callers (including installed Host bootstrap scripts)
+        # must not report success when draining encountered a disk failure.
+        self._journal.check()

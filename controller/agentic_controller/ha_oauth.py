@@ -18,6 +18,7 @@ import aiohttp
 from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse
 
+from .durability import client_session, durable
 from .ha import HomeAssistant
 from .host import connect_home_owner
 from .models import Strict
@@ -70,7 +71,7 @@ class HomeAuthorization:
     async def token_request(self, path, fields):
         # URL comes from trusted deployment, never an OAuth redirect or model.
         base = self.ha.base.removesuffix("/api")
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20), trust_env=False) as session:
+        async with client_session(self.store, timeout=aiohttp.ClientTimeout(total=20), trust_env=False) as session:
             async with session.post(base + path, data=fields, allow_redirects=False) as response:
                 if response.status != 200:
                     raise ValueError("ha_oauth_exchange_failed")
@@ -126,6 +127,7 @@ class HomeAuthorization:
                 grant = await self.token_request("/auth/token", {"grant_type": "authorization_code",
                     "code": code, "client_id": record["origin"] + "/"})
                 candidate = self.factory(grant["access_token"], self.ha.base, self.ha.websocket, external=True)
+                candidate.store = self.store
                 await candidate.start()
                 user = await candidate.ws("auth/current_user")
                 if not await candidate.owner(user["id"]):
@@ -200,5 +202,6 @@ def routes(app, auth, ha, store):
             await service.finish(request, state, request.query_params.get("code"))
         except HTTPException:
             service.reject_callback(request, state)
+        await durable(service.store)
         return RedirectResponse("/#onboarding", status_code=303,
                                 headers={"Referrer-Policy": "no-referrer", "Cache-Control": "no-store"})

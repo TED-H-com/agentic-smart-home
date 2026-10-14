@@ -750,7 +750,7 @@ def controller_mcp_server(tmp_path, monkeypatch):
 
     state, errors = {"evidence": [], "url": "http://127.0.0.1:8097/mcp"}, []
 
-    async def host_fixture():
+    async def host_fixture(*, store=None):
         return {"vm": "shut off", "kvm": True, "storage_free_bytes": 123456, "secret": "broker-must-not-leak"}
 
     monkeypatch.setattr("agentic_controller.hermes.host_call", host_fixture)

@@ -202,7 +202,7 @@ class Engine:
                 self.journal(proposal, "backup_prepared")
                 backup = await self.ha.backup("Agentic Home " + proposal["id"][:12])
                 self.store.put("backup", backup)
-                self.store.snapshot(self.store.path.parent / "snapshots" / (proposal["id"] + ".sqlite3"))
+                await self.store.snapshot(self.store.path.parent / "snapshots" / (proposal["id"] + ".sqlite3"))
                 self.journal(proposal, "backup_completed", backup_id=backup["id"])
                 await self.fresh(proposal, principal)
                 if digest(await self.ha.config(resource_id)) != proposal["base_hash"]:

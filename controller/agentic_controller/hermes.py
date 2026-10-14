@@ -22,6 +22,7 @@ import aiohttp
 from fastapi import HTTPException, Request
 
 from . import VERSION
+from .durability import client_session
 from .host import host_call
 from .models import BootstrapRetry, BootstrapStepId, HermesDeviceAuth, canonical, digest, utcnow
 from .runner import Runner
@@ -69,6 +70,9 @@ class HermesError(Exception):
 
 class HermesClient:
     """The endpoint is installed configuration, never a model or browser input."""
+    def __init__(self, store=None):
+        self.store = store
+
     async def call(self, method, path, body=None, key=None):
         try:
             token = Path(os.environ.get("AGENTIC_HERMES_TOKEN_FILE", "/hermes-link/service-token")).read_text().strip()
@@ -77,7 +81,7 @@ class HermesClient:
             headers = {"Authorization": "Bearer " + token}
             if key:
                 headers["Idempotency-Key"] = key
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=12)) as session:
+            async with client_session(self.store, timeout=aiohttp.ClientTimeout(total=12)) as session:
                 async with session.request(method, "http://127.0.0.1:8096" + path, json=body,
                                            headers=headers, allow_redirects=False) as response:
                     raw = await response.content.read(262145)
@@ -96,7 +100,9 @@ class HermesClient:
 
 class Coordinator:
     def __init__(self, store, client=None):
-        self.store, self.client = store, client or HermesClient()
+        self.store, self.client = store, client or HermesClient(store)
+        if isinstance(self.client, HermesClient):
+            self.client.store = store
         self.scope_valid = lambda item: False
         self.worker_manager = Workers(store, {"host": Runner(store), "haos": Runner(store, "haos")}, self)
 
@@ -241,7 +247,7 @@ class Coordinator:
     async def host_evidence(self, grant):
         data = {"state": "unavailable"}
         with contextlib.suppress(HTTPException):
-            raw = await host_call()
+            raw = await host_call(store=self.store)
             data = {k: v for k, v in raw.items() if k in {"kvm", "provisioned", "storage_free_bytes"}
                     and isinstance(v, (bool, int))}
             if raw.get("vm") in {"running", "shut off", "paused", "not_created", "unknown"}:

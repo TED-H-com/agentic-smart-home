@@ -21,6 +21,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
@@ -36,9 +37,11 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import Field, ValidationError, field_validator
 
 from . import VERSION
+from .durability import client_session, durable, file_io
 from .ha import HAError
 from .host import host_call
 from .models import Strict
+from .response_durability import ResponseDurabilityMiddleware
 
 BRIDGE_CONTRACT = 1
 # The sidebar relay must drop an idle connection before this. aiohttp does not retry a POST.
@@ -102,9 +105,10 @@ class IngressBridge:
         self.issuer = object()
         self.on_revoke = lambda: None
         self.owner_valid_until = 0.0
-        self.host_status = host_status or host_call
+        self.host_status = host_status or partial(host_call, store=store)
         self.host_valid_until, self.host_scope = 0.0, None
         self.host_lock = asyncio.Lock()
+        self.pairing_lock = asyncio.Lock()
         self.host_stop_task = None
         self.listener_ready = False
         self.server, self.listener_task, self.owner_task = None, None, None
@@ -177,7 +181,13 @@ class IngressBridge:
                 raise ValueError("invalid private bridge file")
             return stream.read(limit + 1)
 
-    def private_write(self, name, value):
+    async def private_write(self, name, value, guard):
+        await durable(self.store)
+        guard()
+        await file_io(self._private_write, name, value)
+        guard()
+
+    def _private_write(self, name, value):
         target = self.root / name
         temp = self.root / ("." + uuid.uuid4().hex)
         fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
@@ -219,22 +229,39 @@ class IngressBridge:
                     "json_type(body,'$.authority.bridge_pairing_id') IS NOT NULL LIMIT 1").fetchone()):
             raise HTTPException(409, "bridge_initial_repair_not_allowed")
 
-    def repair_unused_pairing(self):
+    async def repair_unused_pairing(self, *, commit_guard=None):
         """Explicit Host route only, after its fresh Owner/epoch guard and under manager lock."""
         self.unused_pairing_guard()
         try:
             # A lost repair reply reuses the already valid unused generation.
-            self.prepare_pairing()
+            await self.prepare_pairing(commit_guard=commit_guard)
         except HTTPException as exc:
             if exc.detail != "bridge_pairing_needs_repair":
                 raise
-            self.prepare_pairing(repair=True)
+            await self.prepare_pairing(repair=True, commit_guard=commit_guard)
+        if commit_guard:
+            commit_guard()
+        self.unused_pairing_guard()
         self.store.set_setting("bridge_enrollment", {"state": "not_authorized", "code": None})
         return self.status()
 
-    def prepare_pairing(self, repair=False):
+    async def prepare_pairing(self, repair=False, *, commit_guard=None):
+        async with self.pairing_lock:
+            return await self._prepare_pairing(repair, commit_guard)
+
+    async def _prepare_pairing(self, repair=False, commit_guard=None):
         self.host_guard()
+        scope = self.authority_scope()
         owner, previous = self.store.setting("owner"), self.record()
+
+        def unchanged():
+            self.host_guard()
+            if scope != self.authority_scope() or previous != self.record():
+                raise HTTPException(403, "bridge_authority_revoked")
+            if commit_guard:
+                commit_guard()
+
+        unchanged()
         if not isinstance(owner, str) or not re.fullmatch(IDENT, owner):
             raise HTTPException(409, "bridge_owner_required")
         if previous and previous.get("owner") != owner and not repair:
@@ -270,10 +297,10 @@ class IngressBridge:
                     .sign(key, hashes.SHA256()))
                 token = secrets.token_urlsafe(48)
                 fingerprint = certificate.fingerprint(hashes.SHA256()).hex()
-                self.private_write("tls.key", key.private_bytes(serialization.Encoding.PEM,
-                    serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
-                self.private_write("tls.pem", certificate.public_bytes(serialization.Encoding.PEM))
-                self.private_write("service-token", token.encode())
+                await self.private_write("tls.key", key.private_bytes(serialization.Encoding.PEM,
+                    serialization.PrivateFormat.PKCS8, serialization.NoEncryption()), unchanged)
+                await self.private_write("tls.pem", certificate.public_bytes(serialization.Encoding.PEM), unchanged)
+                await self.private_write("service-token", token.encode(), unchanged)
                 for path in temporary:
                     path.unlink()
                 previous = {"protocol": 1, "pairing_id": uuid.uuid4().hex, "owner": owner, "state": "prepared",
@@ -455,7 +482,7 @@ class IngressBridge:
                 or not re.fullmatch(r"[a-f0-9]{64}", expected or "") or not url.endswith(f"/{width}.png")):
             raise HTTPException(404, "bridge_preview_unavailable")
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10), trust_env=False) as session:
+            async with client_session(self.store, timeout=aiohttp.ClientTimeout(total=10), trust_env=False) as session:
                 async with session.get(url, allow_redirects=False) as response:
                     if response.status != 200 or response.content_type != "image/png":
                         raise HTTPException(502, "bridge_preview_invalid")
@@ -473,6 +500,7 @@ class IngressBridge:
 
     def create_transport(self):
         transport = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+        transport.add_middleware(ResponseDurabilityMiddleware, store=self.store)
         @transport.post("/v1/request")
         async def request(request: Request):
             if not request.client or request.client.host != PEER:
@@ -579,7 +607,9 @@ class IngressBridge:
             try:
                 if self.record().get("state") in {"prepared", "connected"}:
                     await self.require_host()
-                    self.prepare_pairing()
+                    await self.prepare_pairing()
+                    await durable(self.store)
+                    self.host_guard()
                     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                     sock.bind((HOST, PORT))

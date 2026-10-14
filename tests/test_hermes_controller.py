@@ -121,7 +121,7 @@ async def test_device_auth_lost_response_retries_same_identity_without_epoch_rot
 
 async def test_host_mcp_native_onboarding_evidence_is_typed_and_secret_free(system, store, monkeypatch):
     app, _, _ = system
-    async def observe():
+    async def observe(*, store=None):
         return {"kvm": True, "vm": "running", "bootstrap": {"ha": {"reachable": True,
             "onboarding_available": True, "onboarding_complete": False, "http_status": 200,
             "token": "never expose", "steps": [{"step": "user", "done": False, "identity": "private-owner"},
@@ -191,7 +191,7 @@ async def test_mcp_catalog_rejects_live_calls_and_forged_authority(system, store
 async def test_mcp_evidence_observation_scope_revocation_and_size(system, store, monkeypatch):
     app, _, _ = system
     token, item = await prepare_grant(app, store)
-    async def observed():
+    async def observed(*, store=None):
         return {"vm": "running", "kvm": True, "storage_free_bytes": 123, "private_token": "must-not-leak"}
     monkeypatch.setattr("agentic_controller.hermes.host_call", observed)
     transport = httpx.ASGITransport(app=create_mcp(app.state.coordinator), client=("127.0.0.1", 40000))

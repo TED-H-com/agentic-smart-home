@@ -193,7 +193,7 @@ def sample_summary(*, boot=False):
 def outer_script(public):
     # Retain the reviewed inference fixture, but remove manual bridge pairing.
     from test_bridge_haos import OUTER
-    text = OUTER.replace("        options = app.state.ingress_bridge.prepare_pairing()\n        Path('/lab/pairing.json').write_text(json.dumps(options))\n", '')
+    text = OUTER.replace("        options = await app.state.ingress_bridge.prepare_pairing()\n        await store.durable()\n        Path('/lab/pairing.json').write_text(json.dumps(options))\n", '')
     text = text.replace("        if settings['public']:\n            store.put", '        store.put')
     if not public:
         text = text.replace('async def main():',
@@ -699,9 +699,15 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             check_ok = bool(options_state == 'absent' and state == 'started' and version == VERSION and repository == repo)
             assert check_ok, 'home_worker_installed_identity_invalid'
             evidence['checks']['real_app_contract'] = True
-            record = setting(database, 'home_worker_maintenance')
+            deadline = time.monotonic() + 30
+            while True:
+                record = setting(database, 'home_worker_maintenance')
+                peer = setting(database, 'runner_haos')
+                if record.get('state') == current.get('state') and peer.get('fingerprint') == current.get('fingerprint'):
+                    break
+                assert time.monotonic() < deadline, 'home_worker_pairing_not_persisted'
+                await asyncio.sleep(.25)
             persisted_record_contract(record)
-            peer = setting(database, 'runner_haos')
             fingerprint = current.get('fingerprint')
             peer_host, peer_port, peer_pin = peer.get('host'), peer.get('port'), peer.get('fingerprint')
             check_ok = bool(peer_host == '192.168.177.2' and peer_port == 8443 and peer_pin == fingerprint)

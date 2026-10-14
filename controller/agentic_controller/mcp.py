@@ -9,6 +9,7 @@ from .engine import Rejected
 from .ha import HAError
 from .household import HomeObserve, HomePropose, HomeStatus
 from .models import canonical
+from .response_durability import ResponseDurabilityMiddleware
 from .store import Conflict
 from .work import EvidenceQuery, NoArguments, WorkerQuery, WorkerSubmit
 from .workers import WorkerError
@@ -48,6 +49,7 @@ def tool_error(exc):
 def create_mcp(coordinator):
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     store = coordinator.store
+    app.add_middleware(ResponseDurabilityMiddleware, store=store)
 
     @app.post("/mcp")
     async def rpc(request: Request):

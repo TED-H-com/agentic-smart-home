@@ -552,7 +552,17 @@ print(json.dumps({'evidence':records('case_evidence'),
  'runs':[{k:r.get(k) for k in ('id','case_id','message_id','state')} for r in records('hermes_run')],
  'messages':[{k:m.get(k) for k in ('id','case_id','hermes_run_id','state','coordinator')} for m in records('conversation')]}))
 """
-            observed = json.loads(await docker("exec", controller, "python", "-c", script))
+            deadline = time.monotonic() + 30
+            while True:
+                observed = json.loads(await docker("exec", controller, "python", "-c", script))
+                evidence_cases = {item.get("case_id") for item in observed["evidence"]}
+                completed = [run for run in observed["runs"] if run.get("case_id") in evidence_cases
+                             and run.get("state") == "succeeded"]
+                if completed and any(message.get("id") == run.get("message_id") and
+                        message.get("state") == "succeeded" for run in completed for message in observed["messages"]):
+                    break
+                assert time.monotonic() < deadline, "case_evidence_not_persisted"
+                await asyncio.sleep(.25)
             assert len(observed["evidence"]) == 1
             evidence = observed["evidence"][0]
             assert evidence["observed_from"] == "host_broker"

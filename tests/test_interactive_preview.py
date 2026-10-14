@@ -586,7 +586,7 @@ class _Jobs:
         return self.files[artifact]
 
 
-async def _broker_missing(method, path, body=None):
+async def _broker_missing(method, path, body=None, *, store=None):
     if method == "GET":
         raise HTTPException(404)
     return body
@@ -614,7 +614,7 @@ async def test_interactive_preview_is_host_only_and_needs_a_build(store, monkeyp
 async def test_preview_idempotency_includes_mode(store, monkeypatch):
     calls = []
 
-    async def broker(method, path, body=None):
+    async def broker(method, path, body=None, *, store=None):
         calls.append((method, path, body))
         if method == "GET":
             raise HTTPException(404)
@@ -630,7 +630,7 @@ async def test_preview_idempotency_includes_mode(store, monkeypatch):
     assert calls[-1][2]["artifact_digest"]
     host = SimpleNamespace(headers={"idempotency-key": "interactive-once"}, state=SimpleNamespace())
 
-    async def accept(method, path, body=None):
+    async def accept(method, path, body=None, *, store=None):
         if method == "GET":
             raise HTTPException(404)
         assert set(body) == {"id", "mode", "job_id"}
