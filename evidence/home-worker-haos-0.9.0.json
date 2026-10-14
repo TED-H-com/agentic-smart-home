@@ -30,22 +30,29 @@
     "abrupt_same_boot_restart_retains_lease_and_prevents_replay": true
   },
   "phase": "completed",
-  "source_commit": "4412d33b15af3c4427bc762394c853b63cc7fe05",
+  "source_commit": "90614e51d5e4758f1fd95a6213701bc5e07bcd13",
   "runtime_source_uncommitted": false,
-  "runner_base_image_id": "sha256:02ccc93484d84f2edd985dc6749911ac9e23f1089e4728ad4dda00d38a50654a",
-  "controller_image_id": "sha256:ca3f77b037241ae09d13a1e6f60208e792117ae2c3e00e89b32203bbd41edd58",
+  "runner_base_image_id": "sha256:47cb73129c2e6a0d8da49edaf36b41e01d656422747e8917747003e0e15b7e6c",
+  "controller_image_id": "sha256:4925149c727238e6f04d77f4b960ba9ea86cca36c79ae3de317093912f790b94",
   "core": "2026.10.1",
   "supervisor": "2026.09.3",
   "app_config_sha256": "0d36bd1c1c55897877a7d677663ad2d6aa1112d541144cda9936621529ca4553",
   "app_apparmor_sha256": "e5806ce5ccc65cb1e1332774f0b6b96b7af650f20a76cb6516d0f018862d7753",
   "fixture_helper_sha256": "c339fab1de3ebb9cff4da4e57f06898a2c2a3decae105b736a837703ddd02b71",
-  "runner_oci_config_digest": "sha256:67514b1e26c280abc7d23a415088a23e31ca3b8f4c80590b49266f0813f84308",
+  "runner_oci_config_digest": "sha256:c249e121e098810c4737a87a05099f2bbe399b123a8bc488dca1e4db7c07d92a",
+  "registry_step": "done",
+  "registry_push_failures": [],
+  "registry_push_attempts": 1,
   "registry_fixture": {
     "scope": "disposable_haos_loopback_only",
     "upstream": "registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e",
     "registry_config_digest": "sha256:99b916d8206bcbfc54c95fb06076751932c902254277f149b082dd5d4d67fccb",
-    "base_reference": "127.0.0.1:5000/agentic-home-runner@sha256:34f19d552439aa846e983a703ebf3e34c0fb802d64bf664952bfa7c3e0a4ac8d",
+    "base_reference": "127.0.0.1:5000/agentic-home-runner@sha256:abe402a68845103b3a092dd8876475e9b1aa4769bd60e4e0ce1b51cc361579a8",
     "base_config_digest_verified": true
+  },
+  "store_catalog": {
+    "attempts": 1,
+    "failures": []
   },
   "install_confirmation": "app_postcondition_job_unavailable",
   "app_contract": {
@@ -88,9 +95,9 @@
     }
   },
   "actual_apparmor_profile": "local_agentic_runner",
-  "derived_fixture_image_id": "sha256:57f13345df141d877984e893d4d148b53dc61e32a37f74cbda4160f77f45a7d3",
+  "derived_fixture_image_id": "sha256:403ede7d7db2231d09b84192e0ea9630aacd8395a25927973a01d6587f223899",
   "startup_boundaries": {
-    "cancel_seconds": 0.232,
+    "cancel_seconds": 0.235,
     "checks": {
       "actual_cpu_throttling": true,
       "actual_ext4_enospc": true,
@@ -109,12 +116,12 @@
         "burst_usec": 0,
         "nice_usec": 0,
         "nr_bursts": 0,
-        "nr_periods": 1,
+        "nr_periods": 3,
         "nr_throttled": 0,
-        "system_usec": 10745,
+        "system_usec": 7007,
         "throttled_usec": 0,
-        "usage_usec": 69849,
-        "user_usec": 59103
+        "usage_usec": 75285,
+        "user_usec": 68277
       },
       "memory.events": {
         "high": 0,
@@ -155,17 +162,17 @@
         "burst_usec": 0,
         "nice_usec": 0,
         "nr_bursts": 0,
-        "nr_periods": 1,
+        "nr_periods": 2,
         "nr_throttled": 0,
-        "system_usec": 53617,
+        "system_usec": 65758,
         "throttled_usec": 0,
-        "usage_usec": 77447,
-        "user_usec": 23829
+        "usage_usec": 83692,
+        "user_usec": 17934
       },
       "memory.events": {
         "high": 0,
         "low": 0,
-        "max": 20,
+        "max": 22,
         "oom": 1,
         "oom_group_kill": 1,
         "oom_kill": 5
@@ -184,12 +191,12 @@
         "burst_usec": 0,
         "nice_usec": 0,
         "nr_bursts": 0,
-        "nr_periods": 42,
-        "nr_throttled": 40,
-        "system_usec": 6889,
-        "throttled_usec": 3927367,
-        "usage_usec": 4125566,
-        "user_usec": 4118676
+        "nr_periods": 44,
+        "nr_throttled": 41,
+        "system_usec": 24619,
+        "throttled_usec": 3969279,
+        "usage_usec": 4143555,
+        "user_usec": 4118936
       },
       "memory.events": {
         "high": 0,
@@ -222,17 +229,17 @@
         "burst_usec": 0,
         "nice_usec": 0,
         "nr_bursts": 0,
-        "nr_periods": 4,
+        "nr_periods": 7,
         "nr_throttled": 0,
-        "system_usec": 40275,
+        "system_usec": 37008,
         "throttled_usec": 0,
-        "usage_usec": 102607,
-        "user_usec": 62331
+        "usage_usec": 120053,
+        "user_usec": 83045
       },
       "memory.events": {
         "high": 0,
         "low": 0,
-        "max": 151,
+        "max": 189,
         "oom": 0,
         "oom_group_kill": 0,
         "oom_kill": 0
@@ -249,9 +256,9 @@
         "pids"
       ],
       "namespace_ids": {
-        "cgroup_ns": 4026532351,
+        "cgroup_ns": 4026532442,
         "mnt_ns": 4026532875,
-        "pid_ns": 4026532350
+        "pid_ns": 4026532441
       },
       "observed_from": "haos_app",
       "private_cgroup_root": true,
@@ -262,27 +269,27 @@
   },
   "app_observation": {
     "apparmor_enforcing": true,
-    "boot_id_sha256": "867c2d07eef642ddb829c870126ae2e426248e016abf5b5bb2d7cac6e62e8624",
+    "boot_id_sha256": "e258e2dc85c0d8aa1a000f05dd652772f76ae8e4ea8adb57fe245ce62f23d9d9",
     "docker_socket_present": false,
     "fuse_device_openable": true,
     "fuse_device_present": true,
     "host_socket_present": false,
     "namespaces": {
-      "cgroup": 4026532351,
+      "cgroup": 4026532442,
       "mnt": 4026532875,
-      "net": 4026532352,
-      "pid": 4026532350
+      "net": 4026532443,
+      "pid": 4026532441
     },
     "observed_from": "haos_app",
     "process_id": 1,
-    "process_start_ticks": 17346,
+    "process_start_ticks": 85580,
     "supervisor_token_present": true,
     "uid": 0
   },
   "last_job": {
-    "id": "6967753cce49478d80f1cc33c6efc70d",
-    "job_id": "6967753cce49478d80f1cc33c6efc70d",
-    "case_id": "c72f19d0cf764179991e1b1fcecb5f47",
+    "id": "89f5749e98214b71a9cd0a90a513d40c",
+    "job_id": "89f5749e98214b71a9cd0a90a513d40c",
+    "case_id": "2a36b888d28e4dcd907eca7c02736bfb",
     "state": "running",
     "stop_confirmed": false,
     "execution_started": true,
@@ -292,9 +299,9 @@
     "verification": {}
   },
   "source_job": {
-    "id": "0892106784854cd0a127b1ef31486546",
-    "job_id": "0892106784854cd0a127b1ef31486546",
-    "case_id": "c72f19d0cf764179991e1b1fcecb5f47",
+    "id": "f48b31679f944c4bb35bc3e41c243ea2",
+    "job_id": "f48b31679f944c4bb35bc3e41c243ea2",
+    "case_id": "2a36b888d28e4dcd907eca7c02736bfb",
     "state": "succeeded",
     "stop_confirmed": true,
     "execution_started": true,
@@ -346,8 +353,8 @@
   },
   "namespace_comparison": {
     "app": {
-      "pid_ns": 4026532350,
-      "cgroup_ns": 4026532351,
+      "pid_ns": 4026532441,
+      "cgroup_ns": 4026532442,
       "mnt_ns": 4026532875
     },
     "worker": {
@@ -363,7 +370,7 @@
   },
   "model_fixture": {
     "pytest_passed": true,
-    "requests": 3,
+    "requests": 11,
     "source_marker": true,
     "tool_output_received": true
   },
@@ -457,8 +464,8 @@
         "available": false
       },
       "diagnostic_namespace_ids": {
-        "pid_ns": 4026532350,
-        "cgroup_ns": 4026532351,
+        "pid_ns": 4026532441,
+        "cgroup_ns": 4026532442,
         "mnt_ns": 4026532875
       }
     },
@@ -477,12 +484,12 @@
         "available": false
       },
       "diagnostic_namespace_ids": {
-        "pid_ns": 4026532350,
-        "cgroup_ns": 4026532351,
+        "pid_ns": 4026532441,
+        "cgroup_ns": 4026532442,
         "mnt_ns": 4026532875
       }
     },
-    "seconds": 1.343
+    "seconds": 1.882
   },
   "graceful_restart": {
     "before": {
@@ -519,15 +526,15 @@
         "available": false
       },
       "diagnostic_namespace_ids": {
-        "pid_ns": 4026532350,
-        "cgroup_ns": 4026532351,
+        "pid_ns": 4026532441,
+        "cgroup_ns": 4026532442,
         "mnt_ns": 4026532875
       }
     },
     "job": {
-      "id": "07d4b072a2ca448c91a25955d0dd03bf",
-      "job_id": "07d4b072a2ca448c91a25955d0dd03bf",
-      "case_id": "c72f19d0cf764179991e1b1fcecb5f47",
+      "id": "4f966de0ef3a4ceb863786b88c8aa932",
+      "job_id": "4f966de0ef3a4ceb863786b88c8aa932",
+      "case_id": "2a36b888d28e4dcd907eca7c02736bfb",
       "state": "interrupted",
       "stop_confirmed": true,
       "execution_started": true,
@@ -538,21 +545,21 @@
       "verification": {}
     },
     "generation_before": {
-      "container_id": "64ae3f65601bf8e9a86e50b39e79a9178f70e818a0842e74445ea5b415799cbd",
-      "started_at": "2026-10-13T13:59:06.258742139Z",
-      "started_at_epoch": 1791899946.258742,
-      "host_pid": 3483,
+      "container_id": "64f34c633c990c2827ad68c91b19dd613ab4083de0cc8bd1875568d939e7f3ab",
+      "started_at": "2026-10-14T19:42:45.803905223Z",
+      "started_at_epoch": 1792006965.803905,
+      "host_pid": 3406,
       "running": true
     },
     "generation_after": {
-      "container_id": "198f31b8627245a9517afc3447ebc33f447efae8d27105390a31c1d0f2e494c3",
-      "started_at": "2026-10-13T14:00:07.745992229Z",
-      "started_at_epoch": 1791900007.745992,
-      "host_pid": 4878,
+      "container_id": "5f591636f447c00e7177a8b9f2f944046d69b6574d8b9b213187168fe5bc5e88",
+      "started_at": "2026-10-14T19:46:58.233549905Z",
+      "started_at_epoch": 1792007218.233549,
+      "host_pid": 5956,
       "running": true
     },
-    "process_start_ticks_before": 17346,
-    "process_start_ticks_after": 23495
+    "process_start_ticks_before": 85580,
+    "process_start_ticks_after": 110823
   },
   "abrupt_restart": {
     "before": {
@@ -589,33 +596,33 @@
         "available": false
       },
       "diagnostic_namespace_ids": {
-        "pid_ns": 4026532350,
-        "cgroup_ns": 4026532351,
+        "pid_ns": 4026532441,
+        "cgroup_ns": 4026532442,
         "mnt_ns": 4026532875
       }
     },
     "generation_before": {
-      "container_id": "198f31b8627245a9517afc3447ebc33f447efae8d27105390a31c1d0f2e494c3",
-      "started_at": "2026-10-13T14:00:07.745992229Z",
-      "started_at_epoch": 1791900007.745992,
-      "host_pid": 4878,
+      "container_id": "5f591636f447c00e7177a8b9f2f944046d69b6574d8b9b213187168fe5bc5e88",
+      "started_at": "2026-10-14T19:46:58.233549905Z",
+      "started_at_epoch": 1792007218.233549,
+      "host_pid": 5956,
       "running": true
     },
-    "process_start_ticks_before": 23495,
+    "process_start_ticks_before": 110823,
     "generation_after": {
-      "container_id": "8b862bafbb096a728f8e0d354f7335c4b591072ccc033b356fb9c0f41641a4e9",
-      "started_at": "2026-10-13T14:00:41.949825545Z",
-      "started_at_epoch": 1791900041.949825,
-      "host_pid": 5285,
+      "container_id": "d1ce5d5e7d93c73fcb1597f27a51196a528c174fbdd6afd2a9db85a77d625414",
+      "started_at": "2026-10-14T19:48:22.506884462Z",
+      "started_at_epoch": 1792007302.506884,
+      "host_pid": 7115,
       "running": true
     },
-    "process_start_ticks_after": 26915,
+    "process_start_ticks_after": 119250,
     "same_haos_boot": true,
     "namespace_ids_changed": false,
     "job": {
-      "id": "6967753cce49478d80f1cc33c6efc70d",
-      "job_id": "6967753cce49478d80f1cc33c6efc70d",
-      "case_id": "c72f19d0cf764179991e1b1fcecb5f47",
+      "id": "89f5749e98214b71a9cd0a90a513d40c",
+      "job_id": "89f5749e98214b71a9cd0a90a513d40c",
+      "case_id": "2a36b888d28e4dcd907eca7c02736bfb",
       "state": "stop_unconfirmed",
       "stop_confirmed": false,
       "execution_started": true,
@@ -627,9 +634,9 @@
     },
     "exact_lease_retained": true,
     "queued_job": {
-      "id": "c4519bb5b62d4205bbb2674c28eb0eea",
-      "job_id": "c4519bb5b62d4205bbb2674c28eb0eea",
-      "case_id": "8feb5def196d4f108d55672059eda28f",
+      "id": "2af72cc2d23c420ea536e564ec7f8bc7",
+      "job_id": "2af72cc2d23c420ea536e564ec7f8bc7",
+      "case_id": "5edad98a70d845f89b866e4a03735857",
       "state": "queued",
       "stop_confirmed": false,
       "execution_started": false,
@@ -647,5 +654,5 @@
     "disk_fixture_ownership_restored": true,
     "network_removed": true
   },
-  "duration_seconds": 314.235
+  "duration_seconds": 1245.271
 }

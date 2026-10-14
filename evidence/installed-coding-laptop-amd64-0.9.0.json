@@ -53,6 +53,6 @@
   "handoff": "fenced_checkpoint",
   "stopped_workspaces_reclaimed": true,
   "cleanup": "passed",
-  "duration_seconds": 8.85,
-  "installed_source": "4412d33b15af3c4427bc762394c853b63cc7fe05"
+  "duration_seconds": 13.38,
+  "installed_source": "90614e51d5e4758f1fd95a6213701bc5e07bcd13"
 }

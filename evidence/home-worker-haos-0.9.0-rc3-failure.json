@@ -1,0 +1,649 @@
+{
+  "kind": "real_haos_home_coding_worker",
+  "status": "failed",
+  "observed_from": "haos_app",
+  "haos_image": "18.3",
+  "delivery": "local_supervisor_derived_transport_fixture",
+  "cloud": "fixed_model_transport_no_real_cloud_account",
+  "source_task": "documentation_only_patch_on_shipped_source",
+  "not_acceptance": [
+    "real_model_auth",
+    "autonomous_research_quality",
+    "physical_household",
+    "E2"
+  ],
+  "checks": {
+    "product_image_layers_verified": true,
+    "distinct_actual_haos_app_namespaces": true,
+    "outer_controller_actual_pinned_tls_pairing": true,
+    "home_role_login_separate_from_unpaired_host": true,
+    "actual_codex_tools": true,
+    "actual_source_patch": true,
+    "independent_baseline_tests": true,
+    "same_case_tls_artifacts": true,
+    "worker_boundary_checks": true,
+    "same_case_observation_content_and_digest": true,
+    "additional_app_namespace_view": true,
+    "fenced_checkpoint_handoff": true
+  },
+  "phase": "actual_tls_cancel_descendants",
+  "source_commit": "c9fb98a813c26ed42b1bbce0d569ae15c1be26ec",
+  "runtime_source_uncommitted": false,
+  "runner_base_image_id": "sha256:e46af6ec0bf6617a92ab80c6acc1d7b3b0048340951d90fad565e12608e67023",
+  "controller_image_id": "sha256:ca4b657d14536a4eaf479f6b0d6f91469513e51d1fff0252ac83de70885f5376",
+  "core": "2026.10.1",
+  "supervisor": "2026.09.3",
+  "app_config_sha256": "0d36bd1c1c55897877a7d677663ad2d6aa1112d541144cda9936621529ca4553",
+  "app_apparmor_sha256": "e5806ce5ccc65cb1e1332774f0b6b96b7af650f20a76cb6516d0f018862d7753",
+  "fixture_helper_sha256": "c339fab1de3ebb9cff4da4e57f06898a2c2a3decae105b736a837703ddd02b71",
+  "runner_oci_config_digest": "sha256:69028f34ecfb32fc534f525a930a18ca4556da5d7f1f12a09b282ae70ed57d79",
+  "registry_fixture": {
+    "scope": "disposable_haos_loopback_only",
+    "upstream": "registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e",
+    "registry_config_digest": "sha256:99b916d8206bcbfc54c95fb06076751932c902254277f149b082dd5d4d67fccb",
+    "base_reference": "127.0.0.1:5000/agentic-home-runner@sha256:668eb1362375e431f9750a75d70b748a90dc06cf78c71ede95f442b4eb20ffce",
+    "base_config_digest_verified": true
+  },
+  "install_confirmation": "app_postcondition_job_unavailable",
+  "app_contract": {
+    "slug": "local_agentic_runner",
+    "version": "0.9.0",
+    "apparmor_policy": "profile",
+    "privileged": [
+      "SYS_ADMIN"
+    ],
+    "no_ha_supervisor_or_docker_api": true,
+    "host_pid": false,
+    "host_network": false,
+    "full_access": false,
+    "devices": [
+      "/dev/fuse"
+    ]
+  },
+  "app_container_observation": {
+    "apparmor_profile": "local_agentic_runner",
+    "cap_add": [
+      "SYS_ADMIN"
+    ],
+    "unknown_cap_count": 0,
+    "privileged": false,
+    "host_pid": false,
+    "host_network": false,
+    "device_cgroup_rules": [
+      "c 10:229 rwm"
+    ],
+    "unrecognized_device_rule_count": 0,
+    "direct_device_mapping_count": 0,
+    "state": {
+      "Running": true,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": true,
+      "Dead": false,
+      "Status": "running",
+      "ExitCode": 0
+    }
+  },
+  "actual_apparmor_profile": "local_agentic_runner",
+  "derived_fixture_image_id": "sha256:33cfa72518e6a6707d0522af4bb142b1b57a49c463f3d6b4ea8fdf005301411b",
+  "startup_boundaries": {
+    "cancel_seconds": 0.233,
+    "checks": {
+      "actual_cpu_throttling": true,
+      "actual_ext4_enospc": true,
+      "actual_memory_oom_kill": true,
+      "actual_pid_limit": true,
+      "descendant_cancel_and_cgroup_empty": true,
+      "worker_and_fuse_cgroups_reclaimed": true
+    },
+    "cleanup": "passed",
+    "descendant_counters": {
+      "cgroup.events": {
+        "frozen": 0,
+        "populated": 0
+      },
+      "cpu.stat": {
+        "burst_usec": 0,
+        "nice_usec": 0,
+        "nr_bursts": 0,
+        "nr_periods": 2,
+        "nr_throttled": 0,
+        "system_usec": 4970,
+        "throttled_usec": 0,
+        "usage_usec": 65104,
+        "user_usec": 60133
+      },
+      "memory.events": {
+        "high": 0,
+        "low": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_group_kill": 0,
+        "oom_kill": 0
+      },
+      "pids.events": {
+        "max": 0
+      }
+    },
+    "entry_boundary_checks": {
+      "effective_capabilities_zero": true,
+      "inherited_directory_fds_absent": true,
+      "nested_user_namespace_denied": true,
+      "no_new_privileges": true,
+      "private_coding_path_absent": true,
+      "private_workspace_fds_absent": true,
+      "seccomp_filter_active": true,
+      "staging_path_absent": true,
+      "worker_fuse_device_unavailable": true
+    },
+    "last_job": {
+      "cgroup_populated": false,
+      "exit_code": null,
+      "oom_killed": false,
+      "state": "cancelled",
+      "stop_confirmed": true
+    },
+    "memory_counters": {
+      "cgroup.events": {
+        "frozen": 0,
+        "populated": 0
+      },
+      "cpu.stat": {
+        "burst_usec": 0,
+        "nice_usec": 0,
+        "nr_bursts": 0,
+        "nr_periods": 4,
+        "nr_throttled": 0,
+        "system_usec": 59326,
+        "throttled_usec": 0,
+        "usage_usec": 83693,
+        "user_usec": 24366
+      },
+      "memory.events": {
+        "high": 0,
+        "low": 0,
+        "max": 25,
+        "oom": 1,
+        "oom_group_kill": 1,
+        "oom_kill": 4
+      },
+      "pids.events": {
+        "max": 0
+      }
+    },
+    "observed_from": "haos_app",
+    "pid-cpu_counters": {
+      "cgroup.events": {
+        "frozen": 0,
+        "populated": 0
+      },
+      "cpu.stat": {
+        "burst_usec": 0,
+        "nice_usec": 0,
+        "nr_bursts": 0,
+        "nr_periods": 43,
+        "nr_throttled": 40,
+        "system_usec": 15847,
+        "throttled_usec": 3955096,
+        "usage_usec": 4102045,
+        "user_usec": 4086197
+      },
+      "memory.events": {
+        "high": 0,
+        "low": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_group_kill": 0,
+        "oom_kill": 0
+      },
+      "pids.events": {
+        "max": 1
+      }
+    },
+    "pids": {
+      "children_started": 12,
+      "errno": 11
+    },
+    "quota": {
+      "capacity_bytes": 251590656,
+      "errno": 28,
+      "tmp_same_volume": true,
+      "written_bytes": 150994944
+    },
+    "quota_counters": {
+      "cgroup.events": {
+        "frozen": 0,
+        "populated": 0
+      },
+      "cpu.stat": {
+        "burst_usec": 0,
+        "nice_usec": 0,
+        "nr_bursts": 0,
+        "nr_periods": 5,
+        "nr_throttled": 0,
+        "system_usec": 38512,
+        "throttled_usec": 0,
+        "usage_usec": 112328,
+        "user_usec": 73815
+      },
+      "memory.events": {
+        "high": 0,
+        "low": 0,
+        "max": 118,
+        "oom": 0,
+        "oom_group_kill": 0,
+        "oom_kill": 0
+      },
+      "pids.events": {
+        "max": 0
+      }
+    },
+    "runtime": {
+      "boundary_contract": 1,
+      "controllers": [
+        "cpu",
+        "memory",
+        "pids"
+      ],
+      "namespace_ids": {
+        "cgroup_ns": 4026532448,
+        "mnt_ns": 4026532875,
+        "pid_ns": 4026532447
+      },
+      "observed_from": "haos_app",
+      "private_cgroup_root": true,
+      "worker_network": "private_namespace_relay_only"
+    },
+    "source_commit": "0eb569e42ed2661e3e3bd4c7835b3715d57e3da0",
+    "status": "passed"
+  },
+  "app_observation": {
+    "apparmor_enforcing": true,
+    "boot_id_sha256": "5a93575fb09071e3cc355a7007692671e21f6c97d34ebcb3fe0677dc0c2e991f",
+    "docker_socket_present": false,
+    "fuse_device_openable": true,
+    "fuse_device_present": true,
+    "host_socket_present": false,
+    "namespaces": {
+      "cgroup": 4026532448,
+      "mnt": 4026532875,
+      "net": 4026532449,
+      "pid": 4026532447
+    },
+    "observed_from": "haos_app",
+    "process_id": 1,
+    "process_start_ticks": 45439,
+    "supervisor_token_present": true,
+    "uid": 0
+  },
+  "last_job": {
+    "id": "342a00fd3ed942a189a093127d409347",
+    "job_id": "342a00fd3ed942a189a093127d409347",
+    "case_id": "04b4f569382a4eb188249bdd0c5425de",
+    "state": "running",
+    "stop_confirmed": false,
+    "execution_started": true,
+    "runtime_location": "haos_app",
+    "artifact_count": 0,
+    "evidence_count": 0,
+    "verification": {}
+  },
+  "source_job": {
+    "id": "080047fd28f3458fa3c21db6c891cf06",
+    "job_id": "080047fd28f3458fa3c21db6c891cf06",
+    "case_id": "04b4f569382a4eb188249bdd0c5425de",
+    "state": "succeeded",
+    "stop_confirmed": true,
+    "execution_started": true,
+    "runtime_location": "haos_app",
+    "artifact_count": 7,
+    "evidence_count": 3,
+    "verification": {
+      "state": "passed",
+      "observed_from": "independent_home_verifier",
+      "network": "none",
+      "trusted_tests": "pinned_baseline",
+      "patch_sha256": "2aed8d97fa17ede7438020c04363f4e6a59ceec36b4705043009425fe7c4e078",
+      "exit_code": 0,
+      "stop_confirmed": true
+    }
+  },
+  "independent_tests_executed": 38,
+  "boundary_checks": {
+    "uid_unprivileged": true,
+    "supervisor_env_absent": true,
+    "hassio_env_absent": true,
+    "fixture_parent_env_absent": true,
+    "docker_socket_absent": true,
+    "host_socket_absent": true,
+    "private_coding_path_absent": true,
+    "staging_path_absent": true,
+    "private_workspace_fds_absent": true,
+    "inherited_directory_fds_absent": true,
+    "effective_capabilities_zero": true,
+    "no_new_privileges": true,
+    "seccomp_filter_active": true,
+    "nested_user_namespace_denied": true,
+    "worker_fuse_device_unavailable": true,
+    "worker_pid_ns_distinct_from_app": true,
+    "worker_cgroup_ns_distinct_from_app": true,
+    "worker_mnt_ns_distinct_from_app": true,
+    "role_auth_secret_unreadable": true,
+    "runner_key_secret_unreadable": true,
+    "private_canary_secret_unreadable": true,
+    "parent_environ_secret_unreadable": true,
+    "lan_direct_network_denied": true,
+    "public_direct_network_denied": true,
+    "tmp_on_bounded_volume": true,
+    "root_outside_volume_readonly": true,
+    "run_outside_volume_readonly": true,
+    "shm_outside_volume_readonly": true,
+    "dev_outside_volume_readonly": true,
+    "git_metadata_read_only": true
+  },
+  "namespace_comparison": {
+    "app": {
+      "pid_ns": 4026532447,
+      "cgroup_ns": 4026532448,
+      "mnt_ns": 4026532875
+    },
+    "worker": {
+      "pid_ns": 4026532883,
+      "cgroup_ns": 4026532884,
+      "mnt_ns": 4026532880
+    },
+    "haos_host": {
+      "pid": 4026531836,
+      "cgroup": 4026531835
+    },
+    "worker_pid_cgroup_mount_distinct_from_app": true
+  },
+  "model_fixture": {
+    "pytest_passed": true,
+    "requests": 16,
+    "source_marker": true,
+    "tool_output_received": true
+  },
+  "stored_observation": {
+    "records_present": true,
+    "record_count": 3,
+    "same_case": true,
+    "all_from_haos_app": true,
+    "single_fixed_probe": true,
+    "core_api_from_app": {
+      "dns_resolved": true,
+      "reachable": true,
+      "timed_out": false,
+      "http_status": 401,
+      "http_port": 80,
+      "attempted_ports": [
+        80
+      ],
+      "endpoints": [
+        {
+          "port": 80,
+          "reachable": true,
+          "http_status": 401,
+          "error_code": null
+        }
+      ]
+    },
+    "content_digest_matches": true,
+    "app_runtime_from_haos_app": true,
+    "limitations_present": true,
+    "source_commit_matches": true
+  },
+  "app_core_observation": {
+    "dns_resolved": true,
+    "reachable": true,
+    "timed_out": false,
+    "http_status": 401,
+    "http_port": 80,
+    "attempted_ports": [
+      80
+    ],
+    "endpoints": [
+      {
+        "port": 80,
+        "reachable": true,
+        "http_status": 401,
+        "error_code": null
+      }
+    ]
+  },
+  "pinned_source": {
+    "repo_id": "agentic-home",
+    "repository": "https://github.com/teddashh/agentic-smart-home.git",
+    "commit": "0eb569e42ed2661e3e3bd4c7835b3715d57e3da0"
+  },
+  "outer_comparison": {
+    "app_internal_dns_resolved": false
+  },
+  "error_type": "Exception",
+  "error_code": "unclassified_fixture_error",
+  "errno": null,
+  "owned_runtime_observation": {
+    "vm": {
+      "state_returncode": 0,
+      "state": {
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 457396,
+        "ExitCode": 0,
+        "Status": "running"
+      },
+      "events_returncode": 0,
+      "events": [
+        {
+          "action": "create",
+          "timeNano": 1791956921480832531
+        },
+        {
+          "action": "start",
+          "timeNano": 1791956921619098965
+        }
+      ]
+    },
+    "outer": {
+      "state_returncode": 0,
+      "state": {
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 561174,
+        "ExitCode": 0,
+        "Status": "running"
+      },
+      "events_returncode": 0,
+      "events": [
+        {
+          "action": "create",
+          "timeNano": 1791957411245270844
+        },
+        {
+          "action": "start",
+          "timeNano": 1791957411690432028
+        }
+      ]
+    }
+  },
+  "failure_app_state": "started",
+  "failure_startup": {
+    "state": "ready",
+    "checks": {}
+  },
+  "failure_boundaries": {
+    "status": "passed",
+    "cleanup": "passed",
+    "observed_from": "haos_app",
+    "checks": {
+      "actual_cpu_throttling": true,
+      "actual_ext4_enospc": true,
+      "actual_memory_oom_kill": true,
+      "actual_pid_limit": true,
+      "descendant_cancel_and_cgroup_empty": true,
+      "worker_and_fuse_cgroups_reclaimed": true
+    },
+    "entry_boundary_checks": {
+      "effective_capabilities_zero": true,
+      "inherited_directory_fds_absent": true,
+      "nested_user_namespace_denied": true,
+      "no_new_privileges": true,
+      "private_coding_path_absent": true,
+      "private_workspace_fds_absent": true,
+      "seccomp_filter_active": true,
+      "staging_path_absent": true,
+      "worker_fuse_device_unavailable": true
+    },
+    "last_job": {
+      "state": "cancelled",
+      "stop_confirmed": true,
+      "artifact_count": 0,
+      "evidence_count": 0,
+      "verification": {},
+      "oom_killed": false,
+      "cgroup_populated": false
+    },
+    "quota_counters": {
+      "cgroup.events": {
+        "frozen": 0,
+        "populated": 0
+      },
+      "cpu.stat": {
+        "burst_usec": 0,
+        "nr_bursts": 0,
+        "nr_periods": 5,
+        "nr_throttled": 0,
+        "system_usec": 38512,
+        "throttled_usec": 0,
+        "usage_usec": 112328,
+        "user_usec": 73815
+      },
+      "memory.events": {
+        "high": 0,
+        "low": 0,
+        "max": 118,
+        "oom": 0,
+        "oom_group_kill": 0,
+        "oom_kill": 0
+      },
+      "pids.events": {
+        "max": 0
+      }
+    },
+    "pid-cpu_counters": {
+      "cgroup.events": {
+        "frozen": 0,
+        "populated": 0
+      },
+      "cpu.stat": {
+        "burst_usec": 0,
+        "nr_bursts": 0,
+        "nr_periods": 43,
+        "nr_throttled": 40,
+        "system_usec": 15847,
+        "throttled_usec": 3955096,
+        "usage_usec": 4102045,
+        "user_usec": 4086197
+      },
+      "memory.events": {
+        "high": 0,
+        "low": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_group_kill": 0,
+        "oom_kill": 0
+      },
+      "pids.events": {
+        "max": 1
+      }
+    },
+    "memory_counters": {
+      "cgroup.events": {
+        "frozen": 0,
+        "populated": 0
+      },
+      "cpu.stat": {
+        "burst_usec": 0,
+        "nr_bursts": 0,
+        "nr_periods": 4,
+        "nr_throttled": 0,
+        "system_usec": 59326,
+        "throttled_usec": 0,
+        "usage_usec": 83693,
+        "user_usec": 24366
+      },
+      "memory.events": {
+        "high": 0,
+        "low": 0,
+        "max": 25,
+        "oom": 1,
+        "oom_group_kill": 1,
+        "oom_kill": 4
+      },
+      "pids.events": {
+        "max": 0
+      }
+    },
+    "descendant_counters": {
+      "cgroup.events": {
+        "frozen": 0,
+        "populated": 0
+      },
+      "cpu.stat": {
+        "burst_usec": 0,
+        "nr_bursts": 0,
+        "nr_periods": 2,
+        "nr_throttled": 0,
+        "system_usec": 4970,
+        "throttled_usec": 0,
+        "usage_usec": 65104,
+        "user_usec": 60133
+      },
+      "memory.events": {
+        "high": 0,
+        "low": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_group_kill": 0,
+        "oom_kill": 0
+      },
+      "pids.events": {
+        "max": 0
+      }
+    }
+  },
+  "app_stderr_summary": {
+    "available": true,
+    "scanned_bytes": 630,
+    "truncated": false,
+    "bubblewrap": false,
+    "permission_denied": false,
+    "operation_not_permitted": false,
+    "pivot_root": false,
+    "mount": false,
+    "namespace": false,
+    "missing_file": false,
+    "python_exception": false,
+    "no_space": false,
+    "missing_module": false,
+    "pytest_collection": false,
+    "root_mount_propagation": false,
+    "proc_mount": false,
+    "loopback_setup": false,
+    "private_fd_lookup": false
+  },
+  "failure_hold_seconds": 0,
+  "cleanup": {
+    "outer_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "duration_seconds": 656.038
+}

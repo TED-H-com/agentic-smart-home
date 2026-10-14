@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="219.004" timestamp="2026-10-13T22:49:24.889704-04:00" hostname="redacted"><testcase classname="tests.test_haos_boundary" name="test_actual_haos_app_boundary" time="218.749"><failure message="subprocess.TimeoutExpired: Command '['ssh', '-i', '~/agent-work/tmp/pytest/20261013-224924-u0wo0v/bt/test_actual_haos_app_boundary0/key', '-p', '33153', '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=~/agent-work/tmp/pytest/20261013-224924-u0wo0v/bt/test_actual_haos_app_boundary0/known_hosts', '-o', 'ConnectTimeout=5', 'root@127.0.0.1', 'true']' timed out after 8 seconds">tests/test_haos_boundary.py:60: in test_actual_haos_app_boundary
+    ready = subprocess.run([*ssh, "true"], capture_output=True, timeout=8)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:556: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:1222: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:2155: in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+../../.local/share/uv/python/cpython-3.13.13-linux-x86_64-gnu/lib/python3.13/subprocess.py:1269: in _check_timeout
+    raise TimeoutExpired(
+E   subprocess.TimeoutExpired: Command '['ssh', '-i', '~/agent-work/tmp/pytest/20261013-224924-u0wo0v/bt/test_actual_haos_app_boundary0/key', '-p', '33153', '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=~/agent-work/tmp/pytest/20261013-224924-u0wo0v/bt/test_actual_haos_app_boundary0/known_hosts', '-o', 'ConnectTimeout=5', 'root@127.0.0.1', 'true']' timed out after 8 seconds</failure></testcase></testsuite></testsuites>

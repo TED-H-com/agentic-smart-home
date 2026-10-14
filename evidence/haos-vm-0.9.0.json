@@ -5,7 +5,21 @@
   "supervisor": "2026.09.3",
   "owner_verified": true,
   "backup_completed_and_readback": true,
-  "duration_seconds": 109,
+  "backup_attempts": 1,
+  "backup_failures": [],
+  "ready_states": [
+    {
+      "core": "NOT_RUNNING",
+      "supervisor": "running",
+      "healthy": true
+    },
+    {
+      "core": "RUNNING",
+      "supervisor": "running",
+      "healthy": true
+    }
+  ],
+  "duration_seconds": 449,
   "cloud_login": "not_run",
   "laptop_hardware": "not_run"
 }

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="272.440" timestamp="2026-10-14T05:06:29.524099-04:00" hostname="redacted"><testcase classname="tests.test_haos_vm" name="test_real_haos_boot_owner_and_supervisor_backup" time="272.389"><failure message="TimeoutError">.venv/lib/python3.13/site-packages/aiohttp/client_reqrep.py:745: in start
+    message, payload = await protocol.read()  # type: ignore[union-attr]
+                       ^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/aiohttp/streams.py:716: in read
+    await self._waiter
+E   asyncio.exceptions.CancelledError
+
+The above exception was the direct cause of the following exception:
+tests/test_haos_vm.py:67: in test_real_haos_boot_owner_and_supervisor_backup
+    async with session.post(base + "/api/onboarding/users", json={"client_id": base + "/",
+.venv/lib/python3.13/site-packages/aiohttp/client.py:1756: in __aenter__
+    self._resp: _RetType_co = await self._coro
+                              ^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/aiohttp/client.py:900: in _request
+    resp = await handler(req)
+           ^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/aiohttp/client.py:878: in _connect_and_send_request
+    await resp.start(conn)
+.venv/lib/python3.13/site-packages/aiohttp/client_reqrep.py:740: in start
+    with self._timer:
+         ^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/aiohttp/helpers.py:759: in __exit__
+    raise asyncio.TimeoutError from exc_val
+E   TimeoutError</failure></testcase></testsuite></testsuites>

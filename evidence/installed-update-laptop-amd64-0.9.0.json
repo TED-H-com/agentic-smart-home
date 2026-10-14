@@ -30,7 +30,7 @@
         "resource_unavailable": false
       }
     },
-    "observation_attempts": 19,
+    "observation_attempts": 31,
     "observation": {
       "returncode": 0,
       "stdout_bytes": 3113,
@@ -93,8 +93,8 @@
         "cleanup_started": true,
         "cleanup_completed": true,
         "probe_resources": {
-          "free_disk_bytes": 90565308416,
-          "available_memory_bytes": 4717735936
+          "free_disk_bytes": 90545332224,
+          "available_memory_bytes": 4777140224
         }
       },
       "observed_from": "disposable_installed_linux_vm_root",
@@ -126,8 +126,8 @@
       "real_publisher_release": false,
       "rollback_restored_backup": false,
       "registry_delivery_calls": 1,
-      "original_image": "sha256:ca3f77b037241ae09d13a1e6f60208e792117ae2c3e00e89b32203bbd41edd58",
-      "candidate_image": "sha256:41c50cd88fe549500d0d7d7016fcaf271a2f48ff890c0420ad63be259a4784eb",
+      "original_image": "sha256:4925149c727238e6f04d77f4b960ba9ea86cca36c79ae3de317093912f790b94",
+      "candidate_image": "sha256:abc6c895dcee0c194bd66491fab293d34e3e0f2baa2fe0c386b5cb9cbf1bbe08",
       "bridge_update_contract": {
         "contract": 1,
         "observed_from": "installed_host_fixed_probe",
@@ -136,8 +136,8 @@
         "fixed_probe_executions": 3,
         "synthetic_missing_contract_image": true,
         "real_historical_release": false,
-        "supporting_image": "sha256:ca3f77b037241ae09d13a1e6f60208e792117ae2c3e00e89b32203bbd41edd58",
-        "missing_contract_image": "sha256:61be6b0f1e4624651025070418b986b697fd2c817105cb6e211556379d13074c",
+        "supporting_image": "sha256:4925149c727238e6f04d77f4b960ba9ea86cca36c79ae3de317093912f790b94",
+        "missing_contract_image": "sha256:b64c19a60d1eb430e113bc6739a6de10059d82a3fa2d459e9804d89f736801bb",
         "fixed_script_sha256": "868d5260adfeae4e43bbbdf06b5db8f5624187396db08bef76781062b4ccfa70",
         "checks": {
           "revoked_history_marker_copied": true,
@@ -163,8 +163,8 @@
     "cleanup_started": true,
     "cleanup_completed": true,
     "probe_resources": {
-      "free_disk_bytes": 90565308416,
-      "available_memory_bytes": 4717735936
+      "free_disk_bytes": 90545332224,
+      "available_memory_bytes": 4777140224
     }
   },
   "observed_from": "disposable_installed_linux_vm_root",
@@ -196,8 +196,8 @@
   "real_publisher_release": false,
   "rollback_restored_backup": false,
   "registry_delivery_calls": 1,
-  "original_image": "sha256:ca3f77b037241ae09d13a1e6f60208e792117ae2c3e00e89b32203bbd41edd58",
-  "candidate_image": "sha256:41c50cd88fe549500d0d7d7016fcaf271a2f48ff890c0420ad63be259a4784eb",
+  "original_image": "sha256:4925149c727238e6f04d77f4b960ba9ea86cca36c79ae3de317093912f790b94",
+  "candidate_image": "sha256:abc6c895dcee0c194bd66491fab293d34e3e0f2baa2fe0c386b5cb9cbf1bbe08",
   "bridge_update_contract": {
     "contract": 1,
     "observed_from": "installed_host_fixed_probe",
@@ -206,8 +206,8 @@
     "fixed_probe_executions": 3,
     "synthetic_missing_contract_image": true,
     "real_historical_release": false,
-    "supporting_image": "sha256:ca3f77b037241ae09d13a1e6f60208e792117ae2c3e00e89b32203bbd41edd58",
-    "missing_contract_image": "sha256:61be6b0f1e4624651025070418b986b697fd2c817105cb6e211556379d13074c",
+    "supporting_image": "sha256:4925149c727238e6f04d77f4b960ba9ea86cca36c79ae3de317093912f790b94",
+    "missing_contract_image": "sha256:b64c19a60d1eb430e113bc6739a6de10059d82a3fa2d459e9804d89f736801bb",
     "fixed_script_sha256": "868d5260adfeae4e43bbbdf06b5db8f5624187396db08bef76781062b4ccfa70",
     "checks": {
       "revoked_history_marker_copied": true,

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="236.331" timestamp="2026-10-14T08:46:35.201242-04:00" hostname="redacted"><testcase classname="tests.test_haos_vm" name="test_real_haos_boot_owner_and_supervisor_backup" time="236.311"><failure message="AssertionError: {'code': 'unknown_error', 'message': &quot;An error occurred while making backup, check job '7b4d82e97f5b41a2978cf0cc30d25400' or supervisor logs for details&quot;}&#10;assert False&#10; +  where False = &lt;built-in method get of dict object at 0x7792847b2300&gt;('success')&#10; +    where &lt;built-in method get of dict object at 0x7792847b2300&gt; = {'id': 1, 'type': 'result', 'success': False, 'error': {'code': 'unknown_error', 'message': &quot;An error occurred while making backup, check job '7b4d82e97f5b41a2978cf0cc30d25400' or supervisor logs for details&quot;}}.get">tests/test_haos_vm.py:92: in test_real_haos_boot_owner_and_supervisor_backup
+    backup = await ha.backup("Agentic disposable VM backup")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+controller/agentic_controller/ha.py:236: in backup
+    data = await self.request("POST", "/backups/new/partial",
+controller/agentic_controller/ha.py:70: in request
+    return await self.ws("supervisor/api", endpoint=path, method=method.lower(), data=data or {},
+tests/test_haos_vm.py:25: in ws
+    assert result.get("success"), result.get("error")
+E   AssertionError: {'code': 'unknown_error', 'message': "An error occurred while making backup, check job '7b4d82e97f5b41a2978cf0cc30d25400' or supervisor logs for details"}
+E   assert False
+E    +  where False = &lt;built-in method get of dict object at 0x7792847b2300&gt;('success')
+E    +    where &lt;built-in method get of dict object at 0x7792847b2300&gt; = {'id': 1, 'type': 'result', 'success': False, 'error': {'code': 'unknown_error', 'message': "An error occurred while making backup, check job '7b4d82e97f5b41a2978cf0cc30d25400' or supervisor logs for details"}}.get</failure></testcase></testsuite></testsuites>

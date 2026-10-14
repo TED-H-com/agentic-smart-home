@@ -1,6 +1,6 @@
 {
   "runtime_location": "disposable_outer_linux_vm",
-  "iso_sha256": "7e2da37c50eda233e8ec9b67a9123fc45dda9553214179928259fb0ce14488fa",
+  "iso_sha256": "78e6013b28314fc7c3243ec8bc195bc6b25f1e81e63cf234bc855502ac82fa87",
   "cli_exit": 0,
   "job": {
     "state": "succeeded",

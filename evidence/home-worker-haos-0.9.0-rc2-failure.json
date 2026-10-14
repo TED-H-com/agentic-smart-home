@@ -1,0 +1,44 @@
+{
+  "kind": "real_haos_home_coding_worker",
+  "status": "failed",
+  "observed_from": "haos_app",
+  "haos_image": "18.3",
+  "delivery": "local_supervisor_derived_transport_fixture",
+  "cloud": "fixed_model_transport_no_real_cloud_account",
+  "source_task": "documentation_only_patch_on_shipped_source",
+  "not_acceptance": [
+    "real_model_auth",
+    "autonomous_research_quality",
+    "physical_household",
+    "E2"
+  ],
+  "checks": {},
+  "phase": "boot_official_haos",
+  "source_commit": "03fa99fe10454fb70711905574abdb62257531d5",
+  "runtime_source_uncommitted": false,
+  "runner_base_image_id": "sha256:b824d55e44f5792e17c22292a093d1dcca62eecc978dc06c452bccb75bd40d7e",
+  "controller_image_id": "sha256:28ec05d0e4c5355ac27ec6e4be0d5c0acf7480950477bc00a73ad88487319c65",
+  "error_type": "TimeoutExpired",
+  "error_code": "unclassified_fixture_error",
+  "errno": null,
+  "owned_runtime_observation": {
+    "vm": {
+      "state_returncode": 1,
+      "events_returncode": 0,
+      "events": []
+    },
+    "outer": {
+      "state_returncode": 1,
+      "events_returncode": 0,
+      "events": []
+    }
+  },
+  "failure_hold_seconds": 0,
+  "cleanup": {
+    "outer_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "duration_seconds": 152.817
+}

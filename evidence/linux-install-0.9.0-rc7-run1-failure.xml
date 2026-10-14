@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="4376.935" timestamp="2026-10-14T11:50:39.094499-04:00" hostname="redacted"><testcase classname="tests.test_linux_install" name="test_full_linux_install_with_nested_haos" time="4376.527"><failure message="AssertionError: Firstboot did not complete:">tests/test_linux_install.py:467: in test_full_linux_install_with_nested_haos
+    raise AssertionError("Firstboot did not complete: " + logs.stdout[-4000:])
+E   AssertionError: Firstboot did not complete:</failure></testcase></testsuite></testsuites>
