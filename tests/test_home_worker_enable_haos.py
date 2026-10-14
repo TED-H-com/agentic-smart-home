@@ -109,15 +109,17 @@ def transition(values, raw, prefix='home_worker_'):
         values.append(value)
 
 
+def written_after(record, since):
+    try:
+        return datetime.fromisoformat(record['updated_at']).timestamp() > since
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
 def disruption_record(record, prefix='home_worker_', since=None):
     # Only the restarted Controller's fresh writes describe what its Owner sees.
-    if since is not None:
-        try:
-            fresh = datetime.fromisoformat(record['updated_at']).timestamp() > since
-        except (KeyError, TypeError, ValueError):
-            fresh = False
-        if not fresh:
-            return
+    if since is not None and not written_after(record, since):
+        return
     if prefix == 'home_worker_':
         check_ok = bool(record.get('state') in {'running', 'waiting', 'login_ready', 'ready'})
         assert check_ok, 'home_worker_disruption_showed_failure'
@@ -497,7 +499,7 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             '-device virtio-scsi-pci -device scsi-hd,drive=disk '
             '-drive file=/lab/config.ext4,format=raw,if=virtio '
             '-netdev user,id=net,hostfwd=tcp:0.0.0.0:8123-:80,hostfwd=tcp:0.0.0.0:2222-:22222,hostfwd=tcp:0.0.0.0:8443-:8443 '
-            '-device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log')
+            '-device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log', timeout=600)
         ports = json.loads(docker('inspect', vm))[0]['NetworkSettings']['Ports']
         base = 'http://127.0.0.1:' + ports['8123/tcp'][0]['HostPort']
         ssh = ['ssh', '-i', str(tmp_path / 'key'), '-p', ports['2222/tcp'][0]['HostPort'], '-o', 'BatchMode=yes',
@@ -509,7 +511,7 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
                 '--user', f'{os.getuid()}:{os.getgid()}', '-e', 'HOME=/tmp', '--memory', '256m', '--cpus', '1',
                 '--pids-limit', '64', '-v', f'{tmp_path / "git"}:/srv/git:ro', '--entrypoint', 'git',
                 'agentic-home-runner:' + VERSION, 'daemon', '--reuseaddr', '--export-all', '--base-path=/srv/git',
-                '--listen=0.0.0.0', '--port=9418', '/srv/git')
+                '--listen=0.0.0.0', '--port=9418', '/srv/git', timeout=600)
             for _ in range(30):
                 try:
                     published = stable_commit(process(['git', 'ls-remote', LOCAL_URL.split('#')[0],
@@ -522,7 +524,8 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             else:
                 raise AssertionError('stable_branch_is_exact_head')
         evidence['checks']['stable_branch_is_exact_head'] = True
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8),
+        # Bounds a hung request only: the shared test disk can stall writes in the VM and the Controller for seconds.
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30),
                                          cookie_jar=aiohttp.CookieJar(unsafe=True)) as client:
             for _ in range(240):
                 try:
@@ -571,8 +574,10 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
         evidence['checks']['supervisor_healthy'] = True
         phase('preload_builder_and_pinned_bases')
         for _ in range(5):
-            if subprocess.run([*ssh, 'true'], capture_output=True, timeout=15).returncode == 0:
-                break
+            # A probe that times out on a loaded host is only not ready yet.
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                if subprocess.run([*ssh, 'true'], capture_output=True, timeout=15).returncode == 0:
+                    break
             await asyncio.sleep(3)
         else:
             raise AssertionError('haos_ssh_readiness_timeout')
@@ -600,7 +605,7 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             '-e', 'AGENTIC_HOST_MODE=1', '-v', f'{tmp_path}:/lab',
             '-v', f'{tmp_path / "host-socket"}:/run/agentic-home',
             '-v', f'{ROOT / "controller/agentic_controller"}:/app/agentic_controller:ro',
-            '-v', f'{ROOT / "controller/static"}:/app/static:ro', CONTROLLER, 'python', '/lab/outer.py')
+            '-v', f'{ROOT / "controller/static"}:/app/static:ro', CONTROLLER, 'python', '/lab/outer.py', timeout=600)
         outer_url = await outer_ready()
         database = tmp_path / 'outer-data/controller.sqlite3'
         phase('bridge_auto_enroll')
@@ -629,7 +634,8 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
         assert check_ok, 'bridge_heartbeat_timeout'
         evidence['checks']['bridge_heartbeat'] = True
         headers = {'Host': 'localhost:8099', 'Origin': 'http://localhost:8099', 'Sec-Fetch-Site': 'same-origin'}
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15),
+        # A hung Controller request, not latency: synchronous SQLite commits wait for the slow test disk.
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60),
                 cookie_jar=aiohttp.CookieJar(unsafe=True), headers=headers) as client:
             async def status():
                 async with client.get(outer_url + '/api/host/home-worker/maintenance') as response:
@@ -793,15 +799,20 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             docker('restart', outer)
             homes = evidence['home_recovery_transitions'] = []
             bridges = evidence['bridge_recovery_transitions'] = []
+
+            def reboot_sample():
+                # The old Controller's last write during HAOS shutdown is not what the restarted one shows.
+                home, bridge = setting(database, 'home_worker_maintenance'), setting(database, 'bridge_maintenance')
+                for record, values, prefix in ((home, homes, 'home_worker_'), (bridge, bridges, 'bridge_')):
+                    if written_after(record, reboot_since):
+                        transition(values, record, prefix)
+                        disruption_record(record, prefix)
+
             outer_url = await outer_ready()
             deadline = time.monotonic() + 600
             while True:
                 outer_alive()
-                home, bridge = setting(database, 'home_worker_maintenance'), setting(database, 'bridge_maintenance')
-                transition(homes, home)
-                transition(bridges, bridge, 'bridge_')
-                disruption_record(home, since=reboot_since)
-                disruption_record(bridge, 'bridge_', since=reboot_since)
+                reboot_sample()
                 try:
                     await ha.request('GET', '/config', timeout=3)
                     break
@@ -814,11 +825,7 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
             deadline = time.monotonic() + 600
             while True:
                 outer_alive()
-                home, bridge = setting(database, 'home_worker_maintenance'), setting(database, 'bridge_maintenance')
-                transition(homes, home)
-                transition(bridges, bridge, 'bridge_')
-                disruption_record(home, since=reboot_since)
-                disruption_record(bridge, 'bridge_', since=reboot_since)
+                reboot_sample()
                 try:
                     supervisor_state = (await ha.request('GET', '/info', supervisor=True)).get('state')
                     runner_state, sidebar_state = await app_state(slug), await app_state(bridge_slug)

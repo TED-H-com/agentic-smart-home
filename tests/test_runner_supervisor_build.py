@@ -440,7 +440,7 @@ async def test_real_supervisor_builds_home_coding_app(tmp_path, request):
             '-device virtio-scsi-pci -device scsi-hd,drive=disk '
             '-drive file=/lab/config.ext4,format=raw,if=virtio '
             '-netdev user,id=net,hostfwd=tcp:0.0.0.0:8123-:80,hostfwd=tcp:0.0.0.0:2222-:22222 '
-            '-device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log')
+            '-device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log', timeout=600)
         ports = json.loads(docker('inspect', vm))[0]['NetworkSettings']['Ports']
         base = 'http://127.0.0.1:' + ports['8123/tcp'][0]['HostPort']
         ssh = ['ssh', '-i', str(tmp_path / 'key'), '-p', ports['2222/tcp'][0]['HostPort'], '-o', 'BatchMode=yes',
@@ -489,8 +489,10 @@ async def test_real_supervisor_builds_home_coding_app(tmp_path, request):
         evidence['checks']['supervisor_healthy'] = True
         phase('preload_builder_and_pinned_bases')
         for _ in range(5):
-            if subprocess.run([*ssh, 'true'], capture_output=True, timeout=15).returncode == 0:
-                break
+            # A probe that times out on a loaded host is only not ready yet.
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                if subprocess.run([*ssh, 'true'], capture_output=True, timeout=15).returncode == 0:
+                    break
             await asyncio.sleep(3)
         else:
             raise AssertionError('haos_ssh_readiness_timeout')

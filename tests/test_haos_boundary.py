@@ -1,5 +1,6 @@
 """Actual HAOS App namespace evidence. Every disk, App and credential is disposable."""
 import base64
+import contextlib
 import json
 import lzma
 import os
@@ -51,15 +52,16 @@ def test_actual_haos_app_boundary(tmp_path, request):
                "-device virtio-scsi-pci -device scsi-hd,drive=disk "
                "-drive file=/lab/config.ext4,format=raw,if=virtio "
                "-netdev user,id=net,hostfwd=tcp:0.0.0.0:2222-:22222 -device virtio-net-pci,netdev=net -display none "
-               "-serial file:/lab/serial.log")
+               "-serial file:/lab/serial.log", timeout=600)
         port = json.loads(docker("inspect", name))[0]["NetworkSettings"]["Ports"]["2222/tcp"][0]["HostPort"]
         ssh = ["ssh", "-i", str(tmp_path / "key"), "-p", port, "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes",
                "-o", "StrictHostKeyChecking=no", "-o", f"UserKnownHostsFile={tmp_path / 'known_hosts'}",
                "-o", "ConnectTimeout=5", "root@127.0.0.1"]
         for _ in range(120):
-            ready = subprocess.run([*ssh, "true"], capture_output=True, timeout=8)
-            if ready.returncode == 0:
-                break
+            # A probe that times out on a loaded host is only not ready yet.
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                if subprocess.run([*ssh, "true"], capture_output=True, timeout=8).returncode == 0:
+                    break
             time.sleep(3)
         else:
             raise AssertionError("HAOS official CONFIG-key SSH import did not become ready")

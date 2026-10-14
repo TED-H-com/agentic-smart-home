@@ -268,7 +268,7 @@ async def test_real_haos_sidebar_bridge(tmp_path, request):
                "-device virtio-scsi-pci -device scsi-hd,drive=disk "
                "-drive file=/lab/config.ext4,format=raw,if=virtio "
                "-netdev user,id=net,hostfwd=tcp:0.0.0.0:8123-:80,hostfwd=tcp:0.0.0.0:2222-:22222 "
-               "-device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log")
+               "-device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log", timeout=600)
         ports = json.loads(docker("inspect", vm))[0]["NetworkSettings"]["Ports"]
         base = "http://127.0.0.1:" + ports["8123/tcp"][0]["HostPort"]
         ssh = ["ssh", "-i", str(tmp_path / "key"), "-p", ports["2222/tcp"][0]["HostPort"],
@@ -331,7 +331,7 @@ async def test_real_haos_sidebar_bridge(tmp_path, request):
                    "-v", f"{tmp_path}:/lab", "-v", f"{tmp_path / 'host-socket'}:/run/agentic-home",
                    "-v", f"{ROOT / 'controller/agentic_controller'}:/app/agentic_controller:ro",
                    "-v", f"{ROOT / 'controller/static'}:/app/static:ro", CONTROLLER,
-                   "python", "/lab/outer.py")
+                   "python", "/lab/outer.py", timeout=600)
             database = tmp_path / "outer-data/controller.sqlite3"
             for _ in range(60):
                 if (tmp_path / "pairing.json").exists():

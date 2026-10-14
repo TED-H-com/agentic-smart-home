@@ -65,11 +65,14 @@ async def test_timeout_is_unreachable(method):
                    else ha.ws('fixture', _receive_timeout=.01))
 
 
-@pytest.mark.parametrize('reply', ['close', 'invalid', 'failure', 'auth', 'handshake'])
-async def test_websocket_reply_classification(reply):
+@pytest.mark.parametrize('reply,command,unreachable', [
+    ('close', 'fixture', True), ('invalid', 'fixture', False), ('failure', 'fixture', False), ('auth', 'fixture', False),
+    ('handshake-401', 'fixture', False), ('handshake-403', 'fixture', False), ('handshake-502', 'fixture', True),
+    ('unknown_command', 'supervisor/api', True), ('unknown_command', 'fixture', False)])
+async def test_websocket_reply_classification(reply, command, unreachable):
     async def handler(request):
-        if reply == 'handshake':
-            return web.Response(status=401)
+        if reply.startswith('handshake'):
+            return web.Response(status=int(reply.split('-')[1]))
         ws = web.WebSocketResponse()
         await ws.prepare(request)
         await ws.send_json({'type': 'auth_required'})
@@ -79,19 +82,19 @@ async def test_websocket_reply_classification(reply):
             await ws.receive_json()
             if reply == 'invalid':
                 await ws.send_str('invalid JSON')
-            elif reply == 'failure':
-                await ws.send_json({'id': 1, 'success': False, 'error': {'code': 'unknown_error'}})
+            elif reply in {'failure', 'unknown_command'}:
+                code = 'unknown_error' if reply == 'failure' else reply
+                await ws.send_json({'id': 1, 'success': False, 'error': {'code': code}})
         await ws.close()
         return ws
 
     async with client(handler) as ha:
         with pytest.raises(HAError) as error:
-            await ha.ws('fixture')
-        assert isinstance(error.value, HAUnreachable) is (reply == 'close')
-        if reply == 'auth':
-            assert error.value.status == 401
-        if reply == 'handshake':
-            assert error.value.status == 502
+            await ha.ws(command)
+        assert isinstance(error.value, HAUnreachable) is unreachable
+        status = {'auth': 401, 'handshake-401': 401, 'handshake-403': 403}.get(reply)
+        if status:
+            assert error.value.status == status
 
 
 @pytest.mark.parametrize('status,body', [(200, 'invalid JSON'), (401, '{}')])

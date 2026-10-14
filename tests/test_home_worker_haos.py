@@ -471,7 +471,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             '-device virtio-scsi-pci -device scsi-hd,drive=disk '
             '-drive file=/lab/config.ext4,format=raw,if=virtio '
             '-netdev user,id=net,hostfwd=tcp:0.0.0.0:8123-:80,hostfwd=tcp:0.0.0.0:2222-:22222,'
-            'hostfwd=tcp:0.0.0.0:8443-:8443 -device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log')
+            'hostfwd=tcp:0.0.0.0:8443-:8443 -device virtio-net-pci,netdev=net -display none -serial file:/lab/serial.log', timeout=600)
         ports = json.loads(docker('inspect', vm))[0]['NetworkSettings']['Ports']
         base = 'http://127.0.0.1:' + ports['8123/tcp'][0]['HostPort']
         ssh = ['ssh', '-i', str(tmp_path / 'key'), '-p', ports['2222/tcp'][0]['HostPort'], '-o', 'BatchMode=yes',
@@ -637,7 +637,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             docker('run', '-d', '--name', outer, '--network', network, '--ip', '192.168.177.1',
                 '--memory', '768m', '--cpus', '1', '--pids-limit', '128', '--user', f'{os.getuid()}:{os.getgid()}',
                 '-p', '127.0.0.1::8099', '-e', 'PYTHONPATH=/app', '-e', 'AGENTIC_DATA=/lab/outer-data', '-e', 'AGENTIC_HOST_MODE=1',
-                '-v', f'{tmp_path}:/lab', controller_image, 'python', '/lab/outer.py')
+                '-v', f'{tmp_path}:/lab', controller_image, 'python', '/lab/outer.py', timeout=600)
             outer_ports = json.loads(docker('inspect', outer))[0]['NetworkSettings']['Ports']
             origin = 'http://127.0.0.1:' + outer_ports['8099/tcp'][0]['HostPort']
             # The random host port is only a disposable transport forward.
