@@ -191,6 +191,18 @@ def test_changed_qemu_image_schema_or_backing_chain_refused(value):
         contracts.check_image(lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout=json.dumps(value)), Path("fixed"))
 
 
+def test_image_check_after_a_large_write_has_the_qemu_check_bound():
+    recorded_kwargs = []
+    def fake(*args, **kwargs):
+        recorded_kwargs.append(kwargs)
+        if args[:2] == ("qemu-img", "info") and kwargs.get("timeout", 0) < 300:
+            raise subprocess.TimeoutExpired(args, kwargs["timeout"])
+        return SimpleNamespace(returncode=0, stdout='{"format":"qcow2","virtual-size":1048576}')
+
+    assert contracts.check_image(fake, Path("fixed")) is True
+    assert recorded_kwargs == [{"timeout": 300, "check": False}]
+
+
 def test_actual_readonly_docker_ip_compose_contracts(request):
     if not request.config.getoption("--containers"):
         pytest.skip("requires actual local Docker and Linux network tools")

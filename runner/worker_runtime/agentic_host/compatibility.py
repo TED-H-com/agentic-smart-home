@@ -15,6 +15,9 @@ import xml.etree.ElementTree as ET
 from .coding_sandbox import SandboxError, validate_docker_security
 
 MAX_OUTPUT = 262144
+# Inspecting a just-written multi-GB disk on a slow drive takes far longer than a capability probe;
+# provisioning gives it the bound of the qemu-img check that follows.
+IMAGE_TIMEOUT = 300
 ACTIONS = {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes"}
 REQUIRES = {
     "linux_runtime": ACTIONS,
@@ -33,8 +36,8 @@ class ContractError(ValueError):
     pass
 
 
-def output(run, *args):
-    result = run(*args, timeout=3, check=False)
+def output(run, *args, timeout=3):
+    result = run(*args, timeout=timeout, check=False)
     if result.returncode != 0:
         raise ContractError("command_failed")
     if not isinstance(result.stdout, str) or len(result.stdout.encode()) > MAX_OUTPUT:
@@ -106,7 +109,7 @@ def check_kvm(body):
 
 def check_image(run, path):
     """Inspect only a broker-selected, inactive product disk; never follow backing files."""
-    value = json.loads(output(run, "qemu-img", "info", "--output=json", str(path)))
+    value = json.loads(output(run, "qemu-img", "info", "--output=json", str(path), timeout=IMAGE_TIMEOUT))
     if (not isinstance(value, dict) or value.get("format") != "qcow2" or
             type(value.get("virtual-size")) is not int or value["virtual-size"] <= 0 or
             any(value.get(key) for key in ("backing-filename", "full-backing-filename", "encrypted"))):

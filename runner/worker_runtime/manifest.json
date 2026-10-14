@@ -10,7 +10,7 @@
     "host/agentic_host/coding_sandbox.py": "80e1b758bb5a453e6fd2fcef6d0b8eb4f94a0a7f51f2ddf2701611accaaa75ef",
     "host/agentic_host/coding_service.py": "4367fd04dad6833531c29c4f86274de23fae54ae19c30b5f6974b5ec47ad7b5e",
     "host/agentic_host/coding_volume.py": "74df243725bc57df3a88f29915a1f2b76170aea8cf6dc373859112013a543701",
-    "host/agentic_host/compatibility.py": "7d23e86c9bf7f78dad8c31675f23759fcfcd682ffa1ad83d26affe587210ead2",
+    "host/agentic_host/compatibility.py": "4e30c84049e008e2e88cc9664d751bb598a8e433b49b23ba111cfdc40bbb811f",
     "host/agentic_host/daemon.py": "cefaa0a4daaac43252bda2cf5917516e93ea4d8aa9e902f01feabbdb642edc2b",
     "host/agentic_host/desktop.py": "4da4ea5fdb13057356ddf1157ef0c162f74bed473539f49716591c47d96627e4",
     "host/agentic_host/fence.py": "2828f677c5b6ef768726d6a4827ad1bab842367e03c0df526375ec0f1d4d2ce7",
