@@ -443,15 +443,16 @@ class Gateway:
         return {k: v for k, v in item.items() if k not in {"scope", "request_digest", "bridge_pairing_id"}}
 
     def present(self, item):
-        """A proposal reply is saved once, while it awaits approval; show what its task says now.
+        """A proposal reply is saved once, while it awaits approval; add what its task says now.
 
-        A deployed rule waiting for a real trigger counts as done, so the conversation can go on.
+        The saved state still decides whether the conversation can go on, so the owner can answer
+        a declined or failed proposal. A deployed rule waiting for a real trigger counts as done.
         """
         public = self.public_message(item)
         if item.get("state") == "awaiting_approval" and item.get("task_id"):
             task = self.store.get("task", item["task_id"])
             if task and task["state"] != "awaiting_approval" and task.get("message"):
-                public.update(state="succeeded" if task["state"] == "verifying" else task["state"], answer=task["message"])
+                public.update(progress="succeeded" if task["state"] == "verifying" else task["state"], answer=task["message"])
         return public
 
     def owner_messages(self, owner):

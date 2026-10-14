@@ -147,6 +147,28 @@ def test_household_flow(browser, origin):
     page.close()
 
 
+def test_declined_proposal_keeps_the_conversation_open(browser, origin):
+    page = browser.new_page(viewport={'width': 1440, 'height': 900})
+    errors, external = watch(page, origin)
+    page.goto(f'{origin}/demo/')
+    page.get_by_role('button', name='新對話', exact=True).click()
+    page.locator('#gateway-message').fill('出門時關燈')
+    expect(page.get_by_role('button', name='送出訊息')).to_be_enabled()
+    page.locator('#gateway-message').press('Enter')
+    page.get_by_role('link', name='查看提案 →').click()
+    page.get_by_role('button', name='取消提案', exact=True).click()
+    expect(page.locator('.task-detail .status')).to_have_text('已取消')
+    nav(page, '智能管家')
+    expect(page.get_by_label('目前對話').get_by_text('已取消，沒有變更家庭')).to_be_visible()
+    # The owner can say what to change instead of starting over.
+    expect(page.locator('#gateway-message')).to_have_attribute('placeholder', '繼續說…')
+    expect(page.get_by_text('這段對話暫時無法接續', exact=False)).to_have_count(0)
+    page.get_by_role('button', name='對話紀錄', exact=False).click()
+    expect(page.locator('.assistant-history-item').filter(has_text='出門時關燈')).to_contain_text('已取消')
+    clean(page, errors, external)
+    page.close()
+
+
 def test_workers_and_host(browser, origin):
     page = browser.new_page(viewport={'width': 1440, 'height': 900})
     errors, external = watch(page, origin)

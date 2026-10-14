@@ -90,7 +90,7 @@ export function installDemo(){
       if(path==='tasks')result={tasks};
       else if(path.startsWith('tasks/'))result=tasks.find(t=>t.id===path.slice(6));
       // Like the Controller's Gateway.present(): a saved proposal reply shows what its task says now.
-      else if(path==='gateway/messages')result={...data[path],messages:messages.map(m=>{const task=m.state==='awaiting_approval'&&tasks.find(t=>t.id===m.task_id);return task&&task.state!=='awaiting_approval'&&task.message?{...m,state:task.state==='verifying'?'succeeded':task.state,answer:task.message}:m})};
+      else if(path==='gateway/messages')result={...data[path],messages:messages.map(m=>{const task=m.state==='awaiting_approval'&&tasks.find(t=>t.id===m.task_id);return task&&task.state!=='awaiting_approval'&&task.message?{...m,progress:task.state==='verifying'?'succeeded':task.state,answer:task.message}:m})};
       else if(path==='worker/jobs')result=data[path];
       else if(/^worker\/jobs\/[^/]+\/artifacts\//.test(path)){const job=jobs.find(j=>j.id===path.split('/')[2]);if(job?.artifacts.some((a:Row)=>a.id===path.split('/')[4]))result={content_base64:btoa(String.fromCharCode(...bytes)),sha256:digest}}
       else if(/^worker\/jobs\/[^/]+$/.test(path))result=jobs.find(j=>j.id===path.slice(12));
