@@ -442,7 +442,7 @@ async def test_real_home_worker_enable_backup_reboot(tmp_path, request):
         check_ok = bool(not dirty)
         assert check_ok, 'candidate_source_uncommitted'
         if public:
-            published = stable_commit(process(['git', 'ls-remote', 'https://github.com/teddashh/agentic-smart-home',
+            published = stable_commit(process(['git', 'ls-remote', 'https://github.com/TED-H-com/agentic-smart-home',
                                                'refs/heads/stable']))
             check_ok = bool(published == head)
             assert check_ok, 'published_stable_differs_from_head'

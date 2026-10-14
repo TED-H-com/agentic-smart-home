@@ -4,7 +4,7 @@ import {Status,Notice,Button,CopyButton,friendlySentence} from './ui';
 import {names,type Runtime} from './labels';
 const runtimeNames:Record<Runtime,string>={host:'主機',haos:'家庭現場'};
 const official=/^https:\/\/(auth\.openai\.com|accounts\.x\.ai|auth\.x\.ai)\//;
-const repoUrl='https://github.com/teddashh/agentic-smart-home';
+const repoUrl='https://github.com/TED-H-com/agentic-smart-home';
 const liveAuth=new Set(['pending','verifying']),endedAuth=new Set(['failed','expired','unverified','stop_unconfirmed']);
 const accountCopy:Record<string,string>={needs_reauth:'登入已失效，請重新登入。',rate_limited:'已達用量上限，請稍後再試。',invalid_credentials:'登入資訊無效，請重新輸入。',network:'無法連線到 AI 服務，請檢查網路後再試。',cli_output_unrecognized:'無法確認登入結果，請稍後再試。',timeout:'AI 帳號回應逾時，請稍後再試。'};
 const quietReasons=new Set(['rate_limited','network','timeout']);

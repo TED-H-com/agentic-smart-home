@@ -18,7 +18,7 @@ from agentic_host.coding_service import CodingService
 
 from . import VERSION
 
-REPOSITORY = "https://github.com/teddashh/agentic-smart-home.git"
+REPOSITORY = "https://github.com/TED-H-com/agentic-smart-home.git"
 PACKAGED_SOURCE = Path("/opt/agentic-worker/source")
 # A separate, short-lived process bounds DNS as well as HTTP. Neither env nor argv contains credentials.
 NETWORK_OBSERVATION = r'''

@@ -1,6 +1,6 @@
 # Agentic Smart Home 0.9.0
 
-[專案介紹與互動示範](https://teddashh.github.io/agentic-smart-home/) · 實際介面，示範資料。
+[專案介紹與互動示範](https://ted-h-com.github.io/agentic-smart-home/) · 實際介面，示範資料。
 
 一台 Linux 主機，裝好就有 Home Assistant 家庭、一個會用工具的智能管家，以及能自己調查與修改程式的開發助手。家裡的設備照 Home Assistant 原生方式運作；AI 只提出變更，由你批准後才寫入。
 

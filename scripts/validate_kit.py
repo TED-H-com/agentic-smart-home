@@ -49,7 +49,7 @@ def main():
     for package, version in worker_dependencies["packages"].items():
         assert package + "=" + version in runner_dockerfile, "Worker package version drift: " + package
     worker_source = json.loads((ROOT / "runner/coding-source.lock.json").read_text())
-    assert worker_source["repository"] == "https://github.com/teddashh/agentic-smart-home.git"
+    assert worker_source["repository"] == "https://github.com/TED-H-com/agentic-smart-home.git"
     assert worker_source["repo_id"] == "agentic-home" and re.fullmatch(r"[a-f0-9]{40}", worker_source["commit"])
     assert hashlib.sha256(catalog.read_bytes()).hexdigest() == lock["codex_model_catalog"]["packaged_sha256"]
     for model in json.loads(catalog.read_text())["models"]:
