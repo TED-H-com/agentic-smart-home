@@ -91,11 +91,13 @@ def nav(page, label):
     expect(page.get_by_role('heading', name=label, exact=True).first).to_be_visible()
 
 
-def approve(page):
+def approve(page, status='等待真實觸發', message='已部署並啟用，正在等待真實狀態觸發'):
     page.get_by_role('button', name='批准並執行', exact=True).click()
     expect(page.locator('.task-message')).to_contain_text('備份')
-    expect(page.locator('.task-detail .status')).to_have_text('已完成', timeout=12000)
-    expect(page.get_by_role('heading', name='觀測結果')).to_be_visible()
+    expect(page.locator('.task-detail .status')).to_have_text(status, timeout=12000)
+    expect(page.locator('.task-message')).to_contain_text(message)
+    # As in the product, deploying a rule observes nothing until a real trigger.
+    expect(page.get_by_role('heading', name='觀測結果')).to_have_count(0)
 
 
 def test_household_flow(browser, origin):
@@ -112,11 +114,13 @@ def test_household_flow(browser, origin):
     page.get_by_text('查看設定差異', exact=True).click()
     expect(page.locator('.proposal-diff')).to_contain_text('light.demo_living_room')
     approve(page)
+    nav(page, '智能管家')
+    expect(page.get_by_label('目前對話').get_by_text('已部署並啟用，正在等待真實狀態觸發')).to_be_visible()
     nav(page, '自動化')
     expect(page.locator('.automation-row').filter(has_text='玄關有人時開啟客廳燈')).to_be_visible()
     nav(page, '紀錄')
     page.locator('.history-table > button').filter(has_text='玄關有人時開啟客廳燈').click()
-    expect(page.get_by_role('heading', name='觀測結果')).to_be_visible()
+    expect(page.locator('.task-detail .status')).to_have_text('等待真實觸發')
     nav(page, '設備')
     page.get_by_role('checkbox', name='分享 light.demo_living_room').uncheck()
     page.get_by_role('button', name='儲存修改', exact=True).click()
@@ -127,7 +131,7 @@ def test_household_flow(browser, origin):
     nav(page, '自動化')
     row = page.locator('.automation-row').filter(has_text='玄關有人時開啟客廳燈')
     row.get_by_role('button', name='預覽停用').click()
-    approve(page)
+    approve(page, '已完成', '規則已停用並讀回')
     nav(page, '自動化')
     row = page.locator('.automation-row').filter(has_text='玄關有人時開啟客廳燈')
     expect(row).to_contain_text('已停用')

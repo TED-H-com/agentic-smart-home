@@ -64,12 +64,14 @@ export function installDemo(){
   function progress(){
     for(const task of tasks){const start=starts.get(task.id);if(start===undefined)continue;
       const elapsed=performance.now()-start,step=Math.min(3,Math.floor(elapsed/1800));
-      task.state=step===3?'succeeded':'executing';task.message=['正在備份示範設定。','正在寫入示範規則。','正在讀回確認示範設定。','示範規則已儲存並確認；實際效果仍待觀察。'][step];
+      // Same end states as engine.record_deployed: an enabled rule waits for a real trigger; nothing is observed here.
+      const done=step===3,disabled=task.proposal.final.initial_state===false;
+      task.state=done?(disabled?'succeeded':'verifying'):'executing';
+      task.message=done?(disabled?'規則已停用並讀回':'已部署並啟用，正在等待真實狀態觸發'):['正在備份示範設定。','正在寫入示範規則。','正在讀回確認示範設定。'][step];
       task.events=Array.from({length:step+1},(_,i)=>({seq:i+1,at:time(i*1800),kind:['backup_completed','write_completed','readback_completed','deployment_confirmed'][i]}));
-      if(step===3){starts.delete(task.id);task.evidence={kind:'state_readback',entity_id:'light.demo_living_room',state:'off',synthetic_data:true,physical_effect:'unknown',observed_at:time()};task.proposal.deployed_at=time();
+      if(done){starts.delete(task.id);task.proposal.deployed_at=time();
         const rules=data.automations.automations,existing=rules.find((r:Row)=>r.id===task.automation_id);
         if(existing){existing.enabled=task.proposal.mode!=='disable';existing.intent=clone(task.proposal.intent)}else rules.push({id:task.proposal.final.id,enabled:true,intent:clone(task.proposal.intent)});
-        for(const m of messages)if(m.task_id===task.id){m.state='succeeded';m.answer='示範規則已完成，紀錄已保留。'}
       }
     }
     for(const job of jobs){const start=jobStarts.get(job.id);if(start===undefined)continue;const step=Math.min(4,Math.floor((performance.now()-start)/1400));job.phase=['queued','launching','running','verifying','collecting'][step];job.state=step===4?'succeeded':'running';if(step===4){Object.assign(job,{stop_confirmed:true,facts:clone(initialJob.facts),artifacts:job.mode==='development'?[artifact]:[],verification:clone(initialJob.verification)});jobStarts.delete(job.id)}}
@@ -87,6 +89,8 @@ export function installDemo(){
     if(method==='GET'){
       if(path==='tasks')result={tasks};
       else if(path.startsWith('tasks/'))result=tasks.find(t=>t.id===path.slice(6));
+      // Like the Controller's Gateway.present(): a saved proposal reply shows what its task says now.
+      else if(path==='gateway/messages')result={...data[path],messages:messages.map(m=>{const task=m.state==='awaiting_approval'&&tasks.find(t=>t.id===m.task_id);return task&&task.state!=='awaiting_approval'&&task.message?{...m,state:'succeeded',answer:task.message}:m})};
       else if(path==='worker/jobs')result=data[path];
       else if(/^worker\/jobs\/[^/]+\/artifacts\//.test(path)){const job=jobs.find(j=>j.id===path.split('/')[2]);if(job?.artifacts.some((a:Row)=>a.id===path.split('/')[4]))result={content_base64:btoa(String.fromCharCode(...bytes)),sha256:digest}}
       else if(/^worker\/jobs\/[^/]+$/.test(path))result=jobs.find(j=>j.id===path.slice(12));
@@ -107,7 +111,7 @@ export function installDemo(){
       else if(/^automations\/[^/]+\/propose$/.test(path)){const rule=data.automations.automations.find((r:Row)=>r.id===path.split('/')[1]);if(rule&&['disable','enable','rollback'].includes(body.action))result=proposal(rule.intent.title,body.action==='enable'?'upsert':body.action,rule)}
       else if(path==='worker/jobs'){if(jobStarts.size){status=409;result={detail:'請等目前的示範工作完成。'}}else{result={...clone(initialJob),id:nextId(32),goal:String(body.goal||'示範調查').slice(0,4000),worker_id:body.worker_id==='home-coder'?'home-coder':'host-coder',mode:body.mode==='development'?'development':'research',state:'running',phase:'queued',stop_confirmed:false,facts:[],artifacts:[],verification:null,created_at:time(serial*1000)};jobs.unshift(result);jobStarts.set(result.id,performance.now());}}
       else if(/^worker\/jobs\/[^/]+\/cancel$/.test(path)){const job=jobs.find(j=>j.id===path.split('/')[2]);if(job){jobStarts.delete(job.id);Object.assign(job,{state:'cancelled',stop_confirmed:true});result={id:job.id}}}
-      else if(/^tasks\/[^/]+\/cancel$/.test(path)){const task=tasks.find(t=>t.id===path.split('/')[1]);if(task){starts.delete(task.id);task.state='cancelled';result={id:task.id}}}
+      else if(/^tasks\/[^/]+\/cancel$/.test(path)){const task=tasks.find(t=>t.id===path.split('/')[1]);if(task){starts.delete(task.id);task.state='cancelled';task.message='任務追蹤已取消；已部署規則保持原狀';result={id:task.id}}}
       else if(path==='pause'){data.status.paused=!!body.paused;result={ok:true}}
       if(result===undefined){status=409;result={detail:'示範中無法進行這個操作。'}}
     }else{status=409;result={detail:'示範中無法進行這個操作。'}}
