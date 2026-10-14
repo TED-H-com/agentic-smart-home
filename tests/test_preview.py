@@ -199,13 +199,13 @@ def test_actual_offline_preview_renderer(tmp_path, request):
             "disk_quota": "separate DiskVolume tests; this render test uses disposable host disk directory",
             "real_cloud": False, "real_household": False}, indent=2) + "\n")
     finally:
-        subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=20)
+        subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=120)
         # Chromium caches use the renderer UID. Repair only this disposable
         # directory before pytest-disktmp removes it; no leftover root/UID files.
         subprocess.run(["docker", "run", "--rm", "--network", "none", "--user", "0:0", "--entrypoint", "python",
                         "--mount", f"type=bind,src={scratch},dst=/cleanup", image, "-c",
                         "import os; from pathlib import Path; p=Path('/cleanup'); "
                         f"[(os.chown(x,{os.getuid()},{os.getgid()}),os.chmod(x,0o700) if x.is_dir() else None) for x in [p,*p.rglob('*')]]"],
-                       check=True, capture_output=True, timeout=20)
+                       check=True, capture_output=True, timeout=120)
         receiver.shutdown()
         receiver.server_close()

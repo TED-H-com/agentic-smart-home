@@ -334,7 +334,7 @@ time.sleep(60)
         except Exception:
             pass  # Diagnostics must never suppress the original failure or cleanup.
         try:
-            removed = subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=20)
+            removed = subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=120)
             evidence["cleanup"] = removed.returncode == 0
         except Exception as error:
             evidence.update(cleanup=False, cleanup_error_type=type(error).__name__)
@@ -388,13 +388,13 @@ pathlib.Path('/work/artifacts/memory.txt').write_text('kernel killed allocation 
     name = "agentic-coding-" + uuid.uuid4().hex
     try:
         subprocess.run(container_command(name, image, tmp_path, Limits(wall_seconds=10)),
-                       check=True, capture_output=True, timeout=20)
-        subprocess.run(["docker", "start", name], check=True, capture_output=True, timeout=20)
-        code = subprocess.check_output(["docker", "wait", name], text=True, timeout=20).strip()
+                       check=True, capture_output=True, timeout=120)
+        subprocess.run(["docker", "start", name], check=True, capture_output=True, timeout=120)
+        code = subprocess.check_output(["docker", "wait", name], text=True, timeout=120).strip()
         assert code == "0", (tmp_path / "stderr.txt").read_text()
         assert (tmp_path / "artifacts/memory.txt").read_text().startswith("kernel killed")
     finally:
-        subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=20)
+        subprocess.run(["docker", "rm", "-f", name], capture_output=True, timeout=120)
 
 
 def test_retained_workspace_budget_prevents_unbounded_disk_growth(tmp_path, monkeypatch):
