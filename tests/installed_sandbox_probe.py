@@ -19,6 +19,16 @@ from pathlib import Path
 
 PRODUCT = Path("/opt/agentic-home")
 STATE = Path("/var/lib/agentic-home")
+# A slow shared test disk stretched the 60 MiB ext4 fsync loop past 30 s; use the
+# product's 300 s wall budget and size outer alarms above job and cleanup steps.
+COMMAND_TIMEOUT_SECONDS = 60
+CLEANUP_COMMAND_TIMEOUT_SECONDS = 30
+QUOTA_WALL_SECONDS = 300
+READBACK_SECONDS = 30
+QUOTA_WAIT_SECONDS = QUOTA_WALL_SECONDS + READBACK_SECONDS
+CANCEL_READY_SECONDS = 120
+PROBE_ALARM_SECONDS = 900
+CLEANUP_ALARM_SECONDS = 420
 SAFE_ENV = {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C", "GIT_CONFIG_NOSYSTEM": "1",
             "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_TERMINAL_PROMPT": "0",
             "DOCKER_HOST": "unix:///var/run/docker.sock"}
@@ -33,7 +43,7 @@ def require(condition, code):
         raise ProbeFailure(code)
 
 
-def command(*args, timeout=12, check=True):
+def command(*args, timeout=COMMAND_TIMEOUT_SECONDS, check=True):
     result = subprocess.run(args, capture_output=True, text=True, timeout=timeout, env=SAFE_ENV)
     if check and result.returncode:
         raise ProbeFailure("command_failed_" + Path(args[0]).name)
@@ -141,28 +151,29 @@ def cleanup(directory, jobs):
     for job_id in reversed(jobs):
         name = "agentic-coding-" + job_id
         try:
-            response = command("docker", "inspect", name, check=False, timeout=3)
+            response = command("docker", "inspect", name, check=False, timeout=CLEANUP_COMMAND_TIMEOUT_SECONDS)
             if response.returncode == 0:
                 info = json.loads(response.stdout)[0]
                 require(info.get("Config", {}).get("Labels", {}).get("agentic.coding") == name,
                         "cleanup_identity_mismatch")
-                command("docker", "rm", "-f", name, timeout=5)
+                command("docker", "rm", "-f", name, timeout=CLEANUP_COMMAND_TIMEOUT_SECONDS)
             else:
                 # An unavailable daemon is not proof that its writer stopped.
-                names = command("docker", "ps", "-a", "--format", "{{.Names}}", timeout=3).stdout.splitlines()
+                names = command("docker", "ps", "-a", "--format", "{{.Names}}",
+                                timeout=CLEANUP_COMMAND_TIMEOUT_SECONDS).stdout.splitlines()
                 require(name not in names, "cleanup_stop_unconfirmed")
             mount = directory / "jobs" / job_id / "workspace"
             if os.path.ismount(mount):
-                command("umount", str(mount), timeout=3)
+                command("umount", str(mount), timeout=CLEANUP_COMMAND_TIMEOUT_SECONDS)
             require(not os.path.ismount(mount), "cleanup_mount_remains")
             disk = mount.parent / "workspace.ext4"
             if disk.exists():
-                loops = command("losetup", "-j", str(disk), timeout=3).stdout
+                loops = command("losetup", "-j", str(disk), timeout=CLEANUP_COMMAND_TIMEOUT_SECONDS).stdout
                 for line in loops.splitlines():
                     device = line.split(":", 1)[0]
                     require(re.fullmatch(r"/dev/loop[0-9]+", device), "unexpected_loop_device")
-                    command("losetup", "-d", device, timeout=3)
-                require(not command("losetup", "-j", str(disk), timeout=3).stdout.strip(),
+                    command("losetup", "-d", device, timeout=CLEANUP_COMMAND_TIMEOUT_SECONDS)
+                require(not command("losetup", "-j", str(disk), timeout=CLEANUP_COMMAND_TIMEOUT_SECONDS).stdout.strip(),
                         "cleanup_loop_remains")
         except Exception:
             safe = False
@@ -187,7 +198,7 @@ def probe():
         raise ProbeFailure("probe_deadline_exceeded")
 
     previous_alarm = signal.signal(signal.SIGALRM, expired)
-    signal.alarm(95)  # Includes preparation, two jobs and polling; cleanup has another 15 seconds.
+    signal.alarm(PROBE_ALARM_SECONDS)  # Covers preparation, quota wait, cancel readiness and checks before cleanup.
     try:
         guard()
         sys.path.insert(0, str(PRODUCT / "host"))
@@ -217,7 +228,7 @@ def probe():
         original_metadata = {str(path.relative_to(repo)): hashlib.sha256(path.read_bytes()).hexdigest()
                              for path in (repo / ".git").rglob("*") if path.is_file()}
         sandbox = CodingSandbox(directory / "jobs", image, {"fixture": repo},
-                                limits=Limits(disk_mib=64, wall_seconds=30))
+                                limits=Limits(disk_mib=64, wall_seconds=QUOTA_WALL_SECONDS))
         token = uuid.uuid4().hex[:16]
         job_id = quota_id = "probe-quota-" + token
         jobs.append(job_id)
@@ -235,10 +246,9 @@ def probe():
             raise ProbeFailure("changed_lease_reused_job")
         require(sandbox.record(job_id)["container_id"] == first_id, "duplicate_started_second_container")
         stage = "quota_completion"
-        # The container watchdog allows 30 seconds. Wait through that deadline
-        # plus five seconds for Docker's stopped-state readback; the enclosing
-        # 95-second alarm still bounds the entire probe before cleanup.
-        quota_deadline = time.monotonic() + 35
+        # A slow shared test disk stretched this job past 30 s; wait through the
+        # product's 300 s watchdog plus 30 s for Docker's stopped-state readback.
+        quota_deadline = time.monotonic() + QUOTA_WAIT_SECONDS
         while True:
             outcome = sandbox.status(job_id)
             report["quota_job"] = job_diagnostics(outcome)
@@ -283,7 +293,8 @@ def probe():
         sandbox.launch(cancel_id, 1, "fixture", commit, CANCEL_PROGRAM)
         cancel_workspace = directory / "jobs" / cancel_id / "workspace"
         ready = cancel_workspace / "artifacts/ready.json"
-        for _ in range(80):
+        cancel_deadline = time.monotonic() + CANCEL_READY_SECONDS
+        while time.monotonic() < cancel_deadline:
             if ready.is_file() and (cancel_workspace / "scratch/heartbeat.txt").is_file():
                 break
             time.sleep(.1)
@@ -327,7 +338,7 @@ def probe():
                 except Exception:
                     pass
     finally:
-        signal.alarm(15)
+        signal.alarm(CLEANUP_ALARM_SECONDS)
         try:
             report["cleanup"] = "passed" if cleanup(directory, jobs) else "failed"
         except Exception:

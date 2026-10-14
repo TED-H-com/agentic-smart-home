@@ -389,7 +389,7 @@ def test_update_probe_launch_once_private_receipt_and_fixed_unit(update_probe, m
     assert (update_probe.STATE_ROOT / "checkpoint.json").stat().st_mode & 0o777 == 0o600
     assert (update_probe.STATE_ROOT / "probe.py").stat().st_mode & 0o777 == 0o400
     args = calls[0][0]
-    assert "--property=RuntimeMaxSec=600" in args and "--property=KillMode=control-group" in args
+    assert f"--property=RuntimeMaxSec={update_probe.RUNTIME_MAX_SECONDS}" in args and "--property=KillMode=control-group" in args
     assert "--property=RemainAfterExit=yes" in args
     assert args[-2:] == ["/usr/bin/python3", str(update_probe.STATE_ROOT / "probe.py")]
 
@@ -900,3 +900,46 @@ def test_install_waits_are_wall_clock_bounded():
     assert remote_ok(["ssh"], "ok", run=run)
     assert not remote_ok(["ssh"], "missing", run=run)
     assert not remote_ok(["ssh"], "slow", run=run)
+
+
+def test_installed_probe_time_bounds_fit_slow_disk_and_product_budgets(monkeypatch, installed_probe, update_probe):
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[1] / "host"))
+    import installed_coding_probe as coding_probe
+    import installed_sandbox_probe as sandbox_probe
+    import test_linux_install as install
+    from agentic_host import coding_service
+    from agentic_host.coding_sandbox import Limits
+
+    assert sandbox_probe.QUOTA_WALL_SECONDS >= Limits().wall_seconds >= 300
+    assert Limits(disk_mib=64, wall_seconds=sandbox_probe.QUOTA_WALL_SECONDS).wall_seconds == sandbox_probe.QUOTA_WALL_SECONDS
+    assert sandbox_probe.READBACK_SECONDS >= 30
+    assert sandbox_probe.QUOTA_WAIT_SECONDS == sandbox_probe.QUOTA_WALL_SECONDS + sandbox_probe.READBACK_SECONDS
+    assert sandbox_probe.QUOTA_WAIT_SECONDS > sandbox_probe.QUOTA_WALL_SECONDS
+    assert sandbox_probe.CANCEL_READY_SECONDS >= 120
+    assert sandbox_probe.PROBE_ALARM_SECONDS > sandbox_probe.QUOTA_WAIT_SECONDS + sandbox_probe.CANCEL_READY_SECONDS
+    assert sandbox_probe.COMMAND_TIMEOUT_SECONDS >= 60 and sandbox_probe.CLEANUP_COMMAND_TIMEOUT_SECONDS >= 30
+    assert sandbox_probe.CLEANUP_ALARM_SECONDS >= 12 * sandbox_probe.CLEANUP_COMMAND_TIMEOUT_SECONDS
+    assert install.SANDBOX_PROBE_TIMEOUT_SECONDS > sandbox_probe.PROBE_ALARM_SECONDS + sandbox_probe.CLEANUP_ALARM_SECONDS
+
+    phase_budgets = (
+        coding_service.SETUP_BUDGET_SECONDS
+        + coding_service.EXECUTION_BUDGET_SECONDS
+        + coding_service.VERIFICATION_BUDGET_SECONDS
+        + coding_service.SHUTDOWN_BUDGET_SECONDS
+    )
+    assert coding_probe.JOB_WAIT_SECONDS >= phase_budgets
+    assert coding_probe.JOB_WAIT_SECONDS < coding_probe.JOB_EXPIRES_SECONDS <= coding_service.AUTHORIZATION_MAX_AHEAD_SECONDS
+    assert coding_probe.JOB_EXPIRES_SECONDS - coding_probe.JOB_WAIT_SECONDS >= coding_service.VERIFICATION_BUDGET_SECONDS
+    assert coding_probe.COMMAND_TIMEOUT_SECONDS >= 60 and coding_probe.CLEANUP_WAIT_SECONDS >= 60
+    assert install.CODING_PROBE_TIMEOUT_SECONDS > coding_probe.JOB_WAIT_SECONDS + coding_probe.CLEANUP_WAIT_SECONDS
+
+    assert update_probe.COMMAND_TIMEOUT_SECONDS >= 60 and update_probe.SERVICE_TIMEOUT_SECONDS >= 180
+    assert update_probe.BUILD_TIMEOUT_SECONDS >= 600 and update_probe.COMPOSE_TIMEOUT_SECONDS >= 600
+    assert update_probe.WAIT_TIMEOUT_SECONDS >= 1800
+    assert update_probe.RUNTIME_MAX_SECONDS > update_probe.WAIT_TIMEOUT_SECONDS
+    assert install.UPDATE_INVOKE_TIMEOUT_SECONDS > update_probe.COMMAND_TIMEOUT_SECONDS
+    assert install.UPDATE_DEADLINE_SECONDS > update_probe.RUNTIME_MAX_SECONDS > update_probe.WAIT_TIMEOUT_SECONDS
+
+    assert installed_probe.HTTP_TIMEOUT_SECONDS >= 90
+    assert install.AUTH_PROBE_TIMEOUT_SECONDS > installed_probe.HTTP_TIMEOUT_SECONDS
+    assert install.FAILURE_DIAGNOSTICS_TIMEOUT_SECONDS > update_probe.COMMAND_TIMEOUT_SECONDS

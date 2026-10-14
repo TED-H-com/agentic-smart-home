@@ -9,6 +9,7 @@ from pathlib import Path
 OBSERVATIONS = []
 STAGE = "initializing"
 DIAGNOSTICS = {}
+HTTP_TIMEOUT_SECONDS = 90
 
 
 def require(condition, stage):
@@ -68,7 +69,7 @@ def probe():
         req = urllib.request.Request(base + path, data=body,
                                      headers=headers)
         try:
-            with opener.open(req, timeout=90) as response:
+            with opener.open(req, timeout=HTTP_TIMEOUT_SECONDS) as response:
                 OBSERVATIONS.append({"path": path, "status": response.status})
                 return json.load(response)
         except urllib.error.HTTPError as exc:
