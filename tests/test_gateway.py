@@ -216,6 +216,28 @@ async def send(client, text, key, **fields):
                              headers={'Idempotency-Key': key})
 
 
+async def test_proposal_reply_shows_what_its_task_says_now(system, store):
+    app, client, _, inner = system
+    store.set_setting('owner', 'owner')
+    client.headers['X-Agentic-CSRF'] = (await client.get('/api/session')).json()['csrf']
+    inner.answer = {'message': '提出操作', 'action': {'entity_id': TARGET, 'action': 'turn_off'}}
+    sent = (await send(client, '關燈', 'proposal', runtime='haos')).json()
+    await drain(app)
+    saved = store.get('conversation', sent['id'])
+
+    async def shown():
+        item = next(item for item in (await client.get('/api/gateway/messages')).json()['messages'] if item['id'] == sent['id'])
+        return item['state'], item['answer']
+
+    assert await shown() == ('awaiting_approval', saved['answer'])
+    store.transition(store.get('task', saved['task_id']), 'verifying', message='已部署並啟用，正在等待真實狀態觸發')
+    # The composer only replies after a continuable latest message, so the reply stays continuable.
+    assert await shown() == ('succeeded', '已部署並啟用，正在等待真實狀態觸發')
+    assert (await client.post(f"/api/tasks/{saved['task_id']}/cancel")).status_code == 200
+    assert await shown() == ('succeeded', '任務追蹤已取消；已部署規則保持原狀')
+    assert store.get('conversation', sent['id']) == saved
+
+
 async def test_followups_wait_for_parent_and_keep_idempotency(system):
     app, client, outer, _ = system
     started, release = asyncio.Event(), asyncio.Event()

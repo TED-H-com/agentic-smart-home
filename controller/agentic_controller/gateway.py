@@ -442,6 +442,18 @@ class Gateway:
     def public_message(item):
         return {k: v for k, v in item.items() if k not in {"scope", "request_digest", "bridge_pairing_id"}}
 
+    def present(self, item):
+        """A proposal reply is saved once, while it awaits approval; show what its task says now.
+
+        The state stays continuable: the composer only replies after a continuable latest message.
+        """
+        public = self.public_message(item)
+        if item.get("state") == "awaiting_approval" and item.get("task_id"):
+            task = self.store.get("task", item["task_id"])
+            if task and task["state"] != "awaiting_approval" and task.get("message"):
+                public.update(state="succeeded", answer=task["message"])
+        return public
+
     def owner_messages(self, owner):
         return [item for item in self.store.list("conversation", 10000) if item.get("source") == "web"
                 and item.get("chat") == "owner" and item.get("sender") == owner and item.get("coordinator") == "hermes"
@@ -911,13 +923,13 @@ def routes(app, gateway, store, runners, controller_id):
         if getattr(request.state, "bridge_identity", None):
             values, size = [], 0
             for item in gateway.owner_messages(request.state.principal)[:30]:
-                public = gateway.public_message(item)
+                public = gateway.present(item)
                 size += len(canonical(public).encode())
                 if size > 700000:
                     break
                 values.append(public)
             return {"messages": values}
-        return {"messages": [gateway.public_message(item) for item in store.list("conversation", 100)]}
+        return {"messages": [gateway.present(item) for item in store.list("conversation", 100)]}
 
     @app.post("/api/gateway/messages", status_code=202)
     async def message(body: ChatInput, request: Request):
