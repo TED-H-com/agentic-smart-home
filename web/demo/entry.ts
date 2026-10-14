@@ -8,7 +8,9 @@ bar.querySelector('button')!.onclick=()=>{Object.keys(sessionStorage).filter(key
 if(new URLSearchParams(location.search).get('screenshot')!=='1'){document.body.prepend(bar);document.body.classList.add('agentic-demo-active')}
 const toast=document.createElement('div');toast.className='agentic-demo-toast';toast.setAttribute('role','status');document.body.append(toast);
 let timer:ReturnType<typeof setTimeout>;
-document.addEventListener('click',event=>{
+// A middle click opens a new tab without a click event, so it gets the same guard.
+function guard(event:MouseEvent){
+  if(event.type==='auxclick'&&event.button!==1)return;
   const a=(event.target as Element)?.closest('a');if(!a)return;
   const raw=a.getAttribute('href')||'',url=new URL(a.href,location.href);
   if(raw.startsWith('#'))return;
@@ -19,5 +21,6 @@ document.addEventListener('click',event=>{
   event.preventDefault();
   toast.textContent=raw.includes('downloads/')||a.hasAttribute('download')?'示範中無法下載。':'示範中不會開啟 Home Assistant。';
   toast.classList.add('agentic-demo-show');clearTimeout(timer);timer=setTimeout(()=>toast.classList.remove('agentic-demo-show'),3000);
-},true);
+}
+document.addEventListener('click',guard,true);document.addEventListener('auxclick',guard,true);
 await import('../src/main.tsx');

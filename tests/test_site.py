@@ -2,6 +2,7 @@
 import hashlib
 import importlib.util
 import json
+import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -168,6 +169,10 @@ def test_workers_and_host(browser, origin):
     page.get_by_role('link', name='開啟家庭 ↗', exact=True).click()
     assert page.url == current
     expect(page.get_by_text('示範中不會開啟 Home Assistant。', exact=True)).to_be_visible()
+    # A middle click would open the link in a new tab.
+    page.get_by_role('link', name='開啟家庭 ↗', exact=True).click(button='middle')
+    page.wait_for_timeout(500)
+    assert page.url == current and len(page.context.pages) == 1
     page.evaluate("() => {const a=document.createElement('a');a.href='downloads/demo.zip';a.textContent='download guard';document.body.append(a);a.click();a.remove()}")
     expect(page.get_by_text('示範中無法下載。', exact=True)).to_be_visible()
     clean(page, errors, external)
@@ -233,10 +238,13 @@ def test_isolation_and_manifest():
         if path.is_file():
             assert 'demo/' not in path.read_text()
             assert 'AGENTIC_DEMO_BUILD' not in path.read_text()
+    # A bundler renames the constant, so look for its value too.
+    marker = re.search(r"AGENTIC_DEMO_BUILD='([^']+)'", (ROOT / 'web/demo/fake-api.ts').read_text()).group(1).encode()
     for directory in ['controller/static', 'bridge/static']:
         for path in (ROOT / directory).rglob('*'):
             if path.is_file():
                 assert b'AGENTIC_DEMO_BUILD' not in path.read_bytes()
+                assert marker not in path.read_bytes()
     folder = ROOT / 'site/assets/screens'
     manifest = json.loads((folder / 'manifest.json').read_text())
     assert manifest['synthetic_data'] is True
