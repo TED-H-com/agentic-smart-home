@@ -395,8 +395,9 @@ class Updater:
         bundle = self.root / ("source-" + record["candidate_digest"] + ".bundle")
         try:
             if not self._extract_bundle(record["manifest"]["image_id"], bundle):
-                record["source_sync"] = "unavailable"
-                return
+                # This Host already develops from a coding source. An image with
+                # no bundle would leave that source on the old commit, so refuse.
+                raise UpdateError("update_source_bundle_missing")
             self._accept_bundle(record, bundle)
         finally:
             self._discard(bundle)

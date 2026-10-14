@@ -44,7 +44,7 @@ SAFE_ERRORS = {
     "update_rollback_revision_changed", "update_smoke_mismatch", "update_activation_mismatch",
     "update_final_smoke_mismatch", "update_staging_interrupted", "update_interrupted",
     "update_deployment_failed", "update_fallback_unconfirmed",
-    "update_source_bundle_invalid", "update_source_diverged", "update_source_move_failed", "update_source_unavailable",
+    "update_source_bundle_invalid", "update_source_bundle_missing", "update_source_diverged", "update_source_move_failed", "update_source_unavailable",
     "update_source_extract_failed", "update_source_command_failed",
     "host_memory_reserve_required", "host_resource_limits_unavailable", "container_identity_invalid",
     "container_stop_unconfirmed", "container_ownership_unconfirmed", "root_broker_required",

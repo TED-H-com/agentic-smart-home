@@ -624,7 +624,7 @@ def test_status_source_commit_is_null_without_source_json(updater):
     assert record["candidate_digest"]
 
 
-def test_bundle_head_must_equal_source_commit_and_missing_bundle_stays_unavailable(updater, tmp_path):
+def test_bundle_head_must_equal_source_commit_and_missing_bundle_is_refused(updater, tmp_path):
     service, record = updater
     repo, commit_a = product_history(tmp_path)
     lock = install_coding(service, repo, commit_a)
@@ -644,17 +644,18 @@ def test_bundle_head_must_equal_source_commit_and_missing_bundle_stays_unavailab
         service.stage_source(record)
     service.image = lambda: "sha256:" + "1" * 64
     service.run = BundleDocker(None, record["manifest"]["image_id"])
+    # stage() persists no approval. prepare() must not issue one for a missing bundle.
+    record.pop("approval_id", None)
+    record.pop("approval_expires_at", None)
     service.prepare(record)
-    assert record["state"] == "staged" and record["source_sync"] == "unavailable"
+    assert record["state"] == "failed" and record["error_code"] == "update_source_bundle_missing"
+    assert "approval_id" not in record
     assert not service.run.created
     assert not any(call[1] in {"run", "start", "exec"} for call in service.run.calls)
-    current = prepare_deployment(service, record)
-    service.deploy(record)
-    assert record["state"] == "deployed" and current[0] == record["manifest"]["image_id"]
-    assert record["source_sync"] == "unavailable"
     assert git_out(service.source_repo, "rev-parse", "HEAD", git_dir=True) == commit_a
     assert json.loads(service.source_lock.read_text()) == lock
-    assert service.status()["deployed_source_commit"] == commit_a
+    with pytest.raises(UpdateError, match="approval_invalid"):
+        service.apply({"candidate_digest": record["candidate_digest"], "approval_id": "synthetic-approval"})
 
 
 def test_deploy_moves_source_rollback_restores_and_submit_binds_head(updater, tmp_path, monkeypatch):
