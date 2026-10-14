@@ -423,6 +423,7 @@ def test_update_source_commit_and_sync_are_plain_and_short():
     errors = []
     labels = {'pending': '程式碼同步中', 'moved': '程式碼已同步', 'reverted': '程式碼已還原', 'needs_reconcile': '程式碼需要處理'}
     source_blocked = '開發助手的程式碼無法跟著這個版本同步，所以沒有更新。'
+    not_updated = '這次更新沒有完成。'
 
     def payload():
         record = {'candidate_digest': 'c' * 64, 'state': 'failed' if failure['code'] else 'deployed',
@@ -520,6 +521,7 @@ def test_update_source_commit_and_sync_are_plain_and_short():
             failure['code'] = 'update_source_bundle_missing'
             refold()
             expect(page.get_by_text(source_blocked, exact=True)).to_be_visible()
+            expect(page.get_by_text(not_updated, exact=True)).to_have_count(0)
             assert 'update_source_bundle_missing' not in page.locator('body').inner_text()
             for width in (1440, 390):
                 page.set_viewport_size({'width': width, 'height': 900 if width == 1440 else 844})
@@ -532,6 +534,7 @@ def test_update_source_commit_and_sync_are_plain_and_short():
             page.set_viewport_size({'width': 1440, 'height': 900})
             failure['code'] = 'update_image_digest_mismatch'
             refold()
+            expect(page.get_by_text(not_updated, exact=True)).to_be_visible()
             expect(page.get_by_text(source_blocked, exact=True)).to_have_count(0)
             assert 'update_image_digest_mismatch' not in page.locator('body').inner_text()
             assert not errors, errors
