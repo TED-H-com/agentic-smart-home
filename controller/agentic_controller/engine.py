@@ -16,6 +16,8 @@ from .models import (
 )
 from .store import Conflict
 
+BACKUP_FAILED = "Home Assistant 備份沒有完成，沒有變更家庭；請稍後再試一次。"
+
 
 class Rejected(Exception):
     pass
@@ -200,7 +202,11 @@ class Engine:
                 if digest(await self.ha.config(resource_id)) != proposal["base_hash"]:
                     raise Rejected("批准後規則已被修改，未送出寫入")
                 self.journal(proposal, "backup_prepared")
-                backup = await self.ha.backup("Agentic Home " + proposal["id"][:12])
+                try:
+                    backup = await self.ha.backup("Agentic Home " + proposal["id"][:12])
+                except HAError as exc:
+                    # Nothing is written before the backup exists. The Supervisor's own words do not help the owner.
+                    raise HAError(BACKUP_FAILED) from exc
                 self.store.put("backup", backup)
                 await self.store.snapshot(self.store.path.parent / "snapshots" / (proposal["id"] + ".sqlite3"))
                 self.journal(proposal, "backup_completed", backup_id=backup["id"])

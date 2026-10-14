@@ -3,6 +3,7 @@ import asyncio
 import json
 import lzma
 import os
+import re
 import secrets
 import shutil
 import subprocess
@@ -15,6 +16,16 @@ import pytest
 from agentic_controller.ha import HomeAssistant
 
 ROOT = Path(__file__).parents[1]
+# Core answers onboarding long before it is RUNNING; first boot on a busy test disk takes minutes more.
+READY_SECONDS = 900
+BACKUP_ATTEMPTS = 3
+JOB = re.compile(r"check job '([a-f0-9]{32})'")
+
+
+class Refused(AssertionError):
+    def __init__(self, error):
+        super().__init__(error)
+        self.error = error if isinstance(error, dict) else {}
 
 
 class DiagnosticHA(HomeAssistant):
@@ -22,8 +33,45 @@ class DiagnosticHA(HomeAssistant):
         async with await self.ws_connect() as ws:
             await ws.send_json({"id": 1, "type": command, **kwargs})
             result = await ws.receive_json(timeout=_receive_timeout)
-            assert result.get("success"), result.get("error")
+            if not result.get("success"):
+                raise Refused(result.get("error"))
             return result["result"]
+
+
+async def wait_ready(ha, seen):
+    """Back up only once Core is RUNNING and the Supervisor is running and healthy. Keeps each distinct state."""
+    deadline = time.monotonic() + READY_SECONDS
+    while True:
+        core = await ha.request("GET", "/config")
+        info = await ha.request("GET", "/info", supervisor=True)
+        supervisor = await ha.request("GET", "/supervisor/info", supervisor=True)
+        state = {"core": core.get("state"), "supervisor": info.get("state"), "healthy": supervisor.get("healthy")}
+        if not seen or seen[-1] != state:
+            seen.append(state)
+        if state == {"core": "RUNNING", "supervisor": "running", "healthy": True}:
+            return core, supervisor
+        if time.monotonic() > deadline:
+            raise AssertionError(f"HAOS did not finish starting: {seen}")
+        await asyncio.sleep(3)
+
+
+def brief(job, depth=0):
+    """A Supervisor job's names, stages and error messages only."""
+    errors = [{"type": item.get("type"), "message": str(item.get("message"))[:300], "stage": item.get("stage")}
+              for item in job.get("errors") or [] if isinstance(item, dict)]
+    children = [brief(item, depth + 1) for item in job.get("child_jobs") or [] if isinstance(item, dict)]
+    return {"name": job.get("name"), "stage": job.get("stage"), "done": job.get("done"), "errors": errors[:5],
+            "child_jobs": children[:10] if depth < 3 else []}
+
+
+async def failed_job(ha, error):
+    match = JOB.search(str(error.get("message", "")))
+    if not match:
+        return None
+    try:
+        return brief(await ha.request("GET", "/jobs/" + match.group(1), supervisor=True))
+    except Exception as exc:  # A missing diagnostic must not hide the refused backup.
+        return {"unavailable": type(exc).__name__}
 
 
 def docker(*args):
@@ -79,23 +127,35 @@ async def test_real_haos_boot_owner_and_supervisor_backup(tmp_path, request, sto
         ha = DiagnosticHA(auth["access_token"], base + "/api", base.replace("http:", "ws:") + "/api/websocket", external=True)
         ha.store = store
         await ha.start()
+        seen, failures = [], []
         try:
             owner = await ha.ws("auth/current_user")
             assert await ha.owner(owner["id"])
-            core = await ha.request("GET", "/config")
-            supervisor = await ha.request("GET", "/supervisor/info", supervisor=True)
-            for _ in range(90):
-                if supervisor.get("healthy") is True:
+            for attempt in range(1, BACKUP_ATTEMPTS + 1):
+                core, supervisor = await wait_ready(ha, seen)
+                try:
+                    backup = await ha.backup("Agentic disposable VM backup")
                     break
-                await asyncio.sleep(2)
-                supervisor = await ha.request("GET", "/supervisor/info", supervisor=True)
-            backup = await ha.backup("Agentic disposable VM backup")
+                except Refused as exc:
+                    # The Supervisor's own backup job failed. Keep its reason, then wait for HAOS again.
+                    failures.append({"attempt": attempt, "code": exc.error.get("code"),
+                                     "job": await failed_job(ha, exc.error)})
+                    if attempt == BACKUP_ATTEMPTS:
+                        raise
+                    await asyncio.sleep(30)
             assert backup["id"]
             evidence = {"kind": "real_haos_kvm", "haos_image": "18.3", "core": core["version"],
                         "supervisor": supervisor["version"], "owner_verified": True,
-                        "backup_completed_and_readback": True, "duration_seconds": round(time.time() - started),
+                        "backup_completed_and_readback": True, "backup_attempts": len(failures) + 1,
+                        "backup_failures": failures, "ready_states": seen,
+                        "duration_seconds": round(time.time() - started),
                         "cloud_login": "not_run", "laptop_hardware": "not_run"}
             (ROOT / "evidence/haos-vm.json").write_text(json.dumps(evidence, indent=2) + "\n")
+        except Exception:
+            (ROOT / "evidence/haos-vm-failure.json").write_text(json.dumps({
+                "kind": "real_haos_kvm", "result": "failed", "ready_states": seen, "backup_failures": failures,
+                "duration_seconds": round(time.time() - started)}, indent=2) + "\n")
+            raise
         finally:
             await ha.close()
     finally:
@@ -103,3 +163,32 @@ async def test_real_haos_boot_owner_and_supervisor_backup(tmp_path, request, sto
         subprocess.run(["docker", "run", "--rm", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0",
                         "chown", "-R", f"{os.getuid()}:{os.getgid()}", "/lab"], capture_output=True)
         subprocess.run(["docker", "rm", "-fv", name], capture_output=True)
+
+
+async def test_refused_backup_keeps_only_its_job_names_stages_and_errors():
+    identity = "7b4d82e97f5b41a2978cf0cc30d25400"
+    job = {"name": "backup_manager_partial_backup", "uuid": identity, "reference": "x", "stage": "home_assistant",
+           "done": True, "created": "now", "errors": [{"type": "BackupError", "message": "m" * 400,
+                                                         "stage": "home_assistant", "extra": "dropped"}],
+           "child_jobs": [{"name": "home_assistant_core_backup", "done": True, "progress": 0,
+                           "errors": [{"type": "HomeAssistantBackupError", "message": "Backup failed"}]}]}
+
+    class Supervisor:
+        async def request(self, method, path, supervisor=False):
+            assert (method, path, supervisor) == ("GET", "/jobs/" + identity, True)
+            return job
+
+    refused = {"code": "unknown_error",
+               "message": f"An error occurred while making backup, check job '{identity}' or supervisor logs for details"}
+    assert await failed_job(Supervisor(), refused) == {
+        "name": "backup_manager_partial_backup", "stage": "home_assistant", "done": True,
+        "errors": [{"type": "BackupError", "message": "m" * 300, "stage": "home_assistant"}],
+        "child_jobs": [{"name": "home_assistant_core_backup", "stage": None, "done": True, "child_jobs": [],
+                        "errors": [{"type": "HomeAssistantBackupError", "message": "Backup failed", "stage": None}]}]}
+    assert await failed_job(Supervisor(), {"code": "unknown_error", "message": "no job named"}) is None
+
+    class Gone:
+        async def request(self, *args, **kwargs):
+            raise Refused({"code": "unknown_error"})
+
+    assert await failed_job(Gone(), refused) == {"unavailable": "Refused"}
