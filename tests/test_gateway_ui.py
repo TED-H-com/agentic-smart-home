@@ -387,6 +387,18 @@ def test_interrupted_reply_can_be_sent_again():
             "error_code": "stop_unconfirmed", "reason": "stop_unconfirmed", "message": reconcile_question,
             "answer": reconcile_answer, "created_at": "2026-10-13T08:05:00Z",
         },
+        "ended": {
+            "id": "c" * 64, "thread_id": "c" * 64, "source": "web", "runtime": "host",
+            "provider": "codex", "coordinator": "hermes", "state": "failed", "error_code": None,
+            "message": "請關掉客廳燈", "answer": "AI 已暫停或對話權限已變更，請檢查設定後開始新對話。",
+            "created_at": "2026-10-13T08:10:00Z",
+        },
+        "busy": {
+            "id": "d" * 64, "thread_id": "d" * 64, "source": "web", "runtime": "host",
+            "provider": "codex", "coordinator": "hermes", "state": "failed", "error_code": "session_busy",
+            "reason": "session_busy", "message": "請開客廳燈", "answer": "智能管家正在處理另一則訊息，請等它完成後再送出。",
+            "created_at": "2026-10-13T08:15:00Z",
+        },
     }
     gateway = {
         "step": 0, "selected": True, "web": {"status": "connected"},
@@ -464,6 +476,8 @@ def test_interrupted_reply_can_be_sent_again():
                 expect(page.get_by_text(reconcile_answer, exact=True)).to_be_visible()
                 expect(page.get_by_role("button", name="重新送出", exact=True)).to_have_count(0)
                 expect(page.get_by_role("button", name="重試", exact=True)).to_have_count(0)
+                # The reply already says to wait; no second notice repeats it.
+                expect(page.get_by_text("這段對話暫時無法接續", exact=False)).to_have_count(0)
                 shot(page, "gateway-reconcile", width)
                 show(page, "bridge", "interrupted", width)
                 expect(page.get_by_role("link", name="回到家庭", exact=True)).to_be_visible()
@@ -482,6 +496,22 @@ def test_interrupted_reply_can_be_sent_again():
                 expect(page.get_by_text(reconcile_answer, exact=True)).to_be_visible()
                 expect(page.get_by_role("button", name="重新送出", exact=True)).to_have_count(0)
                 shot(page, "bridge/gateway-reconcile", width)
+            # A finished failure ends the conversation like a history item: one sentence, one action.
+            show(page, "host", "ended", 1440)
+            expect(page.get_by_text(messages["ended"]["answer"], exact=True)).to_be_visible()
+            expect(page.get_by_text("這段對話已結束。", exact=True)).to_be_visible()
+            expect(page.get_by_text("這段對話暫時無法接續", exact=False)).to_have_count(0)
+            expect(page.get_by_label("對話訊息", exact=True)).to_have_count(0)
+            page.get_by_role("button", name="開始新對話", exact=True).click()
+            expect(page.get_by_label("對話訊息", exact=True)).to_have_attribute("placeholder", "輸入訊息…")
+            expect(page.get_by_text("這段對話已結束。", exact=True)).to_have_count(0)
+            # A busy assistant is worth one more try once it finishes.
+            show(page, "host", "busy", 1440)
+            expect(page.get_by_role("button", name="重試", exact=True)).to_be_visible()
+            expect(page.get_by_text("這段對話已結束。", exact=True)).to_have_count(0)
+            expect(page.get_by_text("這段對話暫時無法接續", exact=False)).to_have_count(0)
+            # Starting over and retrying only prepare the composer; nothing is sent.
+            assert "gateway/messages" not in posts
             assert not errors, errors
             browser.close()
     finally:

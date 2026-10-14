@@ -7,7 +7,9 @@ import {names,type Runtime} from './labels';
 
 const conversationKey='agentic-auth-conversations';
 const continuable=new Set(['queued','planning','awaiting_user','awaiting_approval','succeeded']);
-const retryable=new Set(['rate_limited','provider_unavailable','timeout','runtime_unavailable','inference_failed']);
+const retryable=new Set(['rate_limited','provider_unavailable','timeout','runtime_unavailable','inference_failed','session_busy']);
+// These replies carry their own next step: send again, retry or sign in.
+const ownAction=(m:any)=>m.state==='interrupted'||m.error_code==='needs_reauth'||m.reason==='needs_reauth'||retryable.has(m.error_code)||retryable.has(m.reason);
 const sameThread=(m:any,n:any)=>m.source===n.source&&m.runtime===n.runtime&&m.provider===n.provider&&(m.coordinator||'direct')===(n.coordinator||'direct')&&(m.thread_id||m.id)===(n.thread_id||n.id);
 function savedConversations(key=conversationKey,identity?:ConversationSession):Record<string,string>{
   try{const stored=sessionStorage.getItem(key);const value=JSON.parse(stored||'{}');if(!stored&&identity?.resume&&/^[a-f0-9]{64}$/.test(identity.resume.message_id))value['hermes-host-codex']=identity.resume.message_id;return Object.fromEntries(Object.entries(value).filter(([key,id])=>/^(hermes-)?(host|haos)-(codex|claude|agy|grok)$/.test(key)&&typeof id==='string'&&/^[a-f0-9]{64}$/.test(id))) as Record<string,string>}catch{return {}}
@@ -42,6 +44,7 @@ export function GatewayPanel({visible=true,bridge=false,conversationSession}:{vi
   // A second browser surface may have continued this same thread since our last send.
   const latest=cursor?messages.filter(m=>sameThread(m,cursor)).slice().sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at))[0]:null;
   const active=latest&&continuable.has(latest.state)?latest:undefined;
+  const ended=!!replyId&&!!latest&&['failed','cancelled'].includes(latest.state)&&!ownAction(latest);
   const refresh=useCallback(async()=>{const [g,m]=await Promise.all([bridge?Promise.resolve(null):api('gateway'),api('gateway/messages')]);setData(g);setMessages(m.messages);setLoaded(true);setError('')},[bridge]);
   useEffect(()=>{if(!visible)return;if(!bridge&&!initialized.current){initialized.current=true;api('gateway').then(g=>{setRuntime(g.preferences.runtime);setProvider(g.preferences.provider);setCoordinator(g.preferences.coordinator||'direct')}).catch(e=>setError(e.message))}refresh().catch(e=>setError(e.message));const timer=setInterval(()=>refresh().catch(e=>setError(e.message)),3000);return()=>clearInterval(timer)},[refresh,visible,bridge]);
   useEffect(()=>{try{sessionStorage.setItem(storage,JSON.stringify(replies))}catch{/* Conversation works in memory when storage is unavailable. */}},[replies,storage]);
@@ -103,8 +106,8 @@ export function GatewayPanel({visible=true,bridge=false,conversationSession}:{vi
     </section>
     <div className="chat-dock">
       {away&&<button type="button" className="chat-jump" onClick={jumpToLatest}>最新訊息 ↓</button>}
-      {viewedId?<div className="assistant-readonly"><p>{selected?.source==='web'?'這段對話已結束。':'請回原來的聊天室繼續。'}</p><Button onClick={startNew}>開始新對話</Button></div>:<form className="assistant-composer" onSubmit={submit}>
-        {replyId&&loaded&&!active&&!(selected&&(selected.state==='interrupted'||selected.error_code==='needs_reauth'||selected.reason==='needs_reauth'||retryable.has(selected.error_code)||retryable.has(selected.reason)))&&<Notice>這段對話暫時無法接續，請等候完成或開始新對話。</Notice>}
+      {viewedId||(loaded&&ended)?<div className="assistant-readonly"><p>{viewedId&&selected?.source!=='web'?'請回原來的聊天室繼續。':'這段對話已結束。'}</p><Button onClick={startNew}>開始新對話</Button></div>:<form className="assistant-composer" onSubmit={submit}>
+        {replyId&&loaded&&!active&&latest?.state!=='needs_reconcile'&&!(latest&&ownAction(latest))&&<Notice>這段對話暫時無法接續，請等候完成或開始新對話。</Notice>}
         <div className="chat-compose"><label className="sr-only" htmlFor="gateway-message">對話訊息</label><textarea id="gateway-message" ref={box} disabled={busy} maxLength={5000} rows={1} value={draft} onChange={e=>{setDraft(e.target.value);fitComposer(e.target)}} onKeyDown={onComposerKey} placeholder={active?'繼續說…':'輸入訊息…'}/><Button type="submit" className="chat-send" aria-label="送出訊息" disabled={busy||!loaded||!draft.trim()||!!(replyId&&!active)}>{busy?'送出中…':<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h12M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}</Button></div>
       </form>}
     </div>

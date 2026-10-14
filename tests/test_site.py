@@ -58,7 +58,11 @@ def test_landing(browser, origin, lang):
         assert image.get_attribute('alt')
         assert image.get_attribute('width') and image.get_attribute('height')
         image.evaluate("img=>{img.loading='eager'}")
-    page.wait_for_function('Array.from(document.images).every(i=>i.complete && i.naturalWidth>0)')
+    for image in page.locator('img').all():
+        # decode() settles once the image has loaded and fails for a broken one. A string predicate
+        # polled inside the page would need eval, which the page's self-only CSP refuses.
+        image.evaluate('img=>img.decode()')
+        assert image.evaluate('img=>img.complete && img.naturalWidth>0')
     # Resolve every local resource including below-fold, hidden switcher images and demo links.
     for resource in page.locator('[href], [src]').all():
         raw = resource.get_attribute('href') or resource.get_attribute('src')
