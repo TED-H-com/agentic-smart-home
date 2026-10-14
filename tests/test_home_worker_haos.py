@@ -477,7 +477,9 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
         ssh = ['ssh', '-i', str(tmp_path / 'key'), '-p', ports['2222/tcp'][0]['HostPort'], '-o', 'BatchMode=yes',
             '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=no', '-o', f'UserKnownHostsFile={tmp_path / "known_hosts"}',
             '-o', 'ConnectTimeout=5', 'root@127.0.0.1']
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=50), cookie_jar=aiohttp.CookieJar(unsafe=True)) as client:
+        # Blocking SSH calls run inside this loop; a pooled connection could outlive uvicorn's 5 s keep-alive.
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=50), cookie_jar=aiohttp.CookieJar(unsafe=True),
+                                         connector=aiohttp.TCPConnector(force_close=True)) as client:
             for _ in range(240):
                 try:
                     async with client.get(base + '/api/onboarding', timeout=aiohttp.ClientTimeout(total=5)) as response:

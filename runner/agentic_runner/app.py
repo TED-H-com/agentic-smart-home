@@ -535,6 +535,10 @@ def create_api(broker):
     return app
 
 
+# The Supervisor ingress proxy pools connections and does not retry a POST.
+INGRESS_KEEPALIVE_SECONDS = 75
+
+
 def create_ingress(broker, ingress_ip="172.30.32.2"):
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -653,7 +657,7 @@ async def serve():
     api = uvicorn.Server(uvicorn.Config(create_api(broker), host="127.0.0.1" if host_mode else "0.0.0.0", port=8443,
         ssl_certfile=str(broker.cert), ssl_keyfile=str(broker.key), proxy_headers=False, access_log=False))
     ingress = uvicorn.Server(uvicorn.Config(create_ingress(broker), host="127.0.0.1" if host_mode else "0.0.0.0", port=8098 if host_mode else 8099,
-        proxy_headers=False, access_log=False))
+        proxy_headers=False, access_log=False, timeout_keep_alive=INGRESS_KEEPALIVE_SECONDS))
     async def refresh_pairing():
         path = Path("/pairing/runner.json")
         while broker.refresh_pairing_file(path):

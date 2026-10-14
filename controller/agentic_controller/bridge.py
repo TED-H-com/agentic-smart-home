@@ -41,6 +41,8 @@ from .host import host_call
 from .models import Strict
 
 BRIDGE_CONTRACT = 1
+# The sidebar relay must drop an idle connection before this. aiohttp does not retry a POST.
+TRANSPORT_KEEPALIVE_SECONDS = 5
 HOST_PROOF_TTL, HOST_PROOF_TIMEOUT = 15, 5
 HOST, PORT, PEER = "192.168.177.1", 8444, "192.168.177.2"
 KEY, MARKER = "ingress_bridge", "agentic.ingress_bridge"
@@ -585,7 +587,7 @@ class IngressBridge:
                     sock.setblocking(False)
                     self.server = uvicorn.Server(uvicorn.Config(self.transport, ssl_certfile=str(self.root / "tls.pem"),
                         ssl_keyfile=str(self.root / "tls.key"), proxy_headers=False, access_log=False,
-                        log_level="warning", timeout_keep_alive=5, limit_concurrency=16))
+                        log_level="warning", timeout_keep_alive=TRANSPORT_KEEPALIVE_SECONDS, limit_concurrency=16))
                     self.server.capture_signals = contextlib.nullcontext
                     self.listener_ready = True
                     await self.server.serve(sockets=[sock])

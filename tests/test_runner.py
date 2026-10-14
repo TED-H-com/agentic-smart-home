@@ -1,9 +1,32 @@
+import ast
 import hashlib
 import time
+from pathlib import Path
 
 import httpx
-from agentic_runner.app import Broker, create_api
+from agentic_runner.app import INGRESS_KEEPALIVE_SECONDS, Broker, create_api
 from agentic_runner.providers import DISABLED_CODEX_FEATURES, Providers
+
+
+def test_ingress_keep_alive_outlasts_pooled_clients():
+    assert INGRESS_KEEPALIVE_SECONDS > 15
+    root = Path(__file__).parents[1]
+    runner = ast.parse((root / "runner/agentic_runner/app.py").read_text())
+    ingress = [node for node in ast.walk(runner) if isinstance(node, ast.Call)
+               and isinstance(node.func, ast.Attribute) and node.func.attr == "Config"
+               and node.args and isinstance(node.args[0], ast.Call)
+               and isinstance(node.args[0].func, ast.Name) and node.args[0].func.id == "create_ingress"]
+    assert len(ingress) == 1
+    keepalive = next(keyword.value for keyword in ingress[0].keywords if keyword.arg == "timeout_keep_alive")
+    assert isinstance(keepalive, ast.Name) and keepalive.id == "INGRESS_KEEPALIVE_SECONDS"
+    # bridge/start.py drops privileges and serves at import, so it is parsed, never imported.
+    start = ast.parse((root / "bridge/start.py").read_text())
+    runs = [node for node in ast.walk(start) if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute) and node.func.attr == "run"
+            and isinstance(node.func.value, ast.Name) and node.func.value.id == "uvicorn"]
+    assert len(runs) == 1
+    value = next(keyword.value for keyword in runs[0].keywords if keyword.arg == "timeout_keep_alive")
+    assert isinstance(value, ast.Constant) and type(value.value) is int and value.value > 15
 
 
 def test_child_environment_is_an_allowlist(tmp_path, monkeypatch):

@@ -21,6 +21,8 @@ from . import VERSION
 MAX_REQUEST = 131072
 MAX_RESPONSE = 8 * 1024 * 1024
 USER_ID = re.compile(r"[a-f0-9]{32}")
+# Below the Controller bridge transport keep-alive. Every relay call is a POST, which is not retried.
+RELAY_KEEPALIVE_SECONDS = 2
 
 
 class Options(BaseModel):
@@ -51,7 +53,7 @@ class Relay:
 
     async def start(self):
         self.session = aiohttp.ClientSession(trust_env=False, timeout=aiohttp.ClientTimeout(total=40),
-                                            connector=aiohttp.TCPConnector(limit=8))
+                                            connector=aiohttp.TCPConnector(limit=8, keepalive_timeout=RELAY_KEEPALIVE_SECONDS))
 
     async def close(self):
         if self.session:
