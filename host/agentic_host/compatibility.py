@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 from .coding_sandbox import SandboxError, validate_docker_security
 
 MAX_OUTPUT = 262144
-# Inspecting a just-written multi-GB disk on a slow drive takes far longer than a capability probe;
+# An image just written to a slow drive can take far longer to inspect than a capability probe;
 # provisioning gives it the bound of the qemu-img check that follows.
 IMAGE_TIMEOUT = 300
 ACTIONS = {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes"}
