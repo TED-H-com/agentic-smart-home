@@ -7,6 +7,7 @@ RUN tar -xzf /tmp/line.tar.gz --strip-components=1 -C /opt/linejs && node /tmp/p
 FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
 COPY --from=build /opt/linejs /opt/linejs
 COPY start.mjs /opt/start.mjs
+RUN chown -R root:root /opt/linejs /opt/start.mjs && chmod -R u=rwX,go=rX /opt/linejs /opt/start.mjs
 USER 1000:1000
 WORKDIR /data
 CMD ["node", "/opt/start.mjs"]

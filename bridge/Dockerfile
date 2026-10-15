@@ -6,4 +6,5 @@ RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 COPY agentic_bridge ./agentic_bridge
 COPY static ./static
 COPY start.py ./start.py
+RUN chown -R root:root /app && chmod -R u=rwX,go=rX /app
 CMD ["python", "start.py"]

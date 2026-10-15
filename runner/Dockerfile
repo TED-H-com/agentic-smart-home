@@ -33,6 +33,9 @@ RUN install -d -m 0755 /opt/agentic-worker/staging/workspace && \
     install -m 0600 /dev/null /opt/agentic-worker/staging/relay.sock
 COPY worker_runtime/agentic_host /app/agentic_host
 COPY agentic_runner ./agentic_runner
+# Normalize public code only; the private source repository and relay staging
+# under /opt/agentic-worker retain their separately enforced modes.
+RUN chown -R root:root /app /opt/agents && chmod -R u=rwX,go=rX /app /opt/agents
 ARG BUILD_VERSION=0.9.0
 ARG BUILD_ARCH=amd64
 LABEL io.hass.version=$BUILD_VERSION io.hass.type=app io.hass.arch=$BUILD_ARCH
