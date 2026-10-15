@@ -23,6 +23,7 @@ from .manager import atomic
 UID = 10000
 ID = re.compile(r"[a-z0-9][a-z0-9-]{7,63}\Z")
 SHA = re.compile(r"[0-9a-f]{40}\Z")
+CONTAINER_ID = re.compile(r"[0-9a-f]{64}\Z")
 # A key/value secret needs a quoted literal with 8 non-space characters on one line, or a
 # 20+ character token with a letter and a digit that is not a call or an index. Type hints
 # and expressions such as `api_key: SecretStr` or `password=body.password` do not match.
@@ -574,7 +575,15 @@ class CodingSandbox:
         atomic(self.root / f"{job['job_id']}.json", job)
         return {k: v for k, v in job.items() if k not in {"request_digest", "container_id"}}
 
+    @staticmethod
+    def _container_id(job):
+        identity = job.get("container_id")
+        if not isinstance(identity, str) or not CONTAINER_ID.fullmatch(identity):
+            raise SandboxError("Container identity is unconfirmed")
+        return identity
+
     def inspect(self, job):
+        original = self._container_id(job) if "container_id" in job else None
         response = self.execute("docker", "inspect", job["container"], check=False)
         if response.returncode:
             # Docker outage and genuinely absent container cannot safely be conflated.
@@ -582,7 +591,7 @@ class CodingSandbox:
         info = json.loads(response.stdout)[0]
         if info.get("Config", {}).get("Labels", {}).get("agentic.coding") != job["container"]:
             raise SandboxError("Container identity mismatch")
-        if job.get("container_id") and info["Id"] != job["container_id"]:
+        if original is not None and info.get("Id") != original:
             raise SandboxError("Container was replaced")
         return info
 
@@ -591,27 +600,34 @@ class CodingSandbox:
         if os.path.ismount(mount):
             self.execute("umount", str(mount))
 
-    def _labeled_container_ids(self, job):
-        """Return label matches, or None when the daemon did not answer. None is never proof."""
+    def _container_ids(self, *filters):
+        """Return complete, unique Docker IDs; malformed or unavailable lists are never proof."""
         try:
             version = self.execute("docker", "version", "--format", "{{.Server.Version}}", check=False)
             if version.returncode != 0:
                 return None
-            listed = self.execute("docker", "ps", "-a", "--no-trunc", "--filter",
-                                  "label=agentic.coding=" + job["container"], "--format", "{{.ID}}", check=False)
+            listed = self.execute("docker", "ps", "-a", "--no-trunc", *filters,
+                                  "--format", "{{.ID}}", check=False)
         except (OSError, SandboxError, subprocess.SubprocessError):
             return None
         if listed.returncode != 0:
             return None
-        return [line.strip() for line in listed.stdout.splitlines() if line.strip()]
+        found = listed.stdout.splitlines()
+        if any(not CONTAINER_ID.fullmatch(identity) for identity in found) or len(set(found)) != len(found):
+            return None
+        return found
+
+    def _labeled_container_ids(self, job):
+        return self._container_ids("--filter", "label=agentic.coding=" + job["container"])
 
     def _stop_named_container(self, job):
         """Kill a labeled container when it is running. Return inspect info once it is stopped."""
         try:
+            identity = self._container_id(job)
             info = self.inspect(job)
             if info["State"]["Running"] or info["State"].get("Paused"):
-                self.execute("docker", "kill", "--signal", "KILL", job["container"], check=False)
-                self.execute("docker", "wait", job["container"], timeout=15)
+                self.execute("docker", "kill", "--signal", "KILL", identity, check=False)
+                self.execute("docker", "wait", identity, timeout=15)
                 info = self.inspect(job)
             if not info["State"]["Running"] and not info["State"].get("Paused"):
                 return info
@@ -624,24 +640,32 @@ class CodingSandbox:
 
         Returns 'absent', 'stopped', or 'unknown'. A silent daemon is always 'unknown'.
         """
-        original = job.get("container_id")
+        try:
+            original = self._container_id(job) if "container_id" in job else None
+        except SandboxError:
+            return "unknown"
         if original and self._stop_named_container(job) is not None:
             return "stopped"
         found = self._labeled_container_ids(job)
         if found is None:
             return "unknown"
         if not found:
+            # A known writer can survive a rename or removal of its label. Only
+            # a complete inventory excluding the exact original ID proves absence.
+            if original:
+                inventory = self._container_ids()
+                if inventory is None or original in inventory:
+                    return "unknown"
             return "absent"
-        if len(found) != 1:
+        if len(found) != 1 or (original and found[0] != original):
             return "unknown"
-        job["container_id"] = found[0]
-        if self._stop_named_container(job) is not None:
+        if original is None:
+            job["container_id"] = found[0]
+            # Pin partial-create recovery before any mutation, including when a
+            # later observation fails. Never adopt a replacement on the next try.
             self.save(job)
+        if self._stop_named_container(job) is not None:
             return "stopped"
-        if original:
-            job["container_id"] = original
-        else:
-            job.pop("container_id", None)
         return "unknown"
 
     def _fail_setup(self, job, exc):
@@ -746,7 +770,7 @@ class CodingSandbox:
                                                          relay=self.relay))
                 job["container_id"] = created.stdout.strip()
                 self.save(job)  # Persist exact identity before starting the writer.
-                self.execute("docker", "start", job["container"])
+                self.execute("docker", "start", self._container_id(job))
                 job["state"] = "running"
             except (OSError, SandboxError, subprocess.SubprocessError) as exc:
                 proof = self._confirm_writer(job)
@@ -821,8 +845,9 @@ class CodingSandbox:
                 return self.save(job)
             try:
                 if info["State"]["Running"] or info["State"].get("Paused"):
-                    self.execute("docker", "kill", "--signal", "KILL", job["container"], check=False)
-                    self.execute("docker", "wait", job["container"], timeout=15)
+                    identity = self._container_id(job)
+                    self.execute("docker", "kill", "--signal", "KILL", identity, check=False)
+                    self.execute("docker", "wait", identity, timeout=15)
             except SandboxError as exc:
                 job["stop_failure"] = {"error_code": exc.code, **exc.diagnostics}
                 return self.save(job)
@@ -881,10 +906,23 @@ class CodingSandbox:
                     self._unmount_workspace(job_id)
                     job["state"] = "disposed"
                     return self.save(job)
-            info = self.inspect(job)
+            identity = self._container_id(job)
+            try:
+                info = self.inspect(job)
+            except SandboxError:
+                # Cancellation can prove a removed original absent. Reconfirm
+                # that proof before releasing its workspace; never remove by name.
+                if self._labeled_container_ids(job) != []:
+                    raise
+                inventory = self._container_ids()
+                if inventory is None or identity in inventory:
+                    raise
+                self._unmount_workspace(job_id)
+                job["state"] = "disposed"
+                return self.save(job)
             if info["State"]["Running"] or info["State"].get("Paused"):
                 raise SandboxError("Writer still active")
             self._unmount_workspace(job_id)
-            self.execute("docker", "rm", job["container"])
+            self.execute("docker", "rm", identity)
             job["state"] = "disposed"
             return self.save(job)

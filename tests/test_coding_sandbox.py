@@ -155,12 +155,12 @@ def test_restart_kills_owned_process_before_releasing_writer(tmp_path):
         calls.append(args)
         if args[:2] == ("docker", "kill"):
             running = False
-        data = [{"Id": "container-123", "Config": {"Labels": {"agentic.coding": "agentic-coding-" + JOB}},
+        data = [{"Id": "1" * 64, "Config": {"Labels": {"agentic.coding": "agentic-coding-" + JOB}},
                  "State": {"Running": running, "Paused": False, "Status": "running" if running else "exited",
                            "ExitCode": 137}}]
         return SimpleNamespace(returncode=0, stdout=json.dumps(data) if args[1] == "inspect" else "")
     sandbox = CodingSandbox(tmp_path, IMAGE, {}, execute=execute)
-    sandbox.save({"job_id": JOB, "container": "agentic-coding-" + JOB, "container_id": "container-123",
+    sandbox.save({"job_id": JOB, "container": "agentic-coding-" + JOB, "container_id": "1" * 64,
                   "state": "running"})
     assert sandbox.recover()[0]["state"] == "interrupted"
     assert calls[0][1] == "inspect" and calls[1][1] == "kill" and calls[2][1] == "wait"
@@ -173,9 +173,9 @@ def test_replaced_container_cannot_be_killed_or_exported(tmp_path):
     def execute(*args, **kwargs):
         calls.append(args)
         return SimpleNamespace(returncode=0, stdout=json.dumps([{
-            "Id": "someone-else", "Config": {"Labels": {"agentic.coding": "agentic-coding-" + JOB}}}]))
+            "Id": "2" * 64, "Config": {"Labels": {"agentic.coding": "agentic-coding-" + JOB}}}]))
     sandbox = CodingSandbox(tmp_path, IMAGE, {}, execute=execute)
-    sandbox.save({"job_id": JOB, "container": "agentic-coding-" + JOB, "container_id": "ours", "state": "running"})
+    sandbox.save({"job_id": JOB, "container": "agentic-coding-" + JOB, "container_id": "1" * 64, "state": "running"})
     assert sandbox.cancel(JOB)["state"] == "stop_unconfirmed"
     assert not any(args[1] == "kill" for args in calls)
 
@@ -579,14 +579,14 @@ def test_cancel_timeout_records_safe_operation_and_keeps_writer_fenced(tmp_path,
         if args[:2] == ("docker", "wait"):
             assert kwargs["timeout"] == 15
             raise subprocess.TimeoutExpired(args, 15, output="private", stderr="private")
-        state = [{"Id": "container-123", "Config": {"Labels": {"agentic.coding": "agentic-coding-" + JOB}},
+        state = [{"Id": "1" * 64, "Config": {"Labels": {"agentic.coding": "agentic-coding-" + JOB}},
                   "State": {"Running": True, "Paused": False}}]
         return SimpleNamespace(returncode=0, stdout=json.dumps(state) if args[1] == "inspect" else "")
     monkeypatch.setattr(subprocess, "run", run)
     sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path})
     monkeypatch.setattr(sandbox, "_require_work_root", lambda: None)
     monkeypatch.setattr(sandbox, "preflight", lambda: True)
-    sandbox.save({"job_id": JOB, "container": "agentic-coding-" + JOB, "container_id": "container-123",
+    sandbox.save({"job_id": JOB, "container": "agentic-coding-" + JOB, "container_id": "1" * 64,
                   "state": "running"})
     stopped = sandbox.cancel(JOB)
     assert stopped["state"] == "stop_unconfirmed"
@@ -646,7 +646,7 @@ def _absence_execute(calls, *, ps="", version_error=False, inspect_running=False
                 raise OSError("daemon did not answer")
             return SimpleNamespace(returncode=0, stdout="27.0\n")
         if args[:2] == ("docker", "ps"):
-            assert "{{.ID}}" in args and any(arg.startswith("label=agentic.coding=") for arg in args)
+            assert "{{.ID}}" in args and "--no-trunc" in args
             return SimpleNamespace(returncode=0, stdout=ps)
         if args[:2] == ("docker", "inspect"):
             if not ps:
@@ -663,7 +663,7 @@ def _absence_execute(calls, *, ps="", version_error=False, inspect_running=False
             assert kwargs.get("timeout") == 15
             return SimpleNamespace(returncode=0, stdout="0\n")
         if args[:2] in {("docker", "create"), ("docker", "start"), ("docker", "rm")} or args[0] == "umount":
-            created = "created-id\n" if args[:2] == ("docker", "create") else ""
+            created = "3" * 64 + "\n" if args[:2] == ("docker", "create") else ""
             return SimpleNamespace(returncode=0, stdout=created)
         return SimpleNamespace(returncode=0, stdout="")
 
@@ -751,7 +751,7 @@ def test_several_labeled_containers_are_not_absence(tmp_path, monkeypatch):
 
 def test_labeled_container_found_at_start_is_stopped(tmp_path, monkeypatch):
     calls, created = [], {"count": 0}
-    fake = _absence_execute(calls, ps="deadbeef\n", inspect_running=True, exit_code=137)
+    fake = _absence_execute(calls, ps="d" * 64 + "\n", inspect_running=True, exit_code=137)
 
     def execute(*args, **kwargs):
         if args[:2] == ("docker", "ps"):
@@ -764,7 +764,7 @@ def test_labeled_container_found_at_start_is_stopped(tmp_path, monkeypatch):
             created["count"] += 1
             if created["count"] == 1:
                 raise SandboxError("create lost its reply", code="command_failed")
-            return SimpleNamespace(returncode=0, stdout="created-id\n")
+            return SimpleNamespace(returncode=0, stdout="3" * 64 + "\n")
         return fake(*args, **kwargs)
 
     sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path}, execute=execute)
@@ -776,7 +776,7 @@ def test_labeled_container_found_at_start_is_stopped(tmp_path, monkeypatch):
         sandbox.launch(JOB, 1, "product", "a" * 40, "print('hi')")
     assert err.value.code == "coding_setup_failed" and err.value.stopped is True
     saved = json.loads((tmp_path / f"{JOB}.json").read_text())
-    assert saved["state"] == "failed" and saved["container_id"] == "deadbeef"
+    assert saved["state"] == "failed" and saved["container_id"] == "d" * 64
     assert saved["setup_failure"] == "command_failed"
     assert any(args[:2] == ("docker", "kill") for args in calls)
     assert any(args[:2] == ("docker", "wait") for args in calls)
@@ -809,18 +809,18 @@ def test_absence_proof_clears_status_cancel_and_recover(tmp_path, monkeypatch):
 def test_labeled_record_is_stopped_by_status_cancel_and_recover(tmp_path):
     calls = []
     sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path},
-                            execute=_absence_execute(calls, ps="deadbeef\n", inspect_running=False, exit_code=0))
+                            execute=_absence_execute(calls, ps="d" * 64 + "\n", inspect_running=False, exit_code=0))
     labeled = "test-labeled-0004"
     sandbox.save({"job_id": labeled, "container": "agentic-coding-" + labeled, "state": "running"})
     assert sandbox.status(labeled)["state"] == "succeeded"
     assert not any(args[:2] == ("docker", "kill") for args in calls)
     running = "test-cancel-0005"
-    sandbox.execute = _absence_execute(calls, ps="cafebabe\n", inspect_running=True, exit_code=137)
+    sandbox.execute = _absence_execute(calls, ps="c" * 64 + "\n", inspect_running=True, exit_code=137)
     sandbox.save({"job_id": running, "container": "agentic-coding-" + running, "state": "running"})
     assert sandbox.cancel(running)["state"] == "cancelled"
     assert any(args[:3] == ("docker", "kill", "--signal") for args in calls)
     recovered = "test-found-0006"
-    sandbox.execute = _absence_execute(calls, ps="deadbeef\n", inspect_running=True, exit_code=137)
+    sandbox.execute = _absence_execute(calls, ps="d" * 64 + "\n", inspect_running=True, exit_code=137)
     sandbox.save({"job_id": recovered, "container": "agentic-coding-" + recovered, "state": "stop_unconfirmed"})
     assert {item["job_id"]: item["state"] for item in sandbox.recover()} == {recovered: "interrupted"}
 
@@ -830,14 +830,14 @@ def test_inspect_failure_uses_proven_absence_or_a_silent_daemon(tmp_path):
     absent = "test-absent-0009"
     sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path}, execute=_absence_execute(calls, ps=""))
     sandbox.save({"job_id": absent, "container": "agentic-coding-" + absent,
-                  "container_id": "gone-container", "state": "running"})
+                  "container_id": "4" * 64, "state": "running"})
     assert sandbox.cancel(absent)["state"] == "cancelled"
     assert not any(args[:2] == ("docker", "kill") for args in calls)
     calls.clear()
     quiet = "test-silent-0010"
     sandbox.execute = _absence_execute(calls, version_error=True)
     sandbox.save({"job_id": quiet, "container": "agentic-coding-" + quiet,
-                  "container_id": "silent-container", "state": "running"})
+                  "container_id": "5" * 64, "state": "running"})
     assert sandbox.cancel(quiet)["state"] == "stop_unconfirmed"
 
 
