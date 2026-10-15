@@ -615,6 +615,7 @@ def test_remote_failure_observation_is_readonly_bounded_and_redacted(update_prob
 
 def test_product_failure_observation_identifies_proxy_without_exporting_logs(update_probe, monkeypatch):
     import sys
+
     from test_linux_install import failure_observation_public
 
     monkeypatch.setattr(update_probe, "guard", lambda: None)
@@ -698,6 +699,7 @@ def test_product_unit_journal_signature_scan_is_bounded(update_probe):
 
 def test_failed_unit_observer_does_not_erase_other_units_or_original_failure(update_probe, monkeypatch, tmp_path):
     import sys
+
     from test_linux_install import record_install_failure
 
     monkeypatch.setattr(update_probe, "guard", lambda: None)
