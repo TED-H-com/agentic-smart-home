@@ -124,3 +124,90 @@ def test_account_card_resumes_cancels_and_verifies_keys_in_background():
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+
+def test_home_runtime_tab_leads_to_workers_and_folds_stable_manual_pair():
+    root = Path(__file__).parents[1]
+    if not (root / "controller/static/index.html").exists():
+        pytest.skip("Build the web UI before the browser test")
+    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory=str(root / "controller/static")))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    calls, errors = [], []
+
+    def route(route):
+        request = route.request
+        path = request.url.split("/api/")[1]
+        if request.method == "POST":
+            assert request.headers["x-agentic-csrf"] == "fixture-csrf"
+            calls.append((path, request.post_data_json))
+        if path == "deployment":
+            result = {"mode": "host", "authenticated": True}
+        elif path == "session":
+            result = {"principal": "owner", "csrf": "fixture-csrf"}
+        elif path == "status":
+            result = {"version": "0.9.0", "paused": False, "ha": {"status": "connected", "location_name": "介面測試家庭"},
+                      "runner": {"status": "unpaired", "providers": []}, "onboarding": {"policy_confirmed": True},
+                      "policy_entities": 0}
+        elif path == "host/status":
+            result = {"vm": "running", "provisioned": True, "ha_connected": True, "snapshots": [], "jobs": [],
+                      "storage_free_bytes": 120 * 1024**3, "profile": {"label": "介面 fixture", "memory_mib": 4096, "vcpus": 2}}
+        elif path == "hermes":
+            result = {"runtime": {"state": "needs_auth", "execution_state": "idle"}, "workers": []}
+        elif path == "tasks":
+            result = {"tasks": []}
+        elif path == "runtimes":
+            result = {"host": {"status": "unpaired", "providers": []}, "haos": {"status": "unpaired", "providers": []}}
+        elif path == "runtimes/haos/pair":
+            result = {"paired": True}
+        else:
+            result = {}
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(result))
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 390, "height": 844})
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.route("**/api/**", route)
+            page.goto(f"http://127.0.0.1:{server.server_port}/#agents")
+            panel = page.get_by_role("region", name="開發助手帳號", exact=True)
+            tabs = panel.get_by_role("group", name="開發助手位置", exact=True)
+            tabs.get_by_role("button", name="家庭現場").click()
+
+            expect(panel.get_by_text("在開發助手選「家庭現場」並啟用，主機會自動安裝和配對。", exact=True)).to_be_visible()
+            workers_link = panel.get_by_role("link", name="前往開發助手", exact=True)
+            expect(workers_link).to_be_visible()
+            expect(workers_link).to_have_attribute("href", "#workers")
+
+            repo_url = "https://github.com/TED-H-com/agentic-smart-home#stable"
+            textarea = panel.get_by_label("配對資料", exact=True)
+            expect(textarea).to_be_hidden()
+            expect(panel.get_by_text(repo_url, exact=True)).to_be_hidden()
+            expect(panel.locator('a[href*="downloads/agentic-runner.zip"]')).to_have_count(0)
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+
+            panel.locator("summary").filter(has_text="手動安裝與配對").click()
+            expect(panel.locator("code")).to_be_visible()
+            expect(panel.locator("code")).to_have_text(repo_url)
+            expect(panel.locator('a[href*="downloads/agentic-runner.zip"]')).to_have_count(0)
+            pair_button = panel.get_by_role("button", name="配對家庭現場", exact=True)
+            expect(pair_button).to_be_disabled()
+            payload = {"fingerprint": "fixture-fingerprint", "code": "fixture-code"}
+            textarea.fill(json.dumps(payload))
+            expect(pair_button).to_be_enabled()
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            pair_button.click()
+            expect(textarea).to_have_value("")
+            assert calls == [("runtimes/haos/pair", payload)]
+
+            tabs.get_by_role("button", name="主機").click()
+            expect(panel.get_by_text("先連接這台主機上的開發助手。", exact=True)).to_be_visible()
+            expect(panel.get_by_role("button", name="連接主機", exact=True)).to_be_visible()
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            browser.close()
+        assert not errors
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
