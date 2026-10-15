@@ -40,6 +40,11 @@ def launch_failure(exc):
                              exit_code=exc.diagnostics.get("command_exit_code"),
                              timeout_seconds=exc.diagnostics.get("timeout_seconds"))
         result.update(typed.diagnostics)
+        # Preflight wraps boundary failures for callers. Preserve only its
+        # immediate, typed, allowlisted cause; neither message is public data.
+        cause = exc.__cause__
+        if isinstance(cause, launcher.BoundaryError) and str(cause) in launcher.ERROR_CODES:
+            result["error_code"] = str(cause)
     return result
 
 
@@ -158,7 +163,7 @@ class HomeSandbox(CodingSandbox):
             try:
                 self.preflight()
                 if sum(path.is_dir() for path in self.root.iterdir()) >= 4:
-                    raise SandboxError("Retained workspace budget exhausted")
+                    raise launcher.BoundaryError("home_retained_workspace_budget_exhausted")
                 self.prepare(job, program)
                 group = launcher.create_group("w-" + hashlib.sha256(job_id.encode()).hexdigest()[:32],
                                               memory_mib=self.limits.memory_mib, pids=self.limits.pids, cpus=self.limits.cpus)
