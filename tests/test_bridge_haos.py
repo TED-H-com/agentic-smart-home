@@ -188,6 +188,76 @@ def lifecycle_observation(names, since, *, run=subprocess.run):
     return observed
 
 
+async def finish_bridge_test(evidence, *, report, tmp_path, label, outer, vm, network, ha, started,
+                             run=subprocess.run):
+    """Keep the product result even when independent, bounded teardown steps fail."""
+    if evidence["status"] == "running":
+        evidence.update(status="interrupted", error_type="BaseException")
+    product_status = evidence["status"]
+    evidence.update(product_status=product_status, cleanup_status="running")
+
+    def write_report():
+        pending = report.with_name(report.name + ".pending")
+        pending.write_text(json.dumps(evidence, indent=2) + "\n")
+        pending.replace(report)
+
+    # Preserve completed assertions before any slow Docker cleanup. A transient
+    # write error must still allow cleanup; the final write below remains required.
+    with contextlib.suppress(OSError):
+        write_report()
+    cleanup, observations = {}, {}
+
+    def command(step, args, timeout):
+        try:
+            result = run(["docker", *args], capture_output=True, timeout=timeout)
+            observations[step] = {"returncode": result.returncode}
+            return result
+        except (OSError, subprocess.TimeoutExpired) as error:
+            # Command text, stderr and exception messages can contain private data.
+            observations[step] = {"error_type": type(error).__name__}
+            return None
+
+    def remove_container(role, name):
+        command(role + "_remove", ["rm", "-fv", name], 30)
+        # Removal can time out after Docker accepted it. Observe independently;
+        # a successful command alone does not prove the owned resource is absent.
+        check = command(role + "_observe", ["ps", "--all", "--quiet", "--no-trunc",
+                        "--filter", "name=^/" + name + "$"], 5)
+        cleanup[role + "_removed"] = check is not None and check.returncode == 0 and not check.stdout.strip()
+
+    cleanup["ha_client_closed"] = ha is None
+    if ha is not None:
+        try:
+            async with asyncio.timeout(10):
+                await ha.close()
+            cleanup["ha_client_closed"] = True
+        except Exception as error:
+            observations["ha_client_close"] = {"error_type": type(error).__name__}
+    for role, name in (("outer", outer), ("vm", vm)):
+        remove_container(role, name)
+    cleaner = "agentic-bridge-clean-" + label
+    owned = command("disk_fixture_ownership_restore", ["run", "--rm", "--name", cleaner,
+                    "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0", "chown", "-R",
+                    f"{os.getuid()}:{os.getgid()}", "/lab"], 60)
+    cleanup["disk_fixture_ownership_restored"] = owned is not None and owned.returncode == 0
+    # A timed-out `docker run --rm` may leave the ownership helper running.
+    remove_container("ownership_helper", cleaner)
+    command("network_remove", ["network", "rm", network], 30)
+    check = command("network_observe", ["network", "ls", "--quiet", "--filter", "name=^" + network + "$"], 5)
+    cleanup["network_removed"] = check is not None and check.returncode == 0 and not check.stdout.strip()
+    cleaned = all(cleanup.values())
+    evidence.update(cleanup=cleaned, cleanup_steps=cleanup, cleanup_observations=observations,
+                    cleanup_status="passed" if cleaned else "failed",
+                    duration_seconds=round(time.monotonic() - started, 3))
+    if product_status == "passed" and not cleaned:
+        evidence.update(status="failed", error_type="AssertionError", error_code="owned_bridge_resources_not_removed")
+    write_report()
+    # Never replace the original product assertion or interrupt with a teardown
+    # assertion, but a product pass with leaked resources must fail the test run.
+    if product_status == "passed" and not cleaned:
+        raise AssertionError("owned_bridge_resources_not_removed")
+
+
 def initial_app_contract(info, slug):
     # Reuse the production capability contract. Local source delivery is a test
     # fixture; production repository identity is verified by the manager itself.
@@ -578,19 +648,112 @@ async def test_real_haos_sidebar_bridge(tmp_path, request):
                 evidence["supervisor_log_signatures"] = {"unavailable": True}
         raise
     finally:
-        if ha:
-            await ha.close()
-        cleanup = []
-        for name in (outer, vm):
-            result = subprocess.run(["docker", "rm", "-fv", name], capture_output=True, timeout=30)
-            cleanup.append(result.returncode == 0 or b"No such container" in result.stderr)
-        subprocess.run(["docker", "run", "--rm", "--name", "agentic-bridge-clean-" + label,
-                        "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0", "chown", "-R",
-                        f"{os.getuid()}:{os.getgid()}", "/lab"], capture_output=True, timeout=60)
-        removed = subprocess.run(["docker", "network", "rm", network], capture_output=True, timeout=30)
-        cleanup.append(removed.returncode == 0 or b"not found" in removed.stderr)
-        evidence.update(cleanup=all(cleanup), duration_seconds=round(time.monotonic() - started))
-        report.write_text(json.dumps(evidence, indent=2) + "\n")
+        await finish_bridge_test(evidence, report=report, tmp_path=tmp_path, label=label,
+            outer=outer, vm=vm, network=network, ha=ha, started=started)
+
+
+@pytest.mark.parametrize("failure", ["timeout", "oserror"])
+@pytest.mark.parametrize("failed_step", ["outer_remove", "outer_observe", "vm_remove", "vm_observe",
+    "ownership_restore", "ownership_helper_remove", "ownership_helper_observe", "network_remove", "network_observe"])
+async def test_bridge_teardown_continues_and_records_product_result(tmp_path, failure, failed_step):
+    report = tmp_path / "receipt.json"
+    private = "private-command-output-and-path"
+    steps = ["outer_remove", "outer_observe", "vm_remove", "vm_observe", "ownership_restore",
+             "ownership_helper_remove", "ownership_helper_observe", "network_remove", "network_observe"]
+    calls = []
+
+    def run(args, **kwargs):
+        step = steps[len(calls)]
+        calls.append(args)
+        # Assertions are durable before the first slow cleanup call.
+        before = json.loads(report.read_text())
+        assert before["product_status"] == "passed" and before["cleanup_status"] == "running"
+        assert kwargs["capture_output"] is True and kwargs["timeout"] in {5, 30, 60}
+        if step == failed_step:
+            if failure == "timeout":
+                raise subprocess.TimeoutExpired(args, kwargs["timeout"], output=private, stderr=private)
+            raise OSError(private)
+        # A failed removal leaves an owned resource; readback must catch it even
+        # though all later cleanup steps and the final receipt still run.
+        residual = step.endswith("_observe") and failed_step == step.removesuffix("_observe") + "_remove"
+        return subprocess.CompletedProcess(args, 0, stdout=b"owned-residual\n" if residual else b"", stderr=b"")
+
+    evidence = {"status": "passed", "checks": {"manual_stop_remains_stopped": True}}
+    with pytest.raises(AssertionError, match="^owned_bridge_resources_not_removed$"):
+        await finish_bridge_test(evidence, report=report, tmp_path=tmp_path, label="fixture",
+            outer="owned-outer", vm="owned-vm", network="owned-network", ha=None,
+            started=time.monotonic(), run=run)
+    assert len(calls) == len(steps)
+    assert calls[0] == ["docker", "rm", "-fv", "owned-outer"]
+    assert calls[2] == ["docker", "rm", "-fv", "owned-vm"]
+    assert calls[5] == ["docker", "rm", "-fv", "agentic-bridge-clean-fixture"]
+    assert calls[7] == ["docker", "network", "rm", "owned-network"]
+    for index, name in ((1, "owned-outer"), (3, "owned-vm"), (6, "agentic-bridge-clean-fixture")):
+        assert calls[index][-2:] == ["--filter", "name=^/" + name + "$"]
+    assert calls[8][-2:] == ["--filter", "name=^owned-network$"]
+    result = json.loads(report.read_text())
+    assert result["product_status"] == "passed" and result["cleanup_status"] == "failed"
+    assert result["status"] == "failed" and result["cleanup"] is False
+    assert result["checks"] == {"manual_stop_remains_stopped": True}
+    assert any(item.get("error_type") == ("TimeoutExpired" if failure == "timeout" else "OSError")
+               for item in result["cleanup_observations"].values())
+    assert private not in report.read_text() and "owned-residual" not in report.read_text()
+    assert not report.with_name("receipt.json.pending").exists()
+
+
+async def test_bridge_teardown_confirms_absence_after_removal_timeout(tmp_path):
+    calls = []
+
+    def run(args, **kwargs):
+        calls.append(args)
+        if args[1:3] == ["rm", "-fv"] or args[1:3] == ["network", "rm"]:
+            raise subprocess.TimeoutExpired(args, kwargs["timeout"])
+        return subprocess.CompletedProcess(args, 0, stdout=b"", stderr=b"")
+
+    report = tmp_path / "receipt.json"
+    evidence = {"status": "passed"}
+    await finish_bridge_test(evidence, report=report, tmp_path=tmp_path, label="fixture",
+        outer="owned-outer", vm="owned-vm", network="owned-network", ha=None,
+        started=time.monotonic(), run=run)
+    result = json.loads(report.read_text())
+    assert len(calls) == 9
+    assert result["status"] == result["product_status"] == result["cleanup_status"] == "passed"
+    assert result["cleanup"] is True and all(result["cleanup_steps"].values())
+    assert result["cleanup_observations"]["outer_remove"] == {"error_type": "TimeoutExpired"}
+
+
+@pytest.mark.parametrize("product_status", ["passed", "failed"])
+async def test_bridge_teardown_close_failure_does_not_hide_product_failure(tmp_path, product_status):
+    class UnavailableHA:
+        async def close(self):
+            raise OSError("private-ha-close-error")
+
+    calls = []
+
+    def run(args, **kwargs):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, stdout=b"", stderr=b"")
+
+    report = tmp_path / "receipt.json"
+    evidence = {"status": product_status}
+    if product_status == "failed":
+        evidence.update(error_type="AssertionError", error_code="product_assertion_failed")
+    expected = "product_assertion_failed" if product_status == "failed" else "owned_bridge_resources_not_removed"
+    with pytest.raises(AssertionError, match="^" + expected + "$"):
+        try:
+            if product_status == "failed":
+                raise AssertionError("product_assertion_failed")
+        finally:
+            await finish_bridge_test(evidence, report=report, tmp_path=tmp_path, label="fixture",
+                outer="owned-outer", vm="owned-vm", network="owned-network", ha=UnavailableHA(),
+                started=time.monotonic(), run=run)
+    result = json.loads(report.read_text())
+    assert len(calls) == 9
+    assert result["product_status"] == product_status and result["cleanup_status"] == "failed"
+    assert result["error_code"] == expected
+    assert result["cleanup_steps"]["ha_client_closed"] is False
+    assert result["cleanup_steps"]["network_removed"] is True
+    assert "private-ha-close-error" not in report.read_text()
 
 
 @pytest.mark.parametrize("outcome", ["completed", "cleaned", "missing_app", "modified", "failed", "pending"])
