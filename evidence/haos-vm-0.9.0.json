@@ -9,17 +9,12 @@
   "backup_failures": [],
   "ready_states": [
     {
-      "core": "NOT_RUNNING",
-      "supervisor": "running",
-      "healthy": true
-    },
-    {
       "core": "RUNNING",
       "supervisor": "running",
       "healthy": true
     }
   ],
-  "duration_seconds": 449,
+  "duration_seconds": 296,
   "cloud_login": "not_run",
   "laptop_hardware": "not_run"
 }

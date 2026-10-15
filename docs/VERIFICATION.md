@@ -2,36 +2,36 @@
 
 ## 0.9.0
 
-本版重做介面，開發助手可在網頁啟用、登入，主機重開後自動復原，內容見 [CHANGELOG](../CHANGELOG.md)。受測來源、媒體與 harness 都是同一個 commit [`90614e51`](https://github.com/teddashh/agentic-smart-home/commit/90614e51d5e4758f1fd95a6213701bc5e07bcd13)。家庭現場映像內的開發來源固定為 [`0eb569e4`](https://github.com/teddashh/agentic-smart-home/commit/0eb569e42ed2661e3e3bd4c7835b3715d57e3da0)。來源、映像與限制的完整紀錄見 [0.9.0 交付紀錄](../evidence/release-0.9.0.json)。
+本版重做介面，開發助手可在網頁啟用、登入，主機重開後自動復原，內容見 [CHANGELOG](../CHANGELOG.md)。受測來源、媒體與 harness 都是同一個 commit [`13ad697a`](https://github.com/TED-H-com/agentic-smart-home/commit/13ad697aca3e61fa6c409ee08ffa177d3c297842)。家庭現場映像內的開發來源固定為 [`0eb569e4`](https://github.com/TED-H-com/agentic-smart-home/commit/0eb569e42ed2661e3e3bd4c7835b3715d57e3da0)。來源、映像與限制的完整紀錄見 [0.9.0 交付紀錄](../evidence/release-0.9.0.json)。
 
 | 項目 | 結果 | 證據 |
 |---|---|---|
-| 本機回歸（`--real-ha --containers`） | 1781 passed、7 skipped／1376.375 秒 | [JUnit](../evidence/pytest-0.9.0.xml) |
-| [GitHub CI 38589231514](https://github.com/teddashh/agentic-smart-home/actions/runs/38589231514) | 1779 passed、9 skipped／1058.934 秒 | [核對](../evidence/github-ci-0.9.0.json)、[JUnit](../evidence/pytest-0.9.0-github.xml) |
+| 本機回歸（`--real-ha --containers`） | 1809 passed、7 skipped／884.252 秒 | [JUnit](../evidence/pytest-0.9.0.xml) |
+| [GitHub CI 38692753833](https://github.com/TED-H-com/agentic-smart-home/actions/runs/38692753833) | 1807 passed、9 skipped／1117.76 秒 | [核對](../evidence/github-ci-0.9.0.json)、[JUnit](../evidence/pytest-0.9.0-github.xml) |
 | ISO bundle 對 CI 來源 | 190 份執行／設定檔、50 份文件逐檔吻合 | [比對](../evidence/ci-media-match-0.9.0.json)、[建置](../evidence/build-0.9.0.json) |
 | HAOS 備份 | 2 passed | [結果](../evidence/haos-vm-0.9.0.json)、[JUnit](../evidence/haos-vm-0.9.0.xml) |
 | HAOS App 邊界 | 2 passed | [結果](../evidence/haos-app-boundary-0.9.0.json)、[JUnit](../evidence/haos-app-boundary-0.9.0.xml) |
 | 智能管家側欄 App（本機來源交付） | 19 passed | [結果](../evidence/bridge-haos-local-0.9.0.json)、[JUnit](../evidence/bridge-haos-local-0.9.0.xml)、[截圖](../evidence/ui/bridge-native-haos-0.9.0.png) |
-| 家庭現場開發助手（真 HAOS App） | 78 passed／1245.599 秒 | [結果](../evidence/home-worker-haos-0.9.0.json)、[JUnit](../evidence/home-worker-haos-0.9.0.xml) |
-| 一鍵啟用家庭現場、cold 備份與整台重開（真 HAOS） | 42 passed／1303.989 秒 | [結果](../evidence/home-worker-enable-haos-0.9.0.json)、[JUnit](../evidence/home-worker-enable-haos-0.9.0.xml) |
-| 家庭現場 App 由真 Supervisor 建置（本機來源交付） | 72 passed／928.66 秒 | [結果](../evidence/runner-supervisor-build-0.9.0.json)、[JUnit](../evidence/runner-supervisor-build-0.9.0.xml) |
-| 精確 ISO 完整安裝 | 1 passed／3556.661 秒 | [結果](../evidence/linux-install-0.9.0.json)、[JUnit](../evidence/linux-install-0.9.0.xml) |
+| 家庭現場開發助手（真 HAOS App） | 78 passed／746.859 秒 | [結果](../evidence/home-worker-haos-0.9.0.json)、[JUnit](../evidence/home-worker-haos-0.9.0.xml) |
+| 一鍵啟用家庭現場、cold 備份與整台重開（真 HAOS） | 42 passed／1384.502 秒 | [結果](../evidence/home-worker-enable-haos-0.9.0.json)、[JUnit](../evidence/home-worker-enable-haos-0.9.0.xml) |
+| 家庭現場 App 由真 Supervisor 建置（本機來源交付） | 72 passed／732.65 秒 | [結果](../evidence/runner-supervisor-build-0.9.0.json)、[JUnit](../evidence/runner-supervisor-build-0.9.0.xml) |
+| 精確 ISO 完整安裝 | 1 passed／2021.549 秒 | [結果](../evidence/linux-install-0.9.0.json)、[JUnit](../evidence/linux-install-0.9.0.xml) |
 
 本機的 7 個跳過項就是上表另跑的 VM 案例，沒有算成通過。CI 另跳過 UID 1000 桌面專項及本機 QEMU builder 探針；CI 映像由 CI 獨立建置，不宣稱 ID 與本機相同。每個 VM 項目都只有一個真 VM 案例，其餘是 harness 單元測試。
 
-HAOS 備份測試建立一次性擁有者後，等 Core 回報 `RUNNING`、Supervisor 回報 running 且 healthy 才備份（先看到 Core `NOT_RUNNING`，之後三者都就緒），第一次就完成。
+HAOS 備份測試建立一次性擁有者後，等 Core 回報 `RUNNING`、Supervisor 回報 running 且 healthy 才備份，第一次就完成。
 
 家庭現場開發助手的真 VM 整合案例通過 15 項整合檢查及 38 項獨立基準測試；outer、VM、network 已移除，磁碟 ownership 已恢復。
 
 一鍵啟用由測試自己的 git daemon 把受測 commit 當成 `stable` 提供，只換掉信任的 repository 網址。VM 大小同出貨的 laptop profile（4096 MiB、2 vCPU、64 GiB）。依序通過：
 
-- 側欄自動安裝；按「啟用家庭現場」後，真 Supervisor 建置、安裝、啟動家庭現場 App，Controller 配對到可登入；從按下到可登入共 523 秒。
+- 側欄自動安裝；按「啟用家庭現場」後，真 Supervisor 建置、安裝、啟動家庭現場 App，Controller 配對到可登入；從按下到可登入共 367 秒。
 - 一次 cold 部分備份：Supervisor 進入 `freeze`，期間看到 App 被停止，之後自動恢復。
 - 整台重開 HAOS 與 Controller。
 
 全程只出現執行中、等待與可登入狀態，沒有顯示失敗，也不需要修復；16 項檢查通過。沒有登入、模型或開發工作；inference 與 Host 能力是 fixture。
 
-家庭現場 App 建置測試交付受測 commit 的 `runner/`（git tree `4a6a3672`）。VM 大小同出貨的 laptop profile（4096 MiB、2 vCPU、64 GiB）。真 Supervisor 用 374.2 秒建置 `runner/Dockerfile`，安裝、啟動後通過 18 項檢查：
+家庭現場 App 建置測試交付受測 commit 的 `runner/`（git tree `cdf5d405`）。VM 大小同出貨的 laptop profile（4096 MiB、2 vCPU、64 GiB）。真 Supervisor 用 262.8 秒建置 `runner/Dockerfile`，安裝、啟動後通過 18 項檢查：
 
 - App 合約與容器邊界：自訂 AppArmor（enforce）、只有 SYS_ADMIN 與 `/dev/fuse`、沒有 Docker socket。
 - `/health` 200；未配對的 App 把一次性配對寫入自己的 options，指紋等於 8443 實際提供的憑證。
@@ -55,27 +55,36 @@ VM 與磁碟目錄已移除，沒有在開發主機安裝產品。
 
 | 媒體 | Bytes | SHA-256 |
 |---|---|---|
-| `agentic-home-0.9.0-laptop-amd64.iso` | 6721306624 | `78e6013b28314fc7c3243ec8bc195bc6b25f1e81e63cf234bc855502ac82fa87` |
-| `agentic-home-0.9.0-linux-amd64.tar` | 2641786880 | `ccd6764e50f0a2cb2465012663a38b98250973359f5f1df2a10e6e338b14dee0` |
-| `agentic-home-0.9.0-source.zip` | 30652159 | `5fbcfc1b16638fb531d1521488d9a0abc52bbe712d255077cc6b6a200eb8ee8f` |
+| `agentic-home-0.9.0-laptop-amd64.iso` | 6725500928 | `ed9482bb8be7faa17eb30c38c62ddb3370eafd9e8bb95a41be8f8de3369fe969` |
+| `agentic-home-0.9.0-linux-amd64.tar` | 2646005760 | `3afe0ee51e6ed07063a33320178622e99de52036fbb79f59f6d7d499560c4da8` |
+| `agentic-home-0.9.0-source.zip` | 31063612 | `51ad7e21c652623299fa997e58abe1301ac2f95e5819931116ca8043e152793e` |
 
 沒有發布的候選如下。每個都換成下一個候選重跑全部驗收；只保留失敗的紀錄。
 
 | 候選 | 原因 | 修正 | 失敗紀錄 |
 |---|---|---|---|
-| `4412d33` | 一鍵啟用家庭現場會停在商店檢查；HAOS 重開或備份會被當成你停止了 App（#62）。 | [#63](https://github.com/teddashh/agentic-smart-home/pull/63)、[#64](https://github.com/teddashh/agentic-smart-home/pull/64)、[#65](https://github.com/teddashh/agentic-smart-home/pull/65) | 家庭現場開發助手（[結果](../evidence/home-worker-haos-0.9.0-run1-failure.json)、[JUnit](../evidence/home-worker-haos-0.9.0-run1-failure.xml)） |
-| `03fa99f` | 整台重開時兩張 App 卡片先顯示「暫時無法連線」；另有四個 VM 階段停在 harness 的時限。 | [#67](https://github.com/teddashh/agentic-smart-home/pull/67) | 家庭現場開發助手（[結果](../evidence/home-worker-haos-0.9.0-rc2-failure.json)、[JUnit](../evidence/home-worker-haos-0.9.0-rc2-failure.xml)）；App 邊界（[JUnit](../evidence/haos-app-boundary-0.9.0-rc2-failure.xml)）；一鍵啟用（[結果](../evidence/home-worker-enable-haos-0.9.0-rc2-failure.json)、[JUnit](../evidence/home-worker-enable-haos-0.9.0-rc2-failure.xml)）；安裝（[結果](../evidence/linux-install-0.9.0-rc2-failure.json)、[JUnit](../evidence/linux-install-0.9.0-rc2-failure.xml)） |
-| `c9fb98a` | 三個 VM 階段停在 harness；其中一個找到側欄和家庭現場偶爾重用剛被關閉的連線。 | [#69](https://github.com/teddashh/agentic-smart-home/pull/69)、[#70](https://github.com/teddashh/agentic-smart-home/pull/70)、[#71](https://github.com/teddashh/agentic-smart-home/pull/71) | 安裝（[結果](../evidence/linux-install-0.9.0-rc3-failure.json)、[sandbox](../evidence/installed-sandbox-laptop-amd64-0.9.0-rc3-failure.json)、[JUnit](../evidence/linux-install-0.9.0-rc3-failure.xml)）；家庭現場開發助手（[結果](../evidence/home-worker-haos-0.9.0-rc3-failure.json)、[JUnit](../evidence/home-worker-haos-0.9.0-rc3-failure.xml)）；App 邊界（[JUnit](../evidence/haos-app-boundary-0.9.0-rc3-failure.xml)） |
-| `281c1b5` | 一鍵啟用的 cold 備份期間，慢磁碟讓 Controller 卡在 SQLite commit，側欄顯示無法連線（#68）；另有三個 VM 階段停在 harness。 | [#77](https://github.com/teddashh/agentic-smart-home/pull/77)、[#80](https://github.com/teddashh/agentic-smart-home/pull/80)、[#76](https://github.com/teddashh/agentic-smart-home/pull/76)、[#78](https://github.com/teddashh/agentic-smart-home/pull/78)、[#79](https://github.com/teddashh/agentic-smart-home/pull/79) | 一鍵啟用（[結果](../evidence/home-worker-enable-haos-0.9.0-rc4-failure.json)、[JUnit](../evidence/home-worker-enable-haos-0.9.0-rc4-failure.xml)）；家庭現場開發助手（[結果](../evidence/home-worker-haos-0.9.0-rc4-failure.json)、[JUnit](../evidence/home-worker-haos-0.9.0-rc4-failure.xml)）；App 邊界（[JUnit](../evidence/haos-app-boundary-0.9.0-rc4-failure.xml)）；HAOS 備份（[JUnit](../evidence/haos-vm-0.9.0-rc4-failure.xml)） |
-| `7fe911e` | 全套回歸有兩個 Docker 指令逾時；安裝後 Controller 讀不到 Runner 配對；HAOS 備份測試在 onboarding 後馬上要求備份，Supervisor 的備份工作失敗（重跑時看到 Core 還在啟動）。 | [#85](https://github.com/teddashh/agentic-smart-home/pull/85)、[#87](https://github.com/teddashh/agentic-smart-home/pull/87)、[#89](https://github.com/teddashh/agentic-smart-home/pull/89) | 全套回歸（[JUnit](../evidence/pytest-0.9.0-rc5-failure.xml)）；安裝（[結果](../evidence/linux-install-0.9.0-rc5-failure.json)、[登入](../evidence/installed-auth-laptop-amd64-0.9.0-rc5-failure.json)、[JUnit](../evidence/linux-install-0.9.0-rc5-failure.xml)）；HAOS 備份（[JUnit](../evidence/haos-vm-0.9.0-rc5-failure.xml)） |
-| `6dd8b9a` | 建立 HAOS 虛擬機時，正常的映像被拒絕：映像檢查只給 `qemu-img` 3 秒，測試機磁碟很慢。 | [#90](https://github.com/teddashh/agentic-smart-home/pull/90) | 安裝（[結果](../evidence/linux-install-0.9.0-rc6-failure.json)、[JUnit](../evidence/linux-install-0.9.0-rc6-failure.xml)） |
+| `4412d33` | 一鍵啟用家庭現場會停在商店檢查；HAOS 重開或備份會被當成你停止了 App（#62）。 | [#63](https://github.com/TED-H-com/agentic-smart-home/pull/63)、[#64](https://github.com/TED-H-com/agentic-smart-home/pull/64)、[#65](https://github.com/TED-H-com/agentic-smart-home/pull/65) | 家庭現場開發助手（[結果](../evidence/home-worker-haos-0.9.0-run1-failure.json)、[JUnit](../evidence/home-worker-haos-0.9.0-run1-failure.xml)） |
+| `03fa99f` | 整台重開時兩張 App 卡片先顯示「暫時無法連線」；另有四個 VM 階段停在 harness 的時限。 | [#67](https://github.com/TED-H-com/agentic-smart-home/pull/67) | 家庭現場開發助手（[結果](../evidence/home-worker-haos-0.9.0-rc2-failure.json)、[JUnit](../evidence/home-worker-haos-0.9.0-rc2-failure.xml)）；App 邊界（[JUnit](../evidence/haos-app-boundary-0.9.0-rc2-failure.xml)）；一鍵啟用（[結果](../evidence/home-worker-enable-haos-0.9.0-rc2-failure.json)、[JUnit](../evidence/home-worker-enable-haos-0.9.0-rc2-failure.xml)）；安裝（[結果](../evidence/linux-install-0.9.0-rc2-failure.json)、[JUnit](../evidence/linux-install-0.9.0-rc2-failure.xml)） |
+| `c9fb98a` | 三個 VM 階段停在 harness；其中一個找到側欄和家庭現場偶爾重用剛被關閉的連線。 | [#69](https://github.com/TED-H-com/agentic-smart-home/pull/69)、[#70](https://github.com/TED-H-com/agentic-smart-home/pull/70)、[#71](https://github.com/TED-H-com/agentic-smart-home/pull/71) | 安裝（[結果](../evidence/linux-install-0.9.0-rc3-failure.json)、[sandbox](../evidence/installed-sandbox-laptop-amd64-0.9.0-rc3-failure.json)、[JUnit](../evidence/linux-install-0.9.0-rc3-failure.xml)）；家庭現場開發助手（[結果](../evidence/home-worker-haos-0.9.0-rc3-failure.json)、[JUnit](../evidence/home-worker-haos-0.9.0-rc3-failure.xml)）；App 邊界（[JUnit](../evidence/haos-app-boundary-0.9.0-rc3-failure.xml)） |
+| `281c1b5` | 一鍵啟用的 cold 備份期間，慢磁碟讓 Controller 卡在 SQLite commit，側欄顯示無法連線（#68）；另有三個 VM 階段停在 harness。 | [#77](https://github.com/TED-H-com/agentic-smart-home/pull/77)、[#80](https://github.com/TED-H-com/agentic-smart-home/pull/80)、[#76](https://github.com/TED-H-com/agentic-smart-home/pull/76)、[#78](https://github.com/TED-H-com/agentic-smart-home/pull/78)、[#79](https://github.com/TED-H-com/agentic-smart-home/pull/79) | 一鍵啟用（[結果](../evidence/home-worker-enable-haos-0.9.0-rc4-failure.json)、[JUnit](../evidence/home-worker-enable-haos-0.9.0-rc4-failure.xml)）；家庭現場開發助手（[結果](../evidence/home-worker-haos-0.9.0-rc4-failure.json)、[JUnit](../evidence/home-worker-haos-0.9.0-rc4-failure.xml)）；App 邊界（[JUnit](../evidence/haos-app-boundary-0.9.0-rc4-failure.xml)）；HAOS 備份（[JUnit](../evidence/haos-vm-0.9.0-rc4-failure.xml)） |
+| `7fe911e` | 全套回歸有兩個 Docker 指令逾時；安裝後 Controller 讀不到 Runner 配對；HAOS 備份測試在 onboarding 後馬上要求備份，Supervisor 的備份工作失敗（重跑時看到 Core 還在啟動）。 | [#85](https://github.com/TED-H-com/agentic-smart-home/pull/85)、[#87](https://github.com/TED-H-com/agentic-smart-home/pull/87)、[#89](https://github.com/TED-H-com/agentic-smart-home/pull/89) | 全套回歸（[JUnit](../evidence/pytest-0.9.0-rc5-failure.xml)）；安裝（[結果](../evidence/linux-install-0.9.0-rc5-failure.json)、[登入](../evidence/installed-auth-laptop-amd64-0.9.0-rc5-failure.json)、[JUnit](../evidence/linux-install-0.9.0-rc5-failure.xml)）；HAOS 備份（[JUnit](../evidence/haos-vm-0.9.0-rc5-failure.xml)） |
+| `6dd8b9a` | 建立 HAOS 虛擬機時，正常的映像被拒絕：映像檢查只給 `qemu-img` 3 秒，測試機磁碟很慢。 | [#90](https://github.com/TED-H-com/agentic-smart-home/pull/90) | 安裝（[結果](../evidence/linux-install-0.9.0-rc6-failure.json)、[JUnit](../evidence/linux-install-0.9.0-rc6-failure.xml)） |
+| `90614e5` | 全部驗收通過（安裝與家庭現場開發助手第一次沒過，同一個 commit 重跑通過）。之後 repo 移到 TED-H-com，產品信任的 App repository 網址要跟著改。 | [#93](https://github.com/TED-H-com/agentic-smart-home/pull/93) | 安裝（[結果](../evidence/linux-install-0.9.0-rc7-run1-failure.json)、[JUnit](../evidence/linux-install-0.9.0-rc7-run1-failure.xml)）；家庭現場開發助手（[結果](../evidence/home-worker-haos-0.9.0-rc7-run1-failure.json)、[JUnit](../evidence/home-worker-haos-0.9.0-rc7-run1-failure.xml)） |
+| `9d1d564` | 全部驗收第一次就通過。實測前最後一次檢查找到介面問題：家庭現場還沒啟用時，AI 帳號頁要你手動加入沒有 `#stable` 的 App 來源或下載安裝檔，裝到的 App 一鍵啟用接手不了；主機重開時，AI 帳號頁要你重新配對或啟用已配對的開發助手，每個帳號都顯示需要登入；主機重開後錯誤提示不會自己消失；畫面預覽關閉後不能再產生；修改內容因疑似含密碼只留在主機時，顯示成「沒有修改檔案」。 | [#94](https://github.com/TED-H-com/agentic-smart-home/pull/94) | 無 |
+| `0015dd4` | 建置完成後、第一個驗收階段開始前停止。檢查 #94 的斷線恢復時發現：斷線時按過「重新連線」，連線恢復後錯誤提示仍不消失；第一次開啟就連不上時，要手動按才會打開；開著已經不存在的工作時，錯誤提示每 10 秒閃一次。主機重開正好會碰到這三種情況。之後檢查整條重開機路線，又找到幾個頁面在服務回來後仍停在錯誤，或誤報尚未設定、尚未登入，同一個 PR 一起修正。 | [#95](https://github.com/TED-H-com/agentic-smart-home/pull/95) | 無 |
 
 家庭現場 App 建置測試在合併前第一次實跑時，建置、安裝、啟動都成功，但 harness 沿用 fixture App「options 必須為空」的條件而失敗，見 [失敗 receipt](../evidence/runner-supervisor-build-0.9.0-run1-failure.json)。該次 JUnit 印出了已刪除 VM 的一次性配對碼，所以不公開；harness 已改成任何失敗訊息都不會印出這類值。
 
-本候選第一次執行時，安裝和家庭現場開發助手兩個階段沒有通過；同一個 commit 與媒體重跑後通過。當時測試機磁碟同時被其他專案的測試佔用，非常忙。
+`90614e5` 第一次執行時，安裝和家庭現場開發助手兩個階段沒有通過，同一個 commit 與媒體重跑後通過。當時測試機磁碟同時被其他專案的測試佔用，非常忙。
 
-- 安裝（[結果](../evidence/linux-install-0.9.0-rc7-run1-failure.json)、[JUnit](../evidence/linux-install-0.9.0-rc7-run1-failure.xml)）：裝好的系統在測試等待的一小時內沒有完成首次開機。SSH 探測一直沒看到安裝完成，最後讀 journal 的 SSH 也逾時，所以 VM 內的原因沒有紀錄。首次開機會從 Ubuntu 套件庫和 snap store 安裝桌面套件與 Firefox，再載入產品映像，產品本身不設時限。重跑時在 harness 外每 5 分鐘用 SSH 問 VM：每次都在 7 秒內回應，首次開機約半小時完成，安裝驗收通過。
-- 家庭現場開發助手（[結果](../evidence/home-worker-haos-0.9.0-rc7-run1-failure.json)、[JUnit](../evidence/home-worker-haos-0.9.0-rc7-run1-failure.xml)）：要突然停止 App 之前，VM 內的一個 fixture 指令以 1 結束。harness 只保留結束碼，看不出是哪一個指令；同一次的取消和正常重開都通過。
+- 安裝：裝好的系統在測試等待的一小時內沒有完成首次開機。SSH 探測一直沒看到安裝完成，最後讀 journal 的 SSH 也逾時，所以 VM 內的原因沒有紀錄。首次開機會從 Ubuntu 套件庫和 snap store 安裝桌面套件與 Firefox，再載入產品映像，產品本身不設時限。重跑時在 harness 外每 5 分鐘用 SSH 問 VM：每次都在 7 秒內回應，首次開機約半小時完成，安裝驗收通過。
+- 家庭現場開發助手：要突然停止 App 之前，VM 內的一個 fixture 指令以 1 結束。harness 只保留結束碼，看不出是哪一個指令；同一次的取消和正常重開都通過。
+
+本候選第一次執行時，有三個階段沒有通過：家庭現場開發助手、家庭現場 App 建置、智能管家側欄 App。同一個 commit 與媒體重跑後都通過。
+
+- 家庭現場開發助手（[結果](../evidence/home-worker-haos-0.9.0-rc10-run1-failure.json)、[JUnit](../evidence/home-worker-haos-0.9.0-rc10-run1-failure.xml)）：開發工作在開始執行前停在「停止未確認」，harness 等確認停止 280 秒後判定失敗。家庭現場的 broker 會先記下要啟動 sandbox；啟動失敗又無法證明沒有程序留下時，會照設計擋住這個工作，不會回報已停止。harness 只保留白名單內的原因，所以看不出是哪一步失敗，#97 追蹤保留這個原因。這段期間沒有取消或授權變動；上次通過後唯一的產品改動（#95）在一鍵啟用的維護流程，這個測試不會用到。這個階段等磁碟 45 分鐘逾時後才開始，開發工作期間 IO 壓力（full avg60）在 51 到 81 之間，其他專案正在跑測試。Docker 刪容器也超過 harness 的清理時限：外層容器和網路由 Docker 自己刪除，停在 dead 的 VM 容器由整合者刪除。
+- 家庭現場 App 建置（[結果](../evidence/runner-supervisor-build-0.9.0-rc10-run1-failure.json)、[JUnit](../evidence/runner-supervisor-build-0.9.0-rc10-run1-failure.xml)）：真 Supervisor 用 73 秒建好 App；harness 觀察安裝時讀 App 清單，Supervisor 回了 `unknown_error`。harness 把 Supervisor 的錯誤當成答案，不會重讀。之後讀 App 資訊和用 SSH 讀 Supervisor log 也都失敗，所以 Supervisor 的訊息沒有紀錄，#98 追蹤重讀與保留訊息分類。App 原始碼（git tree `cdf5d405`）和上一個候選相同，那次這個階段通過。IO 壓力（full avg60）在階段開始時約 7，安裝期間升到 49 到 82，其他專案正在跑測試。清理全部完成。
+- 智能管家側欄 App（[進度](../evidence/bridge-haos-local-0.9.0-rc10-run1-failure-progress.json)、[JUnit](../evidence/bridge-haos-local-0.9.0-rc10-run1-failure.xml)）：測試本體在 770 秒進入最後一步（手動停止後維持停止），JUnit 只有收尾的錯誤，本體沒有出錯。收尾時刪外層容器的 `docker rm` 超過 harness 的 30 秒；harness 沒有接住這個逾時，所以後面的清理和寫結果都沒做，只留下進度檔。外層容器之後由 Docker 自己刪除，VM 容器和網路由整合者刪除。#99 追蹤比照其他 VM 測試，逾時後照樣清完並寫下結果。IO 壓力（full avg60）在階段開始時約 9，執行期間在 20 到 78 之間，其他專案正在跑測試。
 
 固定模型 transport、發行者／registry 與 Unix Host 能力回應都是明示的 fixture。下列項目尚未驗收：
 
@@ -86,7 +95,7 @@ VM 與磁碟目錄已移除，沒有在開發主機安裝產品。
 
 32 個產品驗收案例仍為 2 passed、30 not_run。
 
-發布前的 Gitleaks [來源稽核](../evidence/source-audit-0.9.0.json)通過。1280 份公開檔案的 415 個 raw findings 都已逐一核對：413 個是可對回公開 Git blob 或封存檔的 SHA-256，2 個是測試裡的合成 fixture 值。沒有找到憑證。
+發布前的 Gitleaks [來源稽核](../evidence/source-audit-0.9.0.json)通過。1290 份公開檔案的 415 個 raw findings 都已逐一核對：413 個是可對回公開 Git blob 或封存檔的 SHA-256，2 個是測試裡的合成 fixture 值。沒有找到憑證。
 
 ## 0.8.0 Home coding 原始碼／App 預覽
 

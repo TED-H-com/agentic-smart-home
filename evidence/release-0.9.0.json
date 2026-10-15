@@ -1,39 +1,39 @@
 {
  "version": "0.9.0",
  "delivery": "linux_iso_and_haos_apps_engineering_preview",
- "source_commit": "90614e51d5e4758f1fd95a6213701bc5e07bcd13",
- "test_harness_commit": "90614e51d5e4758f1fd95a6213701bc5e07bcd13",
+ "source_commit": "13ad697aca3e61fa6c409ee08ffa177d3c297842",
+ "test_harness_commit": "13ad697aca3e61fa6c409ee08ffa177d3c297842",
  "profile": "laptop-amd64",
  "packaged_research_source": {
   "repo_id": "agentic-home",
-  "repository": "https://github.com/teddashh/agentic-smart-home.git",
+  "repository": "https://github.com/TED-H-com/agentic-smart-home.git",
   "commit": "0eb569e42ed2661e3e3bd4c7835b3715d57e3da0"
  },
  "host_coding_source": {
   "repo_id": "agentic-home",
-  "commit": "90614e51d5e4758f1fd95a6213701bc5e07bcd13",
-  "bundle_sha256": "aeeb11781a8d2a15eb03517cead44b6bc120a16bec07da1aa8f9fe3fd6980a73"
+  "commit": "13ad697aca3e61fa6c409ee08ffa177d3c297842",
+  "bundle_sha256": "8550bc21eacccd205f7ad43d706b5bb68b5834e773e15b2cebea9545b22f9c36"
  },
  "artifacts": {
   "agentic-home-0.9.0-laptop-amd64.iso": {
-   "bytes": 6721306624,
-   "sha256": "78e6013b28314fc7c3243ec8bc195bc6b25f1e81e63cf234bc855502ac82fa87"
+   "bytes": 6725500928,
+   "sha256": "ed9482bb8be7faa17eb30c38c62ddb3370eafd9e8bb95a41be8f8de3369fe969"
   },
   "agentic-home-0.9.0-linux-amd64.tar": {
-   "bytes": 2641786880,
-   "sha256": "ccd6764e50f0a2cb2465012663a38b98250973359f5f1df2a10e6e338b14dee0"
+   "bytes": 2646005760,
+   "sha256": "3afe0ee51e6ed07063a33320178622e99de52036fbb79f59f6d7d499560c4da8"
   },
   "agentic-home-0.9.0-source.zip": {
-   "bytes": 30652159,
-   "sha256": "5fbcfc1b16638fb531d1521488d9a0abc52bbe712d255077cc6b6a200eb8ee8f"
+   "bytes": 31063612,
+   "sha256": "51ad7e21c652623299fa997e58abe1301ac2f95e5819931116ca8043e152793e"
   }
  },
  "images": {
-  "agentic-home-controller:0.9.0": "sha256:4925149c727238e6f04d77f4b960ba9ea86cca36c79ae3de317093912f790b94",
-  "agentic-home-runner:0.9.0": "sha256:47cb73129c2e6a0d8da49edaf36b41e01d656422747e8917747003e0e15b7e6c",
-  "agentic-home-linejs:0.9.0": "sha256:1c78db6fbc0cb2e18cc79583e4dde57a9e20358b28ad0a3e1ea3d82ff27120e9",
-  "agentic-home-hermes:0.9.0": "sha256:a081fb9331b00a5e08ba830b25d9f10ba9d0730973b3ec32ce7749a9f5fe7878",
-  "agentic-home-preview:0.9.0": "sha256:bf9c82a6376919f7c31a4f10b011cc2fe9420db6849c416366bbea83e68284ec"
+  "agentic-home-controller:0.9.0": "sha256:05270132d90500a4c3acf20b7136e936a7a49854cb28b53b8fad7d37810faa46",
+  "agentic-home-runner:0.9.0": "sha256:c0811a80a20b6d96b640c9cb3544f6d134db70abe7e1186cd80ff70201abdbf3",
+  "agentic-home-linejs:0.9.0": "sha256:6042540a6ae1807f1d661d713eef5e3e400bde54059221d47f456ed94787b798",
+  "agentic-home-hermes:0.9.0": "sha256:420b1ca6060c2403eb1d82b52bc6fa70a84c6613be2d283771ed69bef5943375",
+  "agentic-home-preview:0.9.0": "sha256:24d8af2e9f473317fd60c13a7cbff773b004af01e6ce13786015a341f340ed3e"
  },
  "images_scope": "Locally built 0.9.0 images inside the ISO/TAR bundle. CI images are independently built and not claimed to have identical IDs.",
  "latest_verified_full_installation_media": "0.9.0",
@@ -46,7 +46,7 @@
   "errors": 0,
   "skipped": 0,
   "passed": 1,
-  "seconds": 3556.661
+  "seconds": 2021.549
  },
  "cleanup": {
   "owned_vm_removed": true,
@@ -65,37 +65,37 @@
   "state": "ready",
   "commit": "835c3dd038d903182a66ecc45e34bf5e0de65f00",
   "source": "release",
-  "image_id": "sha256:a081fb9331b00a5e08ba830b25d9f10ba9d0730973b3ec32ce7749a9f5fe7878",
+  "image_id": "sha256:420b1ca6060c2403eb1d82b52bc6fa70a84c6613be2d283771ed69bef5943375",
   "runtime_revision_readback": "passed",
   "persists_after_reboot": true
  },
  "local_regression": {
-  "source_commit": "90614e51d5e4758f1fd95a6213701bc5e07bcd13",
+  "source_commit": "13ad697aca3e61fa6c409ee08ffa177d3c297842",
   "junit": "evidence/pytest-0.9.0.xml",
   "options": "--real-ha --containers",
-  "tests": 1788,
+  "tests": 1816,
   "failures": 0,
   "errors": 0,
   "skipped": 7,
-  "passed": 1781,
-  "seconds": 1376.375
+  "passed": 1809,
+  "seconds": 884.252
  },
  "ci": {
   "evidence": "evidence/github-ci-0.9.0.json",
   "junit": "evidence/pytest-0.9.0-github.xml",
-  "run_id": 38589231514,
-  "url": "https://github.com/teddashh/agentic-smart-home/actions/runs/38589231514",
-  "source_commit": "90614e51d5e4758f1fd95a6213701bc5e07bcd13",
-  "tests": 1788,
+  "run_id": 38692753833,
+  "url": "https://github.com/TED-H-com/agentic-smart-home/actions/runs/38692753833",
+  "source_commit": "13ad697aca3e61fa6c409ee08ffa177d3c297842",
+  "tests": 1816,
   "failures": 0,
   "errors": 0,
   "skipped": 9,
-  "passed": 1779,
-  "seconds": 1058.934,
+  "passed": 1807,
+  "seconds": 1117.76,
   "source_archive": {
-   "bytes": 31009152,
-   "sha256": "9b01165476f4c7072aad18ad8eadb3c79f0eebb1673e81c881a44e81f4bc7d64",
-   "manifest_files": 1249,
+   "bytes": 31371109,
+   "sha256": "d9da6b1d302be90cd9b842474970d8347ff97fede94b5b5176b1d5ebe78dac14",
+   "manifest_files": 1285,
    "runtime_and_config_files_checked": 223
   }
  },
@@ -122,7 +122,7 @@
    "errors": 0,
    "skipped": 0,
    "passed": 2,
-   "seconds": 458.946
+   "seconds": 304.584
   },
   "app_boundary": {
    "evidence": "evidence/haos-app-boundary-0.9.0.json",
@@ -132,7 +132,7 @@
    "errors": 0,
    "skipped": 0,
    "passed": 2,
-   "seconds": 526.142
+   "seconds": 351.565
   },
   "sidebar_app_local_source": {
    "evidence": "evidence/bridge-haos-local-0.9.0.json",
@@ -145,13 +145,13 @@
    "errors": 0,
    "skipped": 0,
    "passed": 19,
-   "seconds": 554.576
+   "seconds": 369.909
   },
   "home_worker": {
    "evidence": "evidence/home-worker-haos-0.9.0.json",
    "junit": "evidence/home-worker-haos-0.9.0.xml",
    "status": "passed",
-   "receipt_seconds": 1245.271,
+   "receipt_seconds": 746.295,
    "integration_checks_passed": 15,
    "junit_scope": "1 actual VM integration case and 77 harness unit tests",
    "cleanup": {
@@ -165,15 +165,15 @@
    "errors": 0,
    "skipped": 0,
    "passed": 78,
-   "seconds": 1245.599
+   "seconds": 746.859
   },
   "home_app_supervisor_build": {
    "evidence": "evidence/runner-supervisor-build-0.9.0.json",
    "junit": "evidence/runner-supervisor-build-0.9.0.xml",
    "status": "passed",
    "delivery": "local_source_exact_head_files",
-   "test_commit": "90614e51d5e4758f1fd95a6213701bc5e07bcd13",
-   "runner_git_tree": "4a6a3672970dfc6b04edb42000147c1eaf6bb28f",
+   "test_commit": "13ad697aca3e61fa6c409ee08ffa177d3c297842",
+   "runner_git_tree": "cdf5d405a8483ed523f543e38e23474dd65801bf",
    "runner_tree_equals_release_source": true,
    "core": "2026.10.1",
    "supervisor": "2026.09.3",
@@ -183,12 +183,12 @@
     "vcpus": 2,
     "disk_gib": 64
    },
-   "build_seconds": 374.2,
-   "receipt_seconds": 928.181,
+   "build_seconds": 262.8,
+   "receipt_seconds": 732.064,
    "checks_passed": 18,
    "codex_version": "0.157.1",
    "worker_source_commit": "0eb569e42ed2661e3e3bd4c7835b3715d57e3da0",
-   "installed_image_id": "sha256:37dddf4cd3192cc31035779a9d9e5768c096c2b105bcd2d827ef5ae307ca3a7e",
+   "installed_image_id": "sha256:60ae9c9232f8bfb7077f44c28139692406b6925515448599fcd5539c9666ad84",
    "preloaded_images": [
     "docker:29.7.2-cli@sha256:3f4743208d2338c934d7b8bcfbe1bb54c0b2355c510ad5e0f31c0c4a54bd704e",
     "node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20",
@@ -222,7 +222,7 @@
    "errors": 0,
    "skipped": 0,
    "passed": 72,
-   "seconds": 928.66
+   "seconds": 732.65
   },
   "home_worker_one_click_enable": {
    "evidence": "evidence/home-worker-enable-haos-0.9.0.json",
@@ -237,11 +237,11 @@
     "vcpus": 2,
     "disk_gib": 64
    },
-   "enable_seconds": 522.59,
-   "receipt_seconds": 1303.131,
+   "enable_seconds": 367.092,
+   "receipt_seconds": 1382.753,
    "checks_passed": 16,
    "cold_backup_observation": {
-    "samples": 52,
+    "samples": 47,
     "supervisor_states": [
      "freeze",
      "running"
@@ -276,28 +276,28 @@
    "errors": 0,
    "skipped": 0,
    "passed": 42,
-   "seconds": 1303.989
+   "seconds": 1384.502
   }
  },
  "withdrawn_candidates": [
   {
    "source_commit": "4412d33b15af3c4427bc762394c853b63cc7fe05",
-   "issue": "https://github.com/teddashh/agentic-smart-home/issues/62",
+   "issue": "https://github.com/TED-H-com/agentic-smart-home/issues/62",
    "reason": "Before publishing, the one-click enable on a real HAOS stopped twice. The Supervisor reports the Home App AppArmor value differently before install, and HAOS boot, backups and Controller restarts were mistaken for the Owner stopping an App. Later runs of the fixes found that login was offered before the worker answered and that a normal App start briefly showed the Owner a failure.",
    "fixes": [
-    "https://github.com/teddashh/agentic-smart-home/pull/63",
-    "https://github.com/teddashh/agentic-smart-home/pull/64",
-    "https://github.com/teddashh/agentic-smart-home/pull/65"
+    "https://github.com/TED-H-com/agentic-smart-home/pull/63",
+    "https://github.com/TED-H-com/agentic-smart-home/pull/64",
+    "https://github.com/TED-H-com/agentic-smart-home/pull/65"
    ],
    "evidence": "Its 0.9.0 receipts were replaced by this candidate; only its Home worker first-run failure receipt remains."
   },
   {
    "source_commit": "03fa99fe10454fb70711905574abdb62257531d5",
-   "issue": "https://github.com/teddashh/agentic-smart-home/issues/62",
+   "issue": "https://github.com/TED-H-com/agentic-smart-home/issues/62",
    "published": false,
    "reason": "Superseded before publishing. In the one-click enable full HAOS reboot, both App cards showed unavailable until Core returned, and a retry in that window showed a raw connection message. Four of its VM stages also stopped on harness time limits while the disk of the shared test machine was slow.",
    "fixes": [
-    "https://github.com/teddashh/agentic-smart-home/pull/67"
+    "https://github.com/TED-H-com/agentic-smart-home/pull/67"
    ],
    "evidence": "Its receipts were replaced by this candidate; only its four harness failure receipts remain."
   },
@@ -306,23 +306,23 @@
    "published": false,
    "reason": "Superseded before publishing. Three of its VM stages stopped in the harness while the disk of the shared test machine was slow: the ISO install sandbox quota job ran past the probe 30 s budget, the Home worker test reused a keep-alive connection that the Controller had already closed, and the App boundary test did not recognize an install that finished after its CLI call timed out. The same keep-alive pairing existed between the Home Assistant ingress proxy and both App servers, and between the sidebar App and the Controller.",
    "fixes": [
-    "https://github.com/teddashh/agentic-smart-home/pull/69",
-    "https://github.com/teddashh/agentic-smart-home/pull/70",
-    "https://github.com/teddashh/agentic-smart-home/pull/71"
+    "https://github.com/TED-H-com/agentic-smart-home/pull/69",
+    "https://github.com/TED-H-com/agentic-smart-home/pull/70",
+    "https://github.com/TED-H-com/agentic-smart-home/pull/71"
    ],
    "evidence": "Its receipts were replaced by this candidate; only its three harness failure receipts remain."
   },
   {
    "source_commit": "281c1b516f111ec6e0ba69e67b7e4d9e94d32279",
-   "issue": "https://github.com/teddashh/agentic-smart-home/issues/68",
+   "issue": "https://github.com/TED-H-com/agentic-smart-home/issues/68",
    "published": false,
    "reason": "Superseded before publishing. During the one-click enable cold backup, the slow disk held a SQLite commit that the Controller ran on its event loop for longer than the sidebar 5 s Host proof limit, so the sidebar briefly showed the Owner that it could not connect. The enable test fixture that answers the Host contract also wrote its receipts on that loop. Three other VM stages stopped in the harness on the loaded test machine: the ha CLI gave up on an App start that the Supervisor finished, a freshly booted Core took longer than 5 s to create the test owner, and a failed push in the local registry step left too little to diagnose.",
    "fixes": [
-    "https://github.com/teddashh/agentic-smart-home/pull/77",
-    "https://github.com/teddashh/agentic-smart-home/pull/80",
-    "https://github.com/teddashh/agentic-smart-home/pull/76",
-    "https://github.com/teddashh/agentic-smart-home/pull/78",
-    "https://github.com/teddashh/agentic-smart-home/pull/79"
+    "https://github.com/TED-H-com/agentic-smart-home/pull/77",
+    "https://github.com/TED-H-com/agentic-smart-home/pull/80",
+    "https://github.com/TED-H-com/agentic-smart-home/pull/76",
+    "https://github.com/TED-H-com/agentic-smart-home/pull/78",
+    "https://github.com/TED-H-com/agentic-smart-home/pull/79"
    ],
    "evidence": "Its receipts were replaced by this candidate; only its four failure receipts remain."
   },
@@ -331,9 +331,9 @@
    "published": false,
    "reason": "Superseded before publishing. Two Docker CLI calls in the local regression ran past their 20 s test guards on the slow shared disk. The exact ISO install then failed: the installer paired the Runner by writing the Controller database from a second process while the Controller ran, and since #77 the running Controller keeps its database in memory as its only writer, so it never saw the pairing. The HAOS backup test asked the Supervisor for a backup right after onboarding, probably while Core was still starting, and the Supervisor backup job failed.",
    "fixes": [
-    "https://github.com/teddashh/agentic-smart-home/pull/85",
-    "https://github.com/teddashh/agentic-smart-home/pull/87",
-    "https://github.com/teddashh/agentic-smart-home/pull/89"
+    "https://github.com/TED-H-com/agentic-smart-home/pull/85",
+    "https://github.com/TED-H-com/agentic-smart-home/pull/87",
+    "https://github.com/TED-H-com/agentic-smart-home/pull/89"
    ],
    "evidence": "Its receipts were replaced by this candidate; only its regression, install and HAOS backup failure receipts remain."
   },
@@ -342,9 +342,36 @@
    "published": false,
    "reason": "Superseded before publishing. The exact ISO install stopped when the Host broker provisioned the nested HAOS VM: it decompressed the bundled HAOS image (about 0.9 GiB) onto the slow shared test disk and then inspected it with qemu-img info under the 3 s bound meant for capability probes, and the valid image was refused.",
    "fixes": [
-    "https://github.com/teddashh/agentic-smart-home/pull/90"
+    "https://github.com/TED-H-com/agentic-smart-home/pull/90"
    ],
    "evidence": "Its receipts were replaced by this candidate; only its install failure receipts remain."
+  },
+  {
+   "source_commit": "90614e51d5e4758f1fd95a6213701bc5e07bcd13",
+   "published": false,
+   "reason": "Superseded before publishing. All of its acceptance stages passed on one commit and one set of media; the ISO install and the Home worker stage each passed on a same-commit rerun after a first attempt failed while other projects loaded the shared test disk. The repository then moved from teddashh/agentic-smart-home to the TED-H-com organization. The Controller installs and updates both Apps only from the exact trusted repository URL, so a release with the old URL would have put every installation on a changed release channel at its next update.",
+   "fixes": [
+    "https://github.com/TED-H-com/agentic-smart-home/pull/93"
+   ],
+   "evidence": "Its receipts were replaced by this candidate; only its two first-attempt failure receipts remain."
+  },
+  {
+   "source_commit": "9d1d5646f351cb78dcc498cb07219da2074e4ad9",
+   "published": false,
+   "reason": "Superseded before publishing. All of its acceptance stages passed on the first attempt on one commit and one set of media. The last review of the Owner trial path then found Web UI defects. Before the Home worker was enabled, the AI accounts page told the Owner to add the App repository without the #stable channel or to install a downloaded zip; either installs a different App slug (the development branch or a local App) that the one-click enable does not adopt and that wants the same host port. While a paired runtime did not answer, for example during a host restart, the same page asked the Owner to pair it or enable it again and showed every account as needing a login. After a host reboot the global connection error stayed on screen although the polls had recovered. A closed or expired screenshot preview could not be generated again. A diff withheld by the secret pattern scan was reported as no changes.",
+   "fixes": [
+    "https://github.com/TED-H-com/agentic-smart-home/pull/94"
+   ],
+   "evidence": "Its receipts were replaced by this candidate; it left no failure receipts."
+  },
+  {
+   "source_commit": "0015dd41b9dd9530b26669d3f2e42650c5758ebb",
+   "published": false,
+   "reason": "Stopped before publishing. Its ISO, TAR and source zip were built, and it was stopped one second after its first acceptance stage started, before any test ran. A review of the #94 recovery found that the global connection error still stayed after the Controller came back when the Owner had pressed reconnect while it was down, that a page whose first load failed did not open until the Owner clicked, and that the error for a task that no longer exists blinked with every poll. A host reboot during the Owner trial reaches all three. An audit of the whole reboot path then found more pages that stayed on an error or a false \"not set up\" or \"not signed in\" state after the services came back; the same pull request fixes them.",
+   "fixes": [
+    "https://github.com/TED-H-com/agentic-smart-home/pull/95"
+   ],
+   "evidence": "It has no acceptance receipts; only its build outputs were made."
   }
  ],
  "prior_failed_attempts": [
@@ -575,6 +602,45 @@
     "disk_fixture_ownership_restored": true,
     "network_removed": true
    }
+  },
+  {
+   "evidence": "evidence/home-worker-haos-0.9.0-rc10-run1-failure.json",
+   "junit": "evidence/home-worker-haos-0.9.0-rc10-run1-failure.xml",
+   "source_commit": "13ad697aca3e61fa6c409ee08ffa177d3c297842",
+   "phase": "actual_case_and_home_source_task",
+   "error_type": "AssertionError",
+   "error_code": "home_worker_state_timeout",
+   "observation": "The Home source job stopped in stop_unconfirmed before execution started, and the harness waited its 280 s for a confirmed stop. The Home broker records the sandbox attempt before launch; when the launch fails without proof that no writer remains, it keeps the job fenced as stop_unconfirmed instead of reporting a stop. The harness keeps only allow-listed job reasons, so the launch error is not on record; #97 tracks keeping it. Nothing in this phase cancels the job or changes its authority (the Owner session lasts 12 hours), and the only product change since this stage last passed (#95) is in the one-click enable maintenance, which this harness does not use. The stage began when its 45-minute wait for disk pressure ran out; during the job, Linux IO pressure on the shared test disk showed all running tasks stalled on IO for 51% to 81% of each minute, while other projects ran their tests. Docker then took longer than the harness cleanup limits: it removed the outer Controller container and the network on its own, and the integrator removed the VM container it left in the dead state. The same commit and images passed on rerun.",
+   "cleanup": {
+    "outer_removed": false,
+    "vm_removed": false,
+    "disk_fixture_ownership_restored": false,
+    "network_removed": false
+   }
+  },
+  {
+   "evidence": "evidence/runner-supervisor-build-0.9.0-rc10-run1-failure.json",
+   "junit": "evidence/runner-supervisor-build-0.9.0-rc10-run1-failure.xml",
+   "source_commit": "13ad697aca3e61fa6c409ee08ffa177d3c297842",
+   "phase": "supervisor_build_and_install",
+   "error_type": "HAError",
+   "error_code": "unclassified_fixture_error",
+   "observation": "The real Supervisor built the Home App in 73 s. While the harness observed the install, the Supervisor answered one read of the App list with unknown_error. The harness treats a Supervisor error as an answer rather than a lost connection and does not retry it. The failure diagnostics that followed could not read the App info or, over SSH, the Supervisor log, so the Supervisor message is not on record; #98 tracks retrying such reads and keeping the message class. The App source tree (cdf5d405) is the same as in the previous candidate, where this stage passed. Linux IO pressure on the shared test disk showed all running tasks stalled on IO for 7% of the minute when the stage started and for 49% to 82% of each minute during the install, while other projects ran their tests. Cleanup passed. The same commit and images passed on rerun.",
+   "cleanup": {
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+   }
+  },
+  {
+   "progress": "evidence/bridge-haos-local-0.9.0-rc10-run1-failure-progress.json",
+   "junit": "evidence/bridge-haos-local-0.9.0-rc10-run1-failure.xml",
+   "source_commit": "13ad697aca3e61fa6c409ee08ffa177d3c297842",
+   "phase": "harness_cleanup",
+   "last_progress_phase": "native_stop_respected",
+   "error_type": "TimeoutExpired",
+   "command_timeout_seconds": 30,
+   "observation": "The test body reached its last phase (after a manual stop the App stays stopped) at 770 s, and the JUnit failure holds only the cleanup error, so the body raised nothing. In cleanup, removing the outer Controller container took longer than the harness 30 s limit. The harness does not catch that timeout, so the rest of cleanup and the receipt were skipped; only the progress file remains. Docker removed the outer container on its own, and the integrator removed the VM container and the network. #99 tracks finishing cleanup and writing the receipt after such a timeout, as the other VM tests already do. Linux IO pressure on the shared test disk showed all running tasks stalled on IO for 9% of the minute when the stage started and for 20% to 78% of each minute during the run, while other projects ran their tests. The same commit and images passed on rerun."
   }
  ],
  "accepted_product_cases": {
@@ -610,26 +676,30 @@
  ],
  "source_audit": "evidence/source-audit-0.9.0.json",
  "evidence_sha256": {
-  "evidence/bridge-haos-local-0.9.0.json": "447572813c0b889cce9e12ebc5e6e4c78f9ce0aa15cc17f7bafddf6c87924510",
-  "evidence/bridge-haos-local-0.9.0.xml": "1f90928c2688a621516b0c856619677aebce7cb7e08754cdbefa186831b979c2",
-  "evidence/build-0.9.0.json": "9cb5ac257e1c26872c336942667f60dc6e839e6f2f6b88542128f50610af3b75",
-  "evidence/ci-media-match-0.9.0.json": "4209f04d98348199bbe272ce596c51158a7d96cf2a6a16fd112e072bf08f7341",
-  "evidence/github-ci-0.9.0.json": "e7f4b6ef16ad4c85403df445984d712adef0f751369f3e9ddfc84633a894981e",
+  "evidence/bridge-haos-local-0.9.0-rc10-run1-failure-progress.json": "c40f2e675d57cf9a1a80ae570b553eae98fa7673ccf07d1576139db9e3cddb6d",
+  "evidence/bridge-haos-local-0.9.0-rc10-run1-failure.xml": "23618299598b6975cb12439b4491e0d7bf076f9f3c581b2d2c20aaa54a9d10d6",
+  "evidence/bridge-haos-local-0.9.0.json": "2a9b7b0245d24f139685f98150de7661306d4585e73f66c2d11d2e9124cbb4fd",
+  "evidence/bridge-haos-local-0.9.0.xml": "f36b88de8da100c2e4df2b96cb832d9730bb11954dbd170e47d101504cb88ad9",
+  "evidence/build-0.9.0.json": "7459599edc46e8c96f4abf1d61ab8d81c261d4b3ef2e36b3b08ae10d3f497aea",
+  "evidence/ci-media-match-0.9.0.json": "18f8d4f52b1df6dce292e1302af591121e21b5d7deebc36b502c196fc61c0040",
+  "evidence/github-ci-0.9.0.json": "f86037a43e6895c924aec5ef7499b5da69b3fe2fca1522c206ae69a5d48296f6",
   "evidence/haos-app-boundary-0.9.0-rc2-failure.xml": "8446a68b98119c45ee6a15fe90178b508ba74fb1f77d7d9173bbfac694143ac7",
   "evidence/haos-app-boundary-0.9.0-rc3-failure.xml": "60bf1089cc058192e9ea4d4b9a750d7ce86f651483c0f018b6b39edc45acba19",
   "evidence/haos-app-boundary-0.9.0-rc4-failure.xml": "eb631bd27da002ef7ea7695b5aa8992281c419889e9791648154a4e85648108e",
-  "evidence/haos-app-boundary-0.9.0.json": "54c0588b8365d2ab0261a3ef7bc1494b045cd265e58b531f418515d7876d1574",
-  "evidence/haos-app-boundary-0.9.0.xml": "296ac83a8d05e6f49956c19cb89708df5005c06ceb0a043121bf0f80e25ddc2b",
+  "evidence/haos-app-boundary-0.9.0.json": "8563495abb7e9ef62935b7a1c2e8c7481710f64baacfb361595ff877433cef88",
+  "evidence/haos-app-boundary-0.9.0.xml": "2ecf5fb15af815c8ccf9f75d7c5fd2b524f51d212d8f0700f27c3ecd61ca3e10",
   "evidence/haos-vm-0.9.0-rc4-failure.xml": "ac9aa8a733b58a95975ed26e31048b128b90c485ad9b3a2891c80fee0546edd2",
   "evidence/haos-vm-0.9.0-rc5-failure.xml": "2e0fa2573b281216efaa53ec24d93d96a7c9a22a2db50079c3daab364152259e",
-  "evidence/haos-vm-0.9.0.json": "20db101ded5dda800504416aa6e09b746752217c2fe4fde9059ff2116b7524e1",
-  "evidence/haos-vm-0.9.0.xml": "90e7af035c3fcdb2fa2fb9af707dace1a1d402069c507274f5c3c44ad6c7d80d",
+  "evidence/haos-vm-0.9.0.json": "8762870febdedb042f2d365648159ba4b6ea04512150734943a5ca68531ebbe2",
+  "evidence/haos-vm-0.9.0.xml": "202d6a83c689ee8ad3908e2186f64091919839493472860ce3c3b79bcb7786eb",
   "evidence/home-worker-enable-haos-0.9.0-rc2-failure.json": "e840351d740091d287c0bc4cfd1b7010c28b097ec7c31a0b417518f2fbed5a40",
   "evidence/home-worker-enable-haos-0.9.0-rc2-failure.xml": "cd212076bed3ab63e7a9a8c61fff41634c46170a8af2394d98d015570212ae63",
   "evidence/home-worker-enable-haos-0.9.0-rc4-failure.json": "0faeb8d65d6111b4fc9e0f5d68caacf17c23f3f955454a79371371d5e926ee58",
   "evidence/home-worker-enable-haos-0.9.0-rc4-failure.xml": "8027176e8f9c2645229810dde391a17fb64655052c81c06b619115e0f0f3162d",
-  "evidence/home-worker-enable-haos-0.9.0.json": "c8c133eedf9ffef39287f40b4cc1a5f0266982cc117de87f0318a2c7f13be7e2",
-  "evidence/home-worker-enable-haos-0.9.0.xml": "b357c91c3f35229b199c2940e31b45dc11f1c6dfff51d07da315936febd877be",
+  "evidence/home-worker-enable-haos-0.9.0.json": "a1a2cf91e56fd8a1e08b8e0e72b2ca61c292fe7fe8216f72d54b9ba65925ef2a",
+  "evidence/home-worker-enable-haos-0.9.0.xml": "57aa8b49138f8ce8e9f707afda1764b430e82e6fef0d45fba57e9802ee474fbd",
+  "evidence/home-worker-haos-0.9.0-rc10-run1-failure.json": "5af72822f31114d6f1c32a78402dfd2b05f7f1aa630700243c3bd157d579fa9f",
+  "evidence/home-worker-haos-0.9.0-rc10-run1-failure.xml": "2b7e2c742c1b0f162ccf10111cbfaa54f40e2dd8a940f0f8068a9eba37a024a8",
   "evidence/home-worker-haos-0.9.0-rc2-failure.json": "8b3dbd15586ab9cf81a771e195e1718aea38543acaa9d3b8869a7003834c1b7e",
   "evidence/home-worker-haos-0.9.0-rc2-failure.xml": "ef5a8bec887286aa6fd571b626d217aacb7f450a42799e8edb264e898e9f1d60",
   "evidence/home-worker-haos-0.9.0-rc3-failure.json": "7c0d3d4fcc7fd1277be4bc0852f7398aeab58701bcb72f6939498ff714a9816b",
@@ -640,16 +710,16 @@
   "evidence/home-worker-haos-0.9.0-rc7-run1-failure.xml": "143098f3317c9694264e80c9e48e0cce44893983bcda9a44dd79ced8fadca470",
   "evidence/home-worker-haos-0.9.0-run1-failure.json": "f7e673d96cae6ccbad6e23ca07865164b57bc5b2effa15621d43ae8a95c7d7f0",
   "evidence/home-worker-haos-0.9.0-run1-failure.xml": "0b94bf23f61f0976de4c2265d78e803bd95357707af69220612d9ed5fb4a3faa",
-  "evidence/home-worker-haos-0.9.0.json": "10bed1594994872afe3756b4df0d57d54801a4e04d8729e4958aefbb8761433e",
-  "evidence/home-worker-haos-0.9.0.xml": "c3a5f1cdfb7b40cd7ab586b629b2f2585b0e3b4223d6bfbcc52d77917f9fbd09",
+  "evidence/home-worker-haos-0.9.0.json": "cb7feac41f8277973306d72c12f127d9bcd081c5420b505457ec7eba694c74bd",
+  "evidence/home-worker-haos-0.9.0.xml": "999ae7ab63e0f818a9b4486ddeb9ce9a2e4240ffef0eee5f5270a976487a7c5e",
   "evidence/installed-auth-laptop-amd64-0.9.0-rc5-failure.json": "60458183c8045e8de7954eb5e7d5cde6651d3aabef6489dd203788a71959925d",
   "evidence/installed-auth-laptop-amd64-0.9.0.json": "66fdc90b339d02c527946481d200c04016e486b4ea08b3f40bc44c0d9fb68fde",
-  "evidence/installed-coding-laptop-amd64-0.9.0.json": "e164fa1dc86c85c1ae3680148ad5160737b5eabbf119c61bc2240f632c687568",
-  "evidence/installed-hermes-laptop-amd64-0.9.0.json": "0dbcbf202ef0c17cf463e2f5480811200697e7b0a0c8525c0bb8f5941f48a1c6",
-  "evidence/installed-rescue-laptop-amd64-0.9.0.json": "f86b06f4be2803c858735cc6c8174fb98a311c69dffe937a126c06c79d39b072",
+  "evidence/installed-coding-laptop-amd64-0.9.0.json": "e8e721aa830940778cb83112e287e24fca16517173b32bc30174c802952e5762",
+  "evidence/installed-hermes-laptop-amd64-0.9.0.json": "0172b5030714c8235c10377234acbba9b620b7361c150cbee6b0429995223591",
+  "evidence/installed-rescue-laptop-amd64-0.9.0.json": "3b9164f5ba6e34396542a757aa5eeb8d15b6031e8e9da8f7a3cdacd9a3a760f4",
   "evidence/installed-sandbox-laptop-amd64-0.9.0-rc3-failure.json": "596da089e1ca656f029a863e82880632754fa10ddff89c1d1ccf00d0db834522",
-  "evidence/installed-sandbox-laptop-amd64-0.9.0.json": "62d33238bea1f3ea80470b35ff3c4a8da4ac64c821281fc2fe7f9584af20f633",
-  "evidence/installed-update-laptop-amd64-0.9.0.json": "4aebad21e55f7ef6357c774191b45b1f201428b7a0cd13555b279d6427406a1b",
+  "evidence/installed-sandbox-laptop-amd64-0.9.0.json": "cab08b06c0bb63e94fc0e7ceda06d29e6a43a52b55c5c24c1c8b50a6eb84b321",
+  "evidence/installed-update-laptop-amd64-0.9.0.json": "041c56f994a88c56cd087686f3309acc695f02e116d5ea1f371fecfec99ff41c",
   "evidence/linux-install-0.9.0-rc2-failure.json": "637266ca8b991a6d6cbdc0277e4941de8ac0c5fa4edc3c65fec9884f6a1903fe",
   "evidence/linux-install-0.9.0-rc2-failure.xml": "9cec68bf96343e7b29e81a47fb703b9f93a2526afbb1ecd7d9b6a46da5b4c5d9",
   "evidence/linux-install-0.9.0-rc3-failure.json": "b4b9e6099f9ca556bef7051bc16fdb75faf468c5613f424718588a9343b2948b",
@@ -660,14 +730,16 @@
   "evidence/linux-install-0.9.0-rc6-failure.xml": "bae2cb4b584a54c2825da982dd0320b8b0f34f709dfeb2390ad7f95b2d5d816d",
   "evidence/linux-install-0.9.0-rc7-run1-failure.json": "c55cfd8a31a597be005ec42c777fef3a5881a5c5b247a06aca9122540adeb040",
   "evidence/linux-install-0.9.0-rc7-run1-failure.xml": "6fb06ba6f69adf0f7d435985f70d799da3c77005d9cfb9cfb75b4909ab7367e7",
-  "evidence/linux-install-0.9.0.json": "bbd738d45a1cf5f07e997036b3c8820b362e6a0569564b15a5665c208ba46655",
-  "evidence/linux-install-0.9.0.xml": "4453285bf3da406c944c52e927d08905c8037fdf36c0b7d9b7dc4b9a5b5fd71d",
-  "evidence/pytest-0.9.0-github.xml": "86bce183d61d0fdd0d1320cec753b4ccfbc810cf1f90a604d44844efc56eb85e",
+  "evidence/linux-install-0.9.0.json": "54025a8dd086414fd9ff36c4c1b07eb3b8df221ca76d3604e6dac4f64744d198",
+  "evidence/linux-install-0.9.0.xml": "b487b0c230c5c19a6fb4ff4ea315956171fe40e1fe47343505bf92e28e3a16f4",
+  "evidence/pytest-0.9.0-github.xml": "b898e2ac4bb16368bbd06c810f73aa95b5ff5607be27db963a884209b24ad164",
   "evidence/pytest-0.9.0-rc5-failure.xml": "6e70786709ba47ff06289f4024a962349a382b130cc4cda40b7192e665850865",
-  "evidence/pytest-0.9.0.xml": "92bb620867ce5554fc36b89ef03ede199046218494753bfdd12c04fb5211eda2",
+  "evidence/pytest-0.9.0.xml": "26e197c989fa257977c8d44ac860b4f98cda5cd00715e72736c70964cf69e1fe",
+  "evidence/runner-supervisor-build-0.9.0-rc10-run1-failure.json": "e82465e09e8eaa3af280c3a82dcdadde433b7c7e1c82a88bffd521fc91c8ae0b",
+  "evidence/runner-supervisor-build-0.9.0-rc10-run1-failure.xml": "806861eba43babc1068a1b227771dfacbcbdc3aae43e5bb20b1783c9b32b9e55",
   "evidence/runner-supervisor-build-0.9.0-run1-failure.json": "a782a67b810887e2348dad74b2e091a078fcecd19e6db960a7ca91eed793c582",
-  "evidence/runner-supervisor-build-0.9.0.json": "b9872826227f642b874b56684f9841de0910bf6db68f162dcf59ea3d28dbb5c1",
-  "evidence/runner-supervisor-build-0.9.0.xml": "65790e00cb1580f836c88f46042a27ed48b686378e1308eda39fa5be41573b05",
-  "evidence/ui/bridge-native-haos-0.9.0.png": "11e6a40625034f0ed2b705fe2fed848141ff8378ab3918a0cc933fe0317ee5dd"
+  "evidence/runner-supervisor-build-0.9.0.json": "389411ea684d962eadc725fb2fe6c888387121a7c17ac90614f59571244a6833",
+  "evidence/runner-supervisor-build-0.9.0.xml": "f22c205c36e7189a22b21cd1ac64c5904448abfe1ec8ae16b927f28156c72c48",
+  "evidence/ui/bridge-native-haos-0.9.0.png": "3bfd48d680157a5aa88669a898cbd2abcc7ac84a7428da70c5e3103fc1bcab64"
  }
 }

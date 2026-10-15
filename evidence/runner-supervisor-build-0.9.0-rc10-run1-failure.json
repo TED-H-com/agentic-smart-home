@@ -1,0 +1,101 @@
+{
+  "kind": "real_haos_supervisor_app_build",
+  "delivery": "local_source_exact_head_files",
+  "haos_image": "18.3",
+  "observed_from": "haos_supervisor_build_and_app_container",
+  "status": "failed",
+  "live_build_downloads": [
+    "apt",
+    "npm",
+    "pypi",
+    "agy",
+    "coding_source"
+  ],
+  "limitations": [
+    "local_source_delivery_not_public_stable_channel",
+    "no_pairing_login_model_or_coding_executed",
+    "builder_and_pinned_bases_preloaded_registry_not_blocked"
+  ],
+  "checks": {
+    "supervisor_healthy": true,
+    "pinned_bases_preloaded": true,
+    "exact_head_source_delivered": true,
+    "store_catalog_build_version": true
+  },
+  "phase": "supervisor_build_and_install",
+  "source_commit": "13ad697aca3e61fa6c409ee08ffa177d3c297842",
+  "runner_git_tree": "cdf5d405a8483ed523f543e38e23474dd65801bf",
+  "runtime_source_uncommitted": false,
+  "haos_vm_profile": {
+    "profile": "laptop-amd64",
+    "memory_mib": 4096,
+    "vcpus": 2,
+    "disk_gib": 64
+  },
+  "delivered_file_count": 55,
+  "delivered_tree_sha256": "51184197d1a2edeb67a76a91c61c5f9c6cb7c7779746134c9d01a5851b9e36b4",
+  "app_config_sha256": "0d36bd1c1c55897877a7d677663ad2d6aa1112d541144cda9936621529ca4553",
+  "app_apparmor_sha256": "e5806ce5ccc65cb1e1332774f0b6b96b7af650f20a76cb6516d0f018862d7753",
+  "core": "2026.10.1",
+  "supervisor": "2026.09.3",
+  "preloaded_images": [
+    "docker:29.7.2-cli@sha256:3f4743208d2338c934d7b8bcfbe1bb54c0b2355c510ad5e0f31c0c4a54bd704e",
+    "node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20",
+    "python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd12803a5c4247979ac7655f4d641"
+  ],
+  "preload_digest_resolution": {
+    "builder_tag": true,
+    "node_digest": false,
+    "python_digest": false
+  },
+  "store_catalog": {
+    "attempts": 1,
+    "failures": []
+  },
+  "build_seconds": 73.0,
+  "error_type": "HAError",
+  "error_code": "unclassified_fixture_error",
+  "errno": null,
+  "owned_runtime_observation": {
+    "vm": {
+      "state_returncode": 0,
+      "state": {
+        "Running": true,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 1162734,
+        "ExitCode": 0,
+        "Status": "running"
+      },
+      "events_returncode": 0,
+      "events": [
+        {
+          "action": "create",
+          "timeNano": 1792059972650022020
+        },
+        {
+          "action": "start",
+          "timeNano": 1792059972791465422
+        }
+      ]
+    }
+  },
+  "upstream_error": {
+    "job_missing": false,
+    "update_required": false,
+    "upstream_unknown_error": true
+  },
+  "failure_app_observation_error": "HAError",
+  "supervisor_log_signatures": {
+    "unavailable": true
+  },
+  "failure_hold_seconds": 0,
+  "cleanup": {
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "duration_seconds": 620.189
+}
