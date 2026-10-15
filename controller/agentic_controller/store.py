@@ -14,6 +14,7 @@ from pathlib import Path
 
 from .models import canonical, utcnow
 from .store_journal import Journal, Transaction, close_store
+from .worker_completion import COMPLETION_KIND
 
 
 class Conflict(Exception):
@@ -236,6 +237,10 @@ class Store:
         context_cutoff = (datetime.now(UTC) - timedelta(days=days["context_days"])).isoformat()
         with self.transaction() as tx:
             tx.execute("DELETE FROM records WHERE kind='conversation' AND created < ?", (context_cutoff,))
+            tx.execute("DELETE FROM records WHERE kind=? AND (created < ? OR NOT EXISTS ("
+                "SELECT 1 FROM records AS conversation WHERE conversation.kind='conversation' "
+                "AND conversation.id=json_extract(records.body,'$.message_id')))",
+                (COMPLETION_KIND, context_cutoff))
             # Capability hashes and context-bearing evidence expire independently
             # of audit handles. Idempotency tombstones deliberately remain.
             tx.execute("DELETE FROM records WHERE kind='mcp_grant' AND json_extract(body,'$.expires') < ?",

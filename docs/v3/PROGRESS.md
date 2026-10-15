@@ -53,6 +53,16 @@ Owner 要求實作真正內層 worker 後，已新增 HomeService／HomeSandbox�
 
 第十輪來源工作成功，獨立 verifier **38 passed**、30 項 worker 邊界檢查通過，case／觀測來源及內容 digest 均相符。整案仍失敗：probe 固定 8123，但真 Core 使用 80；現場唯讀讀回確認 80 回應 401、8123 拒絕連線。見 [第十輪原始失敗](../../evidence/home-worker-haos-run10-observation-failure.json)與 [獨立去密診斷](../../evidence/home-worker-haos-run10-observation-diagnostic.json)。VM／容器／磁碟暫存均已清除，沒有回改 failed。修正為固定 `homeassistant` 的 80 → 8123 有界無帳號探測。第十一輪已通過來源修改／獨立測試、同 case 內容／指紋、Core 80 回應 401、TLS 取消與正常重啟；最後因測試要求 PID namespace 編號必須改變而失敗，見 [原始結果](../../evidence/home-worker-haos-run11-restart-observer-failure.json)。[現場去密診斷](../../evidence/home-worker-haos-run11-restart-observer-diagnostic.json)證實 namespace 編號可重用，產品仍保留未知工作與原 lease；後續新工作阻擋／不重播斷言尚未執行。資源已清理；測試改用新程序 start ticks 加 Docker StartedAt 排除舊快取與 namespace 編號重用，後續第十二輪完整重跑通過，原第十一輪仍為 failed。固定模型回應和文件註解 patch 只驗工程連線，不證明真雲端自主研究或真實問題修復。V3-10 更新為工程實作 `implemented`，T3-13／T3-15、E2 及其餘 30 案維持 `not_run`；詳見 [Home worker 範圍](../WORKERS.md#home-coding-080-工程預覽)。
 
+## V3-11 非同步工作完成通知（未發布工程增量）
+
+在獨立 `codex/worker-completion-notifications` 分支，補上 coding 工作結束後回到原 LINE／Telegram／Discord 對話的固定狀態通知。只處理原 case 授權、仍有效的對話與已確認停止的終態；Web 手動工作不猜聊天室。通知只含工作狀態與既有 Web 工作路徑，不含原始成果、模型摘要，也不建立新的 Hermes 回合或家庭操作。這不改寫 `53c9e79` 媒體或發布來源。
+
+工作終態與以 job ID 去重的通知意圖在同一交易保存；先確認原 bot 回覆已送達，再保存 `sending` 並等待磁碟持久化，之後重驗原對話、case、scope、帳號／provider／政策、收件範圍、暫停、更新 gate 與授權期限。尚未開始的離線通知可在同一授權仍有效時續送。送達不明、程序中斷或 adapter 非預期失敗保留 `unconfirmed`，不自動重送；一件 adapter 失敗不阻止另一件工作通知。開始外部傳送後的撤權無法收回已在途的訊息。
+
+通知採私有 `worker_completion` record，不改公開 worker job、Runner contract 或 SQLite schema 3；不存 token、chat／sender 或訊息本文，按 context 保存期限和原對話存在性清理。同 schema 退版保留現有 DB，舊 binary 忽略此 kind 且不發送通知；重新使用本實作時只處理仍有效的 `pending`，`sending` 一律轉為 `unconfirmed`，不回填舊工作。舊 binary 不認得新增 kind 的清理，因此精簡收據 metadata 可能保留到再次使用本實作清理；這不是完整跨版本保存政策一致性的聲明。
+
+本機 transport／Runner fixtures 定向 **115 passed／10.06 秒**，包含 41 項新增通知案例與既有 worker／Gateway 回歸；受影響檔案的 Ruff 檢查通過。涵蓋三通道、終態去重、撤權／跨 scope、未知 writer fence、交易回滾、持久化前失敗、重啟／取消不重送與 adapter 失敗隔離。沒有 bot 帳號、真模型、HAOS 或家庭副作用，未建置映像；真 bot 接收、雙 worker 互補研究及 E1／E2 仍待各自驗收，32 案不批次升級。
+
 ## 16 項開發工作
 
 本輪分 A Hermes/Controller、B worker sandbox、C docs/support/交付，整合者管理共用契約。下表的 in_progress 並非可用能力或完成聲明；完整成果與相依仍見 [Backlog](BACKLOG_V3.md)。
@@ -69,7 +79,7 @@ Owner 要求實作真正內層 worker 後，已新增 HomeService／HomeSandbox�
 | V3-08 | P0 / E1 / A+B | in_progress | lease／實際 writer 停止與重啟 reconcile 已交付；可匯出停止後 checkpoint。live_session:false，尚非直接加入同一 BAT／CLI session |
 | V3-09 | P0 / E1 / C | implemented | Web 問題派工、差異／SHA-256 成果、network-none renderer 三尺寸 PNG、獨立短效 origin／撤銷；真 Owner UI 問題與雲端整案未驗 |
 | V3-10 | P1 / E2 / A+B | implemented | 0.8.0 HomeService／HomeSandbox 真 HAOS App 第十二輪完整工程案例 passed：Codex／38 項獨立 verifier／30 項邊界／同 case／Core 觀測／TLS 取消／正常重啟／突然中斷 fencing 與無重播，見 [證據](../../evidence/home-worker-haos.json)。固定模型 transport，真雲端自主研究與 E2 待驗；沒有新 ISO 聲明 |
-| V3-11 | P1 / E2 / A+B | in_progress | 同 case 工作者狀態、下一輪 Hermes 證據 handle、觀測位置與 ACL 已接通；雙層互補研究與 bot 主動完成通知未驗／未交付 |
+| V3-11 | P1 / E2 / A+B | in_progress | 同 case 工作者狀態、下一輪 Hermes 證據 handle、觀測位置與 ACL 已接通；獨立分支新增 bot 固定完成通知／持久去重與撤權、重啟負向 fixtures，見上方工程增量。真 bot 接收與雙層互補研究仍未驗 |
 | V3-12 | P1 / E2 / A+C | implemented | home.observe／propose／proposal_status 接回既有 Engine，精確 Owner 批准、撤權／暫停競態保護；真模型 helpers 整案待驗 |
 | V3-13 | P1 / E2 / C | implemented | schema 3 私有遷移 snapshot；Ed25519 publisher／digest、獨立 probe、精確批准、quiesce／backup／health／保留新 DB 退版。真 installed probe 已驗 revoked bridge 契約及 pending App 操作阻擋；缺契約映像是明示衍生 fixture。僅同 schema 外層 Controller，不是全產品／HAOS 更新器 |
 | V3-14 | P1 / E2 / 全組 | not_run | 尚無Owner laptop研究→修正→preview→批准更新→現場驗證→退版或雙worker真執行 |
