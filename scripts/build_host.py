@@ -67,6 +67,18 @@ def coding_source(assets, root=ROOT):
     return lock
 
 
+def public_bundle_member(member):
+    # This archive contains public product files, including code read by the
+    # nobody-owned proxy. Build umask and checkout ownership must not reach the
+    # installed tree. Change archive metadata only: assets may hardlink the cache.
+    if not (member.isdir() or member.isfile()):
+        raise ValueError("Public product bundle requires regular files and directories")
+    member.uid = member.gid = 0
+    member.uname = member.gname = "root"
+    member.mode = 0o755 if member.isdir() or member.mode & 0o111 else 0o644
+    return member
+
+
 def bundle(destination):
     from package import package_bridge, package_runner
     package_runner()
@@ -98,7 +110,7 @@ def bundle(destination):
     (stage / "BUNDLE.sha256.json").write_text(json.dumps(manifest, indent=2) + "\n")
     # Uncompressed tar avoids an extra compression/decompression of already-compressed OCI and XZ content.
     with tarfile.open(destination, "w") as output:
-        output.add(stage, arcname="agentic-home", recursive=True)
+        output.add(stage, arcname="agentic-home", recursive=True, filter=public_bundle_member)
     return destination
 
 
