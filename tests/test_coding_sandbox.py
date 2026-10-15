@@ -356,6 +356,7 @@ def test_artifact_directory_budget(tmp_path):
 
 def test_idempotency_and_active_writer_fencing(tmp_path, monkeypatch):
     sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path})
+    monkeypatch.setattr(sandbox, "_require_work_root", lambda: None)
     monkeypatch.setattr(sandbox, "preflight", lambda: True)
     # A lost Docker response remains fenced; an exact retry never runs prepare again.
     import hashlib
@@ -399,12 +400,17 @@ pathlib.Path('/work/artifacts/memory.txt').write_text('kernel killed allocation 
 
 def test_retained_workspace_budget_prevents_unbounded_disk_growth(tmp_path, monkeypatch):
     sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path})
+    monkeypatch.setattr(sandbox, "_require_work_root", lambda: None)
     monkeypatch.setattr(sandbox, "preflight", lambda: True)
+    monkeypatch.setattr(sandbox, "_confirm_writer", lambda job: "absent")
     for index in range(4):
         (tmp_path / f"retained-{index}").mkdir()
-    with pytest.raises(SandboxError, match="Retained workspace budget"):
+    with pytest.raises(SandboxError) as failure:
         sandbox.launch(JOB, 1, "product", "a" * 40, "print('hi')")
-    assert not (tmp_path / f"{JOB}.json").exists()
+    assert failure.value.code == "coding_setup_failed" and failure.value.stopped is True
+    assert "Retained workspace budget" in str(failure.value.__cause__)
+    assert sandbox.record(JOB)["state"] == "failed"
+    assert not (tmp_path / JOB).exists()
 
 
 def test_disk_format_preserves_reserved_blocks_without_mounting(tmp_path):
@@ -578,6 +584,7 @@ def test_cancel_timeout_records_safe_operation_and_keeps_writer_fenced(tmp_path,
         return SimpleNamespace(returncode=0, stdout=json.dumps(state) if args[1] == "inspect" else "")
     monkeypatch.setattr(subprocess, "run", run)
     sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path})
+    monkeypatch.setattr(sandbox, "_require_work_root", lambda: None)
     monkeypatch.setattr(sandbox, "preflight", lambda: True)
     sandbox.save({"job_id": JOB, "container": "agentic-coding-" + JOB, "container_id": "container-123",
                   "state": "running"})
@@ -679,6 +686,7 @@ def test_failed_start_with_proven_absence_releases_the_fence(tmp_path, monkeypat
         return _absence_execute(calls)(*args, **kwargs)
 
     sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path}, execute=execute)
+    monkeypatch.setattr(sandbox, "_require_work_root", lambda: None)
     monkeypatch.setattr(sandbox, "preflight", lambda: True)
     monkeypatch.setattr(os.path, "ismount", lambda path: Path(path).name == "workspace")
 
@@ -711,6 +719,7 @@ def test_unanswering_daemon_keeps_a_failed_start_fenced(tmp_path, monkeypatch):
 
     sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path},
                             execute=_absence_execute(calls, version_error=True))
+    monkeypatch.setattr(sandbox, "_require_work_root", lambda: None)
     monkeypatch.setattr(sandbox, "preflight", lambda: True)
     monkeypatch.setattr(sandbox, "prepare", prepare)
     with pytest.raises(OSError, match="loop failed"):
@@ -725,6 +734,7 @@ def test_several_labeled_containers_are_not_absence(tmp_path, monkeypatch):
     calls = []
     sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path},
                             execute=_absence_execute(calls, ps="aaaa\nbbbb\n"))
+    monkeypatch.setattr(sandbox, "_require_work_root", lambda: None)
     monkeypatch.setattr(sandbox, "preflight", lambda: True)
 
     def prepare(job, program):
@@ -758,6 +768,7 @@ def test_labeled_container_found_at_start_is_stopped(tmp_path, monkeypatch):
         return fake(*args, **kwargs)
 
     sandbox = CodingSandbox(tmp_path, IMAGE, {"product": tmp_path}, execute=execute)
+    monkeypatch.setattr(sandbox, "_require_work_root", lambda: None)
     monkeypatch.setattr(sandbox, "preflight", lambda: True)
     monkeypatch.setattr(sandbox, "prepare", lambda job, program: tmp_path / "workspace-mount")
     monkeypatch.setattr(os.path, "ismount", lambda path: Path(path).name == "workspace")
@@ -789,6 +800,7 @@ def test_absence_proof_clears_status_cancel_and_recover(tmp_path, monkeypatch):
     recover_id = "test-recover-0003"
     sandbox.save({"job_id": recover_id, "container": "agentic-coding-" + recover_id, "state": "preparing"})
     assert {item["job_id"]: item["state"] for item in sandbox.recover()} == {recover_id: "interrupted"}
+    monkeypatch.setattr(sandbox, "_require_work_root", lambda: None)
     monkeypatch.setattr(sandbox, "preflight", lambda: True)
     monkeypatch.setattr(sandbox, "prepare", lambda job, program: tmp_path / "workspace-mount")
     assert sandbox.launch("test-later-0002", 1, "product", "a" * 40, "print('hi')")["state"] == "running"
@@ -838,6 +850,7 @@ def test_unanswering_record_stays_stop_unconfirmed(tmp_path, monkeypatch):
     assert sandbox.status(quiet)["state"] == "stop_unconfirmed"
     assert sandbox.cancel(quiet)["state"] == "stop_unconfirmed"
     assert sandbox.recover()[0]["state"] == "stop_unconfirmed"
+    monkeypatch.setattr(sandbox, "_require_work_root", lambda: None)
     monkeypatch.setattr(sandbox, "preflight", lambda: True)
     with pytest.raises(SandboxError, match="fenced"):
         sandbox.launch("test-later-0002", 1, "product", "a" * 40, "print('hi')")
