@@ -768,3 +768,52 @@ def test_proposal_names_replace_ids_and_inventory_is_read_once():
         expect(page.get_by_text('廚房感應器（廚房）', exact=True)).to_have_count(0)
         _layouts(page, 'proposal-fallback')
         _finish(server, thread, browser, errors)
+
+
+def test_automatic_poll_recovers_without_hiding_action_error():
+    server, thread = _server()
+    state = {'offline': False, 'polls': 0}
+
+    def route(route):
+        path = route.request.url.split('/api/')[1]
+        if path == 'tasks':
+            state['polls'] += 1
+            if state['offline']:
+                route.fulfill(status=503, json={'detail': '暫時連不上管理服務，請稍後再試。'})
+                return
+        if path == 'pause':
+            route.fulfill(status=503, json={'detail': '恢復失敗，請稍後再試。'})
+            return
+        value = {'deployment': {'mode': 'host', 'authenticated': True},
+                 'session': {'csrf': 'fixture-csrf', 'principal': 'fixture-owner'},
+                 'status': {'paused': True, 'ha': {'status': 'connected'}},
+                 'tasks': {'tasks': []}}.get(path, {})
+        route.fulfill(status=200, json=value)
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.clock.install()
+            page.route('**/api/**', route)
+            page.goto(f'http://127.0.0.1:{server.server_port}/#history')
+            resume = page.get_by_role('button', name='AI 已暫停 · 恢復', exact=True)
+            expect(resume).to_be_visible()
+            state['offline'] = True
+            page.clock.run_for(10_100)
+            error = page.locator('.global-error')
+            expect(error).to_contain_text('暫時連不上管理服務')
+            state['offline'] = False
+            page.clock.run_for(10_100)
+            expect(error).to_have_count(0)
+            resume.click()
+            expect(error).to_contain_text('恢復失敗')
+            before = state['polls']
+            page.clock.run_for(10_100)
+            expect(error).to_contain_text('恢復失敗')
+            assert state['polls'] > before
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
