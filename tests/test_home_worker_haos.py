@@ -37,6 +37,7 @@ from home_worker_haos_probe import (
     ModelFixture,
     command_diagnostics,
     failure_receipt,
+    launcher_receipt,
     stderr_summary,
     stderr_summary_bytes,
 )
@@ -194,6 +195,7 @@ def diagnostic_projection(raw):
     enums = {'state': {'failed', 'ready'}, 'status': {'running', 'passed', 'failed'},
         'phase': {'initialize_home_runtime', 'preflight', 'quota', 'pid-cpu', 'memory', 'descendant'},
         'cleanup': {'passed', 'unconfirmed'}, 'observed_from': {'haos_app'},
+        'read_status': {'missing', 'unreadable', 'invalid', 'oversize'},
         'mode': {'prepare', 'execute', 'supervise', 'fuse', 'unknown'},
         'error_type': {'BoundaryError', 'SandboxError', 'OSError', 'AssertionError', 'PermissionError', 'FileNotFoundError', 'Exception'}}
     for key, choices in enums.items():
@@ -302,12 +304,17 @@ def saved_image_identity(path, reference):
 
 def job_projection(raw):
     """Never serialize arbitrary model fields, prompts, logs or private responses."""
+    from agentic_host.coding_sandbox import ERROR_CODES as SANDBOX_CODES
+    from agentic_runner.home_launcher import ERROR_CODES as LAUNCHER_CODES
+
     value = {}
     for key in ('id', 'job_id', 'case_id'):
         if isinstance(raw.get(key), str) and HEX32.fullmatch(raw[key]):
             value[key] = raw[key]
     if raw.get('state') in STATES:
         value['state'] = raw['state']
+    if raw.get('phase') in STATES | {'collecting', 'verifying'}:
+        value['phase'] = raw['phase']
     for key in ('stop_confirmed', 'execution_started', 'workspace_released'):
         if type(raw.get(key)) is bool:
             value[key] = raw[key]
@@ -316,13 +323,17 @@ def job_projection(raw):
     value['artifact_count'] = len(raw.get('artifacts', [])) if isinstance(raw.get('artifacts'), list) else 0
     value['evidence_count'] = len(raw.get('evidence_ids', [])) if isinstance(raw.get('evidence_ids'), list) else 0
     for key in ('reason', 'error_code'):
-        if raw.get(key) in {'coding_needs_auth', 'worker_unavailable', 'hard_boundary_unavailable',
+        if isinstance(raw.get(key), str) and raw[key] in SANDBOX_CODES | LAUNCHER_CODES | {
+                'coding_needs_auth', 'worker_unavailable', 'hard_boundary_unavailable',
                 'coding_source_unavailable', 'execution_failed', 'verification_failed', 'writer_stop_unconfirmed',
                 'broker_restarted', 'source_or_image_unavailable', 'checkpoint_export_failed',
                 'coding_operation_rejected', 'verification_deadline_exhausted', 'worker_contract_mismatch',
                 'setup_timeout', 'execution_timeout', 'verification_timeout', 'authorization_expired',
-                'owner_cancelled'}:
+                'owner_cancelled', 'coding_execution_failed', 'coding_needs_reauth', 'coding_quota_reached',
+                'coding_turn_limit', 'coding_provider_rejected', 'coding_provider_unavailable'}:
             value[key] = raw[key]
+    if isinstance(raw.get('launch_failure'), dict):
+        value['launch_failure'] = launcher_receipt(raw['launch_failure'])
     verification = raw.get('verification', {})
     if isinstance(verification, dict):
         verified = {}
@@ -340,6 +351,93 @@ def job_projection(raw):
             verified['stop_confirmed'] = verification['stop_confirmed']
         value['verification'] = verified
     return value
+
+
+def finish_phase(evidence, started, now):
+    phases = evidence.get('phase_timings', [])
+    if phases and 'duration_seconds' not in phases[-1]:
+        phases[-1]['duration_seconds'] = round(now - started - phases[-1]['started_seconds'], 3)
+
+
+def begin_phase(evidence, value, started, now):
+    finish_phase(evidence, started, now)
+    evidence['phase'] = value
+    evidence.setdefault('phase_timings', []).append({'phase': value, 'started_seconds': round(now - started, 3)})
+
+
+def workspace_reclaimed(proof):
+    """A missing/incomplete diagnostic must never count as confirmed cleanup."""
+    return (proof.get('record_present') is True and proof.get('stop_confirmed') is True
+        and proof.get('state') == 'disposed'
+        and all(proof.get(key) is False for key in (
+            'workspace_mounted', 'workspace_image_present', 'cgroup_present', 'fuse_cgroup_present')))
+
+
+async def observe_job(api, identifier, evidence, proof, *, stopped=True, timeout=280,
+                      clock=time.monotonic, sleep=asyncio.sleep, checkpoint=lambda: None):
+    """Keep elapsed time and read-only failure evidence before the client closes.
+
+    This never cancels/retries a launch or clears a fence. Diagnostics have their
+    own outcome so a failed read cannot replace the original timeout/failure.
+    """
+    started = clock()
+    observation = {'job_id': identifier, 'target': 'stop_confirmed' if stopped else 'running',
+        'timeout_seconds': timeout, 'state_changes': []}
+    evidence.setdefault('job_waits', []).append(observation)
+
+    def retain():
+        try:
+            checkpoint()
+        except (OSError, ValueError) as error:
+            observation['checkpoint_error'] = failure_receipt(error)
+
+    async def diagnose():
+        retain()
+        diagnostic_started = clock()
+        try:
+            observation['boundary'] = proof(identifier)
+        except Exception as diagnostic_error:
+            observation['boundary_observation_error'] = failure_receipt(diagnostic_error, source_files=(Path(__file__),))
+        try:
+            workers = await asyncio.wait_for(api('GET', '/api/workers'), timeout=5)
+            home = next((item for item in workers.get('workers', []) if item.get('worker_id') == 'home-coder'), {})
+            observation['lease'] = {'exact_job_retained': workers.get('active_job_id') == identifier,
+                'no_active_job': workers.get('active_job_id') is None}
+            if type(home.get('available')) is bool:
+                observation['lease']['worker_available'] = home['available']
+        except Exception as diagnostic_error:
+            observation['lease_observation_error'] = failure_receipt(diagnostic_error, source_files=(Path(__file__),))
+        observation['diagnostic_seconds'] = round(clock() - diagnostic_started, 3)
+
+    try:
+        while clock() - started < timeout:
+            result = await api('GET', '/api/worker/jobs/' + identifier)
+            snapshot = job_projection(result)
+            evidence['last_job'] = snapshot
+            previous = observation['state_changes'][-1]['job'] if observation['state_changes'] else None
+            if snapshot != previous:
+                transition = {'elapsed_seconds': round(clock() - started, 3), 'job': snapshot}
+                if len(observation['state_changes']) < 128:
+                    observation['state_changes'].append(transition)
+                else:
+                    observation['state_changes'][-1] = transition
+                    observation['state_changes_omitted'] = observation.get('state_changes_omitted', 0) + 1
+            if result.get('stop_confirmed') is True if stopped else result.get('state') == 'running':
+                observation.update(outcome='observed', elapsed_seconds=round(clock() - started, 3))
+                if result.get('state') in {'failed', 'blocked', 'expired'}:
+                    observation['job_failed'] = True
+                    await diagnose()
+                return result
+            await sleep(.5)
+        raise AssertionError('home_worker_state_timeout')
+    except Exception as error:
+        observation.update(outcome='failed', elapsed_seconds=round(clock() - started, 3),
+            error=failure_receipt(error, source_files=(Path(__file__),)))
+        await diagnose()
+        raise
+    finally:
+        observation.setdefault('elapsed_seconds', round(clock() - started, 3))
+        retain()
 
 
 def artifact_bytes(metadata, result):
@@ -464,8 +562,10 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
     ha, ssh = None, None
 
     def phase(value):
-        evidence['phase'] = value
-        progress.write_text(json.dumps({'phase': value, 'elapsed_seconds': round(time.monotonic() - started)}, indent=2) + '\n')
+        now = time.monotonic()
+        begin_phase(evidence, value, started, now)
+        progress.write_text(json.dumps({'phase': value, 'elapsed_seconds': round(now - started),
+            'phase_timings': evidence['phase_timings']}, indent=2) + '\n')
 
     def remote(command, *, timeout=30, input=None):
         return process([*ssh, command], timeout=timeout, input=input)
@@ -482,7 +582,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
     def job_proof(identifier):
         assert HEX32.fullmatch(identifier)
         command = 'docker exec ' + app_container + ' python -m home_worker_haos_probe job-proof ' + identifier
-        value = json.loads(remote(command))
+        value = json.loads(remote(command, timeout=10))
         expected = app_json('/data/home-worker-fixture/app-observation.json')['namespaces']
         assert value['diagnostic_namespace_ids'] == {name + '_ns': expected[name] for name in ('pid', 'cgroup', 'mnt')}, 'diagnostic_app_namespace_changed'
         return value
@@ -814,14 +914,8 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             assert (await api('POST', '/api/worker/jobs', body, expected=202, key='home-source-fixture'))['id'] == job['id']
 
             async def wait_job(identifier, *, stopped=True, timeout=280):
-                deadline = time.monotonic() + timeout
-                while time.monotonic() < deadline:
-                    result = await api('GET', '/api/worker/jobs/' + identifier)
-                    evidence['last_job'] = job_projection(result)
-                    if result.get('stop_confirmed') if stopped else result.get('state') == 'running':
-                        return result
-                    await asyncio.sleep(.5)
-                raise AssertionError('home_worker_state_timeout')
+                return await observe_job(api, identifier, evidence, job_proof, stopped=stopped, timeout=timeout,
+                    checkpoint=lambda: report.write_text(json.dumps(evidence, indent=2) + '\n'))
 
             job = await wait_job(job['id'])
             evidence['source_job'] = job_projection(job)
@@ -949,8 +1043,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             async def reclaimed(identifier):
                 for _ in range(40):
                     proof = job_proof(identifier)
-                    if (not proof.get('workspace_mounted') and not proof.get('workspace_image_present')
-                            and not proof.get('cgroup_present') and not proof.get('fuse_cgroup_present')):
+                    if workspace_reclaimed(proof):
                         return proof
                     await asyncio.sleep(.25)
                 raise AssertionError('stopped_workspace_not_reclaimed')
@@ -1027,9 +1120,11 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             await api('POST', '/api/worker/jobs/' + queued['id'] + '/cancel', {}, expected=202)
             evidence['abrupt_restart']['new_writer_started'] = False
             evidence['checks']['abrupt_same_boot_restart_retains_lease_and_prevents_replay'] = True
-            evidence.update(status='passed', phase='completed',
+            phase('completed')
+            evidence.update(status='passed',
                             recovery_limit='abrupt same-boot unknown work remains fenced until trusted stop proof; VM removed at teardown')
     except BaseException as error:
+        finish_phase(evidence, started, time.monotonic())
         interrupted = isinstance(error, (KeyboardInterrupt, asyncio.CancelledError))
         evidence.update(status='interrupted' if interrupted else 'failed', **failure_receipt(error, source_files=(Path(__file__),)))
         evidence['owned_runtime_observation'] = lifecycle_observation({'vm': vm, 'outer': outer}, wall_started)
@@ -1094,6 +1189,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
         if evidence['status'] == 'running':
             evidence.update(status='interrupted', error_type='BaseException')
         evidence['cleanup'] = cleanup
+        finish_phase(evidence, started, time.monotonic())
         evidence['duration_seconds'] = round(time.monotonic() - started, 3)
         report.write_text(json.dumps(evidence, indent=2) + '\n')
         progress.unlink(missing_ok=True)
@@ -1568,3 +1664,272 @@ def test_entry_probe_detects_inherited_private_directory_fd_without_exporting_ta
     assert checks['effective_capabilities_zero'] and checks['no_new_privileges'] and checks['seccomp_filter_active']
     assert checks['worker_fuse_device_unavailable'] and checks['nested_user_namespace_denied']
     assert 'private-marker' not in json.dumps(checks)
+
+
+@pytest.mark.parametrize('code', ['sandbox_rejected', 'command_timeout', 'command_failed',
+    'coding_setup_failed', 'home_fuse_mount_unavailable', 'home_launcher_stop_unconfirmed'])
+def test_job_projection_keeps_allowlisted_launch_failure_and_phase(code):
+    result = job_projection({'state': 'stop_unconfirmed', 'phase': 'launching', 'error_code': code,
+        'stop_confirmed': False, 'execution_started': False,
+        'launch_failure': {'mode': 'prepare', 'error_type': 'SandboxError', 'error_code': code,
+            'operation': 'git.clone', 'timeout_seconds': 90, 'message': 'private /home/owner/token'},
+        'prompt': 'private /home/owner/token'})
+    assert result['error_code'] == code and result['phase'] == 'launching'
+    assert result['launch_failure']['error_code'] == code
+    assert result['launch_failure']['operation'] == 'git.clone'
+    assert result['stop_confirmed'] is False and result['execution_started'] is False
+    assert 'private' not in json.dumps(result)
+
+
+def test_partial_launch_proof_keeps_failure_before_cgroup_creation_without_inferring_stop(tmp_path):
+    from home_worker_haos_probe import job_proof
+    root, identifier = tmp_path / 'work', 'a' * 32
+    directory = root / identifier
+    directory.mkdir(parents=True)
+    failure = {'mode': 'prepare', 'error_code': 'command_timeout', 'error_type': 'SandboxError',
+        'operation': 'git.checkout', 'timeout_seconds': 90, 'message': 'private-secret /private/path'}
+    (directory / 'launch-error.json').write_text(json.dumps(failure))
+    (root / (identifier + '.json')).write_text(json.dumps({'state': 'stop_unconfirmed',
+        'stop_confirmed': False, 'launch_failure': failure, 'request': {'token': 'private-secret'}}))
+    before = {path: path.read_bytes() for path in root.rglob('*.json')}
+    result = job_proof(identifier, root=root)
+    assert result['launcher_diagnostic']['operation'] == 'git.checkout'
+    assert result['launch_failure']['error_code'] == 'command_timeout'
+    assert result['stop_confirmed'] is False
+    assert result['cgroup_recorded'] is False and result['fuse_cgroup_recorded'] is False
+    assert 'cgroup_present' not in result and 'cgroup_populated' not in result
+    assert not workspace_reclaimed(result)
+    assert 'private' not in json.dumps(result)
+    assert {path: path.read_bytes() for path in root.rglob('*.json')} == before
+
+
+def test_partial_launch_missing_worker_group_preserves_fuse_and_unreadable_event_evidence(tmp_path):
+    from home_worker_haos_probe import job_proof
+    root, identifier, name = tmp_path / 'work', 'b' * 32, 'f-' + 'c' * 32
+    root.mkdir()
+    group = tmp_path / 'cgroups' / name
+    group.mkdir(parents=True)
+    path = root / (identifier + '.json')
+    path.write_text(json.dumps({'state': 'stop_unconfirmed', 'stop_confirmed': False, 'fuse_cgroup': {'name': name}}))
+    failed_read = job_proof(identifier, root=root)
+    assert failed_read['fuse_cgroup_present'] is True
+    assert failed_read['fuse_cgroup_observation_error']['error_type'] == 'FileNotFoundError'
+    assert 'fuse_cgroup_populated' not in failed_read
+    (group / 'cgroup.events').write_text('populated 1\nfrozen 0\n')
+    result = job_proof(identifier, root=root)
+    assert result['fuse_cgroup_populated'] is True and result['cgroup_recorded'] is False
+    assert result['launcher_diagnostic'] == {'available': False, 'read_status': 'missing'}
+    assert result['stop_confirmed'] is False
+
+
+@pytest.mark.parametrize('raw', ['null', '[]', '{broken', '"private-secret"', 'x' * 4097,
+    '{"mode": [], "error_type": {}, "error_code": [], "operation": ["private-secret"]}'])
+def test_launch_receipt_bad_shape_cannot_hide_other_failure_evidence(tmp_path, raw):
+    from home_worker_haos_probe import launcher_diagnostic
+    path = tmp_path / 'launch-error.json'
+    path.write_text(raw)
+    result = launcher_diagnostic(path)
+    assert 'private' not in json.dumps(result)
+    if raw.startswith('{"mode"'):
+        assert result['error_code'] == 'home_launcher_failure'
+    else:
+        assert result['available'] is False
+        assert result['read_status'] in {'invalid', 'oversize'}
+
+
+def test_job_proof_keeps_launch_receipt_when_job_ledger_is_missing_or_invalid(tmp_path):
+    from home_worker_haos_probe import job_proof
+    root, identifier = tmp_path / 'work', 'd' * 32
+    directory = root / identifier
+    directory.mkdir(parents=True)
+    (directory / 'launch-error.json').write_text(json.dumps({'mode': 'fuse',
+        'error_type': 'BoundaryError', 'error_code': 'home_fuse_mount_unavailable'}))
+    result = job_proof(identifier, root=root)
+    assert result['record_present'] is False
+    assert result['launcher_diagnostic']['error_code'] == 'home_fuse_mount_unavailable'
+    (root / (identifier + '.json')).write_text('[]')
+    result = job_proof(identifier, root=root)
+    assert result['record_observation_error']['error_code'] == 'job_record_invalid'
+    assert result['launcher_diagnostic']['mode'] == 'fuse'
+    assert not workspace_reclaimed(result)
+
+
+def test_cleanup_proof_requires_confirmed_disposal_and_all_resource_observations():
+    proof = {'record_present': True, 'stop_confirmed': True, 'state': 'disposed',
+        'workspace_mounted': False, 'workspace_image_present': False,
+        'cgroup_present': False, 'fuse_cgroup_present': False}
+    assert workspace_reclaimed(proof)
+    for missing in proof:
+        assert not workspace_reclaimed({key: value for key, value in proof.items() if key != missing})
+    assert not workspace_reclaimed({**proof, 'state': 'stop_unconfirmed'})
+    assert not workspace_reclaimed({**proof, 'fuse_cgroup_present': True})
+
+
+async def test_wait_timeout_captures_exact_job_fence_and_phase_timing_before_cleanup():
+    identifier, now = 'a' * 32, [100.0]
+    evidence, calls, checkpoints = {}, [], []
+    async def api(method, path):
+        calls.append((method, path))
+        if path == '/api/workers':
+            return {'active_job_id': identifier, 'workers': [{'worker_id': 'home-coder', 'available': True,
+                'private_token': 'secret'}]}
+        return {'id': identifier, 'state': 'stop_unconfirmed', 'phase': 'stop_unconfirmed',
+            'stop_confirmed': False, 'execution_started': False, 'error_code': 'sandbox_rejected'}
+    async def sleep(seconds):
+        now[0] += seconds
+    def proof(value):
+        assert value == identifier
+        assert checkpoints[-1]['job_waits'][0]['outcome'] == 'failed'
+        return {'stop_confirmed': False, 'launch_failure': {'error_code': 'command_timeout'}}
+    with pytest.raises(AssertionError, match='home_worker_state_timeout'):
+        await observe_job(api, identifier, evidence, proof, timeout=1, clock=lambda: now[0], sleep=sleep,
+            checkpoint=lambda: checkpoints.append(json.loads(json.dumps(evidence))))
+    result = evidence['job_waits'][0]
+    assert result['elapsed_seconds'] == 1 and len(result['state_changes']) == 1
+    assert result['boundary']['launch_failure']['error_code'] == 'command_timeout'
+    assert result['lease'] == {'exact_job_retained': True, 'no_active_job': False, 'worker_available': True}
+    assert result['error']['error_code'] == 'home_worker_state_timeout'
+    assert all(method == 'GET' for method, _ in calls)
+    assert 'secret' not in json.dumps(evidence)
+
+
+async def test_wait_diagnostic_failure_does_not_replace_original_timeout_or_claim_stop():
+    now, evidence = [0.0], {}
+    async def api(method, path):
+        if path == '/api/workers':
+            raise TimeoutError('private response')
+        return {'state': 'stop_unconfirmed', 'stop_confirmed': False}
+    async def sleep(seconds):
+        now[0] += seconds
+    def proof(value):
+        raise subprocess.TimeoutExpired('private ssh command', 10, output=b'private-token')
+    with pytest.raises(AssertionError, match='home_worker_state_timeout'):
+        await observe_job(api, 'a' * 32, evidence, proof, timeout=1, clock=lambda: now[0], sleep=sleep)
+    result = evidence['job_waits'][0]
+    assert result['boundary_observation_error']['error_type'] == 'TimeoutExpired'
+    assert result['lease_observation_error']['error_type'] == 'TimeoutError'
+    assert result['error']['error_code'] == 'home_worker_state_timeout'
+    assert 'lease' not in result and 'boundary' not in result
+    assert evidence['last_job']['stop_confirmed'] is False
+    assert 'private' not in json.dumps(evidence)
+
+
+async def test_wait_records_successful_state_changes_without_failure_diagnostics():
+    now, evidence, states = [0.0], {}, iter(['launching', 'running', 'succeeded'])
+    async def api(method, path):
+        state = next(states)
+        return {'state': state, 'phase': state, 'stop_confirmed': state == 'succeeded'}
+    async def sleep(seconds):
+        now[0] += seconds
+    def proof(value):
+        pytest.fail('Successful observation does not need failure diagnostics')
+    result = await observe_job(api, 'a' * 32, evidence, proof, timeout=2, clock=lambda: now[0], sleep=sleep)
+    assert result['state'] == 'succeeded'
+    wait = evidence['job_waits'][0]
+    assert wait['outcome'] == 'observed' and wait['elapsed_seconds'] == 1
+    assert [(item['elapsed_seconds'], item['job']['phase']) for item in wait['state_changes']] == [
+        (0, 'launching'), (.5, 'running'), (1, 'succeeded')]
+
+
+def test_phase_times_preserve_failed_stage_duration_without_including_diagnostics_or_cleanup():
+    evidence = {}
+    begin_phase(evidence, 'boot_official_haos', 100, 100)
+    begin_phase(evidence, 'actual_case_and_home_source_task', 100, 120)
+    finish_phase(evidence, 100, 400)
+    finish_phase(evidence, 100, 500)
+    assert evidence['phase_timings'] == [
+        {'phase': 'boot_official_haos', 'started_seconds': 0, 'duration_seconds': 20},
+        {'phase': 'actual_case_and_home_source_task', 'started_seconds': 20, 'duration_seconds': 280}]
+
+
+async def test_failed_stopped_job_captures_receipt_and_survives_checkpoint_failure():
+    evidence, reads = {}, []
+    async def api(method, path):
+        reads.append((method, path))
+        if path == '/api/workers':
+            return {'active_job_id': None, 'workers': []}
+        return {'state': 'failed', 'stop_confirmed': True, 'execution_started': False,
+            'error_code': 'command_timeout'}
+    def checkpoint():
+        raise OSError(28, 'private evidence path')
+    result = await observe_job(api, 'a' * 32, evidence, lambda _: {
+        'launcher_diagnostic': {'error_code': 'command_timeout'}}, checkpoint=checkpoint)
+    wait = evidence['job_waits'][0]
+    assert result['state'] == 'failed' and wait['job_failed'] is True
+    assert wait['boundary']['launcher_diagnostic']['error_code'] == 'command_timeout'
+    assert wait['checkpoint_error']['errno'] == 28 and wait['lease']['no_active_job'] is True
+    assert 'private' not in json.dumps(evidence)
+    assert all(method == 'GET' for method, _ in reads)
+
+
+async def test_timeout_with_failed_checkpoint_still_collects_receipts_and_keeps_original_error():
+    evidence = {}
+    async def api(method, path):
+        return {'active_job_id': 'a' * 32}
+    def checkpoint():
+        raise OSError(28, 'private evidence path')
+    with pytest.raises(AssertionError, match='home_worker_state_timeout'):
+        await observe_job(api, 'a' * 32, evidence, lambda _: {'record_present': False},
+            timeout=0, checkpoint=checkpoint)
+    wait = evidence['job_waits'][0]
+    assert wait['boundary'] == {'record_present': False}
+    assert wait['checkpoint_error']['errno'] == 28 and wait['lease']['exact_job_retained'] is True
+    assert wait['error']['error_code'] == 'home_worker_state_timeout'
+
+
+async def test_job_timeline_stays_bounded_and_retains_the_last_observation():
+    now, evidence = [0.0], {}
+    async def api(method, path):
+        if path == '/api/workers':
+            return {'active_job_id': 'a' * 32}
+        return {'state': 'launching' if now[0] % 1 == 0 else 'running', 'stop_confirmed': False}
+    async def sleep(seconds):
+        now[0] += seconds
+    with pytest.raises(AssertionError, match='home_worker_state_timeout'):
+        await observe_job(api, 'a' * 32, evidence, lambda _: {}, timeout=100,
+            clock=lambda: now[0], sleep=sleep)
+    timeline = evidence['job_waits'][0]
+    assert len(timeline['state_changes']) == 128 and timeline['state_changes_omitted'] == 72
+    assert timeline['state_changes'][0]['elapsed_seconds'] == 0
+    assert timeline['state_changes'][-1]['elapsed_seconds'] == 99.5
+
+
+def test_partial_runtime_launch_recovery_is_observed_without_clearing_its_fence(tmp_path, monkeypatch):
+    from agentic_host.coding_sandbox import SandboxError
+    from agentic_runner import home_launcher as launcher
+    from agentic_runner.home_sandbox import HomeSandbox
+    from home_worker_haos_probe import job_proof
+
+    root, identifier = tmp_path / 'work', 'a' * 32
+    root.mkdir()
+    identity = {'boot_id': 'fixture-boot', 'pid_ns': 101, 'cgroup_ns': 102, 'mnt_ns': 103}
+    current = [dict(identity)]
+    monkeypatch.setattr(launcher, 'ROOT', tmp_path)
+    monkeypatch.setattr(launcher, 'identity', lambda: dict(current[0]))
+    sandbox = HomeSandbox(root, None, {'agentic-home': tmp_path})
+    monkeypatch.setattr(sandbox, 'preflight', lambda: True)
+    attempts = []
+    def failed_prepare(job, program):
+        attempts.append(job['job_id'])
+        (root / job['job_id']).mkdir()
+        raise SandboxError('private command and arguments', code='command_timeout',
+            operation='git.checkout', timeout_seconds=90)
+    monkeypatch.setattr(sandbox, 'prepare', failed_prepare)
+    with pytest.raises(SandboxError):
+        sandbox.launch(identifier, 1, 'agentic-home', 'b' * 40, 'pass')
+    failure = job_proof(identifier, root=root)
+    assert failure['launch_failure']['error_code'] == 'command_timeout'
+    assert failure['stop_confirmed'] is False and failure['state'] == 'stop_unconfirmed'
+    current[0]['mnt_ns'] += 1
+    assert sandbox.cancel(identifier)['stop_confirmed'] is False
+    assert job_proof(identifier, root=root)['stop_confirmed'] is False
+    with pytest.raises(SandboxError, match='Previous writer has not been fenced'):
+        sandbox.launch('c' * 32, 2, 'agentic-home', 'b' * 40, 'pass')
+    assert attempts == [identifier]
+    current[0] = identity
+    assert sandbox.cancel(identifier)['stop_confirmed'] is True
+    recovered = job_proof(identifier, root=root)
+    assert recovered['state'] == 'cancelled' and recovered['stop_confirmed'] is True
+    assert recovered['launch_failure'] == failure['launch_failure']
+    assert (root / identifier / 'cancelled').is_file()
+    assert not workspace_reclaimed(recovered)
