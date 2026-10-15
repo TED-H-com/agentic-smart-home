@@ -4,7 +4,7 @@ import {Status,Notice,Button,CopyButton,friendlySentence} from './ui';
 import {names,type Runtime} from './labels';
 const runtimeNames:Record<Runtime,string>={host:'主機',haos:'家庭現場'};
 const official=/^https:\/\/(auth\.openai\.com|accounts\.x\.ai|auth\.x\.ai)\//;
-const repoUrl='https://github.com/TED-H-com/agentic-smart-home';
+const repoUrl='https://github.com/TED-H-com/agentic-smart-home#stable';
 const liveAuth=new Set(['pending','verifying']),endedAuth=new Set(['failed','expired','unverified','stop_unconfirmed']);
 const accountCopy:Record<string,string>={needs_reauth:'登入已失效，請重新登入。',rate_limited:'已達用量上限，請稍後再試。',invalid_credentials:'登入資訊無效，請重新輸入。',network:'無法連線到 AI 服務，請檢查網路後再試。',cli_output_unrecognized:'無法確認登入結果，請稍後再試。',timeout:'AI 帳號回應逾時，請稍後再試。'};
 const quietReasons=new Set(['rate_limited','network','timeout']);
@@ -50,7 +50,7 @@ export function RuntimePanel({only,onChange}:{only?:Runtime;onChange?:()=>void})
     <div className="section-heading"><h2>{runtime==='host'?'主機的 AI 帳號':'家庭現場的 AI 帳號'}</h2><Status value={paired?'connected':state?.status||'loading'}/></div>
     <p>{runtime==='host'?'登入這台主機上的 AI，家庭關機時仍可用。':'在家庭裡執行，登入資料與主機分開保存。'}</p>
     {error&&<Notice error>{error}</Notice>}
-    {!paired&&<div className="runtime-pair">{runtime==='haos'?<><ol className="connect-steps"><li>在 App 商店加入這個網址。<code>{repoUrl}</code> <CopyButton text={repoUrl}>複製網址</CopyButton> 或下載 <a href="./downloads/agentic-runner.zip" download>安裝檔</a>。</li><li>到 <a href={haPath('/hassio/store')} target={haTarget()} rel="noreferrer">App 商店 ↗</a> 重新載入後安裝並啟動，網路保留 8443。</li><li>貼上一次性配對資料。這份資料只給這台主機使用。</li></ol><label>配對資料<textarea rows={3} autoComplete="off" spellCheck={false} value={pair} onChange={e=>setPair(e.target.value)} placeholder='{"fingerprint":"…","code":"…"}'/></label></>:<p>先連接這台主機上的開發助手。</p>}<Button disabled={busy||(runtime==='haos'&&!pair.trim())} onClick={connect}>{busy?'配對中…':runtime==='host'?'連接主機':'配對家庭現場'}</Button></div>}
+    {!paired&&<div className="runtime-pair">{runtime==='haos'?<><p>在開發助手選「家庭現場」並啟用，主機會自動安裝和配對。</p><a className="button" href="#workers">前往開發助手</a><details><summary>手動安裝與配對</summary><ol className="connect-steps"><li>在 App 商店加入這個網址。<code>{repoUrl}</code> <CopyButton text={repoUrl}>複製網址</CopyButton></li><li>到 <a href={haPath('/hassio/store')} target={haTarget()} rel="noreferrer">App 商店 ↗</a> 重新載入後安裝並啟動，網路保留 8443。</li><li>貼上一次性配對資料。這份資料只給這台主機使用。</li></ol><label>配對資料<textarea rows={3} autoComplete="off" spellCheck={false} value={pair} onChange={e=>setPair(e.target.value)} placeholder='{"fingerprint":"…","code":"…"}'/></label><Button disabled={busy||!pair.trim()} onClick={connect}>{busy?'配對中…':'配對家庭現場'}</Button></details></>:<><p>先連接這台主機上的開發助手。</p><Button disabled={busy} onClick={connect}>{busy?'配對中…':'連接主機'}</Button></>}</div>}
     <div className="provider-grid runtime-providers">{['codex','claude','agy','grok'].map(provider=><Provider key={`${runtime}-${provider}`} runtime={runtime} provider={provider} paired={paired} state={state?.providers?.find((p:any)=>p.provider===provider)} onChange={refresh}/>)}</div>
     {!!versions.length&&<details><summary>技術資料</summary>{versions.map((item:any)=><p key={item.provider}>{names[item.provider]||item.provider} {item.version} · {item.auth_method||'尚未登入'}</p>)}</details>}
   </section>
