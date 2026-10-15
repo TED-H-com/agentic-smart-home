@@ -528,21 +528,25 @@ class CodingSandbox:
                 "home-coder": {"available": False, "modes": [], "blocked_reasons": [
                     "HAOS App network, credentials and hard resource boundaries have not been verified" ]}}
 
-    def preflight(self):
+    def _require_work_root(self):
+        """Validate trusted ledger storage before taking a lock or recording a job."""
         if os.geteuid() != 0:
             raise SandboxError("A trusted root broker is required for fixed-size disk workspaces",
                                code="root_broker_required")
-        try:
-            data = json.loads(self.execute("docker", "info", "--format", "{{json .}}").stdout)
-        except ValueError as exc:
-            raise SandboxError("Invalid Docker info response", code="invalid_docker_info") from exc
-        validate_docker_security(data)
         self.root.mkdir(parents=True, mode=0o700, exist_ok=True)
         if self.root.resolve() != self.root or self.root.stat().st_uid != 0 or self.root.stat().st_mode & 0o077:
             raise SandboxError("State root must be private and owned by root", code="state_root_permissions")
         for parent in self.root.parents:
             if parent.stat().st_uid != 0 or parent.stat().st_mode & 0o022:
                 raise SandboxError("State ancestors must be owned and writable only by root", code="state_ancestor_permissions")
+
+    def preflight(self):
+        self._require_work_root()
+        try:
+            data = json.loads(self.execute("docker", "info", "--format", "{{json .}}").stdout)
+        except ValueError as exc:
+            raise SandboxError("Invalid Docker info response", code="invalid_docker_info") from exc
+        validate_docker_security(data)
         fs = self.execute("findmnt", "-n", "-o", "FSTYPE", "-T", str(self.root)).stdout.strip()
         if fs not in {"ext4", "xfs", "btrfs"}:
             raise SandboxError("Workspace backing file must reside on disk, not tmpfs", code="disk_backing_required")
@@ -715,7 +719,7 @@ class CodingSandbox:
         if self.inputs:
             identity.append({k: hashlib.sha256(v).hexdigest() for k, v in self.inputs.items()})
         request_digest = hashlib.sha256(json.dumps(identity, separators=(",", ":")).encode()).hexdigest()
-        self.preflight()
+        self._require_work_root()
         with self.lock():
             if (self.root / f"{job_id}.json").exists():
                 previous = self.record(job_id)
@@ -726,14 +730,17 @@ class CodingSandbox:
                 # failed / cancelled / interrupted already proved absence or a stop.
                 if json.loads(path.read_text())["state"] in {"preparing", "running", "stop_unconfirmed"}:
                     raise SandboxError("Previous writer has not been fenced")
-            if sum(path.is_dir() for path in self.root.iterdir()) >= 4:
-                raise SandboxError("Retained workspace budget exhausted; trusted retention cleanup is required")
             job = {"job_id": job_id, "lease_epoch": lease_epoch, "repo_id": repo_id,
                    "base_commit": base_commit, "request_digest": request_digest,
                    "container": f"agentic-coding-{job_id}", "state": "preparing",
                    "observed_from": "host_container", "model_backend": "none", "ha_backend": "none"}
             self.save(job)
             try:
+                # Environmental refusal still needs the exact durable identity
+                # used by cancel/restart to prove absence or keep a writer fenced.
+                self.preflight()
+                if sum(path.is_dir() for path in self.root.iterdir()) >= 4:
+                    raise SandboxError("Retained workspace budget exhausted; trusted retention cleanup is required")
                 workspace = self.prepare(job, program)
                 created = self.execute(*container_command(job["container"], self.image, workspace, self.limits,
                                                          relay=self.relay))
