@@ -17,7 +17,7 @@ from test_coding_job_budgets import bare_source, request
 from agentic_host import coding_service
 from agentic_host.coding_sandbox import SandboxError
 from agentic_runner import home_launcher
-from agentic_runner.home_sandbox import HomeSandbox
+from agentic_runner.home_sandbox import HomeSandbox, launch_failure
 from agentic_runner.home_service import HomeService
 
 
@@ -99,6 +99,8 @@ def test_preallocation_refusal_has_durable_identity_and_recovers(tmp_path, monke
         assert job["state"] == "stop_unconfirmed" and not job["stop_confirmed"]
         ledger = root / "work" / (payload["id"] + ".json")
         assert ledger.exists(), "preallocation refusal needs an exact durable no-execution record"
+        code = "home_disk_reserve_required" if trigger == "disk_reserve" else "home_retained_workspace_budget_exhausted"
+        assert json.loads(ledger.read_text())["launch_failure"]["error_code"] == code
         assert not (root / "work" / payload["id"]).exists()
         assert json.loads(service.state_path.read_text())[payload["id"]]["sandbox_attempted"] is True
 
@@ -202,3 +204,24 @@ def test_missing_ledger_cannot_be_replaced_by_a_stop_or_boot_claim(tmp_path, mon
         with pytest.raises(SandboxError, match="Unknown job"):
             observe("a" * 32)
     assert not list(root.glob("*.json"))
+
+
+@pytest.mark.parametrize("code", ["home_fixed_work_root_required", "home_runtime_identity_changed",
+    "home_trusted_tool_unavailable", "home_disk_backing_required", "home_disk_reserve_required", "home_fixed_relay_required"])
+def test_preflight_receipt_preserves_only_fixed_boundary_classification(code):
+    error = SandboxError("private outer message")
+    error.__cause__ = home_launcher.BoundaryError(code)
+    error.__cause__.__cause__ = OSError("private inner path")
+    result = launch_failure(error)
+    assert result["mode"] == "prepare" and result["error_code"] == code
+    assert result["error_type"] == "SandboxError" and "private" not in json.dumps(result)
+
+
+@pytest.mark.parametrize("cause", [home_launcher.BoundaryError("private unknown boundary"),
+    ValueError("home_disk_reserve_required"), OSError("private path")])
+def test_preflight_receipt_rejects_unknown_or_untyped_cause(cause):
+    error = SandboxError("private outer message")
+    error.__cause__ = cause
+    result = launch_failure(error)
+    assert result["error_code"] == "sandbox_rejected"
+    assert "private" not in json.dumps(result)
