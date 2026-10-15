@@ -7,18 +7,21 @@ import hashlib
 import json
 import os
 import stat
+import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from test_coding_job_budgets import bare_source, request
+
+sys.path.insert(0, str(Path(__file__).parents[1] / "host"))
 
 from agentic_host import coding_service
 from agentic_host.coding_sandbox import SandboxError
 from agentic_runner import home_launcher
 from agentic_runner.home_sandbox import HomeSandbox, launch_failure
 from agentic_runner.home_service import HomeService
+from test_coding_job_budgets import bare_source, request
 
 
 @pytest.mark.parametrize("trigger", ["disk_reserve", "retained_workspaces"])
