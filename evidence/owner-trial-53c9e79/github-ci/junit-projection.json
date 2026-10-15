@@ -1,0 +1,14 @@
+{
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "run_id": 38792574808,
+  "original_junit_sha256": "af70fb4add531359a91841a7cf2f4e613a81cac624fd7f178e5671cf8117e2ca",
+  "junit": {
+    "tests": 2068,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 9,
+    "passed": 2059,
+    "seconds": 1077.163
+  },
+  "projection": "counts_order_and_timing_preserved; generated_case_names; logs_properties_paths_omitted"
+}

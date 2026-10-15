@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites>
+  <testsuite name="haos-vm" tests="2" failures="0" errors="0" skipped="0" time="191.631">
+    <testcase classname="haos-vm" name="case-00001" time="191.617" />
+    <testcase classname="haos-vm" name="case-00002" time="0.001" />
+  </testsuite>
+</testsuites>

@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "source_commit": "0806e4de5ca56607cadbc6450695596d3aacef59",
+  "reviewed_at": "2026-10-15T19:08:30.077840+00:00",
+  "status": "failed",
+  "acceptance": false,
+  "junit": {
+    "tests": 2062,
+    "passed": 2048,
+    "failed": 7,
+    "skipped": 7,
+    "errors": 0
+  },
+  "failed_cases": [
+    {
+      "classname": "tests.test_coding_sandbox",
+      "name": "test_real_docker_offline_negative_boundaries_and_process_tree[deadline]",
+      "classification": "confirmed_fixture_permissions",
+      "reviewed_note": "Container could not read task.py; retained JUnit records Permission denied. Live fixture observation found owner1000 mode0600 under inherited0077."
+    },
+    {
+      "classname": "tests.test_coding_sandbox",
+      "name": "test_real_docker_offline_negative_boundaries_and_process_tree[cancel]",
+      "classification": "confirmed_fixture_permissions",
+      "reviewed_note": "Container could not read task.py; retained JUnit records Permission denied. Live fixture observation found owner1000 mode0600 under inherited0077."
+    },
+    {
+      "classname": "tests.test_coding_sandbox",
+      "name": "test_real_docker_memory_limit_stops_excess_allocation",
+      "classification": "confirmed_fixture_permissions",
+      "reviewed_note": "Container could not read task.py; retained JUnit records Permission denied. Live fixture observation found owner1000 mode0600 under inherited0077."
+    },
+    {
+      "classname": "tests.test_desktop_login",
+      "name": "test_desktop_other_user_unsafe_directory_and_symlink_use_manual_login",
+      "classification": "confirmed_fixture_permissions",
+      "reviewed_note": "Requested directory0755 became0700 under inherited0077; live observation and test expectation reviewed. Product correctly treated actual0700 directory as private."
+    },
+    {
+      "classname": "tests.test_interactive_preview",
+      "name": "test_real_runner_image_builds_the_product_web_preview",
+      "classification": "confirmed_fixture_permissions",
+      "reviewed_note": "Live fixture and bounded stderr observation by independent reviewer found unreadable task.py0600; final JUnit records missing preview artifact."
+    },
+    {
+      "classname": "tests.test_onboarding_e2e",
+      "name": "test_composed_onboarding_browser_services_and_native_home",
+      "classification": "initial_navigation_timeout",
+      "reviewed_note": "Safe checkpoints record TimeoutError at initial page.goto before login/bootstrap actions. Separate exact-image inspection proves unreadable public web/source files; this does not reconstruct the original HTTP exchange."
+    },
+    {
+      "classname": "tests.test_publisher",
+      "name": "test_actual_root_cli_trust_enrollment_revocation_in_disposable_container",
+      "classification": "cause_unestablished",
+      "reviewed_note": "Captured stderr was not retained. Live public-key fixture mode0600 and capability-dropped UID0 suggest permissions, but exact failing operation is unproved."
+    }
+  ],
+  "cleanup": {
+    "owned_resources_absent": true,
+    "observation_complete": true,
+    "disk_basetemp_parent_removed": true
+  },
+  "remaining_stages_not_run": [
+    "enable",
+    "home-worker-haos",
+    "haos-boundary",
+    "runner-build",
+    "bridge-haos",
+    "haos-vm"
+  ],
+  "source_hashes": {
+    "summary.json": "993bc612db2ee741412b485cb8ad2749997a5ab8c53980d48a5456f068b7272b",
+    "regression/stage.json": "244cdf697aee2bd6cbfdd6fcbadc1bb4d73666fdb17b4fff98b84121b5535052",
+    "regression/process/command.json": "7545f6de4ec015a244b5e3396e35d469f3a5bfc09071859db6bf3f4ad2a195f9",
+    "regression/junit.xml": "9dca623ce267a43b3ecb11efce3485f6eec4bf65ec516566d3126c78b4e60ac4",
+    "regression/process/stdout.log": "caa487d0a2ce64a75c4eb29b2b00dc03002841ee06183da1b83c17897a2f3a4e",
+    "orchestration.py": "411da6b483113280e2837365f0ee136233e6717a83e57a34000ad6d166cf38a9",
+    "candidate-manifest.json": "3b9f30738f073ee285f3f92693fca8ab40c2afde818ff0ab7cc9cd3417d85303"
+  },
+  "image_observation_sha256": "0a36463bd0211bdc21fa0f979f59686cfda597d736112327da30f8e04650b9fa",
+  "wrapper_transition_sha256": "1832d383d1324b51bd78f8edea96ab4211bc89460bf0fbf8cf704d512911aa19",
+  "raw_failure_output_publication": "prohibited; includes ephemeral fixture ticket and private paths; reviewed count/case projection only"
+}

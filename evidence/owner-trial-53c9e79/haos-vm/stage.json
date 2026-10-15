@@ -1,0 +1,31 @@
+{
+  "stage": "haos-vm",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "status": "passed",
+  "started": "2026-10-15T21:44:20.561955+00:00",
+  "finished": "2026-10-15T21:47:32.778904+00:00",
+  "public_channel_test": false,
+  "cleanup": {
+    "observation_complete": true,
+    "owned_containers_absent": true,
+    "owned_networks_absent": true,
+    "disk_basetemp_removed": true,
+    "temp_filesystem": "ext4",
+    "scope": "known_test_name_prefixes_only"
+  },
+  "junit": {
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 2,
+    "seconds": 191.631
+  },
+  "required_integration_case": {
+    "name": "test_real_haos_boot_owner_and_supervisor_backup",
+    "status": "passed"
+  },
+  "original_junit_sha256": "307dcf0e7e7a3015be405870ffc19a454688485994c030851adc524118ddc12a",
+  "junit_projection": "counts_order_and_timing_preserved; generated_case_names; logs_properties_paths_omitted",
+  "junit_evidence": "evidence/owner-trial-53c9e79/haos-vm/junit.xml"
+}

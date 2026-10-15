@@ -1,0 +1,42 @@
+{
+  "app": "controller",
+  "reader_uid": 1000,
+  "status": "passed",
+  "scope": "Actual packaged public-file DAC and imports; no service startup or real-account acceptance",
+  "image_id": "sha256:89862545c23b68ee4177a8899b93a555f1f665f3c4ae7f9deff9cfeaaaba880d",
+  "uid": 1000,
+  "checks": [
+    {
+      "check": "unprivileged_without_capabilities",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_0",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_1",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_2",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_3",
+      "status": "passed"
+    },
+    {
+      "check": "javascript_and_stylesheet_assets",
+      "status": "passed"
+    },
+    {
+      "check": "module_import_0",
+      "status": "passed"
+    }
+  ],
+  "cleanup": {
+    "remove": "passed",
+    "absent": true
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "source_commit": "0806e4de5ca56607cadbc6450695596d3aacef59",
+  "status": "superseded_after_image_defect_and_failed_regression",
+  "all_eight_passed": false,
+  "contributes_to_new_candidate_acceptance": false,
+  "orchestration_sha256": "411da6b483113280e2837365f0ee136233e6717a83e57a34000ad6d166cf38a9",
+  "actual_retained_orchestration_verified_for_both_invocations": true,
+  "original_summary_sha256": {
+    "initial": "902294691b0c9f13d56ddc78a7038cc81956961eb66c3b10dc4fadeb71def32d",
+    "continuation_1": "993bc612db2ee741412b485cb8ad2749997a5ab8c53980d48a5456f068b7272b"
+  },
+  "installation": {
+    "status": "passed",
+    "counts": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 1,
+      "seconds": 1338.396
+    },
+    "evidence": "evidence/owner-trial-0806e4d/install/linux-install.json"
+  },
+  "initial_regression": {
+    "status": "interrupted",
+    "signal": 15,
+    "signal_source": "unestablished",
+    "partial_junit": {
+      "raw_testcase_nodes": 477,
+      "named_testcase_nodes": 476,
+      "suite_header_tests": 476,
+      "completed_passed": 475,
+      "skipped": 1,
+      "unfinished_anonymous": 1,
+      "failures": 0,
+      "errors": 0,
+      "junit_duration_seconds": 250.181,
+      "terminal_elapsed_seconds": 250.19,
+      "completed_count_source": "reviewed terminal summary; anonymous unfinished XML node excluded",
+      "status": "interrupted",
+      "accepted_as_stage": false,
+      "all_eight_passed": false
+    },
+    "raw_xml_retained_privately": true,
+    "passing_junit_projection_created": false
+  },
+  "continuation_1_regression": {
+    "status": "failed",
+    "counts": {
+      "tests": 2062,
+      "failures": 7,
+      "errors": 0,
+      "skipped": 7,
+      "passed": 2048,
+      "seconds": 997.852
+    },
+    "remaining_six_stages": "not_run",
+    "evidence": "evidence/owner-trial-0806e4d/continuation-1/reviewed-failure.json",
+    "junit": "evidence/owner-trial-0806e4d/continuation-1/regression/junit.xml"
+  },
+  "source_audit_and_ci": "passed; preserved as historical evidence only; source equality did not attest image file permissions",
+  "independent_product_defect": "evidence/owner-trial-0806e4d/controller-image-readability.json",
+  "limitations": [
+    "Five fixture permission failures confirmed; publisher cause remains unestablished.",
+    "Initial browser navigation timeout is separate from the independently demonstrated image defect; original HTTP exchange was not reconstructed.",
+    "Image probe script was retained after execution; no pre-execution timestamp is claimed.",
+    "Raw failure XML/logs remain private, including an ephemeral fixture ticket. Only reviewed identities/counts and sanitized failure markers are published."
+  ]
+}

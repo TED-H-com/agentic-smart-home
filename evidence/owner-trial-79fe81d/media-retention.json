@@ -1,0 +1,8 @@
+{
+  "source_commit": "79fe81d54bdc52a2766474168c04ce3bbebaf0b9",
+  "original_receipt_sha256": "37f3a85393f3cd0add38117ecc98d95bd86b9ecb8258caabaa4c381d46f3cee2",
+  "method": "Recorded same-filesystem directory rename; bytes unchanged",
+  "retained_media_sizes_match_manifest": true,
+  "media_manifest": "evidence/owner-trial-79fe81d/candidate-manifest.json",
+  "hash_scope": "Original candidate manifest; no additional full-media hash pass during evidence import"
+}

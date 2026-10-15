@@ -1,0 +1,230 @@
+{
+  "state": "passed",
+  "transport": {
+    "launch": {
+      "returncode": 0,
+      "stdout_bytes": 638,
+      "stderr_bytes": 77,
+      "stderr_truncated": false,
+      "stderr_signatures": {
+        "traceback": false,
+        "import_error": false,
+        "syntax_error": false,
+        "permission_denied": false,
+        "ssh_transport": false,
+        "process_killed": false,
+        "sudo_error": false,
+        "timeout": false,
+        "disk_full": false,
+        "read_only_filesystem": false,
+        "io_error": false,
+        "oom": false,
+        "file_missing": false,
+        "kvm_unavailable": false,
+        "libvirt_connection": false,
+        "firmware_unavailable": false,
+        "network_conflict": false,
+        "checksum_mismatch": false,
+        "image_invalid": false,
+        "security_policy_denied": false,
+        "resource_unavailable": false
+      }
+    },
+    "observation_attempts": 14,
+    "observation": {
+      "returncode": 0,
+      "stdout_bytes": 3113,
+      "stderr_bytes": 77,
+      "stderr_truncated": false,
+      "stderr_signatures": {
+        "traceback": false,
+        "import_error": false,
+        "syntax_error": false,
+        "permission_denied": false,
+        "ssh_transport": false,
+        "process_killed": false,
+        "sudo_error": false,
+        "timeout": false,
+        "disk_full": false,
+        "read_only_filesystem": false,
+        "io_error": false,
+        "oom": false,
+        "file_missing": false,
+        "kvm_unavailable": false,
+        "libvirt_connection": false,
+        "firmware_unavailable": false,
+        "network_conflict": false,
+        "checksum_mismatch": false,
+        "image_invalid": false,
+        "security_policy_denied": false,
+        "resource_unavailable": false
+      }
+    }
+  },
+  "observation": {
+    "checkpoint": {
+      "state": "running",
+      "stage": "restore_original_image_and_cleanup"
+    },
+    "unit": {
+      "ActiveState": "active",
+      "SubState": "exited",
+      "Result": "success",
+      "ExecMainCode": "1",
+      "ExecMainStatus": "0"
+    },
+    "process": {
+      "stdout_bytes": 2254,
+      "stderr_bytes": 0,
+      "stderr_truncated": false,
+      "stderr_signatures": {
+        "traceback": false,
+        "import_error": false,
+        "syntax_error": false,
+        "permission_denied": false,
+        "ssh_transport": false,
+        "process_killed": false,
+        "sudo_error": false
+      }
+    },
+    "result": {
+      "state": "passed",
+      "diagnostics": {
+        "cleanup_started": true,
+        "cleanup_completed": true,
+        "probe_resources": {
+          "free_disk_bytes": 90097750016,
+          "available_memory_bytes": 4781490176
+        }
+      },
+      "observed_from": "disposable_installed_linux_vm_root",
+      "actual": [
+        "ed25519_signature_verification",
+        "bounded_candidate_probe",
+        "compose_activation",
+        "authenticated_owner_smoke",
+        "consistent_snapshot",
+        "schema3",
+        "maintenance_gate",
+        "same_database_rollback",
+        "post_deployment_row_preserved",
+        "revoked_bridge_fixed_probe_enforced",
+        "pending_bridge_operation_blocked",
+        "isolated_probe_cleanup_verified",
+        "coding_source_moved_with_image_and_rolled_back"
+      ],
+      "fixtures": [
+        "ephemeral_publisher",
+        "preloaded_registry_delivery",
+        "candidate_changes_label_and_source_bundle",
+        "synthetic_post_deployment_record",
+        "synthetic_missing_bridge_contract_image",
+        "isolated_structure_only_revoked_bridge"
+      ],
+      "final_schema": 3,
+      "real_cloud": false,
+      "real_publisher_release": false,
+      "rollback_restored_backup": false,
+      "registry_delivery_calls": 1,
+      "original_image": "sha256:9bb23eb4ed940967867c7c4bb232300a7ae881496ba4ba6a2c35110edf9f6486",
+      "candidate_image": "sha256:9183add9289f2588ef98929585e9e56ed2c8406b2c7eb3fb83e81f03c51515b6",
+      "bridge_update_contract": {
+        "contract": 1,
+        "observed_from": "installed_host_fixed_probe",
+        "schema": 3,
+        "database_fixture": "isolated_structure_only_revoked_bridge",
+        "fixed_probe_executions": 3,
+        "synthetic_missing_contract_image": true,
+        "real_historical_release": false,
+        "supporting_image": "sha256:9bb23eb4ed940967867c7c4bb232300a7ae881496ba4ba6a2c35110edf9f6486",
+        "missing_contract_image": "sha256:4e91050a517cffd6f07526b7d1d7fcc601f323af688ac8b14e4c75d82755ce24",
+        "fixed_script_sha256": "868d5260adfeae4e43bbbdf06b5db8f5624187396db08bef76781062b4ccfa70",
+        "checks": {
+          "revoked_history_marker_copied": true,
+          "supporting_fixed_probe_passed": true,
+          "missing_contract_fixed_probe_rejected": true,
+          "missing_contract_import_error": true,
+          "missing_contract_without_history_passed": true,
+          "revoked_database_unchanged": true,
+          "pending_maintenance_rejected": true,
+          "pending_maintenance_readonly": true
+        },
+        "cleanup": {
+          "probe_containers_absent": true,
+          "quota_volumes_absent": true,
+          "probe_journal_absent": true,
+          "fixture_image_absent": true,
+          "scratch_database_absent": true
+        }
+      }
+    }
+  },
+  "diagnostics": {
+    "cleanup_started": true,
+    "cleanup_completed": true,
+    "probe_resources": {
+      "free_disk_bytes": 90097750016,
+      "available_memory_bytes": 4781490176
+    }
+  },
+  "observed_from": "disposable_installed_linux_vm_root",
+  "actual": [
+    "ed25519_signature_verification",
+    "bounded_candidate_probe",
+    "compose_activation",
+    "authenticated_owner_smoke",
+    "consistent_snapshot",
+    "schema3",
+    "maintenance_gate",
+    "same_database_rollback",
+    "post_deployment_row_preserved",
+    "revoked_bridge_fixed_probe_enforced",
+    "pending_bridge_operation_blocked",
+    "isolated_probe_cleanup_verified",
+    "coding_source_moved_with_image_and_rolled_back"
+  ],
+  "fixtures": [
+    "ephemeral_publisher",
+    "preloaded_registry_delivery",
+    "candidate_changes_label_and_source_bundle",
+    "synthetic_post_deployment_record",
+    "synthetic_missing_bridge_contract_image",
+    "isolated_structure_only_revoked_bridge"
+  ],
+  "final_schema": 3,
+  "real_cloud": false,
+  "real_publisher_release": false,
+  "rollback_restored_backup": false,
+  "registry_delivery_calls": 1,
+  "original_image": "sha256:9bb23eb4ed940967867c7c4bb232300a7ae881496ba4ba6a2c35110edf9f6486",
+  "candidate_image": "sha256:9183add9289f2588ef98929585e9e56ed2c8406b2c7eb3fb83e81f03c51515b6",
+  "bridge_update_contract": {
+    "contract": 1,
+    "observed_from": "installed_host_fixed_probe",
+    "schema": 3,
+    "database_fixture": "isolated_structure_only_revoked_bridge",
+    "fixed_probe_executions": 3,
+    "synthetic_missing_contract_image": true,
+    "real_historical_release": false,
+    "supporting_image": "sha256:9bb23eb4ed940967867c7c4bb232300a7ae881496ba4ba6a2c35110edf9f6486",
+    "missing_contract_image": "sha256:4e91050a517cffd6f07526b7d1d7fcc601f323af688ac8b14e4c75d82755ce24",
+    "fixed_script_sha256": "868d5260adfeae4e43bbbdf06b5db8f5624187396db08bef76781062b4ccfa70",
+    "checks": {
+      "revoked_history_marker_copied": true,
+      "supporting_fixed_probe_passed": true,
+      "missing_contract_fixed_probe_rejected": true,
+      "missing_contract_import_error": true,
+      "missing_contract_without_history_passed": true,
+      "revoked_database_unchanged": true,
+      "pending_maintenance_rejected": true,
+      "pending_maintenance_readonly": true
+    },
+    "cleanup": {
+      "probe_containers_absent": true,
+      "quota_volumes_absent": true,
+      "probe_journal_absent": true,
+      "fixture_image_absent": true,
+      "scratch_database_absent": true
+    }
+  }
+}

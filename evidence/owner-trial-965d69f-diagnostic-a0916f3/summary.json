@@ -1,0 +1,75 @@
+{
+  "status": "failed",
+  "diagnostic_only": true,
+  "canonical_acceptance": false,
+  "all_eight_passed": false,
+  "public_channel_test": false,
+  "media_commit": "965d69f74abaadf29df28c1e8f1b866a3131d35c",
+  "test_harness_commit": "a0916f3ba402b3c835e58080624e11ca125f912d",
+  "started": "2026-10-15T16:37:45.304367+00:00",
+  "finished": "2026-10-15T17:56:51.504710+00:00",
+  "phase": "installed_owner_and_role_auth",
+  "error_type": "KeyError",
+  "probe_stage": "http_status",
+  "coding_probe": "not_reached",
+  "remaining_canonical_stages": "not_run; no continuation performed",
+  "junit": {
+    "evidence": "evidence/owner-trial-965d69f-diagnostic-a0916f3/install-diagnostic/junit.xml",
+    "tests": 1,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 0,
+    "seconds": 4737.537
+  },
+  "cleanup": {
+    "observation_complete": true,
+    "owned_containers_absent": true,
+    "owned_networks_absent": true,
+    "disk_basetemp_removed": true,
+    "temp_filesystem": "ext4",
+    "scope": "known_test_name_prefixes_only"
+  },
+  "postflight": {
+    "frozen_media_identity_unchanged": true,
+    "harness_and_images_unchanged": true,
+    "original_failure_unchanged": true
+  },
+  "media_manifest": "evidence/owner-trial-965d69f/candidate-manifest.json",
+  "candidate_manifest_sha256": "910c646fe79e0263c1d8c3983f0b5dd8b4d9dd309d74eb90c09e799b4f3c610a",
+  "preflight": {
+    "all_other_tracked_paths_unchanged": true,
+    "diagnostic_paths": {
+      "tests/installed_coding_probe.py": "395ac5ff4ed2632dae837b030a3e245c3ca6203d5df904be95196fc0e7bf83c9",
+      "tests/test_installed_coding_diagnostics.py": "1ace858ce8f50b27619c05bac4dc742868bb19e94fa6a079c1515bdfdc6e1858"
+    },
+    "unchanged_critical_git_blobs": {
+      "scripts/build_host.py": "38a3b6b323c2b42b6f4cb50a795ea015ceed5b3f",
+      "host/install.py": "e6fbd6262153f8c8cca9e5d7414d5773b0a1495e",
+      "tests/test_linux_install.py": "386c3c84990b02c613503267954240e5d9dcdc92"
+    },
+    "product_images": {
+      "agentic-home-controller:0.9.0": "sha256:163520ac14d7ff57224bb5117967d8cba1e6737598065254a5a3aa1211b914f8",
+      "agentic-home-runner:0.9.0": "sha256:b7d7c2400ac0eb8f0c2573f784b69672bffe78ece5c3a9911b664f30ae865494",
+      "agentic-home-linejs:0.9.0": "sha256:317d554f2a9d019232e5096f1904cfe8c50c8d8f422648d21943fb74457cbfd6",
+      "agentic-home-hermes:0.9.0": "sha256:514290a1090da5cb6741b23ae0287bac53776868a5aba88aa93ecb79123b5aca",
+      "agentic-home-preview:0.9.0": "sha256:99e11803c67e10222458b2f2aacc6fa47c33086cbca9e04751aa2d84381d50e1",
+      "agentic-home-bridge:0.9.0": "sha256:d69571d141822a8a478580dfdb4e287f421cf93f5e2601f33fbf73ad66bd316b"
+    }
+  },
+  "original_input_sha256": {
+    "summary.json": "7b998a5bf66a3ba03b359efda8cc977698c248605eaf8de8da49ea3ffef79b4d",
+    "install-diagnostic/stage.json": "cd910b0fe6dff184e7e86c86ee474a95b4243592f969ba896ec645c31a4e5055",
+    "install-diagnostic/evidence/installed-auth-laptop-amd64.json": "60458183c8045e8de7954eb5e7d5cde6651d3aabef6489dd203788a71959925d",
+    "install-diagnostic/evidence/installed-failure-laptop-amd64.json": "cf0bd87cc4cb6d1548c29abf4b0973f8dd6ca39c8f6c85c24fd7fc450f8cb964",
+    "install-diagnostic/evidence/installed-process-auth-laptop-amd64.json": "9bf2929c9a8221352ebdc73ecbf09f70585454661583aa787a434a48ef31652c",
+    "install-diagnostic/evidence/installed-progress-laptop-amd64.json": "5b4a3b474ad7c4ba5a5ea265780df91a5080aa737b10a1d35405645fc4946130",
+    "install-diagnostic/junit.xml": "bdaa9300d25246f287d7a33bdf20026e080326314d619e878a1e56f030c4a3a4"
+  },
+  "projection": "Fixed identities, outcomes, timing, public hashes and cleanup proof only; private paths, filesystem identities and console/log content omitted.",
+  "limitations": [
+    "This separate diagnostic harness run failed before the coding probe; it does not explain the original965 coding failure.",
+    "The original HTTP response shape was not retained; the missing status key and root cause remain unresolved.",
+    "No real accounts, physical laptop or public stable acceptance; original RC10 #97 cause remains unknown."
+  ]
+}

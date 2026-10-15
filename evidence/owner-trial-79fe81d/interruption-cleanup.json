@@ -1,0 +1,12 @@
+{
+  "time": "2026-10-15T14:51:27.082639+00:00",
+  "reason": "Stopped candidate after installed proxy service failure; remaining stages require corrected media.",
+  "regression_basetemp_removed": true,
+  "candidate_pytest_processes_remaining": 0,
+  "resources_added": {
+    "containers": [],
+    "networks": []
+  },
+  "cleanup_observation_complete": true,
+  "acceptance": "not_passed"
+}

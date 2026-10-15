@@ -1,8 +1,51 @@
 # Agentic Smart Home 驗證
 
-## 0.9.0
+## 0.9.0 VERIFIED engineering candidate — `53c9e79`
 
-本版重做介面，開發助手可在網頁啟用、登入，主機重開後自動復原，內容見 [CHANGELOG](../CHANGELOG.md)。受測來源、媒體與 harness 都是同一個 commit [`13ad697a`](https://github.com/TED-H-com/agentic-smart-home/commit/13ad697aca3e61fa6c409ee08ffa177d3c297842)。家庭現場映像內的開發來源固定為 [`0eb569e4`](https://github.com/TED-H-com/agentic-smart-home/commit/0eb569e42ed2661e3e3bd4c7835b3715d57e3da0)。來源、映像與限制的完整紀錄見 [0.9.0 交付紀錄](../evidence/release-0.9.0.json)。
+固定來源與 harness 為 `53c9e790cccf9d22842ec358b9f4f7160e1d448b`。同一組媒體完成八階段序列驗收；各階段清理均已核對。見 [交付紀錄](../evidence/release-0.9.0.json)及 [階段摘要](../evidence/owner-trial-53c9e79/summary.json)。
+
+| 階段 | 實際 JUnit 結果 | 證據 |
+|---|---|---|
+| install | 1 passed、0 skipped／1937.04 秒 | [JUnit](../evidence/owner-trial-53c9e79/install/junit.xml)、[清理](../evidence/owner-trial-53c9e79/install/stage.json) |
+| regression | 2061 passed、7 skipped／887.263 秒 | [JUnit](../evidence/owner-trial-53c9e79/regression/junit.xml)、[清理](../evidence/owner-trial-53c9e79/regression/stage.json) |
+| enable | 42 passed、0 skipped／939.785 秒 | [JUnit](../evidence/owner-trial-53c9e79/enable/junit.xml)、[清理](../evidence/owner-trial-53c9e79/enable/stage.json) |
+| home-worker-haos | 114 passed、0 skipped／411.879 秒 | [JUnit](../evidence/owner-trial-53c9e79/home-worker-haos/junit.xml)、[清理](../evidence/owner-trial-53c9e79/home-worker-haos/stage.json) |
+| haos-boundary | 2 passed、0 skipped／228.547 秒 | [JUnit](../evidence/owner-trial-53c9e79/haos-boundary/junit.xml)、[清理](../evidence/owner-trial-53c9e79/haos-boundary/stage.json) |
+| runner-build | 102 passed、0 skipped／449.751 秒 | [JUnit](../evidence/owner-trial-53c9e79/runner-build/junit.xml)、[清理](../evidence/owner-trial-53c9e79/runner-build/stage.json) |
+| bridge-haos | 40 passed、0 skipped／303.247 秒 | [JUnit](../evidence/owner-trial-53c9e79/bridge-haos/junit.xml)、[清理](../evidence/owner-trial-53c9e79/bridge-haos/stage.json) |
+| haos-vm | 2 passed、0 skipped／191.631 秒 | [JUnit](../evidence/owner-trial-53c9e79/haos-vm/junit.xml)、[清理](../evidence/owner-trial-53c9e79/haos-vm/stage.json) |
+| [GitHub CI 38792574808](https://github.com/TED-H-com/agentic-smart-home/actions/runs/38792574808) | 2059 passed、9 skipped／1077.163 秒 | [JUnit](../evidence/owner-trial-53c9e79/github-ci/junit.xml)、[CI/媒體來源核對](../evidence/owner-trial-53c9e79/ci-media-match.json) |
+
+測試在共用主機上依序執行，不代表無其他磁碟負載。公開 `#stable` 安裝、真帳號、實體筆電與家庭 E1/E2 仍未驗收；32 個產品案例維持 2 passed、30 not_run。此段不宣稱已發布。CI 與 TAR 的 190 份執行／設定檔及 50 份文件逐檔吻合；不宣稱獨立建置的 CI 映像 ID 相同。
+
+每個 VM 階段各有一個實際整合案例，其餘計數為 harness 單元測試。模型傳輸、測試帳號及本機交付來源使用各 receipt 註明的 fixtures，不能算成真帳號或公開 `#stable` 的使用驗收。
+
+本候選封裝已逐一核對 281 個 TAR 項目：root:root、目錄 0755、一般檔案 0644／可執行檔 0755；私人執行狀態權限未改動。先前 `79fe81d` 安裝失敗、人工中止的回歸與獨立權限重現完整保留於 [失敗候選紀錄](../evidence/owner-trial-79fe81d/superseded-candidate.json)；中止的回歸不算通過。
+
+`965d69f` 的安裝 coding fixture 失敗與七階段未執行保留於 [原始失敗紀錄](../evidence/owner-trial-965d69f/superseded-candidate.json)。工作曾回報 `writer_stop_unconfirmed`，其原始證據不足以確定原因；另用診斷 harness 的執行不能取代原候選驗收。
+
+同一 `965d69f` 媒體搭配 `a0916f3` 診斷 harness 的 [獨立嘗試](../evidence/owner-trial-965d69f-diagnostic-a0916f3/summary.json) 在身分驗證階段因 status 欄位缺少而失敗，未執行 coding；清理與媒體不變證據已保留，不能算入本候選八階段。
+
+`0806e4d` 的安裝、CI 與來源稽核曾通過；首次回歸收到來源未釐清的 SIGTERM，中止時終端為 475 passed、1 skipped，XML 另有 1 個匿名未完成節點。續跑回歸為 2048 passed、7 failed、7 skipped，其餘六階段未執行。五項失敗已確認為 fixture 權限問題；publisher 根因仍未確立，首次頁面導覽逾時與另外證實的映像公開檔案不可讀缺陷分開記錄。所有結果保留於 [歷史候選](../evidence/owner-trial-0806e4d/superseded-candidate.json)，不算入本候選驗收。
+
+第一次恢復驗證在讀取已安裝來源中繼資料時因 SSH 255／timeout 失敗，後續診斷 SSH 成功；原始 stop/remove 逾時且 wrapper 當時仍看到 VM，較後的直接觀測才確認資源已不存在。失敗與初次清理狀態完整保留於 [第一次恢復失敗紀錄](../evidence/owner-trial-53c9e79/failed-resumed-1.json)，不能算通過。主機 I/O 壓力只是相關觀測，根因仍未確立。
+
+本次八階段全部來自第二次恢復後同一次完整 verify 執行，不沿用任何先前階段；建置沿用原先完成的建置，原安裝因 Owner 換帳號而中止，其清理與原始證據獨立保留，不算通過。逐階段核對保存的 orchestration 腳本 SHA 與 pytest 子程序 umask 0022。父程序私人檔案仍採 0077，見 [執行來源證據](../evidence/owner-trial-53c9e79/orchestration-provenance.json)。
+
+#97 原始失敗的根因仍未知；共用磁碟壓力只是相關觀測。此次獨立重現並修正的 preflight 缺少工作紀錄、清理例外中止背景重試，是另外有證據的缺陷，不能回推為 #97 的原因。
+
+固定 source ZIP 保留建置當時的文件快照，包括舊 RC10 release record；本次最終驗證文件另行記錄，不重建或改寫既有媒體。
+
+| 媒體 | Bytes | SHA-256 |
+|---|---|---|
+| `agentic-home-0.9.0-linux-amd64.tar` | 2726123520 | `159b1379a1ff69a18867b6943ce04f4c5a228cedc2bec6dd086d8ea7ab6b4733` |
+| `agentic-home-0.9.0-source.zip` | 31130483 | `e782a43ab62c6af7bc7d4e0ecb76e6c66a314442cb08c7c8b966aef016b599a7` |
+| `agentic-home-0.9.0-laptop-amd64.iso` | 6805585920 | `1ae3d1ff60f86cfedaf4112bbd25c56a1f11e3c19ad52a1c0374530769394080` |
+| `SHA256SUMS` | 299 | `5cd75f4bcd7b4bb9228951d68694260fd2cc7dbed542057ac00c06a1cb03b2a0` |
+
+## 0.9.0 prior RC10 — `13ad697`
+
+本版重做介面，開發助手可在網頁啟用、登入，主機重開後自動復原，內容見 [CHANGELOG](../CHANGELOG.md)。受測來源、媒體與 harness 都是同一個 commit [`13ad697a`](https://github.com/TED-H-com/agentic-smart-home/commit/13ad697aca3e61fa6c409ee08ffa177d3c297842)。家庭現場映像內的開發來源固定為 [`0eb569e4`](https://github.com/TED-H-com/agentic-smart-home/commit/0eb569e42ed2661e3e3bd4c7835b3715d57e3da0)。來源、映像與限制的完整紀錄見 [0.9.0 交付紀錄](../evidence/release-0.9.0-rc10-13ad697.json)。
 
 | 項目 | 結果 | 證據 |
 |---|---|---|

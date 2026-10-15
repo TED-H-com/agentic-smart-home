@@ -1,0 +1,90 @@
+{
+  "commit": "0806e4de5ca56607cadbc6450695596d3aacef59",
+  "exit_code": 0,
+  "image_id": "sha256:9bb23eb4ed940967867c7c4bb232300a7ae881496ba4ba6a2c35110edf9f6486",
+  "image_tag_matches": true,
+  "network": "none",
+  "observation": {
+    "gid": 1000,
+    "paths": [
+      {
+        "directory": true,
+        "gid": 0,
+        "mode": "0755",
+        "path": "/app",
+        "regular": false,
+        "searchable": true,
+        "size": 4096,
+        "uid": 0
+      },
+      {
+        "directory": true,
+        "gid": 0,
+        "mode": "0755",
+        "path": "/app/static",
+        "regular": false,
+        "searchable": true,
+        "size": 4096,
+        "uid": 0
+      },
+      {
+        "directory": false,
+        "errno": 13,
+        "gid": 0,
+        "mode": "0600",
+        "path": "/app/static/index.html",
+        "read_error": "PermissionError",
+        "readable": false,
+        "regular": true,
+        "size": 409,
+        "uid": 0
+      },
+      {
+        "directory": true,
+        "gid": 0,
+        "mode": "0700",
+        "path": "/app/static/assets",
+        "regular": false,
+        "searchable": false,
+        "size": 4096,
+        "uid": 0
+      },
+      {
+        "directory": true,
+        "gid": 0,
+        "mode": "0755",
+        "path": "/app/source",
+        "regular": false,
+        "searchable": true,
+        "size": 4096,
+        "uid": 0
+      },
+      {
+        "directory": false,
+        "errno": 13,
+        "gid": 0,
+        "mode": "0600",
+        "path": "/app/source/agentic-home.bundle",
+        "read_error": "PermissionError",
+        "readable": false,
+        "regular": true,
+        "size": 77579717,
+        "uid": 0
+      },
+      {
+        "errno": 13,
+        "path": "/app/static/assets/index-CScTKCtU.css",
+        "stat_error": "PermissionError"
+      },
+      {
+        "errno": 13,
+        "path": "/app/static/assets/index-zNBS9Sw9.js",
+        "stat_error": "PermissionError"
+      }
+    ],
+    "uid": 1000
+  },
+  "owned_container_absent": true,
+  "read_only": true,
+  "status": "observed"
+}

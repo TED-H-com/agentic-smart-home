@@ -1,0 +1,150 @@
+{
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "run_id": 38792574808,
+  "url": "https://github.com/TED-H-com/agentic-smart-home/actions/runs/38792574808",
+  "event": "push",
+  "status": "completed",
+  "conclusion": "success",
+  "attempt": 1,
+  "created_at": "2026-10-15T19:16:42Z",
+  "updated_at": "2026-10-15T19:39:21Z",
+  "job_id": 116620618797,
+  "job_url": "https://github.com/TED-H-com/agentic-smart-home/actions/runs/38792574808/job/116620618797",
+  "junit": {
+    "tests": 2068,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 9,
+    "passed": 2059
+  },
+  "duration_seconds": 1077.163,
+  "junit_sha256": "af70fb4add531359a91841a7cf2f4e613a81cac624fd7f178e5671cf8117e2ca",
+  "junit_artifact_path": "evidence/pytest.xml",
+  "junit_suite_timestamps": [
+    "2026-10-15T19:20:00.713171+00:00"
+  ],
+  "current_test_step": {
+    "name": "Real Core, CLI containers and browser tests",
+    "startedAt": "2026-10-15T19:19:57Z",
+    "completedAt": "2026-10-15T19:37:59Z",
+    "conclusion": "success"
+  },
+  "current_revision_regressions_present_and_passed": [
+    "test_packaged_public_files_are_readable_as_runtime_uid",
+    "test_successful_removal_command_is_not_itself_proof_of_absence",
+    "test_unavailable_then_ready_retains_first_shape_without_private_message"
+  ],
+  "current_revision_test_source_sha256": {
+    "tests/test_installed_runner_readiness.py": "a360bd2ebac5c14e86b85cfdff216e1b2b16bfe798ea444fcd6f6565467998d1",
+    "tests/test_linux_install_cleanup.py": "410f155182299cc65f043a5f1373fee0e6ff2074c3dbf46729eedfd5a974ba5d",
+    "tests/test_image_public_permissions.py": "ccca5937cb99d8886aa4570df75f988e1dd57fbfa267932c589d9beee4a4bab3",
+    "controller/Dockerfile": "b25c2ae44269bbd8d6e6d9589f02417c112daf25c471615f93f1b2b44c723f42",
+    "runner/Dockerfile": "53c3cd99b1e2bd0c8a999e7473e383ad954896609cd04c99a442cc7224892daa",
+    "hermes/Dockerfile": "1d878470491d1a22b23c137b68bfc4b193d6eec5784d2fb4587fa1a2b698c992",
+    "bridge/Dockerfile": "3fe3d61d91b1d16f94df20b062c7720c6d5cbc60307a6fc47137059a9e8ff715",
+    "host/linejs/Dockerfile": "456dc2dccd973da1d0eb8ce5fb52edd5b99d6f96dcb2a6a517969ff02c7159b9",
+    "host/preview/Dockerfile": "5bed4dd8d7631195d86da57cb1a249bee9bdb885ab960d5c6bbfa9b549454e28"
+  },
+  "current_public_image_permission_receipts": {
+    "controller": {
+      "reader_uid": 1000,
+      "image_id": "sha256:785ad08ec949e2d9fd9efb8bfb77e4ca845c2934e5bdac83ddc125176c2e5597",
+      "passed_checks": [
+        "javascript_and_stylesheet_assets",
+        "module_import_0",
+        "public_file_0",
+        "public_file_1",
+        "public_file_2",
+        "public_file_3",
+        "unprivileged_without_capabilities"
+      ],
+      "owned_container_absent": true,
+      "receipt_sha256": "672eba8fa8b6fe542a75db30165f795ab76832fbce5155b59aa1232a5716bd9e"
+    },
+    "runner": {
+      "reader_uid": 10000,
+      "image_id": "sha256:186eb9fc278fc2e81aadfa07bb515f84bed628dc514090183493f777c7119254",
+      "passed_checks": [
+        "module_import_0",
+        "module_import_1",
+        "private_boundary_0",
+        "private_boundary_1",
+        "public_executable_0",
+        "public_executable_1",
+        "public_executable_2",
+        "public_executable_3",
+        "public_file_0",
+        "public_file_1",
+        "public_file_2",
+        "public_file_3",
+        "public_file_4",
+        "unprivileged_without_capabilities"
+      ],
+      "owned_container_absent": true,
+      "receipt_sha256": "c1a86a1870610bdbcf34766878b6013f8bb3cd300e047689b7d0a02317bc0776"
+    },
+    "hermes": {
+      "reader_uid": 10003,
+      "image_id": "sha256:c6970c76a7284f2de1a3eb9d44944e9dc9b61ea432e8b6b23ad01dd338784e58",
+      "passed_checks": [
+        "module_import_0",
+        "public_file_0",
+        "public_file_1",
+        "public_file_2",
+        "public_file_3",
+        "unprivileged_without_capabilities"
+      ],
+      "owned_container_absent": true,
+      "receipt_sha256": "6afe60aed30fa02b868fc992ed533892b67ee3c28851775afbb2b96f0d4be4ee"
+    },
+    "bridge": {
+      "reader_uid": 10003,
+      "image_id": "sha256:59741f09622ea42655295043681f4bcfa159562a43858f8872ce783b29e089c4",
+      "passed_checks": [
+        "javascript_and_stylesheet_assets",
+        "module_import_0",
+        "public_file_0",
+        "public_file_1",
+        "unprivileged_without_capabilities"
+      ],
+      "owned_container_absent": true,
+      "receipt_sha256": "bf744455943fc7ce977246d8d8ba1f1cc26e535b53ef8a63ed931fc67c6d5e8d"
+    },
+    "linejs": {
+      "reader_uid": 1000,
+      "image_id": "sha256:43979b2b84b4543b437d0db06e9404af175edfb48b4c2c544556771ac283895d",
+      "passed_checks": [
+        "package_metadata",
+        "public_file_0",
+        "public_file_1",
+        "public_file_2",
+        "unprivileged_without_capabilities"
+      ],
+      "owned_container_absent": true,
+      "receipt_sha256": "4f578ef24ea530f66f5c0b2c5e277b932ef88051cdb23efc70db8bda8aabd6c8"
+    },
+    "preview": {
+      "reader_uid": 10004,
+      "image_id": "sha256:042e7e4027c394e45aedbd3562ca94fa03baea35bc24f7e6437251a3d0584f1c",
+      "passed_checks": [
+        "module_import_0",
+        "public_file_0",
+        "public_file_1",
+        "unprivileged_without_capabilities"
+      ],
+      "owned_container_absent": true,
+      "receipt_sha256": "eb61d41365da02d7349dc2b60fb36da449b3f105d8a31ad8777db64ff812bcf5"
+    }
+  },
+  "run_metadata_sha256": "af979cfc72983e2a43c4236974927fec387462658715d163e1d3deb7fc08a8ac",
+  "artifacts_metadata_sha256": "cf7bb8155678852dcd15afce50c35b1871f14753d9facfed234bc2a7cb60ccf0",
+  "artifact_id": 12001323215,
+  "artifact_sha256": "0e82b350fc2a673091a44ff52d562ebe4c26022cdddde5bb722270be6a35d271",
+  "source_archive_manifest_payloads_verified": 1306,
+  "source_archive_manifest_exact_coverage": true,
+  "nested_runner_manifest_payloads_verified": 55,
+  "nested_runner_matches_source_tree": true,
+  "scope": "Current CI JUnit from the exact workflow output and test-step time window; historical XML excluded. Large VM stages and real-account/laptop acceptance remain separate.",
+  "checkout_scope": "push ref at exact candidate",
+  "source_comparison": "ci-media-match.json"
+}

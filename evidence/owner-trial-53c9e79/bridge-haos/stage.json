@@ -1,0 +1,31 @@
+{
+  "stage": "bridge-haos",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "status": "passed",
+  "started": "2026-10-15T21:39:16.424374+00:00",
+  "finished": "2026-10-15T21:44:20.250664+00:00",
+  "public_channel_test": false,
+  "cleanup": {
+    "observation_complete": true,
+    "owned_containers_absent": true,
+    "owned_networks_absent": true,
+    "disk_basetemp_removed": true,
+    "temp_filesystem": "ext4",
+    "scope": "known_test_name_prefixes_only"
+  },
+  "junit": {
+    "tests": 40,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 40,
+    "seconds": 303.247
+  },
+  "required_integration_case": {
+    "name": "test_real_haos_sidebar_bridge",
+    "status": "passed"
+  },
+  "original_junit_sha256": "63e8dc5b4fc9fb00c65db396db3adb6f7212b0732e6968fdc31f6fbdf443f99e",
+  "junit_projection": "counts_order_and_timing_preserved; generated_case_names; logs_properties_paths_omitted",
+  "junit_evidence": "evidence/owner-trial-53c9e79/bridge-haos/junit.xml"
+}
