@@ -79,12 +79,18 @@ class HomeWorkerMaintenance:
         self.controller_id = controller_id
         self.release, self.clock = release or HomeWorkerRelease(), clock
         self.lock, self.task = asyncio.Lock(), None
+        self.started_at, self.runner_answered, self.observed_record_id = None, False, None
+
+    def reset_run(self):
+        self.started_at, self.runner_answered = None, False
 
     def record(self):
         return self.store.setting(KEY)
 
     def save(self, record, **changes):
         record.update(changes, updated_at=utcnow())
+        if not record.get("enabled"):
+            self.reset_run()
         self.store.set_setting(KEY, record)
 
     def drift(self, record):
@@ -167,6 +173,7 @@ class HomeWorkerMaintenance:
         if not isinstance(state, str):
             raise HomeWorkerFault("home_worker_observation_unavailable", "unavailable")
         if state != "running":
+            self.reset_run()
             self.save(record, stopped_since=None)
             raise HomeWorkerFault("home_worker_supervisor_busy", "waiting")
 
@@ -213,6 +220,8 @@ class HomeWorkerMaintenance:
                       "state": "running", "stage": "repository", "code": None, "release": asdict(self.release),
                       "operation": None, "pair_restarts": 0, "start_sent": False, "installed_by_us": False,
                       "setup_run_id": setup.get("run_id"), "fingerprint": None, "credential_state": None}
+            self.reset_run()
+            self.observed_record_id = record["id"]
             self.save(record)
             return self.status()
 
@@ -251,6 +260,7 @@ class HomeWorkerMaintenance:
                 # A transient fault during a Supervisor job. Observe the job instead of posting again.
                 self.save(record, enabled=True, state="running", code=None)
                 return self.status()
+            self.reset_run()
             self.save(record, enabled=True, state="running", code=None, stage="repository", operation=None,
                       pair_restarts=0, pair_deadline=None, failed_code_hash=None, start_sent=False,
                       started_once=False, owner_start=True)
@@ -362,8 +372,12 @@ class HomeWorkerMaintenance:
         if len(matches) > 1:
             raise HomeWorkerFault("home_worker_supervisor_contract_invalid", "needs_reconcile")
         if not matches:
+            self.reset_run()
             return None
-        return await self.request(record, token, "GET", f"/addons/{record['slug']}/info")
+        raw = await self.request(record, token, "GET", f"/addons/{record['slug']}/info")
+        if not isinstance(raw, dict) or raw.get("state") != "started":
+            self.reset_run()
+        return raw
 
     async def installed(self, record, token, *, expected_version=None):
         raw = await self.app_info(record, token)
@@ -372,6 +386,11 @@ class HomeWorkerMaintenance:
         return self.validate_app(raw, record, installed=True, expected_version=expected_version)
 
     def note_app(self, record, app):
+        if app.get("state") == "started":
+            if self.started_at is None:
+                self.started_at, self.runner_answered = self.clock(), False
+        else:
+            self.reset_run()
         # Any other observation interrupts a pending stop confirmation.
         stopped = record.get("stopped_since") if app.get("state") == "stopped" else None
         self.save(record, app_state=app.get("state"), version=app.get("version"), observed_at=utcnow(),
@@ -417,6 +436,8 @@ class HomeWorkerMaintenance:
             self.save(record, start_sent=True, owner_start=False)
         if kind == "update" and self.busy():
             raise HomeWorkerFault("home_worker_busy")
+        if kind in {"start", "restart", "update"}:
+            self.reset_run()
         operation = {"kind": kind, "state": "sent", "created": self.clock(),
                      "deadline": self.clock() + OPERATION_TIMEOUT, "job_id": None, **(operation_extra or {})}
         self.save(record, operation=operation, state="running", code=None)
@@ -452,7 +473,12 @@ class HomeWorkerMaintenance:
         async with self.lock:
             record = self.record()
             if not record or not record.get("enabled") or record.get("state") in TERMINAL:
+                self.reset_run()
+                self.observed_record_id = record.get("id") if isinstance(record, dict) else None
                 return self.status()
+            if record.get("id") != self.observed_record_id:
+                self.reset_run()
+                self.observed_record_id = record.get("id")
             token = self.ha.token
             try:
                 await self.owner(record, token)
@@ -465,6 +491,7 @@ class HomeWorkerMaintenance:
                     extra = {"enabled": False} if exc.state in USER_STOP else {}
                     self.save(current, state=exc.state, code=exc.code, **extra)
             except HAUnreachable:
+                self.reset_run()
                 # HA may be booting or restarting; wait for fresh observations.
                 current = self.record()
                 if current and current["id"] == record["id"] and current["enabled"]:
@@ -701,6 +728,7 @@ class HomeWorkerMaintenance:
                 await self.begin_pair_restart(record, token)
                 return
             raise HomeWorkerFault("home_worker_pair_failed", "needs_reconcile") from None
+        self.runner_answered = True
         await self.begin_clear(record, token, app, fingerprint)
 
     async def begin_pair_restart(self, record, token):
@@ -775,9 +803,14 @@ class HomeWorkerMaintenance:
         try:
             raw = await self.runner.call("GET", "/coding/capabilities")
         except (RunnerError, OSError, TimeoutError, ValueError, TypeError):
+            if (not self.runner_answered and self.started_at is not None and
+                    0 <= self.clock() - self.started_at < STARTUP_GRACE):
+                self.save(record, state="waiting", code="home_worker_app_starting", worker_available=False)
+                return
             # A login cannot reach an unreachable Runner. Keep polling instead of offering it.
             self.save(record, state="unavailable", code="home_worker_worker_unavailable", worker_available=False)
             return
+        self.runner_answered = True
         if not isinstance(raw, dict) or raw.get("worker_id") != "home-coder" or raw.get("runtime_location") != "haos_app":
             self.save(record, state="unavailable", code="home_worker_capability_mismatch",
                       worker_available=False, runtime_location=None, credential_state=None)
