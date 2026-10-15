@@ -134,6 +134,7 @@ def test_home_runtime_tab_leads_to_workers_and_folds_stable_manual_pair():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     calls, errors = [], []
+    runtimes = {"host": {"status": "unpaired", "providers": []}, "haos": {"status": "unpaired", "providers": []}}
 
     def route(route):
         request = route.request
@@ -157,7 +158,7 @@ def test_home_runtime_tab_leads_to_workers_and_folds_stable_manual_pair():
         elif path == "tasks":
             result = {"tasks": []}
         elif path == "runtimes":
-            result = {"host": {"status": "unpaired", "providers": []}, "haos": {"status": "unpaired", "providers": []}}
+            result = runtimes
         elif path == "runtimes/haos/pair":
             result = {"paired": True}
         else:
@@ -176,6 +177,7 @@ def test_home_runtime_tab_leads_to_workers_and_folds_stable_manual_pair():
             tabs.get_by_role("button", name="家庭現場").click()
 
             expect(panel.get_by_text("在開發助手選「家庭現場」並啟用，主機會自動安裝和配對。", exact=True)).to_be_visible()
+            expect(panel.get_by_role("button", name="開始登入")).to_have_count(0)
             workers_link = panel.get_by_role("link", name="前往開發助手", exact=True)
             expect(workers_link).to_be_visible()
             expect(workers_link).to_have_attribute("href", "#workers")
@@ -204,7 +206,26 @@ def test_home_runtime_tab_leads_to_workers_and_folds_stable_manual_pair():
             tabs.get_by_role("button", name="主機").click()
             expect(panel.get_by_text("先連接這台主機上的開發助手。", exact=True)).to_be_visible()
             expect(panel.get_by_role("button", name="連接主機", exact=True)).to_be_visible()
+            expect(panel.get_by_role("button", name="開始登入")).to_have_count(0)
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+
+            # Paired but not answering, for example while the host restarts: wait, do not ask to enable or pair again.
+            runtimes.update(host={"status": "unavailable", "providers": []}, haos={"status": "unavailable", "providers": []})
+            page.reload()
+            panel = page.get_by_role("region", name="開發助手帳號", exact=True)
+            tabs = panel.get_by_role("group", name="開發助手位置", exact=True)
+            for name in ("主機", "家庭現場"):
+                tabs.get_by_role("button", name=name).click()
+                expect(panel.get_by_text("暫時連不上，會自動重試。", exact=True)).to_be_visible()
+                expect(panel.locator(".section-heading").get_by_text("無法連線", exact=True)).to_be_visible()
+                expect(tabs.get_by_text("無法連線", exact=True)).to_have_count(2)
+                for text in ("先連接這台主機上的開發助手。", "在開發助手選「家庭現場」並啟用，主機會自動安裝和配對。", "手動安裝與配對"):
+                    expect(panel.get_by_text(text, exact=True)).to_have_count(0)
+                expect(panel.get_by_role("button", name="連接主機", exact=True)).to_have_count(0)
+                expect(panel.get_by_role("button", name="開始登入")).to_have_count(0)
+                expect(panel.get_by_role("link", name="前往開發助手", exact=True)).to_have_count(1 if name == "家庭現場" else 0)
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            assert calls == [("runtimes/haos/pair", payload)]
             browser.close()
         assert not errors
     finally:
