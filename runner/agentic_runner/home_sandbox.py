@@ -51,13 +51,19 @@ class HomeSandbox(CodingSandbox):
         self.execute = self._execute
         self.preparing = None
 
-    def preflight(self):
+    def _require_work_root(self):
         try:
             if os.geteuid() != 0 or self.root != launcher.ROOT / "work":
                 raise launcher.BoundaryError("home_fixed_work_root_required")
             launcher.runtime_context()
             self.root.mkdir(mode=0o700, exist_ok=True)
             launcher.require_private(self.root)
+        except (OSError, ValueError, launcher.BoundaryError) as exc:
+            raise SandboxError("Home boundary unavailable") from exc
+
+    def preflight(self):
+        self._require_work_root()
+        try:
             for binary in ("/usr/bin/bwrap", "/usr/bin/fuse2fs", "/usr/sbin/mkfs.ext4", "/usr/bin/git"):
                 path = Path(binary)
                 if not path.is_file() or path.stat().st_uid != 0 or path.stat().st_mode & 0o022:
@@ -132,7 +138,10 @@ class HomeSandbox(CodingSandbox):
         values = [job_id, lease_epoch, repo_id, base_commit, program,
                   {k: hashlib.sha256(v).hexdigest() for k, v in self.inputs.items()}]
         digest = hashlib.sha256(json.dumps(values, separators=(",", ":")).encode()).hexdigest()
-        self.preflight()
+        # Validate the trusted root before taking its lock or writing any record.
+        # Resource/tool preflight belongs to the durable lifecycle below: a
+        # rejected fresh launch must still have an exact identity to cancel.
+        self._require_work_root()
         with self.lock():
             if (self.root / (job_id + ".json")).exists():
                 previous = self.record(job_id)
@@ -142,13 +151,14 @@ class HomeSandbox(CodingSandbox):
             for path in self.root.glob("*.json"):
                 if json.loads(path.read_text())["state"] not in STOPPED:
                     raise SandboxError("Previous writer has not been fenced")
-            if sum(path.is_dir() for path in self.root.iterdir()) >= 4:
-                raise SandboxError("Retained workspace budget exhausted")
             job = {"job_id": job_id, "lease_epoch": lease_epoch, "repo_id": repo_id, "base_commit": base_commit,
                    "request_digest": digest, "state": "preparing", "observed_from": "haos_app",
                    "runtime": launcher.identity(), "stop_confirmed": False, "model_backend": "none", "ha_backend": "none"}
             self.save(job)
             try:
+                self.preflight()
+                if sum(path.is_dir() for path in self.root.iterdir()) >= 4:
+                    raise SandboxError("Retained workspace budget exhausted")
                 self.prepare(job, program)
                 group = launcher.create_group("w-" + hashlib.sha256(job_id.encode()).hexdigest()[:32],
                                               memory_mib=self.limits.memory_mib, pids=self.limits.pids, cpus=self.limits.cpus)
