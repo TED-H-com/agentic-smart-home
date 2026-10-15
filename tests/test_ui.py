@@ -106,6 +106,11 @@ def test_browser_approval_and_responsive_layout(intent):
             page.get_by_role("status").filter(has_text="已儲存。受影響的提案需要重新產生。").wait_for()
             click_navigation(page, '連線與設定')
             page.get_by_role("heading", name="登入 AI 帳號").wait_for()
+            expect(page.get_by_role("button", name="登出")).to_be_visible()
+            expect(page.get_by_role("heading", name="Google Nest")).to_be_visible()
+            expect(page.get_by_label("任務紀錄（1–30 天）")).to_have_value("30")
+            expect(page.get_by_label("AI 觀測資料（1–7 天）")).to_have_value("7")
+            expect(page.get_by_role("button", name="儲存保存天數")).to_be_visible()
             assert page.locator('footer').count() == 0
             assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
             page.screenshot(path=str(evidence / "settings-390.png"), full_page=True)
