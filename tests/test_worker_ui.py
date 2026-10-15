@@ -191,6 +191,10 @@ def test_coding_role_login_lost_reply_stop_fence_and_artifact_preview(ui_page):
         elif '/artifacts/' in path:
             identifier = path.split('/')[-1]
             value = {**next(item for item in artifacts if item['id'] == identifier), 'content_base64': base64.b64encode(contents[identifier].encode()).decode()}
+        elif path == 'worker/previews/' + 'd' * 32 + '/revoke':
+            value = {'id': 'd' * 32, 'state': 'expired'}
+        elif path == 'worker/previews/' + 'd' * 32:
+            value = {'id': 'd' * 32, 'state': 'stop_unconfirmed'}
         elif path.endswith('/previews'):
             assert body == {'artifact_ids': ['c' * 32]}
             value = {'id': 'd' * 32, 'state': 'ready', 'preview_urls': {str(width): f"http://127.0.0.2:8100/p/{'x' * 43}/{width}.png" for width in (1440, 768, 390)}}
@@ -272,6 +276,13 @@ def test_coding_role_login_lost_reply_stop_fence_and_artifact_preview(ui_page):
     expect(page.get_by_role('link', name='手機預覽')).to_have_attribute('href', f"http://127.0.0.2:8100/p/{'x' * 43}/390.png")
     expect(page.get_by_text('預覽連結 30 分鐘後失效。', exact=True)).to_be_visible()
     screenshot(page, 'coding-results')
+    page.get_by_role('button', name='關閉這份預覽', exact=True).click()
+    generate = page.get_by_role('button', name='產生畫面預覽', exact=True)
+    expect(generate).to_be_enabled()
+    generate.click()
+    expect(page.get_by_role('button', name='關閉這份預覽', exact=True)).to_be_visible()
+    keys = [key for path, _, key in calls if path.endswith('/previews')]
+    assert len(keys) == 2 and keys[0] != keys[1]
     page.get_by_role('button', name='新工作', exact=True).click()
     page.get_by_role('radio', name='主機', exact=True).focus()
     page.keyboard.press('ArrowRight')
@@ -284,6 +295,9 @@ def test_coding_role_login_lost_reply_stop_fence_and_artifact_preview(ui_page):
     expect(page.get_by_role('button', name='開始修改並測試', exact=True)).to_be_disabled()
     expect(page.locator('.worker-readiness')).to_contain_text('尚未啟用')
     expect(page.get_by_text('先啟用家庭現場。', exact=True)).to_be_visible()
+    page.reload()
+    expect(page.get_by_text('這次預覽未完成，請查看技術資料。', exact=True)).to_be_visible()
+    expect(generate).to_be_disabled()
     assert not errors
 
 
@@ -1686,3 +1700,14 @@ def test_interactive_candidate_preview_opens_frames_and_expires(ui_page):
     assert not any(path.startswith('host/') for _, _, path in bridge_seen)
     assert not any(method == 'POST' and path.endswith('/previews') for _, method, path in bridge_seen)
     assert not errors, errors
+
+
+def test_withheld_changes_patch_is_not_reported_as_no_changes(ui_page):
+    page, origin = ui_page
+    job, errors, _ = mount_home_verifier_fixture(page, origin)
+    job['artifacts'] = [{'id': '7' * 32, 'name': 'changes.patch', 'kind': 'withheld',
+                         'media_type': 'text/plain', 'sha256': 'ab' * 32, 'size': 12}]
+    page.reload()
+    expect(page.get_by_text('這個檔案疑似含有密碼，只保留在主機上。', exact=True)).to_be_visible()
+    expect(page.get_by_text('沒有修改檔案。', exact=True)).to_have_count(0)
+    assert not errors
