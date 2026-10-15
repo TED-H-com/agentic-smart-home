@@ -817,3 +817,61 @@ def test_automatic_poll_recovers_without_hiding_action_error():
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+def test_lost_connection_recovers_after_failed_reconnect_and_first_load_but_missing_task_stays():
+    server, thread = _server()
+    state = {'offline': True}
+    missing = 'f' * 32
+
+    def route(route):
+        path = route.request.url.split('/api/')[1]
+        if state['offline'] and path in {'session', 'tasks'}:
+            route.fulfill(status=503, json={'detail': '暫時連不上管理服務，請稍後再試。'})
+            return
+        if path == f'tasks/{missing}':
+            route.fulfill(status=404, json={'detail': '這份資料已過期或不存在。'})
+            return
+        value = {'deployment': {'mode': 'host', 'authenticated': True},
+                 'session': {'csrf': 'fixture-csrf', 'principal': 'fixture-owner'},
+                 'status': {'paused': True, 'ha': {'status': 'connected'}},
+                 'tasks': {'tasks': []}}.get(path, {})
+        route.fulfill(status=200, json=value)
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.clock.install()
+            page.route('**/api/**', route)
+            page.goto(f'http://127.0.0.1:{server.server_port}/#history')
+            error = page.locator('.global-error')
+            resume = page.get_by_role('button', name='AI 已暫停 · 恢復', exact=True)
+            # The first load fails: the page opens by itself once the service answers.
+            expect(page.get_by_text('暫時無法開啟', exact=True)).to_be_visible()
+            expect(error).to_contain_text('暫時連不上管理服務')
+            state['offline'] = False
+            page.clock.run_for(10_100)
+            expect(resume).to_be_visible()
+            expect(error).to_have_count(0)
+            # A reconnect that fails while the service is down does not keep the error after it is back.
+            state['offline'] = True
+            page.clock.run_for(10_100)
+            expect(error).to_contain_text('暫時連不上管理服務')
+            error.get_by_role('button', name='重新連線', exact=True).click()
+            expect(error.get_by_role('button', name='重新連線', exact=True)).to_be_enabled()
+            expect(error).to_contain_text('暫時連不上管理服務')
+            state['offline'] = False
+            page.clock.run_for(10_100)
+            expect(error).to_have_count(0)
+            # A task that no longer exists keeps its message; it does not blink with each poll.
+            page.goto(f'http://127.0.0.1:{server.server_port}/#home/{missing}')
+            expect(error).to_contain_text('這份資料已過期或不存在。')
+            for _ in range(3):
+                page.clock.run_for(10_100)
+                expect(error).to_contain_text('這份資料已過期或不存在。')
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)

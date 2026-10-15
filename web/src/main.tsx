@@ -1,6 +1,6 @@
 import { StrictMode, useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { api, desktopLogin, consumeDesktopEntry, download, session, configureDeployment, haPath, haTarget, type ConversationSession } from './api';
+import { api, ApiError, desktopLogin, consumeDesktopEntry, download, session, configureDeployment, haPath, haTarget, type ConversationSession } from './api';
 import {SetupGuide,currentRoute,type View} from './setup';
 import './style.css';
 import {Status,Notice,Button,Empty,timestamp} from './ui';
@@ -18,6 +18,7 @@ import {connection,names,plainError,stateName} from './labels';
 
 type Entity = {entity_id:string; name:string; domain:string; area:string|null; state:string; availability:string; observed_at:string; actions:string[]};
 type Permission = {entity_id:string; read:boolean; write:string; purpose:string};
+function lostConnection(e:unknown){return !(e instanceof ApiError&&e.status>=400&&e.status<500)}
 function entityId(id:string){return id.split(/([._])/).map((part,i)=><span key={i}>{part}{(part==='.'||part==='_')&&<wbr/>}</span>);}
 
 function App({hostMode=false,active=true,desktopEntry=false,onLogout}:{hostMode?:boolean;active?:boolean;desktopEntry?:boolean;onLogout:()=>void}) {
@@ -30,6 +31,7 @@ function App({hostMode=false,active=true,desktopEntry=false,onLogout}:{hostMode?
   const [ready,setReady] = useState(false), [draft,setDraft] = useState(''), [refreshing,setRefreshing]=useState(false);
   const [dirty,setDirty]=useState(false), [pendingView,setPendingView]=useState<View|null>(null);
   const [menuOpen,setMenuOpen]=useState(false),[gatewayMounted,setGatewayMounted]=useState(view==='gateway');
+  // True when the global error is a lost connection that a later successful poll disproves.
   const pollError=useRef(false);
   const menuRef=useRef<HTMLButtonElement>(null);
   useEffect(()=>{if(view==='gateway')setGatewayMounted(true)},[view]);
@@ -37,10 +39,10 @@ function App({hostMode=false,active=true,desktopEntry=false,onLogout}:{hostMode?
   useEffect(()=>{if(!menuOpen)return;const onKey=(event:KeyboardEvent)=>{if(event.key!=='Escape')return;setMenuOpen(false);menuRef.current?.focus()};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)},[menuOpen]);
   const load = useCallback(async () => {const data = await api('tasks'); setTasks(data.tasks);}, []);
   const refreshStatus = useCallback(async () => setStatus(await api('status')), []);
-  const refresh = useCallback(async()=>{setRefreshing(true);try{setConversationSession(await session());setReady(true);await Promise.all([load(),refreshStatus()]);pollError.current=false;setError(null)}catch(e){pollError.current=false;setError(plainError(e))}finally{setRefreshing(false)}},[load,refreshStatus]);
+  const refresh = useCallback(async()=>{setRefreshing(true);try{setConversationSession(await session());setReady(true);await Promise.all([load(),refreshStatus()]);pollError.current=false;setError(null)}catch(e){pollError.current=lostConnection(e);setError(plainError(e))}finally{setRefreshing(false)}},[load,refreshStatus]);
   useEffect(()=>{const update=()=>{const next=currentRoute(hostMode);if(dirty&&next.view!==view){setPendingView(next.view);history.replaceState(null,'',`#${view}`);return}setRoute(next)};window.addEventListener('hashchange',update);return()=>window.removeEventListener('hashchange',update)},[hostMode,dirty,view]);
-  useEffect(()=>{if(!active)return;refresh();let alive=true;let timer:ReturnType<typeof setTimeout>;const poll=async()=>{try{await Promise.all([load(),refreshStatus()]);if(alive&&pollError.current){pollError.current=false;setError(null)}}catch(e){if(alive){pollError.current=true;setError(plainError(e))}}if(alive)timer=setTimeout(poll,10000)};timer=setTimeout(poll,10000);const auth=setInterval(()=>session().catch(()=>{}),1800000);return()=>{alive=false;clearTimeout(timer);clearInterval(auth)}},[active,refresh,load,refreshStatus]);
-  useEffect(()=>{if(!selected||!active){setDetail(null);return}let alive=true;let timer:ReturnType<typeof setTimeout>;setDetail(null);const update=async()=>{try{const d=await api(`tasks/${selected}`);if(alive){setDetail(d);if(pollError.current){pollError.current=false;setError(null)}}}catch(e){if(alive){pollError.current=true;setError(plainError(e))}}if(alive)timer=setTimeout(update,2500)};update();return()=>{alive=false;clearTimeout(timer)}},[selected,active]);
+  useEffect(()=>{if(!active)return;refresh();let alive=true;let timer:ReturnType<typeof setTimeout>;const poll=async()=>{try{await Promise.all([load(),refreshStatus()]);if(alive&&pollError.current){pollError.current=false;await refresh()}}catch(e){if(alive){pollError.current=lostConnection(e);setError(plainError(e))}}if(alive)timer=setTimeout(poll,10000)};timer=setTimeout(poll,10000);const auth=setInterval(()=>session().catch(()=>{}),1800000);return()=>{alive=false;clearTimeout(timer);clearInterval(auth)}},[active,refresh,load,refreshStatus]);
+  useEffect(()=>{if(!selected||!active){setDetail(null);return}let alive=true;let timer:ReturnType<typeof setTimeout>;setDetail(null);const update=async()=>{try{const d=await api(`tasks/${selected}`);if(alive)setDetail(d)}catch(e){if(alive){pollError.current=lostConnection(e);setError(plainError(e))}}if(alive)timer=setTimeout(update,2500)};update();return()=>{alive=false;clearTimeout(timer)}},[selected,active]);
   function navigate(next:View){setMenuOpen(false);if(dirty&&next!==view){setPendingView(next);return}location.hash=next;setRoute({view:next,task:null})}
   function openTask(task:Task){location.hash=`home/${task.id}`;setRoute({view:'home',task:task.id});load().catch(()=>{})}
   const nav:[View,string][]=hostMode
