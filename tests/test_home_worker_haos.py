@@ -369,6 +369,8 @@ def workspace_reclaimed(proof):
     """A missing/incomplete diagnostic must never count as confirmed cleanup."""
     return (proof.get('record_present') is True and proof.get('stop_confirmed') is True
         and proof.get('state') == 'disposed'
+        and not any(key.endswith('_observation_error') for key in proof)
+        and not any(key in proof for key in ('cgroup_populated', 'fuse_cgroup_populated'))
         and all(proof.get(key) is False for key in (
             'workspace_mounted', 'workspace_image_present', 'cgroup_present', 'fuse_cgroup_present')))
 
@@ -401,8 +403,10 @@ async def observe_job(api, identifier, evidence, proof, *, stopped=True, timeout
         try:
             workers = await asyncio.wait_for(api('GET', '/api/workers'), timeout=5)
             home = next((item for item in workers.get('workers', []) if item.get('worker_id') == 'home-coder'), {})
-            observation['lease'] = {'exact_job_retained': workers.get('active_job_id') == identifier,
-                'no_active_job': workers.get('active_job_id') is None}
+            observation['lease'] = {}
+            if 'active_job_id' in workers:
+                observation['lease'].update(exact_job_retained=workers['active_job_id'] == identifier,
+                    no_active_job=workers['active_job_id'] is None)
             if type(home.get('available')) is bool:
                 observation['lease']['worker_available'] = home['available']
         except Exception as diagnostic_error:
@@ -448,6 +452,41 @@ def artifact_bytes(metadata, result):
     raw = base64.b64decode(encoded, validate=True)
     assert len(raw) == metadata['size'] and hashlib.sha256(raw).hexdigest() == metadata['sha256'], 'artifact_digest_changed'
     return raw
+
+
+async def require_source_job_success(job, case_id, evidence, api, proof):
+    """Supplement a failed job with best-effort diagnostics, keeping its verdict."""
+    evidence['source_job'] = job_projection(job)
+    if job.get('state') != 'succeeded':
+        observed = next((item for item in reversed(evidence.get('job_waits', []))
+            if item.get('job_id') == job.get('id')), {})
+        if 'boundary' in observed:
+            evidence['source_job_boundary'] = observed['boundary']
+        elif 'boundary_observation_error' in observed:
+            evidence['source_job_boundary_observation_error'] = observed['boundary_observation_error']
+        else:
+            try:
+                evidence['source_job_boundary'] = proof(job['id'])
+            except Exception as error:
+                evidence['source_job_boundary_observation_error'] = failure_receipt(error, source_files=(Path(__file__),))
+        try:
+            for meta in job.get('artifacts', []):
+                if meta['name'] != 'home-boundaries.json':
+                    continue
+                content = await api('GET', '/api/worker/jobs/' + job['id'] + '/artifacts/' + meta['id'])
+                checks = json.loads(artifact_bytes(meta, content)).get('checks', {})
+                safe_keys = {'uid_unprivileged', 'supervisor_env_absent', 'hassio_env_absent', 'fixture_parent_env_absent',
+                    'docker_socket_absent', 'host_socket_absent', 'role_auth_secret_unreadable',
+                    'runner_key_secret_unreadable', 'private_canary_secret_unreadable', 'parent_environ_secret_unreadable',
+                    'lan_direct_network_denied', 'public_direct_network_denied', 'tmp_on_bounded_volume',
+                    'root_outside_volume_readonly', 'run_outside_volume_readonly',
+                    'shm_outside_volume_readonly', 'dev_outside_volume_readonly', 'git_metadata_read_only',
+                    'worker_pid_ns_distinct_from_app', 'worker_cgroup_ns_distinct_from_app', 'worker_mnt_ns_distinct_from_app'} | ENTRY_CHECK_NAMES
+                evidence['failed_job_boundary_checks'] = {key: checks[key] for key in safe_keys if type(checks.get(key)) is bool}
+        except Exception as error:
+            evidence['failed_job_boundary_observation_error'] = failure_receipt(error, source_files=(Path(__file__),))
+    if job.get('state') != 'succeeded' or job.get('case_id') != case_id:
+        raise AssertionError('home_source_job_failed')
 
 
 def stored_observation_projection(rows, case_id, base_commit):
@@ -918,23 +957,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
                     checkpoint=lambda: report.write_text(json.dumps(evidence, indent=2) + '\n'))
 
             job = await wait_job(job['id'])
-            evidence['source_job'] = job_projection(job)
-            if job['state'] != 'succeeded':
-                evidence['source_job_boundary'] = job_proof(job['id'])
-                for meta in job['artifacts']:
-                    if meta['name'] != 'home-boundaries.json':
-                        continue
-                    content = await api('GET', '/api/worker/jobs/' + job['id'] + '/artifacts/' + meta['id'])
-                    checks = json.loads(artifact_bytes(meta, content)).get('checks', {})
-                    safe_keys = {'uid_unprivileged', 'supervisor_env_absent', 'hassio_env_absent', 'fixture_parent_env_absent',
-                        'docker_socket_absent', 'host_socket_absent', 'role_auth_secret_unreadable',
-                        'runner_key_secret_unreadable', 'private_canary_secret_unreadable', 'parent_environ_secret_unreadable',
-                        'lan_direct_network_denied', 'public_direct_network_denied', 'tmp_on_bounded_volume',
-                        'root_outside_volume_readonly', 'run_outside_volume_readonly',
-                        'shm_outside_volume_readonly', 'dev_outside_volume_readonly', 'git_metadata_read_only',
-                        'worker_pid_ns_distinct_from_app', 'worker_cgroup_ns_distinct_from_app', 'worker_mnt_ns_distinct_from_app'} | ENTRY_CHECK_NAMES
-                    evidence['failed_job_boundary_checks'] = {key: checks[key] for key in safe_keys if type(checks.get(key)) is bool}
-            assert job['state'] == 'succeeded' and job['case_id'] == case_id, 'home_source_job_failed'
+            await require_source_job_success(job, case_id, evidence, api, job_proof)
             assert job['verification']['state'] == 'passed', 'home_independent_verification_failed'
             assert job['verification']['observed_from'] == 'independent_home_verifier', 'home_verifier_location_wrong'
             assert job['evidence_ids'] and job['runtime_location'] == 'haos_app', 'home_evidence_missing'
@@ -1933,3 +1956,81 @@ def test_partial_runtime_launch_recovery_is_observed_without_clearing_its_fence(
     assert recovered['launch_failure'] == failure['launch_failure']
     assert (root / identifier / 'cancelled').is_file()
     assert not workspace_reclaimed(recovered)
+
+
+@pytest.mark.parametrize('diagnostic', [
+    {'boundary': {'launcher_diagnostic': {'error_code': 'command_timeout'}}},
+    {'boundary_observation_error': {'error_type': 'TimeoutExpired', 'error_code': 'unclassified_fixture_error'}},
+])
+async def test_failed_source_job_keeps_primary_verdict_when_artifact_read_fails(diagnostic):
+    identifier, case_id = 'a' * 32, 'b' * 32
+    evidence = {'job_waits': [{'job_id': identifier, **diagnostic}]}
+    job = {'id': identifier, 'case_id': case_id, 'state': 'failed', 'stop_confirmed': True,
+        'artifacts': [{'name': 'home-boundaries.json', 'id': 'c' * 32}]}
+    async def api(method, path):
+        raise TimeoutError('private response')
+    def proof(value):
+        pytest.fail('The failure observation was already captured')
+    with pytest.raises(AssertionError, match='^home_source_job_failed$'):
+        await require_source_job_success(job, case_id, evidence, api, proof)
+    assert evidence['failed_job_boundary_observation_error']['error_type'] == 'TimeoutError'
+    key = 'boundary' if 'boundary' in diagnostic else 'boundary_observation_error'
+    assert evidence['source_job_' + key] == diagnostic[key]
+    assert 'private' not in json.dumps(evidence)
+
+
+async def test_failed_source_job_keeps_verdict_when_uncaptured_proof_and_artifacts_are_invalid():
+    job = {'id': 'a' * 32, 'state': 'failed', 'stop_confirmed': True, 'artifacts': [None]}
+    evidence = {}
+    async def api(method, path):
+        pytest.fail('Invalid metadata must not trigger a request')
+    def proof(value):
+        raise subprocess.TimeoutExpired('private command', 10)
+    with pytest.raises(AssertionError, match='^home_source_job_failed$'):
+        await require_source_job_success(job, 'b' * 32, evidence, api, proof)
+    assert evidence['source_job_boundary_observation_error']['error_type'] == 'TimeoutExpired'
+    assert 'failed_job_boundary_observation_error' in evidence
+    assert 'private' not in json.dumps(evidence)
+
+
+async def test_missing_active_job_field_remains_unknown_in_failure_receipt():
+    evidence = {}
+    async def api(method, path):
+        return {'workers': [{'worker_id': 'home-coder', 'available': False}]}
+    with pytest.raises(AssertionError, match='home_worker_state_timeout'):
+        await observe_job(api, 'a' * 32, evidence, lambda _: {}, timeout=0)
+    assert evidence['job_waits'][0]['lease'] == {'worker_available': False}
+
+
+@pytest.mark.parametrize('extra', [
+    {'record_observation_error': {}}, {'cgroup_observation_error': {}}, {'fuse_cgroup_observation_error': {}},
+    {'cgroup_populated': True}, {'fuse_cgroup_populated': True},
+    {'cgroup_populated': False}, {'fuse_cgroup_populated': False},
+])
+def test_cleanup_rejects_failed_or_contradictory_resource_observations(extra):
+    proof = {'record_present': True, 'stop_confirmed': True, 'state': 'disposed',
+        'workspace_mounted': False, 'workspace_image_present': False,
+        'cgroup_present': False, 'fuse_cgroup_present': False}
+    assert not workspace_reclaimed({**proof, **extra})
+
+
+def test_job_proof_observes_cgroup_presence_once_and_cannot_publish_absent_but_populated(tmp_path, monkeypatch):
+    from home_worker_haos_probe import job_proof
+    identifier, name = 'a' * 32, 'w-' + 'b' * 32
+    root = tmp_path / 'work'
+    root.mkdir()
+    group = tmp_path / 'cgroups' / name
+    group.mkdir(parents=True)
+    (group / 'cgroup.events').write_text('populated 1\nfrozen 0\n')
+    (root / (identifier + '.json')).write_text(json.dumps({'state': 'disposed', 'stop_confirmed': True,
+        'cgroup': {'name': name}}))
+    original, observed = Path.exists, []
+    def exists(path):
+        if path == group:
+            observed.append(True)
+            return len(observed) > 1
+        return original(path)
+    monkeypatch.setattr(Path, 'exists', exists)
+    proof = job_proof(identifier, root=root)
+    assert len(observed) == 1
+    assert proof['cgroup_present'] is False and 'cgroup_populated' not in proof
