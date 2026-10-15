@@ -1186,3 +1186,98 @@ def test_plain_home_inventory_and_ingress_settings():
             browser.close()
     finally:
         _stop(server, thread)
+
+
+@pytest.mark.parametrize('mode', ['host', 'ingress'])
+def test_setup_guide_waits_for_starting_services_after_reboot(mode):
+    """Finished setup waits while paired Runner or previously confirmed HA is unavailable."""
+    root, server, thread = _ui_server()
+    connected_runner = {'protocol': 1, 'providers': [{'provider': 'codex', 'status': 'connected'}]}
+    scene = {
+        'ha': 'connected',
+        'runner': {'status': 'unavailable', 'message': 'Runner 無法連線', 'providers': []},
+        'policy_confirmed': True,
+    }
+    errors = []
+
+    def route(route):
+        path = route.request.url.split('/api/')[1].split('?')[0]
+        if path == 'deployment':
+            result = {'mode': mode, 'authenticated': True}
+        elif path == 'session':
+            result = {'principal': 'host-owner' if mode == 'host' else 'fixture-owner',
+                      'csrf': 'fixture-csrf', 'mode': mode}
+        elif path == 'status':
+            result = {
+                'version': '0.9.0',
+                'paused': False,
+                'ha': {'status': scene['ha'], 'location_name': '介面測試家庭'},
+                'runner': scene['runner'],
+                'gateway': {'selected': True},
+                'onboarding': {'policy_confirmed': scene['policy_confirmed']},
+                'policy_readable': 1,
+                'policy_entities': 1,
+            }
+        elif path == 'tasks':
+            result = {'tasks': []}
+        elif path == 'services':
+            result = {'services': []}
+        elif path == 'retention':
+            result = {'audit_days': 30, 'context_days': 7}
+        else:
+            result = {}
+        _fulfill(route, result)
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={'width': 1440, 'height': 900})
+            page.on('pageerror', lambda error: errors.append(str(error)))
+            page.route('**/api/**', route)
+            page.goto(f'http://127.0.0.1:{server.server_port}/#home')
+
+            waiting = page.locator('.setup-loading[role="status"]')
+            expect(waiting).to_have_text('等待主機服務恢復連線…')
+            expect(page.get_by_role('region', name='開始使用')).to_have_count(0)
+            expect(page.get_by_text('設定尚未完成')).to_have_count(0)
+            expect(page.get_by_role('heading', name='開始使用')).to_have_count(0)
+
+            # Runner recovers while previously connected Home Assistant is still starting.
+            scene['runner'] = connected_runner
+            scene['ha'] = 'unavailable'
+            page.reload()
+            expect(waiting).to_have_text('等待主機服務恢復連線…')
+            expect(page.get_by_role('region', name='開始使用')).to_have_count(0)
+            expect(page.get_by_text('設定尚未完成')).to_have_count(0)
+
+            # Once both recover on a finished setup, the waiting line disappears and no guide is shown.
+            scene['ha'] = 'connected'
+            page.reload()
+            expect(page.get_by_label('家庭需求')).to_be_visible()
+            expect(waiting).to_have_count(0)
+            expect(page.get_by_role('region', name='開始使用')).to_have_count(0)
+            expect(page.get_by_text('設定尚未完成')).to_have_count(0)
+
+            # An unpaired Runner still shows the setup guide.
+            scene['runner'] = {'status': 'unpaired', 'providers': []}
+            page.reload()
+            expect(waiting).to_have_count(0)
+            guide = page.get_by_role('region', name='開始使用')
+            expect(guide).to_be_visible()
+            if mode == 'host':
+                expect(guide.get_by_text('設定尚未完成', exact=True)).to_be_visible()
+            else:
+                expect(guide.get_by_role('heading', name='開始使用', exact=True)).to_be_visible()
+
+            # A never-connected home (policy_confirmed is False) with HA unavailable still shows the guide.
+            scene['runner'] = connected_runner
+            scene['ha'] = 'unavailable'
+            scene['policy_confirmed'] = False
+            page.reload()
+            expect(waiting).to_have_count(0)
+            expect(page.get_by_role('region', name='開始使用')).to_be_visible()
+            assert not errors, errors
+            browser.close()
+    finally:
+        _stop(server, thread)
+
