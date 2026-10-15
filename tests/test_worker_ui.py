@@ -1755,4 +1755,3 @@ def test_host_panel_waits_for_runner_reconnect_and_selects_connected_provider(ui
     expect(page.get_by_text('尚未登入 AI 帳號。', exact=True)).to_have_count(0)
     expect(page.get_by_text('等待 AI 帳號恢復連線…', exact=True)).to_have_count(0)
     assert not errors
-

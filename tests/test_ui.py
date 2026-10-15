@@ -1190,7 +1190,7 @@ def test_plain_home_inventory_and_ingress_settings():
 
 @pytest.mark.parametrize('mode', ['host', 'ingress'])
 def test_setup_guide_waits_for_starting_services_after_reboot(mode):
-    """Finished setup waits while paired Runner or previously confirmed HA is unavailable."""
+    """A finished setup hides the guide while a paired Runner or a once-connected HA is still starting."""
     root, server, thread = _ui_server()
     connected_runner = {'protocol': 1, 'providers': [{'provider': 'codex', 'status': 'connected'}]}
     scene = {
@@ -1236,8 +1236,10 @@ def test_setup_guide_waits_for_starting_services_after_reboot(mode):
             page.route('**/api/**', route)
             page.goto(f'http://127.0.0.1:{server.server_port}/#home')
 
-            waiting = page.locator('.setup-loading[role="status"]')
-            expect(waiting).to_have_text('等待主機服務恢復連線…')
+            # The composer line proves the status has loaded before the guide's absence is checked.
+            composer, waiting = page.locator('.composer'), page.locator('.setup-loading')
+            expect(composer).to_contain_text('等待 AI 帳號恢復連線…')
+            expect(waiting).to_have_count(0)
             expect(page.get_by_role('region', name='開始使用')).to_have_count(0)
             expect(page.get_by_text('設定尚未完成')).to_have_count(0)
             expect(page.get_by_role('heading', name='開始使用')).to_have_count(0)
@@ -1246,11 +1248,12 @@ def test_setup_guide_waits_for_starting_services_after_reboot(mode):
             scene['runner'] = connected_runner
             scene['ha'] = 'unavailable'
             page.reload()
-            expect(waiting).to_have_text('等待主機服務恢復連線…')
+            expect(composer).to_contain_text('家庭尚未連線。')
+            expect(waiting).to_have_count(0)
             expect(page.get_by_role('region', name='開始使用')).to_have_count(0)
             expect(page.get_by_text('設定尚未完成')).to_have_count(0)
 
-            # Once both recover on a finished setup, the waiting line disappears and no guide is shown.
+            # Once both recover on a finished setup, no guide is shown either.
             scene['ha'] = 'connected'
             page.reload()
             expect(page.get_by_label('家庭需求')).to_be_visible()
@@ -1280,4 +1283,3 @@ def test_setup_guide_waits_for_starting_services_after_reboot(mode):
             browser.close()
     finally:
         _stop(server, thread)
-

@@ -6,7 +6,8 @@ export function currentRoute(hostMode: boolean): {view:View; task:string|null} {
 }
 export function SetupGuide({status,hostMode,navigate,view}:{status:any;hostMode:boolean;navigate:(view:View)=>void;view:View}) {
   if (!status) return <div className="setup-loading" role="status">正在讀取家庭與 AI 帳號的連線狀態…</div>;
-  if (status.runner?.status==='unavailable'||(status.ha?.status==='unavailable'&&status.onboarding?.policy_confirmed===true)) return <div className="setup-loading" role="status">等待主機服務恢復連線…</div>;
+  // A paired Runner or a once-connected home that is still starting is not unfinished setup; the waiting parts say so.
+  if (status.runner?.status==='unavailable'||(status.ha?.status==='unavailable'&&status.onboarding?.policy_confirmed===true)) return null;
   const paired = status.runner?.protocol === 1;
   const connected = status.runner?.providers?.some((p:any)=>p.status==='connected');
   const steps = hostMode ? [

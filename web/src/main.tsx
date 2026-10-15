@@ -200,7 +200,8 @@ function Root(){
   const load=useCallback(async()=>{try{let result=await api('deployment');configureDeployment(result.mode);if(result.mode==='host'){setDesktopError(await desktopLogin()==='failed');if(consumeDesktopEntry()){setDesktopEntry(true);result=await api('deployment')}}setError(null);setDeployment(result);if(result.mode==='ingress'||result.mode==='host'&&result.authenticated)setMounted(true)}catch(e){setError(plainError(e))}},[]);
   useEffect(()=>{load();const expire=()=>setDeployment((d:any)=>({...d,authenticated:false}));window.addEventListener('agentic-session-expired',expire);return()=>window.removeEventListener('agentic-session-expired',expire)},[load]);
   const retryDeployment=!!(!deployment&&error||deployment?.mode==='bridge'&&deployment.bridge_state==='unavailable');
-  useEffect(()=>{if(!retryDeployment)return;const timer=setInterval(load,5000);return()=>clearInterval(timer)},[retryDeployment,load]);
+  // Wait for each retry to finish, so a slow 'unavailable' reply cannot land after a newer 'ready'.
+  useEffect(()=>{if(!retryDeployment)return;let alive=true;let timer:ReturnType<typeof setTimeout>;const retry=async()=>{await load();if(alive)timer=setTimeout(retry,5000)};timer=setTimeout(retry,5000);return()=>{alive=false;clearTimeout(timer)}},[retryDeployment,load]);
   if(!deployment)return <main className="host-login"><h1>{error?'服務尚未回應':'正在開啟主機'}</h1>{error?<><p>請確認主機後再試一次。</p><p className="helper-text" role="alert" data-reason={error.code}>{error.text}</p><Button onClick={load}>重試連線</Button></>:<p role="status">正在確認這台主機。</p>}</main>;
   if(deployment.mode==='bridge')return <BridgeApp deployment={deployment} onRetry={load}/>;
   if(!['host','ingress'].includes(deployment.mode))return <main className="host-login"><h1>無法確認入口</h1><p>請重新連線後再試。</p><Button secondary onClick={load}>重新連線</Button></main>;

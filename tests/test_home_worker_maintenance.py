@@ -1314,5 +1314,3 @@ async def test_controller_restart_or_record_reset_gets_fresh_runner_startup_grac
     await drive(restarted, "pair")
     status = await restarted.tick()
     assert (status["state"], status["code"]) == ("waiting", "home_worker_app_starting")
-
-
