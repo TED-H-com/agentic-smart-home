@@ -1183,3 +1183,134 @@ async def test_repair_route_home_outage_is_calm_and_preserves_record(manager, mo
     assert manager.record() == before
     if getattr(app.state, "gateway", None):
         await app.state.gateway.close()
+
+
+@pytest.mark.parametrize("available,credential,expected_state", [
+    (False, "needs_auth", "login_ready"),
+    (True, "configured", "ready"),
+])
+async def test_freshly_started_app_waits_for_runner_listener_before_ready_or_login(
+    manager, available, credential, expected_state
+):
+    await login_ready(manager)
+    manager.ha.app["state"] = "startup"
+    status = await manager.tick()
+    assert (status["state"], status["code"]) == ("waiting", "home_worker_app_starting")
+    assert status["login"]["show"] is False
+
+    real_call = manager.runner.call
+
+    async def down(method, path, data=None, pairing=None):
+        manager.runner.calls.append((method, path))
+        raise OSError("connect refused")
+
+    manager.runner.call = down
+    manager.ha.app["state"] = "started"
+    states = []
+    for delta in (0, 15, STARTUP_GRACE - 16):
+        manager.clock.now += delta
+        status = await manager.tick()
+        states.append(status["state"])
+        assert (status["state"], status["code"]) == ("waiting", "home_worker_app_starting")
+        assert status["worker_available"] is False and status["login"]["show"] is False
+
+    manager.runner.call = real_call
+    manager.runner.capabilities["available"] = available
+    manager.runner.capabilities["providers"][0]["credential_state"] = credential
+    status = await manager.tick()
+    states.append(status["state"])
+    assert status["state"] == expected_state
+    assert status["login"]["show"] is (expected_state == "login_ready")
+    assert "unavailable" not in states
+
+
+async def test_freshly_started_app_still_failing_after_startup_grace_is_unavailable(manager):
+    await login_ready(manager)
+    manager.ha.app["state"] = "startup"
+    await manager.tick()
+
+    async def down(method, path, data=None, pairing=None):
+        raise RunnerError("Runner 無法連線")
+
+    manager.runner.call = down
+    manager.ha.app["state"] = "started"
+    status = await manager.tick()
+    assert (status["state"], status["code"]) == ("waiting", "home_worker_app_starting")
+    assert status["worker_available"] is False and status["login"]["show"] is False
+
+    manager.clock.now += STARTUP_GRACE - 1
+    status = await manager.tick()
+    assert (status["state"], status["code"]) == ("waiting", "home_worker_app_starting")
+
+    manager.clock.now += 1
+    status = await manager.tick()
+    assert (status["state"], status["code"]) == ("unavailable", "home_worker_worker_unavailable")
+    assert status["worker_available"] is False and status["login"]["show"] is False
+
+
+async def test_ha_unreachable_tick_restarts_runner_startup_grace(manager, monkeypatch):
+    await login_ready(manager)
+    manager.ha.app["state"] = "startup"
+    await manager.tick()
+
+    async def down(method, path, data=None, pairing=None):
+        raise RunnerError("Runner 無法連線")
+
+    manager.runner.call = down
+    manager.ha.app["state"] = "started"
+    await manager.tick()
+
+    manager.clock.now += STARTUP_GRACE - 10
+    owner = manager.ha.owner
+
+    async def unreachable(*args):
+        raise HAUnreachable("fixture")
+
+    monkeypatch.setattr(manager.ha, "owner", unreachable)
+    status = await manager.tick()
+    assert (status["state"], status["code"]) == ("waiting", "home_worker_home_unreachable")
+
+    monkeypatch.setattr(manager.ha, "owner", owner)
+    manager.clock.now += 20
+    status = await manager.tick()
+    assert (status["state"], status["code"]) == ("waiting", "home_worker_app_starting")
+
+    manager.clock.now += STARTUP_GRACE - 1
+    status = await manager.tick()
+    assert (status["state"], status["code"]) == ("waiting", "home_worker_app_starting")
+
+    manager.clock.now += 1
+    status = await manager.tick()
+    assert (status["state"], status["code"]) == ("unavailable", "home_worker_worker_unavailable")
+
+
+async def test_controller_restart_or_record_reset_gets_fresh_runner_startup_grace(manager):
+    await login_ready(manager)
+
+    async def down(method, path, data=None, pairing=None):
+        raise RunnerError("Runner 無法連線")
+
+    manager.runner.call = down
+    # In the current manager, the Runner already answered during login_ready, so failure is immediate.
+    assert (await manager.tick())["state"] == "unavailable"
+
+    # A new manager over the same store (Controller restart) starts a fresh in-memory grace.
+    restarted = HomeWorkerMaintenance(manager.store, manager.ha, manager.runner, "d" * 32, clock=manager.clock)
+    status = await restarted.tick()
+    assert (status["state"], status["code"]) == ("waiting", "home_worker_app_starting")
+    assert status["worker_available"] is False and status["login"]["show"] is False
+
+    manager.clock.now += STARTUP_GRACE - 1
+    status = await restarted.tick()
+    assert (status["state"], status["code"]) == ("waiting", "home_worker_app_starting")
+
+    manager.clock.now += 1
+    status = await restarted.tick()
+    assert (status["state"], status["code"]) == ("unavailable", "home_worker_worker_unavailable")
+
+    # Disabling and repairing the record also forgets the previous run and starts a fresh grace.
+    await restarted.disable()
+    await restarted.repair()
+    await drive(restarted, "pair")
+    status = await restarted.tick()
+    assert (status["state"], status["code"]) == ("waiting", "home_worker_app_starting")

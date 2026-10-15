@@ -106,6 +106,11 @@ def test_browser_approval_and_responsive_layout(intent):
             page.get_by_role("status").filter(has_text="已儲存。受影響的提案需要重新產生。").wait_for()
             click_navigation(page, '連線與設定')
             page.get_by_role("heading", name="登入 AI 帳號").wait_for()
+            expect(page.get_by_role("button", name="登出")).to_be_visible()
+            expect(page.get_by_role("heading", name="Google Nest")).to_be_visible()
+            expect(page.get_by_label("任務紀錄（1–30 天）")).to_have_value("30")
+            expect(page.get_by_label("AI 觀測資料（1–7 天）")).to_have_value("7")
+            expect(page.get_by_role("button", name="儲存保存天數")).to_be_visible()
             assert page.locator('footer').count() == 0
             assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
             page.screenshot(path=str(evidence / "settings-390.png"), full_page=True)
@@ -1177,6 +1182,103 @@ def test_plain_home_inventory_and_ingress_settings():
             page.get_by_text('還原說明', exact=True).click()
             expect(note).to_be_visible()
             expect(page.get_by_role('heading', name='執行環境', exact=True)).to_be_visible()
+            assert not errors, errors
+            browser.close()
+    finally:
+        _stop(server, thread)
+
+
+@pytest.mark.parametrize('mode', ['host', 'ingress'])
+def test_setup_guide_waits_for_starting_services_after_reboot(mode):
+    """A finished setup hides the guide while a paired Runner or a once-connected HA is still starting."""
+    root, server, thread = _ui_server()
+    connected_runner = {'protocol': 1, 'providers': [{'provider': 'codex', 'status': 'connected'}]}
+    scene = {
+        'ha': 'connected',
+        'runner': {'status': 'unavailable', 'message': 'Runner 無法連線', 'providers': []},
+        'policy_confirmed': True,
+    }
+    errors = []
+
+    def route(route):
+        path = route.request.url.split('/api/')[1].split('?')[0]
+        if path == 'deployment':
+            result = {'mode': mode, 'authenticated': True}
+        elif path == 'session':
+            result = {'principal': 'host-owner' if mode == 'host' else 'fixture-owner',
+                      'csrf': 'fixture-csrf', 'mode': mode}
+        elif path == 'status':
+            result = {
+                'version': '0.9.0',
+                'paused': False,
+                'ha': {'status': scene['ha'], 'location_name': '介面測試家庭'},
+                'runner': scene['runner'],
+                'gateway': {'selected': True},
+                'onboarding': {'policy_confirmed': scene['policy_confirmed']},
+                'policy_readable': 1,
+                'policy_entities': 1,
+            }
+        elif path == 'tasks':
+            result = {'tasks': []}
+        elif path == 'services':
+            result = {'services': []}
+        elif path == 'retention':
+            result = {'audit_days': 30, 'context_days': 7}
+        else:
+            result = {}
+        _fulfill(route, result)
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(viewport={'width': 1440, 'height': 900})
+            page.on('pageerror', lambda error: errors.append(str(error)))
+            page.route('**/api/**', route)
+            page.goto(f'http://127.0.0.1:{server.server_port}/#home')
+
+            # The composer line proves the status has loaded before the guide's absence is checked.
+            composer, waiting = page.locator('.composer'), page.locator('.setup-loading')
+            expect(composer).to_contain_text('等待 AI 帳號恢復連線…')
+            expect(waiting).to_have_count(0)
+            expect(page.get_by_role('region', name='開始使用')).to_have_count(0)
+            expect(page.get_by_text('設定尚未完成')).to_have_count(0)
+            expect(page.get_by_role('heading', name='開始使用')).to_have_count(0)
+
+            # Runner recovers while previously connected Home Assistant is still starting.
+            scene['runner'] = connected_runner
+            scene['ha'] = 'unavailable'
+            page.reload()
+            expect(composer).to_contain_text('家庭尚未連線。')
+            expect(waiting).to_have_count(0)
+            expect(page.get_by_role('region', name='開始使用')).to_have_count(0)
+            expect(page.get_by_text('設定尚未完成')).to_have_count(0)
+
+            # Once both recover on a finished setup, no guide is shown either.
+            scene['ha'] = 'connected'
+            page.reload()
+            expect(page.get_by_label('家庭需求')).to_be_visible()
+            expect(waiting).to_have_count(0)
+            expect(page.get_by_role('region', name='開始使用')).to_have_count(0)
+            expect(page.get_by_text('設定尚未完成')).to_have_count(0)
+
+            # An unpaired Runner still shows the setup guide.
+            scene['runner'] = {'status': 'unpaired', 'providers': []}
+            page.reload()
+            expect(waiting).to_have_count(0)
+            guide = page.get_by_role('region', name='開始使用')
+            expect(guide).to_be_visible()
+            if mode == 'host':
+                expect(guide.get_by_text('設定尚未完成', exact=True)).to_be_visible()
+            else:
+                expect(guide.get_by_role('heading', name='開始使用', exact=True)).to_be_visible()
+
+            # A never-connected home (policy_confirmed is False) with HA unavailable still shows the guide.
+            scene['runner'] = connected_runner
+            scene['ha'] = 'unavailable'
+            scene['policy_confirmed'] = False
+            page.reload()
+            expect(waiting).to_have_count(0)
+            expect(page.get_by_role('region', name='開始使用')).to_be_visible()
             assert not errors, errors
             browser.close()
     finally:

@@ -14,7 +14,7 @@ function loadNames(){
     const map:Record<string,Named>={};
     for(const entity of data?.entities||[])if(entity&&typeof entity.entity_id==='string'&&typeof entity.name==='string'&&entity.name.trim())map[entity.entity_id]={name:entity.name.trim(),area:typeof entity.area==='string'&&entity.area.trim()?entity.area.trim():null};
     inventoryNames=map;
-  }).catch(()=>{inventoryNames={}});
+  }).catch(()=>{inventoryNames=null;inventoryLoad=null});
   return inventoryLoad;
 }
 function deviceName(id:string,allowNames:boolean){

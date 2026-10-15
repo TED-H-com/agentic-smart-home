@@ -817,3 +817,294 @@ def test_automatic_poll_recovers_without_hiding_action_error():
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+def test_lost_connection_recovers_after_failed_reconnect_and_first_load_but_missing_task_stays():
+    server, thread = _server()
+    state = {'offline': True}
+    missing = 'f' * 32
+
+    def route(route):
+        path = route.request.url.split('/api/')[1]
+        if state['offline'] and path in {'session', 'tasks'}:
+            route.fulfill(status=503, json={'detail': '暫時連不上管理服務，請稍後再試。'})
+            return
+        if path == f'tasks/{missing}':
+            route.fulfill(status=404, json={'detail': '這份資料已過期或不存在。'})
+            return
+        value = {'deployment': {'mode': 'host', 'authenticated': True},
+                 'session': {'csrf': 'fixture-csrf', 'principal': 'fixture-owner'},
+                 'status': {'paused': True, 'ha': {'status': 'connected'}},
+                 'tasks': {'tasks': []}}.get(path, {})
+        route.fulfill(status=200, json=value)
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.clock.install()
+            page.route('**/api/**', route)
+            page.goto(f'http://127.0.0.1:{server.server_port}/#history')
+            error = page.locator('.global-error')
+            resume = page.get_by_role('button', name='AI 已暫停 · 恢復', exact=True)
+            # The first load fails: the page opens by itself once the service answers.
+            expect(page.get_by_text('暫時無法開啟', exact=True)).to_be_visible()
+            expect(error).to_contain_text('暫時連不上管理服務')
+            state['offline'] = False
+            page.clock.run_for(10_100)
+            expect(resume).to_be_visible()
+            expect(error).to_have_count(0)
+            # A reconnect that fails while the service is down does not keep the error after it is back.
+            state['offline'] = True
+            page.clock.run_for(10_100)
+            expect(error).to_contain_text('暫時連不上管理服務')
+            error.get_by_role('button', name='重新連線', exact=True).click()
+            expect(error.get_by_role('button', name='重新連線', exact=True)).to_be_enabled()
+            expect(error).to_contain_text('暫時連不上管理服務')
+            state['offline'] = False
+            page.clock.run_for(10_100)
+            expect(error).to_have_count(0)
+            # A task that no longer exists keeps its message; it does not blink with each poll.
+            page.goto(f'http://127.0.0.1:{server.server_port}/#home/{missing}')
+            expect(error).to_contain_text('這份資料已過期或不存在。')
+            for _ in range(3):
+                page.clock.run_for(10_100)
+                expect(error).to_contain_text('這份資料已過期或不存在。')
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+@pytest.mark.parametrize('scenario', ['reconnect', 'recovery-task', 'valid-task', 'history', 'action', 'forbidden'])
+def test_global_error_ownership_during_recovery_and_navigation(scenario):
+    server, thread = _server()
+    state = {'status': 200, 'hold': False, 'held': [], 'polls': 0}
+    missing, valid = 'f' * 32, 'a' * 32
+    task = {'id': valid, 'request': '有效提案', 'provider': 'codex', 'state': 'succeeded',
+            'message': '', 'created_at': '2026-10-13T00:00:00Z', 'updated_at': '2026-10-13T00:00:00Z'}
+
+    def route(route):
+        path = route.request.url.split('/api/')[1]
+        if path == 'session' and state['hold']:
+            # Sync Playwright handlers must return so the test can drive the action.
+            state['held'].append(route)
+            return
+        if path == 'tasks':
+            state['polls'] += 1
+            if state['status'] != 200:
+                route.fulfill(status=state['status'], json={'detail': '輪詢失敗，請重新連線。'})
+                return
+        if path == f'tasks/{missing}':
+            route.fulfill(status=404, json={'detail': '這份資料已過期或不存在。'})
+            return
+        if path == 'pause':
+            route.fulfill(status=409, json={'detail': '恢復衝突，請稍後再試。'})
+            return
+        value = {'deployment': {'mode': 'host', 'authenticated': True},
+                 'session': {'csrf': 'fixture-csrf', 'principal': 'fixture-owner'},
+                 'status': {'paused': True, 'ha': {'status': 'connected'}},
+                 'tasks': {'tasks': []}, f'tasks/{valid}': task}.get(path, {})
+        route.fulfill(status=200, json=value)
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.clock.install()
+            page.route('**/api/**', route)
+            page.goto(f'http://127.0.0.1:{server.server_port}/#history')
+            resume = page.get_by_role('button', name='AI 已暫停 · 恢復', exact=True)
+            expect(resume).to_be_visible()
+            error = page.locator('.global-error')
+            if scenario in {'action', 'recovery-task', 'forbidden'}:
+                state['status'] = 403 if scenario == 'forbidden' else 503
+                page.clock.run_for(10_100)
+                expect(error).to_contain_text('輪詢失敗')
+                state['status'] = 200
+                state['hold'] = scenario != 'forbidden'
+                page.clock.run_for(10_100)
+                if state['hold']:
+                    # Pump browser events without blocking a route handler.
+                    expect(page.get_by_role('button', name='重新連線中…', exact=True)).to_be_visible()
+                    assert len(state['held']) == 1
+            if scenario == 'action':
+                resume.click()
+                expect(error).to_contain_text('恢復衝突')
+                state['hold'] = False
+                state['held'].pop().fulfill(status=200, json={'csrf': 'fixture-csrf', 'principal': 'fixture-owner'})
+                expect(error.get_by_role('button', name='重新連線', exact=True)).to_be_enabled()
+                expect(error).to_contain_text('恢復衝突')
+            elif scenario == 'forbidden':
+                before = state['polls']
+                for _ in range(3):
+                    with page.expect_response('**/api/tasks'):
+                        page.clock.run_for(10_100)
+                    page.wait_for_timeout(100)
+                # The first awaited response may belong to a request already in flight.
+                assert state['polls'] >= before + 2
+                expect(error).to_contain_text('輪詢失敗')
+                error.get_by_role('button', name='重新連線', exact=True).click()
+                expect(error).to_have_count(0)
+            else:
+                page.evaluate(f"location.hash='home/{missing}'")
+                expect(error).to_contain_text('這份資料已過期或不存在。')
+                if scenario in {'valid-task', 'history'}:
+                    page.evaluate(f"location.hash='{'home/' + valid if scenario == 'valid-task' else 'history'}'")
+                    if scenario == 'valid-task':
+                        expect(page.locator('.task-detail h2')).to_have_text('有效提案')
+                    else:
+                        expect(page.locator('h1')).to_have_text('紀錄')
+                    expect(error).to_have_count(0)
+                else:
+                    page.evaluate("""() => {
+                        window.bannerDisappearances = 0;
+                        new MutationObserver(records => {
+                            for (const record of records) for (const node of record.removedNodes)
+                                if (node.nodeType === 1 && (node.matches('.global-error') || node.querySelector('.global-error')))
+                                    window.bannerDisappearances++;
+                        }).observe(document.querySelector('main'), {childList:true, subtree:true});
+                    }""")
+                    if scenario == 'recovery-task':
+                        state['hold'] = False
+                        state['held'].pop().fulfill(status=200, json={'csrf': 'fixture-csrf', 'principal': 'fixture-owner'})
+                        expect(error.get_by_role('button', name='重新連線', exact=True)).to_be_enabled()
+                    for _ in range(3):
+                        with page.expect_response('**/api/tasks'):
+                            page.clock.run_for(10_100)
+                        page.wait_for_timeout(100)
+                    if scenario == 'reconnect':
+                        error.get_by_role('button', name='重新連線', exact=True).click()
+                        expect(error.get_by_role('button', name='重新連線', exact=True)).to_be_enabled()
+                        page.clock.run_for(10_100)
+                    assert page.evaluate('window.bannerDisappearances') == 0
+                    expect(error).to_contain_text('這份資料已過期或不存在。')
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+@pytest.mark.parametrize('view', ['deployment', 'home-waiting', 'home', 'settings-waiting', 'settings-coding', 'settings-services', 'settings-retention', 'inventory', 'automations'])
+def test_pages_resume_after_host_reboot(view):
+    section = view.split('-')[0]
+    server, thread = _server()
+    state = {'ready': False, 'hold': False, 'held': [], 'inventory': 0}
+
+    def route(route):
+        path = route.request.url.split('/api/')[1].split('?')[0]
+        if path == 'deployment' and view == 'deployment' and not state['ready']:
+            route.fulfill(status=503, json={'detail': '服務啟動中'})
+            return
+        if path == 'deployment' and state['hold']:
+            state['held'].append(route)
+            return
+        if path in {'services', 'retention', 'inventory', 'automations'} and not state['ready']:
+            route.fulfill(status=503, json={'detail': '資料啟動中'})
+            return
+        if path == 'pause':
+            route.fulfill(status=409, json={'detail': '操作衝突'})
+            return
+        if path == 'inventory':
+            state['inventory'] += 1
+        runner = {'status': 'connected', 'protocol': 1, 'providers': [{'provider': 'claude', 'status': 'connected'}]} if state['ready'] else {'status': 'unavailable', 'providers': []}
+        value = {
+            'deployment': {'mode': 'host', 'authenticated': True},
+            'session': {'csrf': 'fixture-csrf', 'principal': 'fixture-owner'},
+            'status': {'ha': {'status': 'connected' if state['ready'] or section == 'home' else 'unavailable'}, 'runner': runner, 'paused': False},
+            'tasks': {'tasks': []},
+            'workers': {'workers': [{'worker_id': 'host-coder', 'available': state['ready'], 'providers': [{'id': 'codex', 'credential_state': 'connected'}]}]},
+            'services': {'services': [{'id': 'fixture', 'title': '恢復的服務', 'state': 'connected', 'path': '/', 'steps': [], 'docs': '/'}]},
+            'retention': {'audit_days': 20, 'context_days': 5},
+            'inventory': {'entities': [{'entity_id': 'light.test', 'name': '恢復的燈', 'domain': 'light', 'area': None, 'state': 'on', 'availability': 'available', 'actions': []}], 'policy': {'entities': []}},
+            'automations': {'automations': [{'id': 'fixture', 'enabled': True, 'intent': {'title': '恢復的規則', 'trigger': {'entity_id': 'light.test', 'from_state': 'off', 'to_state': 'on'}}}]},
+        }.get(path, {})
+        route.fulfill(status=200, json=value)
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.clock.install()
+            page.route('**/api/**', route)
+            page.goto(f'http://127.0.0.1:{server.server_port}/#{"history" if view == "deployment" else section}')
+            if view == 'deployment':
+                expect(page.get_by_role('heading', name='服務尚未回應')).to_be_visible()
+                state['ready'] = True
+                state['hold'] = True
+                page.clock.run_for(5100)
+                expect(page.get_by_role('heading', name='服務尚未回應')).to_be_visible()
+                expect(page.get_by_role('heading', name='正在開啟主機')).to_have_count(0)
+                state['hold'] = False
+                state['ready'] = True
+                for held in state['held']:
+                    held.fulfill(status=200, json={'mode': 'host', 'authenticated': True})
+            elif section == 'home':
+                expect(page.locator('.composer')).to_be_visible()
+                if view == 'home-waiting':
+                    expect(page.locator('.composer')).to_contain_text('等待 AI 帳號恢復連線…')
+                    expect(page.locator('.composer')).not_to_contain_text('先完成 Codex 登入。')
+                    _layouts(page, 'reboot-composer')
+                page.evaluate("""() => {
+                    window.codexBlink = false;
+                    new MutationObserver(() => {
+                        if (document.querySelector('.composer').textContent.includes('先完成 Codex 登入。')) window.codexBlink = true;
+                    }).observe(document.querySelector('.composer'), {childList:true, subtree:true});
+                }""")
+            elif section == 'settings':
+                expect(page.locator('.settings-hub')).to_be_visible()
+                if view == 'settings-waiting':
+                    expect(page.locator('.settings-hub a[href="#agents"]')).to_contain_text('等待連線…')
+                    page.get_by_text('主機連線', exact=False).last.click()
+                    expect(page.get_by_role('button', name='連接主機', exact=True)).to_have_count(0)
+                    _layouts(page, 'reboot-settings')
+                page.get_by_text('紀錄保存', exact=True).click()
+                page.get_by_label('任務紀錄（1–30 天）').fill('12')
+                page.get_by_role('button', name='暫停 AI', exact=True).click()
+                expect(page.locator('.settings-layout')).to_contain_text('操作衝突')
+            else:
+                expect(page.locator('.notice.error')).to_contain_text('資料啟動中')
+            state['ready'] = True
+            page.clock.run_for(10_100)
+            if view == 'deployment':
+                expect(page.locator('h1')).to_have_text('紀錄')
+            elif section == 'home':
+                page.get_by_label('家庭需求').fill('測試需求')
+                expect(page.get_by_role('button', name='送出需求')).to_be_enabled()
+                expect(page.locator('.composer select')).to_have_value('claude')
+                assert page.evaluate('window.codexBlink') is False
+                expect(page.locator('.composer')).not_to_contain_text('先完成 Codex 登入。')
+            elif section == 'settings':
+                expect(page.locator('.settings-layout')).to_contain_text('操作衝突')
+                if view == 'settings-coding':
+                    expect(page.locator('.settings-hub a[href="#workers"]')).to_contain_text('已就緒')
+                elif view == 'settings-services':
+                    page.get_by_text('家庭服務', exact=True).click()
+                    expect(page.get_by_role('heading', name='恢復的服務')).to_be_visible()
+                    expect(page.locator('.settings-layout')).not_to_contain_text('資料啟動中')
+                elif view == 'settings-retention':
+                    expect(page.locator('.retention-fields')).not_to_contain_text('資料啟動中')
+                    expect(page.get_by_label('任務紀錄（1–30 天）')).to_have_value('12')
+                expect(page.locator('.settings-layout')).to_contain_text('操作衝突')
+            elif view == 'inventory':
+                expect(page.get_by_text('恢復的燈', exact=True)).to_be_visible()
+                state['ready'] = False
+                page.get_by_role('button', name='重新盤點', exact=True).click()
+                expect(page.locator('.notice.error')).to_contain_text('資料啟動中')
+                page.get_by_label('分享 light.test', exact=True).check()
+                before = state['inventory']
+                page.clock.run_for(10_100)
+                state['ready'] = True
+                page.clock.run_for(10_100)
+                expect(page.get_by_label('分享 light.test', exact=True)).to_be_checked()
+                assert state['inventory'] == before
+            else:
+                expect(page.get_by_role('heading', name='恢復的規則')).to_be_visible()
+                expect(page.locator('.notice.error')).to_have_count(0)
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
