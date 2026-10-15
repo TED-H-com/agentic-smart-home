@@ -1931,6 +1931,7 @@ def test_partial_runtime_launch_recovery_is_observed_without_clearing_its_fence(
     monkeypatch.setattr(launcher, 'identity', lambda: dict(current[0]))
     sandbox = HomeSandbox(root, None, {'agentic-home': tmp_path})
     monkeypatch.setattr(sandbox, 'preflight', lambda: True)
+    monkeypatch.setattr(sandbox, '_require_work_root', lambda: None)
     attempts = []
     def failed_prepare(job, program):
         attempts.append(job['job_id'])
