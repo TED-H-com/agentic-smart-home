@@ -985,3 +985,126 @@ def test_global_error_ownership_during_recovery_and_navigation(scenario):
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+@pytest.mark.parametrize('view', ['deployment', 'home-waiting', 'home', 'settings-waiting', 'settings-coding', 'settings-services', 'settings-retention', 'inventory', 'automations'])
+def test_pages_resume_after_host_reboot(view):
+    section = view.split('-')[0]
+    server, thread = _server()
+    state = {'ready': False, 'hold': False, 'held': [], 'inventory': 0}
+
+    def route(route):
+        path = route.request.url.split('/api/')[1].split('?')[0]
+        if path == 'deployment' and view == 'deployment' and not state['ready']:
+            route.fulfill(status=503, json={'detail': '服務啟動中'})
+            return
+        if path == 'deployment' and state['hold']:
+            state['held'].append(route)
+            return
+        if path in {'services', 'retention', 'inventory', 'automations'} and not state['ready']:
+            route.fulfill(status=503, json={'detail': '資料啟動中'})
+            return
+        if path == 'pause':
+            route.fulfill(status=409, json={'detail': '操作衝突'})
+            return
+        if path == 'inventory':
+            state['inventory'] += 1
+        runner = {'status': 'connected', 'protocol': 1, 'providers': [{'provider': 'claude', 'status': 'connected'}]} if state['ready'] else {'status': 'unavailable', 'providers': []}
+        value = {
+            'deployment': {'mode': 'host', 'authenticated': True},
+            'session': {'csrf': 'fixture-csrf', 'principal': 'fixture-owner'},
+            'status': {'ha': {'status': 'connected' if state['ready'] or section == 'home' else 'unavailable'}, 'runner': runner, 'paused': False},
+            'tasks': {'tasks': []},
+            'workers': {'workers': [{'worker_id': 'host-coder', 'available': state['ready'], 'providers': [{'id': 'codex', 'credential_state': 'connected'}]}]},
+            'services': {'services': [{'id': 'fixture', 'title': '恢復的服務', 'state': 'connected', 'path': '/', 'steps': [], 'docs': '/'}]},
+            'retention': {'audit_days': 20, 'context_days': 5},
+            'inventory': {'entities': [{'entity_id': 'light.test', 'name': '恢復的燈', 'domain': 'light', 'area': None, 'state': 'on', 'availability': 'available', 'actions': []}], 'policy': {'entities': []}},
+            'automations': {'automations': [{'id': 'fixture', 'enabled': True, 'intent': {'title': '恢復的規則', 'trigger': {'entity_id': 'light.test', 'from_state': 'off', 'to_state': 'on'}}}]},
+        }.get(path, {})
+        route.fulfill(status=200, json=value)
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.clock.install()
+            page.route('**/api/**', route)
+            page.goto(f'http://127.0.0.1:{server.server_port}/#{"history" if view == "deployment" else section}')
+            if view == 'deployment':
+                expect(page.get_by_role('heading', name='服務尚未回應')).to_be_visible()
+                state['ready'] = True
+                state['hold'] = True
+                page.clock.run_for(5100)
+                expect(page.get_by_role('heading', name='服務尚未回應')).to_be_visible()
+                expect(page.get_by_role('heading', name='正在開啟主機')).to_have_count(0)
+                state['hold'] = False
+                state['ready'] = True
+                for held in state['held']:
+                    held.fulfill(status=200, json={'mode': 'host', 'authenticated': True})
+            elif section == 'home':
+                expect(page.locator('.composer')).to_be_visible()
+                if view == 'home-waiting':
+                    expect(page.locator('.composer')).to_contain_text('等待 AI 帳號恢復連線…')
+                    expect(page.locator('.composer')).not_to_contain_text('先完成 Codex 登入。')
+                    _layouts(page, 'reboot-composer')
+                page.evaluate("""() => {
+                    window.codexBlink = false;
+                    new MutationObserver(() => {
+                        if (document.querySelector('.composer').textContent.includes('先完成 Codex 登入。')) window.codexBlink = true;
+                    }).observe(document.querySelector('.composer'), {childList:true, subtree:true});
+                }""")
+            elif section == 'settings':
+                expect(page.locator('.settings-hub')).to_be_visible()
+                if view == 'settings-waiting':
+                    expect(page.locator('.settings-hub a[href="#agents"]')).to_contain_text('等待連線…')
+                    page.get_by_text('主機連線', exact=False).last.click()
+                    expect(page.get_by_role('button', name='連接主機', exact=True)).to_have_count(0)
+                    _layouts(page, 'reboot-settings')
+                page.get_by_text('紀錄保存', exact=True).click()
+                page.get_by_label('任務紀錄（1–30 天）').fill('12')
+                page.get_by_role('button', name='暫停 AI', exact=True).click()
+                expect(page.locator('.settings-layout')).to_contain_text('操作衝突')
+            else:
+                expect(page.locator('.notice.error')).to_contain_text('資料啟動中')
+            state['ready'] = True
+            page.clock.run_for(10_100)
+            if view == 'deployment':
+                expect(page.locator('h1')).to_have_text('紀錄')
+            elif section == 'home':
+                page.get_by_label('家庭需求').fill('測試需求')
+                expect(page.get_by_role('button', name='送出需求')).to_be_enabled()
+                expect(page.locator('.composer select')).to_have_value('claude')
+                assert page.evaluate('window.codexBlink') is False
+                expect(page.locator('.composer')).not_to_contain_text('先完成 Codex 登入。')
+            elif section == 'settings':
+                expect(page.locator('.settings-layout')).to_contain_text('操作衝突')
+                if view == 'settings-coding':
+                    expect(page.locator('.settings-hub a[href="#workers"]')).to_contain_text('已就緒')
+                elif view == 'settings-services':
+                    page.get_by_text('家庭服務', exact=True).click()
+                    expect(page.get_by_role('heading', name='恢復的服務')).to_be_visible()
+                    expect(page.locator('.settings-layout')).not_to_contain_text('資料啟動中')
+                elif view == 'settings-retention':
+                    expect(page.locator('.retention-fields')).not_to_contain_text('資料啟動中')
+                    expect(page.get_by_label('任務紀錄（1–30 天）')).to_have_value('12')
+                expect(page.locator('.settings-layout')).to_contain_text('操作衝突')
+            elif view == 'inventory':
+                expect(page.get_by_text('恢復的燈', exact=True)).to_be_visible()
+                state['ready'] = False
+                page.get_by_role('button', name='重新盤點', exact=True).click()
+                expect(page.locator('.notice.error')).to_contain_text('資料啟動中')
+                page.get_by_label('分享 light.test', exact=True).check()
+                before = state['inventory']
+                page.clock.run_for(10_100)
+                state['ready'] = True
+                page.clock.run_for(10_100)
+                expect(page.get_by_label('分享 light.test', exact=True)).to_be_checked()
+                assert state['inventory'] == before
+            else:
+                expect(page.get_by_role('heading', name='恢復的規則')).to_be_visible()
+                expect(page.locator('.notice.error')).to_have_count(0)
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
