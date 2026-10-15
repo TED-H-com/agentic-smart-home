@@ -924,7 +924,9 @@ def test_actual_installer_failure_still_cleans_up_when_diagnostics_break(tmp_pat
     with pytest.raises(type(error)) as observed:
         module.test_full_linux_install_with_nested_haos(tmp_path, request)
     assert observed.value is error
-    assert order == ["diagnostics", ("docker", "stop", "-t"), ("docker", "run", "--rm"), ("docker", "rm", "-fv")]
+    assert order == ["diagnostics", ("docker", "stop", "-t"), ("docker", "rm", "-fv"),
+                     ("docker", "ps", "-a")]
+    assert json.loads((tmp_path / "evidence/installed-cleanup-laptop-amd64.json").read_text())["status"] == "passed"
 
 
 @pytest.mark.parametrize("stdout,returncode", [("", 255), ("private malformed output", 0), ('{"state":"failed"}', 1)])
