@@ -556,3 +556,26 @@ def test_bridge_view_skips_host_maintenance_and_interactive_preview(bridge_brows
     page.wait_for_timeout(400)
     assert not any(path.startswith("host/") for _, path in calls)
     assert not any(body.get("mode") == "interactive" for _, body, _ in mutations if isinstance(body, dict))
+
+
+def test_sidebar_recovers_automatically_after_reboot(bridge_browser):
+    page, _, base, state, calls, _, _, _ = bridge_browser
+    page.clock.install()
+    state['bridge_state'] = 'unavailable'
+    page.goto(base)
+    expect(page.get_by_role('heading', name='暫時連不上', exact=True)).to_be_visible()
+    page.evaluate("""() => {
+        window.loadingBlink = false;
+        new MutationObserver(() => {
+            if (document.body.textContent.includes('正在開啟主機')) window.loadingBlink = true;
+        }).observe(document.body, {childList:true, subtree:true});
+    }""")
+    before = len([path for _, path in calls if path == 'deployment'])
+    page.clock.run_for(5100)
+    expect(page.get_by_role('heading', name='暫時連不上', exact=True)).to_be_visible()
+    assert len([path for _, path in calls if path == 'deployment']) > before
+    state['bridge_state'] = 'ready'
+    page.clock.run_for(5100)
+    expect(page.get_by_role('heading', name='暫時連不上', exact=True)).to_have_count(0)
+    expect(page.locator('textarea').first).to_be_visible()
+    assert page.evaluate('window.loadingBlink') is False
