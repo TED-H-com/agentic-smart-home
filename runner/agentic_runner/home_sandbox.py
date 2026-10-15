@@ -304,6 +304,14 @@ class HomeSandbox(CodingSandbox):
             return read_artifacts(self.root / job_id / "workspace/artifacts", self.limits)
 
     def dispose(self, job_id):
+        try:
+            return self._dispose(job_id)
+        except launcher.BoundaryError as exc:
+            # Shared-service cleanup retries SandboxError. Keep launcher-specific
+            # failures inside that contract without changing any stop proof.
+            raise SandboxError("Home workspace cleanup unconfirmed") from exc
+
+    def _dispose(self, job_id):
         result = self.cancel(job_id)
         if result["state"] == "disposed":
             return result
