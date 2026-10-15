@@ -604,13 +604,136 @@ def test_remote_failure_observation_is_readonly_bounded_and_redacted(update_prob
         _capture=capture, _read=lambda path, limit: json.dumps(jobs) if path.name == "jobs.json" else None))
     monkeypatch.setattr(update_probe.shutil, "disk_usage", lambda _: SimpleNamespace(total=120, used=119, free=1))
     value = update_probe.failure_observation("f" * 32, "snapshot")
-    assert len(calls) == 6
+    assert len(calls) == 13
     assert all(any(command in args[0] for command in ("systemctl", "virsh", "journalctl")) for args in calls)
     assert all("--readonly" in args for args in calls if "virsh" in args[0])
     assert all("--lines=100" in args for args in calls if "journalctl" in args[0])
     assert value["broker_unit"]["oom_killed"] and value["kernel"]["signatures"]["oom"]
     assert value["jobs"][0]["operation"] == "cp" and value["jobs"][0]["message_signatures"]["disk_full"]
     assert "private" not in json.dumps(value)
+
+
+def test_product_failure_observation_identifies_proxy_without_exporting_logs(update_probe, monkeypatch):
+    import sys
+    from test_linux_install import failure_observation_public
+
+    monkeypatch.setattr(update_probe, "guard", lambda: None)
+    calls = []
+    journal = ("Error while finding module specification for 'agentic_host.proxy' "
+               "(ModuleNotFoundError: No module named 'agentic_host')\n"
+               "PermissionError: [Errno 13] Permission denied: '/private/credential-path'\n"
+               "Bearer private-token")
+    def capture(args):
+        calls.append(args)
+        if args[0].endswith("systemctl"):
+            proxy = args[-1] == "agentic-home-proxy.service"
+            return "ok", ("LoadState=loaded\nActiveState=" + ("failed" if proxy else "active") +
+                "\nSubState=" + ("failed" if proxy else "running") + "\nResult=" +
+                ("exit-code" if proxy else "success") + "\nExecMainCode=1\nExecMainStatus=" +
+                ("1" if proxy else "0") + "\nEnvironment=private-token\n")
+        return "ok", journal if "--unit=agentic-home-proxy.service" in args else ""
+    monkeypatch.setitem(sys.modules, "agentic_host.support", SimpleNamespace(_capture=capture, _read=lambda *args, **kwargs: None))
+    monkeypatch.setattr(update_probe.shutil, "disk_usage", lambda _: SimpleNamespace(total=120, used=19, free=101))
+    observed = failure_observation_public(update_probe.failure_observation())
+    units = observed["product_units"]
+    assert set(units) == {"controller", "host", "proxy", "firstboot"}
+    proxy = units["proxy"]
+    assert proxy["LoadState"] == "loaded" and proxy["ActiveState"] == "failed" and proxy["SubState"] == "failed"
+    assert proxy["Result"] == "exit-code" and proxy["ExecMainCode"] == 1 and proxy["ExecMainStatus"] == 1
+    assert proxy["journal"]["observation"] == "ok"
+    assert proxy["journal"]["signatures"]["import_error"] and proxy["journal"]["signatures"]["permission_denied"]
+    assert proxy["journal"]["scanned_bytes"] == len(journal.encode()) and not proxy["journal"]["truncated"]
+    assert all(units[role]["ActiveState"] == "active" for role in ("controller", "host", "firstboot"))
+    for unit in update_probe.PRODUCT_UNITS.values():
+        show = [args for args in calls if args[0].endswith("systemctl") and args[-1] == unit]
+        logs = [args for args in calls if "--unit=" + unit in args and "--boot=0" in args]
+        assert len(show) == len(logs) == 1
+        assert show[0][1] == "show" and "ExecMainStatus" in show[0][3]
+        assert "--lines=100" in logs[0] and "--no-pager" in logs[0]
+    serialized = json.dumps(observed)
+    assert all(secret not in serialized for secret in ("private", "Bearer", "Environment", "ModuleNotFoundError"))
+
+
+def test_product_unit_projection_discards_unreviewed_fields_and_invalid_values():
+    from test_linux_install import failure_observation_public
+
+    raw = {"product_units": {
+        "proxy": {"observation": "ok", "LoadState": "loaded", "ActiveState": ["private"],
+            "SubState": "private-state", "Result": {"private": "secret"}, "ExecMainCode": True,
+            "ExecMainStatus": 256, "Environment": "private-token", "journal": {
+                "observation": "ok", "raw": "private-journal", "signatures": {"import_error": True,
+                    "permission_denied": "private", "private-signature": True},
+                "bytes_observed": 65537, "scanned_bytes": -1, "truncated": "private"}},
+        "host": {"observation": "timeout", "ActiveState": "active", "Result": "success",
+            "ExecMainCode": "1", "ExecMainStatus": "0", "journal": {"observation": "timeout",
+                "bytes_observed": 10, "signatures": {"import_error": True}}},
+        "controller": {"observation": ["private"], "journal": {"observation": {"private": "secret"}}},
+        "firstboot": {"observation": "ok", "ExecMainCode": -1, "ExecMainStatus": "999"},
+        "private-unit": {"raw": "private"}}}
+    units = failure_observation_public(raw)["product_units"]
+    assert set(units) == {"controller", "host", "proxy", "firstboot"}
+    assert units["proxy"]["LoadState"] == "loaded"
+    assert all(units["proxy"][name] == "unknown" for name in ("ActiveState", "SubState", "Result"))
+    assert units["proxy"]["ExecMainCode"] is None and units["proxy"]["ExecMainStatus"] is None
+    assert units["proxy"]["journal"] == {"observation": "ok", "signatures": {"import_error": True}}
+    assert units["host"]["ActiveState"] == "unknown" and units["host"]["ExecMainStatus"] is None
+    assert units["host"]["journal"] == {"observation": "timeout", "signatures": {}}
+    assert units["controller"]["observation"] == "unknown"
+    assert units["firstboot"]["ExecMainCode"] is None and units["firstboot"]["ExecMainStatus"] is None
+    assert "private" not in json.dumps(units)
+
+
+def test_product_unit_journal_signature_scan_is_bounded(update_probe):
+    journal = ("Out of memory: old discarded message\n" + "x" * 16384 +
+               "\nModuleNotFoundError: private module\nPermission denied: private path")
+    observed = update_probe.product_unit_observation("ok", "ExecMainStatus=203", "ok", journal)
+    assert observed["ExecMainStatus"] == 203
+    assert observed["journal"]["bytes_observed"] == len(journal.encode())
+    assert observed["journal"]["scanned_bytes"] == 16384 and observed["journal"]["truncated"]
+    assert observed["journal"]["signatures"]["import_error"]
+    assert observed["journal"]["signatures"]["permission_denied"]
+    assert not observed["journal"]["signatures"]["oom"]
+    assert "private" not in json.dumps(observed)
+
+
+def test_failed_unit_observer_does_not_erase_other_units_or_original_failure(update_probe, monkeypatch, tmp_path):
+    import sys
+    from test_linux_install import record_install_failure
+
+    monkeypatch.setattr(update_probe, "guard", lambda: None)
+    calls = []
+    def capture(args):
+        calls.append(args)
+        if args[0].endswith("systemctl"):
+            if args[-1] == "agentic-home-proxy.service":
+                raise OSError("private unit observer failure")
+            return "ok", "ActiveState=active\nResult=success\nExecMainStatus=0\n"
+        if "--unit=agentic-home-proxy.service" in args:
+            return "timeout", "private timed out journal"
+        return "ok", ""
+    monkeypatch.setitem(sys.modules, "agentic_host.support", SimpleNamespace(_capture=capture, _read=lambda *args, **kwargs: None))
+    def disk_usage(_):
+        raise FileNotFoundError("private directory absent before firstboot")
+    monkeypatch.setattr(update_probe.shutil, "disk_usage", disk_usage)
+    error = subprocess.CalledProcessError(3, ["ssh", "fixture", "systemctl is-active"],
+        output="active\nactive\nfailed\n", stderr="private original failure")
+    report = tmp_path / "failure.json"
+    def run(args, **kwargs):
+        prior = json.loads(report.read_text())
+        assert prior["error_type"] == "CalledProcessError" and prior["process"]["returncode"] == 3
+        assert kwargs["timeout"] == 120
+        return subprocess.CompletedProcess(args, 0, json.dumps(update_probe.failure_observation()), "")
+    result = record_install_failure(error, "installed_services", report, ["ssh", "fixture"], run=run)
+    assert result["error_type"] == "CalledProcessError" and result["process"]["returncode"] == 3
+    remote = result["remote"]
+    assert remote["filesystem_observation"] == "probe_failed"
+    assert remote["product_units"]["proxy"]["observation"] == "probe_failed"
+    assert remote["product_units"]["proxy"]["journal"] == {"observation": "timeout", "signatures": {}}
+    assert remote["product_units"]["controller"]["ActiveState"] == "active"
+    assert remote["product_units"]["firstboot"]["ExecMainStatus"] == 0
+    assert len(calls) == 13
+    assert all(not any(arg in {"start", "restart", "install", "provision"} for arg in args) for args in calls)
+    assert "private" not in report.read_text()
 
 
 def test_lifecycle_diagnostics_cover_actual_fixed_host_errors_and_checks(update_probe):
@@ -726,7 +849,7 @@ def test_failure_observation_collects_stored_contract_and_live_ownership_without
     monkeypatch.setattr(update_probe, "product_file_metadata", lambda path: {"kind": "regular", "bytes": 4096})
     monkeypatch.setattr(update_probe.shutil, "disk_usage", lambda _: SimpleNamespace(total=120, used=19, free=101))
     observed = failure_observation_public(update_probe.failure_observation("f" * 32, "provision"))
-    assert len(calls) == 6 and len(reads) == 3
+    assert len(calls) == 13 and len(reads) == 3
     assert all("--readonly" in args for args in calls if "virsh" in args[0])
     assert all(not any(arg in {"start", "net-start", "provision", "capabilities", "info"} for arg in args) for args in calls)
     assert observed["compatibility"]["checks"][0]["error_code"] == "probe_timeout"

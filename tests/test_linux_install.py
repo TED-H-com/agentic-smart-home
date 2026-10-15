@@ -86,9 +86,11 @@ def probe_json(result, diagnostic_path):
 def failure_observation_public(value):
     from installed_update_probe import (
         HOST_VM_STATES,
+        PRODUCT_UNITS,
         compatibility_receipt,
         lifecycle_receipt,
         process_diagnostics,
+        product_unit_public,
     )
 
     if not isinstance(value, dict):
@@ -101,6 +103,11 @@ def failure_observation_public(value):
     if isinstance(value.get("filesystem"), dict):
         result["filesystem"] = {key: number for key in ("total_bytes", "used_bytes", "free_bytes")
                                 if type(number := value["filesystem"].get(key)) is int and 0 <= number <= 2**63}
+    if value.get("filesystem_observation") == "probe_failed":
+        result["filesystem_observation"] = "probe_failed"
+    if isinstance(value.get("product_units"), dict):
+        result["product_units"] = {name: product_unit_public(value["product_units"][name])
+                                   for name in PRODUCT_UNITS if name in value["product_units"]}
     result["compatibility"] = compatibility_receipt(value.get("compatibility"))
     state = value.get("provision_state")
     if isinstance(state, dict):
