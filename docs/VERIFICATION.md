@@ -1,6 +1,12 @@
 # Agentic Smart Home 驗證
 
-## 0.9.0 VERIFIED engineering candidate — `53c9e79`
+## 0.9.0 公開交付驗證失敗，Release 已停止 — `53c9e79`
+
+Owner 核准發布後，公開 `stable` 與 `release/0.9.0` 已指向 `53c9e790cccf9d22842ec358b9f4f7160e1d448b`。2026-10-15 的一次公開交付驗證在 enable 階段為 **41 passed、1 failed、0 skipped**；`bridge-haos` 尚未執行。尚未建立 `v0.9.0` tag 或 GitHub Release，也未上傳媒體。依原提案保留失敗並停止後續發布，未自動重試。見 [發布後記](reviews/2026-10-15-PUBLIC-DELIVERY-53c9e79.md)與 [失敗證據](../evidence/owner-trial-53c9e79/public-approved-1-failed/summary.json)。
+
+測試已到 `cold_backup`；準備查詢 Supervisor `GET /info` 時，Core WebSocket 的 HTTP 握手等待逾時，尚未送出該查詢。備份最終結果與根因均未確立，不能判定備份本身失敗或完成；cold 備份未驗收，整台重開尚未執行。VM、測試容器／網路與磁碟暫存已清理。既有產品來源、媒體與六個映像身分仍相同。
+
+## 0.9.0 本機八階段驗證通過 — `53c9e79`
 
 固定來源與 harness 為 `53c9e790cccf9d22842ec358b9f4f7160e1d448b`。同一組媒體完成八階段序列驗收；各階段清理均已核對。見 [交付紀錄](../evidence/release-0.9.0.json)及 [階段摘要](../evidence/owner-trial-53c9e79/summary.json)。
 

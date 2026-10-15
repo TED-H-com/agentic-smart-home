@@ -1066,6 +1066,44 @@
     "evidence/owner-trial-0806e4d/superseded-candidate.json": "d2a3349bd23bd77e371190e39f6cfd53abbf5370da526ed3f7e3879547ebe1b0",
     "evidence/owner-trial-53c9e79/source-credential-audit-chain.json": "9ecb19b64a6ae2c27fbef22d1810baa5ba906cd763da1bb18bfe30b2e4617239",
     "evidence/owner-trial-53c9e79/summary.json": "3318f06c6c9df118c58b02a75759e049a911d28a313e74ff3119b580f33fc02b",
-    "evidence/release-0.9.0-rc10-13ad697.json": "26aae091c5f66b2c248f2744599bfb10b53143ab88d7f90fa5728bd84ee51af8"
+    "evidence/release-0.9.0-rc10-13ad697.json": "26aae091c5f66b2c248f2744599bfb10b53143ab88d7f90fa5728bd84ee51af8",
+    "evidence/owner-trial-53c9e79/public-approved-1-failed/summary.json": "b51724161ee4982388713a4c7cd176b9a2b0015695e55499b4b67fedefb8326a",
+    "evidence/owner-trial-53c9e79/public-approved-1-failed/publication-provenance.json": "2a90b44bb597f47e46796ab396521394da4137516ff6a63053e5591045cc4075",
+    "evidence/owner-trial-53c9e79/public-approved-1-failed/enable/stage.json": "b2bc6eab0f4261d8db5ec7e3bd93e22f4178056fa724f5aa0da6aceea24eb96c",
+    "evidence/owner-trial-53c9e79/public-approved-1-failed/enable/home-worker-enable-haos.json": "d707c8cf1ce66e19643475e478465793ca35a228aa75b5187884c65aeb0c2c09",
+    "evidence/owner-trial-53c9e79/public-approved-1-failed/enable/junit.xml": "da490013b068e8fcd5e7c4ee491e49284fced45877e2e9b5e4407394420cdd2d",
+    "evidence/owner-trial-53c9e79/public-approved-1-failed/bridge-haos/stage.json": "cdbe680f19e20c89ae58fe52cee769d9c4d01ff0920cf9e65860bdca41d12fd7"
+  },
+  "public_delivery": {
+    "status": "failed",
+    "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+    "release_publication": "blocked",
+    "both_public_stages_passed": false,
+    "new_full_eight_stage_run": false,
+    "attempted_public_stages": 1,
+    "accepted_public_stages": 0,
+    "enable": {
+      "status": "failed",
+      "passed": 41,
+      "failures": 1
+    },
+    "bridge_haos": {
+      "status": "not_run"
+    },
+    "summary": "evidence/owner-trial-53c9e79/public-approved-1-failed/summary.json",
+    "provenance": "evidence/owner-trial-53c9e79/public-approved-1-failed/publication-provenance.json",
+    "finished": "2026-10-15T23:26:17.841906+00:00",
+    "product_acceptance": {
+      "passed": 2,
+      "not_run": 30
+    },
+    "evidence_sha256": {
+      "evidence/owner-trial-53c9e79/public-approved-1-failed/summary.json": "b51724161ee4982388713a4c7cd176b9a2b0015695e55499b4b67fedefb8326a",
+      "evidence/owner-trial-53c9e79/public-approved-1-failed/publication-provenance.json": "2a90b44bb597f47e46796ab396521394da4137516ff6a63053e5591045cc4075",
+      "evidence/owner-trial-53c9e79/public-approved-1-failed/enable/stage.json": "b2bc6eab0f4261d8db5ec7e3bd93e22f4178056fa724f5aa0da6aceea24eb96c",
+      "evidence/owner-trial-53c9e79/public-approved-1-failed/enable/home-worker-enable-haos.json": "d707c8cf1ce66e19643475e478465793ca35a228aa75b5187884c65aeb0c2c09",
+      "evidence/owner-trial-53c9e79/public-approved-1-failed/enable/junit.xml": "da490013b068e8fcd5e7c4ee491e49284fced45877e2e9b5e4407394420cdd2d",
+      "evidence/owner-trial-53c9e79/public-approved-1-failed/bridge-haos/stage.json": "cdbe680f19e20c89ae58fe52cee769d9c4d01ff0920cf9e65860bdca41d12fd7"
+    }
   }
 }
