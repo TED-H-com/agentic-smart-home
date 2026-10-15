@@ -11,7 +11,7 @@
   "E2": "not_run",
   "result": "passed",
   "installed_release": "0.9.0",
-  "runner_image_id": "sha256:47cb73129c2e6a0d8da49edaf36b41e01d656422747e8917747003e0e15b7e6c",
+  "runner_image_id": "sha256:c0811a80a20b6d96b640c9cb3544f6d134db70abe7e1186cd80ff70201abdbf3",
   "quota_job": {
     "state": "succeeded",
     "exit_code": 0,
@@ -61,5 +61,5 @@
     "Outer disposable VM only; no HAOS App, hardware or household validation."
   ],
   "cleanup": "passed",
-  "duration_seconds": 29.94
+  "duration_seconds": 5.31
 }

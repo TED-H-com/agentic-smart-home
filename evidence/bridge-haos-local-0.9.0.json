@@ -17,12 +17,12 @@
     "app_restart_preserves_options_and_outer_case": true,
     "manual_stop_remains_stopped": true
   },
-  "outer_source_commit": "90614e51d5e4758f1fd95a6213701bc5e07bcd13",
+  "outer_source_commit": "13ad697aca3e61fa6c409ee08ffa177d3c297842",
   "outer_source_uncommitted": false,
   "phase": "native_stop_respected",
   "core": "2026.10.1",
   "supervisor": "2026.09.3",
-  "outer_dependency_image": "sha256:4925149c727238e6f04d77f4b960ba9ea86cca36c79ae3de317093912f790b94",
+  "outer_dependency_image": "sha256:05270132d90500a4c3acf20b7136e936a7a49854cb28b53b8fad7d37810faa46",
   "install_confirmation": "app_postcondition_job_unavailable",
   "native_browser": {
     "kind": "native_ha_ingress_browser",
@@ -40,21 +40,21 @@
       "native_fullframe_screenshot": true
     },
     "entry_method": "native_sidebar_link",
-    "compiled_js_sha256": "e9576227f96ed5ee07ffe3147aa5b0a20fc181ba5b96669d85fc3065b088d162",
-    "case_id": "7bed947007e1494db7a0f2625aea6c9e",
+    "compiled_js_sha256": "4d8b7b22a192c39fc58536ec1f46bb3349cd500611da209f15fc1ef91dc9cf19",
+    "case_id": "b6b15d9651ec4640aab3d160dceab39c",
     "thread_id": "c41c6d9acca9d67bdaa12f81830ed1a7ebca448a89ed63b462cb1013d96ea6bb",
     "message_ids": [
-      "eb3b091c9711c2d74c5aa17d637d85516981bf02a49c6d3f59e74faa2006618f",
-      "a97d13ac776d816f5e4d8d00dc35ad48397ed2635d49368db8b6d55c54973a1c"
+      "5198a3c78ae8afaac7885e41a374f192969f8866148a123797b838a5047fcb96",
+      "041b35455feaf76220714c43571bb1b4a5d2f7a81b120a1dedcbe0b79817a1ff"
     ],
     "browser_error_types": [],
-    "duration_seconds": 12.42
+    "duration_seconds": 12.684
   },
   "host_capability": {
     "kind": "unix_host_contract_fixture_not_installed_host",
     "ingress_bridge_contract": 1,
-    "status_reads": 30
+    "status_reads": 19
   },
   "cleanup": true,
-  "duration_seconds": 554
+  "duration_seconds": 370
 }

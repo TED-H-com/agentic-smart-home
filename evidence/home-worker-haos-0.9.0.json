@@ -30,24 +30,26 @@
     "abrupt_same_boot_restart_retains_lease_and_prevents_replay": true
   },
   "phase": "completed",
-  "source_commit": "90614e51d5e4758f1fd95a6213701bc5e07bcd13",
+  "source_commit": "13ad697aca3e61fa6c409ee08ffa177d3c297842",
   "runtime_source_uncommitted": false,
-  "runner_base_image_id": "sha256:47cb73129c2e6a0d8da49edaf36b41e01d656422747e8917747003e0e15b7e6c",
-  "controller_image_id": "sha256:4925149c727238e6f04d77f4b960ba9ea86cca36c79ae3de317093912f790b94",
+  "runner_base_image_id": "sha256:c0811a80a20b6d96b640c9cb3544f6d134db70abe7e1186cd80ff70201abdbf3",
+  "controller_image_id": "sha256:05270132d90500a4c3acf20b7136e936a7a49854cb28b53b8fad7d37810faa46",
   "core": "2026.10.1",
   "supervisor": "2026.09.3",
   "app_config_sha256": "0d36bd1c1c55897877a7d677663ad2d6aa1112d541144cda9936621529ca4553",
   "app_apparmor_sha256": "e5806ce5ccc65cb1e1332774f0b6b96b7af650f20a76cb6516d0f018862d7753",
   "fixture_helper_sha256": "c339fab1de3ebb9cff4da4e57f06898a2c2a3decae105b736a837703ddd02b71",
-  "runner_oci_config_digest": "sha256:c249e121e098810c4737a87a05099f2bbe399b123a8bc488dca1e4db7c07d92a",
+  "runner_oci_config_digest": "sha256:59b0db7b9472b9a62ee70aace886927379725ed089c9590f602eac652920b11b",
   "registry_step": "done",
-  "registry_push_failures": [],
-  "registry_push_attempts": 1,
+  "registry_push_failures": [
+    "timeout"
+  ],
+  "registry_push_attempts": 2,
   "registry_fixture": {
     "scope": "disposable_haos_loopback_only",
     "upstream": "registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e",
     "registry_config_digest": "sha256:99b916d8206bcbfc54c95fb06076751932c902254277f149b082dd5d4d67fccb",
-    "base_reference": "127.0.0.1:5000/agentic-home-runner@sha256:abe402a68845103b3a092dd8876475e9b1aa4769bd60e4e0ce1b51cc361579a8",
+    "base_reference": "127.0.0.1:5000/agentic-home-runner@sha256:01283828fa403c35369a53abcfa123401968a62f16e87604f87833c0390ade1d",
     "base_config_digest_verified": true
   },
   "store_catalog": {
@@ -95,9 +97,9 @@
     }
   },
   "actual_apparmor_profile": "local_agentic_runner",
-  "derived_fixture_image_id": "sha256:403ede7d7db2231d09b84192e0ea9630aacd8395a25927973a01d6587f223899",
+  "derived_fixture_image_id": "sha256:997e567e512110a35d352ae7688e9436bbea409861c47272807cb38e045f24c8",
   "startup_boundaries": {
-    "cancel_seconds": 0.235,
+    "cancel_seconds": 0.23,
     "checks": {
       "actual_cpu_throttling": true,
       "actual_ext4_enospc": true,
@@ -116,12 +118,12 @@
         "burst_usec": 0,
         "nice_usec": 0,
         "nr_bursts": 0,
-        "nr_periods": 3,
+        "nr_periods": 2,
         "nr_throttled": 0,
-        "system_usec": 7007,
+        "system_usec": 18940,
         "throttled_usec": 0,
-        "usage_usec": 75285,
-        "user_usec": 68277
+        "usage_usec": 85759,
+        "user_usec": 66818
       },
       "memory.events": {
         "high": 0,
@@ -162,20 +164,20 @@
         "burst_usec": 0,
         "nice_usec": 0,
         "nr_bursts": 0,
-        "nr_periods": 2,
+        "nr_periods": 3,
         "nr_throttled": 0,
-        "system_usec": 65758,
+        "system_usec": 60130,
         "throttled_usec": 0,
-        "usage_usec": 83692,
-        "user_usec": 17934
+        "usage_usec": 94667,
+        "user_usec": 34537
       },
       "memory.events": {
         "high": 0,
         "low": 0,
-        "max": 22,
+        "max": 18,
         "oom": 1,
         "oom_group_kill": 1,
-        "oom_kill": 5
+        "oom_kill": 4
       },
       "pids.events": {
         "max": 0
@@ -191,12 +193,12 @@
         "burst_usec": 0,
         "nice_usec": 0,
         "nr_bursts": 0,
-        "nr_periods": 44,
-        "nr_throttled": 41,
-        "system_usec": 24619,
-        "throttled_usec": 3969279,
-        "usage_usec": 4143555,
-        "user_usec": 4118936
+        "nr_periods": 42,
+        "nr_throttled": 40,
+        "system_usec": 17878,
+        "throttled_usec": 3946193,
+        "usage_usec": 4110955,
+        "user_usec": 4093076
       },
       "memory.events": {
         "high": 0,
@@ -231,15 +233,15 @@
         "nr_bursts": 0,
         "nr_periods": 7,
         "nr_throttled": 0,
-        "system_usec": 37008,
+        "system_usec": 44225,
         "throttled_usec": 0,
-        "usage_usec": 120053,
-        "user_usec": 83045
+        "usage_usec": 113339,
+        "user_usec": 69114
       },
       "memory.events": {
         "high": 0,
         "low": 0,
-        "max": 189,
+        "max": 95,
         "oom": 0,
         "oom_group_kill": 0,
         "oom_kill": 0
@@ -256,9 +258,9 @@
         "pids"
       ],
       "namespace_ids": {
-        "cgroup_ns": 4026532442,
+        "cgroup_ns": 4026532351,
         "mnt_ns": 4026532875,
-        "pid_ns": 4026532441
+        "pid_ns": 4026532350
       },
       "observed_from": "haos_app",
       "private_cgroup_root": true,
@@ -269,27 +271,27 @@
   },
   "app_observation": {
     "apparmor_enforcing": true,
-    "boot_id_sha256": "e258e2dc85c0d8aa1a000f05dd652772f76ae8e4ea8adb57fe245ce62f23d9d9",
+    "boot_id_sha256": "affaeb6695ef0ea548a1ea811e2d171ab2fe77e70cb1f1f7c71fe1ac26677aa3",
     "docker_socket_present": false,
     "fuse_device_openable": true,
     "fuse_device_present": true,
     "host_socket_present": false,
     "namespaces": {
-      "cgroup": 4026532442,
+      "cgroup": 4026532351,
       "mnt": 4026532875,
-      "net": 4026532443,
-      "pid": 4026532441
+      "net": 4026532352,
+      "pid": 4026532350
     },
     "observed_from": "haos_app",
     "process_id": 1,
-    "process_start_ticks": 85580,
+    "process_start_ticks": 45202,
     "supervisor_token_present": true,
     "uid": 0
   },
   "last_job": {
-    "id": "89f5749e98214b71a9cd0a90a513d40c",
-    "job_id": "89f5749e98214b71a9cd0a90a513d40c",
-    "case_id": "2a36b888d28e4dcd907eca7c02736bfb",
+    "id": "f704a4ec10634aa9964404a5fed5c497",
+    "job_id": "f704a4ec10634aa9964404a5fed5c497",
+    "case_id": "a6a96b2055f245648ce47fc7af2f04f3",
     "state": "running",
     "stop_confirmed": false,
     "execution_started": true,
@@ -299,9 +301,9 @@
     "verification": {}
   },
   "source_job": {
-    "id": "f48b31679f944c4bb35bc3e41c243ea2",
-    "job_id": "f48b31679f944c4bb35bc3e41c243ea2",
-    "case_id": "2a36b888d28e4dcd907eca7c02736bfb",
+    "id": "47e4f6c651054268ba4a9714b53720fe",
+    "job_id": "47e4f6c651054268ba4a9714b53720fe",
+    "case_id": "a6a96b2055f245648ce47fc7af2f04f3",
     "state": "succeeded",
     "stop_confirmed": true,
     "execution_started": true,
@@ -353,8 +355,8 @@
   },
   "namespace_comparison": {
     "app": {
-      "pid_ns": 4026532441,
-      "cgroup_ns": 4026532442,
+      "pid_ns": 4026532350,
+      "cgroup_ns": 4026532351,
       "mnt_ns": 4026532875
     },
     "worker": {
@@ -370,7 +372,7 @@
   },
   "model_fixture": {
     "pytest_passed": true,
-    "requests": 11,
+    "requests": 15,
     "source_marker": true,
     "tool_output_received": true
   },
@@ -423,7 +425,7 @@
   },
   "pinned_source": {
     "repo_id": "agentic-home",
-    "repository": "https://github.com/teddashh/agentic-smart-home.git",
+    "repository": "https://github.com/TED-H-com/agentic-smart-home.git",
     "commit": "0eb569e42ed2661e3e3bd4c7835b3715d57e3da0"
   },
   "outer_comparison": {
@@ -464,8 +466,8 @@
         "available": false
       },
       "diagnostic_namespace_ids": {
-        "pid_ns": 4026532441,
-        "cgroup_ns": 4026532442,
+        "pid_ns": 4026532350,
+        "cgroup_ns": 4026532351,
         "mnt_ns": 4026532875
       }
     },
@@ -484,12 +486,12 @@
         "available": false
       },
       "diagnostic_namespace_ids": {
-        "pid_ns": 4026532441,
-        "cgroup_ns": 4026532442,
+        "pid_ns": 4026532350,
+        "cgroup_ns": 4026532351,
         "mnt_ns": 4026532875
       }
     },
-    "seconds": 1.882
+    "seconds": 1.879
   },
   "graceful_restart": {
     "before": {
@@ -526,15 +528,15 @@
         "available": false
       },
       "diagnostic_namespace_ids": {
-        "pid_ns": 4026532441,
-        "cgroup_ns": 4026532442,
+        "pid_ns": 4026532350,
+        "cgroup_ns": 4026532351,
         "mnt_ns": 4026532875
       }
     },
     "job": {
-      "id": "4f966de0ef3a4ceb863786b88c8aa932",
-      "job_id": "4f966de0ef3a4ceb863786b88c8aa932",
-      "case_id": "2a36b888d28e4dcd907eca7c02736bfb",
+      "id": "4d87c4697a2b4264aa6ca8d54e03eece",
+      "job_id": "4d87c4697a2b4264aa6ca8d54e03eece",
+      "case_id": "a6a96b2055f245648ce47fc7af2f04f3",
       "state": "interrupted",
       "stop_confirmed": true,
       "execution_started": true,
@@ -545,21 +547,21 @@
       "verification": {}
     },
     "generation_before": {
-      "container_id": "64f34c633c990c2827ad68c91b19dd613ab4083de0cc8bd1875568d939e7f3ab",
-      "started_at": "2026-10-14T19:42:45.803905223Z",
-      "started_at_epoch": 1792006965.803905,
-      "host_pid": 3406,
+      "container_id": "13d1d888cd32e160b3d80ce7b45295e3a02c9d2e161a52e5787fdd42a36faaee",
+      "started_at": "2026-10-15T11:27:17.265480519Z",
+      "started_at_epoch": 1792063637.26548,
+      "host_pid": 3419,
       "running": true
     },
     "generation_after": {
-      "container_id": "5f591636f447c00e7177a8b9f2f944046d69b6574d8b9b213187168fe5bc5e88",
-      "started_at": "2026-10-14T19:46:58.233549905Z",
-      "started_at_epoch": 1792007218.233549,
-      "host_pid": 5956,
+      "container_id": "01ab65dd62c538d55f46083213803f579031cefbd1b2681ce070a5eed77e14af",
+      "started_at": "2026-10-15T11:29:40.021619883Z",
+      "started_at_epoch": 1792063780.021619,
+      "host_pid": 4646,
       "running": true
     },
-    "process_start_ticks_before": 85580,
-    "process_start_ticks_after": 110823
+    "process_start_ticks_before": 45202,
+    "process_start_ticks_after": 59477
   },
   "abrupt_restart": {
     "before": {
@@ -596,33 +598,33 @@
         "available": false
       },
       "diagnostic_namespace_ids": {
-        "pid_ns": 4026532441,
-        "cgroup_ns": 4026532442,
+        "pid_ns": 4026532350,
+        "cgroup_ns": 4026532351,
         "mnt_ns": 4026532875
       }
     },
     "generation_before": {
-      "container_id": "5f591636f447c00e7177a8b9f2f944046d69b6574d8b9b213187168fe5bc5e88",
-      "started_at": "2026-10-14T19:46:58.233549905Z",
-      "started_at_epoch": 1792007218.233549,
-      "host_pid": 5956,
+      "container_id": "01ab65dd62c538d55f46083213803f579031cefbd1b2681ce070a5eed77e14af",
+      "started_at": "2026-10-15T11:29:40.021619883Z",
+      "started_at_epoch": 1792063780.021619,
+      "host_pid": 4646,
       "running": true
     },
-    "process_start_ticks_before": 110823,
+    "process_start_ticks_before": 59477,
     "generation_after": {
-      "container_id": "d1ce5d5e7d93c73fcb1597f27a51196a528c174fbdd6afd2a9db85a77d625414",
-      "started_at": "2026-10-14T19:48:22.506884462Z",
-      "started_at_epoch": 1792007302.506884,
-      "host_pid": 7115,
+      "container_id": "3b8eb54d78b29e6a44c07d9f723498b785deb454879d0ba9ed6aa7e590e25306",
+      "started_at": "2026-10-15T11:30:16.380296012Z",
+      "started_at_epoch": 1792063816.380296,
+      "host_pid": 5065,
       "running": true
     },
-    "process_start_ticks_after": 119250,
+    "process_start_ticks_after": 63113,
     "same_haos_boot": true,
     "namespace_ids_changed": false,
     "job": {
-      "id": "89f5749e98214b71a9cd0a90a513d40c",
-      "job_id": "89f5749e98214b71a9cd0a90a513d40c",
-      "case_id": "2a36b888d28e4dcd907eca7c02736bfb",
+      "id": "f704a4ec10634aa9964404a5fed5c497",
+      "job_id": "f704a4ec10634aa9964404a5fed5c497",
+      "case_id": "a6a96b2055f245648ce47fc7af2f04f3",
       "state": "stop_unconfirmed",
       "stop_confirmed": false,
       "execution_started": true,
@@ -634,9 +636,9 @@
     },
     "exact_lease_retained": true,
     "queued_job": {
-      "id": "2af72cc2d23c420ea536e564ec7f8bc7",
-      "job_id": "2af72cc2d23c420ea536e564ec7f8bc7",
-      "case_id": "5edad98a70d845f89b866e4a03735857",
+      "id": "379317431d4f42d7b639594e155f00ce",
+      "job_id": "379317431d4f42d7b639594e155f00ce",
+      "case_id": "d794bc343ab04514961b49ca5350085d",
       "state": "queued",
       "stop_confirmed": false,
       "execution_started": false,
@@ -654,5 +656,5 @@
     "disk_fixture_ownership_restored": true,
     "network_removed": true
   },
-  "duration_seconds": 1245.271
+  "duration_seconds": 746.295
 }

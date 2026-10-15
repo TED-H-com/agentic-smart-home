@@ -30,13 +30,13 @@
   "observed_from": "supervisor_git_store_outer_controller_and_app_container",
   "target": "disposable_official_haos_vm",
   "method": "one_click_enable_cold_partial_backup_full_host_reboot",
-  "observed_at_epoch": 1791998818.7887328,
+  "observed_at_epoch": 1792050873.8587997,
   "haos_image": "18.3",
   "phase": "completion",
-  "source_commit": "90614e51d5e4758f1fd95a6213701bc5e07bcd13",
-  "runner_git_tree": "4a6a3672970dfc6b04edb42000147c1eaf6bb28f",
-  "bridge_git_tree": "ab544827aa746d28d0bb9cc1b1b05328f00f94ce",
-  "controller_git_tree": "43dff96998d30986e93df05998d243e6dfd4e7ab",
+  "source_commit": "13ad697aca3e61fa6c409ee08ffa177d3c297842",
+  "runner_git_tree": "cdf5d405a8483ed523f543e38e23474dd65801bf",
+  "bridge_git_tree": "d6657187c7bcb64e1ca1f079d6f6c98804202f7f",
+  "controller_git_tree": "435b13ceb73fb94a9aae338b3539be95a0743ff5",
   "haos_vm_profile": {
     "memory_mib": 4096,
     "vcpus": 2,
@@ -86,7 +86,7 @@
       "home_worker_login_required"
     ]
   ],
-  "enable_seconds": 522.59,
+  "enable_seconds": 367.092,
   "app_container_observation": {
     "apparmor_profile": "159bbdf5_agentic_runner",
     "cap_add": [
@@ -112,7 +112,7 @@
     }
   },
   "cold_backup_observation": {
-    "samples": 52,
+    "samples": 47,
     "supervisor_states": [
       "freeze",
       "running"
@@ -168,11 +168,6 @@
     ],
     [
       "monitor",
-      "waiting",
-      "bridge_supervisor_busy"
-    ],
-    [
-      "monitor",
       "healthy",
       null
     ]
@@ -192,5 +187,5 @@
     "disk_fixture_ownership_restored": true,
     "network_removed": true
   },
-  "duration_seconds": 1303.131
+  "duration_seconds": 1382.753
 }
