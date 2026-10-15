@@ -674,6 +674,7 @@ def test_coding_job_phase_reason_stop_line_and_source_commit(ui_page):
         'authority_revoked': '授權已變更，工作已停止。',
         'owner_cancelled': '你已停止這份工作。',
         'broker_restarted': '主機重新啟動，工作已中斷。已保留目前的結果。',
+        'runner_response_unconfirmed': '暫時無法確認工作狀態，恢復連線後會自動更新。',
         'coding_needs_auth': '開發助手需要重新登入。',
         'coding_needs_reauth': '開發助手需要重新登入。',
         'unsupported_model': '開發助手目前無法執行這個設定。',
@@ -1711,3 +1712,47 @@ def test_withheld_changes_patch_is_not_reported_as_no_changes(ui_page):
     expect(page.get_by_text('這個檔案疑似含有密碼，只保留在主機上。', exact=True)).to_be_visible()
     expect(page.get_by_text('沒有修改檔案。', exact=True)).to_have_count(0)
     assert not errors
+
+
+def test_host_panel_waits_for_runner_reconnect_and_selects_connected_provider(ui_page):
+    page, origin = ui_page
+    runner_ready = {'ready': False}
+    errors = []
+
+    def route(route):
+        request = route.request
+        path = request.url.split('/api/')[1]
+        if path == 'status':
+            if not runner_ready['ready']:
+                value = {
+                    **common('status'),
+                    'runner': {'status': 'unavailable', 'message': '執行環境啟動中…', 'providers': []},
+                }
+            else:
+                value = {
+                    **common('status'),
+                    'runner': {'protocol': 1, 'providers': [{'provider': 'claude', 'status': 'connected'}]},
+                }
+        else:
+            value = common(path)
+            if value is None:
+                raise AssertionError(path)
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
+
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.route('**/api/**', route)
+    page.clock.install()
+    page.goto(origin + '/#host')
+
+    expect(page.get_by_text('等待 AI 帳號恢復連線…', exact=True)).to_be_visible()
+    expect(page.get_by_text('尚未登入 AI 帳號。', exact=True)).to_have_count(0)
+    expect(page.get_by_label('想問什麼？', exact=True)).to_have_count(0)
+
+    runner_ready['ready'] = True
+    page.clock.run_for(10_500)
+
+    expect(page.get_by_label('想問什麼？', exact=True)).to_be_visible()
+    expect(page.get_by_text('尚未登入 AI 帳號。', exact=True)).to_have_count(0)
+    expect(page.get_by_text('等待 AI 帳號恢復連線…', exact=True)).to_have_count(0)
+    assert not errors
+
