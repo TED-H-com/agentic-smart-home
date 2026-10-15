@@ -623,7 +623,7 @@ def job_proof(identifier, *, root=Path('/data/coding/work')):
         group = root.parent / 'cgroups' / name
         try:
             result[key + '_present'] = group.exists()
-            if group.exists():
+            if result[key + '_present']:
                 events = dict(line.split() for line in (group / 'cgroup.events').read_text().splitlines())
                 if events.get('populated') in {'0', '1'}:
                     result[key + '_populated'] = events['populated'] == '1'
