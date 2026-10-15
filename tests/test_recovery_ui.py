@@ -875,3 +875,113 @@ def test_lost_connection_recovers_after_failed_reconnect_and_first_load_but_miss
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+@pytest.mark.parametrize('scenario', ['reconnect', 'recovery-task', 'valid-task', 'history', 'action', 'forbidden'])
+def test_global_error_ownership_during_recovery_and_navigation(scenario):
+    server, thread = _server()
+    state = {'status': 200, 'hold': False, 'held': [], 'polls': 0}
+    missing, valid = 'f' * 32, 'a' * 32
+    task = {'id': valid, 'request': '有效提案', 'provider': 'codex', 'state': 'succeeded',
+            'message': '', 'created_at': '2026-10-13T00:00:00Z', 'updated_at': '2026-10-13T00:00:00Z'}
+
+    def route(route):
+        path = route.request.url.split('/api/')[1]
+        if path == 'session' and state['hold']:
+            # Sync Playwright handlers must return so the test can drive the action.
+            state['held'].append(route)
+            return
+        if path == 'tasks':
+            state['polls'] += 1
+            if state['status'] != 200:
+                route.fulfill(status=state['status'], json={'detail': '輪詢失敗，請重新連線。'})
+                return
+        if path == f'tasks/{missing}':
+            route.fulfill(status=404, json={'detail': '這份資料已過期或不存在。'})
+            return
+        if path == 'pause':
+            route.fulfill(status=409, json={'detail': '恢復衝突，請稍後再試。'})
+            return
+        value = {'deployment': {'mode': 'host', 'authenticated': True},
+                 'session': {'csrf': 'fixture-csrf', 'principal': 'fixture-owner'},
+                 'status': {'paused': True, 'ha': {'status': 'connected'}},
+                 'tasks': {'tasks': []}, f'tasks/{valid}': task}.get(path, {})
+        route.fulfill(status=200, json=value)
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.clock.install()
+            page.route('**/api/**', route)
+            page.goto(f'http://127.0.0.1:{server.server_port}/#history')
+            resume = page.get_by_role('button', name='AI 已暫停 · 恢復', exact=True)
+            expect(resume).to_be_visible()
+            error = page.locator('.global-error')
+            if scenario in {'action', 'recovery-task', 'forbidden'}:
+                state['status'] = 403 if scenario == 'forbidden' else 503
+                page.clock.run_for(10_100)
+                expect(error).to_contain_text('輪詢失敗')
+                state['status'] = 200
+                state['hold'] = scenario != 'forbidden'
+                page.clock.run_for(10_100)
+                if state['hold']:
+                    # Pump browser events without blocking a route handler.
+                    expect(page.get_by_role('button', name='重新連線中…', exact=True)).to_be_visible()
+                    assert len(state['held']) == 1
+            if scenario == 'action':
+                resume.click()
+                expect(error).to_contain_text('恢復衝突')
+                state['hold'] = False
+                state['held'].pop().fulfill(status=200, json={'csrf': 'fixture-csrf', 'principal': 'fixture-owner'})
+                expect(error.get_by_role('button', name='重新連線', exact=True)).to_be_enabled()
+                expect(error).to_contain_text('恢復衝突')
+            elif scenario == 'forbidden':
+                before = state['polls']
+                for _ in range(3):
+                    with page.expect_response('**/api/tasks'):
+                        page.clock.run_for(10_100)
+                    page.wait_for_timeout(100)
+                # The first awaited response may belong to a request already in flight.
+                assert state['polls'] >= before + 2
+                expect(error).to_contain_text('輪詢失敗')
+                error.get_by_role('button', name='重新連線', exact=True).click()
+                expect(error).to_have_count(0)
+            else:
+                page.evaluate(f"location.hash='home/{missing}'")
+                expect(error).to_contain_text('這份資料已過期或不存在。')
+                if scenario in {'valid-task', 'history'}:
+                    page.evaluate(f"location.hash='{'home/' + valid if scenario == 'valid-task' else 'history'}'")
+                    if scenario == 'valid-task':
+                        expect(page.locator('.task-detail h2')).to_have_text('有效提案')
+                    else:
+                        expect(page.locator('h1')).to_have_text('紀錄')
+                    expect(error).to_have_count(0)
+                else:
+                    page.evaluate("""() => {
+                        window.bannerDisappearances = 0;
+                        new MutationObserver(records => {
+                            for (const record of records) for (const node of record.removedNodes)
+                                if (node.nodeType === 1 && (node.matches('.global-error') || node.querySelector('.global-error')))
+                                    window.bannerDisappearances++;
+                        }).observe(document.querySelector('main'), {childList:true, subtree:true});
+                    }""")
+                    if scenario == 'recovery-task':
+                        state['hold'] = False
+                        state['held'].pop().fulfill(status=200, json={'csrf': 'fixture-csrf', 'principal': 'fixture-owner'})
+                        expect(error.get_by_role('button', name='重新連線', exact=True)).to_be_enabled()
+                    for _ in range(3):
+                        with page.expect_response('**/api/tasks'):
+                            page.clock.run_for(10_100)
+                        page.wait_for_timeout(100)
+                    if scenario == 'reconnect':
+                        error.get_by_role('button', name='重新連線', exact=True).click()
+                        expect(error.get_by_role('button', name='重新連線', exact=True)).to_be_enabled()
+                        page.clock.run_for(10_100)
+                    assert page.evaluate('window.bannerDisappearances') == 0
+                    expect(error).to_contain_text('這份資料已過期或不存在。')
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
