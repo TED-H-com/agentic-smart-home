@@ -2,6 +2,7 @@
 import http.cookiejar
 import json
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -10,6 +11,100 @@ OBSERVATIONS = []
 STAGE = "initializing"
 DIAGNOSTICS = {}
 HTTP_TIMEOUT_SECONDS = 90
+PROBE_BUDGET_SECONDS = 330  # Cooperative request budget; the outer process has the hard 360-second bound.
+RUNNER_READINESS_SECONDS = 150
+RUNNER_READINESS_ATTEMPTS = 3
+RUNNER_READINESS_PAUSE_SECONDS = 2
+OPERATOR_PROVIDERS = {"codex", "claude", "agy", "grok"}
+
+
+def runner_status_observation(value):
+    """Project fixed categories only; Runner error messages do not establish a cause."""
+    def shape(item):
+        return "object" if isinstance(item, dict) else "array" if isinstance(item, list) else "other"
+
+    runner = value.get("runner") if isinstance(value, dict) else None
+    onboarding = value.get("onboarding") if isinstance(value, dict) else None
+    result = {"response_shape": shape(value), "runner_shape": shape(runner),
+              "onboarding_shape": shape(onboarding), "result": "malformed"}
+    if not isinstance(runner, dict) or not isinstance(onboarding, dict):
+        return result
+    paired = onboarding.get("runner_paired")
+    result["runner_paired"] = paired if type(paired) is bool else None
+    state = runner.get("status")
+    result["runner_state"] = (state if state in ("unavailable", "unpaired") else
+                              "absent" if "status" not in runner else "other")
+    for field, expected in (("identity", "agentic-home-runner"), ("protocol", 1)):
+        result[field] = ("absent" if field not in runner else "expected"
+                         if type(runner[field]) is type(expected) and runner[field] == expected else "unexpected")
+    providers = runner.get("providers")
+    result["providers_shape"] = shape(providers)
+    result["provider_count"] = len(providers) if isinstance(providers, list) and len(providers) <= 4 else None
+    result["provider_count_over_limit"] = isinstance(providers, list) and len(providers) > 4
+    result["message_shape"] = ("absent" if "message" not in runner else
+                               "text" if isinstance(runner["message"], str) else "other")
+    if paired is False or state == "unpaired":
+        result["result"] = "unpaired"
+    elif paired is not True:
+        pass
+    elif state == "unavailable":
+        if (result["identity"] == result["protocol"] == "absent" and providers == []
+                and result["message_shape"] == "text"):
+            result["result"] = "unavailable"
+    elif "status" not in runner:
+        if result["identity"] != "expected":
+            result["result"] = "identity_mismatch"
+        elif result["protocol"] != "expected":
+            result["result"] = "protocol_mismatch"
+        elif (isinstance(providers, list) and len(providers) == 4
+              and all(isinstance(item, dict) and isinstance(item.get("provider"), str)
+                      and item.get("status") in ("connected", "needs_reauth", "unavailable") for item in providers)
+              and {item["provider"] for item in providers} == OPERATOR_PROVIDERS):
+            result["result"] = "ready"
+        else:
+            result["result"] = "provider_catalog_mismatch"
+    return result
+
+
+def wait_for_runner_status(request, *, deadline, clock=time.monotonic, pause=time.sleep):
+    """Only repeat GET observations of a paired, explicitly unavailable Runner.
+
+    urllib uses socket-operation timeouts, not a hard body deadline. The attempt
+    and elapsed budgets stop further requests; the outer process bound remains.
+    """
+    deadline = min(deadline, clock() + RUNNER_READINESS_SECONDS)
+    evidence = {"result": "pending", "observations": []}
+    DIAGNOSTICS["runner_status"] = evidence
+
+    def record(observed):
+        evidence["observations"].append(observed)
+        if observed["result"] != "ready":
+            evidence.setdefault("first_failed_observation", observed.copy())
+
+    for attempt in range(RUNNER_READINESS_ATTEMPTS):
+        remaining = deadline - clock()
+        if remaining <= 0:
+            break
+        try:
+            status = request("/api/status", timeout=min(HTTP_TIMEOUT_SECONDS, remaining))
+        except Exception as error:
+            record({"result": "request_failed", "error_type": type(error).__name__ if type(error).__name__ in {
+                "TimeoutError", "URLError", "HTTPError", "JSONDecodeError", "ValueError"} else "OtherError"})
+            evidence["result"] = "request_failed"
+            raise
+        observed = runner_status_observation(status)
+        record(observed)
+        if clock() > deadline:
+            break
+        if observed["result"] == "ready":
+            evidence["result"] = "ready"
+            return status
+        evidence["result"] = observed["result"]
+        require(observed["result"] == "unavailable", "runner_status_" + observed["result"])
+        if attempt + 1 < RUNNER_READINESS_ATTEMPTS:
+            pause(min(RUNNER_READINESS_PAUSE_SECONDS, max(0, deadline - clock())))
+    evidence["result"] = "readiness_exhausted"
+    require(False, "runner_readiness_exhausted")
 
 
 def require(condition, stage):
@@ -53,12 +148,15 @@ def verify_auth_blocked(job):
 
 def probe():
     global STAGE
+    deadline = time.monotonic() + PROBE_BUDGET_SECONDS
     base = "http://localhost:8099"
     csrf = ""
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 
-    def request(path, data=None, key=None):
+    def request(path, data=None, key=None, *, timeout=HTTP_TIMEOUT_SECONDS):
         global STAGE
+        remaining = deadline - time.monotonic()
+        require(remaining > 0, "auth_probe_deadline")
         STAGE = "http_" + path.removeprefix("/api/").replace("/", "_")
         body = json.dumps(data).encode() if data is not None else None
         headers = {"Origin": base, "Content-Type": "application/json"}
@@ -69,7 +167,7 @@ def probe():
         req = urllib.request.Request(base + path, data=body,
                                      headers=headers)
         try:
-            with opener.open(req, timeout=HTTP_TIMEOUT_SECONDS) as response:
+            with opener.open(req, timeout=min(timeout, remaining)) as response:
                 OBSERVATIONS.append({"path": path, "status": response.status})
                 return json.load(response)
         except urllib.error.HTTPError as exc:
@@ -96,11 +194,7 @@ def probe():
     host = request("/api/host/status")
     bridge_contract = host.get("controller_update", {}).get("ingress_bridge_contract")
     require(type(bridge_contract) is int and bridge_contract == 1, "fixed_host_bridge_update_contract")
-    status = request("/api/status")
-    require(status["runner"]["identity"] == "agentic-home-runner", "runner_identity")
-    require(status["onboarding"]["runner_paired"] is True, "automatic_runner_pairing")
-    require({p["provider"] for p in status["runner"]["providers"]} == {"codex", "claude", "agy", "grok"},
-            "operator_provider_catalog")
+    status = wait_for_runner_status(request, deadline=deadline)
     hermes = request("/api/hermes")
     DIAGNOSTICS.update(hermes_needs_auth=hermes["runtime"].get("state") == "needs_auth",
                        hermes_inference_verified=hermes["runtime"].get("auth_verified_at") is not None)
