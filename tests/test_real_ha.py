@@ -14,6 +14,7 @@ from pathlib import Path
 
 import aiohttp
 import pytest
+from agentic_controller.discovery import snapshot as discovery_snapshot
 from agentic_controller.engine import Engine
 from agentic_controller.ha import HomeAssistant
 from agentic_controller.models import HELPERS, digest, utcnow
@@ -108,6 +109,13 @@ async def test_real_core_proposal_deploy_trigger_restart(real_container, tmp_pat
         owner = await ha.ws("auth/current_user")
         owner_id = owner["id"]
         assert await ha.owner(owner_id)
+        discovered = await discovery_snapshot(ha)
+        native_sources = [source for source in discovered.sources if source.location == "home_assistant"]
+        assert all(source.state == "ok" for source in native_sources), discovered.model_dump_json()
+        assert all(source.upstream_version == "2026.10.1" for source in native_sources)
+        # This isolated config has no LAN discovery enabled. Empty flows test the
+        # actual upstream read contract, not physical discovery or whole-home coverage.
+        assert discovered.candidates == []
         # The onboarding HTTP endpoint can be ready before input_boolean has finished loading.
         for _ in range(60):
             ids = {item["entity_id"] for item in await ha.request("GET", "/states")}

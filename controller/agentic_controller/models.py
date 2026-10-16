@@ -56,6 +56,65 @@ class HomeEntry(Strict):
                          "home_identity_changed", "home_contract_changed", "maintenance"] | None = None
 
 
+class DiscoverySource(Strict):
+    id: str
+    state: Literal["ok", "partial", "unavailable", "unsupported", "not_implemented"]
+    location: Literal["home_assistant", "not_implemented"] = "home_assistant"
+    method: Literal["websocket", "rest", "not_implemented"]
+    target: str
+    adapter_version: Literal[1] = 1
+    upstream_version: str | None = None
+    observed_at: str | None = None
+    item_count: int | None = None
+    truncated: bool = False
+    reason_code: str | None = None
+    content_digest: str | None = None
+
+
+class DiscoveryCandidate(Strict):
+    id: str
+    integration_domain: str
+    title: str
+    discovery_method: str
+    source_id: Literal["ha_discovery"] = "ha_discovery"
+    native_path: Literal["/config/integrations"] = "/config/integrations"
+
+
+class DiscoveryDevice(Strict):
+    id: str
+    name: str
+    manufacturer: str | None = None
+    model: str | None = None
+    via_device_id: str | None = None
+    parent_device_id: str | None = None
+    integration_ids: list[str] = []
+    disabled: bool = False
+    entity_count: int | None = None
+    available_entity_count: int | None = None
+    source_id: Literal["ha_devices"] = "ha_devices"
+
+
+class DiscoveryIntegration(Strict):
+    id: str
+    domain: str
+    title: str
+    state: Literal["loaded", "not_loaded", "retry", "error", "disabled", "ignored", "unknown"]
+    source_id: Literal["ha_integrations"] = "ha_integrations"
+
+
+class DiscoverySnapshot(Strict):
+    """Owner-visible observations, separate from entity permissions and physical verification."""
+    contract_version: Literal[1] = 1
+    observed_at: str
+    sources: list[DiscoverySource]
+    candidates: list[DiscoveryCandidate]
+    devices: list[DiscoveryDevice]
+    integrations: list[DiscoveryIntegration]
+    native_path: Literal["/config/integrations"] = "/config/integrations"
+    limitations: list[str]
+    content_digest: str
+
+
 Runtime = Literal["host", "haos"]
 Provider = Literal["codex", "claude", "agy", "grok"]
 Channel = Literal["line", "discord", "telegram"]

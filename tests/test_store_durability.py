@@ -315,6 +315,7 @@ async def test_real_ha_status_get_bypasses_held_commit(live, local_ha, tmp_path,
 
 @pytest.mark.parametrize('command,kwargs,waits', [
     ('get_states', {}, False),
+    ('config_entries/flow/progress', {}, False),
     ('supervisor/api', {'endpoint': '/addons', 'method': 'get'}, False),
     ('supervisor/api', {'endpoint': '/addons', 'method': 'HEAD'}, False),
     ('supervisor/api', {'endpoint': '/addons', 'method': 'post'}, True),

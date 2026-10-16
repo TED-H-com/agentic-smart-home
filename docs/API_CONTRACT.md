@@ -14,6 +14,7 @@ Runner protocol major：1；Worker work contract major：1（两者獨立）。J
 |---|---|
 | GET `api/session` | principal、CSRF、App version |
 | GET `api/status` | HA／Runner／provider／onboarding／pause 狀態 |
+| GET `api/discovery` | contract 1；目前有效的已綁定 HA Owner 唯讀探索快照；分來源狀態、候選、設備與整合，不授予 AI 權限 |
 | POST `api/pair` | host、固定 port 8443、fingerprint、一次性 code |
 | GET `api/inventory` | 真實 states／registry 摘要與本地 policy |
 | POST `api/policy` | `policy.schema.json`，重新驗證 owner 與 entities |

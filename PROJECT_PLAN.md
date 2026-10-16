@@ -14,6 +14,8 @@ Owner：Ted Huang。方向版本：Steering v3.0，2026-10-11。匯入時應用�
 
 ## 固定角色
 
+2026-10-16 Owner 補充：[通用設備探索與接入](docs/DEVICE_DISCOVERY.md) 納入產品主線。家庭案例用來驗證多來源盤點、辨識、整合引導及逐能力驗證，不把特定品牌或路由器寫成使用前提。先交付 HA 唯讀探索快照與原生交接，再分段加入其他來源與對話引導；實體設備、帳號與網路覆蓋仍逐項驗收。
+
 最新方向採原生 HA 日常介面＋「智能管家」Ingress App，連回同一外層 Hermes／Controller／case。HA 保留官方 Core／Supervisor／HAOS 更新路徑；外層只核對並有限次修復本產品 App，不復原使用者手動停止、移除或改動的設定。原生 Assist／語音的 Conversation adapter 另行開發，不能把 MCP 工具接點當作已完成的對話整合。
 
 0.7.0 首次設定使用發行隨附的 Hermes image digest，保留離線相容性檢查；追上游由開發端產生候選。外層 CLI／Hermes 相依維持釘版，不以完成全 Linux 更新平台為本輪前置條件。HA 更新後未知 Core 的家庭寫入仍可能暫停，須另取得相容證據。具體範圍見 [發行策略](docs/RELEASE_POLICY.md)。

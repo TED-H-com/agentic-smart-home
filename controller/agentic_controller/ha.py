@@ -21,7 +21,7 @@ READ_ONLY_WS_COMMANDS = frozenset({
     "auth/current_user", "config/auth/list", "auth/refresh_tokens",
     "config/entity_registry/list", "config/device_registry/list", "config/area_registry/list",
     "config/floor_registry/list", "config/label_registry/list",
-    "cloud/status", "config_entries/get", "validate_config", "automation/config",
+    "cloud/status", "config_entries/get", "config_entries/flow/progress", "validate_config", "automation/config",
 })
 
 

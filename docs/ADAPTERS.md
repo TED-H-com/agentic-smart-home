@@ -18,6 +18,12 @@ Home Assistant 是家庭日常介面；智能管家提供研究、對話、提�
 
 官方介面依據：[HA REST](https://developers.home-assistant.io/docs/api/rest/)、[HA WebSocket](https://developers.home-assistant.io/docs/api/websocket/)、[Ingress](https://developers.home-assistant.io/docs/apps/presentation/#ingress)、[Hermes MCP](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp)、[systemd 穩定性範圍](https://systemd.io/PORTABILITY_AND_STABILITY/)。Hermes AIAgent、部分 OAuth helper 與 HA onboarding 不是本產品能保證穩定的接點，因此另有集中檢查與候選行為測試。
 
+## 設備探索
+
+設備探索新增產品契約 `GET /api/discovery`／`device-discovery-v1`，實作集中於 `agentic_controller/discovery.py`。只對已綁定且讀取前後仍有效的 HA Owner 回傳有界快照，不擴大 MCP 或 Ingress bridge allowlist。各來源失敗獨立標示，欄位白名單之外的設定、flow context、任意 URL 與錯誤本文不回傳。
+
+HA 探索 adapter 的來源基準為 [Core 2026.10.1 flow progress](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/config/config_entries.py) 及 [frontend 20260930.3 discovery 分類](https://github.com/home-assistant/frontend/blob/20260930.3/src/data/config_flow.ts)。使用唯讀 WS `config_entries/flow/progress`；registry/config-entry 命令與此 frontend 接點視為 `upstream_private_volatile`，不因 transport 是官方 WebSocket 就保證語意穩定。`reauth`、user/import/system 不列為新設備探索；重授權仍由原生設定處理。未知來源標示不完整。設備優先讀取 `config_entry_id`，相容舊 `config_entries`；`via_device_id` 與 `parent_device_id` 分別保留。完整方向與未實作來源見 [設備探索與接入](DEVICE_DISCOVERY.md)。
+
 ## 原生入口
 
 只有無明確頁面的日常入口，才會在本產品初始化已完成、綁定 Owner 仍有效、Core 的配置及 frontend 能力讀回成功後進入 HA。新 Core 版本號或額外欄位本身不會阻止瀏覽。必要欄位遺失、服務未就緒或認證失效時，保留外層入口及手動開啟原生 HA 的路徑。此檢查不替代瀏覽器真正載入前端的驗證。
