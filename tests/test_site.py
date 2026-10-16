@@ -126,6 +126,8 @@ def test_household_flow(browser, origin):
     page.locator('.history-table > button').filter(has_text='玄關有人時開啟客廳燈').click()
     expect(page.locator('.task-detail .status')).to_have_text('等待真實觸發')
     nav(page, '設備')
+    expect(page.locator('.discovery').get_by_text('示範待設定橋接器', exact=True)).to_be_visible()
+    expect(page.locator('.discovery .notice.error')).to_have_count(0)
     page.get_by_role('checkbox', name='分享 light.demo_living_room').uncheck()
     page.get_by_role('button', name='儲存修改', exact=True).click()
     expect(page.get_by_text('已儲存。受影響的提案需要重新產生。')).to_be_visible()
