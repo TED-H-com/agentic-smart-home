@@ -600,10 +600,11 @@ class Workers:
         metadata = self.store.get("worker_artifact", artifact_id)
         if not metadata or metadata["job_id"] != identifier:
             raise WorkerError("artifact_not_found", 404)
-        peer_key = "runner" if item["worker_id"] == "host-coder" else "runner_haos"
-        if item.get("runner_identity") != digest(self.store.setting(peer_key, {})):
+        if item.get("runner_identity") != self.peer_identity(item["worker_id"]):
             raise WorkerError("runner_identity_changed")
         value = await self.runner(item["worker_id"]).call("GET", f"/coding/jobs/{identifier}/artifacts/{artifact_id}")
+        if item.get("runner_identity") != self.peer_identity(item["worker_id"]):
+            raise WorkerError("runner_identity_changed")
         if not isinstance(value, dict) or value.get("id") != artifact_id or value.get("job_id") != identifier:
             raise WorkerError("invalid_artifact", 502)
         try:
