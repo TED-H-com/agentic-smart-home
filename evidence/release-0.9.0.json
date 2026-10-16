@@ -1083,7 +1083,14 @@
     "evidence/owner-trial-53c9e79/public-approved-2/publication-provenance.json": "841ff2877b889313154218c3823f21300ec23c5a996603e98428ec5c48441ca6",
     "evidence/owner-trial-53c9e79/public-approved-2-independent-review.json": "37be5339a2049c60e333f5a1b6976d39ab883f5106aa8805f27a43ad5cf1b513",
     "evidence/owner-trial-53c9e79/release-transport/offline-reassembly.json": "da89a4f8d04624b0a5b05269c539ee48de6a86dccb8cc58f8113e07df560fff9",
-    "evidence/owner-trial-53c9e79/release-transport/release-parts.json": "8c144afc2a4e6c2b4bd49aff64f192540d6d960266dd9838161324d65dd0674f"
+    "evidence/owner-trial-53c9e79/release-transport/release-parts.json": "8c144afc2a4e6c2b4bd49aff64f192540d6d960266dd9838161324d65dd0674f",
+    "evidence/owner-trial-53c9e79/release-transport-v2/helper-generator-independent-review.json": "82604318807b1cd9960023dc3f87edc8f13b502ec2566ba6ad173c70e4dd2dfd",
+    "evidence/owner-trial-53c9e79/release-transport-v2/offline-reassembly.json": "63e4a28687795e2f0b0e659b6d341ced4b3e295a70a379f49f492b9bb447adbc",
+    "evidence/owner-trial-53c9e79/release-transport-v2/offline-verifier-independent-review.json": "c6f9ad120407ebbef3d54c995faef0321f94d0a136ea7cc3c0a01964e9b519e4",
+    "evidence/owner-trial-53c9e79/release-transport-v2/preparation.json": "62d331101993f35562be8a49ca34a1da96added85592aeb05db67b0d050f21c0",
+    "evidence/owner-trial-53c9e79/release-transport-v2/release-parts.json": "49c34e9afee7e5995ff1f774dfdc616827dccecd5961730fa17f98a06fba0f70",
+    "evidence/owner-trial-53c9e79/release-transport-v2/upload-attempt1-failed.json": "0babe091085f6bf9183a99436e57b9354380a1180d8355b48d8352168bd93df8",
+    "evidence/owner-trial-53c9e79/release-transport-v2/upload-attempt2-failed.json": "7a470bb4908d8afd9ed64663e4ff94b4d8c1885bc850455f231cbfc85cb20959"
   },
   "public_delivery": {
     "status": "passed",
@@ -1165,5 +1172,34 @@
     "receipt": "evidence/owner-trial-53c9e79/release-transport/offline-reassembly.json",
     "all_four_actual_helper_offline_checks_passed": true,
     "published_by_this_receipt": false
-  }
+  },
+  "release_transport_v2": {
+    "status": "offline_reassembly_verified_publication_pending",
+    "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+    "original_media_unchanged": true,
+    "original_logical_files": 4,
+    "iso_parts": 44,
+    "new_small_iso_parts": 43,
+    "small_iso_part_bytes_max": 134217728,
+    "retained_whole_iso_part002_bytes": 1073741824,
+    "tar_parts": 3,
+    "media_and_tool_assets": 51,
+    "verification_documents_zip_is_separate": true,
+    "intended_total_release_assets": 52,
+    "parts_manifest": "evidence/owner-trial-53c9e79/release-transport-v2/release-parts.json",
+    "parts_manifest_sha256": "49c34e9afee7e5995ff1f774dfdc616827dccecd5961730fa17f98a06fba0f70",
+    "download_helper_sha256": "8c462b1a7b4bc7bf667afe75722dfaf8e6cb76a0499379d6df17fc2e24ecf73d",
+    "offline_reassembly": "evidence/owner-trial-53c9e79/release-transport-v2/offline-reassembly.json",
+    "helper_generator_independent_review": "evidence/owner-trial-53c9e79/release-transport-v2/helper-generator-independent-review.json",
+    "all_four_actual_helper_offline_checks_passed": true,
+    "network_used_by_offline_check": false,
+    "owned_validation_scratch_removed": true,
+    "published_by_this_receipt": false,
+    "prior_transport_receipt_retained": "release_transport",
+    "prior_http408_upload_failures": [
+      "evidence/owner-trial-53c9e79/release-transport-v2/upload-attempt1-failed.json",
+      "evidence/owner-trial-53c9e79/release-transport-v2/upload-attempt2-failed.json"
+    ]
+  },
+  "current_release_transport": "release_transport_v2"
 }

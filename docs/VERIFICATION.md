@@ -1,5 +1,11 @@
 # Agentic Smart Home 驗證
 
+## 0.9.0 下載分塊更新 — 原始媒體不變
+
+兩次尚未發布的 Release 上傳遇到 HTTP 408，失敗收據完整保留。新版傳輸保留已完成的 TAR 三份分塊、原始碼、校驗檔與 ISO 第二份 1 GiB 分塊；其餘 ISO 改成 43 份各不超過 128 MiB 的小分塊，共 44 份 ISO 分塊。原始 ISO、TAR、source ZIP、SHA256SUMS 四個檔案的大小及 SHA-256 全部不變；沒有重建產品或改動凍結 harness。
+
+已實際使用新版公開下載工具，在磁碟暫存複製 49 份輸入、離線重組並核對全部四個完整原檔；工具成功結束，舊 15 份本機上傳檔及原始媒體身分未變，驗證副本已清理。見 [新版分塊及離線核驗](reviews/2026-10-16-RELEASE-TRANSPORT-V2-53c9e79.md)、[完整重組收據](../evidence/owner-trial-53c9e79/release-transport-v2/offline-reassembly.json)與 [分塊清單](../evidence/owner-trial-53c9e79/release-transport-v2/release-parts.json)。這項離線核驗未使用網路，也不證明 Release 已發布；公開附件與匿名完整下載仍待後續實測。
+
 ## 0.9.0 公開交付兩階段通過 — `53c9e79`
 
 2026-10-16 UTC，Owner 允許續行及重試後，第二次公開交付驗證使用原版程式、harness、媒體與六個映像，完成同一次序列的兩個階段。見 [公開交付摘要](../evidence/owner-trial-53c9e79/public-approved-2/summary.json)、[獨立核對](../evidence/owner-trial-53c9e79/public-approved-2-independent-review.json)與 [本輪紀錄](reviews/2026-10-16-PUBLIC-DELIVERY-53c9e79.md)。

@@ -1,0 +1,90 @@
+{
+  "kind": "preserved_failed_sequential_draft_asset_upload_retry2",
+  "observed_at": "2026-10-16T02:18:09.071912+00:00",
+  "release_id": 414429247,
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "upload_returncode": 1,
+  "server_http_status": 408,
+  "error_class": "upload_body_timed_out",
+  "failed_asset": "agentic-home-0.9.0-laptop-amd64.iso.part001",
+  "failed_asset_started": "2026-10-16T02:05:12.115410+00:00",
+  "failed_asset_finished": "2026-10-16T02:12:01.323056+00:00",
+  "stderr_sha256": "5a5d2eacb02571359642086b9b429bc74ce58c1978ba2b32539d8bb89cc09ef7",
+  "all_original_fifteen_local_file_identities_still_unchanged": true,
+  "published": false,
+  "actual_remote_assets": [
+    {
+      "id": 645831192,
+      "name": "agentic-home-0.9.0-laptop-amd64.iso.part001",
+      "state": "starter",
+      "size": 1073741824,
+      "digest": null
+    },
+    {
+      "id": 645730324,
+      "name": "agentic-home-0.9.0-laptop-amd64.iso.part002",
+      "state": "uploaded",
+      "size": 1073741824,
+      "digest": "sha256:f5876e0aa184b399158943c82ea23b9872d917c237c3572fb242464a725b5857"
+    },
+    {
+      "id": 645726872,
+      "name": "agentic-home-0.9.0-linux-amd64.tar.part001",
+      "state": "uploaded",
+      "size": 1073741824,
+      "digest": "sha256:40240e7833b480feaae5a894df8a1fbdc946b6089ab94d5a42f60dadd54afa32"
+    },
+    {
+      "id": 645726870,
+      "name": "agentic-home-0.9.0-linux-amd64.tar.part002",
+      "state": "uploaded",
+      "size": 1073741824,
+      "digest": "sha256:6cbece49e259e3d178cc4cb6ac990e53e51c2ece2882126dd889d8cf36b7ecd2"
+    },
+    {
+      "id": 645726863,
+      "name": "agentic-home-0.9.0-linux-amd64.tar.part003",
+      "state": "uploaded",
+      "size": 578639872,
+      "digest": "sha256:2e0255f381127f5bb69a47da9ed09f45ada5a45b7f0911c839f29cf10d055882"
+    },
+    {
+      "id": 645726868,
+      "name": "agentic-home-0.9.0-source.zip",
+      "state": "uploaded",
+      "size": 31130483,
+      "digest": "sha256:e782a43ab62c6af7bc7d4e0ecb76e6c66a314442cb08c7c8b966aef016b599a7"
+    },
+    {
+      "id": 645831021,
+      "name": "agentic-smart-home-0.9.0-verification-cc2fb44ea6d8.zip",
+      "state": "uploaded",
+      "size": 428535,
+      "digest": "sha256:02ed4ca104ef63cfce5fb4feae93b0de3295fe77f1b6e21d436d3cb3f09fa99e"
+    },
+    {
+      "id": 645831080,
+      "name": "download-0.9.0.py",
+      "state": "uploaded",
+      "size": 11123,
+      "digest": "sha256:580c3a1239d1fc2b715cd66aa33c137f0117ceacd1a22b0b1dbd2398158fa05f"
+    },
+    {
+      "id": 645831136,
+      "name": "release-parts.json",
+      "state": "uploaded",
+      "size": 3308,
+      "digest": "sha256:8c144afc2a4e6c2b4bd49aff64f192540d6d960266dd9838161324d65dd0674f"
+    },
+    {
+      "id": 645830945,
+      "name": "SHA256SUMS",
+      "state": "uploaded",
+      "size": 299,
+      "digest": "sha256:5cd75f4bcd7b4bb9228951d68694260fd2cc7dbed542057ac00c06a1cb03b2a0"
+    }
+  ],
+  "uploaded_verified_count": 9,
+  "owned_incomplete_starter_count": 1,
+  "next_strategy": "Retain completed original TAR/source/ISOwholeblock2/SHA; split only missing ISO blocks into128MiB subchunks, update separately reviewed transport helper/manifest/docs, preserve all oldlocalfiles and original media."
+}

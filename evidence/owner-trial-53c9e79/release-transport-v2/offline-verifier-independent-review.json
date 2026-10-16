@@ -1,0 +1,25 @@
+{
+  "kind": "independent_transport_v2_offline_verifier_review",
+  "reviewed_at": "2026-10-16T02:32:01.691970+00:00",
+  "reviewer": "next_workline_review",
+  "script_sha256": "be26828a5d8b5be29692cef6d1fab99b812d869167ffd3556e1561c7f18de257",
+  "supersedes_blocked_review_sha256": "5150a1897138039edcd5d75d9358c9a39a3e394245ee7a411b1dc958b1c11801",
+  "prior_blocked_review_preserved": true,
+  "blockers": [],
+  "safe_to_execute_with_root_reviewed_actual_manifest_and_helper_cli_sha256": true,
+  "reviewed_helper_sha256": "8c462b1a7b4bc7bf667afe75722dfaf8e6cb76a0499379d6df17fc2e24ecf73d",
+  "checks": {
+    "original_fifteen_identity_checks_before_and_after_reassembly": true,
+    "actual_original_upload_receipt_contains_exact_fifteen_inventory_names": true,
+    "status_passed_requires_all_fifteen_postchecks": true,
+    "four_original_pass_requires_actual_pinned_helper_exit0_expected_stdout_and_regular_output_sizes": true,
+    "reviewed_helper_requires_individual_part_and_final_original_sha256": true,
+    "mixed_input_requires_49_unique_names_and_regular_source_identity_before_after_copy": true,
+    "frozen_source_exact_commit_clean_status_manifest_sha256_and_four_original_stat_identity_rechecked": true,
+    "cleanup_limited_to_new_owned_disk_scratch": true,
+    "actual_success_receipt_not_created_by_review": true
+  },
+  "actual_script_executed": false,
+  "network_or_large_media_reads": false,
+  "review_only": true
+}
