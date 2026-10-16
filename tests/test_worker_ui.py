@@ -1297,6 +1297,8 @@ def test_coding_detail_shows_findings_changes_and_plain_errors(ui_page):
 
     flags['detail'] = True
     before = len(detail_reads)
+    # This assertion covers the generic list's cached row, not an explicit deep link.
+    page.goto(origin + '/#workers')
     page.reload()
     expect(page.get_by_role('heading', name=rich['goal'], exact=True)).to_be_visible()
     expect(page.get_by_text(fact, exact=True)).to_have_count(0)
@@ -1806,3 +1808,185 @@ def test_host_panel_waits_for_runner_reconnect_and_selects_connected_provider(ui
     expect(page.get_by_text('尚未登入 AI 帳號。', exact=True)).to_have_count(0)
     expect(page.get_by_text('等待 AI 帳號恢復連線…', exact=True)).to_have_count(0)
     assert not errors
+
+
+def mount_notification_links_fixture(page):
+    """Synthetic worker API only; no coding account, real adapter or household."""
+    jobs = {}
+    for letter, goal, fact in [('a', '調查手機連線', '第一份工作的調查結果。'),
+                                ('b', '修正桌面提示', '第二份工作的調查結果。'),
+                                ('c', '較舊的工作', '清單之外的指定工作。')]:
+        jobs[letter * 32] = {'id': letter * 32, 'case_id': letter * 32, 'worker_id': 'host-coder',
+            'mode': 'research', 'provider': 'codex', 'goal': goal, 'state': 'succeeded',
+            'execution_started': True, 'stop_confirmed': True, 'created_at': '2026-10-16T04:00:00Z',
+            'runtime_location': 'host_worker_container', 'facts': [fact], 'artifacts': []}
+    state = {'listed': ['a' * 32, 'b' * 32], 'active': 'b' * 32, 'failures': {}, 'hold': set(), 'held': []}
+    reads, writes, errors = [], [], []
+
+    def route(route):
+        req = route.request
+        path = req.url.split('/api/')[1]
+        if req.method != 'GET':
+            writes.append((req.method, path))
+            route.fulfill(status=405, content_type='application/json', body='{}')
+            return
+        value = common(path)
+        if value is not None:
+            pass
+        elif path == 'workers':
+            value = {'workers': [], 'active_job_id': state['active']}
+        elif path == 'worker/jobs':
+            value = {'jobs': [_listed(jobs[key]) for key in state['listed']], 'active_job_id': state['active']}
+        elif path.startswith('worker/jobs/') and path.count('/') == 2:
+            identifier = path.rsplit('/', 1)[-1]
+            reads.append(identifier)
+            if identifier in state['hold']:
+                state['held'].append(route)
+                return
+            status = state['failures'].get(identifier, 200 if identifier in jobs else 404)
+            value = jobs.get(identifier) if status == 200 else {'detail': 'worker_job_not_found'}
+            route.fulfill(status=status, content_type='application/json', body=json.dumps(value))
+            return
+        else:
+            raise AssertionError(path)
+        route.fulfill(status=200, content_type='application/json', body=json.dumps(value))
+
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.route('**/api/**', route)
+    return jobs, state, reads, writes, errors
+
+
+def test_notification_link_selects_exact_job_on_initial_navigation_and_history(ui_page):
+    page, origin = ui_page
+    jobs, state, reads, writes, errors = mount_notification_links_fixture(page)
+    first, second = jobs['a' * 32], jobs['b' * 32]
+    page.goto(origin + '/#workers/' + first['id'])
+    expect(page.get_by_text(first['facts'][0], exact=True)).to_be_visible()
+    draft = page.get_by_role('textbox', name='要調查或改善什麼？', exact=True)
+    draft.fill('保留未送出的需求')
+    page.evaluate("location.hash = 'workers/' + 'b'.repeat(32)")
+    expect(page.get_by_text(second['facts'][0], exact=True)).to_be_visible()
+    expect(page.get_by_text(first['facts'][0], exact=True)).to_have_count(0)
+    page.go_back()
+    expect(page.get_by_text(first['facts'][0], exact=True)).to_be_visible()
+    expect(draft).to_have_value('保留未送出的需求')
+    # Manual selection also updates the URL so the next notification can change it.
+    page.locator('.worker-results select').select_option(second['id'])
+    expect(page).to_have_url(origin + '/#workers/' + second['id'])
+    page.evaluate("location.hash = 'workers/' + 'a'.repeat(32)")
+    expect(page.get_by_text(first['facts'][0], exact=True)).to_be_visible()
+    page.goto(origin + '/#history')
+    page.get_by_role('heading', name='紀錄', exact=True).wait_for()
+    page.evaluate("location.hash = 'workers/' + 'b'.repeat(32)")
+    expect(page.get_by_text(second['facts'][0], exact=True)).to_be_visible()
+    assert set(reads) == {first['id'], second['id']}
+    assert not writes and not errors
+
+
+def test_notification_link_reads_exact_job_outside_bounded_list(ui_page):
+    page, origin = ui_page
+    jobs, state, reads, writes, errors = mount_notification_links_fixture(page)
+    target = jobs['c' * 32]
+    page.goto(origin + '/#workers/' + target['id'])
+    expect(page.get_by_role('heading', name=target['goal'], exact=True)).to_be_visible()
+    expect(page.get_by_text(target['facts'][0], exact=True)).to_be_visible()
+    expect(page.locator('.worker-results select')).to_have_value(target['id'])
+    assert reads and set(reads) == {target['id']}
+    assert not writes and not errors
+
+
+@pytest.mark.parametrize('target', ['d' * 32, 'not-a-job', 'a' * 32 + '/extra', ''])
+def test_notification_link_missing_or_invalid_never_shows_another_active_job(ui_page, target):
+    page, origin = ui_page
+    jobs, state, reads, writes, errors = mount_notification_links_fixture(page)
+    page.goto(origin + '/#workers/' + target)
+    expect(page.get_by_role('heading', name='找不到這份工作', exact=True)).to_be_visible()
+    results = page.locator('.worker-results')
+    expect(results.get_by_text('工作已過期或不存在，請返回工作清單。', exact=True)).to_be_visible()
+    for job in jobs.values():
+        expect(results.get_by_role('heading', name=job['goal'], exact=True)).to_have_count(0)
+    assert set(reads) == ({target} if target == 'd' * 32 else set())
+    results.get_by_role('button', name='返回工作清單', exact=True).click()
+    expect(page).to_have_url(origin + '/#workers')
+    expect(page.get_by_text(jobs[state['active']]['facts'][0], exact=True)).to_be_visible()
+    assert not writes and not errors
+
+
+@pytest.mark.parametrize('linked', [True, False])
+def test_notification_link_expired_content_does_not_show_another_job(ui_page, linked):
+    page, origin = ui_page
+    jobs, state, reads, writes, errors = mount_notification_links_fixture(page)
+    target = jobs['a' * 32]
+    target.update(content_expired=True, facts=[])
+    target.pop('goal')
+    state['active'] = target['id']
+    page.goto(origin + ('/#workers/' + target['id'] if linked else '/#workers'))
+    expect(page.get_by_role('heading', name='工作內容已過期', exact=True)).to_be_visible()
+    expect(page.get_by_text(jobs['b' * 32]['facts'][0], exact=True)).to_have_count(0)
+    assert reads and set(reads) == {target['id']}
+    # Expiration must leave the list usable, including when this is its first row.
+    page.locator('.worker-results select').select_option('b' * 32)
+    expect(page.get_by_text(jobs['b' * 32]['facts'][0], exact=True)).to_be_visible()
+    assert not writes and not errors
+
+
+@pytest.mark.parametrize('late_status', [200, 404])
+@pytest.mark.parametrize('return_to_first', [False, True])
+def test_notification_link_ignores_old_response_even_after_returning_to_same_job(ui_page, late_status, return_to_first):
+    page, origin = ui_page
+    jobs, state, reads, writes, errors = mount_notification_links_fixture(page)
+    first, second = jobs['a' * 32], jobs['b' * 32]
+    state['hold'].add(first['id'])
+    page.goto(origin + '/#workers/' + first['id'])
+    page.wait_for_function("document.querySelector('.worker-results select')?.value === 'a'.repeat(32)")
+    # Pump browser callbacks until the actual first detail request is held.
+    expect(page.locator('.worker-results select')).to_have_value(first['id'])
+    assert state['held']
+    old_requests = list(state['held'])
+    state['hold'].clear()
+    page.evaluate("location.hash = 'workers/' + 'b'.repeat(32)")
+    expect(page.get_by_text(second['facts'][0], exact=True)).to_be_visible()
+    current = second
+    if return_to_first:
+        page.go_back()
+        current = first
+        expect(page.get_by_text(first['facts'][0], exact=True)).to_be_visible()
+    for request in old_requests:
+        payload = {**first, 'facts': ['這是過時回覆，不應取代目前結果。']} if late_status == 200 else {'detail': 'worker_job_not_found'}
+        with page.expect_response(request.request.url):
+            request.fulfill(status=late_status, content_type='application/json', body=json.dumps(payload))
+    page.wait_for_load_state('networkidle')
+    expect(page.get_by_text(current['facts'][0], exact=True)).to_be_visible()
+    expect(page.get_by_text('這是過時回覆，不應取代目前結果。', exact=True)).to_have_count(0)
+    expect(page.get_by_role('heading', name='找不到這份工作', exact=True)).to_have_count(0)
+    assert not writes and not errors
+
+
+def test_notification_link_disappearing_from_list_rechecks_exact_id(ui_page):
+    page, origin = ui_page
+    jobs, state, reads, writes, errors = mount_notification_links_fixture(page)
+    target = jobs['a' * 32]
+    page.goto(origin + '/#workers/' + target['id'])
+    expect(page.get_by_text(target['facts'][0], exact=True)).to_be_visible()
+    state['listed'].remove(target['id'])
+    state['failures'][target['id']] = 404
+    # The normal five-second list poll discovers cleanup without dispatching a job.
+    expect(page.get_by_role('heading', name='找不到這份工作', exact=True)).to_be_visible(timeout=10000)
+    expect(page.get_by_text(jobs[state['active']]['facts'][0], exact=True)).to_have_count(0)
+    assert len(reads) >= 2 and set(reads) == {target['id']}
+    assert not writes and not errors
+
+
+def test_notification_link_transient_failure_retries_same_id_without_dispatch(ui_page):
+    page, origin = ui_page
+    jobs, state, reads, writes, errors = mount_notification_links_fixture(page)
+    target = jobs['c' * 32]
+    state['failures'][target['id']] = 503
+    page.goto(origin + '/#workers/' + target['id'])
+    expect(page.locator('.worker-results').get_by_text('暫時無法讀取這份工作。', exact=True)).to_be_visible()
+    expect(page.get_by_role('heading', name='找不到這份工作', exact=True)).to_have_count(0)
+    del state['failures'][target['id']]
+    page.locator('.worker-results').get_by_role('button', name='重新讀取工作', exact=True).click()
+    expect(page.get_by_text(target['facts'][0], exact=True)).to_be_visible()
+    assert len(reads) >= 2 and set(reads) == {target['id']}
+    assert not writes and not errors
