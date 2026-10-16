@@ -1072,38 +1072,98 @@
     "evidence/owner-trial-53c9e79/public-approved-1-failed/enable/stage.json": "b2bc6eab0f4261d8db5ec7e3bd93e22f4178056fa724f5aa0da6aceea24eb96c",
     "evidence/owner-trial-53c9e79/public-approved-1-failed/enable/home-worker-enable-haos.json": "d707c8cf1ce66e19643475e478465793ca35a228aa75b5187884c65aeb0c2c09",
     "evidence/owner-trial-53c9e79/public-approved-1-failed/enable/junit.xml": "da490013b068e8fcd5e7c4ee491e49284fced45877e2e9b5e4407394420cdd2d",
-    "evidence/owner-trial-53c9e79/public-approved-1-failed/bridge-haos/stage.json": "cdbe680f19e20c89ae58fe52cee769d9c4d01ff0920cf9e65860bdca41d12fd7"
+    "evidence/owner-trial-53c9e79/public-approved-1-failed/bridge-haos/stage.json": "cdbe680f19e20c89ae58fe52cee769d9c4d01ff0920cf9e65860bdca41d12fd7",
+    "evidence/owner-trial-53c9e79/public-approved-2/enable/stage.json": "246ed44d8b27cb694193e45f86dd1c82a78cd21b7eeb440dca33a9e45d71149a",
+    "evidence/owner-trial-53c9e79/public-approved-2/enable/home-worker-enable-haos.json": "0332ca6ad7e477ee6e5f3e7d6248689187535056e23c09b72e3fab58646847d5",
+    "evidence/owner-trial-53c9e79/public-approved-2/enable/junit.xml": "0d4700563d87ee68a016c59aa9ebcb6575da26a8e668d17bbd134af44517c0cb",
+    "evidence/owner-trial-53c9e79/public-approved-2/bridge-haos/stage.json": "25a8eade1ae77e6ebab71476806e5e4f13855318fae02f9d4880286a843534f1",
+    "evidence/owner-trial-53c9e79/public-approved-2/bridge-haos/bridge-haos.json": "8f7401b578f2ac2fdb7cdec99b5ddd4769e802afb36e704b0c83ef5e601743b4",
+    "evidence/owner-trial-53c9e79/public-approved-2/bridge-haos/junit.xml": "8a0b13c5178be86272c324725a80d3253929dad3984672245fed80b3418c475b",
+    "evidence/owner-trial-53c9e79/public-approved-2/summary.json": "d882223f902d6d2fc81e367131efaf8cf4bf00e46914ab23df85b9edadd9d3ea",
+    "evidence/owner-trial-53c9e79/public-approved-2/publication-provenance.json": "841ff2877b889313154218c3823f21300ec23c5a996603e98428ec5c48441ca6",
+    "evidence/owner-trial-53c9e79/public-approved-2-independent-review.json": "37be5339a2049c60e333f5a1b6976d39ab883f5106aa8805f27a43ad5cf1b513",
+    "evidence/owner-trial-53c9e79/release-transport/offline-reassembly.json": "da89a4f8d04624b0a5b05269c539ee48de6a86dccb8cc58f8113e07df560fff9",
+    "evidence/owner-trial-53c9e79/release-transport/release-parts.json": "8c144afc2a4e6c2b4bd49aff64f192540d6d960266dd9838161324d65dd0674f"
   },
   "public_delivery": {
-    "status": "failed",
+    "status": "passed",
     "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
-    "release_publication": "blocked",
-    "both_public_stages_passed": false,
+    "attempt": 2,
+    "both_public_stages_passed": true,
+    "prior_attempts": [
+      {
+        "status": "failed",
+        "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+        "release_publication": "blocked",
+        "both_public_stages_passed": false,
+        "new_full_eight_stage_run": false,
+        "attempted_public_stages": 1,
+        "accepted_public_stages": 0,
+        "enable": {
+          "status": "failed",
+          "passed": 41,
+          "failures": 1
+        },
+        "bridge_haos": {
+          "status": "not_run"
+        },
+        "summary": "evidence/owner-trial-53c9e79/public-approved-1-failed/summary.json",
+        "provenance": "evidence/owner-trial-53c9e79/public-approved-1-failed/publication-provenance.json",
+        "finished": "2026-10-15T23:26:17.841906+00:00",
+        "product_acceptance": {
+          "passed": 2,
+          "not_run": 30
+        },
+        "evidence_sha256": {
+          "evidence/owner-trial-53c9e79/public-approved-1-failed/summary.json": "b51724161ee4982388713a4c7cd176b9a2b0015695e55499b4b67fedefb8326a",
+          "evidence/owner-trial-53c9e79/public-approved-1-failed/publication-provenance.json": "2a90b44bb597f47e46796ab396521394da4137516ff6a63053e5591045cc4075",
+          "evidence/owner-trial-53c9e79/public-approved-1-failed/enable/stage.json": "b2bc6eab0f4261d8db5ec7e3bd93e22f4178056fa724f5aa0da6aceea24eb96c",
+          "evidence/owner-trial-53c9e79/public-approved-1-failed/enable/home-worker-enable-haos.json": "d707c8cf1ce66e19643475e478465793ca35a228aa75b5187884c65aeb0c2c09",
+          "evidence/owner-trial-53c9e79/public-approved-1-failed/enable/junit.xml": "da490013b068e8fcd5e7c4ee491e49284fced45877e2e9b5e4407394420cdd2d",
+          "evidence/owner-trial-53c9e79/public-approved-1-failed/bridge-haos/stage.json": "cdbe680f19e20c89ae58fe52cee769d9c4d01ff0920cf9e65860bdca41d12fd7"
+        }
+      }
+    ],
+    "additional_public_stages": 2,
     "new_full_eight_stage_run": false,
-    "attempted_public_stages": 1,
-    "accepted_public_stages": 0,
-    "enable": {
-      "status": "failed",
-      "passed": 41,
-      "failures": 1
-    },
-    "bridge_haos": {
-      "status": "not_run"
-    },
-    "summary": "evidence/owner-trial-53c9e79/public-approved-1-failed/summary.json",
-    "provenance": "evidence/owner-trial-53c9e79/public-approved-1-failed/publication-provenance.json",
-    "finished": "2026-10-15T23:26:17.841906+00:00",
+    "summary": "evidence/owner-trial-53c9e79/public-approved-2/summary.json",
+    "provenance": "evidence/owner-trial-53c9e79/public-approved-2/publication-provenance.json",
+    "actual_repository": "https://github.com/TED-H-com/agentic-smart-home#stable",
+    "finished": "2026-10-16T00:56:47.431535+00:00",
     "product_acceptance": {
       "passed": 2,
       "not_run": 30
     },
     "evidence_sha256": {
-      "evidence/owner-trial-53c9e79/public-approved-1-failed/summary.json": "b51724161ee4982388713a4c7cd176b9a2b0015695e55499b4b67fedefb8326a",
-      "evidence/owner-trial-53c9e79/public-approved-1-failed/publication-provenance.json": "2a90b44bb597f47e46796ab396521394da4137516ff6a63053e5591045cc4075",
-      "evidence/owner-trial-53c9e79/public-approved-1-failed/enable/stage.json": "b2bc6eab0f4261d8db5ec7e3bd93e22f4178056fa724f5aa0da6aceea24eb96c",
-      "evidence/owner-trial-53c9e79/public-approved-1-failed/enable/home-worker-enable-haos.json": "d707c8cf1ce66e19643475e478465793ca35a228aa75b5187884c65aeb0c2c09",
-      "evidence/owner-trial-53c9e79/public-approved-1-failed/enable/junit.xml": "da490013b068e8fcd5e7c4ee491e49284fced45877e2e9b5e4407394420cdd2d",
-      "evidence/owner-trial-53c9e79/public-approved-1-failed/bridge-haos/stage.json": "cdbe680f19e20c89ae58fe52cee769d9c4d01ff0920cf9e65860bdca41d12fd7"
+      "evidence/owner-trial-53c9e79/public-approved-2/enable/stage.json": "246ed44d8b27cb694193e45f86dd1c82a78cd21b7eeb440dca33a9e45d71149a",
+      "evidence/owner-trial-53c9e79/public-approved-2/enable/home-worker-enable-haos.json": "0332ca6ad7e477ee6e5f3e7d6248689187535056e23c09b72e3fab58646847d5",
+      "evidence/owner-trial-53c9e79/public-approved-2/enable/junit.xml": "0d4700563d87ee68a016c59aa9ebcb6575da26a8e668d17bbd134af44517c0cb",
+      "evidence/owner-trial-53c9e79/public-approved-2/bridge-haos/stage.json": "25a8eade1ae77e6ebab71476806e5e4f13855318fae02f9d4880286a843534f1",
+      "evidence/owner-trial-53c9e79/public-approved-2/bridge-haos/bridge-haos.json": "8f7401b578f2ac2fdb7cdec99b5ddd4769e802afb36e704b0c83ef5e601743b4",
+      "evidence/owner-trial-53c9e79/public-approved-2/bridge-haos/junit.xml": "8a0b13c5178be86272c324725a80d3253929dad3984672245fed80b3418c475b",
+      "evidence/owner-trial-53c9e79/public-approved-2/summary.json": "d882223f902d6d2fc81e367131efaf8cf4bf00e46914ab23df85b9edadd9d3ea",
+      "evidence/owner-trial-53c9e79/public-approved-2/publication-provenance.json": "841ff2877b889313154218c3823f21300ec23c5a996603e98428ec5c48441ca6"
     }
+  },
+  "public_delivery_independent_review": {
+    "receipt": "evidence/owner-trial-53c9e79/public-approved-2-independent-review.json",
+    "sha256": "37be5339a2049c60e333f5a1b6976d39ab883f5106aa8805f27a43ad5cf1b513",
+    "status": "passed",
+    "blocking_findings": [],
+    "public_tests_passed": 82,
+    "public_bridge_integrated_checks": 8,
+    "public_wrong_tls_negative_executed": false
+  },
+  "release_transport": {
+    "status": "offline_reassembly_verified",
+    "original_media_unchanged": true,
+    "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+    "original_logical_files": 4,
+    "media_and_tool_assets": 14,
+    "verification_documents_zip_is_separate": true,
+    "parts_manifest": "evidence/owner-trial-53c9e79/release-transport/release-parts.json",
+    "receipt": "evidence/owner-trial-53c9e79/release-transport/offline-reassembly.json",
+    "all_four_actual_helper_offline_checks_passed": true,
+    "published_by_this_receipt": false
   }
 }

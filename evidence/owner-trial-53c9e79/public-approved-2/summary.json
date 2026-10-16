@@ -1,0 +1,134 @@
+{
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "status": "passed",
+  "mode": "verify_public_only",
+  "public_channel_test": true,
+  "both_public_stages_passed": true,
+  "all_eight_passed": false,
+  "scope": "Two additional public stable delivery stages; does not constitute a new eight-stage run.",
+  "started": "2026-10-16T00:36:04.490562+00:00",
+  "finished": "2026-10-16T00:56:47.431535+00:00",
+  "stages": [
+    {
+      "stage": "enable",
+      "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+      "status": "passed",
+      "public_channel_test": true,
+      "started": "2026-10-16T00:36:13.528904+00:00",
+      "finished": "2026-10-16T00:50:02.397318+00:00",
+      "junit": {
+        "tests": 42,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 42,
+        "seconds": 827.671
+      },
+      "pytest_child_umask": "0022",
+      "public_flags": {
+        "AGENTIC_BRIDGE_PUBLIC": "1",
+        "AGENTIC_HOME_WORKER_PUBLIC": "1"
+      },
+      "cleanup": {
+        "observation_complete": true,
+        "owned_containers_absent": true,
+        "owned_networks_absent": true,
+        "disk_basetemp_removed": true,
+        "temp_filesystem": "ext4",
+        "scope": "known_test_name_prefixes_only"
+      },
+      "public_stable_before": {
+        "repository": "https://github.com/TED-H-com/agentic-smart-home#stable",
+        "commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+        "observed_at": "2026-10-16T00:36:13.259373+00:00",
+        "method": "read_only_git_ls_remote"
+      },
+      "public_stable_after": {
+        "repository": "https://github.com/TED-H-com/agentic-smart-home#stable",
+        "commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+        "observed_at": "2026-10-16T00:50:02.624847+00:00",
+        "method": "read_only_git_ls_remote"
+      },
+      "delivery": "published_stable_branch",
+      "actual_repository": "https://github.com/TED-H-com/agentic-smart-home#stable",
+      "required_integration_case": {
+        "name": "test_real_home_worker_enable_backup_reboot",
+        "status": "passed"
+      },
+      "original_stage_sha256": "b4f39aa704f8df3bc3557f075d9adc9736e36985ef6737b6dc2dd9fac360ea52",
+      "original_command_sha256": "90c7c0f3ee031344cbc78bc7ce285e77d5e440a8d408c4ee35dd58bbf8bee855",
+      "original_junit_sha256": "545e401880de7d9185cd1095dc9d30321abc26393f1bee7c0b6cbc11554ec0cc",
+      "original_product_receipt_sha256": "833e74ba3d33ca4dd62b90dcac80537a3ac5f9534b3e6987caa603e9cab7cc37",
+      "junit_projection": "counts_order_and_timing_preserved; generated_case_names; logs_properties_paths_omitted"
+    },
+    {
+      "stage": "bridge-haos",
+      "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+      "status": "passed",
+      "public_channel_test": true,
+      "started": "2026-10-16T00:50:03.320957+00:00",
+      "finished": "2026-10-16T00:56:47.061985+00:00",
+      "junit": {
+        "tests": 40,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 40,
+        "seconds": 402.85
+      },
+      "pytest_child_umask": "0022",
+      "public_flags": {
+        "AGENTIC_BRIDGE_PUBLIC": "1",
+        "AGENTIC_HOME_WORKER_PUBLIC": "1"
+      },
+      "cleanup": {
+        "observation_complete": true,
+        "owned_containers_absent": true,
+        "owned_networks_absent": true,
+        "disk_basetemp_removed": true,
+        "temp_filesystem": "ext4",
+        "scope": "known_test_name_prefixes_only"
+      },
+      "public_stable_before": {
+        "repository": "https://github.com/TED-H-com/agentic-smart-home#stable",
+        "commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+        "observed_at": "2026-10-16T00:50:03.236153+00:00",
+        "method": "read_only_git_ls_remote"
+      },
+      "public_stable_after": {
+        "repository": "https://github.com/TED-H-com/agentic-smart-home#stable",
+        "commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+        "observed_at": "2026-10-16T00:56:47.299428+00:00",
+        "method": "read_only_git_ls_remote"
+      },
+      "delivery": "published_release_branch",
+      "actual_repository": "https://github.com/TED-H-com/agentic-smart-home#stable",
+      "required_integration_case": {
+        "name": "test_real_haos_sidebar_bridge",
+        "status": "passed"
+      },
+      "original_stage_sha256": "1a2fdfa61b71e64b8c75a8e63563ff8730e5c236628a9a8dc7a3aaaa5296a2f3",
+      "original_command_sha256": "c84cd3ef8f6408b8d67de530c7fb0c2ce4b307f058ca878150784a5337658e8e",
+      "original_junit_sha256": "61730996939b0623ef5b988997c026f614295cc02c05d14bce297574bc1e20e8",
+      "original_product_receipt_sha256": "010684f954e3e77cae10d3b65fc3ef72048f062faee70aa6e11cb370c5772555",
+      "junit_projection": "counts_order_and_timing_preserved; generated_case_names; logs_properties_paths_omitted"
+    }
+  ],
+  "local_eight_stage_prerequisite": {
+    "summary_sha256": "3a42db525233fe1788af13df5e363dc4fbe9d695fa53caafdc199411b60c7d27",
+    "all_eight_passed": true,
+    "orchestration_sha256": "cd66012e6e4ca40279c2d315ece0a610d68c2281801d01f0716a72c2a992546e",
+    "pytest_child_umask": "0022",
+    "separate_completed_build": true,
+    "interrupted_and_failed_invocations_supply_no_accepted_stages": true,
+    "public_evidence": "evidence/owner-trial-53c9e79/summary.json"
+  },
+  "product_acceptance": {
+    "passed": 2,
+    "not_run": 30
+  },
+  "limitations": [
+    "Supervisor installs mutable #stable; exact readbacks bracket each stage, not commit-pinned installation.",
+    "Model and Host contract fixtures remain; real accounts, physical laptop and household acceptance remain pending."
+  ]
+}

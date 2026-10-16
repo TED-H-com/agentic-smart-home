@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "release_tag": "v0.9.0",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "chunk_size": 1073741824,
+  "status": "ready",
+  "files": [
+    {
+      "name": "agentic-home-0.9.0-linux-amd64.tar",
+      "sha256": "159b1379a1ff69a18867b6943ce04f4c5a228cedc2bec6dd086d8ea7ab6b4733",
+      "size": 2726123520,
+      "parts": [
+        {
+          "name": "agentic-home-0.9.0-linux-amd64.tar.part001",
+          "size": 1073741824,
+          "sha256": "40240e7833b480feaae5a894df8a1fbdc946b6089ab94d5a42f60dadd54afa32"
+        },
+        {
+          "name": "agentic-home-0.9.0-linux-amd64.tar.part002",
+          "size": 1073741824,
+          "sha256": "6cbece49e259e3d178cc4cb6ac990e53e51c2ece2882126dd889d8cf36b7ecd2"
+        },
+        {
+          "name": "agentic-home-0.9.0-linux-amd64.tar.part003",
+          "size": 578639872,
+          "sha256": "2e0255f381127f5bb69a47da9ed09f45ada5a45b7f0911c839f29cf10d055882"
+        }
+      ]
+    },
+    {
+      "name": "agentic-home-0.9.0-source.zip",
+      "sha256": "e782a43ab62c6af7bc7d4e0ecb76e6c66a314442cb08c7c8b966aef016b599a7",
+      "size": 31130483,
+      "parts": [
+        {
+          "name": "agentic-home-0.9.0-source.zip",
+          "size": 31130483,
+          "sha256": "e782a43ab62c6af7bc7d4e0ecb76e6c66a314442cb08c7c8b966aef016b599a7"
+        }
+      ]
+    },
+    {
+      "name": "agentic-home-0.9.0-laptop-amd64.iso",
+      "sha256": "1ae3d1ff60f86cfedaf4112bbd25c56a1f11e3c19ad52a1c0374530769394080",
+      "size": 6805585920,
+      "parts": [
+        {
+          "name": "agentic-home-0.9.0-laptop-amd64.iso.part001",
+          "size": 1073741824,
+          "sha256": "fb57edefe7f891d2b7f14e694d0cbd2d6f79b8f0b4736f827abbf246154ef49e"
+        },
+        {
+          "name": "agentic-home-0.9.0-laptop-amd64.iso.part002",
+          "size": 1073741824,
+          "sha256": "f5876e0aa184b399158943c82ea23b9872d917c237c3572fb242464a725b5857"
+        },
+        {
+          "name": "agentic-home-0.9.0-laptop-amd64.iso.part003",
+          "size": 1073741824,
+          "sha256": "8e57bf0c5ef0ff16376b112cfecba87ef345f42317952afb777ad7a1a1ac38c8"
+        },
+        {
+          "name": "agentic-home-0.9.0-laptop-amd64.iso.part004",
+          "size": 1073741824,
+          "sha256": "cebe77aafad23c071dbaed97a69c05478bcb7760d2e3bddba14bdc24764ea95f"
+        },
+        {
+          "name": "agentic-home-0.9.0-laptop-amd64.iso.part005",
+          "size": 1073741824,
+          "sha256": "44f9216800390d040d7df5e531aec6d09b7a541f115f56a5b73205535c54d6fc"
+        },
+        {
+          "name": "agentic-home-0.9.0-laptop-amd64.iso.part006",
+          "size": 1073741824,
+          "sha256": "962e1c92729b0beccc1ff48c1c607ce2531e9361bc8b3b2f3cf38126ee775ee1"
+        },
+        {
+          "name": "agentic-home-0.9.0-laptop-amd64.iso.part007",
+          "size": 363134976,
+          "sha256": "3b9419723ba7fb9ceea3b49a685dbba4ab62ed4927a8b90d639ea8a68643e387"
+        }
+      ]
+    },
+    {
+      "name": "SHA256SUMS",
+      "sha256": "5cd75f4bcd7b4bb9228951d68694260fd2cc7dbed542057ac00c06a1cb03b2a0",
+      "size": 299,
+      "parts": [
+        {
+          "name": "SHA256SUMS",
+          "size": 299,
+          "sha256": "5cd75f4bcd7b4bb9228951d68694260fd2cc7dbed542057ac00c06a1cb03b2a0"
+        }
+      ]
+    }
+  ]
+}

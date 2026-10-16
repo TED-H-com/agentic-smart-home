@@ -1,8 +1,21 @@
 # Agentic Smart Home 驗證
 
-## 0.9.0 公開交付驗證失敗，Release 已停止 — `53c9e79`
+## 0.9.0 公開交付兩階段通過 — `53c9e79`
 
-Owner 核准發布後，公開 `stable` 與 `release/0.9.0` 已指向 `53c9e790cccf9d22842ec358b9f4f7160e1d448b`。2026-10-15 的一次公開交付驗證在 enable 階段為 **41 passed、1 failed、0 skipped**；`bridge-haos` 尚未執行。尚未建立 `v0.9.0` tag 或 GitHub Release，也未上傳媒體。依原提案保留失敗並停止後續發布，未自動重試。見 [發布後記](reviews/2026-10-15-PUBLIC-DELIVERY-53c9e79.md)與 [失敗證據](../evidence/owner-trial-53c9e79/public-approved-1-failed/summary.json)。
+2026-10-16 UTC，Owner 允許續行及重試後，第二次公開交付驗證使用原版程式、harness、媒體與六個映像，完成同一次序列的兩個階段。見 [公開交付摘要](../evidence/owner-trial-53c9e79/public-approved-2/summary.json)、[獨立核對](../evidence/owner-trial-53c9e79/public-approved-2-independent-review.json)與 [本輪紀錄](reviews/2026-10-16-PUBLIC-DELIVERY-53c9e79.md)。
+
+| 階段 | 實際 JUnit 結果 | 證據 |
+|---|---|---|
+| 公開啟用、cold 備份與整台重開 | 42 passed、0 failed／error／skipped；827.671 秒 | [JUnit](../evidence/owner-trial-53c9e79/public-approved-2/enable/junit.xml)、[16 項檢查與清理](../evidence/owner-trial-53c9e79/public-approved-2/enable/home-worker-enable-haos.json) |
+| 公開側欄與原生 HA 瀏覽器 | 40 passed、0 failed／error／skipped；402.850 秒 | [JUnit](../evidence/owner-trial-53c9e79/public-approved-2/bridge-haos/junit.xml)、[8 項檢查與清理](../evidence/owner-trial-53c9e79/public-approved-2/bridge-haos/bridge-haos.json) |
+
+每個階段包含一個實際 VM 整合案例，其餘為 harness 單元測試。實際 Supervisor repository 為公開 `#stable`；各階段前後均讀回 `53c9e790cccf9d22842ec358b9f4f7160e1d448b`，但 Supervisor 安裝的是 branch，不能宣稱以 commit digest 固定。側欄 receipt 沿用 `published_release_branch` 名稱，實際來源仍是 `#stable`。
+
+公開側欄這輪執行 8 項整合檢查與原生瀏覽器操作；錯誤 TLS pin 注入只在凍結 harness 的本機模式執行，先前本機階段已通過，本公開輪未重做。這是額外的兩階段驗證，沒有重跑或另宣稱一次完整八階段。VM、外層容器、測試網路與磁碟暫存均已清理。模型與 Host contract 仍使用明示 fixture；真帳號、實體筆電及家庭 E1/E2 尚待驗收，32 個產品案例仍為 2 passed、30 not_run。這份工程驗證本身不證明 tag、Release 或媒體已發布。
+
+## 0.9.0 第一次公開交付失敗（歷史紀錄）— `53c9e79`
+
+Owner 核准發布後，公開 `stable` 與 `release/0.9.0` 已指向 `53c9e790cccf9d22842ec358b9f4f7160e1d448b`。2026-10-15 的第一次公開交付驗證在 enable 階段為 **41 passed、1 failed、0 skipped**；該次 `bridge-haos` 未執行。當時尚未建立 `v0.9.0` tag 或 GitHub Release，也未上傳媒體。依當時提案保留失敗並停止後續發布，該次呼叫未自動重試。Owner 後續允許續行與重試，第二次結果另列於上節；原失敗內容不變。見 [發布後記](reviews/2026-10-15-PUBLIC-DELIVERY-53c9e79.md)與 [失敗證據](../evidence/owner-trial-53c9e79/public-approved-1-failed/summary.json)。
 
 測試已到 `cold_backup`；準備查詢 Supervisor `GET /info` 時，Core WebSocket 的 HTTP 握手等待逾時，尚未送出該查詢。備份最終結果與根因均未確立，不能判定備份本身失敗或完成；cold 備份未驗收，整台重開尚未執行。VM、測試容器／網路與磁碟暫存已清理。既有產品來源、媒體與六個映像身分仍相同。
 
@@ -22,7 +35,7 @@ Owner 核准發布後，公開 `stable` 與 `release/0.9.0` 已指向 `53c9e790c
 | haos-vm | 2 passed、0 skipped／191.631 秒 | [JUnit](../evidence/owner-trial-53c9e79/haos-vm/junit.xml)、[清理](../evidence/owner-trial-53c9e79/haos-vm/stage.json) |
 | [GitHub CI 38792574808](https://github.com/TED-H-com/agentic-smart-home/actions/runs/38792574808) | 2059 passed、9 skipped／1077.163 秒 | [JUnit](../evidence/owner-trial-53c9e79/github-ci/junit.xml)、[CI/媒體來源核對](../evidence/owner-trial-53c9e79/ci-media-match.json) |
 
-測試在共用主機上依序執行，不代表無其他磁碟負載。公開 `#stable` 安裝、真帳號、實體筆電與家庭 E1/E2 仍未驗收；32 個產品案例維持 2 passed、30 not_run。此段不宣稱已發布。CI 與 TAR 的 190 份執行／設定檔及 50 份文件逐檔吻合；不宣稱獨立建置的 CI 映像 ID 相同。
+測試在共用主機上依序執行，不代表無其他磁碟負載。本機驗證本身不建立公開 `#stable` 驗收；額外公開交付結果見上節。真帳號、實體筆電與家庭 E1/E2 仍待驗收；32 個產品案例維持 2 passed、30 not_run。此段不宣稱已發布。CI 與 TAR 的 190 份執行／設定檔及 50 份文件逐檔吻合；不宣稱獨立建置的 CI 映像 ID 相同。
 
 每個 VM 階段各有一個實際整合案例，其餘計數為 harness 單元測試。模型傳輸、測試帳號及本機交付來源使用各 receipt 註明的 fixtures，不能算成真帳號或公開 `#stable` 的使用驗收。
 
