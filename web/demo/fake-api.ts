@@ -1,17 +1,18 @@
 import fixtures from '../preview/fixtures.json';
 import {sha256} from '@noble/hashes/sha2.js';
+import type {DemoHome,DemoModel,DemoSurface} from './model';
 
 export const AGENTIC_DEMO_BUILD='fictional-browser-only-v1';
 export const fixtureClock='2026-10-13T09:00:00+08:00';
 type Row=Record<string,any>;
-declare global {interface Window {__agenticDemo:{unhandled:string[];marker:string}}}
+export type DemoTrace={unhandled:string[];marker:string};
+declare global {interface Window {__agenticDemo:DemoTrace;__agenticDemoModel?:DemoModel;__agenticDemoNavigate?:(route:string)=>void;__agenticDemoFrameRoute?:(surface:DemoSurface,hash:string)=>void}}
 const clone=<T>(value:T):T=>structuredClone(value);
 const hash=(bytes:Uint8Array)=>Array.from(sha256(bytes),v=>v.toString(16).padStart(2,'0')).join('');
 const patch='diff --git a/docs/demo-light.md b/docs/demo-light.md\n--- a/docs/demo-light.md\n+++ b/docs/demo-light.md\n@@ -1 +1,2 @@\n-感應器開燈。\n+玄關感應器偵測到動作時，打開客廳燈。\n+這份說明使用虛構家庭，不會部署。\n';
 
-export function installDemo(){
+export function createDemoModel():DemoModel{
   const screenshot=new URLSearchParams(location.search).get('screenshot')==='1';
-  const bridge=new URLSearchParams(location.search).get('surface')==='bridge';
   const clock=screenshot?Date.parse(fixtureClock):Date.now();
   if(screenshot)Date.now=()=>clock;
   const time=(offset=0)=>new Date(clock+offset).toISOString();
@@ -42,7 +43,10 @@ export function installDemo(){
   data['host/status'].snapshots=[{id:'6'.repeat(64),created_at:time(-86400000)}];
   data['host/status'].jobs=[{id:'demo-snapshot',state:'succeeded',request:{action:'snapshot'},at:(clock-86400000)/1000,message:'示範快照已建立。'}];
   data.updates={trusted_publisher_configured:true,records:[]};
-  if(bridge){data.deployment={mode:'bridge',authenticated:true,bridge_state:'ready'};data.session.mode='bridge';data.session.storage_scope='7'.repeat(64)}
+  data.inventory.entities[0].brightness=60;
+  Object.assign(data.inventory.entities[2],{temperature:24,current_temperature:26.5});
+  let revision=0;const listeners=new Set<()=>void>();
+  const publish=()=>{revision++;for(const listener of listeners)listener()};
   const bytes=new TextEncoder().encode(patch),digest=hash(bytes);
   const artifact={id:'8'.repeat(32),name:'household-description.patch',kind:'patch',media_type:'text/plain',size:bytes.length,sha256:digest};
   const initialJob=data['worker/jobs'].jobs[0];
@@ -63,6 +67,7 @@ export function installDemo(){
     const task={id,provider:'codex',state:'awaiting_approval',request:title,message:'請先看規則；批准前不會改動示範家庭。',created_at:time(serial*1000),updated_at:time(),proposal_id:id,proposal:p,events:[],automation_id:automation?.id};tasks.unshift(task);return task;
   }
   function progress(){
+    const changed=starts.size>0||jobStarts.size>0;
     for(const task of tasks){const start=starts.get(task.id);if(start===undefined)continue;
       const elapsed=performance.now()-start,step=Math.min(3,Math.floor(elapsed/1800));
       // Same end states as engine.record_deployed: an enabled rule waits for a real trigger; nothing is observed here.
@@ -77,18 +82,54 @@ export function installDemo(){
     }
     for(const job of jobs){const start=jobStarts.get(job.id);if(start===undefined)continue;const step=Math.min(4,Math.floor((performance.now()-start)/1400));job.phase=['queued','launching','running','verifying','collecting'][step];job.state=step===4?'succeeded':'running';if(step===4){Object.assign(job,{stop_confirmed:true,facts:clone(initialJob.facts),artifacts:job.mode==='development'?[artifact]:[],verification:clone(initialJob.verification)});jobStarts.delete(job.id)}}
     data['worker/jobs'].active_job_id=jobStarts.keys().next().value||null;data.workers.active_job_id=data['worker/jobs'].active_job_id;
+    if(changed)publish();
   }
-  window.__agenticDemo={unhandled:[],marker:AGENTIC_DEMO_BUILD};
-  const original=window.fetch.bind(window);
-  window.fetch=async(input,options)=>{
-    const url=new URL(input instanceof Request?input.url:String(input),location.href);
-    if(url.origin!==location.origin)throw new TypeError('Demo blocks off-origin requests');
-    const match=/\/api\/(.+)$/.exec(url.pathname);if(!match)return original(input,options);
-    const path=decodeURIComponent(match[1]),method=(options?.method||(input instanceof Request?input.method:'GET')).toUpperCase();
-    if(!screenshot)await new Promise(resolve=>setTimeout(resolve,150+Math.random()*250));
+  function home():DemoHome{
+    return clone({devices:data.inventory.entities,
+      candidates:data.discovery.candidates,
+      integrations:data.discovery.integrations.map((item:Row)=>({...item,device_count:data.discovery.devices.filter((device:Row)=>device.integration_ids.includes(item.id)).length})),
+      automations:data.automations.automations.map((item:Row)=>({id:item.id,title:item.intent.title,enabled:item.enabled}))});
+  }
+  function control(id:string,action:'toggle'|'brightness'|'temperature',value?:number){
+    const device=data.inventory.entities.find((item:Row)=>item.entity_id===id);
+    if(!device||!['light','climate'].includes(device.domain))return;
+    if(action==='toggle'){
+      device.state=device.state==='off'?(device.domain==='climate'?'cool':'on'):'off';
+      if(device.domain==='light'&&device.state==='on'&&!device.brightness)device.brightness=60;
+    }
+    else if(action==='brightness'&&device.domain==='light'&&Number.isFinite(value)){
+      device.brightness=Math.max(0,Math.min(100,Math.round(value!)));device.state=device.brightness?'on':'off';
+    }else if(action==='temperature'&&device.domain==='climate'&&Number.isFinite(value))device.temperature=Math.max(16,Math.min(30,value!));
+    else return;
+    device.observed_at=time();publish();
+  }
+  function connectCandidate(id:string){
+    const candidate=data.discovery.candidates.find((item:Row)=>item.id===id);
+    if(!candidate||id!=='demo-pending')return;
+    const entry='demo-bridge-integration';
+    data.discovery.candidates=data.discovery.candidates.filter((item:Row)=>item.id!==id);
+    data.discovery.integrations.push({id:entry,domain:candidate.integration_domain,title:'示範橋接器',state:'loaded',source_id:'ha_integrations'});
+    const base={manufacturer:'示範品牌',model:'虛構設備',parent_device_id:null,integration_ids:[entry],disabled:false,source_id:'ha_devices'};
+    data.discovery.devices.push({...base,id:'demo-bridge',name:'示範橋接器',via_device_id:null,entity_count:0,available_entity_count:0},
+      {...base,id:'demo-desk-device',name:'書桌燈',via_device_id:'demo-bridge',entity_count:1,available_entity_count:1});
+    data.inventory.entities.push({entity_id:'light.demo_desk',name:'書桌燈',domain:'light',area:'客廳',state:'off',brightness:60,availability:'available',actions:['turn_on','turn_off'],observed_at:time()});
+    // Discovery never grants the assistant read/write permission for this new entity.
+    const canonical=(value:any):string=>Array.isArray(value)?`[${value.map(canonical).join(',')}]`:value&&typeof value==='object'?`{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`:JSON.stringify(value);
+    const digest=(value:unknown)=>hash(new TextEncoder().encode(canonical(value)));
+    const values:Row={ha_discovery:data.discovery.candidates,ha_devices:data.discovery.devices,ha_integrations:data.discovery.integrations,
+      ha_entities:data.inventory.entities.map((item:Row,index:number)=>({id:item.entity_id,device_id:index===3?'demo-desk-device':`demo-device-${index}`,disabled:false})),
+      ha_states:data.inventory.entities.map((item:Row)=>({id:item.entity_id,available:true})),ha_config:[{id:'core',version:'demo-synthetic'}]};
+    for(const source of data.discovery.sources){if(!values[source.id])continue;values[source.id].sort((a:Row,b:Row)=>a.id<b.id?-1:a.id>b.id?1:0);source.item_count=values[source.id].length;source.content_digest=digest(values[source.id]);source.observed_at=time()}
+    data.discovery.observed_at=time();
+    const {content_digest:_prior,...snapshot}=data.discovery;data.discovery.content_digest=digest(snapshot);
+    publish();
+  }
+  function request(path:string,method:string,body:Row,surface:DemoSurface){
     progress();let result:any,status=200;
     if(method==='GET'){
-      if(path==='tasks')result={tasks};
+      if(path==='deployment')result=surface==='bridge'?{mode:'bridge',authenticated:true,bridge_state:'ready'}:data.deployment;
+      else if(path==='session')result=surface==='bridge'?{...data.session,mode:'bridge',storage_scope:'7'.repeat(64)}:data.session;
+      else if(path==='tasks')result={tasks};
       else if(path.startsWith('tasks/'))result=tasks.find(t=>t.id===path.slice(6));
       // Like the Controller's Gateway.present(): a saved proposal reply shows what its task says now.
       else if(path==='gateway/messages')result={...data[path],messages:messages.map(m=>{const task=m.state==='awaiting_approval'&&tasks.find(t=>t.id===m.task_id);return task&&task.state!=='awaiting_approval'&&task.message?{...m,progress:task.state==='verifying'?'succeeded':task.state,answer:task.message}:m})};
@@ -99,7 +140,6 @@ export function installDemo(){
       if(result===undefined){status=404;result={detail:'這份資料已過期或不存在。'};window.__agenticDemo.unhandled.push(path)}
     }else if(method==='POST'){
       // Only read fields used by supported operations. Bodies are never reflected wholesale.
-      const body=JSON.parse(typeof options?.body==='string'?options.body:'{}');
       if(path==='gateway/messages'){
         const message=String(body.message||'').slice(0,5000),household=/燈|冷氣|門|出門|回家|晚上|light|home/i.test(message),task=household?proposal(/冷氣/.test(message)?'回家時開啟臥室冷氣':/出門/.test(message)?'出門時關閉客廳燈':'玄關有人時開啟客廳燈'):null;
         if(task&&/冷氣/.test(message)){task.proposal.intent.actions=[{entity_id:'climate.demo_bedroom',action:'turn_on'}];task.proposal.final=compile(task.proposal.intent,task.proposal.final.id);task.proposal.digest=hash(new TextEncoder().encode(JSON.stringify(task.proposal.final)))}
@@ -116,6 +156,32 @@ export function installDemo(){
       else if(path==='pause'){data.status.paused=!!body.paused;result={ok:true}}
       if(result===undefined){status=409;result={detail:'示範中無法進行這個操作。'}}
     }else{status=409;result={detail:'示範中無法進行這個操作。'}}
-    return new Response(JSON.stringify(clone(result)),{status,headers:{'Content-Type':'application/json'}});
+    if(method==='POST'&&status===200)publish();
+    return {status,body:clone(result)};
+  }
+  return {getVersion:()=>revision,subscribe:listener=>{listeners.add(listener);return()=>{listeners.delete(listener)}},home,control,connectCandidate,request};
+}
+
+
+export function installDemo(model:DemoModel=createDemoModel(),surface:DemoSurface='outer',trace?:DemoTrace){
+  window.__agenticDemo=trace||{unhandled:[],marker:AGENTIC_DEMO_BUILD};
+  window.__agenticDemoModel=model;
+  const screenshot=new URLSearchParams(location.search).get('screenshot')==='1';
+  if(screenshot)Date.now=()=>Date.parse(fixtureClock);
+  const original=window.fetch.bind(window);
+  window.fetch=async(input,options)=>{
+    const url=new URL(input instanceof Request?input.url:String(input),location.href);
+    if(url.origin!==location.origin)throw new TypeError('Demo blocks off-origin requests');
+    const match=/\/api\/(.+)$/.exec(url.pathname);if(!match)return original(input,options);
+    const path=decodeURIComponent(match[1]),method=(options?.method||(input instanceof Request?input.method:'GET')).toUpperCase();
+    if(!screenshot)await new Promise(resolve=>setTimeout(resolve,150+Math.random()*250));
+    let body:Row={};
+    if(method!=='GET'){
+      try{body=JSON.parse(typeof options?.body==='string'?options.body:input instanceof Request?await input.clone().text():'{}');if(!body||Array.isArray(body)||typeof body!=='object')throw new Error('body')}
+      catch{return new Response(JSON.stringify({detail:'示範資料格式無效。'}),{status:400,headers:{'Content-Type':'application/json'}})}
+    }
+    const response=model.request(path,method,body,surface);
+    return new Response(JSON.stringify(response.body),{status:response.status,headers:{'Content-Type':'application/json'}});
   };
+  return model;
 }
