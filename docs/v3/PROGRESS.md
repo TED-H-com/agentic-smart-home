@@ -63,6 +63,8 @@ Owner 要求實作真正內層 worker 後，已新增 HomeService／HomeSandbox�
 
 本機整合定向 **422 passed、2 skipped**：工作／通知／App 維護 290 項、更新器 97 項及編譯介面瀏覽器 35 項通過。新增 47 項接手與 14 項通知連結 fixtures；三項變更均通過獨立來源審查。Ruff、22 份公開 contracts、鎖定 web toolchain、23 份共用 runtime、套件與文件連結檢查通過；Controller／Bridge 使用同一份重新編譯介面，1440／768／390 px 合成 API 截圖已檢視。pytest 均使用磁碟暫存並清理。
 
+接續修正成果下載：GET 回應後再核對原 worker 身分，途中重新配對或取消配對均拒絕交付。新增 20 項固定 transport 案例，涵蓋 Host／Home、無關 worker 配對變動、畸形回應、大小／SHA-256 與保存期限；修正前 4 個途中換綁／解綁案例失敗，修正後連同工作、接手、通知及保存期限回歸為 **162 passed**。此組與上方測試部分重疊，不相加為獨立案例總數；公開契約與 DB schema 不變。
+
 上述本機檢查使用 transport／Supervisor／模型 fixtures 與真 Chromium；本機未建置新映像或安裝媒體，也沒有新增雲端帳號、真 HAOS／家庭或 E1／E2 驗收。既有 0.9.0 發布證據保留原樣，32 案仍為 2 passed、30 not_run。
 
 ## V3-11 非同步工作完成通知（未發布工程增量）
