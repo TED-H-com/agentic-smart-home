@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites>
+  <testsuite name="install" tests="1" failures="1" errors="0" skipped="0" time="4737.537">
+    <testcase classname="install" name="case-00001" time="4735.912">
+      <failure message="recorded_failure; raw diagnostic omitted" />
+    </testcase>
+  </testsuite>
+</testsuites>

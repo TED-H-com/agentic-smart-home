@@ -1,0 +1,147 @@
+{
+  "kind": "real_haos_supervisor_app_build",
+  "delivery": "local_source_exact_head_files",
+  "haos_image": "18.3",
+  "observed_from": "haos_supervisor_build_and_app_container",
+  "status": "passed",
+  "live_build_downloads": [
+    "apt",
+    "npm",
+    "pypi",
+    "agy",
+    "coding_source"
+  ],
+  "limitations": [
+    "local_source_delivery_not_public_stable_channel",
+    "no_pairing_login_model_or_coding_executed",
+    "builder_and_pinned_bases_preloaded_registry_not_blocked"
+  ],
+  "checks": {
+    "supervisor_healthy": true,
+    "pinned_bases_preloaded": true,
+    "exact_head_source_delivered": true,
+    "store_catalog_build_version": true,
+    "supervisor_build_install_completed": true,
+    "real_app_contract_installed": true,
+    "app_started": true,
+    "pairing_published_to_own_options": true,
+    "real_app_contract_configured": true,
+    "container_contract": true,
+    "docker_socket_not_mounted": true,
+    "image_version_label": true,
+    "app_health_200": true,
+    "pairing_fingerprint_matches_tls": true,
+    "codex_version_pinned": true,
+    "worker_source_matches_lock": true,
+    "custom_apparmor_enforcing": true,
+    "docker_socket_absent": true
+  },
+  "phase": "completed",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "runner_git_tree": "db9b4f5aefeb2e227836b72a220bbbec61a1ab97",
+  "runtime_source_uncommitted": false,
+  "haos_vm_profile": {
+    "profile": "laptop-amd64",
+    "memory_mib": 4096,
+    "vcpus": 2,
+    "disk_gib": 64
+  },
+  "delivered_file_count": 55,
+  "delivered_tree_sha256": "839e681a438f305a307f604b9977779aa639a25ad7b7ad72d371a1bc2b4af128",
+  "app_config_sha256": "0d36bd1c1c55897877a7d677663ad2d6aa1112d541144cda9936621529ca4553",
+  "app_apparmor_sha256": "e5806ce5ccc65cb1e1332774f0b6b96b7af650f20a76cb6516d0f018862d7753",
+  "core": "2026.10.1",
+  "supervisor": "2026.10.2",
+  "preloaded_images": [
+    "docker:29.7.2-cli@sha256:3f4743208d2338c934d7b8bcfbe1bb54c0b2355c510ad5e0f31c0c4a54bd704e",
+    "node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20",
+    "python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd12803a5c4247979ac7655f4d641"
+  ],
+  "preload_digest_resolution": {
+    "builder_tag": true,
+    "node_digest": false,
+    "python_digest": false
+  },
+  "store_catalog": {
+    "attempts": 1,
+    "failures": []
+  },
+  "install_confirmation": "app_postcondition_job_unavailable",
+  "install_job_reported_errors": false,
+  "build_seconds": 200.7,
+  "install_observation": {
+    "read_attempts": 35,
+    "retry_count": 0,
+    "failure_count": 1,
+    "failures": [
+      {
+        "step": "install_job",
+        "attempt": 1,
+        "classification": "job_missing",
+        "retry": false,
+        "elapsed_seconds": 0.006
+      }
+    ]
+  },
+  "app_contract": {
+    "slug": "local_agentic_runner",
+    "version": "0.9.0",
+    "apparmor_policy": "profile",
+    "privileged": [
+      "SYS_ADMIN"
+    ],
+    "no_ha_supervisor_or_docker_api": true,
+    "host_pid": false,
+    "host_network": false,
+    "full_access": false,
+    "devices": [
+      "/dev/fuse"
+    ],
+    "network": {
+      "8443/tcp": 8443
+    },
+    "ingress": true,
+    "auth_api": false,
+    "pairing_options": "published"
+  },
+  "app_container_observation": {
+    "apparmor_profile": "local_agentic_runner",
+    "cap_add": [
+      "SYS_ADMIN"
+    ],
+    "unknown_cap_count": 0,
+    "privileged": false,
+    "host_pid": false,
+    "host_network": false,
+    "device_cgroup_rules": [
+      "c 10:229 rwm"
+    ],
+    "unrecognized_device_rule_count": 0,
+    "direct_device_mapping_count": 0,
+    "state": {
+      "Running": true,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Status": "running",
+      "ExitCode": 0
+    }
+  },
+  "installed_image_id": "sha256:e51f0a19176eb882b3f3bd5851fbcc08ffc2d33fe1ad8afa3adae688a1cf100d",
+  "health_status": 200,
+  "codex_version": "0.157.1",
+  "app_probe": {
+    "custom_apparmor_enforcing": true,
+    "docker_socket_absent": true,
+    "source_lock_matches": true,
+    "packaged_source_validated": true
+  },
+  "worker_source_commit": "0eb569e42ed2661e3e3bd4c7835b3715d57e3da0",
+  "cleanup": {
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "duration_seconds": 449.578
+}

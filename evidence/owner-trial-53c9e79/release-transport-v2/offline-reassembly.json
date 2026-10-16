@@ -1,0 +1,47 @@
+{
+  "kind": "actual_schema2_transport_offline_reassembly",
+  "started": "2026-10-16T02:32:18.091346+00:00",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "original_manifest_sha256": "67593f9041fdf04faa6bb436ebabeae004c6b88368d0153cf23e00b947fc69af",
+  "parts_manifest_sha256": "49c34e9afee7e5995ff1f774dfdc616827dccecd5961730fa17f98a06fba0f70",
+  "actual_helper_sha256": "8c462b1a7b4bc7bf667afe75722dfaf8e6cb76a0499379d6df17fc2e24ecf73d",
+  "filesystem_type": "ext4",
+  "network_used": false,
+  "published": false,
+  "status": "passed",
+  "actual_helper_exit_code": 0,
+  "actual_helper_stdout_sha256": "1f4aeea3ad71773bf78195fe7745eeb65e3d0d88e93d532d221ac8906c04b882",
+  "actual_helper_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "all_original_fifteen_transport_identities_unchanged": true,
+  "all_four_actual_pinned_helper_offline_checks_passed": true,
+  "original_source_and_media_unchanged": true,
+  "original_logical_files": {
+    "agentic-home-0.9.0-laptop-amd64.iso": {
+      "bytes": 6805585920,
+      "sha256": "1ae3d1ff60f86cfedaf4112bbd25c56a1f11e3c19ad52a1c0374530769394080",
+      "passed": true
+    },
+    "agentic-home-0.9.0-linux-amd64.tar": {
+      "bytes": 2726123520,
+      "sha256": "159b1379a1ff69a18867b6943ce04f4c5a228cedc2bec6dd086d8ea7ab6b4733",
+      "passed": true
+    },
+    "agentic-home-0.9.0-source.zip": {
+      "bytes": 31130483,
+      "sha256": "e782a43ab62c6af7bc7d4e0ecb76e6c66a314442cb08c7c8b966aef016b599a7",
+      "passed": true
+    },
+    "SHA256SUMS": {
+      "bytes": 299,
+      "sha256": "5cd75f4bcd7b4bb9228951d68694260fd2cc7dbed542057ac00c06a1cb03b2a0",
+      "passed": true
+    }
+  },
+  "input_regular_parts": 49,
+  "iso_parts": 44,
+  "tar_parts": 3,
+  "new_small_iso_parts": 43,
+  "retained_whole_iso_block": 2,
+  "owned_validation_scratch_removed": true,
+  "finished": "2026-10-16T02:42:09.577206+00:00"
+}

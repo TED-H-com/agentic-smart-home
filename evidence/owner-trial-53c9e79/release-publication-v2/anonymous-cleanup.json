@@ -1,0 +1,17 @@
+{
+  "kind": "root_removed_only_successful_anonymous_transport_v2_validation_copies",
+  "observed_at": "2026-10-16T03:54:13.870131+00:00",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "engineering_docs_commit": "bd0b00617fe831dc44853d6149d67b7107567d3f",
+  "attempt_id": "initial2",
+  "anonymous_download_receipt_sha256": "06dc8e5f8816f3fe7d76eb6c6a8cc6c9b417a2441c643d19527b5251ccab2767",
+  "inventory_sha256": "bf3481e28373bbcaa2a521edaf5a465e2a91d02f23b69653727bd475cbc5bb67",
+  "owned_validation_regular_files_removed": 54,
+  "owned_validation_directory_removed": true,
+  "original_source_and_four_media_unchanged": true,
+  "all_fiftytwo_local_release_objects_preserved": true,
+  "historical_fifteen_local_release_objects_preserved": true,
+  "retained_failed_attempt_evidence_preserved": true,
+  "other_directories_removed": false,
+  "large_original_media_rehashed_by_cleanup": false
+}

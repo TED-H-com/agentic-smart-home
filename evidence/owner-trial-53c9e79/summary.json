@@ -1,0 +1,460 @@
+{
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "all_eight_passed": true,
+  "status": "passed",
+  "stages": [
+    {
+      "stage": "install",
+      "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+      "status": "passed",
+      "started": "2026-10-15T20:18:13.505094+00:00",
+      "finished": "2026-10-15T20:50:32.882199+00:00",
+      "public_channel_test": false,
+      "cleanup": {
+        "observation_complete": true,
+        "owned_containers_absent": true,
+        "owned_networks_absent": true,
+        "disk_basetemp_removed": true,
+        "temp_filesystem": "ext4",
+        "scope": "known_test_name_prefixes_only"
+      },
+      "junit": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 1,
+        "seconds": 1937.04
+      },
+      "required_integration_case": {
+        "name": "test_full_linux_install_with_nested_haos",
+        "status": "passed"
+      },
+      "original_junit_sha256": "755b054b29154921c5fdfdddab339e91248e1560d38014e48e792145d58ee02c",
+      "junit_projection": "counts_order_and_timing_preserved; generated_case_names; logs_properties_paths_omitted",
+      "junit_evidence": "evidence/owner-trial-53c9e79/install/junit.xml"
+    },
+    {
+      "stage": "regression",
+      "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+      "status": "passed",
+      "started": "2026-10-15T20:50:33.247264+00:00",
+      "finished": "2026-10-15T21:05:22.308687+00:00",
+      "public_channel_test": false,
+      "cleanup": {
+        "observation_complete": true,
+        "owned_containers_absent": true,
+        "owned_networks_absent": true,
+        "disk_basetemp_removed": true,
+        "temp_filesystem": "ext4",
+        "scope": "known_test_name_prefixes_only"
+      },
+      "junit": {
+        "tests": 2068,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 7,
+        "passed": 2061,
+        "seconds": 887.263
+      },
+      "original_junit_sha256": "1c1b59c9f6ebdce60dc6bf3b26b88302e0f7b7c83a61fd9da39951088957ec44",
+      "junit_projection": "counts_order_and_timing_preserved; generated_case_names; logs_properties_paths_omitted",
+      "junit_evidence": "evidence/owner-trial-53c9e79/regression/junit.xml"
+    },
+    {
+      "stage": "enable",
+      "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+      "status": "passed",
+      "started": "2026-10-15T21:05:22.633136+00:00",
+      "finished": "2026-10-15T21:21:03.122436+00:00",
+      "public_channel_test": false,
+      "cleanup": {
+        "observation_complete": true,
+        "owned_containers_absent": true,
+        "owned_networks_absent": true,
+        "disk_basetemp_removed": true,
+        "temp_filesystem": "ext4",
+        "scope": "known_test_name_prefixes_only"
+      },
+      "junit": {
+        "tests": 42,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 42,
+        "seconds": 939.785
+      },
+      "required_integration_case": {
+        "name": "test_real_home_worker_enable_backup_reboot",
+        "status": "passed"
+      },
+      "original_junit_sha256": "1a16f4e39717cb8af4bb91f101ea802da631537d8eeee585eee75d637c669f90",
+      "junit_projection": "counts_order_and_timing_preserved; generated_case_names; logs_properties_paths_omitted",
+      "junit_evidence": "evidence/owner-trial-53c9e79/enable/junit.xml"
+    },
+    {
+      "stage": "home-worker-haos",
+      "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+      "status": "passed",
+      "started": "2026-10-15T21:21:03.443184+00:00",
+      "finished": "2026-10-15T21:27:55.935643+00:00",
+      "public_channel_test": false,
+      "cleanup": {
+        "observation_complete": true,
+        "owned_containers_absent": true,
+        "owned_networks_absent": true,
+        "disk_basetemp_removed": true,
+        "temp_filesystem": "ext4",
+        "scope": "known_test_name_prefixes_only"
+      },
+      "junit": {
+        "tests": 114,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 114,
+        "seconds": 411.879
+      },
+      "required_integration_case": {
+        "name": "test_real_home_coding_worker_in_haos",
+        "status": "passed"
+      },
+      "original_junit_sha256": "c20c70fa035d4825906f5717d9e678def36965e9b03d1df1909570be0af62f97",
+      "junit_projection": "counts_order_and_timing_preserved; generated_case_names; logs_properties_paths_omitted",
+      "junit_evidence": "evidence/owner-trial-53c9e79/home-worker-haos/junit.xml"
+    },
+    {
+      "stage": "haos-boundary",
+      "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+      "status": "passed",
+      "started": "2026-10-15T21:27:56.231496+00:00",
+      "finished": "2026-10-15T21:31:45.339731+00:00",
+      "public_channel_test": false,
+      "cleanup": {
+        "observation_complete": true,
+        "owned_containers_absent": true,
+        "owned_networks_absent": true,
+        "disk_basetemp_removed": true,
+        "temp_filesystem": "ext4",
+        "scope": "known_test_name_prefixes_only"
+      },
+      "junit": {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 2,
+        "seconds": 228.547
+      },
+      "required_integration_case": {
+        "name": "test_actual_haos_app_boundary",
+        "status": "passed"
+      },
+      "original_junit_sha256": "b6bcfc20b2aeac6006d211320188de4013b17ebbf96a551069f7f2a41702086a",
+      "junit_projection": "counts_order_and_timing_preserved; generated_case_names; logs_properties_paths_omitted",
+      "junit_evidence": "evidence/owner-trial-53c9e79/haos-boundary/junit.xml"
+    },
+    {
+      "stage": "runner-build",
+      "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+      "status": "passed",
+      "started": "2026-10-15T21:31:45.653802+00:00",
+      "finished": "2026-10-15T21:39:16.000944+00:00",
+      "public_channel_test": false,
+      "cleanup": {
+        "observation_complete": true,
+        "owned_containers_absent": true,
+        "owned_networks_absent": true,
+        "disk_basetemp_removed": true,
+        "temp_filesystem": "ext4",
+        "scope": "known_test_name_prefixes_only"
+      },
+      "junit": {
+        "tests": 102,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 102,
+        "seconds": 449.751
+      },
+      "required_integration_case": {
+        "name": "test_real_supervisor_builds_home_coding_app",
+        "status": "passed"
+      },
+      "original_junit_sha256": "df80e0a383e6cfcb1edf239a0050abaad22960493867474789122e89f3b445af",
+      "junit_projection": "counts_order_and_timing_preserved; generated_case_names; logs_properties_paths_omitted",
+      "junit_evidence": "evidence/owner-trial-53c9e79/runner-build/junit.xml"
+    },
+    {
+      "stage": "bridge-haos",
+      "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+      "status": "passed",
+      "started": "2026-10-15T21:39:16.424374+00:00",
+      "finished": "2026-10-15T21:44:20.250664+00:00",
+      "public_channel_test": false,
+      "cleanup": {
+        "observation_complete": true,
+        "owned_containers_absent": true,
+        "owned_networks_absent": true,
+        "disk_basetemp_removed": true,
+        "temp_filesystem": "ext4",
+        "scope": "known_test_name_prefixes_only"
+      },
+      "junit": {
+        "tests": 40,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 40,
+        "seconds": 303.247
+      },
+      "required_integration_case": {
+        "name": "test_real_haos_sidebar_bridge",
+        "status": "passed"
+      },
+      "original_junit_sha256": "63e8dc5b4fc9fb00c65db396db3adb6f7212b0732e6968fdc31f6fbdf443f99e",
+      "junit_projection": "counts_order_and_timing_preserved; generated_case_names; logs_properties_paths_omitted",
+      "junit_evidence": "evidence/owner-trial-53c9e79/bridge-haos/junit.xml"
+    },
+    {
+      "stage": "haos-vm",
+      "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+      "status": "passed",
+      "started": "2026-10-15T21:44:20.561955+00:00",
+      "finished": "2026-10-15T21:47:32.778904+00:00",
+      "public_channel_test": false,
+      "cleanup": {
+        "observation_complete": true,
+        "owned_containers_absent": true,
+        "owned_networks_absent": true,
+        "disk_basetemp_removed": true,
+        "temp_filesystem": "ext4",
+        "scope": "known_test_name_prefixes_only"
+      },
+      "junit": {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 2,
+        "seconds": 191.631
+      },
+      "required_integration_case": {
+        "name": "test_real_haos_boot_owner_and_supervisor_backup",
+        "status": "passed"
+      },
+      "original_junit_sha256": "307dcf0e7e7a3015be405870ffc19a454688485994c030851adc524118ddc12a",
+      "junit_projection": "counts_order_and_timing_preserved; generated_case_names; logs_properties_paths_omitted",
+      "junit_evidence": "evidence/owner-trial-53c9e79/haos-vm/junit.xml"
+    }
+  ],
+  "image_public_permissions": {
+    "controller": {
+      "image_id": "sha256:89862545c23b68ee4177a8899b93a555f1f665f3c4ae7f9deff9cfeaaaba880d",
+      "uid": 1000,
+      "checks_passed": 7,
+      "probe_source_sha256": "ccca5937cb99d8886aa4570df75f988e1dd57fbfa267932c589d9beee4a4bab3",
+      "launch_identity_binding": "Reviewed committed probe launches the inspected immutable image_id with --pull=never",
+      "owned_container_absent": true,
+      "evidence": "evidence/owner-trial-53c9e79/regression/image-public-permissions-controller.json"
+    },
+    "runner": {
+      "image_id": "sha256:b26b3d8a659fbcf20016dd4b296eb7997a4b791a145d0af74ca5e7f04f1445a7",
+      "uid": 10000,
+      "checks_passed": 14,
+      "probe_source_sha256": "ccca5937cb99d8886aa4570df75f988e1dd57fbfa267932c589d9beee4a4bab3",
+      "launch_identity_binding": "Reviewed committed probe launches the inspected immutable image_id with --pull=never",
+      "owned_container_absent": true,
+      "evidence": "evidence/owner-trial-53c9e79/regression/image-public-permissions-runner.json"
+    },
+    "hermes": {
+      "image_id": "sha256:0ada5a8c9741819350ebfd3f376cd366b5c630d3e90f36d42d3c98566c66c8c8",
+      "uid": 10003,
+      "checks_passed": 6,
+      "probe_source_sha256": "ccca5937cb99d8886aa4570df75f988e1dd57fbfa267932c589d9beee4a4bab3",
+      "launch_identity_binding": "Reviewed committed probe launches the inspected immutable image_id with --pull=never",
+      "owned_container_absent": true,
+      "evidence": "evidence/owner-trial-53c9e79/regression/image-public-permissions-hermes.json"
+    },
+    "bridge": {
+      "image_id": "sha256:cc7ece6df41dc7524018ed3962cb951820803c8e081d8296742b5f393d33e5d7",
+      "uid": 10003,
+      "checks_passed": 5,
+      "probe_source_sha256": "ccca5937cb99d8886aa4570df75f988e1dd57fbfa267932c589d9beee4a4bab3",
+      "launch_identity_binding": "Reviewed committed probe launches the inspected immutable image_id with --pull=never",
+      "owned_container_absent": true,
+      "evidence": "evidence/owner-trial-53c9e79/regression/image-public-permissions-bridge.json"
+    },
+    "linejs": {
+      "image_id": "sha256:5e96ba8a0f66f89552b3827e9776c1d0deb2a387f29d2a8daba9dab29e62f46a",
+      "uid": 1000,
+      "checks_passed": 5,
+      "probe_source_sha256": "ccca5937cb99d8886aa4570df75f988e1dd57fbfa267932c589d9beee4a4bab3",
+      "launch_identity_binding": "Reviewed committed probe launches the inspected immutable image_id with --pull=never",
+      "owned_container_absent": true,
+      "evidence": "evidence/owner-trial-53c9e79/regression/image-public-permissions-linejs.json"
+    },
+    "preview": {
+      "image_id": "sha256:02378fa0f20ad6bc57a4d530280bb5403a35d3f6a574fc01f03baec81b27fd8b",
+      "uid": 10004,
+      "checks_passed": 4,
+      "probe_source_sha256": "ccca5937cb99d8886aa4570df75f988e1dd57fbfa267932c589d9beee4a4bab3",
+      "launch_identity_binding": "Reviewed committed probe launches the inspected immutable image_id with --pull=never",
+      "owned_container_absent": true,
+      "evidence": "evidence/owner-trial-53c9e79/regression/image-public-permissions-preview.json"
+    }
+  },
+  "single_invocation": true,
+  "single_invocation_scope": "all eight acceptance stages; build origin is separate",
+  "prior_failed_verification": "evidence/owner-trial-53c9e79/failed-resumed-1.json",
+  "original_interruption": "evidence/owner-trial-53c9e79/original-paused-invocation.json",
+  "orchestration_evidence": "evidence/owner-trial-53c9e79/orchestration-provenance.json",
+  "selected_receipts": {
+    "install/evidence/linux-install.json": {
+      "evidence": "evidence/owner-trial-53c9e79/install/linux-install.json",
+      "sha256": "eca3e8ac65df01fd898cf992d0a5e6ad1f71ad564fb5595f2a476499f93e0758",
+      "content_review": "exact_sha256"
+    },
+    "enable/evidence/home-worker-enable-haos.json": {
+      "evidence": "evidence/owner-trial-53c9e79/enable/home-worker-enable-haos.json",
+      "sha256": "c96d0c0dabf66147c429cb36b79c863c99a293b74111480bc4cb0127830233cf",
+      "content_review": "exact_sha256"
+    },
+    "home-worker-haos/evidence/home-worker-haos.json": {
+      "evidence": "evidence/owner-trial-53c9e79/home-worker-haos/home-worker-haos.json",
+      "sha256": "21959cd7c34913e712bbcd8ae71da537e3e49ea4a01851a32b30c9a022d51884",
+      "content_review": "exact_sha256"
+    },
+    "haos-boundary/evidence/haos-app-boundary.json": {
+      "evidence": "evidence/owner-trial-53c9e79/haos-boundary/haos-app-boundary.json",
+      "sha256": "8563495abb7e9ef62935b7a1c2e8c7481710f64baacfb361595ff877433cef88",
+      "content_review": "exact_sha256"
+    },
+    "runner-build/evidence/runner-supervisor-build.json": {
+      "evidence": "evidence/owner-trial-53c9e79/runner-build/runner-supervisor-build.json",
+      "sha256": "2f97ee561fed264dee5412635145be2d58e371b46f790240357750cd2452e17c",
+      "content_review": "exact_sha256"
+    },
+    "bridge-haos/evidence/bridge-haos.json": {
+      "evidence": "evidence/owner-trial-53c9e79/bridge-haos/bridge-haos.json",
+      "sha256": "e4f5cf28e8bb01d8ee8ea67ad6a10d200a6e4ca9cc46911031afa1c7761e06f7",
+      "content_review": "exact_sha256"
+    },
+    "haos-vm/evidence/haos-vm.json": {
+      "evidence": "evidence/owner-trial-53c9e79/haos-vm/haos-vm.json",
+      "sha256": "421591d9d779e52ed157fa2370449090c5fdc27633eec0c062ea379a504e70d9",
+      "content_review": "exact_sha256"
+    },
+    "install/evidence/installed-auth-laptop-amd64.json": {
+      "evidence": "evidence/owner-trial-53c9e79/install/installed-auth-laptop-amd64.json",
+      "sha256": "ef83dcc7e1b1b6e7ace0ad55b5d62ded36b055c69ad182c03c68ecf37209743e",
+      "content_review": "exact_sha256"
+    },
+    "install/evidence/installed-rescue-laptop-amd64.json": {
+      "evidence": "evidence/owner-trial-53c9e79/install/installed-rescue-laptop-amd64.json",
+      "sha256": "ecfbd8f24d8db60b89948a976b5cdfe7a5a2889b18cd4ad95ae6d2ffea24f8e2",
+      "content_review": "exact_sha256"
+    },
+    "install/evidence/installed-sandbox-laptop-amd64.json": {
+      "evidence": "evidence/owner-trial-53c9e79/install/installed-sandbox-laptop-amd64.json",
+      "sha256": "5403c270bff3c89e12b85839324abcd528cffccab938ec5ae66ac21dcef62c35",
+      "content_review": "exact_sha256"
+    },
+    "install/evidence/installed-coding-laptop-amd64.json": {
+      "evidence": "evidence/owner-trial-53c9e79/install/installed-coding-laptop-amd64.json",
+      "sha256": "11e82af30ac0aad15f313f0b67633260b8e9dbd2963479eaa25c5c900eb56d0e",
+      "content_review": "exact_sha256"
+    },
+    "install/evidence/installed-hermes-laptop-amd64.json": {
+      "evidence": "evidence/owner-trial-53c9e79/install/installed-hermes-laptop-amd64.json",
+      "sha256": "a893b9342abcf0082568361c4e79d29a1981cfa0ac83b65ff28084a045871a22",
+      "content_review": "exact_sha256"
+    },
+    "install/evidence/installed-update-laptop-amd64.json": {
+      "evidence": "evidence/owner-trial-53c9e79/install/installed-update-laptop-amd64.json",
+      "sha256": "d25d3029a493a413a099f4f1b6c8b69cd1e16e231386a76213af5f44248b9414",
+      "content_review": "exact_sha256"
+    },
+    "install/evidence/installed-cleanup-laptop-amd64.json": {
+      "evidence": "evidence/owner-trial-53c9e79/install/installed-cleanup-laptop-amd64.json",
+      "sha256": "501e76bf5f125f58f9d57a63b34b151a2419ed3bdc7a9b8c1a678e2bafa7fdb1",
+      "content_review": "exact_sha256"
+    },
+    "source-archive-integrity.json": {
+      "evidence": "evidence/owner-trial-53c9e79/source-archive-integrity.json",
+      "sha256": "b723404c1a16b10fc81151ace69fe870110957274db0bc970044b646db12414b",
+      "content_review": "exact_sha256"
+    },
+    "source-credential-audit.json": {
+      "evidence": "evidence/owner-trial-53c9e79/source-credential-audit.json",
+      "sha256": "f9c95208958d3eda5ec8be601562385f593bf0a7e18d56bc88d25b6d98da76d6",
+      "content_review": "exact_sha256"
+    },
+    "regression/evidence/image-public-permissions-controller.json": {
+      "evidence": "evidence/owner-trial-53c9e79/regression/image-public-permissions-controller.json",
+      "sha256": "f3923e93d36a6002b55d24e1e3d41728cb697218a11bd8a65463ea3c42f77be9",
+      "content_review": "exact_sha256"
+    },
+    "regression/evidence/image-public-permissions-runner.json": {
+      "evidence": "evidence/owner-trial-53c9e79/regression/image-public-permissions-runner.json",
+      "sha256": "4a2f014b1a9b7173ee35c5794625f3914e19525a1237c29df2064629a7fc7c5e",
+      "content_review": "exact_sha256"
+    },
+    "regression/evidence/image-public-permissions-hermes.json": {
+      "evidence": "evidence/owner-trial-53c9e79/regression/image-public-permissions-hermes.json",
+      "sha256": "766903fb6698e7154c18c9a2b2c2cfea0bb2c98fcf47ad74d0d502c90bcc341e",
+      "content_review": "exact_sha256"
+    },
+    "regression/evidence/image-public-permissions-bridge.json": {
+      "evidence": "evidence/owner-trial-53c9e79/regression/image-public-permissions-bridge.json",
+      "sha256": "2130f309b2e6037a2bbd3fddc91763681c476ae628c55385eaf12c7f1a491f68",
+      "content_review": "exact_sha256"
+    },
+    "regression/evidence/image-public-permissions-linejs.json": {
+      "evidence": "evidence/owner-trial-53c9e79/regression/image-public-permissions-linejs.json",
+      "sha256": "4da071e524ea87cab3e7d27913ee66b300ea2030fd6589c60bee3f71bdf10bd3",
+      "content_review": "exact_sha256"
+    },
+    "regression/evidence/image-public-permissions-preview.json": {
+      "evidence": "evidence/owner-trial-53c9e79/regression/image-public-permissions-preview.json",
+      "sha256": "e4bf1d5ad5eb5383a206d69d2762cdb04a9ae045e71c2e86c275e29ba2110fe3",
+      "content_review": "exact_sha256"
+    },
+    "qualification-launch.json": {
+      "evidence": "evidence/owner-trial-53c9e79/qualification-launch.json",
+      "sha256": "af157642d10df93b5b0320d9c29f1e1b833298a72c8466c806a27ea63fd19660",
+      "content_review": "exact_sha256"
+    },
+    "github-ci.json": {
+      "evidence": "evidence/owner-trial-53c9e79/github-ci.json",
+      "sha256": "9dcc5913507e8665fd36771144642e78f6b166da6d7715a3a6fff0fa69aca06f",
+      "content_review": "exact_sha256"
+    },
+    "ci-media-match.json": {
+      "evidence": "evidence/owner-trial-53c9e79/ci-media-match.json",
+      "sha256": "ac4edb62907a17cfd2552761baa3a42943102fb644b4b9199b734ad885851415",
+      "content_review": "exact_sha256"
+    },
+    "github-pr-ci.json": {
+      "evidence": "evidence/owner-trial-53c9e79/github-pr-ci.json",
+      "sha256": "05c5cc5e46106aac585be1286eec97d94306bb0db7a63733788670ab8f144089",
+      "content_review": "exact_sha256"
+    },
+    "ci-deep-review.json": {
+      "evidence": "evidence/owner-trial-53c9e79/ci-deep-review.json",
+      "sha256": "db7c110136bff946899370eca85b5ea3f27f0a74325a829184a896bc7447c9d2",
+      "content_review": "exact_sha256"
+    },
+    "ci-source-delta-review.json": {
+      "evidence": "evidence/owner-trial-53c9e79/ci-source-delta-review.json",
+      "sha256": "9a36d4f3c419b16457db895becdc953b215ec3958cd12c236418beef1a943fa1",
+      "content_review": "exact_sha256"
+    }
+  },
+  "environment": "serial stages on shared host; not proof of uncontended conditions",
+  "limitations": [
+    "local fixture delivery is not public stable",
+    "no real accounts or physical laptop acceptance",
+    "original RC10 #97 cause remains unknown; I/O pressure is correlation only"
+  ]
+}

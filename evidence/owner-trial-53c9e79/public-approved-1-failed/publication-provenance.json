@@ -1,0 +1,56 @@
+{
+  "kind": "failed_approved_public_delivery_provenance",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "owner_publication_authorized": true,
+  "owner_approval_sha256": "716157b3174b0e008678a826b85b2f94b908084407571643144ff45d645aac31",
+  "run": "public-candidate-53c9e79-approved-1",
+  "mode": "verify_public_only",
+  "automatic_retry": false,
+  "original_input_sha256": {
+    "run/summary.json": "8a4257f3d7b3b7e23dfea38417a761579e7599c3d4ba2c745b966ae419aa1b4f",
+    "run/candidate-manifest.json": "67593f9041fdf04faa6bb436ebabeae004c6b88368d0153cf23e00b947fc69af",
+    "run/orchestration.py": "972aec7b9142ff82e19d2c6dd8caf4734b172467ae6397fb3398cafb9e31a613",
+    "run/resume-provenance-resumed2-53c9e79.py": "da4a481876e48899b2694357349d30502d6774d1e41cf95f514f93ec6c986eb0",
+    "run/enable/stage.json": "bfd7a1f9263bf0044869fcae918c068700c6314ca68da9288fad3c631a3d18ae",
+    "run/enable/process/command.json": "6f69e2fc71e4a21891689633262baecca86460ad2a86aede75eeb549a959a3b7",
+    "run/enable/junit.xml": "ba64a10381f8a99a879d5d389362fd4a382d89b1479f0e7e03cae5455cfe537b",
+    "run/enable/evidence/home-worker-enable-haos.json": "86dc2e00e4d0fb07bf9b46eaba5c86200b76957342f80a243cbd3b8e60254d68",
+    "root/publication-public-service-completion.json": "568ed817aa0769b0fc73d082ccd19c7a39436f49a97424fd6f6fb811d2a6a04c"
+  },
+  "pinned_root_input_sha256": {
+    "PUBLICATION_APPROVED.json": "716157b3174b0e008678a826b85b2f94b908084407571643144ff45d645aac31",
+    "publication-public-preflight.json": "3ec42d2d1b5318202aeedcaf8b68dcf241eeb40d93dd4c0498b6b4a1283933f7",
+    "publication-public-service-start.json": "4dc902bcbe0f493107fbea459bac3da5eba54ac69903876ecbd29b8114035b50",
+    "publication-source-refs.json": "a05e61a3533fd210a7d075d71543b982f545a2506b6dcdb06903927144c661fb",
+    "publication-public-wrapper-independent-review.json": "20525ba99cd6e3993a220178bb680b3dc7bc3df27ee2f53d70a4a87cba052397",
+    "pressure-gate-public-53c9e79.result.json": "985763bf6407a4d18004e487cc29f227accf7092864c9092fb924c8cf4ca94d2",
+    "verify-public-approved-resumed2-53c9e79.py": "972aec7b9142ff82e19d2c6dd8caf4734b172467ae6397fb3398cafb9e31a613",
+    "start-approved-public-53c9e79.py": "45be71c6e4361d93c76b277ad10cb30ce174079eaae7757dc39fdd143fe9757e",
+    "resume-provenance-resumed2-53c9e79.py": "da4a481876e48899b2694357349d30502d6774d1e41cf95f514f93ec6c986eb0",
+    "import-evidence-reviewed-resumed2-53c9e79.py": "1df01247535e4baa9084eb9517844069cb2c36ee22d885660ad4a8f7934b21b0"
+  },
+  "passing_importer_used_only_for_pure_origin_helpers_sha256": "3f21157da16115d2387c2c10ab36949377cda63e02ac2051fdbb006b9130105a",
+  "root_failure_content_review_sha256": "a70e3cf06619797955417571edc5e921a5e3bf14f0282595efde43f580065ce1",
+  "importer_sha256": "a0644766e0663435144a1aadce99bd443acf5072a9b6c67f75bbf804b4eeca1a",
+  "local_eight_stage_prerequisite": {
+    "summary_sha256": "3a42db525233fe1788af13df5e363dc4fbe9d695fa53caafdc199411b60c7d27",
+    "all_eight_passed": true,
+    "orchestration_sha256": "cd66012e6e4ca40279c2d315ece0a610d68c2281801d01f0716a72c2a992546e",
+    "pytest_child_umask": "0022",
+    "separate_completed_build": true,
+    "interrupted_and_failed_invocations_supply_no_accepted_stages": true,
+    "public_evidence": "evidence/owner-trial-53c9e79/summary.json"
+  },
+  "service_completion": {
+    "status": "failed",
+    "terminated": true,
+    "known_suite_containers_remaining": [],
+    "automatic_retry": false,
+    "tag_created": false,
+    "release_created": false
+  },
+  "release_publication": "blocked",
+  "new_full_eight_stage_run": false,
+  "bridge_stage_started": false,
+  "projection": "Reviewed typed failure primary; sanitized failed JUnit with semantic case mapping; no raw logs, paths or error body."
+}

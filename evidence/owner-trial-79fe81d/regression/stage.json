@@ -1,0 +1,14 @@
+{
+  "stage": "regression",
+  "source_commit": "79fe81d54bdc52a2766474168c04ce3bbebaf0b9",
+  "status": "interrupted",
+  "original_stage_sha256": "258e317553203aa44a3d7ba8c2ef4509cda781978b67043fa5c0d4e379e31cb8",
+  "public_channel_test": false,
+  "started": "2026-10-15T14:46:56.280888+00:00",
+  "finished": "2026-10-15T14:49:48.114476+00:00",
+  "accepted": false,
+  "exit_code": 130,
+  "junit": "not_completed",
+  "manual_interruption_after_install_failure": true,
+  "cleanup_evidence": "evidence/owner-trial-79fe81d/interruption-cleanup.json"
+}

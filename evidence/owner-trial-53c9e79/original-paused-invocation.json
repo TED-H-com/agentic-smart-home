@@ -1,0 +1,25 @@
+{
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "status": "interrupted",
+  "acceptance": false,
+  "reason": "Owner requested an account-switch pause during installation.",
+  "remaining_stages_not_run": [
+    "regression",
+    "enable",
+    "home-worker-haos",
+    "haos-boundary",
+    "runner-build",
+    "bridge-haos",
+    "haos-vm"
+  ],
+  "contributes_acceptance_stages": false,
+  "original_pause_cleanup_sha256": "2a64e6981e7044af8bff4017f275cb2969942de62161aae5da8fd2e2ff8e0468",
+  "original_receipt_sha256": {
+    "summary.json": "af98c46807ccf6b864fc675939e23ebc071651ca92828ab3ab7687020c319fc2",
+    "install/stage.json": "1e02497a10a782e915b5b87291085ee26975a046fc922cbe35732a3cab0d9ccc",
+    "install/process/command.json": "394a85f21f936b5a194cbbba03e67427907256a176ce61ad26759f44f7f7de0f",
+    "candidate-manifest.json": "67593f9041fdf04faa6bb436ebabeae004c6b88368d0153cf23e00b947fc69af"
+  },
+  "owned_container_absent_verified": true,
+  "disk_basetemp_parent_absent_verified": true
+}

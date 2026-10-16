@@ -1,0 +1,70 @@
+{
+  "app": "runner",
+  "reader_uid": 10000,
+  "status": "passed",
+  "scope": "Actual packaged public-file DAC and imports; no service startup or real-account acceptance",
+  "image_id": "sha256:b26b3d8a659fbcf20016dd4b296eb7997a4b791a145d0af74ca5e7f04f1445a7",
+  "uid": 10000,
+  "checks": [
+    {
+      "check": "unprivileged_without_capabilities",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_0",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_1",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_2",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_3",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_4",
+      "status": "passed"
+    },
+    {
+      "check": "module_import_0",
+      "status": "passed"
+    },
+    {
+      "check": "module_import_1",
+      "status": "passed"
+    },
+    {
+      "check": "public_executable_0",
+      "status": "passed"
+    },
+    {
+      "check": "public_executable_1",
+      "status": "passed"
+    },
+    {
+      "check": "public_executable_2",
+      "status": "passed"
+    },
+    {
+      "check": "public_executable_3",
+      "status": "passed"
+    },
+    {
+      "check": "private_boundary_0",
+      "status": "passed"
+    },
+    {
+      "check": "private_boundary_1",
+      "status": "passed"
+    }
+  ],
+  "cleanup": {
+    "remove": "passed",
+    "absent": true
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "stage": "runner-build",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "status": "passed",
+  "started": "2026-10-15T21:31:45.653802+00:00",
+  "finished": "2026-10-15T21:39:16.000944+00:00",
+  "public_channel_test": false,
+  "cleanup": {
+    "observation_complete": true,
+    "owned_containers_absent": true,
+    "owned_networks_absent": true,
+    "disk_basetemp_removed": true,
+    "temp_filesystem": "ext4",
+    "scope": "known_test_name_prefixes_only"
+  },
+  "junit": {
+    "tests": 102,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 102,
+    "seconds": 449.751
+  },
+  "required_integration_case": {
+    "name": "test_real_supervisor_builds_home_coding_app",
+    "status": "passed"
+  },
+  "original_junit_sha256": "df80e0a383e6cfcb1edf239a0050abaad22960493867474789122e89f3b445af",
+  "junit_projection": "counts_order_and_timing_preserved; generated_case_names; logs_properties_paths_omitted",
+  "junit_evidence": "evidence/owner-trial-53c9e79/runner-build/junit.xml"
+}

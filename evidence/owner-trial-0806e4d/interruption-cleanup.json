@@ -1,0 +1,51 @@
+{
+  "kind": "same_candidate_interruption_readback",
+  "commit": "0806e4de5ca56607cadbc6450695596d3aacef59",
+  "observed_at": "2026-10-15T18:43:20.055668+00:00",
+  "initial_status": "interrupted",
+  "signal": 15,
+  "signal_source": "unestablished",
+  "partial_junit": {
+    "raw_testcase_nodes": 477,
+    "named_testcases": 476,
+    "declared_tests": 476,
+    "completed_passed": 475,
+    "skipped": 1,
+    "unfinished_anonymous": 1,
+    "failures": 0,
+    "errors": 0,
+    "completed_count_source": "retained_pytest_terminal_summary"
+  },
+  "partial_result_is_acceptance": false,
+  "resources_added": {
+    "containers": [],
+    "networks": []
+  },
+  "resource_scope": "known_test_name_prefixes_only",
+  "cleanup_observation_complete": true,
+  "basetemp": {
+    "wrapper_record_count": 1,
+    "parent_removed": true,
+    "under_expected_root": true,
+    "filesystem": "ext4"
+  },
+  "worktree_clean": true,
+  "all_media_hashes_match_original_manifest": true,
+  "all_image_ids_match_original_manifest": true,
+  "original_installation_pass_retained": true,
+  "original_artifact_sha256": {
+    "summary.json": "902294691b0c9f13d56ddc78a7038cc81956961eb66c3b10dc4fadeb71def32d",
+    "regression/stage.json": "171f4c2fe11dad0e9089cfc73834a7cf6a8fbab6f75229c4c01c119bc036f5a3",
+    "regression/process/command.json": "94afa4b451971168cfc2c70fb7f86bebf11a6b67240d028c6f6d2c4fee464f1c",
+    "regression/process/stdout.log": "de166caf7a32d334e1644a7192ec4e58c6d786c08014f32dfa142ec26ef29ef7",
+    "regression/junit.xml": "768424f61a453ae48c07af55e4c90388ce49f3b5e9d288ffc51c1e851871ef64",
+    "install/stage.json": "4f51b808df59643c7c222dc9a4851b39dfbd04ec86faae472a503adde041d705",
+    "install/junit.xml": "6c45fd609c9dccb9d91f6ae7ed34672316a5be736d2f7120757f6911fb4929e2",
+    "candidate-manifest.json": "3b9f30738f073ee285f3f92693fca8ab40c2afde818ff0ab7cc9cd3417d85303"
+  },
+  "limitations": [
+    "Signal origin was not established.",
+    "Interrupted regression is excluded from accepted test counts.",
+    "Original private logs and JUnit remain byte-for-byte retained; this is a typed aggregate."
+  ]
+}

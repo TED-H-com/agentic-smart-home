@@ -1,0 +1,27 @@
+{
+  "stage": "regression",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "status": "passed",
+  "started": "2026-10-15T20:50:33.247264+00:00",
+  "finished": "2026-10-15T21:05:22.308687+00:00",
+  "public_channel_test": false,
+  "cleanup": {
+    "observation_complete": true,
+    "owned_containers_absent": true,
+    "owned_networks_absent": true,
+    "disk_basetemp_removed": true,
+    "temp_filesystem": "ext4",
+    "scope": "known_test_name_prefixes_only"
+  },
+  "junit": {
+    "tests": 2068,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 7,
+    "passed": 2061,
+    "seconds": 887.263
+  },
+  "original_junit_sha256": "1c1b59c9f6ebdce60dc6bf3b26b88302e0f7b7c83a61fd9da39951088957ec44",
+  "junit_projection": "counts_order_and_timing_preserved; generated_case_names; logs_properties_paths_omitted",
+  "junit_evidence": "evidence/owner-trial-53c9e79/regression/junit.xml"
+}

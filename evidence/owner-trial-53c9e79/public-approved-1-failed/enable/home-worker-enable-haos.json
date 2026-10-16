@@ -1,0 +1,64 @@
+{
+  "kind": "failed_public_delivery_product_projection",
+  "status": "failed",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "delivery": "published_stable_branch",
+  "actual_repository": "https://github.com/TED-H-com/agentic-smart-home#stable",
+  "reached_phase": "cold_backup",
+  "error_type": "TimeoutError",
+  "error_code": "unclassified_fixture_error",
+  "root_cause": "unestablished",
+  "underlying_backup_result": "unknown",
+  "cold_backup_acceptance": "not_established",
+  "full_host_reboot_acceptance": "not_run",
+  "positive_pre_backup_checks": {
+    "exact_head": true,
+    "stable_branch_is_exact_head": true,
+    "supervisor_healthy": true,
+    "pinned_bases_preloaded": true,
+    "bridge_auto_enroll": true,
+    "bridge_heartbeat": true,
+    "home_worker_enable": true,
+    "login_ready_contract": true,
+    "shared_repository": true,
+    "real_app_contract": true,
+    "persisted_record": true,
+    "tls_fingerprint": true,
+    "container_contract": true
+  },
+  "source_git_trees": {
+    "runner_git_tree": "db9b4f5aefeb2e227836b72a220bbbec61a1ab97",
+    "bridge_git_tree": "d224426576deb5255b51ce4adf9675498ab3387c",
+    "controller_git_tree": "92f254581b9c997e8b37d128dc0519ca206ba09d"
+  },
+  "observed_from": "supervisor_git_store_outer_controller_and_app_container",
+  "target": "disposable_official_haos_vm",
+  "observed_at_epoch": 1792103708.6699154,
+  "duration_seconds": 3065.02,
+  "haos_image": "18.3",
+  "core": "2026.10.1",
+  "supervisor": "2026.10.2",
+  "cold_backup_observation": {
+    "samples": 19,
+    "supervisor_states": [
+      "freeze"
+    ],
+    "app_stopped_seen": true
+  },
+  "cleanup": {
+    "outer_removed": true,
+    "git_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "limitations": [
+    "no_cloud_login_model_or_coding_executed",
+    "inference_is_protocol_fixture",
+    "host_contract_is_unix_socket_fixture",
+    "builder_and_pinned_bases_preloaded_registry_not_blocked"
+  ],
+  "real_cloud_account_acceptance": false,
+  "physical_laptop_or_household_acceptance": false,
+  "original_receipt_sha256": "86dc2e00e4d0fb07bf9b46eaba5c86200b76957342f80a243cbd3b8e60254d68"
+}

@@ -1,0 +1,30 @@
+{
+  "app": "preview",
+  "reader_uid": 10004,
+  "status": "passed",
+  "scope": "Actual packaged public-file DAC and imports; no service startup or real-account acceptance",
+  "image_id": "sha256:02378fa0f20ad6bc57a4d530280bb5403a35d3f6a574fc01f03baec81b27fd8b",
+  "uid": 10004,
+  "checks": [
+    {
+      "check": "unprivileged_without_capabilities",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_0",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_1",
+      "status": "passed"
+    },
+    {
+      "check": "module_import_0",
+      "status": "passed"
+    }
+  ],
+  "cleanup": {
+    "remove": "passed",
+    "absent": true
+  }
+}

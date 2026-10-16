@@ -1,0 +1,23 @@
+{
+  "observed_from": "disposable_installed_linux_vm",
+  "cloud_account": "not_used",
+  "disk_volume": {
+    "capacity_bytes": 62869504,
+    "written_bytes": 61505536,
+    "errno": 28,
+    "cleaned": true
+  },
+  "job": {
+    "state": "failed",
+    "stop_confirmed": true,
+    "error_code": "writer_stop_unconfirmed",
+    "exit_code": null,
+    "verification": null
+  },
+  "status": "failed",
+  "stage": "coding_verified",
+  "error": "AssertionError",
+  "cleanup": "passed",
+  "duration_seconds": 79.94,
+  "installed_source": "965d69f74abaadf29df28c1e8f1b866a3131d35c"
+}

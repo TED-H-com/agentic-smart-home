@@ -1,0 +1,8 @@
+{
+  "stage": "bridge-haos",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "status": "not_run",
+  "started": false,
+  "reason": "stopped_after_failed_enable; no automatic retry",
+  "accepted_as_public_stage": false
+}

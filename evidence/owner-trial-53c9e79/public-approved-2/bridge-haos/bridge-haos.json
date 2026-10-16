@@ -1,0 +1,59 @@
+{
+  "kind": "public_delivery_product_projection",
+  "stage": "bridge-haos",
+  "status": "passed",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "delivery": "published_release_branch",
+  "actual_repository": "https://github.com/TED-H-com/agentic-smart-home#stable",
+  "supervisor_commit_digest_pinned": false,
+  "checks": {
+    "supervisor_app_contract": true,
+    "service_heartbeat_without_owner_capability": true,
+    "ingress_native_identity_overrides_forged_header": true,
+    "direct_app_forged_header_denied": true,
+    "same_outer_case_and_deduplicated_conversation": true,
+    "host_management_and_cross_origin_denied": true,
+    "app_restart_preserves_options_and_outer_case": true,
+    "manual_stop_remains_stopped": true
+  },
+  "haos_image": "18.3",
+  "core": "2026.10.1",
+  "supervisor": "2026.10.2",
+  "duration_seconds": 402.67,
+  "real_cloud_account_acceptance": false,
+  "physical_laptop_or_household_acceptance": false,
+  "observed_from": "haos_app_via_core_ingress_to_outer_pinned_tls",
+  "inference": "protocol_fixture_no_cloud_account",
+  "outer_source": "candidate_source_mounted_readonly",
+  "public_repository": {
+    "source": "https://github.com/TED-H-com/agentic-smart-home#stable",
+    "reference": "stable",
+    "repository_id": "2c58949d",
+    "app_slug": "2c58949d_agentic_bridge",
+    "version": "0.9.0",
+    "source_build": true,
+    "commit_digest_pinned_by_supervisor": false
+  },
+  "native_browser": {
+    "status": "passed",
+    "no_api_or_header_mocking": true
+  },
+  "public_check_scope": {
+    "executed_checks": 8,
+    "not_exercised_in_public_attempt": [
+      "wrong_tls_pin_denied_and_recovered"
+    ],
+    "reason": "Frozen tests/test_bridge_haos.py executes this negative check only when not public.",
+    "local_prerequisite_scope": "Separate completed local-eight run; no public wrong-TLS negative acceptance claimed."
+  },
+  "delivery_label_scope": "Legacy receipt label published_release_branch; actual Supervisor repository is #stable.",
+  "cleanup": {
+    "ha_client_closed": true,
+    "outer_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "ownership_helper_removed": true,
+    "network_removed": true
+  },
+  "original_receipt_sha256": "010684f954e3e77cae10d3b65fc3ef72048f062faee70aa6e11cb370c5772555"
+}

@@ -1,0 +1,99 @@
+{
+  "kind": "real_haos_sidebar_bridge",
+  "haos_image": "18.3",
+  "status": "passed",
+  "delivery": "local_source_fixture",
+  "observed_from": "haos_app_via_core_ingress_to_outer_pinned_tls",
+  "inference": "protocol_fixture_no_cloud_account",
+  "outer_source": "candidate_source_mounted_readonly",
+  "checks": {
+    "supervisor_app_contract": true,
+    "service_heartbeat_without_owner_capability": true,
+    "ingress_native_identity_overrides_forged_header": true,
+    "direct_app_forged_header_denied": true,
+    "wrong_tls_pin_denied_and_recovered": true,
+    "same_outer_case_and_deduplicated_conversation": true,
+    "host_management_and_cross_origin_denied": true,
+    "app_restart_preserves_options_and_outer_case": true,
+    "manual_stop_remains_stopped": true
+  },
+  "outer_source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "outer_source_uncommitted": false,
+  "phase": "native_stop_respected",
+  "core": "2026.10.1",
+  "supervisor": "2026.10.2",
+  "outer_dependency_image": "sha256:89862545c23b68ee4177a8899b93a555f1f665f3c4ae7f9deff9cfeaaaba880d",
+  "install_confirmation": "app_postcondition_job_unavailable",
+  "native_browser": {
+    "kind": "native_ha_ingress_browser",
+    "status": "passed",
+    "observed_from": "chromium_native_ha_to_actual_ingress_app",
+    "no_api_or_header_mocking": true,
+    "checks": {
+      "native_login_form_used": true,
+      "native_owner_login": true,
+      "native_http_confirmation_needed": false,
+      "compiled_bridge_ui": true,
+      "existing_case_resumed": true,
+      "actual_ingress_post_csrf_and_origin": true,
+      "reload_and_same_case_continuation": true,
+      "native_fullframe_screenshot": true
+    },
+    "entry_method": "native_sidebar_link",
+    "compiled_js_sha256": "02d3205d89ba25e5a4e37fc4cc037a712058715402d37fd26574883b23e3411f",
+    "case_id": "1d242600889946259c0225c431f76368",
+    "thread_id": "c41c6d9acca9d67bdaa12f81830ed1a7ebca448a89ed63b462cb1013d96ea6bb",
+    "message_ids": [
+      "bf531340cf782cad9674d1fb20a62cd86fb5e7292ac082329e00fa353b5e31f3",
+      "bd5078ccc3fac684f4860a23a6fe8637569ba890064143d063c9c84ced3d426b"
+    ],
+    "browser_error_types": [],
+    "duration_seconds": 12.164
+  },
+  "host_capability": {
+    "kind": "unix_host_contract_fixture_not_installed_host",
+    "ingress_bridge_contract": 1,
+    "status_reads": 21
+  },
+  "product_status": "passed",
+  "cleanup_status": "passed",
+  "cleanup": true,
+  "cleanup_steps": {
+    "ha_client_closed": true,
+    "outer_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "ownership_helper_removed": true,
+    "network_removed": true
+  },
+  "cleanup_observations": {
+    "outer_remove": {
+      "returncode": 0
+    },
+    "outer_observe": {
+      "returncode": 0
+    },
+    "vm_remove": {
+      "returncode": 0
+    },
+    "vm_observe": {
+      "returncode": 0
+    },
+    "disk_fixture_ownership_restore": {
+      "returncode": 0
+    },
+    "ownership_helper_remove": {
+      "returncode": 0
+    },
+    "ownership_helper_observe": {
+      "returncode": 0
+    },
+    "network_remove": {
+      "returncode": 0
+    },
+    "network_observe": {
+      "returncode": 0
+    }
+  },
+  "duration_seconds": 303.09
+}

@@ -1,0 +1,71 @@
+{
+  "source_commit": "79fe81d54bdc52a2766474168c04ce3bbebaf0b9",
+  "tar_sha256": "005a2dcbb17bcf73b83f7cef0230b5515a18188b88c2d138b7506d069f4ce097",
+  "original_receipt_sha256": "0869e064a1299d02a2406504ad4907d7424503e6c791eb42f0f664cdbd84508a",
+  "method": "Actual Python proxy import as UID/GID65534; network disabled; public subset mounted read-only",
+  "uid": 65534,
+  "gid": 65534,
+  "results": {
+    "old_13ad697": {
+      "returncode": 0,
+      "imported": true,
+      "error_class": null,
+      "root_traversable": true
+    },
+    "candidate_79fe81d": {
+      "returncode": 1,
+      "imported": false,
+      "error_class": "ModuleNotFoundError",
+      "root_traversable": false
+    },
+    "normalized_79fe81d_subset": {
+      "returncode": 0,
+      "imported": true,
+      "error_class": null,
+      "root_traversable": true
+    }
+  },
+  "normalized_subset_members": {
+    "agentic-home": {
+      "mode": "0o755",
+      "uid": 0,
+      "gid": 0
+    },
+    "agentic-home/host": {
+      "mode": "0o755",
+      "uid": 0,
+      "gid": 0
+    },
+    "agentic-home/host/agentic_host": {
+      "mode": "0o755",
+      "uid": 0,
+      "gid": 0
+    },
+    "agentic-home/host/agentic_host/__init__.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0
+    },
+    "agentic-home/host/agentic_host/artifacts.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0
+    },
+    "agentic-home/host/agentic_host/manager.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0
+    },
+    "agentic-home/host/agentic_host/proxy.py": {
+      "mode": "0o644",
+      "uid": 0,
+      "gid": 0
+    }
+  },
+  "container_cleanup_absent": true,
+  "conclusion": "Archive root0700 deterministically prevents nonowner proxy import; archive metadata normalization fixes the reproduced barrier.",
+  "limitations": [
+    "Original failed VM proxy journal was not retained; this is a separate import reproduction.",
+    "This is not full installed-VM acceptance and does not explain original RC10 #97."
+  ]
+}

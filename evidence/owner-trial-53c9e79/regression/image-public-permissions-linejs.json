@@ -1,0 +1,34 @@
+{
+  "app": "linejs",
+  "reader_uid": 1000,
+  "status": "passed",
+  "scope": "Actual packaged public-file DAC and imports; no service startup or real-account acceptance",
+  "image_id": "sha256:5e96ba8a0f66f89552b3827e9776c1d0deb2a387f29d2a8daba9dab29e62f46a",
+  "uid": 1000,
+  "checks": [
+    {
+      "check": "unprivileged_without_capabilities",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_0",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_1",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_2",
+      "status": "passed"
+    },
+    {
+      "check": "package_metadata",
+      "status": "passed"
+    }
+  ],
+  "cleanup": {
+    "remove": "passed",
+    "absent": true
+  }
+}

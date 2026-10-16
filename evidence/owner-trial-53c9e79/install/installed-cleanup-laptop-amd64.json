@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "steps": {
+    "stop_vm": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "console_tail": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "remove_vm": {
+      "status": "passed",
+      "exit_code": 0
+    },
+    "vm_absent": {
+      "status": "passed",
+      "exit_code": 0
+    }
+  }
+}

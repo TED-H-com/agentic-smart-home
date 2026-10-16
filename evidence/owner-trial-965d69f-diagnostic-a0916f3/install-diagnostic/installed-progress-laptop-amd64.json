@@ -1,0 +1,9 @@
+{
+  "runtime_location": "disposable_outer_linux_vm",
+  "iso_sha256": "a4368ccd57da7224b32cde119c1ea971b741bddb07c3a1f5199ef2fbeee9fedb",
+  "result": "failed",
+  "cloud_login": "not_run",
+  "phase": "installed_owner_and_role_auth",
+  "duration_seconds": 4467,
+  "error_type": "AssertionError"
+}

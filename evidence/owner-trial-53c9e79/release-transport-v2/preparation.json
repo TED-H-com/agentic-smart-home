@@ -1,0 +1,14 @@
+{
+  "status": "hybrid_iso_subchunks_prepared",
+  "new_files": 45,
+  "new_iso_subchunks": 43,
+  "iso_transport_parts": 44,
+  "new_bytes": 5731844096,
+  "filesystem": "ext4",
+  "old_inode_ctime_identity_unchanged": true,
+  "full_iso_sha256_verified": "1ae3d1ff60f86cfedaf4112bbd25c56a1f11e3c19ad52a1c0374530769394080",
+  "manifest_sha256": "49c34e9afee7e5995ff1f774dfdc616827dccecd5961730fa17f98a06fba0f70",
+  "helper_sha256": "8c462b1a7b4bc7bf667afe75722dfaf8e6cb76a0499379d6df17fc2e24ecf73d",
+  "all_four_offline_reassembly": "pending_root_separate_validation",
+  "published_or_uploaded": false
+}

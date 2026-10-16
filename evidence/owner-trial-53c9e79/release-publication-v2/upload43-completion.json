@@ -1,0 +1,14 @@
+{
+  "kind": "completed_all_fortythree_small_iso_subchunk_uploads",
+  "finished": "2026-10-16T03:15:01.853711+00:00",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "release_id": 414429247,
+  "manifest_sha256": "49c34e9afee7e5995ff1f774dfdc616827dccecd5961730fa17f98a06fba0f70",
+  "inventory_sha256": "f5c1b8ff636aa1cb1d925ab2752993ec74702dd167bbb08f6adee5fe74a93e4a",
+  "small_subchunk_count": 43,
+  "all_fortythree_server_sizes_and_sha256_exact": true,
+  "all_local_file_identities_unchanged": true,
+  "individual_nonzero_client_returncodes_preserved": 0,
+  "old_assets_modified": false,
+  "publication_performed": false
+}

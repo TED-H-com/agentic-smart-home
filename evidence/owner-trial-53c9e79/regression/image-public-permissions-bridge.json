@@ -1,0 +1,34 @@
+{
+  "app": "bridge",
+  "reader_uid": 10003,
+  "status": "passed",
+  "scope": "Actual packaged public-file DAC and imports; no service startup or real-account acceptance",
+  "image_id": "sha256:cc7ece6df41dc7524018ed3962cb951820803c8e081d8296742b5f393d33e5d7",
+  "uid": 10003,
+  "checks": [
+    {
+      "check": "unprivileged_without_capabilities",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_0",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_1",
+      "status": "passed"
+    },
+    {
+      "check": "javascript_and_stylesheet_assets",
+      "status": "passed"
+    },
+    {
+      "check": "module_import_0",
+      "status": "passed"
+    }
+  ],
+  "cleanup": {
+    "remove": "passed",
+    "absent": true
+  }
+}
