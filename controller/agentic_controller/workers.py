@@ -624,6 +624,8 @@ class Workers:
             if item.get("runner_identity") != self.peer_identity(item["worker_id"]):
                 raise WorkerError("runner_identity_changed")
             response = await self.runner(item["worker_id"]).call("POST", "/coding/jobs/" + identifier + "/handoff", {})
+            if item.get("runner_identity") != self.peer_identity(item["worker_id"]):
+                raise WorkerError("runner_identity_changed")
             if (not isinstance(response, dict) or response.get("id") != identifier or
                 response.get("lease_epoch") != item["lease_epoch"] or response.get("stop_confirmed") is not True or
                 response.get("live_session") is not False):
@@ -633,10 +635,17 @@ class Workers:
                 raise WorkerError("runner_identity_changed")
             self.accept(identifier, receipt)
             item = self.get(identifier)
+            if item.get("content_expired"):
+                raise WorkerError("worker_job_expired", 410)
             checkpoint = response.get("checkpoint", {})
+            if not isinstance(checkpoint, dict):
+                raise WorkerError("invalid_handoff_checkpoint", 502)
             artifacts = checkpoint.get("artifact_ids", [])
             if (not item.get("stop_confirmed") or item["state"] not in TERMINAL or not isinstance(artifacts, list) or
-                len(artifacts) > 16 or not set(artifacts) <= {value["id"] for value in item["artifacts"]} or
+                len(artifacts) > MAX_ARTIFACTS or
+                any(not isinstance(value, str) or not IDENTIFIER.fullmatch(value) for value in artifacts) or
+                len(set(artifacts)) != len(artifacts) or
+                not set(artifacts) <= {value["id"] for value in item["artifacts"]} or
                 checkpoint.get("base_commit") != item.get("base_commit")):
                 raise WorkerError("invalid_handoff_checkpoint", 502)
             return {"id": identifier, "lease_epoch": item["lease_epoch"], "stop_confirmed": True,
