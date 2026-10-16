@@ -151,7 +151,10 @@ def test_discovery_context_is_reviewed_before_send_and_does_not_create_a_control
     assert read_api(ui, 'tasks') == before_tasks
     ui.get_by_role('button', name='送出訊息', exact=True).click()
     expect(ui.locator('.assistant-answer').filter(has_text='這是固定示範回覆')).to_be_visible()
-    assert read_api(ui, 'gateway/messages')['messages'][0]['message'] == preview
+    sent = read_api(ui, 'gateway/messages')['messages'][0]
+    assert sent['message'] == preview
+    assert read_api(ui, f"hermes/cases/{sent['case_id']}")['jobs'] == []
+    expect(ui.get_by_role('button', name='查看成果', exact=True)).to_have_count(0)
     assert read_api(ui, 'tasks') == before_tasks
     assert read_api(ui, 'inventory')['policy'] == before_policy
     clean(page, errors, external)
