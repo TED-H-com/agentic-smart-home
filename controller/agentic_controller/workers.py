@@ -20,9 +20,11 @@ from typing import Literal
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from .channels import TRANSPORTS
 from .models import canonical, digest, utcnow
 from .runner import RunnerError
 from .work import WorkerAction, WorkerAuth, WorkerId, WorkerPreference, WorkerStart, WorkerWireJob
+from .worker_completion import COMPLETION_KIND, WorkerCompletion
 
 WORKER_SCOPES = {"host-coder": "host", "home-coder": "haos"}
 LOCATIONS = {"host-coder": "host_container", "home-coder": "haos_app"}
@@ -300,8 +302,7 @@ class Workers:
                 commit_guard()
             with self.store.transaction() as tx:
                 timestamp = utcnow()
-                tx.execute("INSERT INTO records VALUES (?,?,?,?,?)",
-                    ("work_job", identifier, canonical(item), timestamp, timestamp))
+                self.write_job(tx, item, timestamp)
                 tx.execute("INSERT INTO requests VALUES (?,?,?,?)", (scope, key, fingerprint, identifier))
             if not reason:
                 self.wake()
@@ -366,7 +367,31 @@ class Workers:
                 await asyncio.wait_for(self.event.wait(), 1)
 
     def save(self, item, **changes):
-        return self.store.put("work_job", {**item, **changes, "updated_at": utcnow()})
+        updated = {**item, **changes, "updated_at": utcnow()}
+        with self.store.transaction() as tx:
+            self.write_job(tx, updated, updated["updated_at"])
+        return updated
+
+    def write_job(self, tx, item, now):
+        tx.execute("INSERT INTO records VALUES (?,?,?,?,?) ON CONFLICT(kind,id) "
+            "DO UPDATE SET body=excluded.body,updated=excluded.updated",
+            ("work_job", item["id"], canonical(item), now, now))
+        authority = item.get("authority", {})
+        if (item["state"] not in TERMINAL or item.get("stop_confirmed") is not True or
+            item.get("content_expired") or authority.get("kind") != "case" or not self.authorized(authority)):
+            return
+        conversation = self.store.conversation(id=authority["message_id"])
+        if (not conversation or conversation.get("source") not in TRANSPORTS or
+            conversation.get("coordinator") != "hermes" or conversation.get("case_id") != item["case_id"] or
+            conversation.get("scope") != authority.get("scope")):
+            return
+        completion = WorkerCompletion(id=item["id"], message_id=conversation["id"], case_id=item["case_id"],
+            scope=authority["scope"], source=conversation["source"], worker_id=item["worker_id"],
+            state=item["state"], created_at=now, updated_at=now)
+        # The intent and accepted terminal job commit together. Never overwrite a
+        # sending/sent/unknown receipt when the same job is observed again.
+        tx.execute("INSERT OR IGNORE INTO records VALUES (?,?,?,?,?)",
+            (COMPLETION_KIND, completion.id, canonical(completion.model_dump()), now, now))
 
     async def advance(self):
         async with self.advance_lock:
@@ -496,11 +521,12 @@ class Workers:
             updates.update(state="cancelled", reason="result_after_cancellation")
         now = utcnow()
         updated = {**item, **updates, "updated_at": now}
-        rows = [("worker_artifact", row) for row in artifact_rows] + [("case_evidence", row) for row in evidence_rows] + [("work_job", updated)]
+        rows = [("worker_artifact", row) for row in artifact_rows] + [("case_evidence", row) for row in evidence_rows]
         with self.store.transaction() as tx:
             for kind, row in rows:
                 tx.execute("INSERT INTO records VALUES (?,?,?,?,?) ON CONFLICT(kind,id) "
                     "DO UPDATE SET body=excluded.body,updated=excluded.updated", (kind, row["id"], canonical(row), now, now))
+            self.write_job(tx, updated, now)
             if state in TERMINAL and stopped:
                 lease = self.store.setting("worker_lease")
                 if lease and lease["job_id"] == identifier and lease["epoch"] == item["lease_epoch"]:

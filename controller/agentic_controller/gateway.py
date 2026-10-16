@@ -43,6 +43,7 @@ from .models import (
     utcnow,
 )
 from .runner import RunnerError, cancel_and_confirm
+from .worker_completion import COMPLETION_KIND, WorkerCompletion
 
 CONTINUABLE = {"queued", "planning", "awaiting_user", "awaiting_approval", "succeeded"}
 LINE_QR_SECONDS = 180
@@ -86,6 +87,8 @@ class Gateway:
         self.line_login = None
         self.line_task = None
         self._reconcile_task = None
+        self._completion_task = None
+        self._completion_lock = asyncio.Lock()
         self.coordinator = coordinator
         self.bridge_valid = lambda item: True
         self.pairing_lock, self.pairing_timers = asyncio.Lock(), {}
@@ -233,6 +236,11 @@ class Gateway:
                     for name in TRANSPORTS]}
 
     async def start(self):
+        completion = self._completion_task
+        self._completion_task = None
+        if completion and not completion.done():
+            completion.cancel()
+            await asyncio.gather(completion, return_exceptions=True)
         previous = self._reconcile_task
         self._reconcile_task = None
         if previous and not previous.done():
@@ -249,21 +257,120 @@ class Gateway:
                 self.store.put("conversation", item)
             if item["state"] in {"queued", "planning"}:
                 self.store.put("conversation", {**item, "state": "interrupted", "answer": "服務已重啟，請重新送出需求。"})
+        # A send can have reached the channel before the process stopped. Its
+        # receipt is never returned to pending, even after a binary rollback.
+        for item in self.store.list(COMPLETION_KIND, 10000):
+            if item.get("delivery") == "sending":
+                self._completion_delivery(item["id"], "unconfirmed")
         for name in TRANSPORTS:
             await self.restart(name)
             self.pair_timer(name)
+        if self.coordinator:
+            self._completion_task = asyncio.create_task(self._completion_loop())
 
     async def close(self):
         reconcile = self._reconcile_task
         tasks = list(self.workers.values()) + list(self.pairing_timers.values()) + ([self.line_task] if self.line_task else [])
         if reconcile:
             tasks.append(reconcile)
+        if self._completion_task:
+            tasks.append(self._completion_task)
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
         self.workers.clear()
         self.pairing_timers.clear()
         self._reconcile_task = None
+        self._completion_task = None
+
+    def _completion_delivery(self, identifier, delivery):
+        current = self.store.get(COMPLETION_KIND, identifier)
+        if current:  # Cleanup may remove it across a durability/send await.
+            self.store.put(COMPLETION_KIND, {**current, "delivery": delivery, "updated_at": utcnow()})
+
+    def _completion_conversation(self, completion):
+        item = self.store.conversation(id=completion.message_id)
+        job = self.store.get("work_job", completion.id)
+        if not item or not job or not self.coordinator:
+            return None
+        authority = job.get("authority", {})
+        if (job.get("content_expired") or job.get("stop_confirmed") is not True or
+            job.get("state") != completion.state or job.get("worker_id") != completion.worker_id or
+            job.get("case_id") != completion.case_id or item.get("case_id") != completion.case_id or
+            item.get("source") != completion.source or item.get("coordinator") != "hermes" or
+            item.get("scope") != completion.scope or authority.get("kind") != "case" or
+            authority.get("message_id") != item["id"] or authority.get("scope") != completion.scope or
+            not self.coordinator.worker_manager.authorized(authority) or not self.scope_valid(item)):
+            return None
+        config = self.config(completion.source)
+        if (not config["enabled"] or item.get("chat") not in config["chats"] or
+            item.get("sender") not in config["senders"]):
+            return None
+        return item
+
+    async def deliver_completions(self):
+        """Deliver only fixed status text for the original, still-authorized case."""
+        async with self._completion_lock:
+            rows = self.store.db.execute("SELECT body FROM records WHERE kind=? "
+                "AND json_extract(body,'$.delivery')='pending' ORDER BY created LIMIT 100",
+                (COMPLETION_KIND,)).fetchall()
+            for row in rows:
+                try:
+                    completion = WorkerCompletion.model_validate_json(row[0])
+                except ValueError:
+                    continue  # Unknown/private record semantics never authorize a send.
+                current = self.store.get(COMPLETION_KIND, completion.id)
+                if not current or current.get("delivery") != "pending":
+                    continue
+                item = self._completion_conversation(completion)
+                if not item:
+                    self._completion_delivery(completion.id, "not_sent")
+                    continue
+                # Preserve the ordering of the original reply and the completion.
+                if item.get("state") in {"queued", "planning"} or item.get("delivery") == "sending":
+                    continue
+                if item.get("delivery") != "sent":
+                    self._completion_delivery(completion.id, "not_sent")
+                    continue
+                adapter = self.transports.get(completion.source)
+                if not adapter or self.states.get(completion.source) != "connected":
+                    continue  # No send attempted: pending can resume while authority remains valid.
+                self._completion_delivery(completion.id, "sending")
+                try:
+                    await durable(self.store)
+                    # Re-read all authority and routing facts after the disk await,
+                    # immediately before starting the external send.
+                    current = self.store.get(COMPLETION_KIND, completion.id)
+                    item = self._completion_conversation(completion)
+                    if not current or current.get("delivery") != "sending":
+                        continue
+                    if (not item or item.get("delivery") != "sent" or
+                        item.get("state") in {"queued", "planning"}):
+                        self._completion_delivery(completion.id, "not_sent")
+                        continue
+                    if (adapter is not self.transports.get(completion.source) or
+                        self.states.get(completion.source) != "connected"):
+                        self._completion_delivery(completion.id, "pending")
+                        continue
+                    try:
+                        await adapter.send(item["chat"], completion.text())
+                    except Exception:
+                        # An adapter bug is just as ambiguous as a lost reply. It
+                        # must not stop delivery of unrelated jobs. Cancellation
+                        # still propagates; storage/durability failures outside
+                        # this send boundary also remain fail-closed.
+                        self._completion_delivery(completion.id, "unconfirmed")
+                    else:
+                        self._completion_delivery(completion.id, "sent")
+                finally:
+                    current = self.store.get(COMPLETION_KIND, completion.id)
+                    if current and current.get("delivery") == "sending":
+                        self._completion_delivery(completion.id, "unconfirmed")
+
+    async def _completion_loop(self):
+        while True:
+            await self.deliver_completions()
+            await asyncio.sleep(1)
 
     def _unconfirmed_stops(self):
         return [item for item in self.store.list("conversation", 10000)
