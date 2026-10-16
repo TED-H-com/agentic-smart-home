@@ -1,4 +1,7 @@
-"""Read-only, owner-visible discovery observations. No scans, setup or AI grants.
+"""Read-only discovery for the Owner Web and verified Ingress sidebar.
+
+No scans, setup writes or model grants. An Owner may copy selected observations
+into an ordinary chat message; this endpoint does not send anything to a model.
 
 The config flow adapter follows Core 2026.10.1 / frontend 20260930.3.
 These frontend commands are isolated here; their semantics are not a stable API promise.
@@ -208,8 +211,20 @@ def routes(app, store, ha, host_session=None):
     @app.get("/api/discovery", response_model=DiscoverySnapshot)
     async def discovery(request: Request):
         epoch = store.setting("hermes_web_epoch")
+        token = getattr(ha, "token", None)
+        identity = getattr(request.state, "bridge_identity", None)
         def session_guard():
-            if host_session and (not host_session.verify(request) or store.setting("hermes_web_epoch") != epoch):
+            if store.setting("hermes_web_epoch") != epoch:
+                raise HTTPException(401, "discovery_session_expired")
+            if getattr(ha, "token", None) != token:
+                raise HTTPException(403, "discovery_authority_changed")
+            if identity:
+                bridge = getattr(app.state, "ingress_bridge", None)
+                # Recheck the unforgeable request marker, current pairing and
+                # process-local Host proof after Owner checks and the snapshot.
+                if not bridge or bridge.identity(request) is not identity:
+                    raise HTTPException(403, "discovery_owner_required")
+            elif host_session and not host_session.verify(request):
                 raise HTTPException(401, "discovery_session_expired")
 
         session_guard()
@@ -217,6 +232,7 @@ def routes(app, store, ha, host_session=None):
         if not owner or request.state.principal != owner:
             raise HTTPException(403, "discovery_owner_required")
         await active_owner(owner)
+        session_guard()
         result = await snapshot(ha)
         await active_owner(owner)
         session_guard()

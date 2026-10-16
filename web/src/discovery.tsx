@@ -7,7 +7,8 @@ type Source = {id:string;state:'ok'|'partial'|'unavailable'|'unsupported'|'not_i
 type Candidate = {id:string;integration_domain:string;title:string;discovery_method:string;source_id:'ha_discovery';native_path:'/config/integrations'};
 type Device = {id:string;name:string;manufacturer:string|null;model:string|null;via_device_id:string|null;parent_device_id:string|null;integration_ids:string[];disabled:boolean;entity_count:number|null;available_entity_count:number|null};
 type Integration = {id:string;domain:string;title:string;state:'loaded'|'not_loaded'|'retry'|'error'|'disabled'|'ignored'|'unknown'};
-type Snapshot = {contract_version:1;observed_at:string;content_digest:string;native_path:'/config/integrations';sources:Source[];candidates:Candidate[];devices:Device[];integrations:Integration[];limitations:string[]};
+export type DiscoverySnapshot = {contract_version:1;observed_at:string;content_digest:string;native_path:'/config/integrations';sources:Source[];candidates:Candidate[];devices:Device[];integrations:Integration[];limitations:string[]};
+type Snapshot = DiscoverySnapshot;
 const sourceNames:Record<string,string>={ha_discovery:'家庭自動探索',ha_devices:'已登錄設備',ha_entities:'設備功能清單',ha_states:'功能目前狀態',ha_integrations:'已設定整合',ha_config:'家庭連線資料',router_inventory:'路由器設備清單',lan_probe:'內網主動探測',account_inventory:'獨立品牌帳號盤點'};
 const sourceStates:Record<Source['state'],string>={ok:'已讀取',partial:'部分資料',unavailable:'暫時無法讀取',unsupported:'目前無法支援',not_implemented:'尚未接入'};
 const integrationStates:Record<Integration['state'],string>={loaded:'已載入',not_loaded:'尚未載入',retry:'等待重試',error:'設定異常',disabled:'已停用',ignored:'已忽略',unknown:'狀態未知'};
@@ -19,7 +20,7 @@ const count=(value:unknown)=>value===null||typeof value==='number'&&Number.isSaf
 const unique=(items:Record<string,unknown>[])=>items.every(item=>isText(item.id)&&item.id.length>0)&&new Set(items.map(item=>item.id)).size===items.length;
 
 // Additive fields are accepted, but missing or unknown semantics never become an empty scan.
-function snapshot(value:unknown):Snapshot{
+export function parseDiscoverySnapshot(value:unknown):Snapshot{
   const invalid=()=>{throw new Error('探索資料格式已變更，請開啟家庭設定查看。')};
   if(!isRecord(value)||value.contract_version!==1||value.native_path!=='/config/integrations'||!isText(value.observed_at)||!Number.isFinite(Date.parse(value.observed_at))||!isText(value.content_digest)||!(/^[a-f0-9]{64}$/).test(value.content_digest))return invalid();
   for(const key of ['sources','candidates','devices','integrations']){
@@ -44,7 +45,7 @@ export function Discovery(){
       if(inFlight)return;
       inFlight=true;setBusy(true);
       try{
-        const value=await (first?(initial.current ||= api('discovery').then(snapshot)):api('discovery').then(snapshot));
+        const value=await (first?(initial.current ||= api('discovery').then(parseDiscoverySnapshot)):api('discovery').then(parseDiscoverySnapshot));
         if(alive){setData(value);setError('')}
       }catch(e){if(alive){setData(null);setError(e instanceof Error?e.message:'探索暫時無法讀取，請稍後重試。')}}
       finally{inFlight=false;if(alive)setBusy(false)}

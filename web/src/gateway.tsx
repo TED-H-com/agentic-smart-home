@@ -4,6 +4,7 @@ import {Button,Notice,Status,labels,timestamp} from './ui';
 import {WorkerResult,retryBody} from './workers';
 import {ChannelSettings} from './channels';
 import {names,type Runtime} from './labels';
+import {DiscoveryContext} from './discovery-context';
 
 const conversationKey='agentic-auth-conversations';
 const continuable=new Set(['queued','planning','awaiting_user','awaiting_approval','succeeded']);
@@ -38,6 +39,8 @@ export function GatewayPanel({visible=true,bridge=false,conversationSession}:{vi
   const storage=conversationSession?.storage_scope?`${conversationKey}-${conversationSession.storage_scope}`:conversationKey;
   const [data,setData]=useState<any>(null),[messages,setMessages]=useState<any[]>([]),[draft,setDraft]=useState(''),[runtime,setRuntime]=useState<Runtime>('host'),[provider,setProvider]=useState('codex'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[settings,setSettings]=useState(()=>!bridge&&location.hash==='#gateway/channels'),[history,setHistory]=useState(false),[viewedId,setViewedId]=useState<string|null>(null);
   const [replies,setReplies]=useState(()=>savedConversations(storage,conversationSession)),[loaded,setLoaded]=useState(false),[coordinator,setCoordinator]=useState('hermes'),[away,setAway]=useState(false);
+  const [discoveryEpoch,setDiscoveryEpoch]=useState(0);
+  const currentDraft=useRef(draft);currentDraft.current=draft;
   const pending=useRef<{body:string;key:string;thread:string|null}|null>(null),initialized=useRef(false),handledLink=useRef(''),thread=useRef<HTMLElement>(null),pin=useRef(true),box=useRef<HTMLTextAreaElement>(null),restoreFocus=useRef(false);
   const scope=coordinator==='hermes'?'hermes-host-codex':`${runtime}-${provider}`,replyId=replies[scope];
   const cursor=messages.find(m=>m.id===replyId&&m.source==='web'&&m.thread_id&&(coordinator==='hermes'||(m.runtime===runtime&&m.provider===provider))&&(m.coordinator||'direct')===coordinator);
@@ -48,7 +51,7 @@ export function GatewayPanel({visible=true,bridge=false,conversationSession}:{vi
   const refresh=useCallback(async()=>{const [g,m]=await Promise.all([bridge?Promise.resolve(null):api('gateway'),api('gateway/messages')]);setData(g);setMessages(m.messages);setLoaded(true);setError('')},[bridge]);
   useEffect(()=>{if(!visible)return;if(!bridge&&!initialized.current){initialized.current=true;api('gateway').then(g=>{setRuntime(g.preferences.runtime);setProvider(g.preferences.provider);setCoordinator(g.preferences.coordinator||'direct')}).catch(e=>setError(e.message))}refresh().catch(e=>setError(e.message));const timer=setInterval(()=>refresh().catch(e=>setError(e.message)),3000);return()=>clearInterval(timer)},[refresh,visible,bridge]);
   useEffect(()=>{try{sessionStorage.setItem(storage,JSON.stringify(replies))}catch{/* Conversation works in memory when storage is unavailable. */}},[replies,storage]);
-  function startNew(){if(/^#gateway\//.test(location.hash))window.history.replaceState(null,'',`${location.pathname}${location.search}#gateway`);setViewedId(null);setHistory(false);setReplies(previous=>{const next={...previous};delete next[scope];return next});setError('');pending.current=null}
+  function startNew(){setDiscoveryEpoch(value=>value+1);if(/^#gateway\//.test(location.hash))window.history.replaceState(null,'',`${location.pathname}${location.search}#gateway`);setViewedId(null);setHistory(false);setReplies(previous=>{const next={...previous};delete next[scope];return next});setError('');pending.current=null}
   function refill(message:any){const text=typeof message.message==='string'?message.message:'';startNew();setDraft(text);restoreFocus.current=true}
   function replyAction(message:any){if(message.state==='needs_reconcile'||message.error_code==='stop_unconfirmed'||message.reason==='stop_unconfirmed')return null;if(message.state==='interrupted')return <div className="row-actions"><Button type="button" onClick={()=>refill(message)}>重新送出</Button></div>;const code=message.error_code||message.reason;if(code==='needs_reauth')return bridge?<p>{message.coordinator==='hermes'?'請到主機重新登入智能管家。':'請到主機重新登入 AI 帳號。'}</p>:<div className="row-actions"><a className="button" href="#agents">{message.coordinator==='hermes'?'重新登入智能管家':'重新登入 AI 帳號'}</a></div>;if(typeof code==='string'&&retryable.has(code))return <div className="row-actions"><Button type="button" onClick={()=>refill(message)}>重試</Button></div>;return null}
   function continueFrom(message:any){setViewedId(null);setHistory(false);setRuntime(message.runtime);setProvider(message.provider);setCoordinator(message.coordinator||'direct');setReplies(previous=>({...previous,[`${message.coordinator==='hermes'?'hermes-':''}${message.runtime}-${message.provider}`]:message.id}));setError('');document.getElementById('gateway-message')?.focus()}
@@ -109,6 +112,7 @@ export function GatewayPanel({visible=true,bridge=false,conversationSession}:{vi
       {viewedId||(loaded&&ended)?<div className="assistant-readonly"><p>{viewedId&&selected?.source!=='web'?'請回原來的聊天室繼續。':'這段對話已結束。'}</p><Button onClick={startNew}>開始新對話</Button></div>:<form className="assistant-composer" onSubmit={submit}>
         {replyId&&loaded&&!active&&latest?.state!=='needs_reconcile'&&!(latest&&ownAction(latest))&&<Notice>這段對話暫時無法接續，請等候完成或開始新對話。</Notice>}
         <div className="chat-compose"><label className="sr-only" htmlFor="gateway-message">對話訊息</label><textarea id="gateway-message" ref={box} disabled={busy} maxLength={5000} rows={1} value={draft} onChange={e=>{setDraft(e.target.value);fitComposer(e.target)}} onKeyDown={onComposerKey} placeholder={active?'繼續說…':'輸入訊息…'}/><Button type="submit" className="chat-send" aria-label="送出訊息" disabled={busy||!loaded||!draft.trim()||!!(replyId&&!active)}>{busy?'送出中…':<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h12M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}</Button></div>
+        {visible&&loaded&&coordinator==='hermes'&&!history&&!settings&&<DiscoveryContext key={`${storage}:${scope}:${active?.thread_id||replyId||'new'}:${discoveryEpoch}`} draft={draft} disabled={busy||!!(replyId&&!active)} onInsert={(value,expectedDraft)=>{if(currentDraft.current!==expectedDraft||busy||!visible||coordinator!=='hermes')return false;setDraft(value);restoreFocus.current=true;return true}}/>}
       </form>}
     </div>
   </div>
