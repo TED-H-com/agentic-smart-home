@@ -1,0 +1,1366 @@
+{
+  "observed_from": "disposable_installed_linux_vm",
+  "cloud_account": "not_used",
+  "disk_volume": {
+    "capacity_bytes": 62869504,
+    "written_bytes": 61505536,
+    "errno": 28,
+    "cleaned": true
+  },
+  "job": {
+    "state": "succeeded",
+    "phase": "succeeded",
+    "error_code": null,
+    "exit_code": 0,
+    "stop_confirmed": true,
+    "execution_started": true,
+    "verification": {
+      "state": "passed",
+      "patch_sha256": "69b232d6245bd92e846690eb5259eda28d2bb6df1eda78d3f4e15949b9a415e6",
+      "test_command_sha256": "43c8b3c29cf5ca3a02ec377dbad97b3a390488bc9ac5d724cadfc8e2fe18eb13",
+      "observed_from": "independent_host_verifier",
+      "trusted_tests": "pinned_baseline",
+      "network": "none",
+      "exit_code": 0,
+      "tests_executed": 2,
+      "stop_confirmed": true,
+      "web_preview": {
+        "state": "not_applicable"
+      }
+    }
+  },
+  "verifier_completion": {
+    "completion_verified": true,
+    "tests_executed": 2,
+    "exit_code": 0
+  },
+  "verifier_log_summary": {
+    "bytes": 567,
+    "scanned_bytes": 567,
+    "permission_error": false,
+    "collection_error": false,
+    "no_tests_ran": false,
+    "import_error": false
+  },
+  "status": "passed",
+  "actual_cli": "0.157.1",
+  "independent_verifier": "passed",
+  "tool_calls": 1,
+  "source_unchanged": true,
+  "private_credentials_not_exposed": true,
+  "handoff": "fenced_checkpoint",
+  "stopped_workspaces_reclaimed": true,
+  "cleanup": "passed",
+  "duration_seconds": 8.75,
+  "diagnostics": {
+    "events": [
+      {
+        "role": "writer",
+        "operation": "inspect",
+        "at_seconds": 6.685,
+        "container": {
+          "Running": true,
+          "Paused": false,
+          "OOMKilled": false,
+          "Dead": false,
+          "status": "running",
+          "exit_code": 0,
+          "error_signatures": {
+            "scanned_bytes": 0,
+            "truncated": false,
+            "permission_denied": false,
+            "import_error": false,
+            "traceback": false,
+            "timeout": false,
+            "disk_full": false,
+            "io_error": false,
+            "oom": false,
+            "docker_unavailable": false,
+            "container_missing": false,
+            "file_missing": false,
+            "security_denied": false
+          }
+        },
+        "identity": {
+          "label_matches": true,
+          "container_id_matches": true,
+          "image_matches": true
+        },
+        "duration_seconds": 0.007
+      },
+      {
+        "role": "writer",
+        "operation": "save",
+        "at_seconds": 6.7,
+        "state": "running",
+        "exit_code": null,
+        "lease_matches": true,
+        "duration_seconds": 0.015
+      },
+      {
+        "role": "writer",
+        "operation": "status",
+        "at_seconds": 6.7,
+        "state": "running",
+        "exit_code": null,
+        "lease_matches": true,
+        "duration_seconds": 0.022
+      },
+      {
+        "role": "writer",
+        "operation": "docker.inspect",
+        "at_seconds": 6.958,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.008
+      },
+      {
+        "role": "writer",
+        "operation": "inspect",
+        "at_seconds": 6.958,
+        "container": {
+          "Running": true,
+          "Paused": false,
+          "OOMKilled": false,
+          "Dead": false,
+          "status": "running",
+          "exit_code": 0,
+          "error_signatures": {
+            "scanned_bytes": 0,
+            "truncated": false,
+            "permission_denied": false,
+            "import_error": false,
+            "traceback": false,
+            "timeout": false,
+            "disk_full": false,
+            "io_error": false,
+            "oom": false,
+            "docker_unavailable": false,
+            "container_missing": false,
+            "file_missing": false,
+            "security_denied": false
+          }
+        },
+        "identity": {
+          "label_matches": true,
+          "container_id_matches": true,
+          "image_matches": true
+        },
+        "duration_seconds": 0.008
+      },
+      {
+        "role": "writer",
+        "operation": "save",
+        "at_seconds": 6.973,
+        "state": "running",
+        "exit_code": null,
+        "lease_matches": true,
+        "duration_seconds": 0.014
+      },
+      {
+        "role": "writer",
+        "operation": "status",
+        "at_seconds": 6.973,
+        "state": "running",
+        "exit_code": null,
+        "lease_matches": true,
+        "duration_seconds": 0.022
+      },
+      {
+        "role": "writer",
+        "operation": "docker.inspect",
+        "at_seconds": 7.233,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.01
+      },
+      {
+        "role": "writer",
+        "operation": "inspect",
+        "at_seconds": 7.233,
+        "container": {
+          "Running": true,
+          "Paused": false,
+          "OOMKilled": false,
+          "Dead": false,
+          "status": "running",
+          "exit_code": 0,
+          "error_signatures": {
+            "scanned_bytes": 0,
+            "truncated": false,
+            "permission_denied": false,
+            "import_error": false,
+            "traceback": false,
+            "timeout": false,
+            "disk_full": false,
+            "io_error": false,
+            "oom": false,
+            "docker_unavailable": false,
+            "container_missing": false,
+            "file_missing": false,
+            "security_denied": false
+          }
+        },
+        "identity": {
+          "label_matches": true,
+          "container_id_matches": true,
+          "image_matches": true
+        },
+        "duration_seconds": 0.01
+      },
+      {
+        "role": "writer",
+        "operation": "save",
+        "at_seconds": 7.24,
+        "state": "running",
+        "exit_code": null,
+        "lease_matches": true,
+        "duration_seconds": 0.007
+      },
+      {
+        "role": "writer",
+        "operation": "status",
+        "at_seconds": 7.24,
+        "state": "running",
+        "exit_code": null,
+        "lease_matches": true,
+        "duration_seconds": 0.017
+      },
+      {
+        "role": "writer",
+        "operation": "docker.inspect",
+        "at_seconds": 7.498,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.008
+      },
+      {
+        "role": "writer",
+        "operation": "inspect",
+        "at_seconds": 7.498,
+        "container": {
+          "Running": false,
+          "Paused": false,
+          "OOMKilled": false,
+          "Dead": false,
+          "status": "exited",
+          "exit_code": 0,
+          "error_signatures": {
+            "scanned_bytes": 0,
+            "truncated": false,
+            "permission_denied": false,
+            "import_error": false,
+            "traceback": false,
+            "timeout": false,
+            "disk_full": false,
+            "io_error": false,
+            "oom": false,
+            "docker_unavailable": false,
+            "container_missing": false,
+            "file_missing": false,
+            "security_denied": false
+          }
+        },
+        "identity": {
+          "label_matches": true,
+          "container_id_matches": true,
+          "image_matches": true
+        },
+        "duration_seconds": 0.008
+      },
+      {
+        "role": "writer",
+        "operation": "save",
+        "at_seconds": 7.506,
+        "state": "succeeded",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.008
+      },
+      {
+        "role": "writer",
+        "operation": "status",
+        "at_seconds": 7.506,
+        "state": "succeeded",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.016
+      },
+      {
+        "role": "writer",
+        "operation": "docker.inspect",
+        "at_seconds": 7.524,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.007
+      },
+      {
+        "role": "writer",
+        "operation": "inspect",
+        "at_seconds": 7.524,
+        "container": {
+          "Running": false,
+          "Paused": false,
+          "OOMKilled": false,
+          "Dead": false,
+          "status": "exited",
+          "exit_code": 0,
+          "error_signatures": {
+            "scanned_bytes": 0,
+            "truncated": false,
+            "permission_denied": false,
+            "import_error": false,
+            "traceback": false,
+            "timeout": false,
+            "disk_full": false,
+            "io_error": false,
+            "oom": false,
+            "docker_unavailable": false,
+            "container_missing": false,
+            "file_missing": false,
+            "security_denied": false
+          }
+        },
+        "identity": {
+          "label_matches": true,
+          "container_id_matches": true,
+          "image_matches": true
+        },
+        "duration_seconds": 0.008
+      },
+      {
+        "role": "verifier",
+        "operation": "save",
+        "at_seconds": 7.568,
+        "state": "preparing",
+        "exit_code": null,
+        "lease_matches": true,
+        "duration_seconds": 0.006
+      },
+      {
+        "role": "verifier",
+        "operation": "docker.info",
+        "at_seconds": 7.591,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.023
+      },
+      {
+        "role": "verifier",
+        "operation": "findmnt",
+        "at_seconds": 7.592,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.001
+      },
+      {
+        "role": "verifier",
+        "operation": "preflight",
+        "at_seconds": 7.592,
+        "duration_seconds": 0.025
+      },
+      {
+        "role": "verifier",
+        "operation": "mkfs.ext4",
+        "at_seconds": 7.605,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.011
+      },
+      {
+        "role": "verifier",
+        "operation": "mount",
+        "at_seconds": 7.611,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.006
+      },
+      {
+        "role": "verifier",
+        "operation": "git.clone",
+        "at_seconds": 7.629,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 131,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.019
+      },
+      {
+        "role": "verifier",
+        "operation": "git.checkout",
+        "at_seconds": 7.63,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 31,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.001
+      },
+      {
+        "role": "verifier",
+        "operation": "git.remote",
+        "at_seconds": 7.632,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.001
+      },
+      {
+        "role": "verifier",
+        "operation": "prepare",
+        "at_seconds": 7.632,
+        "duration_seconds": 0.04
+      },
+      {
+        "role": "verifier",
+        "operation": "docker.create",
+        "at_seconds": 7.694,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.062
+      },
+      {
+        "role": "verifier",
+        "operation": "save",
+        "at_seconds": 7.701,
+        "state": "preparing",
+        "exit_code": null,
+        "lease_matches": true,
+        "duration_seconds": 0.007
+      },
+      {
+        "role": "verifier",
+        "operation": "docker.start",
+        "at_seconds": 7.787,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.086
+      },
+      {
+        "role": "verifier",
+        "operation": "save",
+        "at_seconds": 7.792,
+        "state": "running",
+        "exit_code": null,
+        "lease_matches": true,
+        "duration_seconds": 0.005
+      },
+      {
+        "role": "verifier",
+        "operation": "launch",
+        "at_seconds": 7.793,
+        "state": "running",
+        "exit_code": null,
+        "lease_matches": true,
+        "duration_seconds": 0.231
+      },
+      {
+        "role": "verifier",
+        "operation": "docker.inspect",
+        "at_seconds": 8.051,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.009
+      },
+      {
+        "role": "verifier",
+        "operation": "inspect",
+        "at_seconds": 8.052,
+        "container": {
+          "Running": true,
+          "Paused": false,
+          "OOMKilled": false,
+          "Dead": false,
+          "status": "running",
+          "exit_code": 0,
+          "error_signatures": {
+            "scanned_bytes": 0,
+            "truncated": false,
+            "permission_denied": false,
+            "import_error": false,
+            "traceback": false,
+            "timeout": false,
+            "disk_full": false,
+            "io_error": false,
+            "oom": false,
+            "docker_unavailable": false,
+            "container_missing": false,
+            "file_missing": false,
+            "security_denied": false
+          }
+        },
+        "identity": {
+          "label_matches": true,
+          "container_id_matches": true,
+          "image_matches": true
+        },
+        "duration_seconds": 0.009
+      },
+      {
+        "role": "verifier",
+        "operation": "save",
+        "at_seconds": 8.056,
+        "state": "running",
+        "exit_code": null,
+        "lease_matches": true,
+        "duration_seconds": 0.005
+      },
+      {
+        "role": "verifier",
+        "operation": "status",
+        "at_seconds": 8.057,
+        "state": "running",
+        "exit_code": null,
+        "lease_matches": true,
+        "duration_seconds": 0.014
+      },
+      {
+        "role": "verifier",
+        "operation": "docker.inspect",
+        "at_seconds": 8.324,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.017
+      },
+      {
+        "role": "verifier",
+        "operation": "inspect",
+        "at_seconds": 8.324,
+        "container": {
+          "Running": false,
+          "Paused": false,
+          "OOMKilled": false,
+          "Dead": false,
+          "status": "exited",
+          "exit_code": 0,
+          "error_signatures": {
+            "scanned_bytes": 0,
+            "truncated": false,
+            "permission_denied": false,
+            "import_error": false,
+            "traceback": false,
+            "timeout": false,
+            "disk_full": false,
+            "io_error": false,
+            "oom": false,
+            "docker_unavailable": false,
+            "container_missing": false,
+            "file_missing": false,
+            "security_denied": false
+          }
+        },
+        "identity": {
+          "label_matches": true,
+          "container_id_matches": true,
+          "image_matches": true
+        },
+        "duration_seconds": 0.017
+      },
+      {
+        "role": "verifier",
+        "operation": "save",
+        "at_seconds": 8.33,
+        "state": "succeeded",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.005
+      },
+      {
+        "role": "verifier",
+        "operation": "status",
+        "at_seconds": 8.33,
+        "state": "succeeded",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.022
+      },
+      {
+        "role": "verifier",
+        "operation": "docker.inspect",
+        "at_seconds": 8.339,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.009
+      },
+      {
+        "role": "verifier",
+        "operation": "inspect",
+        "at_seconds": 8.339,
+        "container": {
+          "Running": false,
+          "Paused": false,
+          "OOMKilled": false,
+          "Dead": false,
+          "status": "exited",
+          "exit_code": 0,
+          "error_signatures": {
+            "scanned_bytes": 0,
+            "truncated": false,
+            "permission_denied": false,
+            "import_error": false,
+            "traceback": false,
+            "timeout": false,
+            "disk_full": false,
+            "io_error": false,
+            "oom": false,
+            "docker_unavailable": false,
+            "container_missing": false,
+            "file_missing": false,
+            "security_denied": false
+          }
+        },
+        "identity": {
+          "label_matches": true,
+          "container_id_matches": true,
+          "image_matches": true
+        },
+        "duration_seconds": 0.009
+      },
+      {
+        "role": "writer",
+        "operation": "save",
+        "at_seconds": 8.48,
+        "state": "succeeded",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.007
+      },
+      {
+        "role": "writer",
+        "operation": "cancel",
+        "at_seconds": 8.48,
+        "state": "succeeded",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.007
+      },
+      {
+        "role": "writer",
+        "operation": "docker.inspect",
+        "at_seconds": 8.488,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.008
+      },
+      {
+        "role": "writer",
+        "operation": "inspect",
+        "at_seconds": 8.488,
+        "container": {
+          "Running": false,
+          "Paused": false,
+          "OOMKilled": false,
+          "Dead": false,
+          "status": "exited",
+          "exit_code": 0,
+          "error_signatures": {
+            "scanned_bytes": 0,
+            "truncated": false,
+            "permission_denied": false,
+            "import_error": false,
+            "traceback": false,
+            "timeout": false,
+            "disk_full": false,
+            "io_error": false,
+            "oom": false,
+            "docker_unavailable": false,
+            "container_missing": false,
+            "file_missing": false,
+            "security_denied": false
+          }
+        },
+        "identity": {
+          "label_matches": true,
+          "container_id_matches": true,
+          "image_matches": true
+        },
+        "duration_seconds": 0.008
+      },
+      {
+        "role": "writer",
+        "operation": "umount",
+        "at_seconds": 8.556,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.067
+      },
+      {
+        "role": "writer",
+        "operation": "docker.rm",
+        "at_seconds": 8.578,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.022
+      },
+      {
+        "role": "writer",
+        "operation": "save",
+        "at_seconds": 8.582,
+        "state": "disposed",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.004
+      },
+      {
+        "role": "writer",
+        "operation": "dispose",
+        "at_seconds": 8.582,
+        "state": "disposed",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.109
+      },
+      {
+        "role": "verifier",
+        "operation": "save",
+        "at_seconds": 8.588,
+        "state": "succeeded",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.005
+      },
+      {
+        "role": "verifier",
+        "operation": "cancel",
+        "at_seconds": 8.588,
+        "state": "succeeded",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.005
+      },
+      {
+        "role": "verifier",
+        "operation": "docker.inspect",
+        "at_seconds": 8.596,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.008
+      },
+      {
+        "role": "verifier",
+        "operation": "inspect",
+        "at_seconds": 8.596,
+        "container": {
+          "Running": false,
+          "Paused": false,
+          "OOMKilled": false,
+          "Dead": false,
+          "status": "exited",
+          "exit_code": 0,
+          "error_signatures": {
+            "scanned_bytes": 0,
+            "truncated": false,
+            "permission_denied": false,
+            "import_error": false,
+            "traceback": false,
+            "timeout": false,
+            "disk_full": false,
+            "io_error": false,
+            "oom": false,
+            "docker_unavailable": false,
+            "container_missing": false,
+            "file_missing": false,
+            "security_denied": false
+          }
+        },
+        "identity": {
+          "label_matches": true,
+          "container_id_matches": true,
+          "image_matches": true
+        },
+        "duration_seconds": 0.008
+      },
+      {
+        "role": "verifier",
+        "operation": "umount",
+        "at_seconds": 8.606,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.01
+      },
+      {
+        "role": "verifier",
+        "operation": "docker.rm",
+        "at_seconds": 8.629,
+        "returncode": 0,
+        "stderr": {
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "duration_seconds": 0.023
+      },
+      {
+        "role": "verifier",
+        "operation": "save",
+        "at_seconds": 8.633,
+        "state": "disposed",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.004
+      },
+      {
+        "role": "verifier",
+        "operation": "dispose",
+        "at_seconds": 8.633,
+        "state": "disposed",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.05
+      },
+      {
+        "role": "writer",
+        "operation": "save",
+        "at_seconds": 8.745,
+        "state": "disposed",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.005
+      },
+      {
+        "role": "writer",
+        "operation": "cancel",
+        "at_seconds": 8.745,
+        "state": "disposed",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.005
+      },
+      {
+        "role": "writer",
+        "operation": "dispose",
+        "at_seconds": 8.745,
+        "state": "disposed",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.005
+      },
+      {
+        "role": "verifier",
+        "operation": "save",
+        "at_seconds": 8.75,
+        "state": "disposed",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.005
+      },
+      {
+        "role": "verifier",
+        "operation": "cancel",
+        "at_seconds": 8.75,
+        "state": "disposed",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.005
+      },
+      {
+        "role": "verifier",
+        "operation": "dispose",
+        "at_seconds": 8.75,
+        "state": "disposed",
+        "exit_code": 0,
+        "lease_matches": true,
+        "duration_seconds": 0.005
+      }
+    ],
+    "events_dropped": 103,
+    "first_failures": {},
+    "job_transitions": [
+      {
+        "at_seconds": 0.361,
+        "state": "queued",
+        "phase": "queued",
+        "error_code": null,
+        "exit_code": null,
+        "stop_confirmed": false,
+        "execution_started": false,
+        "verification": null
+      },
+      {
+        "at_seconds": 0.715,
+        "state": "running",
+        "phase": "running",
+        "error_code": null,
+        "exit_code": null,
+        "stop_confirmed": false,
+        "execution_started": true,
+        "verification": null
+      },
+      {
+        "at_seconds": 7.722,
+        "state": "running",
+        "phase": "verifying",
+        "error_code": null,
+        "exit_code": 0,
+        "stop_confirmed": false,
+        "execution_started": true,
+        "verification": {
+          "state": "running",
+          "patch_sha256": "69b232d6245bd92e846690eb5259eda28d2bb6df1eda78d3f4e15949b9a415e6"
+        }
+      },
+      {
+        "at_seconds": 8.472,
+        "state": "succeeded",
+        "phase": "succeeded",
+        "error_code": null,
+        "exit_code": 0,
+        "stop_confirmed": true,
+        "execution_started": true,
+        "verification": {
+          "state": "passed",
+          "patch_sha256": "69b232d6245bd92e846690eb5259eda28d2bb6df1eda78d3f4e15949b9a415e6",
+          "test_command_sha256": "43c8b3c29cf5ca3a02ec377dbad97b3a390488bc9ac5d724cadfc8e2fe18eb13",
+          "observed_from": "independent_host_verifier",
+          "trusted_tests": "pinned_baseline",
+          "network": "none",
+          "exit_code": 0,
+          "tests_executed": 2,
+          "stop_confirmed": true,
+          "web_preview": {
+            "state": "not_applicable"
+          }
+        }
+      }
+    ],
+    "job_transitions_dropped": 0,
+    "last_job": {
+      "state": "succeeded",
+      "phase": "succeeded",
+      "error_code": null,
+      "exit_code": 0,
+      "stop_confirmed": true,
+      "execution_started": true,
+      "verification": {
+        "state": "passed",
+        "patch_sha256": "69b232d6245bd92e846690eb5259eda28d2bb6df1eda78d3f4e15949b9a415e6",
+        "test_command_sha256": "43c8b3c29cf5ca3a02ec377dbad97b3a390488bc9ac5d724cadfc8e2fe18eb13",
+        "observed_from": "independent_host_verifier",
+        "trusted_tests": "pinned_baseline",
+        "network": "none",
+        "exit_code": 0,
+        "tests_executed": 2,
+        "stop_confirmed": true,
+        "web_preview": {
+          "state": "not_applicable"
+        }
+      }
+    },
+    "pre_disposal_files": {
+      "writer": {
+        "stdout": {
+          "read_status": "ok",
+          "bytes": 0,
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "stderr": {
+          "read_status": "ok",
+          "bytes": 0,
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "cli_events": {
+          "read_status": "ok",
+          "bytes": 1148,
+          "scanned_bytes": 1148,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "execution": {
+          "read_status": "ok",
+          "bytes": 115,
+          "scanned_bytes": 115,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false,
+          "cli_exit_code": 0
+        }
+      },
+      "verifier": {
+        "stdout": {
+          "read_status": "ok",
+          "bytes": 0,
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "stderr": {
+          "read_status": "ok",
+          "bytes": 0,
+          "scanned_bytes": 0,
+          "truncated": false,
+          "permission_denied": false,
+          "import_error": false,
+          "traceback": false,
+          "timeout": false,
+          "disk_full": false,
+          "io_error": false,
+          "oom": false,
+          "docker_unavailable": false,
+          "container_missing": false,
+          "file_missing": false,
+          "security_denied": false
+        },
+        "cli_events": {
+          "read_status": "missing"
+        },
+        "execution": {
+          "read_status": "missing"
+        }
+      }
+    },
+    "relay_requests": 2,
+    "observer_errors": 0
+  },
+  "installed_source": "0806e4de5ca56607cadbc6450695596d3aacef59"
+}

@@ -1,0 +1,48 @@
+{
+  "source_commit": "965d69f74abaadf29df28c1e8f1b866a3131d35c",
+  "status": "superseded_after_failed_installation",
+  "all_eight_passed": false,
+  "installation": {
+    "status": "failed",
+    "phase": "installed_coding_and_independent_verifier",
+    "counts": {
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 0,
+      "seconds": 3613.251
+    },
+    "junit": "evidence/owner-trial-965d69f/install/junit.xml",
+    "evidence": "evidence/owner-trial-965d69f/install/installed-failure-laptop-amd64.json",
+    "coding": "evidence/owner-trial-965d69f/install/installed-coding-laptop-amd64.json"
+  },
+  "remaining_seven_stages": "not_run",
+  "cleanup": "evidence/owner-trial-965d69f/install/stage.json",
+  "media": "evidence/owner-trial-965d69f/candidate-manifest.json",
+  "media_retention": "evidence/owner-trial-965d69f/media-retention.json",
+  "original_input_sha256": {
+    "summary.json": "89cbb4159ac27eeefc9daa7693268003b55da738d57fcf61e0074c6a65dad4dc",
+    "install/stage.json": "2affcd466ac49714f5ade894a36c945f8bf35ced9068d2e2bf88cda05209aa11",
+    "candidate-manifest.json": "910c646fe79e0263c1d8c3983f0b5dd8b4d9dd309d74eb90c09e799b4f3c610a",
+    "media-archive-location.json": "2776194e977812d26456d51d2eb5e2cb983e7fcb76f7d23c38a95fc333fc0301",
+    "install/evidence/installed-auth-laptop-amd64.json": "66fdc90b339d02c527946481d200c04016e486b4ea08b3f40bc44c0d9fb68fde",
+    "install/evidence/installed-coding-laptop-amd64.json": "f6ed23b24df9bdb6d48f1bc62c5b179126b4397e46a622077a157f0c4ba111de",
+    "install/evidence/installed-failure-laptop-amd64.json": "17816f46e688d38251a0e369eaab81274b3a3b7cb1c47a67ad97a87d5d4197f8",
+    "install/evidence/installed-process-auth-laptop-amd64.json": "9e4dd73afbe97d374281027ab626d16d30f8919b4e62c1668f2a7a00bf2ea742",
+    "install/evidence/installed-process-coding-laptop-amd64.json": "10cd16171690970f61db93eb4677c7001dbd7498532ebda98cf4bb52c9a54796",
+    "install/evidence/installed-process-sandbox-laptop-amd64.json": "2a04b165d168cda511338d58d5411eb6856f2aecb1c6cff94b97aacc8aa13e46",
+    "install/evidence/installed-progress-laptop-amd64.json": "0ef9ad4bae6b775d0cb7d349f3865e848a7a6e8c1a18835acff6539c292659be",
+    "install/evidence/installed-rescue-laptop-amd64.json": "4128f7f518afd4b8965a85195d57600acc5702d33ae8958b826694276456ac69",
+    "install/evidence/installed-sandbox-laptop-amd64.json": "ad643026c8bb2825fdf484ecc0208a44dcbc39dced56e8ec3340aadbd828abe2",
+    "source-credential-audit.json": "d5db5302232f2935cd919cb4b623342980d7f050d9bb25db9a0e02fee363cb2f",
+    "install/junit.xml": "a21329fab5b58cfa588d544d028ba644846984c2535db31ea23e6a8630db2c2d"
+  },
+  "cause": "unknown_from_original_receipts",
+  "original_rc10_97_cause": "unknown",
+  "limits": [
+    "Synthetic installed coding fixture; no real accounts or physical laptop acceptance.",
+    "A later run using a diagnostic-only harness is separate evidence, never original eight-stage acceptance.",
+    "Shared-host I/O is not established as the failure cause."
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "kind": "independent_transport_v2_helper_generator_review",
+  "reviewed_at": "2026-10-16T02:26:04.267119+00:00",
+  "reviewer": "next_workline_review",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "reviewed_source_sha256": {
+    "download-0.9.0.py": "8c462b1a7b4bc7bf667afe75722dfaf8e6cb76a0499379d6df17fc2e24ecf73d",
+    "prepare-small-iso.py": "ed96c7c6d855e81b09b83afc3e8110fb7a8c70c8f574232b4df8805ed8d4e620",
+    "test-transport-v2.py": "847bf7c4db04d30662787b0effd964e521d10c566905a8005af01e9761446233"
+  },
+  "blockers": [],
+  "safe_to_enable_separate_generator_copy_for_root_owned_preparation": true,
+  "actual_generator_executed": false,
+  "actual_network_or_release_mutations": false,
+  "actual_large_media_reads": false,
+  "actual_original_four_reassembly": "pending_root_separate_validation_after_generation",
+  "checks": {
+    "strict_schema2_exact_keys_types_duplicate_key_rejection": true,
+    "fixed_four_original_names_order_sizes_sha256_match_actual_pinned_old_manifest": true,
+    "fixed_iso_parts": 44,
+    "small_iso_parts": 43,
+    "retained_whole_iso_part002_bytes": 1073741824,
+    "last_three_iso_part_bytes": [
+      134217728,
+      134217728,
+      94699520
+    ],
+    "retained_tar_three_and_iso_part002_sha256_match_actual_old_manifest": true,
+    "final_original_sha256_required_after_part_hashes": true,
+    "generator_full_iso_part_and_combined_sha256_required": true,
+    "generator_old_input_dev_inode_size_mtime_ctime_checked": true,
+    "generator_does_not_hardlink_or_write_old_inputs": true,
+    "generator_new_private_directory_and_exclusive_output_files": true,
+    "generator_partial_write_fsync_and_hash_failure_rollback_preserves_old_inputs": true,
+    "generator_disabled_by_default": true
+  },
+  "bounded_validation": {
+    "author_fixture_tests_independently_executed": 11,
+    "author_fixture_seconds": 0.058,
+    "additional_independent_checks": [
+      "truncated_download_rejected_and_temp_removed",
+      "oversized_download_rejected_and_temp_removed",
+      "same_size_corrupt_download_rejected_and_temp_removed",
+      "matching_existing_download_retained_without_network_or_ctime_change",
+      "wrong_existing_download_preserved_and_refused",
+      "symlink_refused"
+    ],
+    "fixture_filesystem": "ext4",
+    "all_own_fixture_scratch_cleaned": true,
+    "production_output_directory_absent_at_review": true
+  },
+  "reviewed_small_uploader": {
+    "file": "upload-small-iso-parts-v2.py",
+    "sha256": "285a31bbdf8d7be2cecb52dfdc9543951c518f8af069ddd2a41e58748cd9664f",
+    "blockers": [],
+    "executed": false
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "observed_at": "2026-10-15T14:54:50.381502+00:00",
+  "source_commit": "79fe81d54bdc52a2766474168c04ce3bbebaf0b9",
+  "tar_sha256": "005a2dcbb17bcf73b83f7cef0230b5515a18188b88c2d138b7506d069f4ce097",
+  "build_umask": "0077",
+  "proxy_service_user": "nobody",
+  "metadata": [
+    {
+      "path": "agentic-home",
+      "mode": "0o700",
+      "uid": 1000,
+      "gid": 1000
+    },
+    {
+      "path": "agentic-home/assets",
+      "mode": "0o700",
+      "uid": 1000,
+      "gid": 1000
+    },
+    {
+      "path": "agentic-home/host",
+      "mode": "0o775",
+      "uid": 1000,
+      "gid": 1000
+    },
+    {
+      "path": "agentic-home/host/agentic_host",
+      "mode": "0o775",
+      "uid": 1000,
+      "gid": 1000
+    },
+    {
+      "path": "agentic-home/host/agentic_host/proxy.py",
+      "mode": "0o664",
+      "uid": 1000,
+      "gid": 1000
+    },
+    {
+      "path": "agentic-home/images.lock.json",
+      "mode": "0o600",
+      "uid": 1000,
+      "gid": 1000
+    }
+  ],
+  "observation": "Archive root mode0700 prevents nonowner proxy traversal; original VM did not retain proxy journal. Separate unprivileged import reproduction pending."
+}

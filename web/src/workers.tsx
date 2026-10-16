@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {sha256} from '@noble/hashes/sha2.js';
-import {api,download,haPath,haTarget,requestKey} from './api';
+import {ApiError,api,download,haPath,haTarget,requestKey} from './api';
 import {errorCode,errorSentence,sentenceFor} from './errors';
 import {appUpdateView,plainError,shortCommit,updateVersionLine} from './labels';
 import {Button,Confirm,CopyButton,Empty,Notice,Status,labels,timestamp} from './ui';
@@ -10,7 +10,7 @@ type WorkerId='host-coder'|'home-coder';
 type Provider={id:string;supported:boolean;models?:string[];auth_methods?:string[];credential_state?:string};
 type Capability={worker_id:WorkerId;available:boolean;state:string;reason?:string;runtime_location?:string;modes:string[];providers:Provider[];source_commit?:string|null};
 type Artifact={id:string;name:string;kind:string;media_type:string;sha256:string;size:number};
-type Job={id:string;case_id:string;worker_id:WorkerId;mode:string;provider:string;goal:string;state:string;reason?:string|null;phase?:string;model?:string;execution_started:boolean;stop_confirmed:boolean;lease_epoch?:number;runtime_location?:string;base_commit?:string|null;created_at?:string;facts?:unknown[];inferences?:unknown[];unknowns?:unknown[];experiments?:unknown[];next_steps?:unknown[];artifacts?:Artifact[];evidence_ids?:string[];verification?:{observed_from:string;state:string;patch_sha256?:string;tests_executed?:number;[key:string]:unknown}};
+type Job={id:string;case_id:string;worker_id:WorkerId;mode:string;provider:string;goal:string;state:string;content_expired?:boolean;reason?:string|null;phase?:string;model?:string;execution_started:boolean;stop_confirmed:boolean;lease_epoch?:number;runtime_location?:string;base_commit?:string|null;created_at?:string;facts?:unknown[];inferences?:unknown[];unknowns?:unknown[];experiments?:unknown[];next_steps?:unknown[];artifacts?:Artifact[];evidence_ids?:string[];verification?:{observed_from:string;state:string;patch_sha256?:string;tests_executed?:number;[key:string]:unknown}};
 type Auth={id:string;status:string;url?:string;code?:string};
 type Fault={text:string;code?:string};
 const places:Record<WorkerId,string>={'host-coder':'主機','home-coder':'家庭現場'};
@@ -23,7 +23,8 @@ const reasonSentence:Record<string,string>={setup_timeout:'準備環境逾時，
 const stoppedReasons=new Set(['setup_timeout','execution_timeout','verification_timeout','authorization_expired','authority_revoked','owner_cancelled','broker_restarted','coding_setup_failed','coding_turn_limit','writer_stop_unconfirmed']);
 function jobSentence(job:Job){const reason=job.reason;if(heldStates.has(job.state)||!job.stop_confirmed&&!!reason&&stoppedReasons.has(reason))return '尚未確認工作程序停止，請先核對停止狀態。';if(!reason||reason==='retention_workspace_cleanup_pending')return '';return reasonSentence[reason]||'這份工作沒有完成。';}
 function chipOf(job:Job):{value:string;label?:string}{if(!terminalStates.has(job.state)&&!heldStates.has(job.state)&&job.phase&&livePhase[job.phase])return {value:job.phase,label:livePhase[job.phase]};if(!terminalStates.has(job.state)&&!labels[job.state])return {value:job.state,label:'處理中'};return {value:job.state};}
-function pickJob(list:Job[],active:string|null,selected:string|null){return list.find(value=>value.id===selected)||list.find(value=>value.id===active)||list[0]||null;}
+function linkedJob(){return location.hash.startsWith('#workers/')?location.hash.slice('#workers/'.length):null;}
+function pickJob(list:Job[],active:string|null,selected:string|null){return selected!==null?list.find(value=>value.id===selected)||null:list.find(value=>value.id===active)||list[0]||null;}
 function lineClass(line:string){if(line.startsWith('+')&&!line.startsWith('+++'))return 'diff-add';if(line.startsWith('-')&&!line.startsWith('---'))return 'diff-del';if(line.startsWith('@@'))return 'diff-hunk';return '';}
 const authStorage=(worker:WorkerId)=>`agentic-coding-auth-${worker}`;
 const describe=(value:unknown)=>typeof value==='string'?value:JSON.stringify(value,null,2);
@@ -171,42 +172,79 @@ function HomeWorker({record,readError,fault,updateFault,pendingAction,busy,onAct
 
 export function WorkerPanel() {
   const [workers,setWorkers]=useState<Capability[]>([]),[jobs,setJobs]=useState<Job[]>([]),[activeId,setActiveId]=useState<string|null>(null),[worker,setWorker]=useState<WorkerId>('host-coder');
-  const [goal,setGoal]=useState(''),[mode,setMode]=useState('research'),[model,setModel]=useState(''),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false),[error,setError]=useState<Fault|null>(null),[selected,setSelected]=useState<string|null>(()=>{const id=location.hash.split('/')[1];return /^[a-f0-9]{32}$/.test(id||'')?id:null}),[mobilePanel,setMobilePanel]=useState<'request'|'results'|null>(null),[detail,setDetail]=useState<Job|null>(null);
+  const [goal,setGoal]=useState(''),[mode,setMode]=useState('research'),[model,setModel]=useState(''),[busy,setBusy]=useState(false),[loaded,setLoaded]=useState(false),[error,setError]=useState<Fault|null>(null),[selected,setSelected]=useState<string|null>(linkedJob),[mobilePanel,setMobilePanel]=useState<'request'|'results'|null>(null),[detail,setDetail]=useState<Job|null>(null);
+  const [detailIssue,setDetailIssue]=useState<{id:string;missing:boolean}|null>(null);
   const [home,setHome]=useState<HomeRecord|null>(null),[homeError,setHomeError]=useState<Fault|null>(null),[homeFault,setHomeFault]=useState(''),[updateFault,setUpdateFault]=useState<Fault|null>(null),[homeBusy,setHomeBusy]=useState(false),[homePending,setHomePending]=useState('');
   const pending=useRef<{body:string;key:string}|null>(null),homeKey=useRef<{signature:string;key:string}|null>(null),homeSeen=useRef(''),selectedRef=useRef(selected),shownRef=useRef<string|null>(null),listRef=useRef<{jobs:Job[];active:string|null}>({jobs:[],active:null}),detailGen=useRef(0),terminalRead=useRef(''),loadFault=useRef(false);
   selectedRef.current=selected;
   const refresh=useCallback(async()=>{const [capability,results]=await Promise.all([api('workers'),api('worker/jobs')]);const active=results.active_job_id||capability.active_job_id||null;listRef.current={jobs:results.jobs,active};setWorkers(capability.workers);setJobs(results.jobs);setActiveId(active);setLoaded(true)},[]);
-  const readDetail=useCallback(async(row:Job|null)=>{if(!row)return;const id=row.id,terminal=terminalStates.has(row.state);if(terminal&&terminalRead.current===id)return;if(!terminal&&terminalRead.current===id)terminalRead.current='';const gen=++detailGen.current;try{const value=await api(`worker/jobs/${id}`);if(gen!==detailGen.current||shownRef.current!==id||value?.id!==id)return;setDetail(value);if(terminal&&terminalStates.has(value.state))terminalRead.current=id}catch{/* keep the list row; the next poll reads again */}},[]);
+  const readDetail=useCallback(async(id:string|null,row:Job|null)=>{
+    if(id===null)return;
+    if(!/^[a-f0-9]{32}$/.test(id)){setDetailIssue({id,missing:true});return;}
+    const terminal=!!row&&terminalStates.has(row.state);
+    if(terminal&&terminalRead.current===id)return;
+    if(!terminal&&terminalRead.current===id)terminalRead.current='';
+    const gen=++detailGen.current;
+    try{
+      const value=await api(`worker/jobs/${id}`);
+      if(gen!==detailGen.current||shownRef.current!==id||value?.id!==id)return;
+      setDetail(value);setDetailIssue(null);
+      if(terminal&&terminalStates.has(value.state))terminalRead.current=id;
+    }catch(e){
+      if(gen!==detailGen.current||shownRef.current!==id)return;
+      // A linked job must never be replaced by another list row on read failure.
+      if(selectedRef.current===id){setDetail(null);setDetailIssue({id,missing:e instanceof ApiError&&e.status===404});}
+    }
+  },[]);
   const changed=useCallback(()=>{refresh().then(()=>{loadFault.current=false;setError(null)}).catch(e=>{loadFault.current=true;setError(plainError(e))})},[refresh]);
   const readHome=useCallback(async()=>{const value=await api('host/home-worker/maintenance');if(!validHome(value))throw new Error('無法讀取家庭現場狀態。');const mark=`${value.state}:${value.code||''}:${value.operation?.kind||''}`;if(homeSeen.current&&homeSeen.current!==mark){setHomeFault('');setUpdateFault(null)}homeSeen.current=mark;setHome(value);setHomeError(null);return value;},[]);
   const job=pickJob(jobs,activeId,selected);
-  shownRef.current=job?.id??null;
-  useEffect(()=>{terminalRead.current='';void readDetail(job)},[job?.id,readDetail]);
-  useEffect(()=>{let active=true;let timer:ReturnType<typeof setTimeout>;async function poll(){try{await refresh();if(!active)return;if(loadFault.current){loadFault.current=false;setError(null)}const snapshot=listRef.current;void readDetail(pickJob(snapshot.jobs,snapshot.active,selectedRef.current))}catch(e){if(active){loadFault.current=true;setError(plainError(e))}}if(active)timer=setTimeout(poll,5000)}poll();return()=>{active=false;clearTimeout(timer)}},[refresh,readDetail]);
+  const targetId=selected??job?.id??null;
+  shownRef.current=targetId;
+  useEffect(()=>{
+    const update=()=>{const next=linkedJob();if(next===selectedRef.current)return;selectedRef.current=next;++detailGen.current;terminalRead.current='';setSelected(next);setDetail(null);setDetailIssue(null);setMobilePanel('results')};
+    window.addEventListener('hashchange',update);
+    return()=>{window.removeEventListener('hashchange',update);++detailGen.current;shownRef.current=null};
+  },[]);
+  useEffect(()=>{terminalRead.current='';setDetailIssue(null);void readDetail(targetId,job)},[targetId,selected,readDetail]);
+  useEffect(()=>{let active=true;let timer:ReturnType<typeof setTimeout>;async function poll(){try{await refresh();if(!active)return;if(loadFault.current){loadFault.current=false;setError(null)}const snapshot=listRef.current;const row=pickJob(snapshot.jobs,snapshot.active,selectedRef.current);void readDetail(selectedRef.current??row?.id??null,row)}catch(e){if(active){loadFault.current=true;setError(plainError(e))}}if(active)timer=setTimeout(poll,5000)}poll();return()=>{active=false;clearTimeout(timer)}},[refresh,readDetail]);
   useEffect(()=>{if(worker!=='home-coder')return;let active=true;let timer:ReturnType<typeof setTimeout>;async function poll(){try{await readHome()}catch(e){if(active){setHome(null);setHomeError(plainError(e))}}if(active)timer=setTimeout(poll,5000)}poll();return()=>{active=false;clearTimeout(timer)}},[worker,readHome]);
   const capability=workers.find(value=>value.worker_id===worker),provider=capability?.providers?.find(value=>value.id==='codex');
   const signed=signedInState(provider?.credential_state);
   const homeSelected=worker==='home-coder',homeOpen=homeSelected&&!!home&&!['login_ready','ready'].includes(home.state),placeReady=!homeSelected||home?.state==='ready'&&signed;
   const homeView=home?appUpdateView('家庭現場 App','home_worker',home):null;
   const chip=!loaded||(homeSelected&&!home&&!homeError)?'讀取中':homeSelected&&homeError&&!home?'無法讀取':homeSelected&&home&&!['login_ready','ready'].includes(home.state)?homeView?.chip||homeChips[home.state]:homeSelected&&home?(signed?'已就緒':'需要登入'):!capability?.available?'尚未連接':!signed?'需要登入':'已就緒';
-  async function submit(e:React.FormEvent){e.preventDefault();setBusy(true);setError(null);loadFault.current=false;const body={worker_id:worker,mode,goal,repo_id:'agentic-home',provider:'codex',model},signature=JSON.stringify(body);if(pending.current?.body!==signature)pending.current={body:signature,key:requestKey()};try{const result=await api('worker/jobs',body,false,pending.current.key);pending.current=null;setSelected(result.id);setMobilePanel('results');setGoal('');await refresh()}catch(e){setError(plainError(e));await refresh().catch(()=>{})}finally{setBusy(false)}}
+  function chooseJob(id:string){if(id!==selectedRef.current){++detailGen.current;selectedRef.current=id;terminalRead.current='';setSelected(id);setDetail(null);setDetailIssue(null)}setMobilePanel('results');location.hash=`workers/${id}`;}
+  async function submit(e:React.FormEvent){e.preventDefault();setBusy(true);setError(null);loadFault.current=false;const body={worker_id:worker,mode,goal,repo_id:'agentic-home',provider:'codex',model},signature=JSON.stringify(body);if(pending.current?.body!==signature)pending.current={body:signature,key:requestKey()};try{const result=await api('worker/jobs',body,false,pending.current.key);pending.current=null;chooseJob(result.id);setGoal('');await refresh()}catch(e){setError(plainError(e));await refresh().catch(()=>{})}finally{setBusy(false)}}
   async function homeAct(action:string){setHomeBusy(true);setHomePending(action);if(action==='update')setUpdateFault(null);else setHomeFault('');const signature=JSON.stringify([action,{}]);if(homeKey.current?.signature!==signature)homeKey.current={signature,key:requestKey()};try{await api(`host/home-worker/maintenance/${action}`,{},false,homeKey.current.key);homeKey.current=null;await readHome();if(action==='update')setUpdateFault(null)}catch(e){const fault=plainError(e);if(action==='update')setUpdateFault(fault);else setHomeFault(fault.code||fault.text)}finally{setHomeBusy(false);setHomePending('')}}
   function readyFor(source:Job){const cap=workers.find(value=>value.worker_id===source.worker_id);if(!loaded||!cap||!cap.available||!cap.modes.includes(source.mode)||!source.goal.trim())return false;const accountSigned=signedInState(cap.providers.find(value=>value.id===(source.provider||'codex'))?.credential_state);return accountSigned&&(source.worker_id!=='home-coder'||home?.state==='ready');}
-  async function resubmit(source:Job){const result=await api('worker/jobs',retryBody(source),false,requestKey());setSelected(result.id);setMobilePanel('results');try{await refresh()}catch(e){loadFault.current=true;setError(plainError(e))}}
+  async function resubmit(source:Job){const result=await api('worker/jobs',retryBody(source),false,requestKey());chooseJob(result.id);try{await refresh()}catch(e){loadFault.current=true;setError(plainError(e))}}
   const showHome=homeSelected&&(homeOpen||!home),showLogin=!showHome&&!signed;
   const needHome=homeSelected&&!!home&&!['login_ready','ready'].includes(home.state);
   const needLogin=!signed&&(!homeSelected&&!!capability?.available||homeSelected&&['login_ready','ready'].includes(home?.state||''));
   const startHint=needHome?'先啟用家庭現場。':needLogin?'先登入開發助手。':'';
   // A finished list row beats a detail read from before the job finished.
-  const shown=detail&&job&&detail.id===job.id&&!(terminalStates.has(job.state)&&!terminalStates.has(detail.state))?detail:job;
-  return <div className="worker-page" data-mobile-panel={mobilePanel||(jobs.length?'results':'request')}><div className="section-intro"><p>交給開發助手調查問題或修改程式。</p><a href="#gateway">回到智能管家 →</a></div>{error&&<Notice error reason={error.code}><p>無法讀取開發助手。</p><p>{error.text}</p><Button secondary onClick={changed}>重新讀取工作</Button></Notice>}
-    <div className="worker-mobile-tabs" aria-label="開發工作區"><Button secondary aria-pressed={(mobilePanel||(jobs.length?'results':'request'))==='request'} onClick={()=>setMobilePanel('request')}>新工作</Button><Button secondary disabled={!jobs.length} aria-pressed={(mobilePanel||(jobs.length?'results':'request'))==='results'} onClick={()=>setMobilePanel('results')}>查看成果{activeId?' · 執行中':''}</Button></div><div className="worker-layout"><section className="worker-inputs">{showHome&&<HomeWorker record={home} readError={homeError} fault={homeFault} updateFault={updateFault} pendingAction={homePending} busy={homeBusy} onAct={homeAct} onReload={()=>readHome().catch(e=>{setHome(null);setHomeError(plainError(e))})}/>}{showLogin&&<CodingLogin key={worker} worker={worker} provider={provider} locked={!!activeId} onChange={changed}/>}<form className="worker-request" onSubmit={submit}><label>要調查或改善什麼？<textarea rows={4} required maxLength={4000} value={goal} disabled={busy} onChange={e=>setGoal(e.target.value)} placeholder="描述問題，或想改善的地方。"/></label>
+  const issue=detailIssue?.id===targetId?detailIssue:null;
+  const shown=issue?.missing?null:detail&&detail.id===targetId&&!(job&&terminalStates.has(job.state)&&!terminalStates.has(detail.state))?detail:job;
+  const choices=shown&&!jobs.some(row=>row.id===shown.id)?[shown,...jobs]:jobs;
+  const panel=mobilePanel||(selected!==null||jobs.length?'results':'request');
+  const browseJobs=()=>{++detailGen.current;selectedRef.current=null;setSelected(null);setDetail(null);setDetailIssue(null);location.hash='workers'};
+  const backToJobs=<Button secondary onClick={browseJobs}>返回工作清單</Button>;
+  const jobSelector=shown&&<label>查看工作<select value={shown.id} onChange={e=>chooseJob(e.target.value)}>{choices.map(value=><option value={value.id} key={value.id}>{places[value.worker_id]} · {(value.goal||'工作內容已過期').slice(0,70)}</option>)}</select></label>;
+  return <div className="worker-page" data-mobile-panel={panel}><div className="section-intro"><p>交給開發助手調查問題或修改程式。</p><a href="#gateway">回到智能管家 →</a></div>{error&&<Notice error reason={error.code}><p>無法讀取開發助手。</p><p>{error.text}</p><Button secondary onClick={changed}>重新讀取工作</Button></Notice>}
+    <div className="worker-mobile-tabs" aria-label="開發工作區"><Button secondary aria-pressed={panel==='request'} onClick={()=>setMobilePanel('request')}>新工作</Button><Button secondary disabled={!jobs.length&&selected===null} aria-pressed={panel==='results'} onClick={()=>setMobilePanel('results')}>查看成果{activeId?' · 執行中':''}</Button></div><div className="worker-layout"><section className="worker-inputs">{showHome&&<HomeWorker record={home} readError={homeError} fault={homeFault} updateFault={updateFault} pendingAction={homePending} busy={homeBusy} onAct={homeAct} onReload={()=>readHome().catch(e=>{setHome(null);setHomeError(plainError(e))})}/>}{showLogin&&<CodingLogin key={worker} worker={worker} provider={provider} locked={!!activeId} onChange={changed}/>}<form className="worker-request" onSubmit={submit}><label>要調查或改善什麼？<textarea rows={4} required maxLength={4000} value={goal} disabled={busy} onChange={e=>setGoal(e.target.value)} placeholder="描述問題，或想改善的地方。"/></label>
       <fieldset className="choice-pair" disabled={busy}><legend>執行位置</legend><label className="choice-card"><input type="radio" name="worker-place" value="host-coder" checked={worker==='host-coder'} onChange={()=>{setWorker('host-coder');setModel('')}}/>主機</label><label className="choice-card"><input type="radio" name="worker-place" value="home-coder" checked={worker==='home-coder'} onChange={()=>{setWorker('home-coder');setModel('')}}/>家庭現場</label><p className="worker-readiness" role="status"><span className={`status ${readinessClass(chip)}`}>{chip}</span></p></fieldset>
       <fieldset className="choice-pair" disabled={busy}><legend>工作方式</legend><label className="choice-card"><input type="radio" name="worker-mode" value="research" checked={mode==='research'} onChange={()=>setMode('research')}/>調查問題</label><label className="choice-card"><input type="radio" name="worker-mode" value="development" checked={mode==='development'} onChange={()=>setMode('development')}/>修改並測試</label></fieldset>
       <details><summary>模型設定</summary><label>開發模型<input value={model} maxLength={100} onChange={e=>setModel(e.target.value)} placeholder="留空使用已設定的模型" list="coding-models"/></label><datalist id="coding-models">{provider?.models?.map(id=><option key={id} value={id}/>)}</datalist></details>
-      {activeId&&<Notice>有一份工作進行中，完成後才能開始下一份。<button type="button" className="text-button" onClick={()=>{setSelected(activeId);setMobilePanel('results')}}>查看工作</button></Notice>}
+      {activeId&&<Notice>有一份工作進行中，完成後才能開始下一份。<button type="button" className="text-button" onClick={()=>chooseJob(activeId)}>查看工作</button></Notice>}
       <Button type="submit" disabled={busy||!loaded||!capability?.available||!capability.modes.includes(mode)||!!activeId||!signed||!placeReady||!goal.trim()}>{busy?'送出中…':mode==='research'?'開始調查':'開始修改並測試'}</Button>{startHint&&<p className="helper-text">{startHint}</p>}
       {(capability?.runtime_location||capability?.reason||shortCommit(capability?.source_commit))&&<details><summary>技術資料</summary>{capability?.runtime_location&&<p>觀測位置：{capability.runtime_location}</p>}{shortCommit(capability?.source_commit)&&<p>主機程式版本 <code title={capability?.source_commit||undefined}>{shortCommit(capability?.source_commit)}</code></p>}{capability?.reason&&<p>{capability.reason}</p>}</details>}
     </form>{!showHome&&signed&&<CodingLogin key={`${worker}-signed`} worker={worker} provider={provider} locked={!!activeId} onChange={changed} compact/>}{homeSelected&&home&&['login_ready','ready'].includes(home.state)&&<details className="home-worker-more"><summary>更多</summary><p>不會移除 App 或登入資料。</p><StopMaintenance busy={homeBusy} onStop={()=>homeAct('disable')}/></details>}</section>
-    <section aria-label="開發成果" className="worker-results">{!shown?<div className="worker-empty"><Empty title="還沒有成果">描述一個問題，成果會留在這裡。</Empty><button type="button" className="text-button" onClick={()=>setMobilePanel('request')}>填寫需求</button></div>:<><label>查看工作<select value={shown.id} onChange={e=>setSelected(e.target.value)}>{jobs.map(value=><option value={value.id} key={value.id}>{places[value.worker_id]} · {value.goal.slice(0,70)}</option>)}</select></label><ResultHeader job={shown}/><JobResult key={shown.id} job={shown} onChange={refresh} onRetry={resubmit} retryDisabled={busy||!!activeId||!readyFor(shown)}/></>}</section></div></div>
+    <section aria-label="開發成果" className="worker-results">
+      {issue&&!issue.missing&&<Notice error><p>暫時無法讀取這份工作。</p><Button secondary onClick={()=>{terminalRead.current='';void readDetail(targetId,job)}}>重新讀取工作</Button></Notice>}
+      {issue?.missing?<div className="worker-empty"><Empty title="找不到這份工作" action={backToJobs}>工作已過期或不存在，請返回工作清單。</Empty></div>
+        :job?.content_expired||shown?.content_expired?<>{jobSelector}<div className="worker-empty"><Empty title="工作內容已過期" action={selected!==null?backToJobs:undefined}>成果已依保存期限清理。</Empty></div></>
+        :!shown?selected!==null?(!issue&&<Empty title="正在讀取工作">正在讀取指定工作的成果。</Empty>):<div className="worker-empty"><Empty title="還沒有成果">描述一個問題，成果會留在這裡。</Empty><button type="button" className="text-button" onClick={()=>setMobilePanel('request')}>填寫需求</button></div>
+        :<>{jobSelector}<ResultHeader job={shown}/><JobResult key={shown.id} job={shown} onChange={refresh} onRetry={resubmit} retryDisabled={busy||!!activeId||!readyFor(shown)}/></>}
+    </section></div></div>
 }

@@ -99,13 +99,63 @@ def test_worker_lease_blocks_even_without_job_and_approval_is_bound(updater):
 
 
 @pytest.mark.parametrize("state", ["sent", "acknowledged", "unknown"])
-def test_unconfirmed_app_operation_blocks_controller_switch_even_if_bridge_disabled(updater, state):
+@pytest.mark.parametrize("key", ["bridge_maintenance", "home_worker_maintenance"])
+@pytest.mark.parametrize("pause", [False, True], ids=["readonly", "switch"])
+def test_unconfirmed_app_operation_blocks_controller_switch_even_if_disabled(updater, state, key, pause):
     service, _ = updater
     with sqlite3.connect(service.database) as db:
-        db.execute("INSERT INTO settings VALUES ('bridge_maintenance',?)", (json.dumps({
+        db.execute("INSERT INTO settings VALUES (?,?)", (key, json.dumps({
             "enabled": False, "state": "disabled", "operation": {"kind": "restart", "state": state}}),))
+    before = service.database.read_bytes()
     with pytest.raises(UpdateError, match="active_or_uncertain_work"):
-        offline_check(service.database, 3, pause=True)
+        offline_check(service.database, 3, pause=pause, gate="candidate")
+    assert service.database.read_bytes() == before
+
+
+@pytest.mark.parametrize("key", ["bridge_maintenance", "home_worker_maintenance"])
+@pytest.mark.parametrize("operation", [False, 0, "", [], {}])
+def test_falsey_app_operation_is_not_a_cleared_intent(updater, key, operation):
+    service, _ = updater
+    with sqlite3.connect(service.database) as db:
+        db.execute("INSERT INTO settings VALUES (?,?)", (key, json.dumps({"operation": operation})))
+    with pytest.raises(UpdateError, match="^update_active_or_uncertain_work$"):
+        offline_check(service.database, 3)
+
+
+@pytest.mark.parametrize("key", ["bridge_maintenance", "home_worker_maintenance"])
+@pytest.mark.parametrize("raw", ['{"private":"SYNTHETIC-PRIVATE"', "null", "false", "0", '"SYNTHETIC-PRIVATE"', "[]"])
+def test_malformed_app_maintenance_fails_with_only_a_fixed_code(updater, key, raw):
+    service, _ = updater
+    with sqlite3.connect(service.database) as db:
+        db.execute("INSERT INTO settings VALUES (?,?)", (key, raw))
+    before = service.database.read_bytes()
+    with pytest.raises(UpdateError, match="^update_active_or_uncertain_work$") as failure:
+        offline_check(service.database, 3, pause=True, gate="candidate")
+    assert failure.value.__suppress_context__ or failure.value.__context__ is None
+    assert service.database.read_bytes() == before
+
+
+@pytest.mark.parametrize("pause", [False, True], ids=["readonly", "switch"])
+@pytest.mark.parametrize("maintenance", [None, {"enabled": False, "state": "disabled"},
+                                      {"enabled": False, "state": "disabled", "operation": None}])
+def test_idle_apps_preserve_readonly_checks_and_allow_the_update_gate(updater, pause, maintenance):
+    service, record = updater
+    if maintenance is not None:
+        with sqlite3.connect(service.database) as db:
+            for key in ("bridge_maintenance", "home_worker_maintenance"):
+                db.execute("INSERT INTO settings VALUES (?,?)", (key, json.dumps(maintenance)))
+    before = service.database.read_bytes()
+    offline_check(service.database, 3, pause=pause, gate=record["candidate_digest"])
+    if pause:
+        with sqlite3.connect(service.database) as db:
+            settings = dict(db.execute("SELECT key,value FROM settings"))
+        assert json.loads(settings["paused"]) is True
+        assert json.loads(settings["updater_gate"]) == record["candidate_digest"]
+        if maintenance is not None:
+            assert all(json.loads(settings[key]) == maintenance
+                       for key in ("bridge_maintenance", "home_worker_maintenance"))
+    else:
+        assert service.database.read_bytes() == before
 
 
 def test_candidate_contract_gate_rejects_old_or_wrong_bridge_semantics(monkeypatch):
@@ -353,6 +403,47 @@ def test_rejected_active_work_restarts_same_binary_and_does_not_activate_candida
     service.deploy(record)
     assert record["state"] == "failed" and record["error_code"] == "update_active_or_uncertain_work"
     assert current[0] == original
+
+
+@pytest.mark.parametrize("key", ["bridge_maintenance", "home_worker_maintenance"])
+def test_pending_app_operation_prevents_candidate_activation(updater, key):
+    service, record = updater
+    current = prepare_deployment(service, record)
+    original, activated = current[0], []
+    service.activate = lambda image: (activated.append(image), current.__setitem__(0, image))
+    pending = {"enabled": False, "operation": {"kind": "update", "state": "sent"}}
+    with sqlite3.connect(service.database) as db:
+        db.execute("INSERT INTO settings VALUES (?,?)", (key, json.dumps(pending)))
+    service.deploy(record)
+    assert record["state"] == "failed" and record["error_code"] == "update_active_or_uncertain_work"
+    assert activated == [original] and current[0] == original
+    assert "snapshot" not in record
+    with sqlite3.connect(service.database) as db:
+        assert json.loads(db.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()[0]) == pending
+        assert db.execute("SELECT value FROM settings WHERE key='updater_gate'").fetchone() is None
+
+
+@pytest.mark.parametrize("key", ["bridge_maintenance", "home_worker_maintenance"])
+@pytest.mark.parametrize("state", ["sent", "acknowledged", "unknown"])
+def test_pending_app_operation_after_switch_prevents_automatic_fallback(updater, key, state):
+    service, record = updater
+    current = prepare_deployment(service, record)
+    original, real_health, activated = current[0], service.health, []
+    service.activate = lambda image: (activated.append(image), current.__setitem__(0, image))
+    pending = {"enabled": False, "operation": {"kind": "update", "state": state}}
+    def health():
+        if current[0] != original:
+            with sqlite3.connect(service.database) as db:
+                db.execute("INSERT INTO settings VALUES (?,?)", (key, json.dumps(pending)))
+            raise UpdateError("update_health_failed")
+        return real_health()
+    service.health = health
+    service.deploy(record)
+    assert record["state"] == "needs_reconcile" and record["error_code"] == "update_fallback_unconfirmed"
+    assert activated == [record["manifest"]["image_id"]] and current[0] != original
+    with sqlite3.connect(service.database) as db:
+        assert json.loads(db.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()[0]) == pending
+        assert json.loads(db.execute("SELECT value FROM settings WHERE key='updater_gate'").fetchone()[0]) == record["candidate_digest"]
 
 
 def test_expired_manifest_can_still_verify_for_existing_rollback(updater):

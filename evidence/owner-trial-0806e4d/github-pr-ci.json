@@ -1,0 +1,50 @@
+{
+  "source_commit": "0806e4de5ca56607cadbc6450695596d3aacef59",
+  "run_id": 38783466456,
+  "url": "https://github.com/TED-H-com/agentic-smart-home/actions/runs/38783466456",
+  "event": "pull_request",
+  "status": "completed",
+  "conclusion": "success",
+  "attempt": 1,
+  "created_at": "2026-10-15T18:10:49Z",
+  "updated_at": "2026-10-15T18:33:57Z",
+  "job_id": 116589349783,
+  "job_url": "https://github.com/TED-H-com/agentic-smart-home/actions/runs/38783466456/job/116589349783",
+  "junit": {
+    "tests": 2062,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 9,
+    "passed": 2053
+  },
+  "duration_seconds": 1061.97,
+  "junit_sha256": "be2b800ef51e86d65e628cde482b002e85a7e1ec7279430b85c0b5c958277d9b",
+  "junit_artifact_path": "evidence/pytest.xml",
+  "junit_suite_timestamps": [
+    "2026-10-15T18:14:26.795885+00:00"
+  ],
+  "current_test_step": {
+    "name": "Real Core, CLI containers and browser tests",
+    "startedAt": "2026-10-15T18:14:25Z",
+    "completedAt": "2026-10-15T18:32:12Z",
+    "conclusion": "success"
+  },
+  "current_revision_regressions_present_and_passed": [
+    "test_successful_removal_command_is_not_itself_proof_of_absence",
+    "test_unavailable_then_ready_retains_first_shape_without_private_message"
+  ],
+  "current_revision_test_source_sha256": {
+    "tests/test_installed_runner_readiness.py": "a360bd2ebac5c14e86b85cfdff216e1b2b16bfe798ea444fcd6f6565467998d1",
+    "tests/test_linux_install_cleanup.py": "410f155182299cc65f043a5f1373fee0e6ff2074c3dbf46729eedfd5a974ba5d"
+  },
+  "run_metadata_sha256": "f164da4c5724f397c3d0824ccd1d5febc20412f76fbd31894f68ab60d0dc73c0",
+  "artifacts_metadata_sha256": "0fd8f2eb8fa5b69fcdd6893fa00003a1a3d6ed473b67ba14d8b93d7aa0f3d2f9",
+  "artifact_id": 11997498117,
+  "artifact_sha256": "2e31a06635d9c76a03da4ff9659d0f64dfd19d40e0abd253c1c8e093f1401331",
+  "source_archive_manifest_payloads_verified": 1299,
+  "source_archive_manifest_exact_coverage": true,
+  "nested_runner_manifest_payloads_verified": 55,
+  "nested_runner_matches_source_tree": true,
+  "scope": "Current CI JUnit from the exact workflow output and test-step time window; historical XML excluded. Large VM stages and real-account/laptop acceptance remain separate.",
+  "checkout_scope": "PR head metadata is the candidate; workflow uses default checkout (merge context), not a separately attested exact checkout commit."
+}

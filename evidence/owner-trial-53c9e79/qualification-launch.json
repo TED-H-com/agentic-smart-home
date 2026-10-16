@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "kind": "reviewed_local_verification_launch",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "run": "candidate-53c9e79-resumed-2",
+  "status": "launch_conditions_satisfied",
+  "acceptance": false,
+  "mode": "verify",
+  "all_eight_stages_required": true,
+  "previous_stages_reused": false,
+  "source_media_images_changed": false,
+  "rebuild_performed": false,
+  "prior_failed_run": "candidate-53c9e79-resumed-1",
+  "prior_failed_root_cause": "unestablished",
+  "pressure_gate": {
+    "policy": {
+      "some_avg10_max_percent": 10,
+      "full_avg10_max_percent": 5,
+      "consecutive_observations": 4,
+      "minimum_observation_spacing_seconds": 20
+    },
+    "last_four_observations": [
+      {
+        "observed_at": "2026-10-15T20:16:48.272927+00:00",
+        "elapsed_seconds": 348.078,
+        "some_avg10_percent": 2.68,
+        "full_avg10_percent": 2.35,
+        "below_thresholds": true,
+        "consecutive": 1
+      },
+      {
+        "observed_at": "2026-10-15T20:17:08.273190+00:00",
+        "elapsed_seconds": 368.079,
+        "some_avg10_percent": 0.39,
+        "full_avg10_percent": 0.35,
+        "below_thresholds": true,
+        "consecutive": 2
+      },
+      {
+        "observed_at": "2026-10-15T20:17:28.273456+00:00",
+        "elapsed_seconds": 388.079,
+        "some_avg10_percent": 0.05,
+        "full_avg10_percent": 0.04,
+        "below_thresholds": true,
+        "consecutive": 3
+      },
+      {
+        "observed_at": "2026-10-15T20:17:48.273736+00:00",
+        "elapsed_seconds": 408.079,
+        "some_avg10_percent": 0.57,
+        "full_avg10_percent": 0.57,
+        "below_thresholds": true,
+        "consecutive": 4
+      }
+    ],
+    "actual_utc_spacings_seconds": [
+      20.000263,
+      20.000266,
+      20.00028
+    ],
+    "last_observation_at": "2026-10-15T20:17:48.273813+00:00"
+  },
+  "service": {
+    "InvocationID": "b10f060d20644c1d90678d24c29323c6",
+    "Restart": "no",
+    "TimeoutStopUSec": "2min",
+    "RuntimeMaxUSec": "6h",
+    "KillMode": "mixed"
+  },
+  "launch_returncode": 0,
+  "launch_condition_observed_at": "2026-10-15T20:18:08.244441+00:00",
+  "launch_pressure": {
+    "some_avg10_percent": 0.16,
+    "full_avg10_percent": 0.16
+  },
+  "input_sha256": {
+    "pressure-gate-resumed2-53c9e79.result.json": "a6e084113c034c33efcbbd366b8fdfc5eaba7b08c5f23fcaf562c4123dd26a72",
+    "candidate-53c9e79-resumed-2-preflight.json": "735ede5614b4610d67848dafc3e59444c860f0c728fbb8d4a921c6b55e686f08",
+    "candidate-53c9e79-resumed-2-service-start.json": "1c66136c85c206a557a3234cec8562935074ed3b6be900055a0faea061453361",
+    "resumed2-launch-root-review.json": "2f47cb0247d844ebcaead427d8a3376629b643add497b0be3f1f4d2a153dbf16",
+    "resumed2-launch-independent-review.json": "f5aeb95666158e6ee6591c6f24886f3abddff66fd7e55ae69f94c25bfd9e0d5e",
+    "resume-provenance-resumed2-independent-review.json": "e29378f1c565bc454176b7272a6177db07726394f245b6170b0606c3c9ef0f44"
+  },
+  "publication_allowed": false,
+  "limits": [
+    "This receipt proves recorded launch conditions only; all eight stages still need their own passing evidence.",
+    "Lower I/O at launch does not establish the earlier failure cause or guarantee future host pressure.",
+    "Original interrupted and first failed invocations remain separate nonacceptance history."
+  ]
+}

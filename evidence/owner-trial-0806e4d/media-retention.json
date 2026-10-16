@@ -1,0 +1,8 @@
+{
+  "source_commit": "0806e4de5ca56607cadbc6450695596d3aacef59",
+  "original_receipt_sha256": "445edab76e1076ff4ed58093324d6cfc806e13fa3a4e58172105df471180b1d2",
+  "method": "atomic_directory_rename",
+  "retained_sizes_match_manifest": true,
+  "manifest_sha256": "3b9f30738f073ee285f3f92693fca8ab40c2afde818ff0ab7cc9cd3417d85303",
+  "hash_scope": "Root recorded full-media verification immediately before byte-preserving relocation; importer checks retained identity/sizes without rehashing large media."
+}

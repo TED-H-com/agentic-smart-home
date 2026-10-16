@@ -1,0 +1,150 @@
+{
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "tar_sha256": "159b1379a1ff69a18867b6943ce04f4c5a228cedc2bec6dd086d8ea7ab6b4733",
+  "method": "read_only_frozen_tar_members_and_BUNDLE_manifest",
+  "metadata_hashes_verified": true,
+  "host_source_bundle_hash_verified": true,
+  "images": {
+    "agentic-home-controller:0.9.0": "sha256:89862545c23b68ee4177a8899b93a555f1f665f3c4ae7f9deff9cfeaaaba880d",
+    "agentic-home-runner:0.9.0": "sha256:b26b3d8a659fbcf20016dd4b296eb7997a4b791a145d0af74ca5e7f04f1445a7",
+    "agentic-home-linejs:0.9.0": "sha256:5e96ba8a0f66f89552b3827e9776c1d0deb2a387f29d2a8daba9dab29e62f46a",
+    "agentic-home-hermes:0.9.0": "sha256:0ada5a8c9741819350ebfd3f376cd366b5c630d3e90f36d42d3c98566c66c8c8",
+    "agentic-home-preview:0.9.0": "sha256:02378fa0f20ad6bc57a4d530280bb5403a35d3f6a574fc01f03baec81b27fd8b"
+  },
+  "coding_source": {
+    "repo_id": "agentic-home",
+    "commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+    "bundle_sha256": "10c338fa1ec696856be863fafbd83c184913a2ac22a7158fc13c367110921842"
+  },
+  "public_archive_metadata": {
+    "status": "passed",
+    "entries": 281,
+    "ownership": "root:root",
+    "directories": "0755",
+    "regular_files": [
+      "0644",
+      "0755"
+    ],
+    "scope": "Public distribution archive only; no private runtime/state permissions changed."
+  },
+  "media_hash_scope": "pipeline_verified_before_suite; this readback verifies metadata and Host bundle",
+  "steps": {
+    "sync": {
+      "status": "passed",
+      "exit_code": 0,
+      "elapsed_seconds": 0.071,
+      "started": "2026-10-15T19:17:05.788379+00:00",
+      "finished": "2026-10-15T19:17:05.908592+00:00",
+      "original_command_sha256": "372357fe1ed4b9f7ad8c2093db7abf495a77ad770e16a24074a96cda8df62801"
+    },
+    "npm-ci": {
+      "status": "passed",
+      "exit_code": 0,
+      "elapsed_seconds": 2.322,
+      "started": "2026-10-15T19:17:06.542684+00:00",
+      "finished": "2026-10-15T19:17:08.910820+00:00",
+      "original_command_sha256": "1c34be5f8d09b5fcf49be78ba8b1a8a39c21a8eb13023cea1f7e3100ad39bd27"
+    },
+    "web": {
+      "status": "passed",
+      "exit_code": 0,
+      "elapsed_seconds": 2.615,
+      "started": "2026-10-15T19:17:10.587264+00:00",
+      "finished": "2026-10-15T19:17:13.254269+00:00",
+      "original_command_sha256": "b5ed2843887ae850ef31534dcd13881a954af5c1110801110f958ed307c21b1e"
+    },
+    "runner-package": {
+      "status": "passed",
+      "exit_code": 0,
+      "elapsed_seconds": 0.158,
+      "started": "2026-10-15T19:17:13.254428+00:00",
+      "finished": "2026-10-15T19:17:13.457303+00:00",
+      "original_command_sha256": "e1957b8f5540275189455bca395070b4fbc34e39b6a20f8ac713e96b7aa51f10"
+    },
+    "controller-source": {
+      "status": "passed",
+      "exit_code": 0,
+      "elapsed_seconds": 0.319,
+      "started": "2026-10-15T19:17:13.589809+00:00",
+      "finished": "2026-10-15T19:17:13.958639+00:00",
+      "original_command_sha256": "36f44fc070326a9c92394a54e637b4c837aa4a52b7ad777579b76109c2800c48"
+    },
+    "image-controller": {
+      "status": "passed",
+      "exit_code": 0,
+      "elapsed_seconds": 40.88,
+      "started": "2026-10-15T19:17:14.085296+00:00",
+      "finished": "2026-10-15T19:17:55.019650+00:00",
+      "original_command_sha256": "036902c91f843302f81a3dab1f44cc2cc9abd97de9a406a8bb59a352e215bf16"
+    },
+    "image-runner": {
+      "status": "passed",
+      "exit_code": 0,
+      "elapsed_seconds": 4.469,
+      "started": "2026-10-15T19:17:55.030419+00:00",
+      "finished": "2026-10-15T19:17:59.550025+00:00",
+      "original_command_sha256": "a6028452939692126d21d090a7172b634624d7829371a27a89f58ad51cc3aaa3"
+    },
+    "image-host-linejs": {
+      "status": "passed",
+      "exit_code": 0,
+      "elapsed_seconds": 14.166,
+      "started": "2026-10-15T19:17:59.561571+00:00",
+      "finished": "2026-10-15T19:18:13.778613+00:00",
+      "original_command_sha256": "9530360391db7a7b30589fb2fb7bd5231bb0bd3556c89d52981e89397999f1f9"
+    },
+    "image-hermes": {
+      "status": "passed",
+      "exit_code": 0,
+      "elapsed_seconds": 28.177,
+      "started": "2026-10-15T19:18:13.789228+00:00",
+      "finished": "2026-10-15T19:18:42.012722+00:00",
+      "original_command_sha256": "1777e476f24a776d10213fda4cad28acd8a35ebd90f14ef559318ccd2c1a8860"
+    },
+    "image-host-preview": {
+      "status": "passed",
+      "exit_code": 0,
+      "elapsed_seconds": 0.611,
+      "started": "2026-10-15T19:18:42.022687+00:00",
+      "finished": "2026-10-15T19:18:42.676511+00:00",
+      "original_command_sha256": "9d428d925f60e2ee77bc5e7682acf6903384a0aeb00013e44d837b133ade9f66"
+    },
+    "image-bridge": {
+      "status": "passed",
+      "exit_code": 0,
+      "elapsed_seconds": 0.559,
+      "started": "2026-10-15T19:18:42.686678+00:00",
+      "finished": "2026-10-15T19:18:43.288410+00:00",
+      "original_command_sha256": "b1bb35725cf235d0a47829ba5890c102485bd4d53b17d14fedd9aeb2374f990b"
+    },
+    "bundle": {
+      "status": "passed",
+      "exit_code": 0,
+      "elapsed_seconds": 42.193,
+      "started": "2026-10-15T19:18:43.297900+00:00",
+      "finished": "2026-10-15T19:19:25.537435+00:00",
+      "original_command_sha256": "cd5bc4cecd6ea54cfe7715e41c65926afeca76309577d0f2816bddb3d5871928"
+    },
+    "source-zip": {
+      "status": "passed",
+      "exit_code": 0,
+      "elapsed_seconds": 2.019,
+      "started": "2026-10-15T19:19:25.550512+00:00",
+      "finished": "2026-10-15T19:19:27.614677+00:00",
+      "original_command_sha256": "82d15d4c851b0a2369f7ca7dfb32d2c0faaebae98ed6e0935286c5bfc056f187"
+    },
+    "iso": {
+      "status": "passed",
+      "exit_code": 0,
+      "elapsed_seconds": 110.366,
+      "started": "2026-10-15T19:19:27.628668+00:00",
+      "finished": "2026-10-15T19:21:18.042058+00:00",
+      "original_command_sha256": "b27fdc971b8c7c39a095485369c269f0be2cd3a6ea5b0d41a6aa60cf6902061b"
+    }
+  },
+  "separate_original_build": true,
+  "original_build_invocation_status": "interrupted",
+  "acceptance_stages_from_original_build_invocation": false,
+  "source_integrity": "evidence/owner-trial-53c9e79/source-archive-integrity.json",
+  "source_audit_chain": "evidence/owner-trial-53c9e79/source-credential-audit-chain.json"
+}

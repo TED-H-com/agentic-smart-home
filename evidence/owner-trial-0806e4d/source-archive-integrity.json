@@ -1,0 +1,18 @@
+{
+  "source_commit": "0806e4de5ca56607cadbc6450695596d3aacef59",
+  "observed_at": "2026-10-15T18:14:38.678734+00:00",
+  "archive_sha256": "41319ae565ec26c6fd9bdd1515c82bd332c605bca6fa08232d624e27ab8682c4",
+  "archive_bytes": 31126493,
+  "candidate_manifest_sha256": "3b9f30738f073ee285f3f92693fca8ab40c2afde818ff0ab7cc9cd3417d85303",
+  "manifest_entries": 1299,
+  "manifest_payload_matches": true,
+  "duplicate_entries": 0,
+  "git_tracked_payloads_matching_candidate": 1299,
+  "generated_payloads_not_git_tracked": [],
+  "nested_runner_source_members_matching_outer_archive": 55,
+  "shared_host_runtime_copies_matching_source": 23,
+  "method": "All ZIP payload hashes and frozen Git blob identities checked; decoded Runner and shared Host copies checked.",
+  "limitations": [
+    "Archive integrity only; no credential or vulnerability conclusion."
+  ]
+}

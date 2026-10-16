@@ -1,0 +1,58 @@
+{
+  "kind": "approved_public_delivery_provenance",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "owner_publication_authorized": true,
+  "owner_approval_sha256": "716157b3174b0e008678a826b85b2f94b908084407571643144ff45d645aac31",
+  "continuing_authorization_sha256": "72279f69bef8d80a20d303f2cdfeedfb509ee56ae73580d420c81d644bfd3d43",
+  "public_delivery_attempt": 2,
+  "previous_failed_attempt_retained": true,
+  "run": "public-candidate-53c9e79-approved-2",
+  "mode": "verify_public_only",
+  "automatic_retry": false,
+  "original_input_sha256": {
+    "summary.json": "584a10a35077263e0f961ea099cff066389ed8216aa94ee9a81ed47fe4e6d682",
+    "candidate-manifest.json": "67593f9041fdf04faa6bb436ebabeae004c6b88368d0153cf23e00b947fc69af",
+    "orchestration.py": "972aec7b9142ff82e19d2c6dd8caf4734b172467ae6397fb3398cafb9e31a613",
+    "resume-provenance-resumed2-53c9e79.py": "da4a481876e48899b2694357349d30502d6774d1e41cf95f514f93ec6c986eb0",
+    "enable/stage.json": "b4f39aa704f8df3bc3557f075d9adc9736e36985ef6737b6dc2dd9fac360ea52",
+    "enable/process/command.json": "90c7c0f3ee031344cbc78bc7ce285e77d5e440a8d408c4ee35dd58bbf8bee855",
+    "enable/junit.xml": "545e401880de7d9185cd1095dc9d30321abc26393f1bee7c0b6cbc11554ec0cc",
+    "enable/evidence/home-worker-enable-haos.json": "833e74ba3d33ca4dd62b90dcac80537a3ac5f9534b3e6987caa603e9cab7cc37",
+    "bridge-haos/stage.json": "1a2fdfa61b71e64b8c75a8e63563ff8730e5c236628a9a8dc7a3aaaa5296a2f3",
+    "bridge-haos/process/command.json": "c84cd3ef8f6408b8d67de530c7fb0c2ce4b307f058ca878150784a5337658e8e",
+    "bridge-haos/junit.xml": "61730996939b0623ef5b988997c026f614295cc02c05d14bce297574bc1e20e8",
+    "bridge-haos/evidence/bridge-haos.json": "010684f954e3e77cae10d3b65fc3ef72048f062faee70aa6e11cb370c5772555"
+  },
+  "pinned_root_input_sha256": {
+    "PUBLICATION_CONTINUE_AUTHORIZED.json": "72279f69bef8d80a20d303f2cdfeedfb509ee56ae73580d420c81d644bfd3d43",
+    "PUBLICATION_APPROVED.json": "716157b3174b0e008678a826b85b2f94b908084407571643144ff45d645aac31",
+    "publication-public-2-preflight.json": "f0a4f18233a3aad745c74158319dc72e09be47baf4f19312695fd1ca0851971e",
+    "publication-public-2-service-start.json": "c5f1afd1775a5f07f9479c7496e3ad2807925abee639cdbc1112fbb11224ee9f",
+    "publication-source-refs.json": "a05e61a3533fd210a7d075d71543b982f545a2506b6dcdb06903927144c661fb",
+    "publication-public-2-wrapper-independent-review.json": "005969c59c0dac5e15be31c5cf36ef2657645b9eb551eb3b859c271ad74dd8a4",
+    "pressure-gate-public-2-53c9e79.result.json": "a4419dd149c54ca49ae4f738721bd150cd4849d8d3a87214d9f1efec40919367",
+    "pressure-gate-public-2-53c9e79.py": "939b85c47cf02b77a557f950ea8d674f24b96e7dd4328aec6e0b8484dcd30d50",
+    "verify-public-approved-resumed2-53c9e79.py": "972aec7b9142ff82e19d2c6dd8caf4734b172467ae6397fb3398cafb9e31a613",
+    "start-approved-public-2-53c9e79.py": "ac479514b6506dc248ada5f646ba7953d865610072ffef3d119e72440bc088b6",
+    "resume-provenance-resumed2-53c9e79.py": "da4a481876e48899b2694357349d30502d6774d1e41cf95f514f93ec6c986eb0",
+    "import-evidence-reviewed-resumed2-53c9e79.py": "1df01247535e4baa9084eb9517844069cb2c36ee22d885660ad4a8f7934b21b0"
+  },
+  "root_content_review_sha256": "58d74d65f01ee9e3a9fc87efd69c6165d50f094f2d72a83ea70e5c4a0e076a35",
+  "importer_sha256": "a50297bd21a61ab0d4bedcac71cf7c91c3cb590724740c3aef9ebdfe444fc56f",
+  "local_eight_stage_prerequisite": {
+    "summary_sha256": "3a42db525233fe1788af13df5e363dc4fbe9d695fa53caafdc199411b60c7d27",
+    "all_eight_passed": true,
+    "orchestration_sha256": "cd66012e6e4ca40279c2d315ece0a610d68c2281801d01f0716a72c2a992546e",
+    "pytest_child_umask": "0022",
+    "separate_completed_build": true,
+    "interrupted_and_failed_invocations_supply_no_accepted_stages": true,
+    "public_evidence": "evidence/owner-trial-53c9e79/summary.json"
+  },
+  "source_refs_published": {
+    "refs/heads/stable": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+    "refs/heads/release/0.9.0": "53c9e790cccf9d22842ec358b9f4f7160e1d448b"
+  },
+  "new_full_eight_stage_run": false,
+  "prerelease_or_tag_publication_proven_by_this_import": false,
+  "projection": "Typed reviewed product receipts; sanitized JUnit; bounded stage and launch provenance; no raw logs or private paths."
+}

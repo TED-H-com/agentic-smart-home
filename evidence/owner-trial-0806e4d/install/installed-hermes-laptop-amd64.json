@@ -1,0 +1,15 @@
+{
+  "runtime_location": "disposable_outer_linux_vm",
+  "iso_sha256": "e88cf7498b1c102109a7be4ea09e8cac8d8698f371c9eb48cfa76f0ce2eddeac",
+  "cli_exit": 0,
+  "job": {
+    "state": "succeeded",
+    "error_code": null
+  },
+  "observed": {
+    "state": "ready",
+    "commit": "835c3dd038d903182a66ecc45e34bf5e0de65f00",
+    "source": "release"
+  },
+  "cloud_login": "not_run"
+}

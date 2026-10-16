@@ -1,0 +1,157 @@
+{
+  "schema": 1,
+  "kind": "independent_completed_public_delivery_attempt2_actual_acceptance_review",
+  "reviewer": "public_wrapper_review",
+  "reviewed_at": "2026-10-16T01:00:55.071747+00:00",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "run": "public-candidate-53c9e79-approved-2",
+  "status": "passed",
+  "safe_to_accept_public_attempt": true,
+  "blocking_findings": [],
+  "both_public_stages_passed": true,
+  "new_all_eight_run": false,
+  "summary_sha256": "584a10a35077263e0f961ea099cff066389ed8216aa94ee9a81ed47fe4e6d682",
+  "orchestration_sha256": "972aec7b9142ff82e19d2c6dd8caf4734b172467ae6397fb3398cafb9e31a613",
+  "single_public_invocation": true,
+  "public_stages": {
+    "enable": {
+      "tests": 42,
+      "passed": 42,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "required_vm_case": "test_real_home_worker_enable_backup_reboot",
+      "command_exact": true,
+      "pytest_child_umask": "0022",
+      "primary_sha256": "833e74ba3d33ca4dd62b90dcac80537a3ac5f9534b3e6987caa603e9cab7cc37",
+      "cleanup_confirmed": true,
+      "disk_basetemp_parent_absent": true,
+      "stable_before_and_after_exact": true
+    },
+    "bridge-haos": {
+      "tests": 40,
+      "passed": 40,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "required_vm_case": "test_real_haos_sidebar_bridge",
+      "command_exact": true,
+      "pytest_child_umask": "0022",
+      "primary_sha256": "010684f954e3e77cae10d3b65fc3ef72048f062faee70aa6e11cb370c5772555",
+      "cleanup_confirmed": true,
+      "disk_basetemp_parent_absent": true,
+      "stable_before_and_after_exact": true
+    }
+  },
+  "totals": {
+    "tests": 82,
+    "passed": 82,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "enable_checks": {
+    "count": 16,
+    "all_true": true,
+    "cold_backup": "passed",
+    "full_reboot": "passed",
+    "recovery_identity": "passed"
+  },
+  "bridge_public_check_scope": {
+    "executed_checks": [
+      "app_restart_preserves_options_and_outer_case",
+      "direct_app_forged_header_denied",
+      "host_management_and_cross_origin_denied",
+      "ingress_native_identity_overrides_forged_header",
+      "manual_stop_remains_stopped",
+      "same_outer_case_and_deduplicated_conversation",
+      "service_heartbeat_without_owner_capability",
+      "supervisor_app_contract"
+    ],
+    "count": 8,
+    "all_true": true,
+    "not_exercised": [
+      "wrong_tls_pin_denied_and_recovered"
+    ],
+    "not_exercised_reason": "Frozen tests/test_bridge_haos.py:523-540 places the wrong-pin negative under if not public; this public run does not claim it."
+  },
+  "native_browser": {
+    "status": "passed",
+    "no_api_or_header_mocking": true,
+    "browser_error_types": []
+  },
+  "versions": {
+    "core": "2026.10.1",
+    "supervisor": "2026.10.2",
+    "haos_image": "18.3",
+    "bridge_matches_enable": true
+  },
+  "provenance": {
+    "pure_resumed_origin_revalidated": true,
+    "local_all_eight_prerequisite_revalidated": true,
+    "manifest_sha256": "67593f9041fdf04faa6bb436ebabeae004c6b88368d0153cf23e00b947fc69af",
+    "source_exact_clean": true,
+    "current_six_image_ids_exact": true,
+    "media_sizes_exact": true,
+    "wrapper_initial_full_media_hash_and_locked_stat_guards_passed": true,
+    "large_media_rehashed_by_reviewer": false,
+    "retained_evidence_snapshot_inputs_stable": true
+  },
+  "cleanup": {
+    "stage_primary_cleanup_exact_all_true": true,
+    "known_suite_resources_remaining": {
+      "containers": [],
+      "networks": []
+    },
+    "scope": "known_test_name_prefixes_only",
+    "both_disk_basetemp_parents_absent": true,
+    "disk_filesystem": "ext4",
+    "service_completion_observed_from": "root retained receipt after reviewer independently observed successful exited service before compaction",
+    "service_completion_receipt_sha256": "167919d57ade4c7195a82a7d2aec4c56eefeab9ef205d6fea98b36af1657249a",
+    "service_invocation_matches_start": true,
+    "service_result": "success",
+    "service_exit_status": 0,
+    "service_main_pid": 0,
+    "owned_service_later_stopped_by_root": true
+  },
+  "prior_failed_attempt": {
+    "retained_input_sha256_all_unchanged": true,
+    "later_pass_does_not_establish_prior_failure_root_cause": true,
+    "old_cold_backup_remains_unaccepted": true,
+    "old_full_reboot_remains_not_run": true
+  },
+  "limitations": [
+    "This is two public stable stages after the separate accepted local eight-stage invocation, not a new eight-stage run.",
+    "Supervisor installs the stable branch; exact public ref was read before and after each stage, not commit-digest pinned by Supervisor.",
+    "Public wrong-TLS-pin denial/recovery was not exercised; it is local-only by the frozen test.",
+    "Protocol fixtures stand in for inference and host Unix-socket contract; no real cloud/model/coding-account, physical laptop, or household acceptance.",
+    "Known-name resource inventory does not assert absence of unrelated resources.",
+    "No large media rehash, new tests, guest query, source/docs/service mutation, or publishing by this reviewer."
+  ],
+  "input_sha256": {
+    "public-candidate-53c9e79-approved-2/summary.json": "584a10a35077263e0f961ea099cff066389ed8216aa94ee9a81ed47fe4e6d682",
+    "public-candidate-53c9e79-approved-2/orchestration.py": "972aec7b9142ff82e19d2c6dd8caf4734b172467ae6397fb3398cafb9e31a613",
+    "public-candidate-53c9e79-approved-2/candidate-manifest.json": "67593f9041fdf04faa6bb436ebabeae004c6b88368d0153cf23e00b947fc69af",
+    "public-candidate-53c9e79-approved-2/resume-provenance-resumed2-53c9e79.py": "da4a481876e48899b2694357349d30502d6774d1e41cf95f514f93ec6c986eb0",
+    "verify-public-approved-resumed2-53c9e79.py": "972aec7b9142ff82e19d2c6dd8caf4734b172467ae6397fb3398cafb9e31a613",
+    "publication-public-2-preflight.json": "f0a4f18233a3aad745c74158319dc72e09be47baf4f19312695fd1ca0851971e",
+    "publication-public-2-service-start.json": "c5f1afd1775a5f07f9479c7496e3ad2807925abee639cdbc1112fbb11224ee9f",
+    "publication-public-2-wrapper-independent-review.json": "005969c59c0dac5e15be31c5cf36ef2657645b9eb551eb3b859c271ad74dd8a4",
+    "PUBLICATION_APPROVED.json": "716157b3174b0e008678a826b85b2f94b908084407571643144ff45d645aac31",
+    "PUBLICATION_CONTINUE_AUTHORIZED.json": "72279f69bef8d80a20d303f2cdfeedfb509ee56ae73580d420c81d644bfd3d43",
+    "public-approved-2-root-acceptance-postflight.json": "167919d57ade4c7195a82a7d2aec4c56eefeab9ef205d6fea98b36af1657249a",
+    "public-approved-1-failure-independent-diagnostic.json": "f01fdb703ecbca77ed69f68c7b7ea5fc9d85c78de782ae152646d78031b230e4",
+    "public-candidate-53c9e79-approved-2/enable/stage.json": "b4f39aa704f8df3bc3557f075d9adc9736e36985ef6737b6dc2dd9fac360ea52",
+    "public-candidate-53c9e79-approved-2/enable/junit.xml": "545e401880de7d9185cd1095dc9d30321abc26393f1bee7c0b6cbc11554ec0cc",
+    "public-candidate-53c9e79-approved-2/enable/evidence/home-worker-enable-haos.json": "833e74ba3d33ca4dd62b90dcac80537a3ac5f9534b3e6987caa603e9cab7cc37",
+    "public-candidate-53c9e79-approved-2/enable/process/command.json": "90c7c0f3ee031344cbc78bc7ce285e77d5e440a8d408c4ee35dd58bbf8bee855",
+    "public-candidate-53c9e79-approved-2/enable/process/resources-before.json": "835fa8a9e45821f8826a34b26ba9d1981048bd7f3650f567c044ff697f7e82a1",
+    "public-candidate-53c9e79-approved-2/enable/process/resources-after.json": "cfd900403e3859ba1ead07ed133d60f3c32f85934c9b78c9ebb9ddc4291724e1",
+    "public-candidate-53c9e79-approved-2/bridge-haos/stage.json": "1a2fdfa61b71e64b8c75a8e63563ff8730e5c236628a9a8dc7a3aaaa5296a2f3",
+    "public-candidate-53c9e79-approved-2/bridge-haos/junit.xml": "61730996939b0623ef5b988997c026f614295cc02c05d14bce297574bc1e20e8",
+    "public-candidate-53c9e79-approved-2/bridge-haos/evidence/bridge-haos.json": "010684f954e3e77cae10d3b65fc3ef72048f062faee70aa6e11cb370c5772555",
+    "public-candidate-53c9e79-approved-2/bridge-haos/process/command.json": "c84cd3ef8f6408b8d67de530c7fb0c2ce4b307f058ca878150784a5337658e8e",
+    "public-candidate-53c9e79-approved-2/bridge-haos/process/resources-before.json": "cfd900403e3859ba1ead07ed133d60f3c32f85934c9b78c9ebb9ddc4291724e1",
+    "public-candidate-53c9e79-approved-2/bridge-haos/process/resources-after.json": "af9b1385adc0acc7449397181dd0292f9937b6b7e1c9774c48949381ff7a1b56"
+  }
+}

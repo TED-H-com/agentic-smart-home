@@ -1,0 +1,21 @@
+{
+  "kind": "authorized_exact_schema2_engineering_prerelease_publication",
+  "observed_at": "2026-10-16T03:22:06.143842+00:00",
+  "repository": "TED-H-com/agentic-smart-home",
+  "release_id": 414429247,
+  "tag": "v0.9.0",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "engineering_docs_commit": "bd0b00617fe831dc44853d6149d67b7107567d3f",
+  "draft": false,
+  "prerelease": true,
+  "make_latest_requested": false,
+  "published_at": "2026-10-16T03:22:04Z",
+  "url": "https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.9.0",
+  "inventory_sha256": "bf3481e28373bbcaa2a521edaf5a465e2a91d02f23b69653727bd475cbc5bb67",
+  "notes_sha256": "2ebff17e0a6df2efcf090d57b6f522d1e68a72294a8464a9601555cb17268c0d",
+  "manifest_sha256": "49c34e9afee7e5995ff1f774dfdc616827dccecd5961730fa17f98a06fba0f70",
+  "helper_sha256": "8c462b1a7b4bc7bf667afe75722dfaf8e6cb76a0499379d6df17fc2e24ecf73d",
+  "prepublication_review_sha256": "db347d032788110b10bfe5e607f7d6faf5d27df1868ab569be7c6c17288af282",
+  "all_fiftytwo_postpublication_server_sizes_and_sha256_exact": true,
+  "anonymous_public_readback_and_full_download_pending": true
+}

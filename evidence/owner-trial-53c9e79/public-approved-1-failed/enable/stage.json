@@ -1,0 +1,56 @@
+{
+  "stage": "enable",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "status": "failed",
+  "accepted_as_public_stage": false,
+  "public_channel_test": true,
+  "public_flags": {
+    "AGENTIC_BRIDGE_PUBLIC": "1",
+    "AGENTIC_HOME_WORKER_PUBLIC": "1"
+  },
+  "pytest_child_umask": "0022",
+  "started": "2026-10-15T22:35:08.266358+00:00",
+  "finished": "2026-10-15T23:26:17.386620+00:00",
+  "junit": {
+    "tests": 42,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 41,
+    "seconds": 3067.447
+  },
+  "failed_required_integration_case": {
+    "semantic_name": "test_real_home_worker_enable_backup_reboot",
+    "sanitized_case_name": "case-00001",
+    "status": "failed",
+    "error_body_published": false
+  },
+  "postflight_status": "passed",
+  "public_stable_before": {
+    "repository": "https://github.com/TED-H-com/agentic-smart-home#stable",
+    "commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+    "observed_at": "2026-10-15T22:35:07.992380+00:00",
+    "method": "read_only_git_ls_remote"
+  },
+  "public_stable_after": {
+    "repository": "https://github.com/TED-H-com/agentic-smart-home#stable",
+    "commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+    "observed_at": "2026-10-15T23:26:17.692096+00:00",
+    "method": "read_only_git_ls_remote"
+  },
+  "cleanup": {
+    "observation_complete": true,
+    "owned_containers_absent": true,
+    "owned_networks_absent": true,
+    "disk_basetemp_removed": true,
+    "temp_filesystem": "ext4",
+    "scope": "known_test_name_prefixes_only"
+  },
+  "delivery": "published_stable_branch",
+  "actual_repository": "https://github.com/TED-H-com/agentic-smart-home#stable",
+  "original_stage_sha256": "bfd7a1f9263bf0044869fcae918c068700c6314ca68da9288fad3c631a3d18ae",
+  "original_command_sha256": "6f69e2fc71e4a21891689633262baecca86460ad2a86aede75eeb549a959a3b7",
+  "original_junit_sha256": "ba64a10381f8a99a879d5d389362fd4a382d89b1479f0e7e03cae5455cfe537b",
+  "original_product_receipt_sha256": "86dc2e00e4d0fb07bf9b46eaba5c86200b76957342f80a243cbd3b8e60254d68",
+  "junit_projection": "counts_order_timing_and_failure_mapping_preserved; generated_case_names; logs_paths_error_body_omitted"
+}

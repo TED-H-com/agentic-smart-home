@@ -1,0 +1,45 @@
+{
+  "source_commit": "79fe81d54bdc52a2766474168c04ce3bbebaf0b9",
+  "status": "superseded_after_failed_installation",
+  "all_eight_passed": false,
+  "installation": {
+    "status": "failed",
+    "phase": "installed_identity_and_images",
+    "junit": "evidence/owner-trial-79fe81d/install/junit.xml",
+    "evidence": "evidence/owner-trial-79fe81d/install/installed-failure-laptop-amd64.json",
+    "counts": {
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 0,
+      "seconds": 1511.937
+    }
+  },
+  "regression": {
+    "status": "interrupted",
+    "accepted": false,
+    "junit": "not_completed",
+    "reason": "Manually interrupted after installation failure; no regression pass inferred."
+  },
+  "remaining_six_stages": "not_run",
+  "cleanup": "evidence/owner-trial-79fe81d/interruption-cleanup.json",
+  "permission_reproduction": "evidence/owner-trial-79fe81d/permission-reproduction.json",
+  "media": "evidence/owner-trial-79fe81d/candidate-manifest.json",
+  "media_retention": "evidence/owner-trial-79fe81d/media-retention.json",
+  "original_input_sha256": {
+    "summary.json": "1951bb90b270258304ff9e366c939a40248727831cad69a87f2ce6beeda24412",
+    "install/stage.json": "febdd6cef844bf56db922826bfef0ab345d037c49b145a2022d3bc2d8fecd82a",
+    "regression/stage.json": "258e317553203aa44a3d7ba8c2ef4509cda781978b67043fa5c0d4e379e31cb8",
+    "candidate-manifest.json": "93c561fa081d62286f202e340bc9e241afc1b394ebab6ae58ef93849043ea101",
+    "media-archive-location.json": "37f3a85393f3cd0add38117ecc98d95bd86b9ecb8258caabaa4c381d46f3cee2",
+    "install/evidence/installed-failure-laptop-amd64.json": "e0147292b4af4710c9b5ea42d616adb9dd3e8bb6568859226a6b7d8848da7dec",
+    "install/evidence/installed-progress-laptop-amd64.json": "9c0f2d8dab4abcc5c9a023fa33755422b61f76c1e42a940e1faf8ab3ecf795fb",
+    "install/archive-permission-observation.json": "b13faef30e1854575d72a0bc7b40a458548e969d806eb6a53ecfdd1ce22ecb04",
+    "interruption-cleanup.json": "e992ae20050d98514e4069adb256519ebaf046731303ee79bab5e9db461380dd",
+    "source-credential-audit.json": "f29fbae5bb3e9ecfabb32ae543e5ea17306e3a82c1fc698846c6aba5adfa4dec",
+    "regression/process/command.json": "e0ae5ae6709ed731981bcdf69ba0a75534996d88f4908284d15f77f9158657f9",
+    "install/junit.xml": "9d0c6c509c94af91ebd4c045a5af0ef4d4c7935f8b68b4a708b398ca08d64f85"
+  },
+  "original_rc10_97_cause": "unknown"
+}

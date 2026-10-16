@@ -1,0 +1,25 @@
+{
+  "stage": "install",
+  "source_commit": "79fe81d54bdc52a2766474168c04ce3bbebaf0b9",
+  "status": "failed",
+  "original_stage_sha256": "febdd6cef844bf56db922826bfef0ab345d037c49b145a2022d3bc2d8fecd82a",
+  "public_channel_test": false,
+  "started": "2026-10-15T14:21:38.527735+00:00",
+  "finished": "2026-10-15T14:46:55.891841+00:00",
+  "accepted": false,
+  "exit_code": 1,
+  "junit": {
+    "tests": 1,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 0,
+    "seconds": 1511.937
+  },
+  "original_junit_sha256": "9d0c6c509c94af91ebd4c045a5af0ef4d4c7935f8b68b4a708b398ca08d64f85",
+  "cleanup": {
+    "owned_containers_absent": true,
+    "owned_networks_absent": true,
+    "disk_basetemp_removed": true
+  }
+}

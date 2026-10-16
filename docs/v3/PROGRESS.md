@@ -1,6 +1,8 @@
 # Plan v3 進度與驗收帳本（團隊維護）
 
-**目前：0.9.0 完整產品工程預覽。精確 ISO 在一次性 VM 完整安裝通過；真 HAOS 側欄 App、家庭現場開發助手、一鍵啟用家庭現場（含 cold 備份與整台重開）、HAOS 備份，以及真 Supervisor 建置家庭現場 App 的工程案例通過。模型 transport 是固定 fixture；真雲端帳號、實體筆電、`#stable` 公開安裝及 E1／E2 尚未驗收，32 案維持 2 passed、30 not_run。** 詳見 [版本驗證](../VERIFICATION.md#090)；0.8.0 的 Home coding 增量見 [下方](#home-coding-080-工程增量)。
+2026-10-16 接續開發：**0.9.0 已公開發布為工程預覽**，52 份附件與完整匿名下載均已核驗，見 [發布紀錄](../reviews/2026-10-16-RELEASE-PUBLISHED-53c9e79.md)。以下通知、接手與更新器修正屬後續未發布增量；`main` 開發不移動既有 tag、`stable`、發行分支或受測媒體。真帳號、Owner laptop 與 E1／E2 的限制保留；公開 `#stable` 工程安裝已由 [第二輪公開交付](../reviews/2026-10-16-PUBLIC-DELIVERY-53c9e79.md) 驗證。
+
+**目前：0.9.0 完整產品工程預覽。精確 ISO 在一次性 VM 完整安裝通過；真 HAOS 側欄 App、家庭現場開發助手、一鍵啟用家庭現場（含 cold 備份與整台重開）、HAOS 備份、真 Supervisor 建置家庭現場 App，以及公開 `#stable` 安裝的工程案例通過。模型 transport 是固定 fixture；真雲端帳號、實體筆電及 E1／E2 尚未驗收，32 案維持 2 passed、30 not_run。** 詳見 [版本驗證](../VERIFICATION.md#090)；0.8.0 的 Home coding 增量見 [下方](#home-coding-080-工程增量)。
 
 更新：2026-10-15。Owner 原稿基準為 0.3.1／`3ad476a712009469521c3f9838a44ef35ba29f76`。本檔獨立記錄實作狀態，不修改六份原稿；早期交付為 **0.4.0 v3 技術預覽，CI 145 passed／2 skipped，精確 ISO 完整 VM 測試 1 passed；完成 E0 工程媒體與獨立救援範圍，Owner laptop／真帳號及 E1、E2 尚未完成**。
 
@@ -52,6 +54,16 @@ Owner 要求實作真正內層 worker 後，已新增 HomeService／HomeSandbox�
 第九輪真 Codex 工具程序退出碼 0、產生來源 patch，30 項 namespace／秘密／FD／唯讀目錄／seccomp／出站邊界檢查全數 true；同一工作回報 6 份產物與 3 筆證據。獨立 verifier **37 passed／1 failed**，因固定測試搬移後找不到基準 `scripts/restore_controller.py` 而讓工作維持 failed，見 [第九輪](../../evidence/home-worker-haos-run9-verifier-layout-failure.json)。上述各輪 VM／容器／磁碟暫存均已清除；不得將 CLI 的成功升格為 verifier 或整案成功。
 
 第十輪來源工作成功，獨立 verifier **38 passed**、30 項 worker 邊界檢查通過，case／觀測來源及內容 digest 均相符。整案仍失敗：probe 固定 8123，但真 Core 使用 80；現場唯讀讀回確認 80 回應 401、8123 拒絕連線。見 [第十輪原始失敗](../../evidence/home-worker-haos-run10-observation-failure.json)與 [獨立去密診斷](../../evidence/home-worker-haos-run10-observation-diagnostic.json)。VM／容器／磁碟暫存均已清除，沒有回改 failed。修正為固定 `homeassistant` 的 80 → 8123 有界無帳號探測。第十一輪已通過來源修改／獨立測試、同 case 內容／指紋、Core 80 回應 401、TLS 取消與正常重啟；最後因測試要求 PID namespace 編號必須改變而失敗，見 [原始結果](../../evidence/home-worker-haos-run11-restart-observer-failure.json)。[現場去密診斷](../../evidence/home-worker-haos-run11-restart-observer-diagnostic.json)證實 namespace 編號可重用，產品仍保留未知工作與原 lease；後續新工作阻擋／不重播斷言尚未執行。資源已清理；測試改用新程序 start ticks 加 Docker StartedAt 排除舊快取與 namespace 編號重用，後續第十二輪完整重跑通過，原第十一輪仍為 failed。固定模型回應和文件註解 patch 只驗工程連線，不證明真雲端自主研究或真實問題修復。V3-10 更新為工程實作 `implemented`，T3-13／T3-15、E2 及其餘 30 案維持 `not_run`；詳見 [Home worker 範圍](../WORKERS.md#home-coding-080-工程預覽)。
+
+## 0.9.0 發布後修復（未發布工程增量）
+
+- 停止後的接手檢查點與成果清單統一為最多 32 件；拒絕畸形、重複或其他工作的成果 ID。請求途中換綁 worker 或內容到期也會拒絕，不會釋放不確定的 lease；仍不是同一個 live BAT／CLI session 接手。
+- 固定 Host 更新器在切換與失敗回復前，同時核對側欄與 Home App 的持久操作；停用不抵銷已送出的操作，畸形設定亦阻擋。此修正需要後續 Host 發行，已安裝的 0.9.0 不會因 Controller image 更新而取得新 Host 程式。
+- 工作通知連結與選單同步精確工作 ID，支援同頁切換、返回鍵與最近清單外的工作；不存在、到期與暫時失敗分別提示。晚到回覆不能蓋掉新選取，連結導覽不重送工作，未送出的草稿保留。
+
+本機整合定向 **422 passed、2 skipped**：工作／通知／App 維護 290 項、更新器 97 項及編譯介面瀏覽器 35 項通過。新增 47 項接手與 14 項通知連結 fixtures；三項變更均通過獨立來源審查。Ruff、22 份公開 contracts、鎖定 web toolchain、23 份共用 runtime、套件與文件連結檢查通過；Controller／Bridge 使用同一份重新編譯介面，1440／768／390 px 合成 API 截圖已檢視。pytest 均使用磁碟暫存並清理。
+
+上述本機檢查使用 transport／Supervisor／模型 fixtures 與真 Chromium；本機未建置新映像或安裝媒體，也沒有新增雲端帳號、真 HAOS／家庭或 E1／E2 驗收。既有 0.9.0 發布證據保留原樣，32 案仍為 2 passed、30 not_run。
 
 ## V3-11 非同步工作完成通知（未發布工程增量）
 

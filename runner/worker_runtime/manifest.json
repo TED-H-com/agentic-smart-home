@@ -23,6 +23,6 @@
     "host/agentic_host/source.py": "4977754d2a7067ff2b37d3dd3907fccedf14a0a1e6975f24f6aa942565a390cf",
     "host/agentic_host/support.py": "d292fff3a7fd7d5ecc64c942e359866738f8152527739d5a466660a6dfc14376",
     "host/agentic_host/update_probe.py": "868d5260adfeae4e43bbbdf06b5db8f5624187396db08bef76781062b4ccfa70",
-    "host/agentic_host/updater.py": "ebf44c79ac4b5309e05ddc2cb5b62551ea041329e8447436833f323f08b3b144"
+    "host/agentic_host/updater.py": "3cf3c45a75f6f54c99b24fc3b09cae5a3b56b9b71faeb5b21be474aefffc17c5"
   }
 }

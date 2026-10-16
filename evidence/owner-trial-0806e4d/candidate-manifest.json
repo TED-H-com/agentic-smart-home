@@ -1,0 +1,31 @@
+{
+  "commit": "0806e4de5ca56607cadbc6450695596d3aacef59",
+  "version": "0.9.0",
+  "created": "2026-10-15T18:11:32.842186+00:00",
+  "images": {
+    "agentic-home-controller:0.9.0": "sha256:9bb23eb4ed940967867c7c4bb232300a7ae881496ba4ba6a2c35110edf9f6486",
+    "agentic-home-runner:0.9.0": "sha256:62f32d1bffc88fb194a8e7de8c9ffc6a5f0a38015a1c8f3d72cca72fd2e881b5",
+    "agentic-home-linejs:0.9.0": "sha256:1e00484335678c4b4e6642f818576f935893ec67c74e2b03355cdf232e93bc81",
+    "agentic-home-hermes:0.9.0": "sha256:d61cfe5ee0626c22b59e12a5bd1a2f0793e0733a17c200f8d2b8ca2ea0b314a1",
+    "agentic-home-preview:0.9.0": "sha256:1c7e0b09aa60f5640f50721c13a62ffc0d3e8d58124d8a555d3d2dda3c75a620",
+    "agentic-home-bridge:0.9.0": "sha256:46693a1640a349a38183426763f0e99e3b7cf90a61bf67dc3ae4c2893751ac06"
+  },
+  "media": {
+    "agentic-home-0.9.0-linux-amd64.tar": {
+      "sha256": "2d48d0a86488c3f1db91b2ccf74fd20e8f6ef55faadda0562a0900009534a647",
+      "size": 2646671360
+    },
+    "agentic-home-0.9.0-source.zip": {
+      "sha256": "41319ae565ec26c6fd9bdd1515c82bd332c605bca6fa08232d624e27ab8682c4",
+      "size": 31126493
+    },
+    "agentic-home-0.9.0-laptop-amd64.iso": {
+      "sha256": "e88cf7498b1c102109a7be4ea09e8cac8d8698f371c9eb48cfa76f0ce2eddeac",
+      "size": 6726156288
+    },
+    "SHA256SUMS": {
+      "sha256": "730e9a6e9f251d52a0abd4f25a5e27aa775d6519b0f856c3531b2b58d015ef68",
+      "size": 299
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "app": "hermes",
+  "reader_uid": 10003,
+  "status": "passed",
+  "scope": "Actual packaged public-file DAC and imports; no service startup or real-account acceptance",
+  "image_id": "sha256:0ada5a8c9741819350ebfd3f376cd366b5c630d3e90f36d42d3c98566c66c8c8",
+  "uid": 10003,
+  "checks": [
+    {
+      "check": "unprivileged_without_capabilities",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_0",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_1",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_2",
+      "status": "passed"
+    },
+    {
+      "check": "public_file_3",
+      "status": "passed"
+    },
+    {
+      "check": "module_import_0",
+      "status": "passed"
+    }
+  ],
+  "cleanup": {
+    "remove": "passed",
+    "absent": true
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "kind": "preserved_failed_first_draft_asset_upload",
+  "observed_at": "2026-10-16T02:02:22.396306+00:00",
+  "release_id": 414429247,
+  "upload_returncode": 1,
+  "server_http_status": 408,
+  "error_class": "upload_body_timed_out",
+  "stderr_sha256": "e8e10285f44ba04d8a2aa250e42f7b8c0ebeac8c1ced1cca8bff69a97a24dc23",
+  "all_local_file_identities_unchanged": true,
+  "published": false,
+  "actual_remote_assets": [
+    {
+      "id": 645726869,
+      "name": "agentic-home-0.9.0-laptop-amd64.iso.part001",
+      "state": "starter",
+      "size": 1073741824,
+      "digest": null
+    },
+    {
+      "id": 645730324,
+      "name": "agentic-home-0.9.0-laptop-amd64.iso.part002",
+      "state": "uploaded",
+      "size": 1073741824,
+      "digest": "sha256:f5876e0aa184b399158943c82ea23b9872d917c237c3572fb242464a725b5857"
+    },
+    {
+      "id": 645794726,
+      "name": "agentic-home-0.9.0-laptop-amd64.iso.part003",
+      "state": "starter",
+      "size": 1073741824,
+      "digest": null
+    },
+    {
+      "id": 645795797,
+      "name": "agentic-home-0.9.0-laptop-amd64.iso.part004",
+      "state": "starter",
+      "size": 1073741824,
+      "digest": null
+    },
+    {
+      "id": 645798736,
+      "name": "agentic-home-0.9.0-laptop-amd64.iso.part005",
+      "state": "starter",
+      "size": 1073741824,
+      "digest": null
+    },
+    {
+      "id": 645814763,
+      "name": "agentic-home-0.9.0-laptop-amd64.iso.part006",
+      "state": "starter",
+      "size": 1073741824,
+      "digest": null
+    },
+    {
+      "id": 645726872,
+      "name": "agentic-home-0.9.0-linux-amd64.tar.part001",
+      "state": "uploaded",
+      "size": 1073741824,
+      "digest": "sha256:40240e7833b480feaae5a894df8a1fbdc946b6089ab94d5a42f60dadd54afa32"
+    },
+    {
+      "id": 645726870,
+      "name": "agentic-home-0.9.0-linux-amd64.tar.part002",
+      "state": "uploaded",
+      "size": 1073741824,
+      "digest": "sha256:6cbece49e259e3d178cc4cb6ac990e53e51c2ece2882126dd889d8cf36b7ecd2"
+    },
+    {
+      "id": 645726863,
+      "name": "agentic-home-0.9.0-linux-amd64.tar.part003",
+      "state": "uploaded",
+      "size": 578639872,
+      "digest": "sha256:2e0255f381127f5bb69a47da9ed09f45ada5a45b7f0911c839f29cf10d055882"
+    },
+    {
+      "id": 645726868,
+      "name": "agentic-home-0.9.0-source.zip",
+      "state": "uploaded",
+      "size": 31130483,
+      "digest": "sha256:e782a43ab62c6af7bc7d4e0ecb76e6c66a314442cb08c7c8b966aef016b599a7"
+    }
+  ],
+  "uploaded_verified_count": 5,
+  "owned_incomplete_starter_count": 5,
+  "retry_strategy": "Preserve all five completed exact assets; remove only owned incomplete starters after rechecking; retry missing assets individually with HTTP/1.1."
+}

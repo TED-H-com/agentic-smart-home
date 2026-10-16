@@ -1,0 +1,2825 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "observed_at": "2026-10-15T19:43:31.794783+00:00",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "candidate_manifest_sha256": "67593f9041fdf04faa6bb436ebabeae004c6b88368d0153cf23e00b947fc69af",
+  "method": "Rehash complete source ZIP manifests and payloads; compare exact member sets and content hashes; rehash each new image permission receipt against inner source ZIP, outer GitHub artifact ZIP, extracted CI evidence file and reviewed CI receipt.",
+  "local_source": {
+    "archive_path": "dist/agentic-home-0.9.0-source.zip",
+    "archive_sha256": "e782a43ab62c6af7bc7d4e0ecb76e6c66a314442cb08c7c8b966aef016b599a7",
+    "manifest_sha256": "7d6e669f6a55d9f216f25e13cc7e16efb5a850f974d41f1ff20192860a8564e4",
+    "manifest_exact_coverage": true,
+    "manifest_payload_entries": 1300,
+    "tracked_non_evidence_entries": 394,
+    "tracked_historical_evidence_entries": 906
+  },
+  "expected_added_ci_members": [
+    "agentic-home/evidence/image-public-permissions-bridge.json",
+    "agentic-home/evidence/image-public-permissions-controller.json",
+    "agentic-home/evidence/image-public-permissions-hermes.json",
+    "agentic-home/evidence/image-public-permissions-linejs.json",
+    "agentic-home/evidence/image-public-permissions-preview.json",
+    "agentic-home/evidence/image-public-permissions-runner.json"
+  ],
+  "non_evidence_payload_sha256": {
+    "agentic-home/.github/workflows/ci.yml": "5fd05789b1170c9977ebce022ae01e114f4ff5c7cf822939b423bd3986155026",
+    "agentic-home/.github/workflows/pages.yml": "cc82946f4ca1dfa34e53d73c811c93019f5b602ffeeaf3b680fb8f399e69cd13",
+    "agentic-home/.github/workflows/upstream-compatibility.yaml": "5565f9bbaa5f2501d7d7f026399242decd4710ec6ffb7445683e3d7499c0512c",
+    "agentic-home/.gitignore": "03e5b0bca0889f1bed14dd2f0448f24d805cb0b557b08295063fc5cbabb8da33",
+    "agentic-home/AGENTS.md": "39d22cff6535b39fee0572ecbbb198559edb7715964d5e86b0ef39b8e893762f",
+    "agentic-home/CHANGELOG.md": "2020036627a8356f52a251788b785b366a642b2db1de015982c26ef4566b7fb5",
+    "agentic-home/DESIGN.md": "c6ae10825ce5ff7730b4c143db1e115315c56112c6cc2953d64c1ff7e5ef4d2a",
+    "agentic-home/INSTALL.md": "14cf44082a54649ac7a321a9b8f7e360fcb3abc7b0f80cd78cfbd9e4eaebdc8e",
+    "agentic-home/PROJECT_PLAN.md": "d2c182db828210e2108b21760e0fb03e0b85ccea4b74db30e66a934451987a57",
+    "agentic-home/PROJECT_SPEC.md": "7f4147f7a942691c82bbc8775850c5e79baee324cef94f3a154701387b22f9c1",
+    "agentic-home/README.md": "53c564f0e775facda9717da943646c12744d288c9db1442bf1f8b8cba499baae",
+    "agentic-home/bridge/CHANGELOG.md": "b4e20ea0a40c45d11c0e8491455abc03356290aa2d36a8e502bb975338f65150",
+    "agentic-home/bridge/DOCS.md": "4e5fb85a0afc629113583e16c9ffe4d61d52894721b5b30d472ae3fa329bc63a",
+    "agentic-home/bridge/Dockerfile": "3fe3d61d91b1d16f94df20b062c7720c6d5cbc60307a6fc47137059a9e8ff715",
+    "agentic-home/bridge/README.md": "a5e30e34f6ea47f6b4d8b4fae5a9b6c930d06a8e1c213da5a04ac0bcf95ae9be",
+    "agentic-home/bridge/agentic_bridge/__init__.py": "e1b17f377992df87860d7a0c758ba28f23352585f1cf3ec9f8d0ae82995e9a9d",
+    "agentic-home/bridge/agentic_bridge/app.py": "4ca992473f66d9092720f729d4cea130c2800e55a24bcdb851c8d856adbdaf2d",
+    "agentic-home/bridge/config.yaml": "83ed42a51db8631989e35d30470d5ba3885123ba5977be5d1a9c70ad97b502ff",
+    "agentic-home/bridge/requirements.txt": "370a4907ffce372d60aebc5bfa83b372fa07a767849c3034e01e5decd9413818",
+    "agentic-home/bridge/start.py": "1448ae95aac563539b47ee5a00caf755c9a8ddf36cd6f9a45640bee432c2b6db",
+    "agentic-home/bridge/static/assets/index-CScTKCtU.css": "a4067d1744b74d8c9a9c515da5a0f3f3c5daed024a81fbcf5222eb70f66c6595",
+    "agentic-home/bridge/static/assets/index-zNBS9Sw9.js": "02d3205d89ba25e5a4e37fc4cc037a712058715402d37fd26574883b23e3411f",
+    "agentic-home/bridge/static/index.html": "58bbc8775132830e84f5ec8e2a9234506cbe9da2bc425fcb264f15c837fbc777",
+    "agentic-home/channels.lock.json": "ff3ad98442d9b97e5ffdf50b8d199da1932156ed52d35c413366d29f27b6ae35",
+    "agentic-home/contracts/agent-decision.schema.json": "73a36baf4551de9a99c44542ede8aec003dc85e717d5be4bc672ce5a162f267f",
+    "agentic-home/contracts/automation-intent.schema.json": "b51c759dde0c5a955acf0e541d6ac6cedc6fef5ea55b3d6dbeded479a4142df8",
+    "agentic-home/contracts/bootstrap-start-v1.schema.json": "bf80b1c4a9beae3202b85f4ea46353d5ebfe083775c3449d7cdd628cc9e39bd4",
+    "agentic-home/contracts/bootstrap-status-v1.schema.json": "e3487f398887a2e8da63c7be1f37cbe7a8042f8eac2581e868b5aabf174dcf9e",
+    "agentic-home/contracts/case-evidence-query-v1.schema.json": "e45277ff468c3a04a05073706bfc48b5609f333f4103794dca03865e6fa05631",
+    "agentic-home/contracts/controller-update-v1.schema.json": "13d3ca087eff5a5a85e0cc46739c809ee2cf6d13e281e2847e22343ff3e596a5",
+    "agentic-home/contracts/controller.openapi.json": "c2eaeba57f42712e91dea76fe4408739068af5d4c3379fdd549aab7020345875",
+    "agentic-home/contracts/hermes-auth.schema.json": "6864adff1126f4c74c1ec542d5ed81ff89cc68e285cc62abbc57ba14e28c5762",
+    "agentic-home/contracts/home-entry-v1.schema.json": "e2234815f4149a92cd380f4200c63dc03db0db881ed8988a6d8c2df87ea748ed",
+    "agentic-home/contracts/host-controller.openapi.json": "32f04de59a90bbd6cafa5cbad937cf6ac573bd8f62e763962f2031811d95b64e",
+    "agentic-home/contracts/ingress-bridge-options-v1.schema.json": "a6cd9c520793370bd7b55fc7ec616b0a1cb0123bd462e160b3c39b6858e97cd9",
+    "agentic-home/contracts/ingress-bridge-request-v1.schema.json": "155d5df72d86fafe570c44abfa43c36358b58f2856647b032af9b68e9f4e5635",
+    "agentic-home/contracts/network-preferences-v1.schema.json": "c59011fe2ebd901aee25801f37a9cfde412943730d3ad475cac19ec4e30fb8e3",
+    "agentic-home/contracts/policy.schema.json": "9c0651880af1d383bdb62bacca1bab4c4d279b41ee474db19100317a866df275",
+    "agentic-home/contracts/runner-bootstrap-job-v1.schema.json": "3cd79734e8c656b6a99b8cb846f07708265a5b1db9771f6860c2ed2d108e5a99",
+    "agentic-home/contracts/runner-bootstrap-result-v1.schema.json": "71f6cbf3a7e0abc792ca836a6058b53cf7e4a16abb2b30c1fb84bc0aaecb186c",
+    "agentic-home/contracts/runner-job.schema.json": "574dd9ceb6563651448c1d227b6da3b39bbc6dd3f5090def97685988fa849f99",
+    "agentic-home/contracts/runner-pair.schema.json": "917de79f4e3516796443e50394da06169fc9656e0ccc8e3b4d240f93aff3883a",
+    "agentic-home/contracts/worker-preview-v1.schema.json": "e98b27391140ec9d7facf2b38ea0d2407c32a99f792c7a45b096328102241667",
+    "agentic-home/contracts/worker-query-v1.schema.json": "2a77c9e1acfeec93fd44318cbe40e0e59eef0d32e3e829f5cf01bc103339f181",
+    "agentic-home/contracts/worker-start-v1.schema.json": "a4be13f1afc3d3b318ffe5a788ff7e6800831b05e1f676ec92251bed4ddec572",
+    "agentic-home/contracts/worker-submit-v1.schema.json": "2ba113de74c15825527d0629a662b59106838817881c4b8124ad16f609684ccd",
+    "agentic-home/controller/.dockerignore": "aa30caa271ff708927889cad93f91a629ab3f730b813da8a540e35394b5aedd9",
+    "agentic-home/controller/CHANGELOG.md": "92a57fde7f3738c40372395ce9be464583a1521aab97ca23e3c5ac3d5b5f17bd",
+    "agentic-home/controller/DOCS.md": "470ef210b777c44ae21968d64d7ee04f236efd57e1f1e20b82e71cfab090acd4",
+    "agentic-home/controller/Dockerfile": "b25c2ae44269bbd8d6e6d9589f02417c112daf25c471615f93f1b2b44c723f42",
+    "agentic-home/controller/README.md": "6676d2451cef32efb4e2d135e5727b96b4a57281675893d71966646a1f523c79",
+    "agentic-home/controller/agentic_controller/__init__.py": "d67663076870fd39feb344faaea2f9663ab77ab89830bfefe39fed7a11c34887",
+    "agentic-home/controller/agentic_controller/app.py": "c6e9d8051155d323b8c92d924e9c68f8f69c270d664bb1907f97c5f761e73246",
+    "agentic-home/controller/agentic_controller/bootstrap.py": "fd7f3116eaea91724df6e8f2bd5b3d3c6a22749a3638f44b0d00900b0a3f0040",
+    "agentic-home/controller/agentic_controller/bridge.py": "6806c55ba82babf5c8a6c33a4ce6ca3ad7e1c759d5793e487e94a774310de909",
+    "agentic-home/controller/agentic_controller/bridge_maintenance.py": "c5f3484d2dd0fadb60f35281c234af38cbe84a076f58216cdc37a0aab7c44810",
+    "agentic-home/controller/agentic_controller/channels.py": "3a63fe8d04d88cbfb3981798ee6a09fd1fdc69c7b979d26a4784a94c8b610e5b",
+    "agentic-home/controller/agentic_controller/durability.py": "a6be024f83651cb3e64350e703cdff58482f48af58684b60c4921da09d5e5764",
+    "agentic-home/controller/agentic_controller/engine.py": "5733fd8849f4893ffdd93ebf3211d9a664ae7e0c1a0e9c263fc3c503143f711d",
+    "agentic-home/controller/agentic_controller/gateway.py": "c98a742342692353d1084c506570984cba16dadc014bd74bb135c9c380185c4a",
+    "agentic-home/controller/agentic_controller/ha.py": "e38c9b4a0bc0669324a355795a95a73797d689799f69a6d2356f82d82a952098",
+    "agentic-home/controller/agentic_controller/ha_oauth.py": "22b89a2275376833d41e073a02f864708fbf6a3ab5bc7aa3bb1532ed5796cfd5",
+    "agentic-home/controller/agentic_controller/hermes.py": "54443e35070c0df7df216f03950b4b730c937c25d3185441d974bf1ca919c531",
+    "agentic-home/controller/agentic_controller/home_entry.py": "a161411641608cd5d6cdca5a9a433d68e5b34acee080200b7d289fed0ecce3df",
+    "agentic-home/controller/agentic_controller/home_worker_maintenance.py": "f62303753b85d107b61846a5f3d5fcae9b9c96ad2f3415bf70498a655361b900",
+    "agentic-home/controller/agentic_controller/host.py": "d966f95045544f6be03edc1761a106ebf9637ebe072acb07810802920c5c2f4f",
+    "agentic-home/controller/agentic_controller/household.py": "7b2a289534fcb653a25526822a21f47c2d2e354954772de419477b00d0a71d63",
+    "agentic-home/controller/agentic_controller/mcp.py": "b71e8823ad753eef9c45933cc39711791b5e27c768c528221f4dc034a193952f",
+    "agentic-home/controller/agentic_controller/models.py": "9bc4bd18a511cb877dd6a3d862895d07c7eab1ebe62814ae208e3f3a633bc42c",
+    "agentic-home/controller/agentic_controller/operations.py": "cbe5bb77793cf0138a6b0122ed8c6554dfcec357554f0497d47f56485d9e5aca",
+    "agentic-home/controller/agentic_controller/response_durability.py": "5ef6dd51be90434e3f44294b1142d5077293799788c8751c4a169e466e4cde89",
+    "agentic-home/controller/agentic_controller/runner.py": "323b10a0b27aa417d9b6aaeb444fd03a908dfeee1a1835ca5f0825937eead917",
+    "agentic-home/controller/agentic_controller/store.py": "2d59c32971329e88a644744b0a3e7516a6f8933d98115fa080ddd75529c5d6b5",
+    "agentic-home/controller/agentic_controller/store_journal.py": "9e931c2d629f0bffef2a5cde77783293e6432eec3780147e9e4e22292972d7e0",
+    "agentic-home/controller/agentic_controller/work.py": "af61fd15ba3d9864027784c41e45005a432ea33480cd70d4b0358177515f0146",
+    "agentic-home/controller/agentic_controller/workers.py": "c04620cef5c12d2e25c36009ad47470051eb26cf6a5784623937ddf602cedfbe",
+    "agentic-home/controller/config.yaml": "5f6f7cb97818cc017dc1c89c2cb6291e1a5af782e368c2b969f5006ed3212b5a",
+    "agentic-home/controller/requirements.txt": "370a4907ffce372d60aebc5bfa83b372fa07a767849c3034e01e5decd9413818",
+    "agentic-home/controller/start.py": "06f74433bf07708edd7ee7ca0a1fa8d1cfb481154e6cd6731d82147c52f1add1",
+    "agentic-home/controller/static/assets/index-CScTKCtU.css": "a4067d1744b74d8c9a9c515da5a0f3f3c5daed024a81fbcf5222eb70f66c6595",
+    "agentic-home/controller/static/assets/index-zNBS9Sw9.js": "02d3205d89ba25e5a4e37fc4cc037a712058715402d37fd26574883b23e3411f",
+    "agentic-home/controller/static/downloads/agentic-runner.zip": "3a8aae4361d0f1162a3fffca41ba9f8196df68ef4c6c2ee1ba6437c0821c89e4",
+    "agentic-home/controller/static/index.html": "58bbc8775132830e84f5ec8e2a9234506cbe9da2bc425fcb264f15c837fbc777",
+    "agentic-home/docs/ADAPTERS.md": "deac0f68542ce697c6de4506bb96f5db0ffa3b32806cf37ee76043e484f682ca",
+    "agentic-home/docs/API_CONTRACT.md": "3d3adb14f01fa57a5271ff160e34dc20b9a975af7742ff7d6d2f251dc91bef02",
+    "agentic-home/docs/DEVELOPMENT.md": "7f55ff19041955744b82d642f7407573c38df14b730b2a03b6a6a8f34959cb7c",
+    "agentic-home/docs/GATEWAY.md": "8b5c05ab781f9b3e0018aff7ef2d34b7eb2bd3f24a7a9cdf9504de56954a5c0b",
+    "agentic-home/docs/HANDOFF_HOME_WORKER_0.8.md": "8c1601805b9888cfdc56f850b1c0eb22319fd1dcd4e892f28f0c6fd1e9bb7c5a",
+    "agentic-home/docs/LINUX_PRODUCT.md": "e976b4e5645d8f67d98fc6bb454f0f251278126e2d777a6764301106955aac36",
+    "agentic-home/docs/ONBOARDING.md": "5cededdb054f1220fd13cf2bb94eb5ba963ba21e8aef29f53a26ea50b530a6e8",
+    "agentic-home/docs/OPERATIONS.md": "f5b4daeb33722326d3fc014bb00fd86d1da0de220ef1d5b2de494c9436f30a5e",
+    "agentic-home/docs/RELEASE_POLICY.md": "9443eb5d118e09de06d7aa07009b8c558751b5c163d8ce2dad055c77b2c78390",
+    "agentic-home/docs/SOURCES.md": "2787ced5c5d8f39b97f9792b30bd88c8ef7d83d2be554eab5a28407b241333f4",
+    "agentic-home/docs/UPDATES.md": "8d2f0c1e4bbb035074c81d5ea4d6a2c52443edc6ad284638d1d63367a90294cd",
+    "agentic-home/docs/VERIFICATION.md": "f8118da538acb939dbc88f5eef1e2f1735ca7f68d142a7bc3dbb1fdcc4247710",
+    "agentic-home/docs/WORKERS.md": "5e76aa2bd00fc2218c6185dedb4090ce791bc97e8eff8cee7a599d424ef9341f",
+    "agentic-home/docs/history/pre-v3-0.3.1/AGENTS.md": "20b1f25d248db6233ed9331f31bf80b83bff6cf38abf8dd2f8ce17925aa55f2d",
+    "agentic-home/docs/history/pre-v3-0.3.1/PROJECT_PLAN.md": "0e0519be684da4b069c54ce6a065963356b19cd397a39345ff4077e90acdd034",
+    "agentic-home/docs/history/pre-v3-0.3.1/PROJECT_SPEC.md": "9f6547f5ad604719d22440fbb59f90ab8ee3c0626795404244c116a94edfdc67",
+    "agentic-home/docs/history/pre-v3-0.3.1/README.md": "bea4cd7f2e785b5303c5620e2821bf87680e206ac701ac990ded04df8252b998",
+    "agentic-home/docs/reviews/2026-10-12-APP-UPDATE-NEXT.md": "0f096d8b01bb2a349d39fe596edc1f85cfce45ee511556086dc2876dbac9de6c",
+    "agentic-home/docs/reviews/2026-10-12-E2E-ARCHITECTURE.md": "36af461e7ca5ff9fdb57232a22a652d343b6e9cf5a01be58ff5ae5ed3cfc750f",
+    "agentic-home/docs/reviews/2026-10-12-INGRESS-BRIDGE.md": "6de6990cb5cb550fafd9bcec0442661c72bb945d6bc0129c54e5641dcd203b31",
+    "agentic-home/docs/reviews/2026-10-12-NATIVE-HOME-ADAPTERS.md": "a0e054c10fa0ac8fd8e683d2d2e68951933886c438e8a529ded1b729d0b41c0a",
+    "agentic-home/docs/reviews/2026-10-12-UI-WORKER-DELIVERY.md": "6c16dcb2f6118b87c16fc4f2ba7e4b7f66b1b626cc86d0429bab7fa0696cd849",
+    "agentic-home/docs/reviews/2026-10-12-bootstrap.md": "4238b58d8b6eaa4261a619b709b49786d08e47932ad05447b762fcc03c07bce5",
+    "agentic-home/docs/reviews/2026-10-12-runtime.md": "edf8353587f7488ebf1e40834d82b486ea0ba2e09daad513ad1afa7f9dd5b118",
+    "agentic-home/docs/reviews/2026-10-12-ui.md": "f6953ad8f0616ec164f5508414cb9846b9a6536d718c7a11fc1ac325a2d728aa",
+    "agentic-home/docs/v3/BACKLOG_V3.md": "9d349bea6746b0c559d57c9a09cd4788fe14d4710e8109af4e0ca0d062cd6dd2",
+    "agentic-home/docs/v3/DEV_TEAM_BRIEF.md": "86450e716261a331618386e17f01b55f153078cc06f865c83abb1e5271ff52b9",
+    "agentic-home/docs/v3/IMPORT.json": "4de8ed383d01e02ee310a4ecf9c9d2b8a4392cadaee1b331febe060834093cf7",
+    "agentic-home/docs/v3/PILOT_ACCEPTANCE.md": "9e3266b9e68b363cb41b6d155c77d0d375b49db14a36874fb01c56d5dff715f5",
+    "agentic-home/docs/v3/PROGRESS.md": "f8c9913f4e78beacb6fd0b4b4b2b7fe621d5ba650992f78670d63534dc019ce1",
+    "agentic-home/docs/v3/PROJECT_PLAN_V3.md": "1ccdb41280306386664e4312bacd680bde386b27a1c8fa2b462b29dc12f16a1c",
+    "agentic-home/docs/v3/PROJECT_SPEC_V3.md": "16bd5177eb6b0bb009271c1f6ae8a4216f5bb2500dc6e32526c616635a3c3259",
+    "agentic-home/docs/v3/README.md": "b85a609da1eb324a3ccda1be574efe9e8984defb1021e58ef66a1db692c86614",
+    "agentic-home/docs/v3/SOURCES.md": "e8c67e7fd30230f883cbc8cc5c3b7fa3a2cd4befbb45889cd57a6fd975a025fa",
+    "agentic-home/docs/v3/WORKER_PROTOCOL_V1.md": "88625d3c56334c4ce2bfa88d8567840111fda056147b94b9327dd9bb8cf7719f",
+    "agentic-home/hermes/.dockerignore": "87ff6b6bd915e44c20b674ff1b478b0637ad02ba5135da1a9d27dae99c85c791",
+    "agentic-home/hermes/Dockerfile": "1d878470491d1a22b23c137b68bfc4b193d6eec5784d2fb4587fa1a2b698c992",
+    "agentic-home/hermes/HERMES-LICENSE": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6",
+    "agentic-home/hermes/README.md": "33352b30edcd31b4f252da61e867b916dee62d2219ca1e5b1546927a21dd70be",
+    "agentic-home/hermes/agentic_hermes/__init__.py": "a1e6e77ff2aacf71e428db739e81a78f5b0095086a8e49d4d8d21ee6c5265fcb",
+    "agentic-home/hermes/agentic_hermes/app.py": "dbe3643a34b9f17dbe57b6b6f357d7eefd3493618d21853e861260059061113b",
+    "agentic-home/hermes/agentic_hermes/child.py": "5f4494c2925bb0b412bd5f46bb616a79ee81adb3388da64ccfb8013fcaad9cf5",
+    "agentic-home/hermes/agentic_hermes/models.py": "dc97e56333ef7e86d409027dd0a86513d0be0e09b563672e04e4d8c021229947",
+    "agentic-home/hermes/agentic_hermes/oauth.py": "8d433378d323004bfe2fb5986c8760eb19cc6d9003b1bcbde3743ff8682c941d",
+    "agentic-home/hermes/agentic_hermes/oauth_child.py": "456db63ece2412c864404104f4028b717b8ca5e31a525b120e09dbeb41c16e10",
+    "agentic-home/hermes/agentic_hermes/upstream.py": "69f562b4ccea6e4e760791072d60743dbcd4f3907704a06ad27bb5094b6d4830",
+    "agentic-home/hermes/compatibility_probe.py": "76e4f9e53be4e3558cd3477f9a2f465e7b5aa40cfb2a7ca1cd0a48796b84994d",
+    "agentic-home/hermes/fetch_upstream.py": "5ca58043b59dad0589d2e89c7c3269ecd659955ba1bcbd3294b24c140b66f8cb",
+    "agentic-home/hermes/hermes.lock.json": "d2db4cf2b4984ca3a1418d59113fcd827336009cfc998ed23ff1638158d8c4fa",
+    "agentic-home/hermes/requirements.in": "4cf7915c1a2b150f85186668aa3bbb585e273e251a10b2590605563d86791a39",
+    "agentic-home/hermes/requirements.txt": "e3a114f9181cc94128f4ed29b8cd405b8d0c5ce477d1d3c6c050180da27240d6",
+    "agentic-home/host/Builder.Dockerfile": "e2a0c8d41323d87d5e57230110361c91133f141ec93c3b08b173b26ba80371a2",
+    "agentic-home/host/agentic_host/__init__.py": "c24f507f50b847246006e5b0000f2993dafb92cb11f0afe8248b27d7d1ab5bad",
+    "agentic-home/host/agentic_host/artifacts.py": "62ed70cc0cce036d13e70a7620abf25161340663aeb6eb8b666e7f6f80e58514",
+    "agentic-home/host/agentic_host/bootstrap.py": "97c8251b478d2be7236158bb879821e72a531a70ad287b519b27a0dce611e341",
+    "agentic-home/host/agentic_host/cli.py": "2ceefb27d848d92f985c9f5d17f3b8414cde9ff451ee4251a1cb9d6412ddec38",
+    "agentic-home/host/agentic_host/coding_program.py": "7de5ac99870b0bf34aa7c1f973135f9f8e081afd0733c39e01240fe8f57e1f80",
+    "agentic-home/host/agentic_host/coding_relay.py": "599d37506b66245209cff638e3b7223305cf5fd6df733d9ba222f57166321f93",
+    "agentic-home/host/agentic_host/coding_sandbox.py": "cc585e1f1f05ae4f19f39717e0758b4d5a22ae4eb253b4a2dc9493240510e1b6",
+    "agentic-home/host/agentic_host/coding_service.py": "4367fd04dad6833531c29c4f86274de23fae54ae19c30b5f6974b5ec47ad7b5e",
+    "agentic-home/host/agentic_host/coding_volume.py": "74df243725bc57df3a88f29915a1f2b76170aea8cf6dc373859112013a543701",
+    "agentic-home/host/agentic_host/compatibility.py": "7e2d9c2129fb35a567e198a1e44e9b6ef0df743432b3e4981d7bc1ae48301f2a",
+    "agentic-home/host/agentic_host/daemon.py": "cefaa0a4daaac43252bda2cf5917516e93ea4d8aa9e902f01feabbdb642edc2b",
+    "agentic-home/host/agentic_host/desktop.py": "4da4ea5fdb13057356ddf1157ef0c162f74bed473539f49716591c47d96627e4",
+    "agentic-home/host/agentic_host/fence.py": "2828f677c5b6ef768726d6a4827ad1bab842367e03c0df526375ec0f1d4d2ce7",
+    "agentic-home/host/agentic_host/manager.py": "c3ab7c7bfbd5d87c534ef715ebb26f7485688b1dc49c3f00eb40ebb62efbfbe8",
+    "agentic-home/host/agentic_host/network.py": "92cb4cef24f2248af6b6199d0498adfbc035d6497d2dfa0df0fd7853b8ffd91e",
+    "agentic-home/host/agentic_host/preview.py": "a3be4b9fca5ec574e526788c140cfe3a3c58d81d7d38118222eaea86a4a39ed3",
+    "agentic-home/host/agentic_host/proxy.py": "d307b950017e3daa2d041cbce3369133a90cd65f0580eba92db9b166f5b16c8d",
+    "agentic-home/host/agentic_host/publisher.py": "f7bb178d18104f8fb7c6c12be07f127b8d236a12d231b0505e04945d412a2df4",
+    "agentic-home/host/agentic_host/resources.py": "e75637f41d19c9613b05c1bcef947b664a3e7789c7bad85b2645e5912619e42d",
+    "agentic-home/host/agentic_host/source.py": "4977754d2a7067ff2b37d3dd3907fccedf14a0a1e6975f24f6aa942565a390cf",
+    "agentic-home/host/agentic_host/support.py": "d292fff3a7fd7d5ecc64c942e359866738f8152527739d5a466660a6dfc14376",
+    "agentic-home/host/agentic_host/update_probe.py": "868d5260adfeae4e43bbbdf06b5db8f5624187396db08bef76781062b4ccfa70",
+    "agentic-home/host/agentic_host/updater.py": "ebf44c79ac4b5309e05ddc2cb5b62551ea041329e8447436833f323f08b3b144",
+    "agentic-home/host/bases.lock.json": "e6a7cc057bb57889f9a2aedd82efc3478ad682ed7cf7c1e57fef56b546b0871a",
+    "agentic-home/host/compose.yaml": "67ab1f70b53c06cb1eb7e1c71c82b8ed44a7be34c846b7cc0bac6f7e5453abbf",
+    "agentic-home/host/desktop/agentic-home.desktop": "b6fa976dcbf1aeeed9cbc0546187e45f554d011c144610dcaa8212e7c5d2b124",
+    "agentic-home/host/install.py": "db39cb51901476cca3e1f64341dbf002f07b1d17a8fe6b14febdc9368722ecc5",
+    "agentic-home/host/linejs/Dockerfile": "456dc2dccd973da1d0eb8ce5fb52edd5b99d6f96dcb2a6a517969ff02c7159b9",
+    "agentic-home/host/linejs/patch-local-host.mjs": "bd200c9594f1eab75ea796b683141336eabc35dbaf24ddfd4616594f9c79d5c7",
+    "agentic-home/host/linejs/start.mjs": "7eb62553aea0c98b6fc43ca210c84173a1ae9aa6a1bcc120b78218119db48c40",
+    "agentic-home/host/network.lock.json": "a40bd26bee9aebcd52e0afd51623eb770be0771884755f6dd57d565272ed2b6c",
+    "agentic-home/host/preview/Dockerfile": "5bed4dd8d7631195d86da57cb1a249bee9bdb885ab960d5c6bbfa9b549454e28",
+    "agentic-home/host/preview/render.py": "2b6f4f8f9989729c7a584c8ba44853dfef7052229a2c1abb270189cdbe40d6f3",
+    "agentic-home/host/preview/requirements.lock": "404290984e7d077051148b03a6313974b4994aecd19c0238821181982478948c",
+    "agentic-home/host/profile.schema.json": "a9f09d26fd0a6cd4e6a28aaed0d5f60d94159c40d078d961c67f5ee706c30a40",
+    "agentic-home/host/profiles/laptop-amd64.json": "04bc59d9c1519eae063176a179e45f73203e3a5f7d1754fab74b58cea31627e9",
+    "agentic-home/host/profiles/laptop-new-amd64.json": "4e2041ff6d3ed97dce1c8e39da998989f5076936e89ce4bff162a2e571062e82",
+    "agentic-home/host/profiles/server-amd64.json": "28e4e0890779b504a80d2cbbc0a16bebb3dd8ce42ab00fd8fb261e13dbb8995e",
+    "agentic-home/host/systemd/agentic-home-firstboot.service": "f3d5e72d28e8197dcbfe15abfe9dfba3c4a185b43c03187ee36dbc0970919073",
+    "agentic-home/host/systemd/agentic-home-host.service": "60457ab180dbfe1f3f4c144f42e49e30f136e9806c1922023dfb0d3991dcc54c",
+    "agentic-home/host/systemd/agentic-home-proxy.service": "84f87cdfaddf052ff0ca192e2cd5f1f4e9daabf192b694030a1780ecc6c7745f",
+    "agentic-home/host/systemd/agentic-home.service": "197a77ba41cec5972970c457409804f0e27e5e55ba579cd6eb03defece72209d",
+    "agentic-home/host/update-publishers.json": "94ad03d81da042ce75d66775e379a02ea3433768d87a2a5f53f375e424920a27",
+    "agentic-home/host/worker/README.md": "091dd8eeb11bbc2fbe58d1583a988b8762fd6331b388d4f8be41cefdd6d05f46",
+    "agentic-home/providers.lock.json": "a8a65a6d7de2512010683c5c68ab17735af7ff56c1d177d4c961d292d620f171",
+    "agentic-home/pyproject.toml": "5b8b9644f228f8b10fa712215c67de69f7a2277ed9005c6dc8981df4748340f1",
+    "agentic-home/repository.yaml": "2099ccf9032248b8b90eb69d5a1cf9710da9ce31ca12e245a5ca2777ca00229d",
+    "agentic-home/runner/.dockerignore": "7a36af6322a4919bb510899b46139218b4cbf5d72e53df8336b7451854c08587",
+    "agentic-home/runner/CHANGELOG.md": "b457b3eca2ff8c6b809db67aaa9a5b51d9f814f36d42e74ebe74f4d384034b82",
+    "agentic-home/runner/DOCS.md": "3133efc408152efd74df7b63cbffbcfcc480465896fea80d324bcdc409c02a08",
+    "agentic-home/runner/Dockerfile": "53c3cd99b1e2bd0c8a999e7473e383ad954896609cd04c99a442cc7224892daa",
+    "agentic-home/runner/README.md": "763f0b612fce6bfc01b10c2ae3064a7f672ac6c2bfaffc29b5e542a649ede093",
+    "agentic-home/runner/agentic_runner/BOOTSTRAP.md": "27efbe230efb02a292c9e303f852b98cd1bed24595126bf0b255ab880368d5a7",
+    "agentic-home/runner/agentic_runner/CODEX-LICENSE": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc",
+    "agentic-home/runner/agentic_runner/__init__.py": "6cdac6877db542f32cbe5848f6f796ccb24decd443e8163c392303b8e8a3305f",
+    "agentic-home/runner/agentic_runner/app.py": "766a0c4de78dec9006bc7e35abcd67f09f91759562ebfbe9a796f98f2737b057",
+    "agentic-home/runner/agentic_runner/bootstrap.py": "d53b9d4cc15ac6ac1b4675924291e5edd0ec2a4733c75d925fb7d6c0e7f2b50f",
+    "agentic-home/runner/agentic_runner/codex-models.json": "17bbd690183e9267a446d1351ea738d6f38a87310f3530d0ec1e6b273823210f",
+    "agentic-home/runner/agentic_runner/coding.py": "4f686180a5a64d627f3fbd4338a853463e58fde884459462f3cfb29d671ba388",
+    "agentic-home/runner/agentic_runner/home_launcher.py": "e03ce72b1673f23351222a4451b261fba9757f8acc39c45810d76ca349292a38",
+    "agentic-home/runner/agentic_runner/home_sandbox.py": "dcf150eb65b5790f5e8bb190d6f7daf4aa85597e73851774c365b4d4aa32dbfb",
+    "agentic-home/runner/agentic_runner/home_service.py": "a982a8137f925f8e56031f4c4cf585b5a95db065bc0cf39e541009bb39cebfcc",
+    "agentic-home/runner/agentic_runner/providers.py": "0dcefa741c3e8b6205958f886b15224aeeb152d2d58543d6cb400d637a4ba04e",
+    "agentic-home/runner/agentic_runner/reconcile.py": "4e59aeff06ea1a945a624d90ac71929eec72244b35f237f5460764d2290331f6",
+    "agentic-home/runner/agentic_runner/retention.py": "60154a31c2988fc21280cc09dac3012c985e6a23248dbd48303acaa92b8965a9",
+    "agentic-home/runner/agy.lock.json": "d7e73799f7c5e4cc53dc3c75ba58eb5e68b5ae51ab2734f32005dec9f62cf2f4",
+    "agentic-home/runner/apparmor.txt": "e5806ce5ccc65cb1e1332774f0b6b96b7af650f20a76cb6516d0f018862d7753",
+    "agentic-home/runner/build_worker_source.py": "d0ffc9d91e4a8b496473962a152e79f3cda499eaa294846dcffcf7b8dfcf6644",
+    "agentic-home/runner/coding-source.lock.json": "8d1c1ad97326b8b0daebbd7e89286b55fbfdf544660a63fdb121922f3d3e7c17",
+    "agentic-home/runner/config.yaml": "0d36bd1c1c55897877a7d677663ad2d6aa1112d541144cda9936621529ca4553",
+    "agentic-home/runner/fetch_agy.py": "88972053a3cc7b0624e1c128660443584d4a517102e4d45cbd376f5d9f5e9a39",
+    "agentic-home/runner/package-lock.json": "fe7b8b1d0cca68a0dc9352542d50c82f1b5196029c21044f415f728da65eba0b",
+    "agentic-home/runner/package.json": "64aee172d48001c161640e7fc2b7851c146d582a950b3e002681b79d98dc6b94",
+    "agentic-home/runner/requirements-coding.txt": "588fb12922dd9fbdde81912268394612e3a88292db95232fa00e6553cf221852",
+    "agentic-home/runner/requirements.txt": "370a4907ffce372d60aebc5bfa83b372fa07a767849c3034e01e5decd9413818",
+    "agentic-home/runner/web-toolchain/package-lock.json": "1e4f553fda3af726c8e4f2b5ca6a21bd35a87c9b37624700328b708bcd4ae0fa",
+    "agentic-home/runner/web-toolchain/package.json": "cbb99b6bc8de1cf1a62b1b4eafd942ab837f3284149e42a04f012624441ec543",
+    "agentic-home/runner/worker-dependencies.lock.json": "9e3966d88e96fedf786d49029808a968950f61d1ea18c17925a7fe9cb765c383",
+    "agentic-home/runner/worker_runtime/agentic_host/__init__.py": "c24f507f50b847246006e5b0000f2993dafb92cb11f0afe8248b27d7d1ab5bad",
+    "agentic-home/runner/worker_runtime/agentic_host/artifacts.py": "62ed70cc0cce036d13e70a7620abf25161340663aeb6eb8b666e7f6f80e58514",
+    "agentic-home/runner/worker_runtime/agentic_host/bootstrap.py": "97c8251b478d2be7236158bb879821e72a531a70ad287b519b27a0dce611e341",
+    "agentic-home/runner/worker_runtime/agentic_host/cli.py": "2ceefb27d848d92f985c9f5d17f3b8414cde9ff451ee4251a1cb9d6412ddec38",
+    "agentic-home/runner/worker_runtime/agentic_host/coding_program.py": "7de5ac99870b0bf34aa7c1f973135f9f8e081afd0733c39e01240fe8f57e1f80",
+    "agentic-home/runner/worker_runtime/agentic_host/coding_relay.py": "599d37506b66245209cff638e3b7223305cf5fd6df733d9ba222f57166321f93",
+    "agentic-home/runner/worker_runtime/agentic_host/coding_sandbox.py": "cc585e1f1f05ae4f19f39717e0758b4d5a22ae4eb253b4a2dc9493240510e1b6",
+    "agentic-home/runner/worker_runtime/agentic_host/coding_service.py": "4367fd04dad6833531c29c4f86274de23fae54ae19c30b5f6974b5ec47ad7b5e",
+    "agentic-home/runner/worker_runtime/agentic_host/coding_volume.py": "74df243725bc57df3a88f29915a1f2b76170aea8cf6dc373859112013a543701",
+    "agentic-home/runner/worker_runtime/agentic_host/compatibility.py": "7e2d9c2129fb35a567e198a1e44e9b6ef0df743432b3e4981d7bc1ae48301f2a",
+    "agentic-home/runner/worker_runtime/agentic_host/daemon.py": "cefaa0a4daaac43252bda2cf5917516e93ea4d8aa9e902f01feabbdb642edc2b",
+    "agentic-home/runner/worker_runtime/agentic_host/desktop.py": "4da4ea5fdb13057356ddf1157ef0c162f74bed473539f49716591c47d96627e4",
+    "agentic-home/runner/worker_runtime/agentic_host/fence.py": "2828f677c5b6ef768726d6a4827ad1bab842367e03c0df526375ec0f1d4d2ce7",
+    "agentic-home/runner/worker_runtime/agentic_host/manager.py": "c3ab7c7bfbd5d87c534ef715ebb26f7485688b1dc49c3f00eb40ebb62efbfbe8",
+    "agentic-home/runner/worker_runtime/agentic_host/network.py": "92cb4cef24f2248af6b6199d0498adfbc035d6497d2dfa0df0fd7853b8ffd91e",
+    "agentic-home/runner/worker_runtime/agentic_host/preview.py": "a3be4b9fca5ec574e526788c140cfe3a3c58d81d7d38118222eaea86a4a39ed3",
+    "agentic-home/runner/worker_runtime/agentic_host/proxy.py": "d307b950017e3daa2d041cbce3369133a90cd65f0580eba92db9b166f5b16c8d",
+    "agentic-home/runner/worker_runtime/agentic_host/publisher.py": "f7bb178d18104f8fb7c6c12be07f127b8d236a12d231b0505e04945d412a2df4",
+    "agentic-home/runner/worker_runtime/agentic_host/resources.py": "e75637f41d19c9613b05c1bcef947b664a3e7789c7bad85b2645e5912619e42d",
+    "agentic-home/runner/worker_runtime/agentic_host/source.py": "4977754d2a7067ff2b37d3dd3907fccedf14a0a1e6975f24f6aa942565a390cf",
+    "agentic-home/runner/worker_runtime/agentic_host/support.py": "d292fff3a7fd7d5ecc64c942e359866738f8152527739d5a466660a6dfc14376",
+    "agentic-home/runner/worker_runtime/agentic_host/update_probe.py": "868d5260adfeae4e43bbbdf06b5db8f5624187396db08bef76781062b4ccfa70",
+    "agentic-home/runner/worker_runtime/agentic_host/updater.py": "ebf44c79ac4b5309e05ddc2cb5b62551ea041329e8447436833f323f08b3b144",
+    "agentic-home/runner/worker_runtime/manifest.json": "51763244141217c1b8c79fb336b6bd7a4c8e5ee708201376b4613fd69dead6d7",
+    "agentic-home/scripts/build_host.py": "8df6cad6bdf43533f785d6b76d814f00eed23cedec51333b98ad312ec4eaeaec",
+    "agentic-home/scripts/check_upstream.py": "476901662627d6613d9c4a3635438e13122e875df0f70a5049aa18d94465377e",
+    "agentic-home/scripts/contracts.py": "91fd02206513737fe907866725898bb2c5685b7f7855b37b646e05595dc8a8af",
+    "agentic-home/scripts/controller_source.py": "023599451a42e61054df3e18217bac50a187f55ef3b29f374e02547f9a23feed",
+    "agentic-home/scripts/package.py": "9c541a7953e941382c7526d56d54bebae7d5ce2fade49985391a363c2c279af6",
+    "agentic-home/scripts/restore_controller.py": "d6d2f4d9ff96c2af964635690a1bc44b311fe038730163fe01fa205c0ba35da8",
+    "agentic-home/scripts/site_screenshots.py": "5f2b8884760be376ac3220441fdab5ff23b36f18dec0b78e2ea81d8e1f8d439e",
+    "agentic-home/scripts/upstreams.py": "a7faffd23dee055677f8a1a10c169355e132d8ceed5f97336e4f3bf828450919",
+    "agentic-home/scripts/validate_kit.py": "3876b119480298b519d53e34fdbe90d47daa5488178f3e24320a3fc2c690f6c7",
+    "agentic-home/scripts/web_toolchain.py": "a6509091b7caba35550fd2d35051dd90e768028304a23d9ae5f59968258caa03",
+    "agentic-home/scripts/worker_runtime.py": "f6f4e0ec741036e1a42e85b240f0c343c11a7be596d018d58477d0c01c9935bd",
+    "agentic-home/site/.nojekyll": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "agentic-home/site/404.html": "e86225173a3580b5dec0110d23d7f3fb13b734c4c2fe81365c88a87554821650",
+    "agentic-home/site/app.js": "224eca325a412314622aee4372700fbd2351699e2c4ad47af17b75fceaa7e757",
+    "agentic-home/site/assets/og.png": "f83b10a75739b7869a4919edadef11b4f49a0dea9c526e137ffd286ba3da74ad",
+    "agentic-home/site/assets/screens/bridge.png": "036bdf7a912deffe1055ecd9fd9014a40045129daf961fa24ea4448b8e6b3d45",
+    "agentic-home/site/assets/screens/gateway.png": "8f6ad41dc216c49215c9cfebc048251f85782c296a6da69ab5d0785f547c952b",
+    "agentic-home/site/assets/screens/host.png": "8bad696dc3fac1fca5b8a6b90c9b2b67d60b49cfab78bedb20d491ac4ef6132b",
+    "agentic-home/site/assets/screens/inventory.png": "a3c4efb1932749145be34ea2c3a9a6eda1d2e4746528b68677f615c62f2c7f5c",
+    "agentic-home/site/assets/screens/manifest.json": "4b2317439b2dd30481c6e38e64c5371f8f5ab358340b0171648fff6453f1fe35",
+    "agentic-home/site/assets/screens/phone.png": "2dc286cc8e8f2907f325dd900f5153c74585d2d4780684f3ae360fdcd165d2c1",
+    "agentic-home/site/assets/screens/proposal.png": "97814abc464a5b99d6588ebdcd75c17b1479d7dd017125ccb9f01e21d73a53d4",
+    "agentic-home/site/assets/screens/workers.png": "9634840b529855086dba07cf6e5de51024b6e3e4717a0c55a1c5cd6377522179",
+    "agentic-home/site/favicon.svg": "a1a3e36b9e5cbdb926ddc3946c9758f2b815fb10d3f3c4c1a11f3ce71dd0cb13",
+    "agentic-home/site/index.html": "c9a1a21d5feed07aa18d9454d80c68f3f8391f6d6631268c9496d9c7e23899f3",
+    "agentic-home/site/lang.js": "3e04527682681340c68df1c564288e7b67ab98b14d9e633a57574fab6349c4af",
+    "agentic-home/site/robots.txt": "c1d53abc16f50f1c68284f750def11aee2b36a112cffc406b53d0d8754b6c1e2",
+    "agentic-home/site/sitemap.xml": "800c34a3c2f7d65c52edaf4d0b8b2c4646eed59212f3de9d4ff0fd1e61c3d76e",
+    "agentic-home/site/styles.css": "953dfbf19ec0b97c4780f0e0e0b890f5a666014d30f46d83d4df16d18d15a8ce",
+    "agentic-home/tests/bridge_native_browser.py": "0e5de523378dfe2d14f8a35e572173eecac14095fe537dba8bf927d6da4d29f5",
+    "agentic-home/tests/conftest.py": "280600ff964b2623df6b90ff369254146bc41222a269f53945ef16284bdc3676",
+    "agentic-home/tests/container_probe.py": "59aae59d589bb0f4449fc53b59affd116c6ff833af675e0c77bf87edd0a1652e",
+    "agentic-home/tests/e2e_runtime_fixture.py": "a32806783341e1947ee95f093392fac3dc0b696a8e02af43e7153dd291ef0b7e",
+    "agentic-home/tests/haos_boundary_probe.py": "7c281bb6d85fa5b4d3831d868ecdd437a2f9126c118168401fbcb934f822cea8",
+    "agentic-home/tests/home_worker_haos_probe.py": "72173d14bec0147dacc8b5ffc0f67c86cf3e655589c1594d916d7e61b0e5a13a",
+    "agentic-home/tests/installed_coding_probe.py": "395ac5ff4ed2632dae837b030a3e245c3ca6203d5df904be95196fc0e7bf83c9",
+    "agentic-home/tests/installed_probe.py": "71ae2421115df156c138e70dad0baec36ef98247f032f3304a64473b97b56a0f",
+    "agentic-home/tests/installed_sandbox_probe.py": "667f23117ae1ad97b944fe3090850fec8a3d758b4f779e5f0e20406eedef4c98",
+    "agentic-home/tests/installed_update_probe.py": "0322a02bfef1a7e19e064d530f61cd2c2068f79e61c6bf90858b0bf0c494599c",
+    "agentic-home/tests/linejs_probe.mjs": "33d66a3eaca7f450e134857d494769f28fcbf62b4b4611f8c9f0f9a3b51e21a6",
+    "agentic-home/tests/supervisor_probe.py": "a0a482bdb6fe6ddd53615527ec8a25430ce3b92f820428be8c6269ab59e0a139",
+    "agentic-home/tests/test_api.py": "6fbd46ad238839e10c1110b82b72d78354ff51e770245edbbe14bf11cee83ffb",
+    "agentic-home/tests/test_app_updates.py": "8994436b0e2bb1de15b3a19726757814cfd4d6a4e9f3cbfd049ca59340826a82",
+    "agentic-home/tests/test_bootstrap.py": "87bc1f80eda65f9c19cf078bf23ae5d3c710da8358b25b541a5160856287dfd0",
+    "agentic-home/tests/test_bootstrap_host.py": "c050bb6335c1671b69899cc3ecbd3c53adc41a383f0c6b8f8869ff332a4fc102",
+    "agentic-home/tests/test_bootstrap_runner.py": "403a081d5998651729b891517564734bdfdb22653d5d8b9c09ca0921909acd6b",
+    "agentic-home/tests/test_bootstrap_ui.py": "c9587071fcbfab09dd75dc948dfa9fe4a28a521d859ecc60c88d39d746b55ee3",
+    "agentic-home/tests/test_bridge_app.py": "16ec596978c40598ef25fcf5e6ebd2d291c3373c1d4d4c292a2bfaa0658bbd9b",
+    "agentic-home/tests/test_bridge_controller.py": "1748db1e5c1dade1fa5780dc293070fce346a03c0d881d518e4afef29479fc22",
+    "agentic-home/tests/test_bridge_haos.py": "d3c8025f98640ef61ec3c66a2dfb3248af5ea246cba4e68a0f56cf6d317d7c56",
+    "agentic-home/tests/test_bridge_maintenance.py": "bd1bb2f380db93c99f09beee176bc1318b84783817932758a244dd63ebcc6e0a",
+    "agentic-home/tests/test_bridge_ui.py": "4d69b19d29d3f7eddd38230975e50489fbf29b2d53ff4f51fecbdc524db7f977",
+    "agentic-home/tests/test_coding_job_budgets.py": "d85fdb79dcc762fba47c264bd3997a5c8186d7d46433399ef4969c9873dd56fc",
+    "agentic-home/tests/test_coding_permissions.py": "e5201ce13722a337b09a6a1bd4f01b467e7340cf06de531d039656f62e583d73",
+    "agentic-home/tests/test_coding_relay.py": "fc87c5482d98862d044e8cd011bc86e421da5373e99a61437f728453cfa7607a",
+    "agentic-home/tests/test_coding_sandbox.py": "459227633e24a3c1c38f81eb396b62d12983cf312d4df8494a44ed32bccce56f",
+    "agentic-home/tests/test_coding_source.py": "f8d05aecc7aca5de5dada9cd520fa36be58bc12f7a590bc4c4d9e94f83ceed45",
+    "agentic-home/tests/test_container.py": "17897e12a4c0a8bfc796f0891a29cc19de97813ed433de0171a23014dea080b6",
+    "agentic-home/tests/test_desktop_login.py": "bea8d65badd5f7f4b5cb395d0595a6f429594093e914a73e0f71d125a9acff52",
+    "agentic-home/tests/test_engine.py": "52ab2fafa3afc2ca05eef6f4038e7b3a8901cd61405ea7c8fe568c2a89b29c26",
+    "agentic-home/tests/test_gateway.py": "8df5741a5a114ca5bde387802c2cf3bac618fd7e557a53ed988e7503814bb8fa",
+    "agentic-home/tests/test_gateway_ui.py": "6a4f8e69eca065cde8ebdd095795b76b885b57a496a9700a2637c7cdf3c240ef",
+    "agentic-home/tests/test_ha_client_errors.py": "77a011b9c13e70412cf49e57d45cf0a68bec4139ab0feb90c39772bef48a2cfb",
+    "agentic-home/tests/test_ha_oauth.py": "9db48212a5817056dbfd202485feeb644f70dc64d164e6e993dd688423c8ff14",
+    "agentic-home/tests/test_haos_boundary.py": "cd1de5fe3930f2e4f2fb70c15f9019bb1aac97491ce79c7af91da32a7927ddf8",
+    "agentic-home/tests/test_haos_vm.py": "7dd92a0862e1a2cc6f7e9717da8f76e3c920305534bad77db0a1e8674797f5c5",
+    "agentic-home/tests/test_hermes_compatibility.py": "5bf89d45c240ba71e3a9b5b97200ef86d0fb4b2651a7182d701687a7f1211cd2",
+    "agentic-home/tests/test_hermes_controller.py": "2aaba14b13b179a06324e23953c60262ee152745137c25804fc8cceff1678df1",
+    "agentic-home/tests/test_hermes_runtime.py": "b3fd202af9680e34b52477c991d187aa4bd90a2db4d042f032a01a28bad581d7",
+    "agentic-home/tests/test_hermes_ui.py": "2b3826976bdc5fb4dbb557d7342863484a5e975251e78ba2794b2ec7636b6e12",
+    "agentic-home/tests/test_home_coding_service.py": "43cb94333f50bafcb8e6de71da712ea07aff50726bdeb8c20709e19f5202dd94",
+    "agentic-home/tests/test_home_disposal_boundary_recovery.py": "e31bbb432544c4577d79ce07836a7d7dcc87e699253a8a644fa77a38fd3b4528",
+    "agentic-home/tests/test_home_entry.py": "d83131a2db3821fecc644aadf363cabc2a63d2e21e844e348fd7961c63cf1c4b",
+    "agentic-home/tests/test_home_launch_preflight_recovery.py": "698937bf24441b63d7f61f1fff98e8aab6ad091da101b27237bcab0a1d014736",
+    "agentic-home/tests/test_home_sandbox.py": "d17df33818faf927ac733b0f38e04b3002c45ec1a4fe7f3d9d23e08a680b56f3",
+    "agentic-home/tests/test_home_worker_enable_haos.py": "9c3e063edc36d2c75817e6be1ef5a13d66d48e48afef1fcfa15f68693e0e8777",
+    "agentic-home/tests/test_home_worker_haos.py": "91f32a2a20d7e40c7650e0812ec8624969946cda9048754cbc1587ba543cd15b",
+    "agentic-home/tests/test_home_worker_maintenance.py": "1487211c5d9ec4f9badca98d1592be565f50d95ef91cb8abb97d3d9f7676eb8b",
+    "agentic-home/tests/test_home_worker_ui.py": "1afebdac2cf1bcf47d9878db340e9af84b64e6241c69f40a5157a9e9b806d342",
+    "agentic-home/tests/test_host.py": "6a966ce96c28902c477a0ca92ff09c53f2d85a6af0361d41f179f69105eef655",
+    "agentic-home/tests/test_host_broker_roles.py": "062841e014347f8e9e693b2c16332d1e1b099996e08d87bd6a9313d63129a306",
+    "agentic-home/tests/test_host_bundle_permissions.py": "23b049c9fe346e4131b6af1e75a7f5f4fc6d727a6631a03927698191228aad7b",
+    "agentic-home/tests/test_host_compatibility.py": "580624a58d647ce8c8efcbe2aeeea49eba3605b004a9a69cac5072a0c4e49ffe",
+    "agentic-home/tests/test_host_container_identity.py": "2e41c9a6d72dbe553524d762868953d676faaebf7155736ed9c2184a8fe56bf0",
+    "agentic-home/tests/test_host_job_polling.py": "678aca522e7b313138e8c60b25eec74fd25cf0b91218e2a4cc2ef31480c3dc02",
+    "agentic-home/tests/test_host_launch_preflight_recovery.py": "d82d2626a2da288808ec771b9bf2ec3df694527a361befd4a3a546dc1fc1e756",
+    "agentic-home/tests/test_host_network.py": "5cde824899c493ce8d5309e763be47e6e40d3f22110b1e22c7cd2ce84ef4194f",
+    "agentic-home/tests/test_image_public_permissions.py": "ccca5937cb99d8886aa4570df75f988e1dd57fbfa267932c589d9beee4a4bab3",
+    "agentic-home/tests/test_installed_coding_diagnostics.py": "1ace858ce8f50b27619c05bac4dc742868bb19e94fa6a079c1515bdfdc6e1858",
+    "agentic-home/tests/test_installed_probe_contract.py": "9b06d50bcef3c537cd65c83657dff5d6429173c7e627f791074d025e7dc5783b",
+    "agentic-home/tests/test_installed_runner_readiness.py": "a360bd2ebac5c14e86b85cfdff216e1b2b16bfe798ea444fcd6f6565467998d1",
+    "agentic-home/tests/test_interactive_preview.py": "d5e4e3fb3dd83fadb7372c0ffeb5420dfd2614feccfc8ff3b2863b29a1984576",
+    "agentic-home/tests/test_interactive_preview_ui.py": "bc52e40605ade30ca153dd44e89630231c37b75a55c429c7bca37d92b3a1020f",
+    "agentic-home/tests/test_linux_install.py": "e90b8526394f46110da41c6cf813acf7e2fc70dbf5614e1bb5093f25114f26bf",
+    "agentic-home/tests/test_linux_install_cleanup.py": "410f155182299cc65f043a5f1373fee0e6ff2074c3dbf46729eedfd5a974ba5d",
+    "agentic-home/tests/test_new_providers.py": "1ae1a10eae4c74fb835276c459b251abfad00dc2f312609c366d1d9d2c23cf1b",
+    "agentic-home/tests/test_onboarding_e2e.py": "3f1f5e5602038fd94c8f854a43854ef9f483e7881f1084098b81e043c2df79ab",
+    "agentic-home/tests/test_preview.py": "1739c33d554632571aa9fe914eb7895177af323be3801cfccef2b2145faf769c",
+    "agentic-home/tests/test_provider_auth.py": "dba46040c415bd235fd7fa94e1fbef149f681f2634e804d0d8d7bb8b32b94847",
+    "agentic-home/tests/test_provider_auth_ui.py": "9c30aa57de708db3bb504aa1a8b1333527ac98db7f7adca08c3b17fc9b96baef",
+    "agentic-home/tests/test_publisher.py": "0331f12322f0276c209e98a47118999b7ac3a8af34f30ffe1963c7d2e2e4dd2d",
+    "agentic-home/tests/test_real_ha.py": "75f42fe7a4bcd6bb2a7f5c2d8482e93b6e1726f530ebacd70f0fb7e326bea02a",
+    "agentic-home/tests/test_recovery_ui.py": "00da7c83b25a7ee106f2e219e803bfdb1c9f9f8abcf754ef8a948ecd8f0b0c7a",
+    "agentic-home/tests/test_review_bootstrap.py": "c3b800def0a6ae0c414cfa514f2bfaff68cef31c2029856cb2ca8b61161b569b",
+    "agentic-home/tests/test_review_cancellation.py": "9ff36dcce6d7a96ac03c40cc8a486e3eaa692628b89f574e2c5947ca57990ee6",
+    "agentic-home/tests/test_review_runtime.py": "b5184714bcd9eb40ad7afda39735e2a186caabff6ed87acedf6e16ba3a10e327",
+    "agentic-home/tests/test_review_ui.py": "de4c0b1294cfd77e2f132c2a73c50b04ac82e70f848fe169d1e6e83975d80885",
+    "agentic-home/tests/test_runner.py": "4c9d75f9a8fa2bcc8fdc09ef8b6528eea4d30d2bbaaec7248b3f2497d95d5519",
+    "agentic-home/tests/test_runner_lifecycle.py": "da5b70d90090caeb10d2921e37812423c40ee1a5034ede89cb2288fb08fa34e8",
+    "agentic-home/tests/test_runner_pairing_publish.py": "cb102af136b4a856cf752dec806fdb339fbbdd1697141a5cee372f36f35b94d5",
+    "agentic-home/tests/test_runner_supervisor_build.py": "57bf8c3f07f2661dacf07cd31dbb006b5acc6a69a9cc7d4007ae1bd6f484698f",
+    "agentic-home/tests/test_site.py": "480886c96a9e60270edb11c87d0032471ab243087c30b405c1706085457b0d50",
+    "agentic-home/tests/test_store_durability.py": "b498dc613009d92c7f86c29f892b1427220df2c46195d8953e2e2e3e6f4e0932",
+    "agentic-home/tests/test_store_migration.py": "d276891d8c33b9aee82e0ce7bc8eabb3a9f7765c9ac27f1e0d25680003d87b7a",
+    "agentic-home/tests/test_support.py": "100352ef13667b9f0b4f2f185863baea95955123e40b2cce54d49562cabdb0f1",
+    "agentic-home/tests/test_ui.py": "3493fbf6047d49e0bb42af414272a1b4f58b89484bfbc1f57c44d3e9aa51b6f2",
+    "agentic-home/tests/test_updater.py": "17feda5e5c3a620b78148d401662765031ffc76876729f432bdc98b6a34835a6",
+    "agentic-home/tests/test_upstream_check.py": "fdf4dedd36927eed0594b3271bdd1e287c7baf0cef3bcb3b9a10a66e535b145a",
+    "agentic-home/tests/test_worker_controller.py": "18d729a3a1b1c86ff5f5fa64f7b53c7ac97c6b67a1782e94ef33fd198adbc1c3",
+    "agentic-home/tests/test_worker_execution.py": "23a0e3a04fcf16f0a90cec932bcc0004b4439fd0058b8b43e2a1c11be058fe1f",
+    "agentic-home/tests/test_worker_household.py": "e9be22ac69399a9c0d27a7f4edac82e63d22ecc5519441c62bb91821591f6b5c",
+    "agentic-home/tests/test_worker_operations.py": "9d140fb6f7b8c362a74a5f33a19e16f6ef2c42039a76518e06289ba56242cc95",
+    "agentic-home/tests/test_worker_ui.py": "e90a2680263c20e9bc5cc0d7323aa99c3396f81cd413327e224be7e4739112b2",
+    "agentic-home/tests/ui_helpers.py": "6d0676899e0112ecb4af426f0abf7ba048be2abd5a25d1c8b514da3bcc0ddd36",
+    "agentic-home/upstream.lock.json": "d518c523695514a122d7428b66b40d6c8204dff2d0ba8523e60ef4960130a7b8",
+    "agentic-home/uv.lock": "59489994e319e8abff29a5b237b4dd89d88953765fc525eb49049d1f19927a1d",
+    "agentic-home/web/demo/demo.css": "ddbc5ebe38186f3f54c87c3a1d42a232d41caad7ecfbd20e7ff16e288137275b",
+    "agentic-home/web/demo/entry.ts": "208135af293f28be5a30295572fbbd60ddf021a39f326fe7719a16f18326316f",
+    "agentic-home/web/demo/fake-api.ts": "1b83fd19d570f75830c1663437e42b3cc50bcbb1500f255aa53cd280850f0b67",
+    "agentic-home/web/demo/index.html": "c2c06590a4471d683cec85dff668d61b426acf67dc9dffcc3cc7e9b000dc0197",
+    "agentic-home/web/demo/tsconfig.json": "1f3e7dc9f1fb88ec07a3446c04d096719ac51dc7e2ed001d56ec90e35dfbc679",
+    "agentic-home/web/demo/vite.config.ts": "15b72c1a234d8c4b81bbc809d6f77dc334737f457e5841c8666f47a26cf865a4",
+    "agentic-home/web/index.html": "d761600ddf1c703de714428fb94701408c3ad8c4d075683b98e4383162298acd",
+    "agentic-home/web/package-lock.json": "1e4f553fda3af726c8e4f2b5ca6a21bd35a87c9b37624700328b708bcd4ae0fa",
+    "agentic-home/web/package.json": "cbb99b6bc8de1cf1a62b1b4eafd942ab837f3284149e42a04f012624441ec543",
+    "agentic-home/web/preview/fixtures.json": "d81de96841b0bf043f52a0dde7f076cd7498ef23279cc96a8b29993d50965b39",
+    "agentic-home/web/src/api.ts": "7e63662a45c67603124ee2cbb405af16f65673ab813c2c9f190ec283b55308da",
+    "agentic-home/web/src/bootstrap.tsx": "c39d576192a4764e75c5bb0788fbaa7cacfbac71fddeb7a4bf648ad4cf6cbbf3",
+    "agentic-home/web/src/bridge-maintenance.tsx": "8773e939d6f34095f02c5492c487e678ab4ad1e2c6902517531b0e95bbae6b73",
+    "agentic-home/web/src/bridge.tsx": "0eeb8becaad72b9e47930030974ebfd8d4e28b41cb2701047db9d78fa1e1370b",
+    "agentic-home/web/src/channels.tsx": "4bc7ce3fe7483760278e194376d689215fd5bba221a6f25f7500b0ceefb7d923",
+    "agentic-home/web/src/errors.ts": "1137df53604f94e844fe7a029e5b2652358653fdfbabb9346fe23146243e6abf",
+    "agentic-home/web/src/gateway.tsx": "3df571f1d118eaa88f62644341c5555f8650a606ec8cb3e0c2d8d99608cbe939",
+    "agentic-home/web/src/hermes.tsx": "0c45e2b604330014a6db6cedbcfb0089e90c206e41c260c4c052507506573bb4",
+    "agentic-home/web/src/home-entry.tsx": "2c1de7758563fcd91daace7981ff687f0d7c07dd695137feaf882e4414d978a6",
+    "agentic-home/web/src/host.tsx": "976aa87bf37f16b4b351402fe13295d9145d860b1c418fd7834dfed9b09f72f4",
+    "agentic-home/web/src/labels.ts": "cdadd23518d6383cd416f898a2b71f7309354e46bfa3b0d25ea26a6b485e18c0",
+    "agentic-home/web/src/main.tsx": "cd2d4584f5b998ab7ca93c02c873402088bcd8ba05d101ed98d4cb03f040ce0f",
+    "agentic-home/web/src/maintenance.tsx": "0a486cd4195d8b8dacb438d1a6089cebf0da1e9769ddbf78afbebd235238de53",
+    "agentic-home/web/src/providers.tsx": "ebb9e225d7d1b761a0de9d7d2869a6cecada3d7825d0a063acf459984ffbe7b0",
+    "agentic-home/web/src/setup.tsx": "32ec2641a045157ab20977171f912f8a911b0a734c2ed3618c01a44c398b31e0",
+    "agentic-home/web/src/style.css": "49f5d745467d33d2966562544caec08c1d22cab5ac4426d8906628afd09b27c1",
+    "agentic-home/web/src/task-detail.tsx": "fcbf8021164e7a8b726545f77bc7d625642657c5c5bb0446fc8df047af5a23bf",
+    "agentic-home/web/src/ui.tsx": "b35ea61cc0ca959b3f44ab2509361177f2ca9a1f1c7cfdef9196e7e2aa047ee9",
+    "agentic-home/web/src/workers.tsx": "3ae72ab092caafeb673bad2baba6dc5709cbf44b6102bdf81120ef5e7f6565ad",
+    "agentic-home/web/tsconfig.json": "505dca3bc684ee3ec928e6d8594b5d514e951e737628f52fde4faf41b94f3c68",
+    "agentic-home/web/vite.config.ts": "4ed8f2a0e50abab384b410b4e610e3fc08f19f068f96c96403f12d4b404e91e1"
+  },
+  "direct_tar_shared_source_comparison": {
+    "receipt": "ci-media-match.json",
+    "receipt_sha256": "ac4edb62907a17cfd2552761baa3a42943102fb644b4b9199b734ad885851415",
+    "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+    "ci_run_id": 38792574808,
+    "ci_artifact_sha256": "0e82b350fc2a673091a44ff52d562ebe4c26022cdddde5bb722270be6a35d271",
+    "ci_source_zip_sha256": "8d87844da6693b0e310d5e969b3357e297da8a79aeceef908c0cebbb331c3968",
+    "shared_bundle_entries_checked": 240,
+    "all_shared_stage_files_match_ci_archive": true
+  },
+  "runs": {
+    "38792574808": {
+      "event": "push",
+      "attempt": 1,
+      "head_sha": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+      "run_url": "https://github.com/TED-H-com/agentic-smart-home/actions/runs/38792574808",
+      "reviewed_ci_receipt": "github-ci.json",
+      "reviewed_ci_receipt_sha256": "9dcc5913507e8665fd36771144642e78f6b166da6d7715a3a6fff0fa69aca06f",
+      "artifact_sha256": "0e82b350fc2a673091a44ff52d562ebe4c26022cdddde5bb722270be6a35d271",
+      "ci_source_zip_sha256": "8d87844da6693b0e310d5e969b3357e297da8a79aeceef908c0cebbb331c3968",
+      "ci_manifest_sha256": "fd98e19d042448aa7118c63597a09ba9d2ef95dea57c77d531717c78306336e5",
+      "manifest_exact_coverage": true,
+      "ci_manifest_payload_entries": 1306,
+      "local_manifest_payload_entries": 1300,
+      "manifest_set_delta": {
+        "missing_local_members": [],
+        "added_ci_members": [
+          "agentic-home/evidence/image-public-permissions-bridge.json",
+          "agentic-home/evidence/image-public-permissions-controller.json",
+          "agentic-home/evidence/image-public-permissions-hermes.json",
+          "agentic-home/evidence/image-public-permissions-linejs.json",
+          "agentic-home/evidence/image-public-permissions-preview.json",
+          "agentic-home/evidence/image-public-permissions-runner.json"
+        ]
+      },
+      "common_member_count": 1300,
+      "matching_common_member_count": 1087,
+      "matching_non_evidence_member_count": 394,
+      "non_evidence_mismatches": [],
+      "unchanged_historical_evidence_member_count": 693,
+      "refreshed_historical_evidence_member_count": 213,
+      "historical_evidence_refreshes": [
+        {
+          "member": "agentic-home/evidence/coding-boundary-cancel.json",
+          "local_sha256": "7b0e22a73d6bbb0f42252c948800c3a99150ca23aa13076d7607c6f91c1f9bb7",
+          "ci_sha256": "ffc3e8b15744541e21cdb1a7dca70d69f013e25acd118d2023d8eb10864fe361"
+        },
+        {
+          "member": "agentic-home/evidence/coding-boundary-deadline.json",
+          "local_sha256": "e2a53ce9e9d5fb9125b03e170dc9ced8932fc0075a03d8f4fdb4d06bea75bd44",
+          "ci_sha256": "02484d9be1a0dcd2650d39f2dc0b42e3dc5379ffc39c0b0ba48fe945812f8de0"
+        },
+        {
+          "member": "agentic-home/evidence/linejs-container.json",
+          "local_sha256": "6e0ecba2e2b48299c3a4fbd51d5990d67dcf0f7c5d0d6b4f6e105b819c5974df",
+          "ci_sha256": "470a78af7d36dabfc70936be178dfd2dfe8937a9635fe18252947dd014977668"
+        },
+        {
+          "member": "agentic-home/evidence/onboarding-e2e.json",
+          "local_sha256": "c2e6daafaaea7671eead6ad2eda0696ab2f20f6ca84df11c5eccd17b76c06646",
+          "ci_sha256": "c7b1c66b291670a7ffb5836cc2de2e2bdd84ef1ab27d849c5cbdd65c41d3dac2"
+        },
+        {
+          "member": "agentic-home/evidence/preview-renderer.json",
+          "local_sha256": "6747b51db6942ac1c1635764649ff98089e21841fcb129462604bc24f960af52",
+          "ci_sha256": "9412b24032bd128b789bcb7777f41d35432925506eb9e462b53f9372b6998c80"
+        },
+        {
+          "member": "agentic-home/evidence/pytest.xml",
+          "local_sha256": "de3cef27ec3dccf7dc11bfdfd84529794f898f401fbaa16f43e35a8dc805b9bd",
+          "ci_sha256": "af70fb4add531359a91841a7cf2f4e613a81cac624fd7f178e5671cf8117e2ca"
+        },
+        {
+          "member": "agentic-home/evidence/real-core-integration.json",
+          "local_sha256": "ec86e51c91355df3fdd8759be83cd968bda31df40f70284088ddde2038f8dd03",
+          "ci_sha256": "da3fcaedd926bc11af37fdeff0aed7913f253a7d3bcb2f57852a1f8f0461f40f"
+        },
+        {
+          "member": "agentic-home/evidence/runner-container.json",
+          "local_sha256": "86028ac2c2ebc5fc2e6dd610c3d223a8c63018df9f7110d331e9429b34678eaf",
+          "ci_sha256": "57f3730036efb3f64dabe79bd2791287551139be318707171c51c19c4eb09c1c"
+        },
+        {
+          "member": "agentic-home/evidence/supervisor-package.json",
+          "local_sha256": "26e0601dc6ef2b52cb62349ad3e134a0dc1ea3b3c8ba3eb4732bba0185680791",
+          "ci_sha256": "0814e882d418b3db0479cda304db4eb767292eb01beba9257c4970147210239a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/app-update-1440.png",
+          "local_sha256": "2dacd47f5240670c1a08bf3bb94e2ddfee0af3eb10ee993cfb92af7695df6ec2",
+          "ci_sha256": "5c6151ed94f0fa47edd0f9dec8520a18b53704e01f13746aa4f8ccb3eb0790bf"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/app-update-390.png",
+          "local_sha256": "1ecd903495806eeb7723b34ae23e4776e0130780995d3c986ae3b15ca75bed38",
+          "ci_sha256": "4ddda84d5abd55002a6ee519de4cdd7e92363f11eab31bfdd6fe25238259fcbe"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/app-update-768.png",
+          "local_sha256": "42b99b7e1f82b99d7a96c502f2f511373c65d6a4642372cf87408469deea1af6",
+          "ci_sha256": "c4043cea4efebdf1b7c72121148feb04e0421a8fb505570216b1356bc6e60c03"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/approval-1440.png",
+          "local_sha256": "25eccfdbccd5a24d3a83c266fb3cc1a9071ef5ad626e9eb5ad56f17ba4a51529",
+          "ci_sha256": "a90845803821feea4162fcafb1df301105ee587c3286fad071a96ea2b34f8525"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/approval-390.png",
+          "local_sha256": "b9eb41bd099572a890fba7351a133511d5e5f42680f612ec3f69ee16cbc4cc81",
+          "ci_sha256": "f8888d191666d5f77460014fc183cd198ad57e308fa106a00eb60f2e40cb4d78"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/approval-768.png",
+          "local_sha256": "cbef96fda3b0704a996d0478b1a62c1ba3a8fd13364be8e142566d299eb608ba",
+          "ci_sha256": "177c701521b63a01fa778f416ca36e59ef32a10d5fb4f05d8d3a118be454d602"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/conversation-1440.png",
+          "local_sha256": "938c6fc4b06a668ba5a17d88704f54037d2f14082be9c6d4f224a885dc2b9711",
+          "ci_sha256": "325c1fb97f45d997cad9da1e74367d227eeb7c7f85c97ae29197aa6eeb6093c5"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/conversation-390.png",
+          "local_sha256": "66488cce26f3d939359aaf6c289d421a6ed4ec6471e36400ac77b94d7687125f",
+          "ci_sha256": "8d049c440a1923ca17e0ae36fcc0bd8cf2d19c3ab0a7063f4762449cdf620df9"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/conversation-768.png",
+          "local_sha256": "d0b0f1613586b1b33ea197cf7c738201eb063fdc8ec14473a0a9a8c4d1c2c748",
+          "ci_sha256": "5c02beacfe19edd8a1449ad1c5ff12b3cffbcc8dde5d252531e76298f95a207c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/gateway-reconcile-1440.png",
+          "local_sha256": "3f021be1ba60eef77a15b43afd0394f9092d092e509a45c12faed276fb3f8efc",
+          "ci_sha256": "3d7fcb31eedb676eb6126604118eb0da607a5b9bb287629d992950259f4333d7"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/gateway-reconcile-390.png",
+          "local_sha256": "b3677ecd5380bc46d67e33022ed6139b62d4b965837484f24a6fcd72714a1117",
+          "ci_sha256": "1d87276ac06444aaed72071f421554728ddbc302dedab6f2594f550970c3d336"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/gateway-resend-1440.png",
+          "local_sha256": "3aefe72bc375dceccf7aca5076132c3f64deda4330d364d8679d8d0255ec70f6",
+          "ci_sha256": "8215a7520f10adee0d235e065822fc2c5245927d7abecb38e273678dccb2628f"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/gateway-resend-390.png",
+          "local_sha256": "d4eeda7b12b40fa3794965ed923136d2c01d9bd07a5f6735ab1e50d090bfaa67",
+          "ci_sha256": "2f785bfe4babc7ed904460c7a23afabab4bf9e66bb6056feca4473a11d91143a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/offline-1440.png",
+          "local_sha256": "819b35e1f37297ce02ec45e222484549d6287dc4f662e9cc6e5184ac9834e960",
+          "ci_sha256": "d40bd29e7ae3137746f139772db6ff6e81a8e70dc342e905bbb17a22f9655f6b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/offline-390.png",
+          "local_sha256": "819dd23ae9a472db6649e7a589ffd755613d56d83d3d8852ca87a66a3d8673ec",
+          "ci_sha256": "1668d8319d2726c01701f846774ecdd44b941203ff47350a93c80ff3d10db6d9"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/offline-768.png",
+          "local_sha256": "4eb3be0488d0551b90036da45e3252b325afc5a0f44eebbb65cac5d6775803f8",
+          "ci_sha256": "51125ddfac0fc66bc35e53f7bfb918e75f8971ed95ab9cb0786c8ae806d20590"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/owner_required-1440.png",
+          "local_sha256": "ee631de6d2263ed8d4b8a2d5eedad2bad65bcc97a14f76f5fa114de071b5e229",
+          "ci_sha256": "cfaa29f28403cba62a13554156f5d9fb23e0d0a2bc55fb9d0216bab68fb8f603"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/owner_required-390.png",
+          "local_sha256": "724b5a56da593e974378ab32cab2129e6fe801bd19a4d416bb4988ffb0999671",
+          "ci_sha256": "1179e44f2a669466318de73bf53377bc391a816858d71640aa96f43823d0dac9"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/owner_required-768.png",
+          "local_sha256": "0a2143db3658b4f5c882741c427b4f3f944ca34fa80d5143b58a2c5f74330fec",
+          "ci_sha256": "221705d8e37df254f3c75d0857e7320b5f0a955ae0601764a62068797b9aea40"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/results-1440.png",
+          "local_sha256": "f1ca2273211207c286d305841e8568033a39c861114e811c1fb1017ea97048cd",
+          "ci_sha256": "95078cc0b2f4869987863a0e65abf64fa2e1a71cdcae955f6dd2cac2c247f657"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/results-390.png",
+          "local_sha256": "1a854df9e96b081f79cce0f178dd46d5b83d8d0421fc82046bde38f510ce76a5",
+          "ci_sha256": "3762c5d05eeaf05875fa7881e00adff3d7010040f19f047127fbb1ce56de8a85"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/results-768.png",
+          "local_sha256": "bbba55d630e2d719bbaf73f76251c3b70acf65db7794790167bf4580d4aa83e9",
+          "ci_sha256": "887bfd99f53fe2a425a2a390613b5104b559d81686e76b48ac7d0e9a7200f748"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/revoked-1440.png",
+          "local_sha256": "3eebe52f249997e0b6c8b719d83298b02542cd8e91ca2b8eca0c65e120615c53",
+          "ci_sha256": "1cfccd2c1ee115c47675e07ec4ceae51550b3511c3928738b6a21a7ad672ee90"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/revoked-390.png",
+          "local_sha256": "4a6a2bf29a49a9d5fbd1296fadfe15a41db7f0b3ee6b9d3a23fe9dbcd55ff1ab",
+          "ci_sha256": "96eeba93c6edda724cef77131fbaebb1cda237ca62341c6a7b386a7d50ecd9cf"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/revoked-768.png",
+          "local_sha256": "137a2f401cd264894eff8e0b86fdf2de36bacb4eb93bc6e58f03fa485145064d",
+          "ci_sha256": "1dc91d367e228cdb78df6ed225e685dd754bab5107dacc7be3605bb8e9799a85"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/unavailable-1440.png",
+          "local_sha256": "f215d3b9dbc7c2a3a5f2f0be4ccd6626fa1c3be5cfbf1dc5440c3c0ca17f6ebd",
+          "ci_sha256": "688a70ac177f93156fa71bbdb6f79449d39a1039a7f8b69fb931fdc20eb0cf73"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/unavailable-390.png",
+          "local_sha256": "8ff5d0a93130e3be8a7fe223d8a9a8c4f944bf075cbc0579581138d246078377",
+          "ci_sha256": "c3a2777aa0493f3effe4849e97c25b9be21af719daf6046afa085c1326f3b0dd"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/unavailable-768.png",
+          "local_sha256": "4f3a81751ebb3a2e033d0c285d4134e424b77ae24d46786875a64437dfd862cf",
+          "ci_sha256": "18a74ff32723a7279cc34491deac3046a8eb4bdb14a58b4143851c3ed41b409c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/unpaired-1440.png",
+          "local_sha256": "10c7119940fe5f0f876fe33ff978fdf7a3e018a0546ab73269e83f02e7a67875",
+          "ci_sha256": "3ff970e9fd29612de68b4cce6496133f39fd80f6d35c692d9c78f81ba5fd923b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/unpaired-390.png",
+          "local_sha256": "28340e70f4401b12b5a15f6b138ad92680ffa591b979edd0522ff93a85070245",
+          "ci_sha256": "f9d42ca96743917ffcbd664041d28d4b411dd6057c53fdb07be47bf9acd6d8bf"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/unpaired-768.png",
+          "local_sha256": "26ab528b948b910bcec98c5ec1c5eba90fc4621a3b7ae89c515f5e71e9e696ef",
+          "ci_sha256": "5f5d059bebaa6e5287e93be9d56bc6fe0589a4147c27a33cafce52fd7f3e5a9a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/changes-grouped-1440.png",
+          "local_sha256": "ba48cd4a779a2470729df071a0314cf7cdd83066c13b2667fe46b6d700b0bb62",
+          "ci_sha256": "e6e0aa66d798f149807ae025a39c581c1e77529d70f76f6aba630f123be8a5c7"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/changes-grouped-390.png",
+          "local_sha256": "a577144cbadb43dc761aff942853736fb207caf3e764ad639457969392e809ea",
+          "ci_sha256": "282be87df6f7e56daa38ee8c6bf8b2ac17b1a1fe727339e08226516c0e4be3cc"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/diff-coloured-1440.png",
+          "local_sha256": "ab36820d9c8f0a351b65e142fa8f0eaa3c18c996f2d9b61c43577208f0b65c15",
+          "ci_sha256": "5251ae3aced9b6f5eba073f15d65f23259a2f46379d45a2e6e76a718edc2c3c2"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/diff-coloured-390.png",
+          "local_sha256": "cf8a0861be0264a39073969213f3724f7e9c681c47350aebe4038206a7c26802",
+          "ci_sha256": "506c2486b7006fbefc9c134418a76817d7760ca570d6f17a0dc870db5ed5806b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/login-code-1440.png",
+          "local_sha256": "21bd58562e3e5202bbdd698854109f75763728428e27f6f8ccc8258e3bc35980",
+          "ci_sha256": "6d09ff695fbd9dbaca7d3f6cbf4bbe696739cb6e9c902a4bcafb0050f662055b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/login-code-390.png",
+          "local_sha256": "7e0a9b9001451a599f1b45f4c97901d7f128c89656a9925df42450012b6351bb",
+          "ci_sha256": "75fa6ae33512589d9097e140fca326b154f08b4dd0b0511773f96759966c26a0"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/login-gave-up-1440.png",
+          "local_sha256": "eb627618bddbae630818302f51e7ad6beb4ddbb9433a6c8beaabf6db1f5a9a7b",
+          "ci_sha256": "ee74e7bd896f2ab7bee90a78f02df0bbeb01d7ab95f31371e3e5db3984885d88"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/login-gave-up-390.png",
+          "local_sha256": "0e2e64c7398ba7107b95d83a2002762692c40d98f0cf5e9c41d34258c667f46c",
+          "ci_sha256": "29949ffd69cb29ded5efc9c63af5afdecc75d8a62cde087b6cde0694a3acdcb2"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/no-patch-1440.png",
+          "local_sha256": "2c1a5bc182c966a9468f31f9f2232a15b6da126711e895b998e7a28ee4cfa5ff",
+          "ci_sha256": "3884d3e4802dd21b3a8a8d39d659c3f04796d7d98560fe5d58164003640a8dd3"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/no-patch-390.png",
+          "local_sha256": "765a0010cf986dc97e077c25758d11369f5bd04082b797e2fdf2215a52e3c530",
+          "ci_sha256": "0f6bdfe1c94ef5fd8c4330077611d95c6776a230564665c604184d543fdbd639"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/phase-launching-1440.png",
+          "local_sha256": "02b406b3e314a5e3b10b3990856b55ab0045e55fd294bc1d0f51d6bb65de3867",
+          "ci_sha256": "1ab5c6a29b7b0d8173e9faf556a405d5bca7e12be2a91ab73d020b75672a6933"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/phase-launching-390.png",
+          "local_sha256": "3ff83687b339a8fa457c0020fcd71b128d098e8caf23c504fe883aa472caf2c9",
+          "ci_sha256": "97809d0138dd87c41d5f3cdc6e5ab9d9b1ada25733fda4b73bb506c56d94c6d6"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/reason-retry-1440.png",
+          "local_sha256": "8fab9fe4ad12f660198e070eb2458a2824c8fc2f6472d65026026c45631b5e2f",
+          "ci_sha256": "d1b135f141235686b568b08c9be813af5ffa40f2b69cbcd846c445cec5e30d57"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/reason-retry-390.png",
+          "local_sha256": "c1de3a846a597ea194a15a875c3f5791544dc25d55370c585fe81790ccee5332",
+          "ci_sha256": "16c6b7ce22dc96fff848c1c429b2b4add67e7a9c54e5a0905a15d024d6fcea10"
+        },
+        {
+          "member": "agentic-home/evidence/ui/composer-paused.png",
+          "local_sha256": "6027c6de6bac62e38fb60cda2421d7b2a09137a80e2839d9b9001e99f6c6ea20",
+          "ci_sha256": "b4d556c81e5ee97d4996ef3ad9faad47cf907a1010d8eaa3fddaf688d80df84b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/e2e-complete.png",
+          "local_sha256": "9d180ca198f809f037ddfcc7a622ad9f793a05faa1c7b284c476a063867b9f1c",
+          "ci_sha256": "48e01e88885316543dddeb9af2f128f75bddccc4aa886fb6c571a77820d7e584"
+        },
+        {
+          "member": "agentic-home/evidence/ui/e2e-native-home.png",
+          "local_sha256": "10790714c90ad2014f40ec32ff9fa83e7c998d1e39a0757da93d75f679f4d19a",
+          "ci_sha256": "3d1bab8c106dfaa1f9beef4ece9b0cca75d89cadde32b9b16007f2d015202b90"
+        },
+        {
+          "member": "agentic-home/evidence/ui/e2e-native-login.png",
+          "local_sha256": "e8bb59abba5c5b2c7b63c530d62cd9baf841a6c23b489188a13c73cb62c4d075",
+          "ci_sha256": "3decb8ec09dae1848fb942df079799deeef62bea57c3cf7a36d9bae605d2d15e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/gateway-reconcile-1440.png",
+          "local_sha256": "b784b8e00d5e0d1873195f7b00477e09a08570b03696e74c00cd5cf98669d5ad",
+          "ci_sha256": "217b4587fa0e6903d4f0401a8c58c57807decf1e88768a0b9da8b47bdbcf2f86"
+        },
+        {
+          "member": "agentic-home/evidence/ui/gateway-reconcile-390.png",
+          "local_sha256": "a961a3a065d91e4ca5886dc65d3f75baae531f286c5f992ddff92933fc7aca99",
+          "ci_sha256": "cda76cb90fd4fa84bcf174343cf5b449ad6a133aa48a299a32df9da5dc1a20ac"
+        },
+        {
+          "member": "agentic-home/evidence/ui/gateway-resend-1440.png",
+          "local_sha256": "958fa9dfb593bc954c7267a585592a1b46eca158032c11d082db7d43b38d03ca",
+          "ci_sha256": "bfbdc9340dded56c673ee889cea3c52318e472ad229f845fc6fd4a4fda58f3b2"
+        },
+        {
+          "member": "agentic-home/evidence/ui/gateway-resend-390.png",
+          "local_sha256": "e5708cba09db8529988e4bbe2831d7574d916697aa2abdfba3ab99701538e1eb",
+          "ci_sha256": "27302cbaf1e75eaffc66e0f54096f7b43e68943af777a45f271ec664803832b1"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-verifier/after-1440.png",
+          "local_sha256": "f7af4269a70ec95be80523e1553831b7fc06e22972c63e7a6048f8808c76c013",
+          "ci_sha256": "d821260aadf1387a2fcc6f871e51bc21d34263341e9aae05c72a81c2bbeddb8c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-verifier/after-390.png",
+          "local_sha256": "a48dad927f0ddd5709af3bf35e6c1af029a336dc9c129a5b5d2ebe8c6f84a7e7",
+          "ci_sha256": "bb08c413792b5ea88dffea4f75e88e1cf8e1f4a6f4f8cee48cfa375a221ee22c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-verifier/after-768.png",
+          "local_sha256": "c172e06f4b75fae040d64d8bbb76fd64a2673e48e5da89d8a12c9d3fae565243",
+          "ci_sha256": "c9c51b1183226f879bca02f965ed7706ed8bc7792d7069236f821e6529c12425"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/completion-1440.png",
+          "local_sha256": "b8ef016c8a61d7001e27ac15e3f545e272d16f957f05280bf3832e9d416a8e16",
+          "ci_sha256": "5c90c8e1d0e0eeed485eac82c1046ca9a16ad47355a92967afd975112a1cac95"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/completion-390.png",
+          "local_sha256": "559f50adb639857df910c72893a482d5d0800c5f9dee8487ef5214ebf5eae21c",
+          "ci_sha256": "f07e1e37ef4683743ea2204ab175b38e69059689ef5900ef9f70ee063fcc807d"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/enable-1440.png",
+          "local_sha256": "810c69e7b0967f3f60ab6e823b4b9e6228ef53bca13c54574cd9ba092bfa9c73",
+          "ci_sha256": "4ad0e37c8bb84c3ecfe051f6f66221636c2fb635700fd95105263e19aa607e02"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/enable-390.png",
+          "local_sha256": "ea7cba524bad83f8afca2036696027eab2e6d4cfe92069ccf436fb05e0c678cb",
+          "ci_sha256": "d4eec8d40a3ceb744874e9017f91a2e308cc3cf06797894c0fe8ff79eb4b0583"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/host-1440.png",
+          "local_sha256": "203e064f538c9fb098902e84b791658c1aa6ec0e96d07da8d5869e5d11450a6e",
+          "ci_sha256": "a45d8505e95da4362bfed01290c95958942f911a2b271e900e324acbc385aa2c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/host-390.png",
+          "local_sha256": "e48d4eee3cc2f5efa6df3d37a6e36d736c924a109d24d5fdbfdac847d32ce73c",
+          "ci_sha256": "6c156f6c3e644458ba211de5c4a2e85144f97213a59784be4e9e9dd97fdf8699"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/login-ready-1440.png",
+          "local_sha256": "01f68a8973f717a84d434604e22cfa49d392d45eb50d883a227b4392608d937d",
+          "ci_sha256": "e30d5de31ef659ec33602eec0a68aa221a19d8d82dd7197bbefa1e132cb76740"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/login-ready-390.png",
+          "local_sha256": "19d893ea47368f5a6af760227d97ae7f674f74949a28a3e3398e2e697a74caea",
+          "ci_sha256": "5c1b83291f18fca96ede9b805aa10d99a1ab42beca918687147b58028d8c58f9"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/update-1440.png",
+          "local_sha256": "da016ca58db49c7c55d0f68bf4ecfd9c1c7dbf6624e9e98da2493b3c2918d0c0",
+          "ci_sha256": "707c116ab30257dda80d59833b8be47b67248f99a11bb5a86d1e0a83a207f128"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/update-390.png",
+          "local_sha256": "4ca000d5ec61a6092f5add9e7bd4d716f9a2f6bdc28526c6709d1265ebac5728",
+          "ci_sha256": "e93ce73402ad73b459bb2d6e19f6c2725d61ef397bfd8f54ec5fde3eedbb891e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/workers-1440.png",
+          "local_sha256": "b760e744115a838a47b4f029adb5a945fa4a0fce72192487fe30b40d55b39799",
+          "ci_sha256": "c2083b53f74cc5b1f4793a2c7b89d44745c7a2fa13512f041f566d4133cf9e6e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/workers-390.png",
+          "local_sha256": "2257b4f44c643ab91a386d1e903c2a14c09f85e61b302699fb99806ae1a730b9",
+          "ci_sha256": "a0268793af019dffc50aaa54f650c392402a0000b4e94d4ad5e386d488a5e015"
+        },
+        {
+          "member": "agentic-home/evidence/ui/host-shutdown-confirm.png",
+          "local_sha256": "2a74f8e48689401511bd26cb86e29d94196983f17349fbbf26d73eb1d09aeb22",
+          "ci_sha256": "4641843d25948a353d427243c3687977a203cceb0fb0c88c0bbf9b91133edaeb"
+        },
+        {
+          "member": "agentic-home/evidence/ui/host-source/source-missing-1440.png",
+          "local_sha256": "a5a0165c50f9d321279333df68b32fe25cf51a01c0b9beee836e7c84ab895f42",
+          "ci_sha256": "00d902b9cc6228cc8d975f65d4ba7e17897190a008450262331449f554ebd479"
+        },
+        {
+          "member": "agentic-home/evidence/ui/host-source/source-missing-390.png",
+          "local_sha256": "672e770621d7bf83418625814ac235034613ff75574f7627b0deb545ae90b372",
+          "ci_sha256": "8192ef38b4ae52083ad6128cf1552783eddbb3b88ec0e57d0b99e40eaf13fdd2"
+        },
+        {
+          "member": "agentic-home/evidence/ui/host-source/sync-moved-1440.png",
+          "local_sha256": "6031c9ac79922776424618b643d0c10dd8a7b53b8efdf69e980baef4d814c41f",
+          "ci_sha256": "fdfa529b594ec584dec1afd683b15c507ac38ca3eb497601726cc95219fcf532"
+        },
+        {
+          "member": "agentic-home/evidence/ui/host-source/sync-moved-390.png",
+          "local_sha256": "0ad12a6ce2c06dfe82f305848937bf606c89a2e9bb0f0265803f45a04a27b0c3",
+          "ci_sha256": "41f7fc287493b789ba1d8879d4f198d497076965e19d9c3cd4dca6b0b2ac9f34"
+        },
+        {
+          "member": "agentic-home/evidence/ui/host-update/error-1440.png",
+          "local_sha256": "0eb451034cb1451863c1804e64c7c92a3a2dff0274a346478f2616b93c5f5797",
+          "ci_sha256": "63510d900f431aa6061e6c293aff74d5c89fd8a3d0dfe4ce2f608399b6cc080d"
+        },
+        {
+          "member": "agentic-home/evidence/ui/host-update/error-390.png",
+          "local_sha256": "fea7e04c5be4879ec5bf522c6e59fa04236e4641b2e7c0f1de70b912fbff7907",
+          "ci_sha256": "eff2e403c45711a7865b1d007f0bbd73cfb045853112f39480fa2cdd256c0ef2"
+        },
+        {
+          "member": "agentic-home/evidence/ui/interactive-preview-1440.png",
+          "local_sha256": "c802402ec92ca80352efcb2ab8abc9687dfacf86e4a938e9cae1327e751531c1",
+          "ci_sha256": "561943841f274ba1dfa4706431ded1d9981e52758e1ebb1835f2823dd4a81ca6"
+        },
+        {
+          "member": "agentic-home/evidence/ui/interactive-preview-390.png",
+          "local_sha256": "1d34633b9c3697bcb18c1b3d3253d6fad2f8b375b7fba0df5fd9193dbc6bb53d",
+          "ci_sha256": "af1f49eadf67f229b5b42898ec2e2be5d3964d9c574af10d099dfc5046a0e316"
+        },
+        {
+          "member": "agentic-home/evidence/ui/interactive-preview-entry.png",
+          "local_sha256": "73b156d78f0254a89cf86a64de893b306077461238f0fd439766f7732991abca",
+          "ci_sha256": "240aee72e04658861eefbda0a39b0573763a3e0ded3c3a20310492aef8170340"
+        },
+        {
+          "member": "agentic-home/evidence/ui/inventory-390.png",
+          "local_sha256": "a59625c4d8a93dcbc8ece23905d96e7a90d9709e5f3b0bfeef00724ab69f7c7e",
+          "ci_sha256": "197ef6104612e662c3aebad7d0ff5a15ad7cbeac13eb48c9c6c9d5119edb3abf"
+        },
+        {
+          "member": "agentic-home/evidence/ui/inventory-purpose-390.png",
+          "local_sha256": "d2769d34ee47dc79e683e3312b1bf71f533b032513d684d48f4fc4e9d821544b",
+          "ci_sha256": "224861303a549c744728647368057cacb073e4483f391f00c9bfb660ccdcfdb3"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/assistant-results-1440.png",
+          "local_sha256": "feb8ddfa6efcb948b79ed2a0b2b00e4197f2a801f651cc241b2f249352785405",
+          "ci_sha256": "ad55659e89beba1ca3b927dbe99afc99892a35a0c133a8756f1942ff41c3bf0a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/assistant-results-390.png",
+          "local_sha256": "4fc1fc32eb343a610277b3a8d792cf51d685ca247c6a7aab1b4bed3cca325c9c",
+          "ci_sha256": "c7afa0e17b2617d66bec930fdd42c4e5813a261cc927a906e1a62efbb9d7024e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/assistant-results-768.png",
+          "local_sha256": "faa6b3567e7f390d8da9e1f4d1d09211e0d794ae326d23b17ecfca62eafa70bf",
+          "ci_sha256": "a20b857d72bda023a98d6df2676c2329ce9e1b31ae01328dcc6ea602735086a2"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/assistant-welcome-1440.png",
+          "local_sha256": "088f94b9feae3f0caee9095200632e2e5c71dc0d2edf15c9a9811754efa8876f",
+          "ci_sha256": "ae6c3caf094c274b3081762047638886c34416230b140dabd6de437ac667ba8b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/assistant-welcome-390.png",
+          "local_sha256": "44e0694496bb5a19029e7fcfa8901ddc47a3b8c7c7c9b1b50794cf867ea71637",
+          "ci_sha256": "a924c25c088f73eac4dffecfb839030ad64a56453673aae94ca30a76bb5e3115"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/assistant-welcome-768.png",
+          "local_sha256": "22cf8a87bcd93ba248efe6079aa42239111affcd7ef7744312a7bbe80a611b03",
+          "ci_sha256": "627508ac24e628785560d419731ed28d69ddbe1649193c09d126736e5910a1d4"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-choose-1440.png",
+          "local_sha256": "14657c724d7b43e67b42f22b22dd13ee13bd3b60661a8271f106a59d45823228",
+          "ci_sha256": "91936f05f1b36bfb5f0e4e146ce821dc9079d32eda52af55d7aa5eb8d5eb888c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-choose-390.png",
+          "local_sha256": "326b2c181eec5ddf3d1ca0deb205c7745b75192d75d8300d7aaa5bda6c4c4895",
+          "ci_sha256": "23fb43973785ebaac7bc666ac01beca2dbaaced9064731c56da40fed5804908e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-choose-768.png",
+          "local_sha256": "4068ceb941eebec8ea2b7fa05a7971e860f60965bf7e5bf3f8ee7d42f226d21c",
+          "ci_sha256": "5e594fdb10ea252e8b1066d991c54db19944a9bff5dc8601bfc3f134c6039d15"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-cli-auth-1440.png",
+          "local_sha256": "1b786bacde9c5cc957a08fd1cf5231cdaa8825325ac996f41bd7c0151ef853c8",
+          "ci_sha256": "abc4c82f5fd964b17f53c4fdeb337f4665767cd967c0dd7aa74e2c7b9b667d6b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-cli-auth-390.png",
+          "local_sha256": "15a7cd06d725b17c81d8f5527c840a5fcbeebdc82f72df865b87a126651f16b1",
+          "ci_sha256": "b92d9cb28bd68590e0e85cb334ba8f705728753caabbe045b969dbdb608c3f9c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-cli-auth-768.png",
+          "local_sha256": "28f9e7ac391ba18d2ab44d5ee6a36d36a5a19cc004d5c154f047624e72aab885",
+          "ci_sha256": "2d8379e04b8a7fb74dfd21afa8d8fe2538110021ad3fb3153f5e769f3aca92ae"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-complete-1440.png",
+          "local_sha256": "1534f6a74ab3f6cf752c734eac663fa55f3de41571cf27544b2f2de3e2e0104c",
+          "ci_sha256": "f63f59a59e25b06c58a2a9738fde9bb62afa562ca561d4e478b74e6176176e49"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-complete-390.png",
+          "local_sha256": "d9a8c23b1c9a376d30af5ba43971ee56a394e9c86ec51ace334d0dfe8cf3cd26",
+          "ci_sha256": "fc7e06dc2eff0542017af07433a3ef343b07d614de50d578cb8fac405a09ac5c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-complete-768.png",
+          "local_sha256": "d421174b2cc9552c423a0cfbb30348857450ae40a100b5cc82bc5a3eb1afa9fb",
+          "ci_sha256": "291f9ef0a0285511989e488cc880354b270b882e66f84355a04a09fc4b055990"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-desktop-retry-1440.png",
+          "local_sha256": "a2e24b08e87d0358cb6487e4d3a88af6dd45c42b02bdb304aee29f6c360c85fe",
+          "ci_sha256": "5414b4a7fbc1d5291b4d03b902d3b1820c96a9cc6a10ffeb4e8dee4d7834c870"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-desktop-retry-390.png",
+          "local_sha256": "9447dd52c0dc8304663b49822af0f5693d24d917b8db7eb9009b1f32e4c4cac7",
+          "ci_sha256": "f49e89200e54d140638093bfece827ca6d504dacb0a30114536473ad47cd0e0c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-desktop-retry-768.png",
+          "local_sha256": "17e46ce2a99a968d803a308e5f3fc29f3f166cd5621236abb68c0dcbf73b2e73",
+          "ci_sha256": "fd4c21bda2c3357074d6c6934d7b687fb0bffcca6495715bf217cc386e624238"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-disconnected-1440.png",
+          "local_sha256": "5cd92b7b329c0c943258d1f8f12ae69d94fc89c088b9671e5bcdbc65df2e3f4c",
+          "ci_sha256": "6b9b09cc46da49b47932393812b938b27bc2bd969357616487fffddfa18926c3"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-disconnected-390.png",
+          "local_sha256": "73b5d612a3f783963a90e6f80a62407bd573fb3fd0108f3e6a1f06e400dbc2a3",
+          "ci_sha256": "071bfb45133ed80713ae7f61b7859094c712be85f5d9f50f936f110a09b0ec55"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-disconnected-768.png",
+          "local_sha256": "2ad024c28306baceecf4cf301ffb2116abf71c2c7f4e3041a4aad150f230f5b9",
+          "ci_sha256": "3ecba9ab769826ce1fe0cba49c700a084d9a47be103e3fc9bedfa19460953c01"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-hermes-auth-1440.png",
+          "local_sha256": "5251f79ae7e6441c4d30c43682e595d4a25253a3a1ee7c4f267fcfccaa8d9936",
+          "ci_sha256": "7e2cfc252a62bd77d9f50d7599529ac77844816f4cd4eaabbefddb4eb247f8f6"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-hermes-auth-390.png",
+          "local_sha256": "c67c50bbbe132bbb38c472e0f890c8a57eb6800b82c6800ab1b4ea1b43b23749",
+          "ci_sha256": "8ba8b63cc5da8da72d48d42e953b61f3b100eb271c02594242ea658789783e1f"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-hermes-auth-768.png",
+          "local_sha256": "3d35c2f80f0d555ab93c61d9e28c50b3c20f92f68d8d44e5632985aee59bfda2",
+          "ci_sha256": "884721c8975269d50e23e46db05e5a1f55b5f4bd4694d5f9c6c6fa5bc46dd9e0"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-install-1440.png",
+          "local_sha256": "08a05471a1236a7450b7c8bfb4b89c9c6ce8d2a5d2efbe7638205bd6c8d42675",
+          "ci_sha256": "0c78fca8a35a102be67b974b316775e07c9f6c71b28bd03951e120c1101af280"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-install-390.png",
+          "local_sha256": "60a056dea5adb7ca336fdeceb673c6e6495a5858a1c59e2cf657fe5e16f3318f",
+          "ci_sha256": "12e540e82674e922d01b97f3253d06a5122524261f362e7c817052e56da39556"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-install-768.png",
+          "local_sha256": "8a230edde885fe28a1d183fce97ec5a546437205e602069fd12df5f1373e5b12",
+          "ci_sha256": "2053403258b018135a6ba40b4e904c618cc74c84172163a592392a3f8cfa7742"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-line-1440.png",
+          "local_sha256": "fc5840a33d185dcc744acbb9f06cc58d68d378d101c36323470f5c3c1fcd17c2",
+          "ci_sha256": "675d1c117eb4e25f7f13deb3e0112e06e8ae6f046b5dbe1b8a9202ea6fc557f4"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-line-390.png",
+          "local_sha256": "efc730acaa0553cb468df97dbbd48bd03f38ecfe14f1038f75448964fda72fa2",
+          "ci_sha256": "ca4fe42fe44fba54a2881c7f0b4891d0ed9f3aaaa09190bb4ae2e327cac4f116"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-line-768.png",
+          "local_sha256": "bbdc92553aad5ef8b6f7dbc1ed0d4369b359a4dbecc2e9f012c06eced314cdf8",
+          "ci_sha256": "70b38345db246b661d18873004f0ca878c3f16a90dfc77044f2cfdec7e0f15d9"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-line-pairing-1440.png",
+          "local_sha256": "d5a7fb9f7a722c88c4ed1698317af4902fca98576b726bee334497b47e067e09",
+          "ci_sha256": "764bd73820aa2fdb10c348e31ad20055c5abd2c24fe8a09132cca4442e2f1a2f"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-line-pairing-390.png",
+          "local_sha256": "90681e67e71b4125c0798e8ffe7e384d8f8e560b29e78952d1b5f4c3977a9b2b",
+          "ci_sha256": "54299c0dee3b2ee84ff7c55b61349bb0f289641127495e5af31e0b0cbd8a11d3"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-line-pairing-768.png",
+          "local_sha256": "861bf2516a35eed7f7d4c5070a49a03343a2f7bcc212405ea30635761cd437ee",
+          "ci_sha256": "f3ca3bd4dee6d92a996af0f579179b76a0100af0fc11979a35b3d654fa3b07cc"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-native-home-1440.png",
+          "local_sha256": "8fbc5a8c98e669768973001258c58e27244f44dca029ff8e3c316291185deb66",
+          "ci_sha256": "ad624600c709b0fcc4dfeb0110cdcde5f042f5b949149619f1b1483f2ffd2d1e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-native-home-390.png",
+          "local_sha256": "ae3401677b2e1b9686fe725476c05e92984ac56bc01b5fcd581c9887649d3d1d",
+          "ci_sha256": "45e31663615f5a370b6495cfc30eb8ed3732a41e468ac6980a209aa6c9ff4583"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-native-home-768.png",
+          "local_sha256": "edbb0f91592242c9457a05ee0b2709a6a3377fb981580b1482a51341acdbd11f",
+          "ci_sha256": "57add6b6a85aa39771c9a2147d2f13f15c5ba2e42eec4507aa4b470ab5d69a2b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-native-owner-1440.png",
+          "local_sha256": "b5c7f8cac1c7cafa74a1c43f55732f40578f2c0c96dde75b19899462fe23c207",
+          "ci_sha256": "4da598fcfb37452b935e4d51e046f3454aa21ea8d818df1c365f18b4e86ac0e3"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-native-owner-390.png",
+          "local_sha256": "7e8157bd250b4b728e5472705f4907a8b957e5f6c83573fd30844fdc9b568873",
+          "ci_sha256": "1f20e8eb971015268831024ea80496fdd9ad62198527e9570856eceb9f91c2c3"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-native-owner-768.png",
+          "local_sha256": "b0f48c36b523d8e95f98de5f2d87a0c6ab836679ef64100192b70d5a492a8f9e",
+          "ci_sha256": "d257165872e67f5b254ccb10043a596aa5a8c29f350dd421038192dfebb3e9c4"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/coding-results-1440.png",
+          "local_sha256": "7eff44713d9df0d0b1ebe5ce9b68be628659bce665be8298a2aabc533be8f9d1",
+          "ci_sha256": "0e146004a6bf17df96924577c5190116a27ceb4d2e629b10284b8e0e51707410"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/coding-results-390.png",
+          "local_sha256": "76fb66e960f50deebf746c2e81f49993ff8e747cdd363c08023d9b92387cc0eb",
+          "ci_sha256": "25dfbce25011743c7d157422ce3a6807d3f4cee3e63684f191e0435dfc4ed410"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/coding-results-768.png",
+          "local_sha256": "f7163997756e4e9c0b05032bb86035fa8a9937bf421d9c49814ba5f12eaa1d03",
+          "ci_sha256": "80b892349615600793fc965c4d87950999910240341eca032c0c2bc97fe7b5ac"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/conversation-work-1440.png",
+          "local_sha256": "a23a8753b6dcc63d7ab3d9e63f1dabd9baafad1263fdc511aa29c1e5f130ee70",
+          "ci_sha256": "c701159c6e6c4e90b34dacedad96836b977a66af804fa836405235cb6f975594"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/conversation-work-390.png",
+          "local_sha256": "5a31cf37f0aecd74c52965045082aaf0f4c48939793a4fac825db1283a076852",
+          "ci_sha256": "7e93317b2d554afd56f5b3081534d41900a79f14394d180e7a5c274d86dcc873"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/conversation-work-768.png",
+          "local_sha256": "f183b2e253273a5b9deebf46246724470ecdb73d27490b81e4af431b05afa634",
+          "ci_sha256": "beec922d16d1777e9683620f27d4f6a8fc8f60ce79cd7d4f2cb4656d95ea3eaf"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/gateway-1440.png",
+          "local_sha256": "d577658c0daeed71fdffce6dec7d341577bb19d29d4630c5a88ed588467c3be7",
+          "ci_sha256": "abec5ee5c56131b3fe44aa88955899916b05804c8a447999a01d9e31518f7c9c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/gateway-390.png",
+          "local_sha256": "66d9625f639a07af4db7b4b2932fe3fc0d263be060dc60835591f1a6fa6390a1",
+          "ci_sha256": "592d45d888cbac226dfdd6ef80f5cf8f88ab145dcf1ec89577f8f75359657095"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/gateway-768.png",
+          "local_sha256": "ede21dc385259aaa2b4c32d586f98ac702bf760829225abfb0e182c9c736f12c",
+          "ci_sha256": "4827256385a4a0530a5650dc5fcf1feef7b4f6d5051d68d42de1ae9da161f93a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-configured-1440.png",
+          "local_sha256": "a2dec48308024670b413f7956b7e67a27ae032402346a6d5a01a1ebd549275fe",
+          "ci_sha256": "895fa68c1dfeb240b7cf339c4c7efb1efc81afb37df9a83666d7c674efca6090"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-configured-390.png",
+          "local_sha256": "b680a8054479255499d5e44ade40a2636964188a1bda39489554074b8ec34c67",
+          "ci_sha256": "f33bfc73ba37d5a6f391fb3c323c6686a42fb6b4344d1b0fc11bb1a06f23d273"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-configured-768.png",
+          "local_sha256": "9cd1c9e5ae6dbd91d07454843fcdf6b0fd7ed887cf0395aa8d8014950ecfa073",
+          "ci_sha256": "db8e396dabd61742db24c7c6561d355961c13c54ae85da0c0f10a30b0890e12c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-gateway-1440.png",
+          "local_sha256": "1e14695bdf7fc2e1c4fbc2698c43e748f0b6d48903b669e2f2550474d05bbece",
+          "ci_sha256": "5b23c26814c831d594b717ffcc8c7c6516c6b48ba9d1fc8bc1bafa60bc4caec4"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-gateway-390.png",
+          "local_sha256": "cc3bb9f0c39a18dab408a42a1735c0ab71006abedbeda8e1b182f3b10f6dae48",
+          "ci_sha256": "72aa5fe7e488907fcc0cf4eefacf255b90608b774ba776d763b5fead0c1efe44"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-gateway-768.png",
+          "local_sha256": "afaee6c5aea7001a6e4312275062c06d9479a2346369803bde567aa32fe323e8",
+          "ci_sha256": "276487e9d65924bd4a095135d57b8e702d6a19748be7a98d7b3723756dbffea5"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-needs-auth-1440.png",
+          "local_sha256": "bde682912d32beefd517cb17b9d4b57e1bdb7cd4a702d265f247966c47312908",
+          "ci_sha256": "cb7745665b82b9a13ee17b1081c5ab44b0c958c18817b7637abed1568f6759b2"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-needs-auth-390.png",
+          "local_sha256": "8a9d9ba9c762826038e3103ebb949b5595b37dad2ea8729c503fb8b4974ea782",
+          "ci_sha256": "823a11555129989c4d9afd82271b5d780ba8e01440706a1069a67ca2f245568f"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-needs-auth-768.png",
+          "local_sha256": "0a5404a97c5d621e39ecf6062a55091aa07c22d4f40b488463bc104fd8371c74",
+          "ci_sha256": "dc81f512ae7066c858cfd44b0a5e02b25f3e5faafef2d58c7307c9c57729e5a0"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-poll-down-1440.png",
+          "local_sha256": "7a658fbfbb0b7a3fbf769a8c940ca530dc9de01e3d5c91d0b62ed9e79e00af1b",
+          "ci_sha256": "85d3d8b3454dad1fce4a112af45aa6420aac4fb99d0fc11f8c53ede0444eef57"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-poll-down-390.png",
+          "local_sha256": "d5dbef326387125b5e9051ccd2ec846a5447f4c660185af7a52b83203ef6f67e",
+          "ci_sha256": "596c6e3af22724b461ca1ad142501345efa6e79283e87f2db273adee9e8928be"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-poll-recheck-1440.png",
+          "local_sha256": "ba942dfe56323551688da6f0b8b0101aa45a6b343fa52375c056da21d29e1bf5",
+          "ci_sha256": "917978e4e026cc6047c44b1ed0a17644f4552f798e6c14c175403ef2b30fec4b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-poll-recheck-390.png",
+          "local_sha256": "ef5ff7511149a1edaa94e0ec140ed1729d0127341ab9a7ea993206d28e5d34ae",
+          "ci_sha256": "5ba9fd83cd9999914d28d64d8f0868f731621993c8e25c982b75e6d588810458"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-replace-login-1440.png",
+          "local_sha256": "19d7203eefca65c3a68bde65c5f9b39c7b137399339ff1e051b62e810fe7bb2e",
+          "ci_sha256": "99fbd9205e2d1a7b143e6445c74347a204c2bb4fc86398e76c41d49b55d93e95"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-replace-login-390.png",
+          "local_sha256": "149924a77c69fc1f9a1b7ad691d79efcb2fe1fd0634ccfd7a3646846225d41f5",
+          "ci_sha256": "026faf09d3d26792574e5c7d14515c11cda2c4c4e03cfaf802cb4a79d246007d"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-signed-in-1440.png",
+          "local_sha256": "71057e911490fe31b31e5ae9d994131ed78b2927a1676a022da0006bb59f3119",
+          "ci_sha256": "6448744fa8d1f0c3fef8c3cd51e695b956bcb3ed26360f7cb0c5cb24bdb43384"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-signed-in-390.png",
+          "local_sha256": "41ea4bc4855eba7f2c5027b1066a00058214873cd2a317fd9446c3f86f617912",
+          "ci_sha256": "6c498afa6a2b455d5a5d15707556b906ca07c8ad19016a6ea4777df6ea1389ae"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/host-1440.png",
+          "local_sha256": "a11a5a8526b3511921a902b97df74833fd4289385ef878b83a1fc7743a9bbdc1",
+          "ci_sha256": "faed5d994ec630ec309d7aa75878c7045523bf64d8737d3a0f2f34139478ad8a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/host-390.png",
+          "local_sha256": "312ba335be6970114f828bfac695f975393a055894f859faed520d98c159a1c4",
+          "ci_sha256": "fe837180a79628f23ceed5df488d86ed1ae4383e86091cd4644fb4560bfd1205"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/host-768.png",
+          "local_sha256": "7b5d114033d26b1e990f6da280e61226faf0dfeb13f8fa4aeeae0e34f3882a59",
+          "ci_sha256": "1fc581f1c1d53b22711f7c1c9e23f3e973cbc929cf1b00c757f54f65eee20fc4"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/host-login-1440.png",
+          "local_sha256": "e3e1eeb8881480a6f32823b5a0fd1c7b4771685d8cc437e76d9ff2d4edf2a57a",
+          "ci_sha256": "f09ee370c6e5adc74e1c3dbd57c780b760ee65ae77abc1e6b19d7728a7a04056"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/host-maintenance-1440.png",
+          "local_sha256": "8f3a20e988b604981f178b64f4a6388b6a651d26223b108107082befa9a3b36e",
+          "ci_sha256": "ba3d47668357262a3825a6e9bdc8c3c80b7c1a77d5a740ffbac1931ed95ba021"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/host-maintenance-390.png",
+          "local_sha256": "939656bba157ccb61d3a124a54785c935c6d3bb93df6de2b3a687e3105d83b6c",
+          "ci_sha256": "a9d8087a05bdcf5533998d3c137952b58637c1f1e20000ee021cc839d204480c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/host-maintenance-768.png",
+          "local_sha256": "9d1cef590787f0bc9c1011e3137e90d16b6d1ac5eb82e351cf5828aeb6816933",
+          "ci_sha256": "422f8e7ce93a1dab64af97e194b459da63ef3e1e6731908a8992db606f930bba"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/onboarding-line-1440.png",
+          "local_sha256": "f095d6b9c9ebe0b8c7da59aa85ed15cd490f01750adc701cab4c8e449f20b1d9",
+          "ci_sha256": "01b09f2241b38b53c46f8f79f40ffbb03aba9259935e10a7877893847cf65a5c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/onboarding-line-390.png",
+          "local_sha256": "21bed198c728a9a883e496ee6958e23c1528fdc0f280432be13de58fea55a40d",
+          "ci_sha256": "1da500559c4d833ebf144bea81f806766a5bd4af009fcb7b4f1c7abe93652692"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/onboarding-line-768.png",
+          "local_sha256": "fb7c55f2324d61c911e6c0bd3ac2fb9ebdee6cb82cc52ee6470e0a782f82c4c1",
+          "ci_sha256": "25f0ebc1d8d837019866f1aff6c2413e8042120b034a6268e685710e8c69f135"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/onboarding-web-1440.png",
+          "local_sha256": "c7e104f74482784be0ec62226704dccbdd5258d531b5e0b820a8b9d79a0629a3",
+          "ci_sha256": "67a0714649a8a5f3a8b17cfaa0a035d48908cf5fd6cef5db0b76aaf80fe17942"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/onboarding-web-390.png",
+          "local_sha256": "6f9eb18e517f25fdf37f77960ad26029a271453b987600496d63e8fe50b6403c",
+          "ci_sha256": "9ce6dd1b3ee1f165ce3ed293146dc739d771ef83622167ab3963b9e3b1c341de"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/onboarding-web-768.png",
+          "local_sha256": "e732f0c1b9b23fa74fe006cf97a5c5869f4b4e58b8dbc03bab570636698bec24",
+          "ci_sha256": "3b64c174dd3cb9abd167d7119546f3a8edc4b8f15ff9f2d1b5f6b63aed3322d7"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/ready-1440.png",
+          "local_sha256": "73b156d78f0254a89cf86a64de893b306077461238f0fd439766f7732991abca",
+          "ci_sha256": "240aee72e04658861eefbda0a39b0573763a3e0ded3c3a20310492aef8170340"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/ready-390.png",
+          "local_sha256": "c26de2bfaae272da913f4c03ecd13af2a60174ae88c1b96faf75fc808fd8a288",
+          "ci_sha256": "afe724a42fd612d59d6b168bc18dae8cb7640b13fc5fd7f6900751b9fa2a5454"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/ready-768.png",
+          "local_sha256": "ee85f7ae161d4345cc24c2ce30c1af9c00cfdfd252ba0f6277cd3a3f371148a0",
+          "ci_sha256": "7f40f46de8cd4ffc991250b464a64f1750a8f13495c9de0ff981261e5dd1420e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/settings-host-1440.png",
+          "local_sha256": "8449421d84ff53f770e3fd67740f20b8a4615afaf1eccaf99d32887384acbfa1",
+          "ci_sha256": "4585980ab01cc5c06d23f705576e256320753d68ed8391fa896beb0b9038a2bc"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/settings-host-390.png",
+          "local_sha256": "b632309a6417a6eaf435d56958aea6908e344cb1877dd7000474d73206eed42c",
+          "ci_sha256": "a88292edbcc752be447dec55c1ca0e33fc0754d56bf97d1a9e2c3b6251aedc34"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/settings-host-768.png",
+          "local_sha256": "905e896c1d7af0561e934fbd7cfedba2778dbbf995136633b0bc202f5440821f",
+          "ci_sha256": "cb51ad67771122c4eba0c2867c44c4e0871ae39bec3a258aeaa305f40f9a4c72"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/setup-1440.png",
+          "local_sha256": "1b1455814145e107012c69d10b75fc37a5f0a32d744050c8780d6784f32f9f42",
+          "ci_sha256": "cd63bd8110f3e01b0d7559dc5f00fce3bb2d91d86c3c21b8ec25146a69af74fa"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/setup-390.png",
+          "local_sha256": "2deeea5ff4542705979cb60a7f79ac737672b12923b39b54cbb8f805a4931b6e",
+          "ci_sha256": "e298e3d2052e947edcd25540d6570edb388b9a21825599f1c5873ab797b9fcdb"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/setup-768.png",
+          "local_sha256": "8289a2f6d7968c05e60e5bcd402c7e155d7619bc37ae739e86b4cdb89821394e",
+          "ci_sha256": "773e7e2eb54ca78bb4d1318223ed9c81ec60d7e6ffac503027f6bfc93dd53b1c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/unavailable-1440.png",
+          "local_sha256": "2187695ae9b44418a5ac4142e04c1ca68babd41f8ec304248430d4cbd1f8bbba",
+          "ci_sha256": "ab289aaad633aed64a0a1a6db558e8031e7dc47e12bad708847873fc251fa9e5"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/unavailable-390.png",
+          "local_sha256": "8fdc7684260b88e4794875172f66e6226fda3dce48bf102637710b93d59b1dd1",
+          "ci_sha256": "7b0c9faf359da3fb03aa398fb1586f21fe2401144962104143a0b50a9a18795e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/unavailable-768.png",
+          "local_sha256": "4dfa9d5658c95eb62e54f8c0a2e92b8d02e1596ebdca07a645245404f90d83b1",
+          "ci_sha256": "a96c1e6503cdd7c4220111f6be5fd5ea95bd46722c3b16ab41ccd948271e8e7e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/plain-error/bridge-fault-1440.png",
+          "local_sha256": "af04f79350d4e529d0039e6c545558dd5d855059cbf33b1a67043149d14c8cb1",
+          "ci_sha256": "6a785f9faf373112114cac071a8456817299ef118013d17ba718762e89ae7ccd"
+        },
+        {
+          "member": "agentic-home/evidence/ui/plain-error/unknown-status-1440.png",
+          "local_sha256": "c120fbd6410d29eaf7299d02117b1a201a1b44fd9e5f9831b79245b3cb4d73aa",
+          "ci_sha256": "baa8e181b42b11ec788e1c18e12babd019427f6951fe2cae2fe4798b5a539d3a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-account-1440.png",
+          "local_sha256": "1e599cdf4d211a8a98332194a873f2b0aef0dc9eeb984c5108e73c6ec3728b9e",
+          "ci_sha256": "2d3ba8b9ab68ef3764ab418a8adf1d09645f46da2d8b898491ac915e2d0cc0ed"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-account-390.png",
+          "local_sha256": "08ccda5b6f5a6dd63c7132663ab3ed89d86264265266375dd5c8b162623b0bba",
+          "ci_sha256": "5cd0b46d2767d3558e4fb8564391463310c2c9c1d1cb89404697f5b0acea0cff"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-bootstrap-1440.png",
+          "local_sha256": "1191ea7e20030af2d8b9cbb2d85ba063d8d22b3d392ccfc0ec68be20355c0466",
+          "ci_sha256": "d2b8d155d83a71f99027e4b3df4c238b114528b0d5f63608710d0b16285b5713"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-bootstrap-390.png",
+          "local_sha256": "fe29d6bbb69bdd9015c2844a5d816b1f298237137d5a89a65e5b6876ea38ed0a",
+          "ci_sha256": "a266484cf8c6e6d9dc210893ab51f7cdfe203bc23666c8a75d98d2bbbfa889a4"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-bootstrap-retry-1440.png",
+          "local_sha256": "bb8faaf4421f4c175071870a9a837c80fed985424b4e683f4506d340350e7e23",
+          "ci_sha256": "9a90acea765bc4de81e683f320079764b6a2d4ec34e5d29a8a986fce3c106e66"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-bootstrap-retry-390.png",
+          "local_sha256": "254306265a45d933958d800070bb7f77e7ae94b738b47719da5f67cfe3729fa4",
+          "ci_sha256": "474b8cade6dd2e030a8430c9fa0b5fe9d22a181946247fca449a7fb9dd313221"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-conversation-1440.png",
+          "local_sha256": "9ff4c342373a6ab63c1704baba9400609632bdc198bba6b8f65a1a97108e2a1f",
+          "ci_sha256": "fda6c7f20a9bcbdda02a9e86e157a7f227e0c30f023ac9ac2090dced81ad63d8"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-conversation-390.png",
+          "local_sha256": "87de94057653490056c2d4ec8c55c8b4b56e9326cac05e53826704ef916d56fd",
+          "ci_sha256": "ce823158d582399386af8d1a9da4b37d5a6afcd8a812881097c5a7327fdc833e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-conversation-retry-1440.png",
+          "local_sha256": "2aaec72c877ff3a84e235a8203770afb37d1b2b3bfbe7265a3961a5111e7a401",
+          "ci_sha256": "c3ce0bea7dd50f3c0134080a80d9ae228c936c026de51f5817e4c8cbc9b842ad"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-conversation-retry-390.png",
+          "local_sha256": "57b26ba1ea531414c8a3ef421eee3cd7c350fb08ffa897bb6293008dce9c4d55",
+          "ci_sha256": "cb9dc7f7f64e24efb597807a44226c279a710f459ca6becaffd55a914ba629f7"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-hermes-1440.png",
+          "local_sha256": "88c0708daa915affcc629ffaae2fd91d18502dba6f91710b7ca6d3498df624a6",
+          "ci_sha256": "53142945e24ebb87c8c11530ee7906eaf69a813173b2cdf2a072f1ccb7539f0d"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-hermes-390.png",
+          "local_sha256": "fd84b8bfbfd44df7288e4915b5a652cc3e39a747bace38abc6cb52ebc3efef3a",
+          "ci_sha256": "8323a827985bbc2020bd9c3f3529ad30ed1b1b1aac84a30c025b9e5a03fb1f6b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-hermes-resume-1440.png",
+          "local_sha256": "0c18c0697281f97a48ec69926502cbbad3e2dc5485913ce9ea0028e06fd91f29",
+          "ci_sha256": "913e57253077025d5880c4d56e7f25c1b1b9d2db41cfbf40a5cd2c26909d76ab"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-hermes-resume-390.png",
+          "local_sha256": "68f30ac387becd6c26d5d64283f59d77729b6eb2044000afc9eec4ebd6737ff0",
+          "ci_sha256": "4abf3a022c7c4752db6bedba7564aeb6076427ca5c8fb247ec7c6b9db2661f49"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-line-1440.png",
+          "local_sha256": "a329724bd4e607a083cdf512f24b52d10c4d26674d419b0a9e877aa4c348d185",
+          "ci_sha256": "a34b2c5758561832abbdfe8dbaee648aeed9b541ac5cc161bfe960684b4c4746"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-line-390.png",
+          "local_sha256": "148841d04b54dc0105a6004381d1183c4b1d0220d5ab4a884adf105af7235b6d",
+          "ci_sha256": "3014de2b117eec443d31d0de6273ff2bcd947456b66346da78504fad280c3ccb"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-proposal-1440.png",
+          "local_sha256": "c4af7c18ca71e1ff1d5744c1696155739924ed73bf8f7a1191e782635426fcc9",
+          "ci_sha256": "776ab32b95da54846e43a0a10ca5364f99ad80c37603ca3935c998c875766416"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-proposal-390.png",
+          "local_sha256": "f8afbcc422b6a69ff4799fdc43481d3f0158d7ea0709dcf8c5f4bf65791de2af",
+          "ci_sha256": "f6b691e270e2159074e671e57ff3821d2c6c8acf55392473c3c5db3b8066f493"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-proposal-fallback-1440.png",
+          "local_sha256": "0550cc254848626262f0eb11a15ad683fdd0b7836e5390291905d362e4010650",
+          "ci_sha256": "29c512c870fa3e536c53c3c0386ae9bd2e5f25869dd697d0ec4c1d60f69bdd8e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-proposal-fallback-390.png",
+          "local_sha256": "811e9e7cb42cf3c6bbaed8fc082cba2e8b6bd889290daa589da3a962f3949eb4",
+          "ci_sha256": "f1fd8258d3e8a1e133ce38d41f5e2f3558f3c68e3e3fb8ad7643dcee320e12ef"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-reboot-composer-1440.png",
+          "local_sha256": "4cc4d3147cd11818076a19fb97c8c6f0bb7238ec19a8c5f3ce8bb7a05a485ac9",
+          "ci_sha256": "4b6d8bd65a13667732ff0454d1dcfc52a84f4e2e2fa443596878cd114773ce8b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-reboot-composer-390.png",
+          "local_sha256": "be937334e5e445f800323a129146e6e5abd6d3d210362c5f2462bb64e580cbf1",
+          "ci_sha256": "53b7339f2f9135b6cf4fbcc11585e24720a54609311b8435b2d3359e79c57533"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-reboot-settings-1440.png",
+          "local_sha256": "482ec3c4896cdce3da72ee5f52405d49e7e09d39574bfd330d3e15a1bb6be516",
+          "ci_sha256": "edf781bee1ffc8f2415a6c8f306c3fd4c88318a1682e37a23ad69649dead1a2e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-reboot-settings-390.png",
+          "local_sha256": "e38f77a99c21d67a0a6259ed73c383cb2ebda939b55498db30f404c2f732581b",
+          "ci_sha256": "bed2c384e4d67bf89d6150ff06149c8a5b09f229a23216c180b047e91364dd8c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-telegram-conflict-1440.png",
+          "local_sha256": "92383ca55354c44e04feb15c555358de94954c323f7d97627f383e39c9974ce3",
+          "ci_sha256": "44aefd297b114b8d3d70a377125e1c3b37c8bec6e362e1e9b8b38dfbce76a84b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-telegram-conflict-390.png",
+          "local_sha256": "2869e82026ae0a9cb80509ad34c2f0816719934be05f4d8f92dd615b2c933373",
+          "ci_sha256": "c8365f488c51c3bddba12c65c2fac4af609fab9d018848b00c1d1932cf161693"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-telegram-token-1440.png",
+          "local_sha256": "d9f60e007d7275073c097c398e52dc61a39798be99cadfce75345a989db23af8",
+          "ci_sha256": "739415c09144958befcf21fabc923e41443ae53ff1a272e3d80160ef8d8f0d8a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-telegram-token-390.png",
+          "local_sha256": "50b15881df4eb01120e57ae042238182b4b7699127b7f60ca94efb1b8b426a6a",
+          "ci_sha256": "816b16f2b1312d8ad9f6e0eec216b405c28f7a9c9e9277cb31bf2cfae76c5dbf"
+        },
+        {
+          "member": "agentic-home/evidence/ui/settings-390.png",
+          "local_sha256": "1566ff90de70f0155112ac9f00706ea6ce1499b42101cac59a49b54ed1e74da5",
+          "ci_sha256": "091a63211ad42163d337f5bb13413c5f664f55c98a824b6d3319f35ccacf7a8e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/workbench-1440.png",
+          "local_sha256": "a0ebdb6293e40f4b3ca475ee190b0248c3da5cdf9a7b748be192f4337d68a9f6",
+          "ci_sha256": "59700f0af7e5ed76a5bcb2cb60f595d456ce5c31825aaa1a09579417ebfe2421"
+        },
+        {
+          "member": "agentic-home/evidence/ui/workbench-390.png",
+          "local_sha256": "d423e3d35b5fdc314cd851f738139840fffa4a286abc93682fa5eb088992a86d",
+          "ci_sha256": "ac3e79130eba997ab67a3ec2eb751b715424079427f2cdc5e6dd1c587a45f6bb"
+        },
+        {
+          "member": "agentic-home/evidence/ui/workbench-768.png",
+          "local_sha256": "3e70090cd8018e5e292c47acd3a48eb98dec653ee71990a14c6e2f6b0a87555a",
+          "ci_sha256": "ab6fbbfd89048eda7314a478c7fbdf586ea817a7ef23862334c1febd76db6f9e"
+        }
+      ],
+      "added_image_permission_receipts": {
+        "agentic-home/evidence/image-public-permissions-bridge.json": {
+          "app": "bridge",
+          "reader_uid": 10003,
+          "status": "passed",
+          "owned_container_absent": true,
+          "passed_check_count": 5,
+          "image_id": "sha256:59741f09622ea42655295043681f4bcfa159562a43858f8872ce783b29e089c4",
+          "artifact_member": "evidence/image-public-permissions-bridge.json",
+          "extracted_path": "ci-38792574808/evidence/image-public-permissions-bridge.json",
+          "source_manifest_payload_sha256": "bf744455943fc7ce977246d8d8ba1f1cc26e535b53ef8a63ed931fc67c6d5e8d",
+          "source_zip_payload_sha256": "bf744455943fc7ce977246d8d8ba1f1cc26e535b53ef8a63ed931fc67c6d5e8d",
+          "outer_artifact_payload_sha256": "bf744455943fc7ce977246d8d8ba1f1cc26e535b53ef8a63ed931fc67c6d5e8d",
+          "extracted_payload_sha256": "bf744455943fc7ce977246d8d8ba1f1cc26e535b53ef8a63ed931fc67c6d5e8d",
+          "reviewed_ci_receipt_payload_sha256": "bf744455943fc7ce977246d8d8ba1f1cc26e535b53ef8a63ed931fc67c6d5e8d"
+        },
+        "agentic-home/evidence/image-public-permissions-controller.json": {
+          "app": "controller",
+          "reader_uid": 1000,
+          "status": "passed",
+          "owned_container_absent": true,
+          "passed_check_count": 7,
+          "image_id": "sha256:785ad08ec949e2d9fd9efb8bfb77e4ca845c2934e5bdac83ddc125176c2e5597",
+          "artifact_member": "evidence/image-public-permissions-controller.json",
+          "extracted_path": "ci-38792574808/evidence/image-public-permissions-controller.json",
+          "source_manifest_payload_sha256": "672eba8fa8b6fe542a75db30165f795ab76832fbce5155b59aa1232a5716bd9e",
+          "source_zip_payload_sha256": "672eba8fa8b6fe542a75db30165f795ab76832fbce5155b59aa1232a5716bd9e",
+          "outer_artifact_payload_sha256": "672eba8fa8b6fe542a75db30165f795ab76832fbce5155b59aa1232a5716bd9e",
+          "extracted_payload_sha256": "672eba8fa8b6fe542a75db30165f795ab76832fbce5155b59aa1232a5716bd9e",
+          "reviewed_ci_receipt_payload_sha256": "672eba8fa8b6fe542a75db30165f795ab76832fbce5155b59aa1232a5716bd9e"
+        },
+        "agentic-home/evidence/image-public-permissions-hermes.json": {
+          "app": "hermes",
+          "reader_uid": 10003,
+          "status": "passed",
+          "owned_container_absent": true,
+          "passed_check_count": 6,
+          "image_id": "sha256:c6970c76a7284f2de1a3eb9d44944e9dc9b61ea432e8b6b23ad01dd338784e58",
+          "artifact_member": "evidence/image-public-permissions-hermes.json",
+          "extracted_path": "ci-38792574808/evidence/image-public-permissions-hermes.json",
+          "source_manifest_payload_sha256": "6afe60aed30fa02b868fc992ed533892b67ee3c28851775afbb2b96f0d4be4ee",
+          "source_zip_payload_sha256": "6afe60aed30fa02b868fc992ed533892b67ee3c28851775afbb2b96f0d4be4ee",
+          "outer_artifact_payload_sha256": "6afe60aed30fa02b868fc992ed533892b67ee3c28851775afbb2b96f0d4be4ee",
+          "extracted_payload_sha256": "6afe60aed30fa02b868fc992ed533892b67ee3c28851775afbb2b96f0d4be4ee",
+          "reviewed_ci_receipt_payload_sha256": "6afe60aed30fa02b868fc992ed533892b67ee3c28851775afbb2b96f0d4be4ee"
+        },
+        "agentic-home/evidence/image-public-permissions-linejs.json": {
+          "app": "linejs",
+          "reader_uid": 1000,
+          "status": "passed",
+          "owned_container_absent": true,
+          "passed_check_count": 5,
+          "image_id": "sha256:43979b2b84b4543b437d0db06e9404af175edfb48b4c2c544556771ac283895d",
+          "artifact_member": "evidence/image-public-permissions-linejs.json",
+          "extracted_path": "ci-38792574808/evidence/image-public-permissions-linejs.json",
+          "source_manifest_payload_sha256": "4f578ef24ea530f66f5c0b2c5e277b932ef88051cdb23efc70db8bda8aabd6c8",
+          "source_zip_payload_sha256": "4f578ef24ea530f66f5c0b2c5e277b932ef88051cdb23efc70db8bda8aabd6c8",
+          "outer_artifact_payload_sha256": "4f578ef24ea530f66f5c0b2c5e277b932ef88051cdb23efc70db8bda8aabd6c8",
+          "extracted_payload_sha256": "4f578ef24ea530f66f5c0b2c5e277b932ef88051cdb23efc70db8bda8aabd6c8",
+          "reviewed_ci_receipt_payload_sha256": "4f578ef24ea530f66f5c0b2c5e277b932ef88051cdb23efc70db8bda8aabd6c8"
+        },
+        "agentic-home/evidence/image-public-permissions-preview.json": {
+          "app": "preview",
+          "reader_uid": 10004,
+          "status": "passed",
+          "owned_container_absent": true,
+          "passed_check_count": 4,
+          "image_id": "sha256:042e7e4027c394e45aedbd3562ca94fa03baea35bc24f7e6437251a3d0584f1c",
+          "artifact_member": "evidence/image-public-permissions-preview.json",
+          "extracted_path": "ci-38792574808/evidence/image-public-permissions-preview.json",
+          "source_manifest_payload_sha256": "eb61d41365da02d7349dc2b60fb36da449b3f105d8a31ad8777db64ff812bcf5",
+          "source_zip_payload_sha256": "eb61d41365da02d7349dc2b60fb36da449b3f105d8a31ad8777db64ff812bcf5",
+          "outer_artifact_payload_sha256": "eb61d41365da02d7349dc2b60fb36da449b3f105d8a31ad8777db64ff812bcf5",
+          "extracted_payload_sha256": "eb61d41365da02d7349dc2b60fb36da449b3f105d8a31ad8777db64ff812bcf5",
+          "reviewed_ci_receipt_payload_sha256": "eb61d41365da02d7349dc2b60fb36da449b3f105d8a31ad8777db64ff812bcf5"
+        },
+        "agentic-home/evidence/image-public-permissions-runner.json": {
+          "app": "runner",
+          "reader_uid": 10000,
+          "status": "passed",
+          "owned_container_absent": true,
+          "passed_check_count": 14,
+          "image_id": "sha256:186eb9fc278fc2e81aadfa07bb515f84bed628dc514090183493f777c7119254",
+          "artifact_member": "evidence/image-public-permissions-runner.json",
+          "extracted_path": "ci-38792574808/evidence/image-public-permissions-runner.json",
+          "source_manifest_payload_sha256": "c1a86a1870610bdbcf34766878b6013f8bb3cd300e047689b7d0a02317bc0776",
+          "source_zip_payload_sha256": "c1a86a1870610bdbcf34766878b6013f8bb3cd300e047689b7d0a02317bc0776",
+          "outer_artifact_payload_sha256": "c1a86a1870610bdbcf34766878b6013f8bb3cd300e047689b7d0a02317bc0776",
+          "extracted_payload_sha256": "c1a86a1870610bdbcf34766878b6013f8bb3cd300e047689b7d0a02317bc0776",
+          "reviewed_ci_receipt_payload_sha256": "c1a86a1870610bdbcf34766878b6013f8bb3cd300e047689b7d0a02317bc0776"
+        }
+      }
+    },
+    "38792580248": {
+      "event": "pull_request",
+      "attempt": 1,
+      "head_sha": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+      "run_url": "https://github.com/TED-H-com/agentic-smart-home/actions/runs/38792580248",
+      "reviewed_ci_receipt": "github-pr-ci.json",
+      "reviewed_ci_receipt_sha256": "05c5cc5e46106aac585be1286eec97d94306bb0db7a63733788670ab8f144089",
+      "artifact_sha256": "c9700a2cbfd8961b5d3c327e6196b84dd5efddcc974ee0787037c494a802dd3e",
+      "ci_source_zip_sha256": "9a08a6b16b4165fe88db077e5ad47b90362701f67640687db73e49401022cede",
+      "ci_manifest_sha256": "e38fa7afc9a9c0d3b85e499b1a293cb4aa33d6d977ac8a96916ad59bfc97fd11",
+      "manifest_exact_coverage": true,
+      "ci_manifest_payload_entries": 1306,
+      "local_manifest_payload_entries": 1300,
+      "manifest_set_delta": {
+        "missing_local_members": [],
+        "added_ci_members": [
+          "agentic-home/evidence/image-public-permissions-bridge.json",
+          "agentic-home/evidence/image-public-permissions-controller.json",
+          "agentic-home/evidence/image-public-permissions-hermes.json",
+          "agentic-home/evidence/image-public-permissions-linejs.json",
+          "agentic-home/evidence/image-public-permissions-preview.json",
+          "agentic-home/evidence/image-public-permissions-runner.json"
+        ]
+      },
+      "common_member_count": 1300,
+      "matching_common_member_count": 1087,
+      "matching_non_evidence_member_count": 394,
+      "non_evidence_mismatches": [],
+      "unchanged_historical_evidence_member_count": 693,
+      "refreshed_historical_evidence_member_count": 213,
+      "historical_evidence_refreshes": [
+        {
+          "member": "agentic-home/evidence/coding-boundary-cancel.json",
+          "local_sha256": "7b0e22a73d6bbb0f42252c948800c3a99150ca23aa13076d7607c6f91c1f9bb7",
+          "ci_sha256": "7d3cb37826da7be63b31349ebfa854e92743489a7022bb9ce9657ae2e9b74f6b"
+        },
+        {
+          "member": "agentic-home/evidence/coding-boundary-deadline.json",
+          "local_sha256": "e2a53ce9e9d5fb9125b03e170dc9ced8932fc0075a03d8f4fdb4d06bea75bd44",
+          "ci_sha256": "b2e4052e5a00824b052fa55c786895b25fb258bea84a9ae416afd7bb86c51099"
+        },
+        {
+          "member": "agentic-home/evidence/linejs-container.json",
+          "local_sha256": "6e0ecba2e2b48299c3a4fbd51d5990d67dcf0f7c5d0d6b4f6e105b819c5974df",
+          "ci_sha256": "e156dca023a8533e6cf0afaed85c0b75ef35a24e571c43032c8e4b86b1c2889e"
+        },
+        {
+          "member": "agentic-home/evidence/onboarding-e2e.json",
+          "local_sha256": "c2e6daafaaea7671eead6ad2eda0696ab2f20f6ca84df11c5eccd17b76c06646",
+          "ci_sha256": "e8739371c8e9454bd4ad7dff952cf2f19737ab13a1f1053351626a1c983353ef"
+        },
+        {
+          "member": "agentic-home/evidence/preview-renderer.json",
+          "local_sha256": "6747b51db6942ac1c1635764649ff98089e21841fcb129462604bc24f960af52",
+          "ci_sha256": "8f3bed96afd80fb8e7c45878be9f5a1af8bfb61132bec68a107c847aaa0f19f1"
+        },
+        {
+          "member": "agentic-home/evidence/pytest.xml",
+          "local_sha256": "de3cef27ec3dccf7dc11bfdfd84529794f898f401fbaa16f43e35a8dc805b9bd",
+          "ci_sha256": "cd2345b4cc73a6d418d07ebe9e31413f96cc09825c838104770cc30db3a00328"
+        },
+        {
+          "member": "agentic-home/evidence/real-core-integration.json",
+          "local_sha256": "ec86e51c91355df3fdd8759be83cd968bda31df40f70284088ddde2038f8dd03",
+          "ci_sha256": "d8128b5194a0c1fbd2e20fe4a8284163cd1fef10c6abc66519cb7c04e6205d00"
+        },
+        {
+          "member": "agentic-home/evidence/runner-container.json",
+          "local_sha256": "86028ac2c2ebc5fc2e6dd610c3d223a8c63018df9f7110d331e9429b34678eaf",
+          "ci_sha256": "3cc2d8cbfe0e3ea8eda5d90043acf359822e9ce6100800c8bbe7dd866181e511"
+        },
+        {
+          "member": "agentic-home/evidence/supervisor-package.json",
+          "local_sha256": "26e0601dc6ef2b52cb62349ad3e134a0dc1ea3b3c8ba3eb4732bba0185680791",
+          "ci_sha256": "0814e882d418b3db0479cda304db4eb767292eb01beba9257c4970147210239a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/app-update-1440.png",
+          "local_sha256": "2dacd47f5240670c1a08bf3bb94e2ddfee0af3eb10ee993cfb92af7695df6ec2",
+          "ci_sha256": "5c6151ed94f0fa47edd0f9dec8520a18b53704e01f13746aa4f8ccb3eb0790bf"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/app-update-390.png",
+          "local_sha256": "1ecd903495806eeb7723b34ae23e4776e0130780995d3c986ae3b15ca75bed38",
+          "ci_sha256": "4ddda84d5abd55002a6ee519de4cdd7e92363f11eab31bfdd6fe25238259fcbe"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/app-update-768.png",
+          "local_sha256": "42b99b7e1f82b99d7a96c502f2f511373c65d6a4642372cf87408469deea1af6",
+          "ci_sha256": "c4043cea4efebdf1b7c72121148feb04e0421a8fb505570216b1356bc6e60c03"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/approval-1440.png",
+          "local_sha256": "25eccfdbccd5a24d3a83c266fb3cc1a9071ef5ad626e9eb5ad56f17ba4a51529",
+          "ci_sha256": "a90845803821feea4162fcafb1df301105ee587c3286fad071a96ea2b34f8525"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/approval-390.png",
+          "local_sha256": "b9eb41bd099572a890fba7351a133511d5e5f42680f612ec3f69ee16cbc4cc81",
+          "ci_sha256": "f8888d191666d5f77460014fc183cd198ad57e308fa106a00eb60f2e40cb4d78"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/approval-768.png",
+          "local_sha256": "cbef96fda3b0704a996d0478b1a62c1ba3a8fd13364be8e142566d299eb608ba",
+          "ci_sha256": "177c701521b63a01fa778f416ca36e59ef32a10d5fb4f05d8d3a118be454d602"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/conversation-1440.png",
+          "local_sha256": "938c6fc4b06a668ba5a17d88704f54037d2f14082be9c6d4f224a885dc2b9711",
+          "ci_sha256": "325c1fb97f45d997cad9da1e74367d227eeb7c7f85c97ae29197aa6eeb6093c5"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/conversation-390.png",
+          "local_sha256": "66488cce26f3d939359aaf6c289d421a6ed4ec6471e36400ac77b94d7687125f",
+          "ci_sha256": "8d049c440a1923ca17e0ae36fcc0bd8cf2d19c3ab0a7063f4762449cdf620df9"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/conversation-768.png",
+          "local_sha256": "d0b0f1613586b1b33ea197cf7c738201eb063fdc8ec14473a0a9a8c4d1c2c748",
+          "ci_sha256": "5c02beacfe19edd8a1449ad1c5ff12b3cffbcc8dde5d252531e76298f95a207c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/gateway-reconcile-1440.png",
+          "local_sha256": "3f021be1ba60eef77a15b43afd0394f9092d092e509a45c12faed276fb3f8efc",
+          "ci_sha256": "3d7fcb31eedb676eb6126604118eb0da607a5b9bb287629d992950259f4333d7"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/gateway-reconcile-390.png",
+          "local_sha256": "b3677ecd5380bc46d67e33022ed6139b62d4b965837484f24a6fcd72714a1117",
+          "ci_sha256": "c438877ee0e01e804cdd6162e3bbbe30ca7526804d7567ae564d4250aa3d4353"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/gateway-resend-1440.png",
+          "local_sha256": "3aefe72bc375dceccf7aca5076132c3f64deda4330d364d8679d8d0255ec70f6",
+          "ci_sha256": "8215a7520f10adee0d235e065822fc2c5245927d7abecb38e273678dccb2628f"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/gateway-resend-390.png",
+          "local_sha256": "d4eeda7b12b40fa3794965ed923136d2c01d9bd07a5f6735ab1e50d090bfaa67",
+          "ci_sha256": "2f785bfe4babc7ed904460c7a23afabab4bf9e66bb6056feca4473a11d91143a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/offline-1440.png",
+          "local_sha256": "819b35e1f37297ce02ec45e222484549d6287dc4f662e9cc6e5184ac9834e960",
+          "ci_sha256": "d40bd29e7ae3137746f139772db6ff6e81a8e70dc342e905bbb17a22f9655f6b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/offline-390.png",
+          "local_sha256": "819dd23ae9a472db6649e7a589ffd755613d56d83d3d8852ca87a66a3d8673ec",
+          "ci_sha256": "1668d8319d2726c01701f846774ecdd44b941203ff47350a93c80ff3d10db6d9"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/offline-768.png",
+          "local_sha256": "4eb3be0488d0551b90036da45e3252b325afc5a0f44eebbb65cac5d6775803f8",
+          "ci_sha256": "51125ddfac0fc66bc35e53f7bfb918e75f8971ed95ab9cb0786c8ae806d20590"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/owner_required-1440.png",
+          "local_sha256": "ee631de6d2263ed8d4b8a2d5eedad2bad65bcc97a14f76f5fa114de071b5e229",
+          "ci_sha256": "cfaa29f28403cba62a13554156f5d9fb23e0d0a2bc55fb9d0216bab68fb8f603"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/owner_required-390.png",
+          "local_sha256": "724b5a56da593e974378ab32cab2129e6fe801bd19a4d416bb4988ffb0999671",
+          "ci_sha256": "1179e44f2a669466318de73bf53377bc391a816858d71640aa96f43823d0dac9"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/owner_required-768.png",
+          "local_sha256": "0a2143db3658b4f5c882741c427b4f3f944ca34fa80d5143b58a2c5f74330fec",
+          "ci_sha256": "221705d8e37df254f3c75d0857e7320b5f0a955ae0601764a62068797b9aea40"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/results-1440.png",
+          "local_sha256": "f1ca2273211207c286d305841e8568033a39c861114e811c1fb1017ea97048cd",
+          "ci_sha256": "95078cc0b2f4869987863a0e65abf64fa2e1a71cdcae955f6dd2cac2c247f657"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/results-390.png",
+          "local_sha256": "1a854df9e96b081f79cce0f178dd46d5b83d8d0421fc82046bde38f510ce76a5",
+          "ci_sha256": "3762c5d05eeaf05875fa7881e00adff3d7010040f19f047127fbb1ce56de8a85"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/results-768.png",
+          "local_sha256": "bbba55d630e2d719bbaf73f76251c3b70acf65db7794790167bf4580d4aa83e9",
+          "ci_sha256": "887bfd99f53fe2a425a2a390613b5104b559d81686e76b48ac7d0e9a7200f748"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/revoked-1440.png",
+          "local_sha256": "3eebe52f249997e0b6c8b719d83298b02542cd8e91ca2b8eca0c65e120615c53",
+          "ci_sha256": "1cfccd2c1ee115c47675e07ec4ceae51550b3511c3928738b6a21a7ad672ee90"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/revoked-390.png",
+          "local_sha256": "4a6a2bf29a49a9d5fbd1296fadfe15a41db7f0b3ee6b9d3a23fe9dbcd55ff1ab",
+          "ci_sha256": "96eeba93c6edda724cef77131fbaebb1cda237ca62341c6a7b386a7d50ecd9cf"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/revoked-768.png",
+          "local_sha256": "137a2f401cd264894eff8e0b86fdf2de36bacb4eb93bc6e58f03fa485145064d",
+          "ci_sha256": "1dc91d367e228cdb78df6ed225e685dd754bab5107dacc7be3605bb8e9799a85"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/unavailable-1440.png",
+          "local_sha256": "f215d3b9dbc7c2a3a5f2f0be4ccd6626fa1c3be5cfbf1dc5440c3c0ca17f6ebd",
+          "ci_sha256": "688a70ac177f93156fa71bbdb6f79449d39a1039a7f8b69fb931fdc20eb0cf73"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/unavailable-390.png",
+          "local_sha256": "8ff5d0a93130e3be8a7fe223d8a9a8c4f944bf075cbc0579581138d246078377",
+          "ci_sha256": "c3a2777aa0493f3effe4849e97c25b9be21af719daf6046afa085c1326f3b0dd"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/unavailable-768.png",
+          "local_sha256": "4f3a81751ebb3a2e033d0c285d4134e424b77ae24d46786875a64437dfd862cf",
+          "ci_sha256": "18a74ff32723a7279cc34491deac3046a8eb4bdb14a58b4143851c3ed41b409c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/unpaired-1440.png",
+          "local_sha256": "10c7119940fe5f0f876fe33ff978fdf7a3e018a0546ab73269e83f02e7a67875",
+          "ci_sha256": "3ff970e9fd29612de68b4cce6496133f39fd80f6d35c692d9c78f81ba5fd923b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/unpaired-390.png",
+          "local_sha256": "28340e70f4401b12b5a15f6b138ad92680ffa591b979edd0522ff93a85070245",
+          "ci_sha256": "f9d42ca96743917ffcbd664041d28d4b411dd6057c53fdb07be47bf9acd6d8bf"
+        },
+        {
+          "member": "agentic-home/evidence/ui/bridge/unpaired-768.png",
+          "local_sha256": "26ab528b948b910bcec98c5ec1c5eba90fc4621a3b7ae89c515f5e71e9e696ef",
+          "ci_sha256": "5f5d059bebaa6e5287e93be9d56bc6fe0589a4147c27a33cafce52fd7f3e5a9a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/changes-grouped-1440.png",
+          "local_sha256": "ba48cd4a779a2470729df071a0314cf7cdd83066c13b2667fe46b6d700b0bb62",
+          "ci_sha256": "e6e0aa66d798f149807ae025a39c581c1e77529d70f76f6aba630f123be8a5c7"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/changes-grouped-390.png",
+          "local_sha256": "a577144cbadb43dc761aff942853736fb207caf3e764ad639457969392e809ea",
+          "ci_sha256": "282be87df6f7e56daa38ee8c6bf8b2ac17b1a1fe727339e08226516c0e4be3cc"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/diff-coloured-1440.png",
+          "local_sha256": "ab36820d9c8f0a351b65e142fa8f0eaa3c18c996f2d9b61c43577208f0b65c15",
+          "ci_sha256": "5251ae3aced9b6f5eba073f15d65f23259a2f46379d45a2e6e76a718edc2c3c2"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/diff-coloured-390.png",
+          "local_sha256": "cf8a0861be0264a39073969213f3724f7e9c681c47350aebe4038206a7c26802",
+          "ci_sha256": "506c2486b7006fbefc9c134418a76817d7760ca570d6f17a0dc870db5ed5806b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/login-code-1440.png",
+          "local_sha256": "21bd58562e3e5202bbdd698854109f75763728428e27f6f8ccc8258e3bc35980",
+          "ci_sha256": "6d09ff695fbd9dbaca7d3f6cbf4bbe696739cb6e9c902a4bcafb0050f662055b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/login-code-390.png",
+          "local_sha256": "7e0a9b9001451a599f1b45f4c97901d7f128c89656a9925df42450012b6351bb",
+          "ci_sha256": "75fa6ae33512589d9097e140fca326b154f08b4dd0b0511773f96759966c26a0"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/login-gave-up-1440.png",
+          "local_sha256": "eb627618bddbae630818302f51e7ad6beb4ddbb9433a6c8beaabf6db1f5a9a7b",
+          "ci_sha256": "ee74e7bd896f2ab7bee90a78f02df0bbeb01d7ab95f31371e3e5db3984885d88"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/login-gave-up-390.png",
+          "local_sha256": "0e2e64c7398ba7107b95d83a2002762692c40d98f0cf5e9c41d34258c667f46c",
+          "ci_sha256": "29949ffd69cb29ded5efc9c63af5afdecc75d8a62cde087b6cde0694a3acdcb2"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/no-patch-1440.png",
+          "local_sha256": "2c1a5bc182c966a9468f31f9f2232a15b6da126711e895b998e7a28ee4cfa5ff",
+          "ci_sha256": "3884d3e4802dd21b3a8a8d39d659c3f04796d7d98560fe5d58164003640a8dd3"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/no-patch-390.png",
+          "local_sha256": "765a0010cf986dc97e077c25758d11369f5bd04082b797e2fdf2215a52e3c530",
+          "ci_sha256": "0f6bdfe1c94ef5fd8c4330077611d95c6776a230564665c604184d543fdbd639"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/phase-launching-1440.png",
+          "local_sha256": "02b406b3e314a5e3b10b3990856b55ab0045e55fd294bc1d0f51d6bb65de3867",
+          "ci_sha256": "1ab5c6a29b7b0d8173e9faf556a405d5bca7e12be2a91ab73d020b75672a6933"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/phase-launching-390.png",
+          "local_sha256": "3ff83687b339a8fa457c0020fcd71b128d098e8caf23c504fe883aa472caf2c9",
+          "ci_sha256": "97809d0138dd87c41d5f3cdc6e5ab9d9b1ada25733fda4b73bb506c56d94c6d6"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/reason-retry-1440.png",
+          "local_sha256": "8fab9fe4ad12f660198e070eb2458a2824c8fc2f6472d65026026c45631b5e2f",
+          "ci_sha256": "d1b135f141235686b568b08c9be813af5ffa40f2b69cbcd846c445cec5e30d57"
+        },
+        {
+          "member": "agentic-home/evidence/ui/coding-status/reason-retry-390.png",
+          "local_sha256": "c1de3a846a597ea194a15a875c3f5791544dc25d55370c585fe81790ccee5332",
+          "ci_sha256": "16c6b7ce22dc96fff848c1c429b2b4add67e7a9c54e5a0905a15d024d6fcea10"
+        },
+        {
+          "member": "agentic-home/evidence/ui/composer-paused.png",
+          "local_sha256": "6027c6de6bac62e38fb60cda2421d7b2a09137a80e2839d9b9001e99f6c6ea20",
+          "ci_sha256": "b4d556c81e5ee97d4996ef3ad9faad47cf907a1010d8eaa3fddaf688d80df84b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/e2e-complete.png",
+          "local_sha256": "9d180ca198f809f037ddfcc7a622ad9f793a05faa1c7b284c476a063867b9f1c",
+          "ci_sha256": "48e01e88885316543dddeb9af2f128f75bddccc4aa886fb6c571a77820d7e584"
+        },
+        {
+          "member": "agentic-home/evidence/ui/e2e-native-home.png",
+          "local_sha256": "10790714c90ad2014f40ec32ff9fa83e7c998d1e39a0757da93d75f679f4d19a",
+          "ci_sha256": "3d1bab8c106dfaa1f9beef4ece9b0cca75d89cadde32b9b16007f2d015202b90"
+        },
+        {
+          "member": "agentic-home/evidence/ui/e2e-native-login.png",
+          "local_sha256": "e8bb59abba5c5b2c7b63c530d62cd9baf841a6c23b489188a13c73cb62c4d075",
+          "ci_sha256": "2a481ce4a292ba6ae78eb7c83472ddb74995843fc63cc536b25ca486b6a74746"
+        },
+        {
+          "member": "agentic-home/evidence/ui/gateway-reconcile-1440.png",
+          "local_sha256": "b784b8e00d5e0d1873195f7b00477e09a08570b03696e74c00cd5cf98669d5ad",
+          "ci_sha256": "217b4587fa0e6903d4f0401a8c58c57807decf1e88768a0b9da8b47bdbcf2f86"
+        },
+        {
+          "member": "agentic-home/evidence/ui/gateway-reconcile-390.png",
+          "local_sha256": "a961a3a065d91e4ca5886dc65d3f75baae531f286c5f992ddff92933fc7aca99",
+          "ci_sha256": "f221db20708c3de4c9101ea26bb405ed063610de97145a2cda76ca80d3432577"
+        },
+        {
+          "member": "agentic-home/evidence/ui/gateway-resend-1440.png",
+          "local_sha256": "958fa9dfb593bc954c7267a585592a1b46eca158032c11d082db7d43b38d03ca",
+          "ci_sha256": "bfbdc9340dded56c673ee889cea3c52318e472ad229f845fc6fd4a4fda58f3b2"
+        },
+        {
+          "member": "agentic-home/evidence/ui/gateway-resend-390.png",
+          "local_sha256": "e5708cba09db8529988e4bbe2831d7574d916697aa2abdfba3ab99701538e1eb",
+          "ci_sha256": "2546beb24794fbcf6faabcdf93f127d8af76ec5eef78319fd3dbe55f5083b9af"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-verifier/after-1440.png",
+          "local_sha256": "f7af4269a70ec95be80523e1553831b7fc06e22972c63e7a6048f8808c76c013",
+          "ci_sha256": "d821260aadf1387a2fcc6f871e51bc21d34263341e9aae05c72a81c2bbeddb8c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-verifier/after-390.png",
+          "local_sha256": "a48dad927f0ddd5709af3bf35e6c1af029a336dc9c129a5b5d2ebe8c6f84a7e7",
+          "ci_sha256": "bb08c413792b5ea88dffea4f75e88e1cf8e1f4a6f4f8cee48cfa375a221ee22c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-verifier/after-768.png",
+          "local_sha256": "c172e06f4b75fae040d64d8bbb76fd64a2673e48e5da89d8a12c9d3fae565243",
+          "ci_sha256": "c9c51b1183226f879bca02f965ed7706ed8bc7792d7069236f821e6529c12425"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/completion-1440.png",
+          "local_sha256": "b8ef016c8a61d7001e27ac15e3f545e272d16f957f05280bf3832e9d416a8e16",
+          "ci_sha256": "5c90c8e1d0e0eeed485eac82c1046ca9a16ad47355a92967afd975112a1cac95"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/completion-390.png",
+          "local_sha256": "559f50adb639857df910c72893a482d5d0800c5f9dee8487ef5214ebf5eae21c",
+          "ci_sha256": "f07e1e37ef4683743ea2204ab175b38e69059689ef5900ef9f70ee063fcc807d"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/enable-1440.png",
+          "local_sha256": "810c69e7b0967f3f60ab6e823b4b9e6228ef53bca13c54574cd9ba092bfa9c73",
+          "ci_sha256": "4ad0e37c8bb84c3ecfe051f6f66221636c2fb635700fd95105263e19aa607e02"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/enable-390.png",
+          "local_sha256": "ea7cba524bad83f8afca2036696027eab2e6d4cfe92069ccf436fb05e0c678cb",
+          "ci_sha256": "d4eec8d40a3ceb744874e9017f91a2e308cc3cf06797894c0fe8ff79eb4b0583"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/host-1440.png",
+          "local_sha256": "203e064f538c9fb098902e84b791658c1aa6ec0e96d07da8d5869e5d11450a6e",
+          "ci_sha256": "a45d8505e95da4362bfed01290c95958942f911a2b271e900e324acbc385aa2c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/host-390.png",
+          "local_sha256": "e48d4eee3cc2f5efa6df3d37a6e36d736c924a109d24d5fdbfdac847d32ce73c",
+          "ci_sha256": "6c156f6c3e644458ba211de5c4a2e85144f97213a59784be4e9e9dd97fdf8699"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/login-ready-1440.png",
+          "local_sha256": "01f68a8973f717a84d434604e22cfa49d392d45eb50d883a227b4392608d937d",
+          "ci_sha256": "e30d5de31ef659ec33602eec0a68aa221a19d8d82dd7197bbefa1e132cb76740"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/login-ready-390.png",
+          "local_sha256": "19d893ea47368f5a6af760227d97ae7f674f74949a28a3e3398e2e697a74caea",
+          "ci_sha256": "5c1b83291f18fca96ede9b805aa10d99a1ab42beca918687147b58028d8c58f9"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/update-1440.png",
+          "local_sha256": "da016ca58db49c7c55d0f68bf4ecfd9c1c7dbf6624e9e98da2493b3c2918d0c0",
+          "ci_sha256": "707c116ab30257dda80d59833b8be47b67248f99a11bb5a86d1e0a83a207f128"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/update-390.png",
+          "local_sha256": "4ca000d5ec61a6092f5add9e7bd4d716f9a2f6bdc28526c6709d1265ebac5728",
+          "ci_sha256": "e93ce73402ad73b459bb2d6e19f6c2725d61ef397bfd8f54ec5fde3eedbb891e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/workers-1440.png",
+          "local_sha256": "b760e744115a838a47b4f029adb5a945fa4a0fce72192487fe30b40d55b39799",
+          "ci_sha256": "c2083b53f74cc5b1f4793a2c7b89d44745c7a2fa13512f041f566d4133cf9e6e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/home-worker/workers-390.png",
+          "local_sha256": "2257b4f44c643ab91a386d1e903c2a14c09f85e61b302699fb99806ae1a730b9",
+          "ci_sha256": "a0268793af019dffc50aaa54f650c392402a0000b4e94d4ad5e386d488a5e015"
+        },
+        {
+          "member": "agentic-home/evidence/ui/host-shutdown-confirm.png",
+          "local_sha256": "2a74f8e48689401511bd26cb86e29d94196983f17349fbbf26d73eb1d09aeb22",
+          "ci_sha256": "4641843d25948a353d427243c3687977a203cceb0fb0c88c0bbf9b91133edaeb"
+        },
+        {
+          "member": "agentic-home/evidence/ui/host-source/source-missing-1440.png",
+          "local_sha256": "a5a0165c50f9d321279333df68b32fe25cf51a01c0b9beee836e7c84ab895f42",
+          "ci_sha256": "00d902b9cc6228cc8d975f65d4ba7e17897190a008450262331449f554ebd479"
+        },
+        {
+          "member": "agentic-home/evidence/ui/host-source/source-missing-390.png",
+          "local_sha256": "672e770621d7bf83418625814ac235034613ff75574f7627b0deb545ae90b372",
+          "ci_sha256": "8192ef38b4ae52083ad6128cf1552783eddbb3b88ec0e57d0b99e40eaf13fdd2"
+        },
+        {
+          "member": "agentic-home/evidence/ui/host-source/sync-moved-1440.png",
+          "local_sha256": "6031c9ac79922776424618b643d0c10dd8a7b53b8efdf69e980baef4d814c41f",
+          "ci_sha256": "fdfa529b594ec584dec1afd683b15c507ac38ca3eb497601726cc95219fcf532"
+        },
+        {
+          "member": "agentic-home/evidence/ui/host-source/sync-moved-390.png",
+          "local_sha256": "0ad12a6ce2c06dfe82f305848937bf606c89a2e9bb0f0265803f45a04a27b0c3",
+          "ci_sha256": "41f7fc287493b789ba1d8879d4f198d497076965e19d9c3cd4dca6b0b2ac9f34"
+        },
+        {
+          "member": "agentic-home/evidence/ui/host-update/error-1440.png",
+          "local_sha256": "0eb451034cb1451863c1804e64c7c92a3a2dff0274a346478f2616b93c5f5797",
+          "ci_sha256": "63510d900f431aa6061e6c293aff74d5c89fd8a3d0dfe4ce2f608399b6cc080d"
+        },
+        {
+          "member": "agentic-home/evidence/ui/host-update/error-390.png",
+          "local_sha256": "fea7e04c5be4879ec5bf522c6e59fa04236e4641b2e7c0f1de70b912fbff7907",
+          "ci_sha256": "eff2e403c45711a7865b1d007f0bbd73cfb045853112f39480fa2cdd256c0ef2"
+        },
+        {
+          "member": "agentic-home/evidence/ui/interactive-preview-1440.png",
+          "local_sha256": "c802402ec92ca80352efcb2ab8abc9687dfacf86e4a938e9cae1327e751531c1",
+          "ci_sha256": "c6ccb742f8872ae7c093fd862e0352ad14893164850926c6207481e9807881d0"
+        },
+        {
+          "member": "agentic-home/evidence/ui/interactive-preview-390.png",
+          "local_sha256": "1d34633b9c3697bcb18c1b3d3253d6fad2f8b375b7fba0df5fd9193dbc6bb53d",
+          "ci_sha256": "af1f49eadf67f229b5b42898ec2e2be5d3964d9c574af10d099dfc5046a0e316"
+        },
+        {
+          "member": "agentic-home/evidence/ui/interactive-preview-entry.png",
+          "local_sha256": "73b156d78f0254a89cf86a64de893b306077461238f0fd439766f7732991abca",
+          "ci_sha256": "240aee72e04658861eefbda0a39b0573763a3e0ded3c3a20310492aef8170340"
+        },
+        {
+          "member": "agentic-home/evidence/ui/inventory-390.png",
+          "local_sha256": "a59625c4d8a93dcbc8ece23905d96e7a90d9709e5f3b0bfeef00724ab69f7c7e",
+          "ci_sha256": "9bcf82a16fd40c1c4a3a984a24d4a381aa19b1baf3e4ef4b028cf3a9ef6a08fc"
+        },
+        {
+          "member": "agentic-home/evidence/ui/inventory-purpose-390.png",
+          "local_sha256": "d2769d34ee47dc79e683e3312b1bf71f533b032513d684d48f4fc4e9d821544b",
+          "ci_sha256": "224861303a549c744728647368057cacb073e4483f391f00c9bfb660ccdcfdb3"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/assistant-results-1440.png",
+          "local_sha256": "feb8ddfa6efcb948b79ed2a0b2b00e4197f2a801f651cc241b2f249352785405",
+          "ci_sha256": "ad55659e89beba1ca3b927dbe99afc99892a35a0c133a8756f1942ff41c3bf0a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/assistant-results-390.png",
+          "local_sha256": "4fc1fc32eb343a610277b3a8d792cf51d685ca247c6a7aab1b4bed3cca325c9c",
+          "ci_sha256": "c7afa0e17b2617d66bec930fdd42c4e5813a261cc927a906e1a62efbb9d7024e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/assistant-results-768.png",
+          "local_sha256": "faa6b3567e7f390d8da9e1f4d1d09211e0d794ae326d23b17ecfca62eafa70bf",
+          "ci_sha256": "a20b857d72bda023a98d6df2676c2329ce9e1b31ae01328dcc6ea602735086a2"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/assistant-welcome-1440.png",
+          "local_sha256": "088f94b9feae3f0caee9095200632e2e5c71dc0d2edf15c9a9811754efa8876f",
+          "ci_sha256": "bf3c0ccf4f31784468f65d7a2f8a727e79b7eb32bd97fcc6588af6ff263bc144"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/assistant-welcome-390.png",
+          "local_sha256": "44e0694496bb5a19029e7fcfa8901ddc47a3b8c7c7c9b1b50794cf867ea71637",
+          "ci_sha256": "a924c25c088f73eac4dffecfb839030ad64a56453673aae94ca30a76bb5e3115"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/assistant-welcome-768.png",
+          "local_sha256": "22cf8a87bcd93ba248efe6079aa42239111affcd7ef7744312a7bbe80a611b03",
+          "ci_sha256": "627508ac24e628785560d419731ed28d69ddbe1649193c09d126736e5910a1d4"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-choose-1440.png",
+          "local_sha256": "14657c724d7b43e67b42f22b22dd13ee13bd3b60661a8271f106a59d45823228",
+          "ci_sha256": "91936f05f1b36bfb5f0e4e146ce821dc9079d32eda52af55d7aa5eb8d5eb888c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-choose-390.png",
+          "local_sha256": "326b2c181eec5ddf3d1ca0deb205c7745b75192d75d8300d7aaa5bda6c4c4895",
+          "ci_sha256": "23fb43973785ebaac7bc666ac01beca2dbaaced9064731c56da40fed5804908e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-choose-768.png",
+          "local_sha256": "4068ceb941eebec8ea2b7fa05a7971e860f60965bf7e5bf3f8ee7d42f226d21c",
+          "ci_sha256": "5e594fdb10ea252e8b1066d991c54db19944a9bff5dc8601bfc3f134c6039d15"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-cli-auth-1440.png",
+          "local_sha256": "1b786bacde9c5cc957a08fd1cf5231cdaa8825325ac996f41bd7c0151ef853c8",
+          "ci_sha256": "abc4c82f5fd964b17f53c4fdeb337f4665767cd967c0dd7aa74e2c7b9b667d6b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-cli-auth-390.png",
+          "local_sha256": "15a7cd06d725b17c81d8f5527c840a5fcbeebdc82f72df865b87a126651f16b1",
+          "ci_sha256": "b92d9cb28bd68590e0e85cb334ba8f705728753caabbe045b969dbdb608c3f9c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-cli-auth-768.png",
+          "local_sha256": "28f9e7ac391ba18d2ab44d5ee6a36d36a5a19cc004d5c154f047624e72aab885",
+          "ci_sha256": "2d8379e04b8a7fb74dfd21afa8d8fe2538110021ad3fb3153f5e769f3aca92ae"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-complete-1440.png",
+          "local_sha256": "1534f6a74ab3f6cf752c734eac663fa55f3de41571cf27544b2f2de3e2e0104c",
+          "ci_sha256": "f63f59a59e25b06c58a2a9738fde9bb62afa562ca561d4e478b74e6176176e49"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-complete-390.png",
+          "local_sha256": "d9a8c23b1c9a376d30af5ba43971ee56a394e9c86ec51ace334d0dfe8cf3cd26",
+          "ci_sha256": "fc7e06dc2eff0542017af07433a3ef343b07d614de50d578cb8fac405a09ac5c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-complete-768.png",
+          "local_sha256": "d421174b2cc9552c423a0cfbb30348857450ae40a100b5cc82bc5a3eb1afa9fb",
+          "ci_sha256": "291f9ef0a0285511989e488cc880354b270b882e66f84355a04a09fc4b055990"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-desktop-retry-1440.png",
+          "local_sha256": "a2e24b08e87d0358cb6487e4d3a88af6dd45c42b02bdb304aee29f6c360c85fe",
+          "ci_sha256": "5414b4a7fbc1d5291b4d03b902d3b1820c96a9cc6a10ffeb4e8dee4d7834c870"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-desktop-retry-390.png",
+          "local_sha256": "9447dd52c0dc8304663b49822af0f5693d24d917b8db7eb9009b1f32e4c4cac7",
+          "ci_sha256": "f49e89200e54d140638093bfece827ca6d504dacb0a30114536473ad47cd0e0c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-desktop-retry-768.png",
+          "local_sha256": "17e46ce2a99a968d803a308e5f3fc29f3f166cd5621236abb68c0dcbf73b2e73",
+          "ci_sha256": "fd4c21bda2c3357074d6c6934d7b687fb0bffcca6495715bf217cc386e624238"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-disconnected-1440.png",
+          "local_sha256": "5cd92b7b329c0c943258d1f8f12ae69d94fc89c088b9671e5bcdbc65df2e3f4c",
+          "ci_sha256": "6b9b09cc46da49b47932393812b938b27bc2bd969357616487fffddfa18926c3"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-disconnected-390.png",
+          "local_sha256": "73b5d612a3f783963a90e6f80a62407bd573fb3fd0108f3e6a1f06e400dbc2a3",
+          "ci_sha256": "071bfb45133ed80713ae7f61b7859094c712be85f5d9f50f936f110a09b0ec55"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-disconnected-768.png",
+          "local_sha256": "2ad024c28306baceecf4cf301ffb2116abf71c2c7f4e3041a4aad150f230f5b9",
+          "ci_sha256": "3ecba9ab769826ce1fe0cba49c700a084d9a47be103e3fc9bedfa19460953c01"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-hermes-auth-1440.png",
+          "local_sha256": "5251f79ae7e6441c4d30c43682e595d4a25253a3a1ee7c4f267fcfccaa8d9936",
+          "ci_sha256": "7e2cfc252a62bd77d9f50d7599529ac77844816f4cd4eaabbefddb4eb247f8f6"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-hermes-auth-390.png",
+          "local_sha256": "c67c50bbbe132bbb38c472e0f890c8a57eb6800b82c6800ab1b4ea1b43b23749",
+          "ci_sha256": "8ba8b63cc5da8da72d48d42e953b61f3b100eb271c02594242ea658789783e1f"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-hermes-auth-768.png",
+          "local_sha256": "3d35c2f80f0d555ab93c61d9e28c50b3c20f92f68d8d44e5632985aee59bfda2",
+          "ci_sha256": "884721c8975269d50e23e46db05e5a1f55b5f4bd4694d5f9c6c6fa5bc46dd9e0"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-install-1440.png",
+          "local_sha256": "08a05471a1236a7450b7c8bfb4b89c9c6ce8d2a5d2efbe7638205bd6c8d42675",
+          "ci_sha256": "0c78fca8a35a102be67b974b316775e07c9f6c71b28bd03951e120c1101af280"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-install-390.png",
+          "local_sha256": "60a056dea5adb7ca336fdeceb673c6e6495a5858a1c59e2cf657fe5e16f3318f",
+          "ci_sha256": "12e540e82674e922d01b97f3253d06a5122524261f362e7c817052e56da39556"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-install-768.png",
+          "local_sha256": "8a230edde885fe28a1d183fce97ec5a546437205e602069fd12df5f1373e5b12",
+          "ci_sha256": "2053403258b018135a6ba40b4e904c618cc74c84172163a592392a3f8cfa7742"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-line-1440.png",
+          "local_sha256": "fc5840a33d185dcc744acbb9f06cc58d68d378d101c36323470f5c3c1fcd17c2",
+          "ci_sha256": "675d1c117eb4e25f7f13deb3e0112e06e8ae6f046b5dbe1b8a9202ea6fc557f4"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-line-390.png",
+          "local_sha256": "efc730acaa0553cb468df97dbbd48bd03f38ecfe14f1038f75448964fda72fa2",
+          "ci_sha256": "ca4fe42fe44fba54a2881c7f0b4891d0ed9f3aaaa09190bb4ae2e327cac4f116"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-line-768.png",
+          "local_sha256": "bbdc92553aad5ef8b6f7dbc1ed0d4369b359a4dbecc2e9f012c06eced314cdf8",
+          "ci_sha256": "70b38345db246b661d18873004f0ca878c3f16a90dfc77044f2cfdec7e0f15d9"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-line-pairing-1440.png",
+          "local_sha256": "d5a7fb9f7a722c88c4ed1698317af4902fca98576b726bee334497b47e067e09",
+          "ci_sha256": "764bd73820aa2fdb10c348e31ad20055c5abd2c24fe8a09132cca4442e2f1a2f"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-line-pairing-390.png",
+          "local_sha256": "90681e67e71b4125c0798e8ffe7e384d8f8e560b29e78952d1b5f4c3977a9b2b",
+          "ci_sha256": "54299c0dee3b2ee84ff7c55b61349bb0f289641127495e5af31e0b0cbd8a11d3"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-line-pairing-768.png",
+          "local_sha256": "861bf2516a35eed7f7d4c5070a49a03343a2f7bcc212405ea30635761cd437ee",
+          "ci_sha256": "f3ca3bd4dee6d92a996af0f579179b76a0100af0fc11979a35b3d654fa3b07cc"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-native-home-1440.png",
+          "local_sha256": "8fbc5a8c98e669768973001258c58e27244f44dca029ff8e3c316291185deb66",
+          "ci_sha256": "ad624600c709b0fcc4dfeb0110cdcde5f042f5b949149619f1b1483f2ffd2d1e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-native-home-390.png",
+          "local_sha256": "ae3401677b2e1b9686fe725476c05e92984ac56bc01b5fcd581c9887649d3d1d",
+          "ci_sha256": "45e31663615f5a370b6495cfc30eb8ed3732a41e468ac6980a209aa6c9ff4583"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-native-home-768.png",
+          "local_sha256": "edbb0f91592242c9457a05ee0b2709a6a3377fb981580b1482a51341acdbd11f",
+          "ci_sha256": "57add6b6a85aa39771c9a2147d2f13f15c5ba2e42eec4507aa4b470ab5d69a2b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-native-owner-1440.png",
+          "local_sha256": "b5c7f8cac1c7cafa74a1c43f55732f40578f2c0c96dde75b19899462fe23c207",
+          "ci_sha256": "4da598fcfb37452b935e4d51e046f3454aa21ea8d818df1c365f18b4e86ac0e3"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-native-owner-390.png",
+          "local_sha256": "7e8157bd250b4b728e5472705f4907a8b957e5f6c83573fd30844fdc9b568873",
+          "ci_sha256": "1f20e8eb971015268831024ea80496fdd9ad62198527e9570856eceb9f91c2c3"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/bootstrap-native-owner-768.png",
+          "local_sha256": "b0f48c36b523d8e95f98de5f2d87a0c6ab836679ef64100192b70d5a492a8f9e",
+          "ci_sha256": "d257165872e67f5b254ccb10043a596aa5a8c29f350dd421038192dfebb3e9c4"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/coding-results-1440.png",
+          "local_sha256": "7eff44713d9df0d0b1ebe5ce9b68be628659bce665be8298a2aabc533be8f9d1",
+          "ci_sha256": "0e146004a6bf17df96924577c5190116a27ceb4d2e629b10284b8e0e51707410"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/coding-results-390.png",
+          "local_sha256": "76fb66e960f50deebf746c2e81f49993ff8e747cdd363c08023d9b92387cc0eb",
+          "ci_sha256": "25dfbce25011743c7d157422ce3a6807d3f4cee3e63684f191e0435dfc4ed410"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/coding-results-768.png",
+          "local_sha256": "f7163997756e4e9c0b05032bb86035fa8a9937bf421d9c49814ba5f12eaa1d03",
+          "ci_sha256": "80b892349615600793fc965c4d87950999910240341eca032c0c2bc97fe7b5ac"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/conversation-work-1440.png",
+          "local_sha256": "a23a8753b6dcc63d7ab3d9e63f1dabd9baafad1263fdc511aa29c1e5f130ee70",
+          "ci_sha256": "c701159c6e6c4e90b34dacedad96836b977a66af804fa836405235cb6f975594"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/conversation-work-390.png",
+          "local_sha256": "5a31cf37f0aecd74c52965045082aaf0f4c48939793a4fac825db1283a076852",
+          "ci_sha256": "7e93317b2d554afd56f5b3081534d41900a79f14394d180e7a5c274d86dcc873"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/conversation-work-768.png",
+          "local_sha256": "f183b2e253273a5b9deebf46246724470ecdb73d27490b81e4af431b05afa634",
+          "ci_sha256": "beec922d16d1777e9683620f27d4f6a8fc8f60ce79cd7d4f2cb4656d95ea3eaf"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/gateway-1440.png",
+          "local_sha256": "d577658c0daeed71fdffce6dec7d341577bb19d29d4630c5a88ed588467c3be7",
+          "ci_sha256": "abec5ee5c56131b3fe44aa88955899916b05804c8a447999a01d9e31518f7c9c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/gateway-390.png",
+          "local_sha256": "66d9625f639a07af4db7b4b2932fe3fc0d263be060dc60835591f1a6fa6390a1",
+          "ci_sha256": "592d45d888cbac226dfdd6ef80f5cf8f88ab145dcf1ec89577f8f75359657095"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/gateway-768.png",
+          "local_sha256": "ede21dc385259aaa2b4c32d586f98ac702bf760829225abfb0e182c9c736f12c",
+          "ci_sha256": "4827256385a4a0530a5650dc5fcf1feef7b4f6d5051d68d42de1ae9da161f93a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-configured-1440.png",
+          "local_sha256": "a2dec48308024670b413f7956b7e67a27ae032402346a6d5a01a1ebd549275fe",
+          "ci_sha256": "895fa68c1dfeb240b7cf339c4c7efb1efc81afb37df9a83666d7c674efca6090"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-configured-390.png",
+          "local_sha256": "b680a8054479255499d5e44ade40a2636964188a1bda39489554074b8ec34c67",
+          "ci_sha256": "f33bfc73ba37d5a6f391fb3c323c6686a42fb6b4344d1b0fc11bb1a06f23d273"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-configured-768.png",
+          "local_sha256": "9cd1c9e5ae6dbd91d07454843fcdf6b0fd7ed887cf0395aa8d8014950ecfa073",
+          "ci_sha256": "db8e396dabd61742db24c7c6561d355961c13c54ae85da0c0f10a30b0890e12c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-gateway-1440.png",
+          "local_sha256": "1e14695bdf7fc2e1c4fbc2698c43e748f0b6d48903b669e2f2550474d05bbece",
+          "ci_sha256": "5b23c26814c831d594b717ffcc8c7c6516c6b48ba9d1fc8bc1bafa60bc4caec4"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-gateway-390.png",
+          "local_sha256": "cc3bb9f0c39a18dab408a42a1735c0ab71006abedbeda8e1b182f3b10f6dae48",
+          "ci_sha256": "72aa5fe7e488907fcc0cf4eefacf255b90608b774ba776d763b5fead0c1efe44"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-gateway-768.png",
+          "local_sha256": "afaee6c5aea7001a6e4312275062c06d9479a2346369803bde567aa32fe323e8",
+          "ci_sha256": "276487e9d65924bd4a095135d57b8e702d6a19748be7a98d7b3723756dbffea5"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-needs-auth-1440.png",
+          "local_sha256": "bde682912d32beefd517cb17b9d4b57e1bdb7cd4a702d265f247966c47312908",
+          "ci_sha256": "cb7745665b82b9a13ee17b1081c5ab44b0c958c18817b7637abed1568f6759b2"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-needs-auth-390.png",
+          "local_sha256": "8a9d9ba9c762826038e3103ebb949b5595b37dad2ea8729c503fb8b4974ea782",
+          "ci_sha256": "823a11555129989c4d9afd82271b5d780ba8e01440706a1069a67ca2f245568f"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-needs-auth-768.png",
+          "local_sha256": "0a5404a97c5d621e39ecf6062a55091aa07c22d4f40b488463bc104fd8371c74",
+          "ci_sha256": "dc81f512ae7066c858cfd44b0a5e02b25f3e5faafef2d58c7307c9c57729e5a0"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-poll-down-1440.png",
+          "local_sha256": "7a658fbfbb0b7a3fbf769a8c940ca530dc9de01e3d5c91d0b62ed9e79e00af1b",
+          "ci_sha256": "85d3d8b3454dad1fce4a112af45aa6420aac4fb99d0fc11f8c53ede0444eef57"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-poll-down-390.png",
+          "local_sha256": "d5dbef326387125b5e9051ccd2ec846a5447f4c660185af7a52b83203ef6f67e",
+          "ci_sha256": "596c6e3af22724b461ca1ad142501345efa6e79283e87f2db273adee9e8928be"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-poll-recheck-1440.png",
+          "local_sha256": "ba942dfe56323551688da6f0b8b0101aa45a6b343fa52375c056da21d29e1bf5",
+          "ci_sha256": "917978e4e026cc6047c44b1ed0a17644f4552f798e6c14c175403ef2b30fec4b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-poll-recheck-390.png",
+          "local_sha256": "ef5ff7511149a1edaa94e0ec140ed1729d0127341ab9a7ea993206d28e5d34ae",
+          "ci_sha256": "5ba9fd83cd9999914d28d64d8f0868f731621993c8e25c982b75e6d588810458"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-replace-login-1440.png",
+          "local_sha256": "19d7203eefca65c3a68bde65c5f9b39c7b137399339ff1e051b62e810fe7bb2e",
+          "ci_sha256": "99fbd9205e2d1a7b143e6445c74347a204c2bb4fc86398e76c41d49b55d93e95"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-replace-login-390.png",
+          "local_sha256": "149924a77c69fc1f9a1b7ad691d79efcb2fe1fd0634ccfd7a3646846225d41f5",
+          "ci_sha256": "026faf09d3d26792574e5c7d14515c11cda2c4c4e03cfaf802cb4a79d246007d"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-signed-in-1440.png",
+          "local_sha256": "71057e911490fe31b31e5ae9d994131ed78b2927a1676a022da0006bb59f3119",
+          "ci_sha256": "6448744fa8d1f0c3fef8c3cd51e695b956bcb3ed26360f7cb0c5cb24bdb43384"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/hermes-signed-in-390.png",
+          "local_sha256": "41ea4bc4855eba7f2c5027b1066a00058214873cd2a317fd9446c3f86f617912",
+          "ci_sha256": "6c498afa6a2b455d5a5d15707556b906ca07c8ad19016a6ea4777df6ea1389ae"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/host-1440.png",
+          "local_sha256": "a11a5a8526b3511921a902b97df74833fd4289385ef878b83a1fc7743a9bbdc1",
+          "ci_sha256": "faed5d994ec630ec309d7aa75878c7045523bf64d8737d3a0f2f34139478ad8a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/host-390.png",
+          "local_sha256": "312ba335be6970114f828bfac695f975393a055894f859faed520d98c159a1c4",
+          "ci_sha256": "fe837180a79628f23ceed5df488d86ed1ae4383e86091cd4644fb4560bfd1205"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/host-768.png",
+          "local_sha256": "7b5d114033d26b1e990f6da280e61226faf0dfeb13f8fa4aeeae0e34f3882a59",
+          "ci_sha256": "1fc581f1c1d53b22711f7c1c9e23f3e973cbc929cf1b00c757f54f65eee20fc4"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/host-login-1440.png",
+          "local_sha256": "e3e1eeb8881480a6f32823b5a0fd1c7b4771685d8cc437e76d9ff2d4edf2a57a",
+          "ci_sha256": "6f7dfe7f0ab5466859aa58c943447a35ad3148883f867bbcb8c073dbdb8bb318"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/host-maintenance-1440.png",
+          "local_sha256": "8f3a20e988b604981f178b64f4a6388b6a651d26223b108107082befa9a3b36e",
+          "ci_sha256": "ba3d47668357262a3825a6e9bdc8c3c80b7c1a77d5a740ffbac1931ed95ba021"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/host-maintenance-390.png",
+          "local_sha256": "939656bba157ccb61d3a124a54785c935c6d3bb93df6de2b3a687e3105d83b6c",
+          "ci_sha256": "a9d8087a05bdcf5533998d3c137952b58637c1f1e20000ee021cc839d204480c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/host-maintenance-768.png",
+          "local_sha256": "9d1cef590787f0bc9c1011e3137e90d16b6d1ac5eb82e351cf5828aeb6816933",
+          "ci_sha256": "422f8e7ce93a1dab64af97e194b459da63ef3e1e6731908a8992db606f930bba"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/onboarding-line-1440.png",
+          "local_sha256": "f095d6b9c9ebe0b8c7da59aa85ed15cd490f01750adc701cab4c8e449f20b1d9",
+          "ci_sha256": "01b09f2241b38b53c46f8f79f40ffbb03aba9259935e10a7877893847cf65a5c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/onboarding-line-390.png",
+          "local_sha256": "21bed198c728a9a883e496ee6958e23c1528fdc0f280432be13de58fea55a40d",
+          "ci_sha256": "1da500559c4d833ebf144bea81f806766a5bd4af009fcb7b4f1c7abe93652692"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/onboarding-line-768.png",
+          "local_sha256": "fb7c55f2324d61c911e6c0bd3ac2fb9ebdee6cb82cc52ee6470e0a782f82c4c1",
+          "ci_sha256": "25f0ebc1d8d837019866f1aff6c2413e8042120b034a6268e685710e8c69f135"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/onboarding-web-1440.png",
+          "local_sha256": "c7e104f74482784be0ec62226704dccbdd5258d531b5e0b820a8b9d79a0629a3",
+          "ci_sha256": "67a0714649a8a5f3a8b17cfaa0a035d48908cf5fd6cef5db0b76aaf80fe17942"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/onboarding-web-390.png",
+          "local_sha256": "6f9eb18e517f25fdf37f77960ad26029a271453b987600496d63e8fe50b6403c",
+          "ci_sha256": "9ce6dd1b3ee1f165ce3ed293146dc739d771ef83622167ab3963b9e3b1c341de"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/onboarding-web-768.png",
+          "local_sha256": "e732f0c1b9b23fa74fe006cf97a5c5869f4b4e58b8dbc03bab570636698bec24",
+          "ci_sha256": "3b64c174dd3cb9abd167d7119546f3a8edc4b8f15ff9f2d1b5f6b63aed3322d7"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/ready-1440.png",
+          "local_sha256": "73b156d78f0254a89cf86a64de893b306077461238f0fd439766f7732991abca",
+          "ci_sha256": "240aee72e04658861eefbda0a39b0573763a3e0ded3c3a20310492aef8170340"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/ready-390.png",
+          "local_sha256": "c26de2bfaae272da913f4c03ecd13af2a60174ae88c1b96faf75fc808fd8a288",
+          "ci_sha256": "afe724a42fd612d59d6b168bc18dae8cb7640b13fc5fd7f6900751b9fa2a5454"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/ready-768.png",
+          "local_sha256": "ee85f7ae161d4345cc24c2ce30c1af9c00cfdfd252ba0f6277cd3a3f371148a0",
+          "ci_sha256": "7f40f46de8cd4ffc991250b464a64f1750a8f13495c9de0ff981261e5dd1420e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/settings-host-1440.png",
+          "local_sha256": "8449421d84ff53f770e3fd67740f20b8a4615afaf1eccaf99d32887384acbfa1",
+          "ci_sha256": "4585980ab01cc5c06d23f705576e256320753d68ed8391fa896beb0b9038a2bc"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/settings-host-390.png",
+          "local_sha256": "b632309a6417a6eaf435d56958aea6908e344cb1877dd7000474d73206eed42c",
+          "ci_sha256": "a88292edbcc752be447dec55c1ca0e33fc0754d56bf97d1a9e2c3b6251aedc34"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/settings-host-768.png",
+          "local_sha256": "905e896c1d7af0561e934fbd7cfedba2778dbbf995136633b0bc202f5440821f",
+          "ci_sha256": "cb51ad67771122c4eba0c2867c44c4e0871ae39bec3a258aeaa305f40f9a4c72"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/setup-1440.png",
+          "local_sha256": "1b1455814145e107012c69d10b75fc37a5f0a32d744050c8780d6784f32f9f42",
+          "ci_sha256": "cd63bd8110f3e01b0d7559dc5f00fce3bb2d91d86c3c21b8ec25146a69af74fa"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/setup-390.png",
+          "local_sha256": "2deeea5ff4542705979cb60a7f79ac737672b12923b39b54cbb8f805a4931b6e",
+          "ci_sha256": "e298e3d2052e947edcd25540d6570edb388b9a21825599f1c5873ab797b9fcdb"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/setup-768.png",
+          "local_sha256": "8289a2f6d7968c05e60e5bcd402c7e155d7619bc37ae739e86b4cdb89821394e",
+          "ci_sha256": "773e7e2eb54ca78bb4d1318223ed9c81ec60d7e6ffac503027f6bfc93dd53b1c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/unavailable-1440.png",
+          "local_sha256": "2187695ae9b44418a5ac4142e04c1ca68babd41f8ec304248430d4cbd1f8bbba",
+          "ci_sha256": "ab289aaad633aed64a0a1a6db558e8031e7dc47e12bad708847873fc251fa9e5"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/unavailable-390.png",
+          "local_sha256": "8fdc7684260b88e4794875172f66e6226fda3dce48bf102637710b93d59b1dd1",
+          "ci_sha256": "7b0c9faf359da3fb03aa398fb1586f21fe2401144962104143a0b50a9a18795e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/native-home/unavailable-768.png",
+          "local_sha256": "4dfa9d5658c95eb62e54f8c0a2e92b8d02e1596ebdca07a645245404f90d83b1",
+          "ci_sha256": "a96c1e6503cdd7c4220111f6be5fd5ea95bd46722c3b16ab41ccd948271e8e7e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/plain-error/bridge-fault-1440.png",
+          "local_sha256": "af04f79350d4e529d0039e6c545558dd5d855059cbf33b1a67043149d14c8cb1",
+          "ci_sha256": "6a785f9faf373112114cac071a8456817299ef118013d17ba718762e89ae7ccd"
+        },
+        {
+          "member": "agentic-home/evidence/ui/plain-error/unknown-status-1440.png",
+          "local_sha256": "c120fbd6410d29eaf7299d02117b1a201a1b44fd9e5f9831b79245b3cb4d73aa",
+          "ci_sha256": "baa8e181b42b11ec788e1c18e12babd019427f6951fe2cae2fe4798b5a539d3a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-account-1440.png",
+          "local_sha256": "1e599cdf4d211a8a98332194a873f2b0aef0dc9eeb984c5108e73c6ec3728b9e",
+          "ci_sha256": "2d3ba8b9ab68ef3764ab418a8adf1d09645f46da2d8b898491ac915e2d0cc0ed"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-account-390.png",
+          "local_sha256": "08ccda5b6f5a6dd63c7132663ab3ed89d86264265266375dd5c8b162623b0bba",
+          "ci_sha256": "5cd0b46d2767d3558e4fb8564391463310c2c9c1d1cb89404697f5b0acea0cff"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-bootstrap-1440.png",
+          "local_sha256": "1191ea7e20030af2d8b9cbb2d85ba063d8d22b3d392ccfc0ec68be20355c0466",
+          "ci_sha256": "d02baf10e9c076d58886f0a89bf42a62be611db83c562e27b64bed3202481d54"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-bootstrap-390.png",
+          "local_sha256": "fe29d6bbb69bdd9015c2844a5d816b1f298237137d5a89a65e5b6876ea38ed0a",
+          "ci_sha256": "a266484cf8c6e6d9dc210893ab51f7cdfe203bc23666c8a75d98d2bbbfa889a4"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-bootstrap-retry-1440.png",
+          "local_sha256": "bb8faaf4421f4c175071870a9a837c80fed985424b4e683f4506d340350e7e23",
+          "ci_sha256": "9a90acea765bc4de81e683f320079764b6a2d4ec34e5d29a8a986fce3c106e66"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-bootstrap-retry-390.png",
+          "local_sha256": "254306265a45d933958d800070bb7f77e7ae94b738b47719da5f67cfe3729fa4",
+          "ci_sha256": "474b8cade6dd2e030a8430c9fa0b5fe9d22a181946247fca449a7fb9dd313221"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-conversation-1440.png",
+          "local_sha256": "9ff4c342373a6ab63c1704baba9400609632bdc198bba6b8f65a1a97108e2a1f",
+          "ci_sha256": "45add3d4cab5093acb8015732b6f113185da63a4972f39d25abda74b7eb9b095"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-conversation-390.png",
+          "local_sha256": "87de94057653490056c2d4ec8c55c8b4b56e9326cac05e53826704ef916d56fd",
+          "ci_sha256": "ce823158d582399386af8d1a9da4b37d5a6afcd8a812881097c5a7327fdc833e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-conversation-retry-1440.png",
+          "local_sha256": "2aaec72c877ff3a84e235a8203770afb37d1b2b3bfbe7265a3961a5111e7a401",
+          "ci_sha256": "c3ce0bea7dd50f3c0134080a80d9ae228c936c026de51f5817e4c8cbc9b842ad"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-conversation-retry-390.png",
+          "local_sha256": "57b26ba1ea531414c8a3ef421eee3cd7c350fb08ffa897bb6293008dce9c4d55",
+          "ci_sha256": "cb9dc7f7f64e24efb597807a44226c279a710f459ca6becaffd55a914ba629f7"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-hermes-1440.png",
+          "local_sha256": "88c0708daa915affcc629ffaae2fd91d18502dba6f91710b7ca6d3498df624a6",
+          "ci_sha256": "53142945e24ebb87c8c11530ee7906eaf69a813173b2cdf2a072f1ccb7539f0d"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-hermes-390.png",
+          "local_sha256": "fd84b8bfbfd44df7288e4915b5a652cc3e39a747bace38abc6cb52ebc3efef3a",
+          "ci_sha256": "8323a827985bbc2020bd9c3f3529ad30ed1b1b1aac84a30c025b9e5a03fb1f6b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-hermes-resume-1440.png",
+          "local_sha256": "0c18c0697281f97a48ec69926502cbbad3e2dc5485913ce9ea0028e06fd91f29",
+          "ci_sha256": "913e57253077025d5880c4d56e7f25c1b1b9d2db41cfbf40a5cd2c26909d76ab"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-hermes-resume-390.png",
+          "local_sha256": "68f30ac387becd6c26d5d64283f59d77729b6eb2044000afc9eec4ebd6737ff0",
+          "ci_sha256": "4abf3a022c7c4752db6bedba7564aeb6076427ca5c8fb247ec7c6b9db2661f49"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-line-1440.png",
+          "local_sha256": "a329724bd4e607a083cdf512f24b52d10c4d26674d419b0a9e877aa4c348d185",
+          "ci_sha256": "a34b2c5758561832abbdfe8dbaee648aeed9b541ac5cc161bfe960684b4c4746"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-line-390.png",
+          "local_sha256": "148841d04b54dc0105a6004381d1183c4b1d0220d5ab4a884adf105af7235b6d",
+          "ci_sha256": "3014de2b117eec443d31d0de6273ff2bcd947456b66346da78504fad280c3ccb"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-proposal-1440.png",
+          "local_sha256": "c4af7c18ca71e1ff1d5744c1696155739924ed73bf8f7a1191e782635426fcc9",
+          "ci_sha256": "776ab32b95da54846e43a0a10ca5364f99ad80c37603ca3935c998c875766416"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-proposal-390.png",
+          "local_sha256": "f8afbcc422b6a69ff4799fdc43481d3f0158d7ea0709dcf8c5f4bf65791de2af",
+          "ci_sha256": "f6b691e270e2159074e671e57ff3821d2c6c8acf55392473c3c5db3b8066f493"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-proposal-fallback-1440.png",
+          "local_sha256": "0550cc254848626262f0eb11a15ad683fdd0b7836e5390291905d362e4010650",
+          "ci_sha256": "29c512c870fa3e536c53c3c0386ae9bd2e5f25869dd697d0ec4c1d60f69bdd8e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-proposal-fallback-390.png",
+          "local_sha256": "811e9e7cb42cf3c6bbaed8fc082cba2e8b6bd889290daa589da3a962f3949eb4",
+          "ci_sha256": "f1fd8258d3e8a1e133ce38d41f5e2f3558f3c68e3e3fb8ad7643dcee320e12ef"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-reboot-composer-1440.png",
+          "local_sha256": "4cc4d3147cd11818076a19fb97c8c6f0bb7238ec19a8c5f3ce8bb7a05a485ac9",
+          "ci_sha256": "4b6d8bd65a13667732ff0454d1dcfc52a84f4e2e2fa443596878cd114773ce8b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-reboot-composer-390.png",
+          "local_sha256": "be937334e5e445f800323a129146e6e5abd6d3d210362c5f2462bb64e580cbf1",
+          "ci_sha256": "53b7339f2f9135b6cf4fbcc11585e24720a54609311b8435b2d3359e79c57533"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-reboot-settings-1440.png",
+          "local_sha256": "482ec3c4896cdce3da72ee5f52405d49e7e09d39574bfd330d3e15a1bb6be516",
+          "ci_sha256": "edf781bee1ffc8f2415a6c8f306c3fd4c88318a1682e37a23ad69649dead1a2e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-reboot-settings-390.png",
+          "local_sha256": "e38f77a99c21d67a0a6259ed73c383cb2ebda939b55498db30f404c2f732581b",
+          "ci_sha256": "bed2c384e4d67bf89d6150ff06149c8a5b09f229a23216c180b047e91364dd8c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-telegram-conflict-1440.png",
+          "local_sha256": "92383ca55354c44e04feb15c555358de94954c323f7d97627f383e39c9974ce3",
+          "ci_sha256": "44aefd297b114b8d3d70a377125e1c3b37c8bec6e362e1e9b8b38dfbce76a84b"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-telegram-conflict-390.png",
+          "local_sha256": "2869e82026ae0a9cb80509ad34c2f0816719934be05f4d8f92dd615b2c933373",
+          "ci_sha256": "c8365f488c51c3bddba12c65c2fac4af609fab9d018848b00c1d1932cf161693"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-telegram-token-1440.png",
+          "local_sha256": "d9f60e007d7275073c097c398e52dc61a39798be99cadfce75345a989db23af8",
+          "ci_sha256": "739415c09144958befcf21fabc923e41443ae53ff1a272e3d80160ef8d8f0d8a"
+        },
+        {
+          "member": "agentic-home/evidence/ui/recovery-telegram-token-390.png",
+          "local_sha256": "50b15881df4eb01120e57ae042238182b4b7699127b7f60ca94efb1b8b426a6a",
+          "ci_sha256": "816b16f2b1312d8ad9f6e0eec216b405c28f7a9c9e9277cb31bf2cfae76c5dbf"
+        },
+        {
+          "member": "agentic-home/evidence/ui/settings-390.png",
+          "local_sha256": "1566ff90de70f0155112ac9f00706ea6ce1499b42101cac59a49b54ed1e74da5",
+          "ci_sha256": "091a63211ad42163d337f5bb13413c5f664f55c98a824b6d3319f35ccacf7a8e"
+        },
+        {
+          "member": "agentic-home/evidence/ui/workbench-1440.png",
+          "local_sha256": "a0ebdb6293e40f4b3ca475ee190b0248c3da5cdf9a7b748be192f4337d68a9f6",
+          "ci_sha256": "a9dd62c3b6bb6c5c3b80aa452604723b464306323a2bdc35597b7c3e19e21892"
+        },
+        {
+          "member": "agentic-home/evidence/ui/workbench-390.png",
+          "local_sha256": "d423e3d35b5fdc314cd851f738139840fffa4a286abc93682fa5eb088992a86d",
+          "ci_sha256": "6e758699c9b06a4c086ad62ac8c2dd81686b5ad8faeb64db978791f1025abc5c"
+        },
+        {
+          "member": "agentic-home/evidence/ui/workbench-768.png",
+          "local_sha256": "3e70090cd8018e5e292c47acd3a48eb98dec653ee71990a14c6e2f6b0a87555a",
+          "ci_sha256": "6116fa50eeb41b8eb1838e2532ef7f72d64589852f7e328633b3a3ace3380c88"
+        }
+      ],
+      "added_image_permission_receipts": {
+        "agentic-home/evidence/image-public-permissions-bridge.json": {
+          "app": "bridge",
+          "reader_uid": 10003,
+          "status": "passed",
+          "owned_container_absent": true,
+          "passed_check_count": 5,
+          "image_id": "sha256:6750a3111843cac48b5c668b82d7ca3e9cbd9728f59021a7263b4bce6ecdfbae",
+          "artifact_member": "evidence/image-public-permissions-bridge.json",
+          "extracted_path": "ci-38792580248/evidence/image-public-permissions-bridge.json",
+          "source_manifest_payload_sha256": "d15da126a70ebc24c72a0202e09f66bb6d5fad16d1504d27d25f512edd3bfb71",
+          "source_zip_payload_sha256": "d15da126a70ebc24c72a0202e09f66bb6d5fad16d1504d27d25f512edd3bfb71",
+          "outer_artifact_payload_sha256": "d15da126a70ebc24c72a0202e09f66bb6d5fad16d1504d27d25f512edd3bfb71",
+          "extracted_payload_sha256": "d15da126a70ebc24c72a0202e09f66bb6d5fad16d1504d27d25f512edd3bfb71",
+          "reviewed_ci_receipt_payload_sha256": "d15da126a70ebc24c72a0202e09f66bb6d5fad16d1504d27d25f512edd3bfb71"
+        },
+        "agentic-home/evidence/image-public-permissions-controller.json": {
+          "app": "controller",
+          "reader_uid": 1000,
+          "status": "passed",
+          "owned_container_absent": true,
+          "passed_check_count": 7,
+          "image_id": "sha256:69aeec07c91eb30cb4e8de223bea8d90af31d37be477daaf250777fd745529d8",
+          "artifact_member": "evidence/image-public-permissions-controller.json",
+          "extracted_path": "ci-38792580248/evidence/image-public-permissions-controller.json",
+          "source_manifest_payload_sha256": "2e82cb245c202b881941379aaf3b7dc27cba9e0d348b0b44533a3fffc1aaa6af",
+          "source_zip_payload_sha256": "2e82cb245c202b881941379aaf3b7dc27cba9e0d348b0b44533a3fffc1aaa6af",
+          "outer_artifact_payload_sha256": "2e82cb245c202b881941379aaf3b7dc27cba9e0d348b0b44533a3fffc1aaa6af",
+          "extracted_payload_sha256": "2e82cb245c202b881941379aaf3b7dc27cba9e0d348b0b44533a3fffc1aaa6af",
+          "reviewed_ci_receipt_payload_sha256": "2e82cb245c202b881941379aaf3b7dc27cba9e0d348b0b44533a3fffc1aaa6af"
+        },
+        "agentic-home/evidence/image-public-permissions-hermes.json": {
+          "app": "hermes",
+          "reader_uid": 10003,
+          "status": "passed",
+          "owned_container_absent": true,
+          "passed_check_count": 6,
+          "image_id": "sha256:634bb1c9a24176ae1660d93ceb94b95b5ca64f5a2d19298beb63b629ee80b601",
+          "artifact_member": "evidence/image-public-permissions-hermes.json",
+          "extracted_path": "ci-38792580248/evidence/image-public-permissions-hermes.json",
+          "source_manifest_payload_sha256": "ac5960e51521b646f5553a9769f26f3df4e521a0346387072953c841a40800dc",
+          "source_zip_payload_sha256": "ac5960e51521b646f5553a9769f26f3df4e521a0346387072953c841a40800dc",
+          "outer_artifact_payload_sha256": "ac5960e51521b646f5553a9769f26f3df4e521a0346387072953c841a40800dc",
+          "extracted_payload_sha256": "ac5960e51521b646f5553a9769f26f3df4e521a0346387072953c841a40800dc",
+          "reviewed_ci_receipt_payload_sha256": "ac5960e51521b646f5553a9769f26f3df4e521a0346387072953c841a40800dc"
+        },
+        "agentic-home/evidence/image-public-permissions-linejs.json": {
+          "app": "linejs",
+          "reader_uid": 1000,
+          "status": "passed",
+          "owned_container_absent": true,
+          "passed_check_count": 5,
+          "image_id": "sha256:096ce3e8e1de15fbc53f77f52144c696d899681ff34f2923f78bc93bf8fd98d6",
+          "artifact_member": "evidence/image-public-permissions-linejs.json",
+          "extracted_path": "ci-38792580248/evidence/image-public-permissions-linejs.json",
+          "source_manifest_payload_sha256": "d825e14606e1eb68cb78263e55706f5514a37a0a2eaba9060f87f89e1c5e8b44",
+          "source_zip_payload_sha256": "d825e14606e1eb68cb78263e55706f5514a37a0a2eaba9060f87f89e1c5e8b44",
+          "outer_artifact_payload_sha256": "d825e14606e1eb68cb78263e55706f5514a37a0a2eaba9060f87f89e1c5e8b44",
+          "extracted_payload_sha256": "d825e14606e1eb68cb78263e55706f5514a37a0a2eaba9060f87f89e1c5e8b44",
+          "reviewed_ci_receipt_payload_sha256": "d825e14606e1eb68cb78263e55706f5514a37a0a2eaba9060f87f89e1c5e8b44"
+        },
+        "agentic-home/evidence/image-public-permissions-preview.json": {
+          "app": "preview",
+          "reader_uid": 10004,
+          "status": "passed",
+          "owned_container_absent": true,
+          "passed_check_count": 4,
+          "image_id": "sha256:c4c1a1c299d0de33b41b7d0fa58df0d9d44ea1e897e4c39fcc632387b361a96c",
+          "artifact_member": "evidence/image-public-permissions-preview.json",
+          "extracted_path": "ci-38792580248/evidence/image-public-permissions-preview.json",
+          "source_manifest_payload_sha256": "3320b14660a7d8eb6321c852f23c3b7328c11fe1ba49f3c4d98755686fd2b632",
+          "source_zip_payload_sha256": "3320b14660a7d8eb6321c852f23c3b7328c11fe1ba49f3c4d98755686fd2b632",
+          "outer_artifact_payload_sha256": "3320b14660a7d8eb6321c852f23c3b7328c11fe1ba49f3c4d98755686fd2b632",
+          "extracted_payload_sha256": "3320b14660a7d8eb6321c852f23c3b7328c11fe1ba49f3c4d98755686fd2b632",
+          "reviewed_ci_receipt_payload_sha256": "3320b14660a7d8eb6321c852f23c3b7328c11fe1ba49f3c4d98755686fd2b632"
+        },
+        "agentic-home/evidence/image-public-permissions-runner.json": {
+          "app": "runner",
+          "reader_uid": 10000,
+          "status": "passed",
+          "owned_container_absent": true,
+          "passed_check_count": 14,
+          "image_id": "sha256:5b256ad0d55a7b452541570471206fbd6db826999ce902bf663ba0fa3198dbd2",
+          "artifact_member": "evidence/image-public-permissions-runner.json",
+          "extracted_path": "ci-38792580248/evidence/image-public-permissions-runner.json",
+          "source_manifest_payload_sha256": "721d6f0839607d858f2d89f8e16a664a4f67ee6b14877a8319743a9d3d72e12a",
+          "source_zip_payload_sha256": "721d6f0839607d858f2d89f8e16a664a4f67ee6b14877a8319743a9d3d72e12a",
+          "outer_artifact_payload_sha256": "721d6f0839607d858f2d89f8e16a664a4f67ee6b14877a8319743a9d3d72e12a",
+          "extracted_payload_sha256": "721d6f0839607d858f2d89f8e16a664a4f67ee6b14877a8319743a9d3d72e12a",
+          "reviewed_ci_receipt_payload_sha256": "721d6f0839607d858f2d89f8e16a664a4f67ee6b14877a8319743a9d3d72e12a"
+        }
+      }
+    }
+  },
+  "preserved_nonpassing_history": {
+    "receipt": "ci-deep-review-initial-failed.json",
+    "receipt_sha256": "b5145b14cbed310a9cddb55a7f33f6f30751e7194bd90c2e2f01e46a6b2a7467",
+    "scope": "Initial extra reviewer incorrectly required generated evidence to equal historical Git evidence; failed invocation remains retained separately."
+  },
+  "limitations": [
+    "The 213 refreshed historical evidence members are generated CI results, explicitly compared and recorded; they are not counted as mismatched product source.",
+    "Generated CI evidence is distinct from frozen local source evidence and from local installation VM acceptance.",
+    "No source ZIP bytes were changed and no GitHub write or rerun was initiated."
+  ],
+  "private_full_path_receipt_sha256": "8d7be9bfda75022b737c6c77d4720cd0f04ba3bb48a9da670a26baa197f2839d",
+  "relative_path_context": "archive_path is relative to the frozen source worktree; extracted_path is relative to the read-only CI collector output root."
+}

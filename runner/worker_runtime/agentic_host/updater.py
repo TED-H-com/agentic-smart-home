@@ -94,9 +94,18 @@ def offline_check(path, schema, *, pause=False, gate=None):
         row = db.execute("SELECT value FROM settings WHERE key='worker_lease'").fetchone()
         if row and json.loads(row[0]) is not None:
             raise UpdateError("update_worker_lease_active")
-        row = db.execute("SELECT value FROM settings WHERE key='bridge_maintenance'").fetchone()
-        if row and json.loads(row[0]).get("operation") is not None:
-            raise UpdateError("update_active_or_uncertain_work")
+        # A disabled App may still have a Supervisor operation already sent.
+        # Both activation and fallback require its persisted intent to be cleared.
+        for key in ("bridge_maintenance", "home_worker_maintenance"):
+            row = db.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+            if row is None:
+                continue
+            try:
+                maintenance = json.loads(row[0])
+            except (TypeError, ValueError):
+                raise UpdateError("update_active_or_uncertain_work") from None
+            if not isinstance(maintenance, dict) or maintenance.get("operation") is not None:
+                raise UpdateError("update_active_or_uncertain_work")
         for kind, body in db.execute("SELECT kind,body FROM records WHERE kind IN ('task','work_job','hermes_run')"):
             state = json.loads(body).get("state")
             if ((kind == "task" and state in {"executing", "verifying", "needs_reconcile"}) or
