@@ -1090,7 +1090,14 @@
     "evidence/owner-trial-53c9e79/release-transport-v2/preparation.json": "62d331101993f35562be8a49ca34a1da96added85592aeb05db67b0d050f21c0",
     "evidence/owner-trial-53c9e79/release-transport-v2/release-parts.json": "49c34e9afee7e5995ff1f774dfdc616827dccecd5961730fa17f98a06fba0f70",
     "evidence/owner-trial-53c9e79/release-transport-v2/upload-attempt1-failed.json": "0babe091085f6bf9183a99436e57b9354380a1180d8355b48d8352168bd93df8",
-    "evidence/owner-trial-53c9e79/release-transport-v2/upload-attempt2-failed.json": "7a470bb4908d8afd9ed64663e4ff94b4d8c1885bc850455f231cbfc85cb20959"
+    "evidence/owner-trial-53c9e79/release-transport-v2/upload-attempt2-failed.json": "7a470bb4908d8afd9ed64663e4ff94b4d8c1885bc850455f231cbfc85cb20959",
+    "evidence/owner-trial-53c9e79/release-publication-v2/upload43-completion.json": "0d59cf12a922edfba84f3c43555e3de01826ae76b7cc0ac2599c00e9bb266190",
+    "evidence/owner-trial-53c9e79/release-publication-v2/draft-finalization.json": "f26b2267139f4ba3bd93394b1bd784f4348ef95bbf9d3f4ffb651a409bd0b71e",
+    "evidence/owner-trial-53c9e79/release-publication-v2/draft-assets-reviewed.json": "db347d032788110b10bfe5e607f7d6faf5d27df1868ab569be7c6c17288af282",
+    "evidence/owner-trial-53c9e79/release-publication-v2/published-command.json": "eb7f87607a362ca9e6e22a8c67012e134d174d9593f6cf52a02aeec61b3a5a2e",
+    "evidence/owner-trial-53c9e79/release-publication-v2/anonymous-download.json": "06dc8e5f8816f3fe7d76eb6c6a8cc6c9b417a2441c643d19527b5251ccab2767",
+    "evidence/owner-trial-53c9e79/release-publication-v2/anonymous-command.json": "043dff3c86dabe684411580e8def9eb16341cf84bf73329108518ae5fcd72aaf",
+    "evidence/owner-trial-53c9e79/release-publication-v2/anonymous-cleanup.json": "78e99d32c9b551ef71d2841e8556c68893fb40558696aa7058a4d4ec3e6643f1"
   },
   "public_delivery": {
     "status": "passed",
@@ -1201,5 +1208,49 @@
       "evidence/owner-trial-53c9e79/release-transport-v2/upload-attempt2-failed.json"
     ]
   },
-  "current_release_transport": "release_transport_v2"
+  "current_release_transport": "release_transport_v2",
+  "release_publication": {
+    "status": "published_and_anonymous_download_verified",
+    "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+    "release_id": 414429247,
+    "tag": "v0.9.0",
+    "url": "https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.9.0",
+    "published_at": "2026-10-16T03:22:04Z",
+    "prerelease": true,
+    "make_latest_requested": false,
+    "release_assets": 52,
+    "parts_manifest_sha256": "49c34e9afee7e5995ff1f774dfdc616827dccecd5961730fa17f98a06fba0f70",
+    "download_helper_sha256": "8c462b1a7b4bc7bf667afe75722dfaf8e6cb76a0499379d6df17fc2e24ecf73d",
+    "actual_anonymous_original_files_verified": 4,
+    "actual_network_requested_transport_objects": 49,
+    "anonymous_attempt_id": "initial2",
+    "owned_anonymous_validation_copies_removed": true,
+    "verification_archive_docs_commit": "bd0b00617fe831dc44853d6149d67b7107567d3f",
+    "verification_archive": "agentic-smart-home-0.9.0-verification-bd0b00617fe8.zip",
+    "verification_archive_is_frozen_A2_snapshot_excluding_later_docsB": true,
+    "product_acceptance": {
+      "passed": 2,
+      "not_run": 30
+    },
+    "real_accounts_physical_laptop_household_E1_E2": "not_run",
+    "public_receipts": {
+      "upload43": "evidence/owner-trial-53c9e79/release-publication-v2/upload43-completion.json",
+      "draft_finalization": "evidence/owner-trial-53c9e79/release-publication-v2/draft-finalization.json",
+      "draft_review": "evidence/owner-trial-53c9e79/release-publication-v2/draft-assets-reviewed.json",
+      "publication": "evidence/owner-trial-53c9e79/release-publication-v2/published-command.json",
+      "anonymous": "evidence/owner-trial-53c9e79/release-publication-v2/anonymous-download.json",
+      "anonymous_command": "evidence/owner-trial-53c9e79/release-publication-v2/anonymous-command.json",
+      "cleanup": "evidence/owner-trial-53c9e79/release-publication-v2/anonymous-cleanup.json"
+    },
+    "evidence_sha256": {
+      "evidence/owner-trial-53c9e79/release-publication-v2/upload43-completion.json": "0d59cf12a922edfba84f3c43555e3de01826ae76b7cc0ac2599c00e9bb266190",
+      "evidence/owner-trial-53c9e79/release-publication-v2/draft-finalization.json": "f26b2267139f4ba3bd93394b1bd784f4348ef95bbf9d3f4ffb651a409bd0b71e",
+      "evidence/owner-trial-53c9e79/release-publication-v2/draft-assets-reviewed.json": "db347d032788110b10bfe5e607f7d6faf5d27df1868ab569be7c6c17288af282",
+      "evidence/owner-trial-53c9e79/release-publication-v2/published-command.json": "eb7f87607a362ca9e6e22a8c67012e134d174d9593f6cf52a02aeec61b3a5a2e",
+      "evidence/owner-trial-53c9e79/release-publication-v2/anonymous-download.json": "06dc8e5f8816f3fe7d76eb6c6a8cc6c9b417a2441c643d19527b5251ccab2767",
+      "evidence/owner-trial-53c9e79/release-publication-v2/anonymous-command.json": "043dff3c86dabe684411580e8def9eb16341cf84bf73329108518ae5fcd72aaf",
+      "evidence/owner-trial-53c9e79/release-publication-v2/anonymous-cleanup.json": "78e99d32c9b551ef71d2841e8556c68893fb40558696aa7058a4d4ec3e6643f1"
+    }
+  },
+  "current_release_publication": "release_publication"
 }

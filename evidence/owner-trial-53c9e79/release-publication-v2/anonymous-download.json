@@ -1,0 +1,497 @@
+{
+  "kind": "actual_schema2_anonymous_public_download_and_original_media_reassembly",
+  "started": "2026-10-16T03:27:20.188880+00:00",
+  "finished": "2026-10-16T03:53:24.749812+00:00",
+  "repository": "TED-H-com/agentic-smart-home",
+  "release_url": "https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.9.0",
+  "release_id": 414429247,
+  "tag": "v0.9.0",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "engineering_docs_commit": "bd0b00617fe831dc44853d6149d67b7107567d3f",
+  "public_release": {
+    "observed_at": "2026-10-16T03:53:23.575480+00:00",
+    "release_id": 414429247,
+    "url": "https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.9.0",
+    "published_at": "2026-10-16T03:22:04Z",
+    "draft": false,
+    "prerelease": true,
+    "latest": {
+      "endpoint_http_status": 404,
+      "v0_9_0_is_latest": false
+    },
+    "assets": {
+      "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk001": {
+        "id": 645886213,
+        "size": 134217728,
+        "sha256": "c40566f305daedcb939cc5de5dd526968ec62d54a4c51a2004cfef8c70efaec4",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part001.chunk001",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk002": {
+        "id": 645887441,
+        "size": 134217728,
+        "sha256": "e600176b1f8f79127d4d6d73ab0074de046044199a5aa7e867f27ea75af8108c",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part001.chunk002",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk003": {
+        "id": 645901319,
+        "size": 134217728,
+        "sha256": "312313b986422a9d4ba65e2ad21a355abc68130099371b4fa3c981bc70c45dcf",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part001.chunk003",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk004": {
+        "id": 645902968,
+        "size": 134217728,
+        "sha256": "c5950b7cb9a09f23d527e78a4951b88162e2f79c084eb6c8707b3f4fdc71bb28",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part001.chunk004",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk005": {
+        "id": 645905570,
+        "size": 134217728,
+        "sha256": "55085fb9a955da95fff56f0b11578675f5961d719b68d721701a452b4559c86b",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part001.chunk005",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk006": {
+        "id": 645906913,
+        "size": 134217728,
+        "sha256": "4488f7e05a3a0a2f58eab9fe54e2776b3ff7f2b3ee748d829cadd2b3e8119b8b",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part001.chunk006",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk007": {
+        "id": 645908893,
+        "size": 134217728,
+        "sha256": "46e5af1bfa8ab2b4f6a326615e09b7bd8165c6f395b71eea48340f9f94b4f0d1",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part001.chunk007",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk008": {
+        "id": 645910721,
+        "size": 134217728,
+        "sha256": "113dac15c0f32815b834d6b65024bdd19552b7d603ac186d2b0a915a4763c01d",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part001.chunk008",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part002": {
+        "id": 645730324,
+        "size": 1073741824,
+        "sha256": "f5876e0aa184b399158943c82ea23b9872d917c237c3572fb242464a725b5857",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part002",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk001": {
+        "id": 645911923,
+        "size": 134217728,
+        "sha256": "bbdd89630663e441a3f88b457f91ffdc4f61fa6b30b8a3ed27d016260137e64d",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part003.chunk001",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk002": {
+        "id": 645914446,
+        "size": 134217728,
+        "sha256": "8eccc4cf21fd4aee316655cbea645c18c0c54e4b148f00c56b5980bf879f5cbe",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part003.chunk002",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk003": {
+        "id": 645915680,
+        "size": 134217728,
+        "sha256": "d555510d96e6dc32594b25b10ca8f0117c3fa5a8a62b21703164b355b8c34aab",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part003.chunk003",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk004": {
+        "id": 645917968,
+        "size": 134217728,
+        "sha256": "1fb5a46921352de1a2f9269a821c999da8954a036fc786975c7d177ef5452414",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part003.chunk004",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk005": {
+        "id": 645920297,
+        "size": 134217728,
+        "sha256": "87102eb424ca7b575d31607b97d3886dafb91fddce542af0d6cfff1229a34496",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part003.chunk005",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk006": {
+        "id": 645923119,
+        "size": 134217728,
+        "sha256": "8178ff54b2c5e313bf2985aed9e7f4facc4e42bf322645e1111b5888c5663c05",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part003.chunk006",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk007": {
+        "id": 645924410,
+        "size": 134217728,
+        "sha256": "9ce3463c05c8b61ce55ed5ce032740739431c950ed38eb8ad9d720af10655861",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part003.chunk007",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk008": {
+        "id": 645926521,
+        "size": 134217728,
+        "sha256": "e9e8ab86c3f5a407d18a7d4635b5a1988eac7ff88b01b3174fa020702ecdf925",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part003.chunk008",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk001": {
+        "id": 645927716,
+        "size": 134217728,
+        "sha256": "7eb2c2ccc95d73e9e218accd00aa827eeb5f98570582b264a880fcd0d7865f58",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part004.chunk001",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk002": {
+        "id": 645928916,
+        "size": 134217728,
+        "sha256": "98d7cd06abf5ec11cb9b2296625d7407700610192f1ff052df126d2a63400b46",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part004.chunk002",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk003": {
+        "id": 645930365,
+        "size": 134217728,
+        "sha256": "313ccf06de4deaab9a9ec174cdad0e64e94f979302ac702b992a6eb8a0802fc5",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part004.chunk003",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk004": {
+        "id": 645932524,
+        "size": 134217728,
+        "sha256": "621acd5b650a3b47cf85869165415d18fc56139cf5a09042cb9281d72e3911e7",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part004.chunk004",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk005": {
+        "id": 645933878,
+        "size": 134217728,
+        "sha256": "595d1aa09998091885ff2ff713aa7b49b6c9e5e98c908209bf549c27b8c31dc4",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part004.chunk005",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk006": {
+        "id": 645936214,
+        "size": 134217728,
+        "sha256": "a2b9d330173e963f1f8b91bce9eea7eee3ff09450124e620d4560db8455feb58",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part004.chunk006",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk007": {
+        "id": 645938170,
+        "size": 134217728,
+        "sha256": "44f909822209a0519033513b23b2bacfcbc13553ba5f43d46c2a39b78c50448d",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part004.chunk007",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk008": {
+        "id": 645940800,
+        "size": 134217728,
+        "sha256": "4b8c665307d371357eb6bea472c1af790c136bd924e018c7c224cca3280ac387",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part004.chunk008",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk001": {
+        "id": 645942774,
+        "size": 134217728,
+        "sha256": "7d0b402ebe63b7af6179c7ef8e3af369237dcb15ad3beac74c8c7b3912779fec",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part005.chunk001",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk002": {
+        "id": 645945452,
+        "size": 134217728,
+        "sha256": "63f325a27db92334bbe85d820855ac3ac00326205ad3aac70d69e00211244ceb",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part005.chunk002",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk003": {
+        "id": 645946775,
+        "size": 134217728,
+        "sha256": "361e7fca3d13e5f13300289306eaddcc6309bb23bb924a9e31854a958484d7eb",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part005.chunk003",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk004": {
+        "id": 645949386,
+        "size": 134217728,
+        "sha256": "ff20056c2a192fba9b314cfc9261a37b1f0069033c2be94007faeacb4edc7529",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part005.chunk004",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk005": {
+        "id": 645951693,
+        "size": 134217728,
+        "sha256": "f9d76837e06a4b56f7aa682fcd9bc56cc18e7c9261a3b3322c747c288cc73321",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part005.chunk005",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk006": {
+        "id": 645953623,
+        "size": 134217728,
+        "sha256": "79cb627292072165354ba5f556a5c360f489a9a475a3f6346bdc23732d24dd0a",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part005.chunk006",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk007": {
+        "id": 645954890,
+        "size": 134217728,
+        "sha256": "28d42b3ead4c6f0238efe373745d291a5dc4e7045526d272df9dbb34dbf879db",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part005.chunk007",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk008": {
+        "id": 645956068,
+        "size": 134217728,
+        "sha256": "526265f395414ab783525c136ef213b1a59115961bc45e9745a70cba6d44b9ea",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part005.chunk008",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk001": {
+        "id": 645958265,
+        "size": 134217728,
+        "sha256": "be60952f54c4ca6f31b0c2d25dbcb9ab619ba5150ca551492db300c7f768ecb3",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part006.chunk001",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk002": {
+        "id": 645959572,
+        "size": 134217728,
+        "sha256": "369ba77e7863464dc98947eac068afc24070c792400a63199deba0713d036ca6",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part006.chunk002",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk003": {
+        "id": 645962693,
+        "size": 134217728,
+        "sha256": "6790b846ea37827c18b3ac7cc40dc0351d503f4f49c7cb963d8f17fd90cc3c2f",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part006.chunk003",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk004": {
+        "id": 645964033,
+        "size": 134217728,
+        "sha256": "6e7a2b456aca5df00136d84a98acd4527cd7bb1932641fec351646b60fdd729d",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part006.chunk004",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk005": {
+        "id": 645965285,
+        "size": 134217728,
+        "sha256": "32a0625fc2081bdecf9d6b1898379376e3547373bd962b3dfa354cb4d5cecb7f",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part006.chunk005",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk006": {
+        "id": 645966526,
+        "size": 134217728,
+        "sha256": "a5ab97271f4c83e2e367559be7210eeb9699890260da0717f5d255b364edbb30",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part006.chunk006",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk007": {
+        "id": 645968887,
+        "size": 134217728,
+        "sha256": "9146ec17e4115de157c61458b0cc2a9ced364374a5dffc43881afa94f3141c0f",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part006.chunk007",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk008": {
+        "id": 645969832,
+        "size": 134217728,
+        "sha256": "7d1508ca938020f94f7d744f823cc3d726dba4ac510c8aa3a36cf2b466470364",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part006.chunk008",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part007.chunk001": {
+        "id": 645970953,
+        "size": 134217728,
+        "sha256": "2151c5099ad486dc562a27fb803b86ddb07a3c142980322ea193de5b56dc26bb",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part007.chunk001",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part007.chunk002": {
+        "id": 645972100,
+        "size": 134217728,
+        "sha256": "4739a5326f32b3947cc6601852b31cb40fc2e9cfc34ba3ba875a85265a7716a1",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part007.chunk002",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-laptop-amd64.iso.part007.chunk003": {
+        "id": 645975100,
+        "size": 94699520,
+        "sha256": "166dc3df1d8ea560d87df7ec9c116236a1688ab13bc8f22cb86f9f2e6a8f4740",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-laptop-amd64.iso.part007.chunk003",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-linux-amd64.tar.part001": {
+        "id": 645726872,
+        "size": 1073741824,
+        "sha256": "40240e7833b480feaae5a894df8a1fbdc946b6089ab94d5a42f60dadd54afa32",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-linux-amd64.tar.part001",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-linux-amd64.tar.part002": {
+        "id": 645726870,
+        "size": 1073741824,
+        "sha256": "6cbece49e259e3d178cc4cb6ac990e53e51c2ece2882126dd889d8cf36b7ecd2",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-linux-amd64.tar.part002",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-linux-amd64.tar.part003": {
+        "id": 645726863,
+        "size": 578639872,
+        "sha256": "2e0255f381127f5bb69a47da9ed09f45ada5a45b7f0911c839f29cf10d055882",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-linux-amd64.tar.part003",
+        "state": "uploaded"
+      },
+      "agentic-home-0.9.0-source.zip": {
+        "id": 645726868,
+        "size": 31130483,
+        "sha256": "e782a43ab62c6af7bc7d4e0ecb76e6c66a314442cb08c7c8b966aef016b599a7",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-home-0.9.0-source.zip",
+        "state": "uploaded"
+      },
+      "agentic-smart-home-0.9.0-verification-bd0b00617fe8.zip": {
+        "id": 645977188,
+        "size": 441529,
+        "sha256": "fc2b76fc967286ee94ce71554872fd55f4f68440c1730d3f0c44b250d4993c88",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/agentic-smart-home-0.9.0-verification-bd0b00617fe8.zip",
+        "state": "uploaded"
+      },
+      "download-0.9.0.py": {
+        "id": 645977084,
+        "size": 13260,
+        "sha256": "8c462b1a7b4bc7bf667afe75722dfaf8e6cb76a0499379d6df17fc2e24ecf73d",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/download-0.9.0.py",
+        "state": "uploaded"
+      },
+      "release-parts.json": {
+        "id": 645977144,
+        "size": 11232,
+        "sha256": "49c34e9afee7e5995ff1f774dfdc616827dccecd5961730fa17f98a06fba0f70",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/release-parts.json",
+        "state": "uploaded"
+      },
+      "SHA256SUMS": {
+        "id": 645830945,
+        "size": 299,
+        "sha256": "5cd75f4bcd7b4bb9228951d68694260fd2cc7dbed542057ac00c06a1cb03b2a0",
+        "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.9.0/SHA256SUMS",
+        "state": "uploaded"
+      }
+    },
+    "remote_refs": {
+      "refs/heads/stable": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+      "refs/heads/release/0.9.0": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+      "refs/heads/codex/owner-trial-evidence-53c9e79-resumed": "bd0b00617fe831dc44853d6149d67b7107567d3f",
+      "refs/tags/v0.9.0": "e40a6d41b36a25f16421af37bdf70f15fecc1ff4",
+      "refs/tags/v0.9.0^{}": "53c9e790cccf9d22842ec358b9f4f7160e1d448b"
+    },
+    "all_fiftytwo_public_server_sizes_and_sha256_exact": true,
+    "anonymous_api_and_release_html_http200": true
+  },
+  "inventory_sha256": "bf3481e28373bbcaa2a521edaf5a465e2a91d02f23b69653727bd475cbc5bb67",
+  "notes_sha256": "2ebff17e0a6df2efcf090d57b6f522d1e68a72294a8464a9601555cb17268c0d",
+  "manifest_sha256": "49c34e9afee7e5995ff1f774dfdc616827dccecd5961730fa17f98a06fba0f70",
+  "helper_sha256": "8c462b1a7b4bc7bf667afe75722dfaf8e6cb76a0499379d6df17fc2e24ecf73d",
+  "publication_receipt_sha256": "eb7f87607a362ca9e6e22a8c67012e134d174d9593f6cf52a02aeec61b3a5a2e",
+  "download_method": "anonymous Python HTTPS; actual downloaded pinned helper --media all in fresh disk scratch",
+  "github_authorization_or_cookie_headers_used": false,
+  "actual_helper_exit_code": 0,
+  "original_media_sha256_computed_and_checked_by_actual_pinned_public_helper": {
+    "agentic-home-0.9.0-linux-amd64.tar": {
+      "bytes": 2726123520,
+      "sha256": "159b1379a1ff69a18867b6943ce04f4c5a228cedc2bec6dd086d8ea7ab6b4733",
+      "passed": true
+    },
+    "agentic-home-0.9.0-source.zip": {
+      "bytes": 31130483,
+      "sha256": "e782a43ab62c6af7bc7d4e0ecb76e6c66a314442cb08c7c8b966aef016b599a7",
+      "passed": true
+    },
+    "agentic-home-0.9.0-laptop-amd64.iso": {
+      "bytes": 6805585920,
+      "sha256": "1ae3d1ff60f86cfedaf4112bbd25c56a1f11e3c19ad52a1c0374530769394080",
+      "passed": true
+    },
+    "SHA256SUMS": {
+      "bytes": 299,
+      "sha256": "5cd75f4bcd7b4bb9228951d68694260fd2cc7dbed542057ac00c06a1cb03b2a0",
+      "passed": true
+    }
+  },
+  "all_four_original_files_passed": true,
+  "iso_and_tar_reassembled_from_actual_public_parts": true,
+  "actual_network_requested_transport_objects": [
+    "SHA256SUMS",
+    "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk001",
+    "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk002",
+    "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk003",
+    "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk004",
+    "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk005",
+    "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk006",
+    "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk007",
+    "agentic-home-0.9.0-laptop-amd64.iso.part001.chunk008",
+    "agentic-home-0.9.0-laptop-amd64.iso.part002",
+    "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk001",
+    "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk002",
+    "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk003",
+    "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk004",
+    "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk005",
+    "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk006",
+    "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk007",
+    "agentic-home-0.9.0-laptop-amd64.iso.part003.chunk008",
+    "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk001",
+    "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk002",
+    "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk003",
+    "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk004",
+    "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk005",
+    "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk006",
+    "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk007",
+    "agentic-home-0.9.0-laptop-amd64.iso.part004.chunk008",
+    "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk001",
+    "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk002",
+    "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk003",
+    "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk004",
+    "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk005",
+    "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk006",
+    "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk007",
+    "agentic-home-0.9.0-laptop-amd64.iso.part005.chunk008",
+    "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk001",
+    "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk002",
+    "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk003",
+    "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk004",
+    "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk005",
+    "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk006",
+    "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk007",
+    "agentic-home-0.9.0-laptop-amd64.iso.part006.chunk008",
+    "agentic-home-0.9.0-laptop-amd64.iso.part007.chunk001",
+    "agentic-home-0.9.0-laptop-amd64.iso.part007.chunk002",
+    "agentic-home-0.9.0-laptop-amd64.iso.part007.chunk003",
+    "agentic-home-0.9.0-linux-amd64.tar.part001",
+    "agentic-home-0.9.0-linux-amd64.tar.part002",
+    "agentic-home-0.9.0-linux-amd64.tar.part003",
+    "agentic-home-0.9.0-source.zip"
+  ],
+  "actual_network_requested_transport_count": 49,
+  "all49_transport_network_requests_recorded_in_this_fresh_owned_attempt": true,
+  "verification_archive": {
+    "name": "agentic-smart-home-0.9.0-verification-bd0b00617fe8.zip",
+    "bytes": 441529,
+    "sha256": "fc2b76fc967286ee94ce71554872fd55f4f68440c1730d3f0c44b250d4993c88",
+    "anonymous_download_passed": true,
+    "exact_hash_matches_reviewed_A2_inventory": true
+  },
+  "actual_helper_stdout_sha256": "5db00aea0bfcab0d0d80d86e49d725f4a188a3914c241d39cb205e88766f1d88",
+  "actual_helper_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "command_completion_sha256": "043dff3c86dabe684411580e8def9eb16341cf84bf73329108518ae5fcd72aaf",
+  "root_verifier_script_sha256": "1c1b3bc6968fb97b1a785ca7bf98d61768231a1cf4c366ddbd6020ad209d4d5d",
+  "disk_backed_scratch_filesystem": "ext4",
+  "owned_download_scratch_cleanup_pending": true,
+  "real_accounts_physical_hardware_and_household_acceptance_still_pending": true
+}

@@ -1,5 +1,11 @@
 # Agentic Smart Home 驗證
 
+## 0.9.0 工程預覽已發布並通過匿名完整下載
+
+GitHub [v0.9.0 工程預覽](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.9.0) 已於 `2026-10-16T03:22:04Z` 發布為 prerelease，未要求設為 latest。52 份公開附件的名稱、大小與伺服器 SHA-256 全數符合已審核清單；之後使用實際公開下載的工具，在全新磁碟暫存匿名下載全部 49 份傳輸物件，重組並核對 ISO、TAR、source ZIP 與 SHA256SUMS 四份完整原檔，以及 A2 驗證 ZIP。54 份驗證檔與該次暫存目錄已清理，原始媒體、52 份本機交付檔與歷史失敗證據均保留。
+
+見 [發布後核驗紀錄](reviews/2026-10-16-RELEASE-PUBLISHED-53c9e79.md)、[匿名完整下載](../evidence/owner-trial-53c9e79/release-publication-v2/anonymous-download.json)與 [清理收據](../evidence/owner-trial-53c9e79/release-publication-v2/anonymous-cleanup.json)。附件驗證 ZIP 固定於 A2 `bd0b00617fe831dc44853d6149d67b7107567d3f`；不包含這次發布後才新增的 docsB。下方較早的待發布、失敗及離線紀錄保留其當時狀態。這仍是工程預覽，真帳號、實體筆電與家庭 E1/E2 尚待驗收；32 個產品案例仍為 **2 passed、30 not_run**。
+
 ## 0.9.0 下載分塊更新 — 原始媒體不變
 
 兩次尚未發布的 Release 上傳遇到 HTTP 408，失敗收據完整保留。新版傳輸保留已完成的 TAR 三份分塊、原始碼、校驗檔與 ISO 第二份 1 GiB 分塊；其餘 ISO 改成 43 份各不超過 128 MiB 的小分塊，共 44 份 ISO 分塊。原始 ISO、TAR、source ZIP、SHA256SUMS 四個檔案的大小及 SHA-256 全部不變；沒有重建產品或改動凍結 harness。

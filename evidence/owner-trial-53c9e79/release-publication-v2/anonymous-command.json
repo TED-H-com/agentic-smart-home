@@ -1,0 +1,15 @@
+{
+  "kind": "actual_schema2_public_helper_command_completion",
+  "started": "2026-10-16T03:27:21.277006+00:00",
+  "finished": "2026-10-16T03:53:21.738167+00:00",
+  "returncode": 0,
+  "timed_out": false,
+  "helper_sha256": "8c462b1a7b4bc7bf667afe75722dfaf8e6cb76a0499379d6df17fc2e24ecf73d",
+  "manifest_sha256": "49c34e9afee7e5995ff1f774dfdc616827dccecd5961730fa17f98a06fba0f70",
+  "stdout_sha256": "5db00aea0bfcab0d0d80d86e49d725f4a188a3914c241d39cb205e88766f1d88",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "actual_pinned_public_helper_invoked": true,
+  "network_download_requested_not_offline_join_only": true,
+  "environment_is_credential_and_proxy_free_whitelist": true,
+  "fresh_owned_scratch_used": true
+}

@@ -1,0 +1,14 @@
+{
+  "kind": "completed_transport_v2_unpublished_draft_finalization",
+  "finished": "2026-10-16T03:15:21.935003+00:00",
+  "source_commit": "53c9e790cccf9d22842ec358b9f4f7160e1d448b",
+  "release_id": 414429247,
+  "inventory_sha256": "bf3481e28373bbcaa2a521edaf5a465e2a91d02f23b69653727bd475cbc5bb67",
+  "notes_sha256": "2ebff17e0a6df2efcf090d57b6f522d1e68a72294a8464a9601555cb17268c0d",
+  "all_fiftytwo_uploaded_server_sizes_sha256_exact": true,
+  "old_metadata_and_owned_failed_starter_replaced": true,
+  "all_original_local_copies_preserved": true,
+  "draft": true,
+  "prerelease": true,
+  "published": false
+}
