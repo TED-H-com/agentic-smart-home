@@ -199,41 +199,47 @@ async def snapshot(ha):
     return DiscoverySnapshot(**result, content_digest=digest(result))
 
 
-def routes(app, store, ha, host_session=None):
-    async def active_owner(owner):
+class DiscoveryAuthority:
+    """Request-local authority, independent of persisted setup ownership."""
+
+    def __init__(self, app, store, ha, request, host_session=None):
+        self.app, self.store, self.ha = app, store, ha
+        self.request, self.host_session = request, host_session
+        self.owner = store.setting("owner")
+        self.epoch = store.setting("hermes_web_epoch")
+        self.connection = tuple(getattr(ha, key, None) for key in ("token", "base", "websocket"))
+        self.identity = getattr(request.state, "bridge_identity", None)
+
+    def guard(self):
+        if self.store.setting("hermes_web_epoch") != self.epoch:
+            raise HTTPException(401, "discovery_session_expired")
+        if tuple(getattr(self.ha, key, None) for key in ("token", "base", "websocket")) != self.connection:
+            raise HTTPException(403, "discovery_authority_changed")
+        if not self.owner or self.store.setting("owner") != self.owner or self.request.state.principal != self.owner:
+            raise HTTPException(403, "discovery_owner_required")
+        if self.identity:
+            bridge = getattr(self.app.state, "ingress_bridge", None)
+            if not bridge or bridge.identity(self.request) is not self.identity:
+                raise HTTPException(403, "discovery_owner_required")
+        elif self.host_session and not self.host_session.verify(self.request):
+            raise HTTPException(401, "discovery_session_expired")
+
+    async def check_owner(self):
+        self.guard()
         try:
-            current = await ha.owner(owner)
+            current = await self.ha.owner(self.owner)
         except HAError as exc:
             raise HTTPException(503, "discovery_owner_unavailable") from exc
-        if not current or store.setting("owner") != owner:
+        self.guard()
+        if not current:
             raise HTTPException(403, "discovery_owner_required")
 
+
+def routes(app, store, ha, host_session=None):
     @app.get("/api/discovery", response_model=DiscoverySnapshot)
     async def discovery(request: Request):
-        epoch = store.setting("hermes_web_epoch")
-        token = getattr(ha, "token", None)
-        identity = getattr(request.state, "bridge_identity", None)
-        def session_guard():
-            if store.setting("hermes_web_epoch") != epoch:
-                raise HTTPException(401, "discovery_session_expired")
-            if getattr(ha, "token", None) != token:
-                raise HTTPException(403, "discovery_authority_changed")
-            if identity:
-                bridge = getattr(app.state, "ingress_bridge", None)
-                # Recheck the unforgeable request marker, current pairing and
-                # process-local Host proof after Owner checks and the snapshot.
-                if not bridge or bridge.identity(request) is not identity:
-                    raise HTTPException(403, "discovery_owner_required")
-            elif host_session and not host_session.verify(request):
-                raise HTTPException(401, "discovery_session_expired")
-
-        session_guard()
-        owner = store.setting("owner")
-        if not owner or request.state.principal != owner:
-            raise HTTPException(403, "discovery_owner_required")
-        await active_owner(owner)
-        session_guard()
+        authority = DiscoveryAuthority(app, store, ha, request, host_session)
+        await authority.check_owner()
         result = await snapshot(ha)
-        await active_owner(owner)
-        session_guard()
+        await authority.check_owner()
         return result

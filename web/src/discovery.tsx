@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {api,haPath,haTarget} from './api';
 import {Button,Notice,timestamp} from './ui';
+import {TrackingPanel} from './discovery-setup';
 import './discovery.css';
 
 type Source = {id:string;state:'ok'|'partial'|'unavailable'|'unsupported'|'not_implemented';truncated:boolean;item_count:number|null;observed_at:string|null;reason_code:string|null};
@@ -19,6 +20,12 @@ const nullableText=(value:unknown)=>value===null||isText(value);
 const count=(value:unknown)=>value===null||typeof value==='number'&&Number.isSafeInteger(value)&&value>=0;
 const unique=(items:Record<string,unknown>[])=>items.every(item=>isText(item.id)&&item.id.length>0)&&new Set(items.map(item=>item.id)).size===items.length;
 
+// Shared field guards keep setup readback and the existing snapshot on the same semantics.
+export const isDiscoverySource=(item:unknown):item is Source=>isRecord(item)&&isText(item.id)&&item.id.length>0&&isText(item.state)&&Object.hasOwn(sourceStates,item.state)&&typeof item.truncated==='boolean'&&count(item.item_count)&&nullableText(item.observed_at)&&nullableText(item.reason_code);
+export const isDiscoveryCandidate=(item:unknown):item is Candidate=>isRecord(item)&&isText(item.id)&&item.id.length>0&&isText(item.title)&&isText(item.integration_domain)&&isText(item.discovery_method)&&item.source_id==='ha_discovery'&&item.native_path==='/config/integrations';
+export const isDiscoveryDevice=(item:unknown):item is Device=>isRecord(item)&&isText(item.id)&&item.id.length>0&&isText(item.name)&&nullableText(item.manufacturer)&&nullableText(item.model)&&nullableText(item.via_device_id)&&nullableText(item.parent_device_id)&&typeof item.disabled==='boolean'&&Array.isArray(item.integration_ids)&&item.integration_ids.every(isText)&&count(item.entity_count)&&count(item.available_entity_count)&&(item.entity_count===null||item.available_entity_count===null||(item.available_entity_count as number)<=(item.entity_count as number));
+export const isDiscoveryIntegration=(item:unknown):item is Integration=>isRecord(item)&&isText(item.id)&&item.id.length>0&&isText(item.title)&&isText(item.domain)&&isText(item.state)&&Object.hasOwn(integrationStates,item.state);
+
 // Additive fields are accepted, but missing or unknown semantics never become an empty scan.
 export function parseDiscoverySnapshot(value:unknown):Snapshot{
   const invalid=()=>{throw new Error('探索資料格式已變更，請開啟家庭設定查看。')};
@@ -28,10 +35,10 @@ export function parseDiscoverySnapshot(value:unknown):Snapshot{
     if(!Array.isArray(items)||!items.every(isRecord)||!unique(items))return invalid();
   }
   const sources=value.sources as Record<string,unknown>[];
-  if(!['ha_discovery','ha_devices','ha_integrations'].every(id=>sources.some(item=>item.id===id))||!sources.every(item=>isText(item.state)&&Object.hasOwn(sourceStates,item.state)&&typeof item.truncated==='boolean'&&count(item.item_count)&&nullableText(item.observed_at)&&nullableText(item.reason_code)))return invalid();
-  if(!(value.candidates as Record<string,unknown>[]).every(item=>isText(item.title)&&isText(item.integration_domain)&&isText(item.discovery_method)&&item.source_id==='ha_discovery'&&item.native_path==='/config/integrations'))return invalid();
-  if(!(value.devices as Record<string,unknown>[]).every(item=>isText(item.name)&&nullableText(item.manufacturer)&&nullableText(item.model)&&nullableText(item.via_device_id)&&nullableText(item.parent_device_id)&&typeof item.disabled==='boolean'&&Array.isArray(item.integration_ids)&&item.integration_ids.every(isText)&&count(item.entity_count)&&count(item.available_entity_count)&&(item.entity_count===null||item.available_entity_count===null||(item.available_entity_count as number)<=(item.entity_count as number))))return invalid();
-  if(!(value.integrations as Record<string,unknown>[]).every(item=>isText(item.title)&&isText(item.domain)&&isText(item.state)&&Object.hasOwn(integrationStates,item.state)))return invalid();
+  if(!['ha_discovery','ha_devices','ha_integrations'].every(id=>sources.some(item=>item.id===id))||!sources.every(isDiscoverySource))return invalid();
+  if(!(value.candidates as Record<string,unknown>[]).every(isDiscoveryCandidate))return invalid();
+  if(!(value.devices as Record<string,unknown>[]).every(isDiscoveryDevice))return invalid();
+  if(!(value.integrations as Record<string,unknown>[]).every(isDiscoveryIntegration))return invalid();
   if(!Array.isArray(value.limitations)||!value.limitations.every(isText))return invalid();
   return value as unknown as Snapshot;
 }
@@ -77,5 +84,6 @@ export function Discovery(){
         <details><summary>盤點範圍與來源</summary><p>目前依據家庭提供的資料；探索範圍取決於網路與已設定整合。</p><ul className="discovery-sources">{data.sources.map(source=><li key={source.id}><span>{sourceNames[source.id]||'其他來源'}</span><span>{sourceStates[source.state]}{source.truncated?' · 清單已截短':''}</span></li>)}</ul><p className="helper-text">更新於 {timestamp(data.observed_at)}；返回此頁時自動讀取。</p><details><summary>技術資料</summary><p>觀測識別：<code>{data.content_digest}</code></p>{data.limitations.length>0&&<ul>{data.limitations.map((reason,index)=><li key={index}><code>{reason}</code></li>)}</ul>}{data.sources.filter(source=>source.reason_code).map(source=><p key={source.id}>{sourceNames[source.id]||source.id}：<code>{source.reason_code}</code></p>)}</details></details>
       </div>
     </>}
+    <TrackingPanel candidates={data?.candidates||[]}/>
   </section>;
 }

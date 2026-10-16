@@ -237,6 +237,8 @@ class Store:
         context_cutoff = (datetime.now(UTC) - timedelta(days=days["context_days"])).isoformat()
         with self.transaction() as tx:
             tx.execute("DELETE FROM records WHERE kind='conversation' AND created < ?", (context_cutoff,))
+            # Passive setup selections are context, never household authority.
+            tx.execute("DELETE FROM records WHERE kind='discovery_setup' AND created < ?", (context_cutoff,))
             tx.execute("DELETE FROM records WHERE kind=? AND (created < ? OR NOT EXISTS ("
                 "SELECT 1 FROM records AS conversation WHERE conversation.kind='conversation' "
                 "AND conversation.id=json_extract(records.body,'$.message_id')))",

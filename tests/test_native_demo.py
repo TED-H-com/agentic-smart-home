@@ -161,6 +161,85 @@ def test_discovery_context_is_reviewed_before_send_and_does_not_create_a_control
     page.close()
 
 
+@pytest.mark.parametrize('width', [390, 1440])
+def test_tracked_setup_returns_from_native_settings_and_requires_exact_selection(browser, origin, width):
+    page = browser.new_page(viewport={'width': width, 'height': 844 if width == 390 else 900})
+    errors, external = watch(page, origin)
+    page.goto(f'{origin}/demo/#/agentic-home')
+    ui = product_frame(page, 'bridge')
+    before_policy = read_api(ui, 'inventory')['policy']
+    before_messages = read_api(ui, 'gateway/messages')
+    before_tasks = read_api(ui, 'tasks')
+    page.evaluate("""() => {
+      const model = window.__agenticDemoModel, original = model.request.bind(model);
+      window.setupWrites = [];
+      model.request = (path, method, body, surface, key) => {
+        if (method !== 'GET') window.setupWrites.push({path, method, body, key});
+        return original(path, method, body, surface, key);
+      };
+    }""")
+    ui.get_by_role('button', name='分享探索結果', exact=True).click()
+    dialog = ui.get_by_role('dialog', name='分享探索結果', exact=True)
+    panel = dialog.locator('.discovery-setup')
+    panel.locator(':scope > summary').click()
+    expect(panel.get_by_text('還沒有保存的接入進度。', exact=True)).to_be_visible()
+    assert page.evaluate('window.setupWrites') == []
+    panel.get_by_role('button', name='追蹤接入 示範待設定橋接器', exact=True).click()
+    expect(panel.get_by_role('heading', name='示範待設定橋接器', exact=True)).to_be_visible()
+    expect(panel.get_by_role('button', name='保存整合選擇', exact=True)).to_be_disabled()
+    listing = read_api(ui, 'discovery/setups')
+    assert len(listing['setups']) == 1
+    identifier = listing['setups'][0]['id']
+    assert listing['setups'][0]['selected_entry_id'] is None
+    panel.get_by_role('link', name='開啟家庭設定 ↗', exact=True).click()
+    expect(page).to_have_url(f'{origin}/demo/#/config/integrations')
+    page.get_by_role('button', name='設定示範待設定橋接器', exact=True).click()
+    page.get_by_role('dialog', name='設定示範設備', exact=True).get_by_role('button', name='完成示範設定', exact=True).click()
+    native_nav(page, '智能管家')
+    panel.get_by_role('button', name='重新讀取接入', exact=True).click()
+    expect(panel.get_by_text('原候選目前未見，仍不能據此判定設定完成。', exact=False)).to_be_visible()
+    # A disappearing candidate and a single matching entry never select it for the owner.
+    option = panel.get_by_role('radio', name='選擇整合 示範橋接器 demo-bridge-integration', exact=True)
+    expect(option).not_to_be_checked()
+    expect(panel.get_by_role('button', name='保存整合選擇', exact=True)).to_be_disabled()
+    current = read_api(ui, f'discovery/setups/{identifier}')
+    assert current['integration_state'] == 'unselected' and current['device_count'] is None
+    option.check()
+    panel.get_by_role('button', name='保存整合選擇', exact=True).click()
+    expect(panel.get_by_text('2 筆設備紀錄', exact=True)).to_be_visible()
+    expect(panel.get_by_text('1 / 1 個功能顯示可用狀態', exact=True)).to_be_visible()
+    expect(panel.get_by_text('尚未進行實體操作驗證。', exact=True)).to_be_visible()
+    selected = read_api(ui, f'discovery/setups/{identifier}')
+    assert selected['setup']['selected_entry_id'] == 'demo-bridge-integration'
+    assert {item['id'] for item in selected['devices']} == {'demo-bridge', 'demo-desk-device'}
+    assert selected['physical_verification'] == 'not_performed'
+    assert ui.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    assert dialog.evaluate('(el)=>el.scrollWidth <= el.clientWidth')
+    # Closing the view and crossing to the outer product reuses the shared record.
+    dialog.get_by_role('button', name='關閉', exact=True).click()
+    outer = outer_entry(page)
+    if width < 800:
+        outer.get_by_role('button', name='選單', exact=True).click()
+    nav(outer, '設備')
+    outer_panel = outer.locator('.discovery-setup')
+    outer_panel.locator(':scope > summary').click()
+    outer_panel.get_by_role('button', name='查看接入 示範待設定橋接器', exact=True).click()
+    expect(outer_panel.get_by_text('2 筆設備紀錄', exact=True)).to_be_visible()
+    outer_panel.get_by_role('button', name='停止追蹤', exact=True).click()
+    outer_panel.get_by_role('button', name='確認停止追蹤', exact=True).click()
+    expect(outer_panel.get_by_text('還沒有保存的接入進度。', exact=True)).to_be_visible()
+    assert read_api(outer, 'discovery/setups')['setups'] == []
+    assert any(item['id'] == 'demo-bridge-integration' for item in read_api(outer, 'discovery')['integrations'])
+    assert read_api(outer, 'inventory')['policy'] == before_policy
+    assert read_api(outer, 'gateway/messages') == before_messages
+    assert read_api(outer, 'tasks') == before_tasks
+    writes = page.evaluate('window.setupWrites')
+    assert [item['path'] for item in writes] == ['discovery/setups', f'discovery/setups/{identifier}/select', f'discovery/setups/{identifier}/forget']
+    assert all(item['key'] for item in writes)
+    clean(page, errors, external)
+    page.close()
+
+
 def test_bridge_approval_publishes_native_automation_and_shared_history(browser, origin):
     page = browser.new_page(viewport={'width': 1440, 'height': 900})
     errors, external = watch(page, origin)

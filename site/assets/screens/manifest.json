@@ -1,7 +1,7 @@
 {
-  "source_commit": "124b093e3c357b41474bd0d27a24ef6214e0a10f",
-  "source_tree": "6391f4d10dc4653f0ef6ea0ee3260535cd01f9da",
-  "frontend_source_tree": "8f324e137f0f14512b888736a6a4e161ffce0735",
+  "source_commit": "24bb86a70822aac892e8b58301586d761ca15526",
+  "source_tree": "304a4e24da9e258f12d69c173fd825257d5c0bdb",
+  "frontend_source_tree": "a906d715d3bccc1eb968b0dcad97f4ec309f9084",
   "source_files": [
     {
       "file": "scripts/site_screenshots.py",
@@ -28,12 +28,16 @@
       "sha256": "5706be0002908e362297ca42e82293af11342ac313a21af91efe8e5112860ac6"
     },
     {
+      "file": "web/demo/discovery-setup.ts",
+      "sha256": "4e7270be75c80fc31f20765ccf29eefffe30cf08868f78fb7ccb50168a8d3e0f"
+    },
+    {
       "file": "web/demo/entry.ts",
       "sha256": "61d303975fe52efe29fb9cbd374b0aa82db1868174225b40a70e2a81d65bd0ea"
     },
     {
       "file": "web/demo/fake-api.ts",
-      "sha256": "1af75abc2f76e29122d60801615ab04b263f793b90c6f391701e30073fc7dd7f"
+      "sha256": "ece09add14bf9844e9cfe78504a7fca54db58ab006b40cba78d262678ea7852d"
     },
     {
       "file": "web/demo/home.css",
@@ -49,7 +53,7 @@
     },
     {
       "file": "web/demo/model.ts",
-      "sha256": "5c95c878de6fd0de1aa5e02aae81d0c5394c94543b932794c5976e43101c99ea"
+      "sha256": "a1cff04c816dc37b36b3e880a8d81d3ccec71c1d6dc8efcdf682cf97390a33d8"
     },
     {
       "file": "web/demo/navigation.ts",
@@ -115,7 +119,7 @@
     },
     {
       "file": "gateway.png",
-      "sha256": "314cd4896b7f9105c96d7166c6260292ba8aa01348de10576e36be980b1cd723",
+      "sha256": "570abd3813bbd7804b14e51025af0fb490ff6ccf9a65eb6c3a01ded568c44765",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -123,7 +127,7 @@
       "device_scale_factor": 1,
       "route": "#gateway",
       "surface": "product",
-      "bytes": 63321
+      "bytes": 63319
     },
     {
       "file": "proposal.png",
@@ -139,7 +143,7 @@
     },
     {
       "file": "inventory.png",
-      "sha256": "af5f88fc5c11af7a4325a8ef404bbefab234d304268d107fd30b19fbfef069e3",
+      "sha256": "678a5385c83041c2a060e6d4540f11ece104fd8c78a01b3df944089ee528735a",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -147,7 +151,7 @@
       "device_scale_factor": 1,
       "route": "#inventory",
       "surface": "product",
-      "bytes": 101045
+      "bytes": 101939
     },
     {
       "file": "workers.png",
@@ -163,7 +167,7 @@
     },
     {
       "file": "host.png",
-      "sha256": "8bad696dc3fac1fca5b8a6b90c9b2b67d60b49cfab78bedb20d491ac4ef6132b",
+      "sha256": "2a49df06b840b5fbacc67f8314afbe185f1b528f0349051fd6d069563de4d06f",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -171,7 +175,7 @@
       "device_scale_factor": 1,
       "route": "#host",
       "surface": "product",
-      "bytes": 68795
+      "bytes": 68798
     },
     {
       "file": "bridge.png",

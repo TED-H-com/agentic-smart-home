@@ -1,0 +1,156 @@
+{
+  "$defs": {
+    "DiscoveryCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "discovery_method": {
+          "title": "Discovery Method",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "integration_domain": {
+          "title": "Integration Domain",
+          "type": "string"
+        },
+        "native_path": {
+          "const": "/config/integrations",
+          "default": "/config/integrations",
+          "title": "Native Path",
+          "type": "string"
+        },
+        "source_id": {
+          "const": "ha_discovery",
+          "default": "ha_discovery",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "integration_domain",
+        "title",
+        "discovery_method"
+      ],
+      "title": "DiscoveryCandidate",
+      "type": "object"
+    },
+    "DiscoverySetup": {
+      "additionalProperties": false,
+      "description": "Public projection of a private, versioned, household-bound tracking record.",
+      "properties": {
+        "candidate": {
+          "$ref": "#/$defs/DiscoveryCandidate"
+        },
+        "candidate_observed_at": {
+          "title": "Candidate Observed At",
+          "type": "string"
+        },
+        "contract_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Contract Version",
+          "type": "integer"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "expires_at": {
+          "title": "Expires At",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-f0-9]{32}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "selected_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected At"
+        },
+        "selected_entry_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,128}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Entry Id"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "candidate",
+        "candidate_observed_at",
+        "created_at",
+        "updated_at",
+        "expires_at"
+      ],
+      "title": "DiscoverySetup",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Contract Version",
+      "type": "integer"
+    },
+    "limit": {
+      "const": 20,
+      "default": 20,
+      "title": "Limit",
+      "type": "integer"
+    },
+    "retention_days": {
+      "minimum": 1,
+      "title": "Retention Days",
+      "type": "integer"
+    },
+    "setups": {
+      "items": {
+        "$ref": "#/$defs/DiscoverySetup"
+      },
+      "maxItems": 20,
+      "title": "Setups",
+      "type": "array"
+    }
+  },
+  "required": [
+    "setups",
+    "retention_days"
+  ],
+  "title": "DiscoverySetupList",
+  "type": "object"
+}

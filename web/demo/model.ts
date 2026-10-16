@@ -18,5 +18,5 @@ export interface DemoModel {
   home:()=>DemoHome;
   control:(entityId:string,action:'toggle'|'brightness'|'temperature',value?:number)=>void;
   connectCandidate:(id:string)=>void;
-  request:(path:string,method:string,body:Record<string,unknown>,surface:DemoSurface)=>DemoResponse;
+  request:(path:string,method:string,body:Record<string,unknown>,surface:DemoSurface,key?:string)=>DemoResponse;
 }

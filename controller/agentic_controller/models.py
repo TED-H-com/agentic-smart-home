@@ -115,6 +115,85 @@ class DiscoverySnapshot(Strict):
     content_digest: str
 
 
+DiscoveryIdentifier = Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]{1,128}$")]
+DiscoveryDomain = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
+DiscoveryRevision = Annotated[int, Field(ge=1)]
+
+
+class DiscoverySetupCreate(Strict):
+    """Select a current HA candidate; labels and evidence come from the server."""
+    candidate_id: DiscoveryIdentifier
+    integration_domain: DiscoveryDomain
+
+
+class DiscoverySetupSelect(Strict):
+    expected_revision: DiscoveryRevision
+    entry_id: DiscoveryIdentifier
+
+
+class DiscoverySetupForget(Strict):
+    expected_revision: DiscoveryRevision
+
+
+class DiscoverySetupReference(Strict):
+    """Mutation acknowledgements contain no household labels or observations."""
+    contract_version: Literal[1] = 1
+    id: PreviewId
+    revision: DiscoveryRevision
+    forgotten: bool = False
+
+
+class DiscoverySetup(Strict):
+    """Public projection of a private, versioned, household-bound tracking record."""
+    contract_version: Literal[1] = 1
+    id: PreviewId
+    revision: DiscoveryRevision
+    candidate: DiscoveryCandidate
+    candidate_observed_at: str
+    created_at: str
+    updated_at: str
+    expires_at: str
+    selected_entry_id: DiscoveryIdentifier | None = None
+    selected_at: str | None = None
+
+
+class DiscoverySetupList(Strict):
+    contract_version: Literal[1] = 1
+    setups: Annotated[list[DiscoverySetup], Field(max_length=20)]
+    limit: Literal[20] = 20
+    retention_days: Annotated[int, Field(ge=1)]
+
+
+class DiscoverySetupOption(Strict):
+    integration: DiscoveryIntegration
+    # False means absent from a complete baseline, not "created by this setup".
+    known_before: bool | None
+
+
+class DiscoverySetupView(Strict):
+    """Current readback; owner-selected association is not physical identity proof.
+
+    Counts cover the related HA device records and all their registry entities,
+    not every entity of the selected integration. No action verification occurs.
+    """
+    contract_version: Literal[1] = 1
+    setup: DiscoverySetup
+    observed_at: str
+    candidate_state: Literal["present", "not_seen", "unknown"]
+    integration_state: Literal["unselected", "present", "not_seen", "unknown"]
+    integration: DiscoveryIntegration | None = None
+    options: Annotated[list[DiscoverySetupOption], Field(max_length=100)]
+    options_truncated: bool = False
+    devices: Annotated[list[DiscoveryDevice], Field(max_length=100)]
+    devices_truncated: bool = False
+    device_count: Annotated[int, Field(ge=0)] | None = None
+    entity_count: Annotated[int, Field(ge=0)] | None = None
+    available_entity_count: Annotated[int, Field(ge=0)] | None = None
+    sources: Annotated[list[DiscoverySource], Field(max_length=16)]
+    physical_verification: Literal["not_performed"] = "not_performed"
+    native_path: Literal["/config/integrations"] = "/config/integrations"
+
+
 Runtime = Literal["host", "haos"]
 Provider = Literal["codex", "claude", "agy", "grok"]
 Channel = Literal["line", "discord", "telegram"]

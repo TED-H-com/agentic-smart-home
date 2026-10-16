@@ -1,0 +1,33 @@
+{
+  "additionalProperties": false,
+  "description": "Mutation acknowledgements contain no household labels or observations.",
+  "properties": {
+    "contract_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Contract Version",
+      "type": "integer"
+    },
+    "forgotten": {
+      "default": false,
+      "title": "Forgotten",
+      "type": "boolean"
+    },
+    "id": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "id",
+    "revision"
+  ],
+  "title": "DiscoverySetupReference",
+  "type": "object"
+}

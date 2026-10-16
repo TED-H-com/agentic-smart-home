@@ -41,7 +41,7 @@ from .durability import client_session, durable, file_io
 from .ha import HAError
 from .host import host_call
 from .models import Strict
-from .response_durability import ResponseDurabilityMiddleware
+from .response_durability import RESPONSE_GUARD, ResponseDurabilityMiddleware
 
 BRIDGE_CONTRACT = 1
 # The sidebar relay must drop an idle connection before this. aiohttp does not retry a POST.
@@ -54,11 +54,13 @@ ARTIFACT = r"[a-zA-Z0-9_-]{1,128}"
 HEADER = Annotated[str, Field(max_length=2048, pattern=r"^[^\r\n]*$")]
 GET_PATHS = (
     r"/api/(deployment|session|gateway/messages|discovery)",
+    r"/api/discovery/setups", rf"/api/discovery/setups/{IDENT}",
     rf"/api/hermes/cases/{IDENT}", rf"/api/tasks/{IDENT}",
     rf"/api/worker/jobs/{IDENT}", rf"/api/worker/jobs/{IDENT}/artifacts/{ARTIFACT}",
     rf"/api/worker/previews/{IDENT}", rf"/api/bridge/previews/{IDENT}/(390|768|1440)\.png",
 )
 POST_PATHS = (
+    r"/api/discovery/setups", rf"/api/discovery/setups/{IDENT}/(select|forget)",
     r"/api/gateway/messages", rf"/api/tasks/{IDENT}/(reply|cancel)",
     rf"/api/proposals/{IDENT}/(approve|test|reconcile)",
     rf"/api/worker/jobs/{IDENT}/(cancel|reconcile|previews)",
@@ -418,7 +420,7 @@ class IngressBridge:
                     raise HTTPException(422, "bridge_coordinator_required")
         return expires
 
-    async def dispatch(self, value, expires):
+    async def dispatch(self, value, expires, *, response_scope=None):
         """Internal typed ASGI delegation, without cookies or caller-supplied auth headers."""
         body = json.dumps(value.body).encode() if value.body is not None else b""
         headers = [(b"host", (value.host or HOST).encode()), (b"content-type", b"application/json"),
@@ -450,6 +452,10 @@ class IngressBridge:
                 if not message.get("more_body", False):
                     finished.set()
         await self.app(scope, receive, send)
+        if response_scope is not None and RESPONSE_GUARD in scope:
+            # Only routes opting into the guard export it. Recheck after the
+            # outer transport's own durability wait as well as the inner one.
+            response_scope[RESPONSE_GUARD] = scope[RESPONSE_GUARD]
         if content_type.split(";")[0] != "application/json":
             raise HTTPException(502, "bridge_response_invalid")
         self.acl(value.path, value.user_id)
@@ -536,7 +542,7 @@ class IngressBridge:
                 if not self.current(value.pairing_id, value.user_id):
                     raise HTTPException(403, "bridge_authority_revoked")
             else:
-                result = await self.dispatch(value, expires)
+                result = await self.dispatch(value, expires, response_scope=request.scope)
             result.headers["Cache-Control"] = "no-store"
             result.headers["X-Content-Type-Options"] = "nosniff"
             return result
