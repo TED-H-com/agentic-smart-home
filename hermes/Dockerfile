@@ -9,6 +9,7 @@ RUN python fetch_upstream.py && \
     mkdir -p /data && chown 10003:10003 /data
 COPY agentic_hermes ./agentic_hermes
 COPY compatibility_probe.py ./
+RUN chown -R root:root /app /opt/hermes && chmod -R u=rwX,go=rX /app /opt/hermes
 USER 10003:10003
 HEALTHCHECK --interval=30s --timeout=5s CMD python -c "import os,pathlib,urllib.request; p=os.environ.get('AGENTIC_HERMES_TOKEN_FILE','/hermes-link/service-token'); r=urllib.request.Request('http://127.0.0.1:8096/v1/capabilities',headers={'Authorization':'Bearer '+pathlib.Path(p).read_text().strip()}); urllib.request.urlopen(r,timeout=3)"
 CMD ["python", "-m", "agentic_hermes.app"]

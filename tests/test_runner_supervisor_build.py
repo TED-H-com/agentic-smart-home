@@ -219,29 +219,138 @@ def real_app_contract(info, config, slug, *, configured=True):
 
 
 class PollingReads:
-    """Install observation only reads: transport loss is retried within a bound, never an effect.
+    """Bounded read-only retries of transport loss or Supervisor's unknown_error.
 
-    HAError stays semantic (a cleaned-up job is not found) and is never retried here.
+    Missing jobs retain the shared observer's exact App postcondition fallback.
+    Other semantic failures and exhausted retries stop observation, so the shared
+    observer cannot mistake a rejected job read for a cleaned-up job.
     App info reaches the shared observer as public contract fields only, so its
     failure diff cannot print fields such as the ingress entry.
     """
 
-    def __init__(self, ha, *, attempts=3, delay=5):
-        self.ha, self.attempts, self.delay = ha, attempts, delay
+    def __init__(self, ha, *, attempts=3, delay=5, timeout=30):
+        assert type(attempts) is int and 1 <= attempts <= 10, 'install_observer_attempts_invalid'
+        assert type(delay) in (int, float) and 0 <= delay <= 30, 'install_observer_delay_invalid'
+        assert type(timeout) in (int, float) and 0 < timeout <= 60, 'install_observer_timeout_invalid'
+        self.ha, self.attempts, self.delay, self.timeout = ha, attempts, delay, timeout
+        self.observation = {'read_attempts': 0, 'retry_count': 0, 'failure_count': 0, 'failures': []}
 
     async def request(self, method, path, data=None, **kwargs):
         assert method == 'GET', 'install_observer_effect_forbidden'
+        step = ('install_job' if path.startswith('/jobs/') else 'app_list' if path == '/addons'
+                else 'app_info' if re.fullmatch(r'/addons/[a-z0-9_]+/info', path) else 'other_read')
+        timeout = min(kwargs.pop('timeout', None) or self.timeout, self.timeout)
         for attempt in range(1, self.attempts + 1):
+            # ProbeHA keeps flags from its last rejected reply; never classify a
+            # later auth/transport failure using a previous response's flags.
+            self.ha.last_error = None
+            self.observation['read_attempts'] += 1
+            started = time.monotonic()
             try:
-                value = await self.ha.request(method, path, data, **kwargs)
+                async with asyncio.timeout(timeout + 10):
+                    value = await self.ha.request(method, path, data, timeout=timeout, **kwargs)
                 break
-            except (aiohttp.ClientError, TimeoutError):
-                if attempt == self.attempts:
+            except (HAError, aiohttp.ClientError, TimeoutError) as error:
+                classification = observation_error(error, self.ha.last_error)
+                retry = classification in {'transport', 'timeout', 'upstream_unknown_error'} and attempt < self.attempts
+                record = {'step': step, 'attempt': attempt, 'classification': classification, 'retry': retry,
+                          'elapsed_seconds': round(time.monotonic() - started, 3)}
+                self.observation['failure_count'] += 1
+                if len(self.observation['failures']) < 64:
+                    self.observation['failures'].append(record)
+                if classification == 'job_missing':
                     raise
+                if not retry:
+                    if classification == 'update_required':
+                        raise AssertionError('supervisor_observation_update_required') from None
+                    if classification in {'transport', 'timeout', 'upstream_unknown_error'}:
+                        raise AssertionError('supervisor_observation_retries_exhausted') from None
+                    raise AssertionError('supervisor_observation_rejected') from None
+                self.observation['retry_count'] += 1
                 await asyncio.sleep(self.delay)
         if re.fullmatch(r'/addons/[a-z0-9_]+/info', path) and isinstance(value, dict):
             return {key: value[key] for key in (*CONTRACT_KEYS, 'state', 'options') if key in value}
         return value
+
+
+OBSERVATION_ERRORS = frozenset({'job_missing', 'update_required', 'authorization', 'not_found',
+    'request_rejected', 'upstream_unknown_error', 'transport', 'timeout', 'unclassified'})
+
+
+def observation_error(error, last=None):
+    """Fixed categories only: no upstream message, URL, command or arbitrary type name."""
+    if isinstance(error, TimeoutError):
+        return 'timeout'
+    if isinstance(error, aiohttp.ClientResponseError):
+        return 'authorization' if error.status in (401, 403) else 'request_rejected'
+    if isinstance(error, (aiohttp.InvalidURL, aiohttp.ClientSSLError)):
+        return 'request_rejected'
+    if isinstance(error, aiohttp.ClientError):
+        return 'transport'
+    if isinstance(error, HAError):
+        if error.status in (401, 403):
+            return 'authorization'
+        flags = upstream_flags(last)
+        if flags.get('job_missing') is True or str(error) == 'supervisor_job_missing':
+            return 'job_missing'
+        if flags.get('update_required') is True:
+            return 'update_required'
+        if error.status == 404:
+            return 'not_found'
+        if error.status == 502 and flags == {'job_missing': False, 'update_required': False,
+                                           'upstream_unknown_error': True}:
+            return 'upstream_unknown_error'
+        return 'request_rejected'
+    return 'unclassified'
+
+
+def diagnostic_error(error):
+    for kind in (subprocess.TimeoutExpired, TimeoutError, HAError, aiohttp.ClientError,
+                 AssertionError, OSError, ValueError, KeyError, IndexError):
+        if isinstance(error, kind):
+            return kind.__name__
+    return 'Exception'
+
+
+async def build_failure_observations(ha, ssh, remote, *, run=subprocess.run):
+    """Independent bounded reads; a failed diagnostic must not erase other evidence."""
+    result, failures = {}, {}
+    if ha is not None:
+        reads = PollingReads(ha, attempts=2, delay=1, timeout=5)
+        try:
+            observed = await reads.request('GET', f'/addons/{SLUG}/info', supervisor=True)
+            state = observed.get('state') if isinstance(observed, dict) else None
+            result['failure_app_state'] = state if state in {'started', 'stopped', 'error'} else 'unknown'
+        except Exception as error:
+            result['failure_app_observation_error'] = failures['app_info'] = diagnostic_error(error)
+        result['failure_app_reads'] = reads.observation
+    if ssh is not None:
+        try:
+            result['app_container_observation'] = container_projection(
+                json.loads(remote('docker inspect ' + APP_CONTAINER, timeout=10))[0], SLUG)
+        except Exception as error:
+            failures['app_container'] = diagnostic_error(error)
+        try:
+            # Capture the CLI exit status independently of tail's exit status.
+            logs = run([*ssh, '(ha supervisor logs 2>&1; printf "\\nAGENTIC_LOG_STATUS=%s\\n" "$?") | tail -81'],
+                       capture_output=True, timeout=15)
+            raw, separator, status = logs.stdout.rpartition(b'\nAGENTIC_LOG_STATUS=')
+            if logs.returncode or not separator or status.strip() != b'0':
+                failures['supervisor_logs'] = 'CommandFailed'
+                result['supervisor_log_signatures'] = {'unavailable': True}
+            else:
+                text = raw[-65536:].decode(errors='replace').lower()
+                result['supervisor_log_signatures'] = {name: pattern in text for name, pattern in
+                    {'update_required': 'needs to be updated', 'job_missing': 'job does not exist',
+                     'build_failure': 'build failed', 'registry_failure': 'failed to resolve',
+                     'no_space': 'no space left', 'permission': 'permission denied',
+                     'network_failure': 'temporary failure', 'not_installed': 'not installed'}.items()}
+                result['supervisor_log_signatures']['bytes_observed'] = len(text.encode())
+        except Exception as error:
+            failures['supervisor_logs'] = diagnostic_error(error)
+            result['supervisor_log_signatures'] = {'unavailable': True}
+    result['diagnostic_failures'] = failures
+    return result
 
 
 def app_probe_checks(raw, slug, lock):
@@ -296,6 +405,22 @@ def _bool_map(names):
         all(key in names and type(item) is bool for key, item in value.items()))
 
 
+def _read_observation(value):
+    if not isinstance(value, dict) or set(value) != {'read_attempts', 'retry_count', 'failure_count', 'failures'}:
+        return False
+    if not all(type(value[key]) is int and 0 <= value[key] < 100000
+               for key in ('read_attempts', 'retry_count', 'failure_count')):
+        return False
+    failures = value['failures']
+    return isinstance(failures, list) and len(failures) <= 64 and all(
+        isinstance(item, dict) and set(item) == {'step', 'attempt', 'classification', 'retry', 'elapsed_seconds'}
+        and isinstance(item['step'], str) and item['step'] in {'install_job', 'app_list', 'app_info', 'other_read'}
+        and type(item['attempt']) is int and 1 <= item['attempt'] <= 10
+        and isinstance(item['classification'], str) and item['classification'] in OBSERVATION_ERRORS
+        and type(item['retry']) is bool
+        and _number(item['elapsed_seconds']) for item in failures)
+
+
 FIELDS = {
     'kind': lambda value: value == KIND, 'delivery': lambda value: value == DELIVERY,
     'haos_image': lambda value: value == '18.3', 'observed_from': lambda value: value == OBSERVED_FROM,
@@ -317,6 +442,11 @@ FIELDS = {
     'upstream_error': _bool_map({'job_missing', 'update_required', 'upstream_unknown_error'}),
     'install_confirmation': lambda value: value in {'supervisor_job_and_app', 'app_postcondition_job_unavailable'},
     'install_job_reported_errors': lambda value: type(value) is bool,
+    'install_observation': _read_observation, 'failure_app_reads': _read_observation,
+    'diagnostic_failures': lambda value: isinstance(value, dict) and all(
+        key in {'app_info', 'app_container', 'supervisor_logs'} and isinstance(item, str) and item in {
+            'TimeoutExpired', 'TimeoutError', 'HAError', 'ClientError', 'AssertionError', 'OSError',
+            'ValueError', 'KeyError', 'IndexError', 'Exception', 'CommandFailed'} for key, item in value.items()),
     'build_seconds': _number, 'duration_seconds': _number, 'command_timeout_seconds': _number,
     'installed_image_id': lambda value: isinstance(value, str) and re.fullmatch(r'sha256:[a-f0-9]{64}', value) is not None,
     'health_status': lambda value: type(value) is int and 100 <= value <= 599,
@@ -541,9 +671,12 @@ async def test_real_supervisor_builds_home_coding_app(tmp_path, request):
         # Exactly one install effect. A lost reply is observed, never retried.
         receipt = await ha.request('POST', f'/store/addons/{SLUG}/install', {'background': True}, supervisor=True)
         assert isinstance(receipt, dict) and isinstance(receipt.get('job_id'), str), 'supervisor_install_job_missing'
+        install_reads = PollingReads(ha)
         try:
-            evidence['install_confirmation'] = await observe_install(PollingReads(ha), SLUG, receipt['job_id'], config,
-                attempts=JOB_TIMEOUT // INSTALL_POLL_SECONDS, delay=INSTALL_POLL_SECONDS)
+            # Retries consume the same install observation budget, never extend it.
+            async with asyncio.timeout(JOB_TIMEOUT):
+                evidence['install_confirmation'] = await observe_install(install_reads, SLUG, receipt['job_id'], config,
+                    attempts=JOB_TIMEOUT // INSTALL_POLL_SECONDS, delay=INSTALL_POLL_SECONDS)
             evidence['install_job_reported_errors'] = False
         except AssertionError as error:
             if str(error) == 'supervisor_app_install_failed':
@@ -551,6 +684,7 @@ async def test_real_supervisor_builds_home_coding_app(tmp_path, request):
             raise
         finally:
             evidence['build_seconds'] = round(time.monotonic() - build_started, 1)
+            evidence['install_observation'] = install_reads.observation
         evidence['checks']['supervisor_build_install_completed'] = True
         phase('real_app_contract')
         info = await ha.request('GET', f'/addons/{SLUG}/info', supervisor=True)
@@ -644,28 +778,7 @@ async def test_real_supervisor_builds_home_coding_app(tmp_path, request):
         if ha is not None:
             if ha.last_error is not None:
                 evidence['upstream_error'] = upstream_flags(ha.last_error)
-            try:
-                async with asyncio.timeout(10):
-                    observed = await ha.request('GET', f'/addons/{SLUG}/info', supervisor=True, timeout=5)
-                state = observed.get('state') if isinstance(observed, dict) else None
-                evidence['failure_app_state'] = state if state in {'started', 'stopped', 'error'} else 'unknown'
-            except Exception as observation_error:
-                evidence['failure_app_observation_error'] = type(observation_error).__name__
-        if ssh is not None:
-            with contextlib.suppress(Exception):
-                evidence['app_container_observation'] = container_projection(
-                    json.loads(remote('docker inspect ' + APP_CONTAINER, timeout=10))[0], SLUG)
-            try:
-                logs = subprocess.run([*ssh, 'ha supervisor logs | tail -80'], capture_output=True, timeout=15)
-                text = logs.stdout[-65536:].decode(errors='replace').lower()
-                evidence['supervisor_log_signatures'] = {name: pattern in text for name, pattern in
-                    {'update_required': 'needs to be updated', 'job_missing': 'job does not exist',
-                     'build_failure': 'build failed', 'registry_failure': 'failed to resolve',
-                     'no_space': 'no space left', 'permission': 'permission denied',
-                     'network_failure': 'temporary failure', 'not_installed': 'not installed'}.items()}
-                evidence['supervisor_log_signatures']['bytes_observed'] = len(text.encode())
-            except Exception:
-                evidence['supervisor_log_signatures'] = {'unavailable': True}
+        evidence.update(await build_failure_observations(ha, ssh, remote))
         # Explicit diagnostic window is test-only, bounded and always followed
         # by normal cleanup. It never changes the failure or resubmits effects.
         evidence['failure_hold_seconds'] = hold_seconds if not interrupted else 0
@@ -904,7 +1017,10 @@ class FlakyReads:
     async def request(self, method, path, data=None, **kwargs):
         self.calls.append((method, path))
         if self.errors:
-            raise self.errors.pop(0)
+            error = self.errors.pop(0)
+            if isinstance(error, tuple):
+                error, self.last_error = error
+            raise error
         return {'path': path} if self.value is None else self.value
 
 
@@ -912,7 +1028,7 @@ async def test_install_polling_retries_only_bounded_transport_loss_on_reads():
     ha = FlakyReads(TimeoutError(), aiohttp.ClientConnectionError())
     assert await PollingReads(ha, delay=0).request('GET', '/jobs/x', supervisor=True) == {'path': '/jobs/x'}
     assert len(ha.calls) == 3
-    with pytest.raises(TimeoutError):
+    with pytest.raises(AssertionError, match='supervisor_observation_retries_exhausted'):
         await PollingReads(FlakyReads(*[TimeoutError()] * 3), delay=0).request('GET', '/addons', supervisor=True)
     missing = FlakyReads(HAError('supervisor_job_missing'))
     with pytest.raises(HAError):
@@ -922,6 +1038,205 @@ async def test_install_polling_retries_only_bounded_transport_loss_on_reads():
     with pytest.raises(AssertionError, match='install_observer_effect_forbidden'):
         await PollingReads(effect, delay=0).request('POST', '/store/addons/x/install', {'background': True})
     assert effect.calls == []
+
+
+def unknown_error(**changes):
+    return HAError('private upstream error at /private/path'), {
+        'job_missing': False, 'update_required': False, 'upstream_unknown_error': True, **changes}
+
+
+@pytest.mark.parametrize('path', ['/jobs/job', '/addons', f'/addons/{SLUG}/info'])
+async def test_install_polling_recovers_transient_unknown_error_on_each_read(path):
+    ha = FlakyReads(unknown_error(), unknown_error())
+    reads = PollingReads(ha, delay=0)
+    await reads.request('GET', path, supervisor=True)
+    observed = evidence_projection({'install_observation': reads.observation})['install_observation']
+    assert len(ha.calls) == observed['read_attempts'] == 3
+    assert observed['retry_count'] == observed['failure_count'] == 2
+    assert all(item['classification'] == 'upstream_unknown_error' and item['retry'] for item in observed['failures'])
+    assert 'private' not in json.dumps(observed) and path not in json.dumps(observed)
+
+
+async def test_install_polling_exhaustion_is_terminal_for_shared_job_observer():
+    ha = FlakyReads(*[unknown_error() for _ in range(4)])
+    reads = PollingReads(ha, delay=0)
+    with pytest.raises(AssertionError, match='supervisor_observation_retries_exhausted'):
+        await observe_install(reads, SLUG, 'job', {}, attempts=4, delay=0)
+    assert ha.calls == [('GET', '/jobs/job')] * 3
+    assert reads.observation['retry_count'] == 2
+    assert reads.observation['failures'][-1]['retry'] is False
+
+
+@pytest.mark.parametrize('error,flags,classification', [
+    (*unknown_error(update_required=True), 'update_required'),
+    (HAError('private permission error', 403), unknown_error()[1], 'authorization'),
+    (HAError('private missing App', 404), unknown_error()[1], 'not_found'),
+    (HAError('private invalid request', 400), unknown_error()[1], 'request_rejected'),
+    (HAError('private unknown failure'), None, 'request_rejected'),
+    (HAError('private malformed flags'), {'upstream_unknown_error': True}, 'request_rejected'),
+    (aiohttp.ClientResponseError(None, (), status=401, message='private'), None, 'authorization'),
+    (aiohttp.InvalidURL('private invalid URL'), None, 'request_rejected'),
+])
+async def test_install_polling_keeps_meaningful_errors_terminal(error, flags, classification):
+    ha = FlakyReads((error, flags))
+    reads = PollingReads(ha, delay=0)
+    with pytest.raises(AssertionError, match='supervisor_observation_') as caught:
+        await observe_install(reads, SLUG, 'job', {}, attempts=3, delay=0)
+    assert len(ha.calls) == 1 and reads.observation['retry_count'] == 0
+    assert reads.observation['failures'][0]['classification'] == classification
+    assert 'private' not in str(caught.value)
+
+
+async def test_install_polling_missing_job_is_not_retried():
+    ha = FlakyReads(unknown_error(job_missing=True))
+    reads = PollingReads(ha, delay=0)
+    with pytest.raises(HAError):
+        await reads.request('GET', '/jobs/job', supervisor=True)
+    assert ha.calls == [('GET', '/jobs/job')]
+    assert reads.observation['failures'][0]['classification'] == 'job_missing'
+    assert reads.observation['retry_count'] == 0
+
+
+async def test_install_polling_does_not_reuse_stale_flags_for_later_errors():
+    ha = FlakyReads(unknown_error(), HAError('new meaningful failure'))
+    reads = PollingReads(ha, delay=0)
+    with pytest.raises(AssertionError, match='supervisor_observation_rejected'):
+        await reads.request('GET', '/addons', supervisor=True)
+    assert len(ha.calls) == 2
+    assert [item['classification'] for item in reads.observation['failures']] == [
+        'upstream_unknown_error', 'request_rejected']
+
+
+@pytest.mark.parametrize('options', [{'attempts': 0}, {'attempts': 11}, {'attempts': True}, {'delay': -1},
+    {'delay': float('inf')}, {'timeout': 0}, {'timeout': 61}])
+def test_install_polling_requires_finite_retry_bounds(options):
+    with pytest.raises(AssertionError, match='install_observer_'):
+        PollingReads(FlakyReads(), **options)
+
+
+async def test_install_polling_preserves_cancellation_without_retry():
+    ha = FlakyReads(asyncio.CancelledError())
+    with pytest.raises(asyncio.CancelledError):
+        await PollingReads(ha, delay=0).request('GET', '/addons', supervisor=True)
+    assert len(ha.calls) == 1
+
+
+async def test_install_polling_observes_the_same_install_once_without_duplicate_effects():
+    class Install:
+        def __init__(self):
+            self.calls, self.failed = [], set()
+
+        async def request(self, method, path, data=None, **kwargs):
+            self.calls.append((method, path))
+            if method == 'POST':
+                assert path == f'/store/addons/{SLUG}/install'
+                return {'job_id': 'job'}
+            if path not in self.failed:
+                self.failed.add(path)
+                error, self.last_error = unknown_error()
+                raise error
+            if path == '/jobs/job':
+                return {'uuid': 'job', 'reference': SLUG, 'done': True, 'errors': []}
+            if path == '/addons':
+                return {'addons': [{'slug': SLUG}]}
+            return {**real_info(), 'state': 'stopped'}
+
+    ha = Install()
+    receipt = await ha.request('POST', f'/store/addons/{SLUG}/install', {'background': True}, supervisor=True)
+    reads = PollingReads(ha, delay=0)
+    config = {'version': VERSION, 'privileged': ['SYS_ADMIN'], 'devices': ['/dev/fuse']}
+    assert await observe_install(reads, SLUG, receipt['job_id'], config, attempts=1, delay=0) == 'supervisor_job_and_app'
+    assert [call for call in ha.calls if call[0] != 'GET'] == [('POST', f'/store/addons/{SLUG}/install')]
+    assert reads.observation['read_attempts'] == 6 and reads.observation['retry_count'] == 3
+
+
+async def test_install_polling_requires_real_contract_after_recovered_observation():
+    class BrokenApp:
+        failed = False
+
+        async def request(self, method, path, data=None, **kwargs):
+            if not self.failed:
+                self.failed = True
+                error, self.last_error = unknown_error()
+                raise error
+            if path.startswith('/jobs/'):
+                return {'uuid': 'job', 'reference': SLUG, 'done': True, 'errors': []}
+            if path == '/addons':
+                return {'addons': [{'slug': SLUG}]}
+            return {**real_info(), 'state': 'stopped', 'version': 'wrong'}
+
+    with pytest.raises(AssertionError, match='supervisor_app_identity_changed'):
+        await observe_install(PollingReads(BrokenApp(), delay=0), SLUG, 'job', {'version': VERSION}, attempts=1, delay=0)
+
+
+async def test_install_polling_missing_job_still_requires_exact_installed_app():
+    class PrunedJob:
+        def __init__(self, *, installed):
+            self.calls, self.installed = [], installed
+
+        async def request(self, method, path, data=None, **kwargs):
+            self.calls.append((method, path))
+            if path.startswith('/jobs/'):
+                error, self.last_error = unknown_error(job_missing=True)
+                raise error
+            if path == '/addons':
+                return {'addons': [{'slug': SLUG}] if self.installed else []}
+            return {**real_info(), 'state': 'stopped'}
+
+    config = {'version': VERSION, 'privileged': ['SYS_ADMIN'], 'devices': ['/dev/fuse']}
+    ha = PrunedJob(installed=True)
+    assert await observe_install(PollingReads(ha, delay=0), SLUG, 'job', config, attempts=1, delay=0) == (
+        'app_postcondition_job_unavailable')
+    assert ha.calls == [('GET', '/jobs/job'), ('GET', '/addons'), ('GET', f'/addons/{SLUG}/info')]
+    ha = PrunedJob(installed=False)
+    with pytest.raises(AssertionError, match='supervisor_install_postcondition_timeout'):
+        await observe_install(PollingReads(ha, delay=0), SLUG, 'job', config, attempts=1, delay=0)
+    assert ha.calls == [('GET', '/jobs/job'), ('GET', '/addons')]
+
+
+async def test_build_diagnostics_keep_later_steps_when_earlier_probes_fail():
+    ha = FlakyReads(HAError('private authentication detail', 401))
+    calls = []
+
+    def remote(command, *, timeout):
+        calls.append('container')
+        raise subprocess.TimeoutExpired(['private command'], timeout, output=b'private token')
+
+    def run(args, **kwargs):
+        calls.append('logs')
+        return subprocess.CompletedProcess(args, 0, b'build failed private token\nAGENTIC_LOG_STATUS=0\n')
+
+    result = await build_failure_observations(ha, ['ssh'], remote, run=run)
+    assert calls == ['container', 'logs'] and result['supervisor_log_signatures']['build_failure']
+    assert result['diagnostic_failures'] == {'app_info': 'AssertionError', 'app_container': 'TimeoutExpired'}
+    assert result['failure_app_reads']['failures'][0]['classification'] == 'authorization'
+    assert 'private' not in json.dumps(result) and evidence_projection(result) == result
+
+
+@pytest.mark.parametrize('returncode,output', [(1, b'private error'), (0, b'private error\nAGENTIC_LOG_STATUS=1\n'),
+                                             (0, b'private truncated output')])
+async def test_build_diagnostics_record_failed_log_commands_without_reporting_empty_signatures(returncode, output):
+    def remote(command, **kwargs):
+        raise ValueError('private inspect body')
+
+    def run(args, **kwargs):
+        return subprocess.CompletedProcess(args, returncode, output)
+
+    result = await build_failure_observations(None, ['ssh'], remote, run=run)
+    assert result['supervisor_log_signatures'] == {'unavailable': True}
+    assert result['diagnostic_failures'] == {'app_container': 'ValueError', 'supervisor_logs': 'CommandFailed'}
+    assert 'private' not in json.dumps(result)
+
+
+def test_observation_evidence_rejects_untrusted_classification_or_diagnostic_fields():
+    record = {'step': 'app_list', 'attempt': 1, 'classification': 'upstream_unknown_error',
+              'retry': False, 'elapsed_seconds': 0.1}
+    value = {'read_attempts': 1, 'retry_count': 0, 'failure_count': 1, 'failures': [record]}
+    assert evidence_projection({'install_observation': value}) == {'install_observation': value}
+    for changes in ({'classification': 'privateToken'}, {'classification': {}}, {'step': '/private/path'},
+                    {'response': 'private'}, {'attempt': 999}, {'elapsed_seconds': float('nan')}):
+        assert evidence_projection({'install_observation': {**value, 'failures': [{**record, **changes}]}}) == {}
+    assert evidence_projection({'diagnostic_failures': {'supervisor_logs': 'PrivateExceptionName'}}) == {}
 
 
 async def test_install_polling_passes_only_public_app_info_to_shared_observer():

@@ -273,7 +273,7 @@ def command_diagnostics(raw):
     from agentic_host.coding_sandbox import OPERATIONS
     allowed = set(OPERATIONS) | {name + '.' + action for name, actions in OPERATIONS.items() for action in actions}
     result = {}
-    if raw.get('operation') in allowed:
+    if isinstance(raw.get('operation'), str) and raw['operation'] in allowed:
         result['operation'] = raw['operation']
     for key, low, high in (('command_exit_code', -128, 255), ('timeout_seconds', 1, 900)):
         if type(raw.get(key)) is int and low <= raw[key] <= high:
@@ -281,22 +281,35 @@ def command_diagnostics(raw):
     return result
 
 
-def launcher_diagnostic(path):
+def launcher_receipt(raw):
+    """Project a launch receipt without publishing messages, arguments or paths."""
     from agentic_host.coding_sandbox import ERROR_CODES as SANDBOX_CODES
     from agentic_runner.home_launcher import ERROR_CODES
+    if not isinstance(raw, dict):
+        return {'available': False, 'read_status': 'invalid'}
+    code = raw.get('error_code')
+    mode, kind = raw.get('mode'), raw.get('error_type')
+    return {'available': True,
+            'mode': mode if isinstance(mode, str) and mode in {'prepare', 'execute', 'supervise', 'fuse'} else 'unknown',
+            'error_code': code if isinstance(code, str) and code in ERROR_CODES | SANDBOX_CODES else 'home_launcher_failure',
+            'error_type': kind if isinstance(kind, str) and kind in {'SandboxError', 'BoundaryError', 'OSError', 'Exception'} else 'Exception',
+            'errno': raw.get('errno') if type(raw.get('errno')) is int and 0 < raw['errno'] < 4096 else None,
+            **command_diagnostics(raw)}
+
+
+def launcher_diagnostic(path):
     try:
         path = Path(path)
         if path.stat().st_size > 4096:
-            return {'available': False}
+            return {'available': False, 'read_status': 'oversize'}
         raw = json.loads(path.read_text())
-    except (OSError, ValueError):
-        return {'available': False}
-    return {'available': True,
-            'mode': raw.get('mode') if raw.get('mode') in {'prepare', 'execute', 'supervise', 'fuse'} else 'unknown',
-            'error_code': raw.get('error_code') if raw.get('error_code') in ERROR_CODES | SANDBOX_CODES else 'home_launcher_failure',
-            'error_type': raw.get('error_type') if raw.get('error_type') in {'SandboxError', 'BoundaryError', 'OSError', 'Exception'} else 'Exception',
-            'errno': raw.get('errno') if type(raw.get('errno')) is int and 0 < raw['errno'] < 4096 else None,
-            **command_diagnostics(raw)}
+    except FileNotFoundError:
+        return {'available': False, 'read_status': 'missing'}
+    except OSError:
+        return {'available': False, 'read_status': 'unreadable'}
+    except ValueError:
+        return {'available': False, 'read_status': 'invalid'}
+    return launcher_receipt(raw)
 
 
 async def diagnostic_request(reader, writer):
@@ -565,31 +578,60 @@ def boundary_probes():
     return result
 
 
-def job_proof(identifier):
-    """Fixed read-only diagnostic called by the original App namespace server."""
+def job_proof(identifier, *, root=Path('/data/coding/work')):
+    """Read-only App observation, including incomplete allocation and failed reads.
+
+    Missing cgroup records are unknown, never evidence that a writer stopped.
+    The optional root supports disk-only unit fixtures; the RPC always uses the
+    fixed product root and cannot accept a caller-supplied path.
+    """
     assert re.fullmatch(r'[a-f0-9]{32}', identifier), 'invalid_fixture_job_id'
-    root = Path('/data/coding/work')
+    root = Path(root)
+    directory = root / identifier
+    result = {'launcher_diagnostic': launcher_diagnostic(directory / 'launch-error.json')}
     path = root / (identifier + '.json')
-    if not path.is_file():
-        return {'record_present': False}
-    assert path.stat().st_size <= 65536, 'job_record_limit'
-    value = json.loads(path.read_text())
-    pulse = root / identifier / 'workspace/scratch/descendant-pulse'
-    result = {'record_present': True, 'pulse_present': pulse.is_file(),
-        'workspace_mounted': os.path.ismount(root / identifier / 'workspace'),
-        'workspace_image_present': (root / identifier / 'workspace.ext4').is_file()}
+    try:
+        result['record_present'] = path.is_file()
+        if not result['record_present']:
+            return result
+        assert path.stat().st_size <= 65536, 'job_record_limit'
+        value = json.loads(path.read_text())
+        assert isinstance(value, dict), 'job_record_invalid'
+    except (OSError, ValueError, AssertionError) as error:
+        result['record_observation_error'] = failure_receipt(error)
+        return result
+    result.update(pulse_present=(directory / 'workspace/scratch/descendant-pulse').is_file(),
+        workspace_mounted=os.path.ismount(directory / 'workspace'),
+        workspace_image_present=(directory / 'workspace.ext4').is_file())
     if value.get('state') in {'preparing','running','succeeded','failed','cancelled','interrupted','disposed','stop_unconfirmed'}:
         result['state'] = value['state']
+    for key in ('stop_confirmed', 'cleanup_fenced', 'previous_boot_stopped'):
+        if type(value.get(key)) is bool:
+            result[key] = value[key]
+    if isinstance(value.get('launch_failure'), dict):
+        result['launch_failure'] = launcher_receipt(value['launch_failure'])
     for key in ('cgroup', 'fuse_cgroup'):
-        name = value.get(key, {}).get('name', '')
-        assert re.fullmatch(r'[wf]-[a-f0-9]{32}', name), 'invalid_fixture_cgroup'
-        group = Path('/data/coding/cgroups') / name
-        result[key + '_present'] = group.exists()
-        if group.exists():
-            events = dict(line.split() for line in (group / 'cgroup.events').read_text().splitlines())
-            result[key + '_populated'] = events.get('populated') == '1'
-    result['stderr_summary'] = stderr_summary(root / identifier / 'workspace/stderr.txt')
-    result['launcher_diagnostic'] = launcher_diagnostic(root / identifier / 'launch-error.json')
+        recorded = key in value
+        result[key + '_recorded'] = recorded
+        if not recorded:
+            continue
+        raw = value[key]
+        name = raw.get('name') if isinstance(raw, dict) else None
+        if not isinstance(name, str) or re.fullmatch(r'[wf]-[a-f0-9]{32}', name) is None:
+            result[key + '_observation_error'] = {'error_code': 'invalid_fixture_cgroup'}
+            continue
+        group = root.parent / 'cgroups' / name
+        try:
+            result[key + '_present'] = group.exists()
+            if result[key + '_present']:
+                events = dict(line.split() for line in (group / 'cgroup.events').read_text().splitlines())
+                if events.get('populated') in {'0', '1'}:
+                    result[key + '_populated'] = events['populated'] == '1'
+                else:
+                    raise AssertionError('fixture_cgroup_events_invalid')
+        except (OSError, ValueError, AssertionError) as error:
+            result[key + '_observation_error'] = failure_receipt(error)
+    result['stderr_summary'] = stderr_summary(directory / 'workspace/stderr.txt')
     return result
 
 

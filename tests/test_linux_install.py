@@ -6,8 +6,9 @@ import importlib.util
 import json
 import os
 import re
-import shutil
+import stat
 import subprocess
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -27,6 +28,75 @@ CODING_PROBE_TIMEOUT_SECONDS = JOB_WAIT_SECONDS + CLEANUP_WAIT_SECONDS + 240
 FAILURE_DIAGNOSTICS_TIMEOUT_SECONDS = UPDATE_COMMAND_TIMEOUT_SECONDS + 60
 UPDATE_INVOKE_TIMEOUT_SECONDS = UPDATE_COMMAND_TIMEOUT_SECONDS + 60
 UPDATE_DEADLINE_SECONDS = RUNTIME_MAX_SECONDS + 300
+INSTALL_CLEANUP_COMMAND_SECONDS = 30
+INSTALL_CONSOLE_BYTES = 65536
+
+
+def cleanup_installer(name, temporary, console_path, *, run=None):
+    """Confirm owned VM absence; retain console capture as a separate typed step."""
+    run = run or subprocess.run
+    result = {"status": "failed", "steps": {}}
+
+    def step(label, args, seconds=INSTALL_CLEANUP_COMMAND_SECONDS, **options):
+        try:
+            completed = run(args, timeout=seconds, stderr=subprocess.DEVNULL,
+                            stdout=options.pop("stdout", subprocess.DEVNULL), **options)
+            code = completed.returncode
+            result["steps"][label] = {"status": "passed" if type(code) is int and code == 0 else "failed",
+                "exit_code": code if type(code) is int and -128 <= code <= 255 else None}
+            return completed
+        except Exception as error:
+            result["steps"][label] = {"status": "timeout" if isinstance(error, subprocess.TimeoutExpired) else "failed",
+                "error_type": type(error).__name__ if type(error).__name__ in {
+                    "TimeoutExpired", "PermissionError", "FileNotFoundError", "OSError"} else "OtherError"}
+            return None
+
+    step("stop_vm", ["docker", "stop", "-t", "10", name])
+    try:
+        serial = temporary / "serial.log"
+        if serial.is_symlink():
+            raise OSError("console is not a regular owned file")
+        if serial.is_file():
+            descriptor = os.open(console_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+            with os.fdopen(descriptor, "wb") as output:
+                if not stat.S_ISREG(os.fstat(output.fileno()).st_mode):
+                    raise OSError("console destination is not a regular file")
+                os.fchmod(output.fileno(), 0o600)
+                step("console_tail", ["tail", "-c", str(INSTALL_CONSOLE_BYTES), "--", str(serial)], 10, stdout=output)
+        else:
+            result["steps"]["console_tail"] = {"status": "not_present"}
+    except Exception:
+        result["steps"]["console_tail"] = {"status": "failed", "error_type": "OtherError"}
+    step("remove_vm", ["docker", "rm", "-fv", name])
+    # All fixture entries are direct files/socket in the user-owned tmp_path;
+    # unlinking them does not require chown. pytest-disktmp removes that directory.
+    observed = step("vm_absent", ["docker", "ps", "-a", "--filter", "name=^/" + name + "$",
+                                 "--format", "{{.Names}}"], stdout=subprocess.PIPE)
+    if observed is not None and type(observed.returncode) is int and observed.returncode == 0:
+        result["steps"]["vm_absent"]["status"] = "passed" if (
+            isinstance(observed.stdout, bytes) and not observed.stdout.strip()) else "failed"
+    # A failed stop/remove may still end in proven absence. Console capture is
+    # diagnostic retention, not a condition for declaring the resource absent.
+    if result["steps"]["vm_absent"]["status"] == "passed":
+        result["status"] = "passed"
+    return result
+
+
+def finish_installer_cleanup(name, temporary, console_path, report, *, primary_error=None, run=None):
+    """Receipt failure cannot skip cleanup or replace an active test exception."""
+    result = cleanup_installer(name, temporary, console_path, run=run)
+    try:
+        report.write_text(json.dumps(result, indent=2) + "\n")
+    except Exception:
+        result["receipt"] = "write_failed"
+        result["status"] = "failed"
+    if result["status"] != "passed":
+        if primary_error is not None:
+            with contextlib.suppress(Exception):
+                primary_error.add_note("Disposable installer cleanup incomplete; bounded cleanup was attempted.")
+        else:
+            raise AssertionError("Disposable installer cleanup incomplete")
+    return result
 
 
 def bootstrap_job_diagnostics(output):
@@ -86,9 +156,11 @@ def probe_json(result, diagnostic_path):
 def failure_observation_public(value):
     from installed_update_probe import (
         HOST_VM_STATES,
+        PRODUCT_UNITS,
         compatibility_receipt,
         lifecycle_receipt,
         process_diagnostics,
+        product_unit_public,
     )
 
     if not isinstance(value, dict):
@@ -101,6 +173,11 @@ def failure_observation_public(value):
     if isinstance(value.get("filesystem"), dict):
         result["filesystem"] = {key: number for key in ("total_bytes", "used_bytes", "free_bytes")
                                 if type(number := value["filesystem"].get(key)) is int and 0 <= number <= 2**63}
+    if value.get("filesystem_observation") == "probe_failed":
+        result["filesystem_observation"] = "probe_failed"
+    if isinstance(value.get("product_units"), dict):
+        result["product_units"] = {name: product_unit_public(value["product_units"][name])
+                                   for name in PRODUCT_UNITS if name in value["product_units"]}
     result["compatibility"] = compatibility_receipt(value.get("compatibility"))
     state = value.get("provision_state")
     if isinstance(state, dict):
@@ -461,10 +538,9 @@ while data:=s.recv(65536):
                "-o", f"ProxyCommand=docker exec -i {name} python3 /lab/ssh-proxy.py",
                "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5",
                "tester@127.0.0.1"]
-        # Firstboot has no time limit. On a slow test disk it ran for more than 20 minutes.
+        # The product service can keep working; this acceptance stage is bounded to one hour.
         if not wait_until(lambda: remote_ok(ssh, "test -f /var/lib/agentic-home/installed.json"), 3600):
-            logs = subprocess.run([*ssh, "journalctl -u agentic-home-firstboot --no-pager -n 50"], capture_output=True, text=True)
-            raise AssertionError("Firstboot did not complete: " + logs.stdout[-4000:])
+            raise AssertionError("Firstboot did not complete within 60 minutes")
         phase("installed_identity_and_images")
         host = json.loads(command(*ssh, "agentic-home status"))
         assert not host["provisioned"] and host["kvm"]
@@ -639,10 +715,6 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
             progress["failure_diagnostics"] = "unavailable"
         raise
     finally:
-        subprocess.run(["docker", "stop", "-t", "10", name], capture_output=True)
-        # Keep only the nonsecret failure console when useful; all keys and virtual disks are removed.
-        if (tmp_path / "serial.log").exists():
-            shutil.copyfile(tmp_path / "serial.log", ROOT / "build/linux-install-console.log")
-        subprocess.run(["docker", "run", "--rm", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0",
-                        "chown", "-R", f"{os.getuid()}:{os.getgid()}", "/lab"], capture_output=True)
-        subprocess.run(["docker", "rm", "-fv", name], capture_output=True)
+        finish_installer_cleanup(name, tmp_path, ROOT / "build/linux-install-console.log",
+                                 ROOT / "evidence" / ("installed-cleanup-" + profile + ".json"),
+                                 primary_error=sys.exc_info()[1])

@@ -79,6 +79,17 @@ HOST_CONTRACT_ERRORS = {"command_missing", "permission_denied", "probe_timeout",
                         "response_invalid", "required_capability_missing"}
 HOST_COMMANDS = {"cp", "virsh", "qemu-img", "chmod", "chown", "iptables", "ip", "docker"}
 HOST_VM_STATES = {"running", "blocked", "paused", "in shutdown", "shut off", "crashed", "pmsuspended"}
+PRODUCT_UNITS = {"controller": "agentic-home.service", "host": "agentic-home-host.service",
+                 "proxy": "agentic-home-proxy.service", "firstboot": "agentic-home-firstboot.service"}
+OBSERVATION_STATES = {"ok", "timeout", "output_limit", "probe_failed", "command_missing", "permission_denied"}
+UNIT_FIELDS = {
+    "LoadState": {"loaded", "not-found", "error", "bad-setting", "masked", "stub", "merged"},
+    "ActiveState": {"active", "reloading", "inactive", "failed", "activating", "deactivating", "maintenance", "refreshing"},
+    "SubState": {"running", "exited", "dead", "failed", "waiting", "start", "start-pre", "start-post",
+                 "stop", "stop-sigterm", "stop-sigkill", "stop-post", "auto-restart", "reload"},
+    "Result": {"success", "resources", "timeout", "exit-code", "signal", "core-dump", "watchdog",
+               "start-limit-hit", "oom-kill", "exec-condition", "protocol"},
+}
 HOST_SETUP_ERRORS = {
     "upstream_redirect_refused", "upstream_origin_refused", "upstream_metadata_invalid", "upstream_revision_invalid",
     "upstream_archive_limit", "upstream_archive_path", "upstream_archive_special_file", "existing_hermes_account",
@@ -515,6 +526,52 @@ def libvirt_receipt(status, text, kind, owner):
     return result
 
 
+def product_unit_public(raw):
+    """Fixed unit fields and journal signatures only, also used at the SSH boundary."""
+    raw = raw if isinstance(raw, dict) else {}
+    status = raw.get("observation")
+    status = status if isinstance(status, str) and status in OBSERVATION_STATES else "unknown"
+    result = {"observation": status}
+    for name, allowed in UNIT_FIELDS.items():
+        value = raw.get(name)
+        result[name] = value if status == "ok" and isinstance(value, str) and value in allowed else "unknown"
+    for name in ("ExecMainCode", "ExecMainStatus"):
+        value = raw.get(name)
+        if isinstance(value, str) and re.fullmatch(r"[0-9]{1,3}", value):
+            value = int(value)
+        result[name] = value if status == "ok" and type(value) is int and 0 <= value <= 255 else None
+    journal = raw.get("journal")
+    journal = journal if isinstance(journal, dict) else {}
+    status = journal.get("observation")
+    status = status if isinstance(status, str) and status in OBSERVATION_STATES else "unknown"
+    result["journal"] = {"observation": status, "signatures": {}}
+    if status == "ok":
+        signatures = journal.get("signatures")
+        allowed = process_diagnostics(subprocess.CompletedProcess([], None, "", ""))["stderr_signatures"]
+        if isinstance(signatures, dict):
+            result["journal"]["signatures"] = {key: signatures[key] for key in allowed if type(signatures.get(key)) is bool}
+        for name, maximum in (("bytes_observed", 65536), ("scanned_bytes", 16384)):
+            value = journal.get(name)
+            if type(value) is int and 0 <= value <= maximum:
+                result["journal"][name] = value
+        if type(journal.get("truncated")) is bool:
+            result["journal"]["truncated"] = journal["truncated"]
+    return result
+
+
+def product_unit_observation(unit_status, text, journal_status, journal_text):
+    """Reduce bounded systemctl/journalctl replies before any serialization."""
+    fields = dict(line.split("=", 1) for line in text.splitlines() if "=" in line)
+    journal_bytes = journal_text.encode()
+    # journalctl returns the selected lines oldest first. Preserve the newest
+    # failure when earlier messages fill the bounded signature scan.
+    sample = journal_bytes[-16384:].decode(errors="replace")
+    journal = {"observation": journal_status, "bytes_observed": len(journal_bytes),
+               "scanned_bytes": min(len(journal_bytes), 16384), "truncated": len(journal_bytes) > 16384,
+               "signatures": process_diagnostics(subprocess.CompletedProcess([], None, "", sample))["stderr_signatures"]}
+    return product_unit_public({**fields, "observation": unit_status, "journal": journal})
+
+
 def failure_observation(identifier=None, action=None):
     """Read only reviewed files and fixed diagnostics before VM teardown."""
     guard()
@@ -550,10 +607,14 @@ def failure_observation(identifier=None, action=None):
         "restore_pending": bool(state.get("restore_pending")) if isinstance(state, dict) else None,
         "files": {name: product_file_metadata(Path("/var/lib/libvirt/images/agentic-home") / filename) for name, filename in
                   (("disk", "haos.qcow2"), ("partial_disk", "haos.partial"), ("nvram", "nvram.fd"))}}
-    capacity = shutil.disk_usage("/var/lib/agentic-home")
-    result["filesystem"] = {"total_bytes": capacity.total, "used_bytes": capacity.used, "free_bytes": capacity.free}
+    try:
+        capacity = shutil.disk_usage("/var/lib/agentic-home")
+        result["filesystem"] = {"total_bytes": capacity.total, "used_bytes": capacity.used, "free_bytes": capacity.free}
+    except OSError:
+        # Firstboot may have failed before creating this directory. Unit
+        # diagnostics must remain available when filesystem observation fails.
+        result["filesystem_observation"] = "probe_failed"
     fixed = {
-        "broker_unit": ["/usr/bin/systemctl", "show", "agentic-home-host.service", "--property=ActiveState,Result"],
         "vm": ["/usr/bin/virsh", "--readonly", "--connect", "qemu:///system", "domstate", "agentic-home-haos"],
         "journal": ["/usr/bin/journalctl", "--no-pager", "--lines=100", "--unit=agentic-home-host.service",
                     "--unit=agentic-home-firstboot.service", "--unit=docker.service", "--unit=libvirtd.service"],
@@ -561,16 +622,23 @@ def failure_observation(identifier=None, action=None):
         "domain": ["/usr/bin/virsh", "--readonly", "--connect", "qemu:///system", "dumpxml", "agentic-home-haos", "--inactive"],
         "network": ["/usr/bin/virsh", "--readonly", "--connect", "qemu:///system", "net-dumpxml", "agentic-home"],
     }
+    properties = ",".join((*UNIT_FIELDS, "ExecMainCode", "ExecMainStatus"))
+    for role, unit in PRODUCT_UNITS.items():
+        fixed[role + "_unit"] = ["/usr/bin/systemctl", "show", "--no-pager", "--property=" + properties, unit]
+        fixed[role + "_journal"] = ["/usr/bin/journalctl", "--no-pager", "--boot=0", "--output=cat",
+                                   "--lines=100", "--unit=" + unit]
     def capture(args):
         try:
             return _capture(args)
         except Exception:
             return "probe_failed", ""
-    # Six fixed read-only captures, each bounded by support._capture (3s/64KiB),
-    # run in two batches within the existing SSH observation deadline.
+    # Thirteen fixed read-only captures, each bounded by support._capture
+    # (3s/64KiB), run in five batches within the existing SSH deadline.
     with ThreadPoolExecutor(max_workers=3) as pool:
         observations = list(pool.map(capture, fixed.values()))
-    for name, (status, text) in zip(fixed, observations, strict=True):
+    observations = dict(zip(fixed, observations, strict=True))
+    for name in ("vm", "journal", "kernel", "domain", "network"):
+        status, text = observations[name]
         if name in {"domain", "network"}:
             result[name] = libvirt_receipt(status, text, name, owner)
             continue
@@ -578,10 +646,12 @@ def failure_observation(identifier=None, action=None):
                         "signatures": process_diagnostics(subprocess.CompletedProcess([], None, "", text))["stderr_signatures"]}
         if name == "vm":
             result[name]["state"] = text.strip() if text.strip() in HOST_VM_STATES else "unknown"
-        if name == "broker_unit":
-            fields = dict(line.split("=", 1) for line in text.splitlines() if "=" in line)
-            result[name]["active"] = fields.get("ActiveState") if fields.get("ActiveState") in {"active", "inactive", "failed", "activating", "deactivating"} else "unknown"
-            result[name]["oom_killed"] = fields.get("Result") == "oom-kill"
+    result["product_units"] = {role: product_unit_observation(*observations[role + "_unit"],
+        *observations[role + "_journal"]) for role in PRODUCT_UNITS}
+    host = result["product_units"]["host"]
+    # Keep the original broker summary for older evidence readers.
+    result["broker_unit"] = {"observation": host["observation"], "active": host["ActiveState"],
+                             "oom_killed": host["Result"] == "oom-kill", "signatures": {}}
     return result
 
 

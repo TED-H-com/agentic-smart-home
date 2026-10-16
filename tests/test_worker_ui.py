@@ -689,7 +689,7 @@ def test_coding_job_phase_reason_stop_line_and_source_commit(ui_page):
         'coding_provider_rejected': 'AI 服務沒有接受這次的要求，可以換一個模型再試。',
         'coding_provider_unavailable': 'AI 服務暫時無法使用，請稍後再試。',
         'patch_not_text': '修改含有無法顯示的內容，沒有保留。',
-        'writer_stop_unconfirmed': '工作已停止，但沒有完成確認。',
+        'writer_stop_unconfirmed': '先前停止狀態不明；現已確認停止，工作未完成。',
     }
     retryable = {
         'setup_timeout', 'execution_timeout', 'verification_timeout', 'authorization_expired',
@@ -894,10 +894,61 @@ def test_coding_job_phase_reason_stop_line_and_source_commit(ui_page):
     job.update(state='launching', phase='launching', reason='setup_timeout', stop_confirmed=False)
     show()
     expect(chip()).to_have_text('準備環境')
-    expect(page.locator('.worker-results [data-reason]')).to_have_text('準備環境逾時，已停止。')
+    expect(page.locator('.worker-results [data-reason]')).to_have_text('尚未確認工作程序停止，請先核對停止狀態。')
     expect(page.locator('.worker-results').get_by_role('button', name='停止這份工作', exact=True)).to_be_visible()
     expect(retry()).to_have_count(0)
     assert not errors, errors
+
+
+
+def test_stop_uncertainty_never_claims_stopped_and_confirmed_recovery_is_explicit(ui_page):
+    """The reason is historical; current stop evidence controls the recovery wording."""
+    page, origin = ui_page
+    job, errors, posts = mount_home_verifier_fixture(page, origin)
+    job.update(verification=None, facts=[], artifacts=[])
+    pending_sentence = '尚未確認工作程序停止，請先核對停止狀態。'
+    confirmed_sentence = '先前停止狀態不明；現已確認停止，工作未完成。'
+    result = page.locator('.worker-results')
+    stop_line = page.get_by_text('已確認工作程序停止。', exact=True)
+    stop_reasons = ('writer_stop_unconfirmed', 'setup_timeout', 'execution_timeout', 'verification_timeout',
+                   'authorization_expired', 'authority_revoked', 'owner_cancelled', 'broker_restarted',
+                   'coding_setup_failed', 'coding_turn_limit')
+
+    def show():
+        page.reload()
+        expect(page.get_by_role('heading', name=job['goal'], exact=True)).to_be_visible()
+
+    for state in ('stop_unconfirmed', 'needs_reconcile', 'cancel_requested'):
+        for reason in (*stop_reasons, None, 'unrecognized_reason'):
+            job.update(state=state, phase='running', reason=reason, stop_confirmed=False)
+            show()
+            expect(result.get_by_text(pending_sentence, exact=True)).to_be_visible()
+            expect(stop_line).to_have_count(0)
+            expect(result.get_by_role('button', name='確認已停止', exact=True)).to_be_visible()
+            expect(result.get_by_role('button', name='再試一次', exact=True)).to_have_count(0)
+            assert '已保留' not in result.inner_text()
+        # Conflicting fields must not turn an explicitly uncertain state into a stop claim.
+        job['stop_confirmed'] = True
+        show()
+        expect(result.get_by_text(pending_sentence, exact=True)).to_be_visible()
+        expect(stop_line).to_have_count(0)
+        expect(result.get_by_role('button', name='再試一次', exact=True)).to_have_count(0)
+
+    for reason in stop_reasons:
+        job.update(state='failed', phase='failed', reason=reason, stop_confirmed=False)
+        show()
+        expect(result.get_by_text(pending_sentence, exact=True)).to_be_visible()
+        expect(stop_line).to_have_count(0)
+        expect(result.get_by_role('button', name='再試一次', exact=True)).to_have_count(0)
+
+    job.update(state='failed', phase='failed', reason='writer_stop_unconfirmed', stop_confirmed=True)
+    show()
+    expect(result.get_by_text(confirmed_sentence, exact=True)).to_be_visible()
+    expect(result.get_by_text(pending_sentence, exact=True)).to_have_count(0)
+    expect(stop_line).to_have_count(1)
+    expect(result.get_by_role('button', name='確認已停止', exact=True)).to_have_count(0)
+    expect(result.get_by_role('button', name='再試一次', exact=True)).to_have_count(1)
+    assert not errors and not posts
 
 
 def test_retry_submits_a_new_coding_job_only_on_the_worker_page(ui_page):

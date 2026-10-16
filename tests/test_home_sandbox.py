@@ -359,6 +359,7 @@ def test_launch_preserves_original_command_failure_and_private_diagnostic(tmp_pa
     root = tmp_path / "work"
     root.mkdir()
     sandbox = HomeSandbox(root, None, {"agentic-home": tmp_path})
+    monkeypatch.setattr(sandbox, "_require_work_root", lambda: None)
     monkeypatch.setattr(sandbox, "preflight", lambda: True)
     original = SandboxError("fixture-private-command", code="command_failed", operation="git.checkout", exit_code=128)
     def failed_prepare(job, program):
@@ -383,6 +384,7 @@ def test_partial_prepare_fuse_allocation_is_disposed_before_directory_removal(tm
     root = tmp_path / "work"
     root.mkdir()
     sandbox = HomeSandbox(root, None, {"agentic-home": tmp_path})
+    monkeypatch.setattr(sandbox, "_require_work_root", lambda: None)
     monkeypatch.setattr(sandbox, "preflight", lambda: True)
     mounted = [True]
     events = []
