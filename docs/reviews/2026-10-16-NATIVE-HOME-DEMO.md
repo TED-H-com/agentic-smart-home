@@ -22,6 +22,8 @@ HA 部分是本專案撰寫、明示標記的互動介面模擬，並未執行�
 
 ## 驗證
 
-驗證範圍為真 Chromium 與虛構瀏覽器資料；所有暫存使用磁碟。`tests/test_site.py` 保留原有公開頁、提案批准／取消、開發工作、維護與封裝邊界；`tests/test_native_demo.py` 覆蓋家庭控制、設備設定、不自動分享、跨介面規則同步、草稿／瀏覽器歷史、私網連結及三尺寸操作。實際測試結果在交付前補記。
+驗證範圍為真 Chromium 與虛構瀏覽器資料；所有暫存使用磁碟。`tests/test_site.py` 保留原有公開頁、提案批准／取消、開發工作、維護與封裝邊界；`tests/test_native_demo.py` 覆蓋家庭控制、設備設定、不自動分享、跨介面規則同步、草稿／瀏覽器歷史、私網連結及三尺寸操作。本機穩定整套 **29 passed／178.78 秒**，涵蓋最後的亮度 0 後重新開燈、新對話／工作／通訊深連結與重新整理回歸；測試與示範來源已提交為 `8e78018d3d9d948fd8dfa2c19139fc535d4c223b`。
+
+示範 TypeScript／Vite、正式產品重建、Ruff、23 份契約、Web toolchain、kit 與文件連結檢查均通過；獨立 Chromium 審查確認三尺寸輸入區、對話框／抽屜、草稿與導覽。完整平台 CI 另以本次 PR 的檢查及交付紀錄為準。正式產品來源與重建資產相對基準沒有差異；已重建來源封裝。
 
 `scripts/site_screenshots.py` 由正常互動狀態生成十張公開 PNG（含 OG）。[截圖 manifest](../../site/assets/screens/manifest.json) 記錄確切來源 commit／tree、來源雜湊與每個畫面的 surface 類型；`native_or_live_acceptance=false`。截圖不注入 DOM、不以歷史原生 HA 截圖拼接成新功能證據。

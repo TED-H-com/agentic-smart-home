@@ -1,31 +1,75 @@
 {
-  "source_commit": "b69ba9958ec18a8f39667a8fb5efdd27a221f7f4",
-  "source_tree": "2d902384b8af4f7e407f829cffca8f70d4992a8a",
-  "frontend_source_tree": "afdacfe3547540484a2a701785e6b153fd2eeece",
+  "source_commit": "8e78018d3d9d948fd8dfa2c19139fc535d4c223b",
+  "source_tree": "2490a54a001be1467cf368b58da4235c7760317e",
+  "frontend_source_tree": "618c671f9d93bcf564f4781f7a8a5d9aa2f38858",
   "source_files": [
     {
+      "file": "scripts/site_screenshots.py",
+      "sha256": "b5264b3ca42a0a1fc8bc8b600011c94cea90c8fcd4eb790ca7cff2ec9a9f1201"
+    },
+    {
+      "file": "site/app.js",
+      "sha256": "224eca325a412314622aee4372700fbd2351699e2c4ad47af17b75fceaa7e757"
+    },
+    {
+      "file": "site/index.html",
+      "sha256": "656740ef16d85acab405627fe2b15368fb4d10f4fb62159c358f7649eba799e3"
+    },
+    {
+      "file": "site/lang.js",
+      "sha256": "3e04527682681340c68df1c564288e7b67ab98b14d9e633a57574fab6349c4af"
+    },
+    {
+      "file": "site/styles.css",
+      "sha256": "953dfbf19ec0b97c4780f0e0e0b890f5a666014d30f46d83d4df16d18d15a8ce"
+    },
+    {
       "file": "web/demo/demo.css",
-      "sha256": "ddbc5ebe38186f3f54c87c3a1d42a232d41caad7ecfbd20e7ff16e288137275b"
+      "sha256": "5706be0002908e362297ca42e82293af11342ac313a21af91efe8e5112860ac6"
     },
     {
       "file": "web/demo/entry.ts",
-      "sha256": "d15d68d240587e9b58c1c8c3943ac7b30380effedf6bbffe5f7bc0599cc22ea5"
+      "sha256": "61d303975fe52efe29fb9cbd374b0aa82db1868174225b40a70e2a81d65bd0ea"
     },
     {
       "file": "web/demo/fake-api.ts",
-      "sha256": "7f19ff31466f1c1f596894dda7c8d1cf89cddc2204afd81ac33c3bf0975e0a35"
+      "sha256": "c28a53dd8b931db3aac80fcd48e44d9c3143b1c84632dd4077c01ae12b6ef9d7"
+    },
+    {
+      "file": "web/demo/home.css",
+      "sha256": "3b1d70445901629efcbf69556ddd6a1c6d344cfca9664f140369c8ca04600a9f"
+    },
+    {
+      "file": "web/demo/home.tsx",
+      "sha256": "0177a8a25267517ed4bca8f0c1b426e30167db38dc9c6d3b3b3c0cf66c06971d"
     },
     {
       "file": "web/demo/index.html",
-      "sha256": "c2c06590a4471d683cec85dff668d61b426acf67dc9dffcc3cc7e9b000dc0197"
+      "sha256": "69b444b3f1fa2810bbffd60cb6d34b2d5ca1211b94cb8b6ef356d1bbb57640f3"
+    },
+    {
+      "file": "web/demo/model.ts",
+      "sha256": "5c95c878de6fd0de1aa5e02aae81d0c5394c94543b932794c5976e43101c99ea"
+    },
+    {
+      "file": "web/demo/navigation.ts",
+      "sha256": "a5c474df17001c279475f4b570baf51bbbd9152855d5095dd68c12b18618e5bc"
+    },
+    {
+      "file": "web/demo/shell.tsx",
+      "sha256": "d83a5e49ce45140a98c348df35a680be92b9f76ff472496f3e6d3f81b44e72cf"
     },
     {
       "file": "web/demo/tsconfig.json",
-      "sha256": "1f3e7dc9f1fb88ec07a3446c04d096719ac51dc7e2ed001d56ec90e35dfbc679"
+      "sha256": "d1a9460414b63557f543d89e99a09ba1f39327c913f2739cf1a87b608320253f"
     },
     {
       "file": "web/demo/vite.config.ts",
       "sha256": "15b72c1a234d8c4b81bbc809d6f77dc334737f457e5841c8666f47a26cf865a4"
+    },
+    {
+      "file": "web/preview/fixtures.json",
+      "sha256": "60b7daf90c08bff114a025f6b8de3a32e6f538c03f8498ea8e76870b809dc6ee"
     }
   ],
   "fixture_clock": "2026-10-13T09:00:00+08:00",
@@ -34,43 +78,76 @@
   "synthetic_data": true,
   "native_or_live_acceptance": false,
   "dom_content_modified": false,
+  "ha_interface": {
+    "kind": "original-interactive-simulation",
+    "reference_version": "frontend 20260930.3",
+    "reference_url": "https://github.com/home-assistant/frontend/tree/20260930.3",
+    "official_frontend_runtime": false
+  },
   "fixture_sources": [
     "web/preview/fixtures.json",
     "web/demo/fake-api.ts"
   ],
   "files": [
     {
+      "file": "home.png",
+      "sha256": "e558f9c15b7dd822ee934481d77e4d87de3ad2f9901c6045beeb9d75d173ba03",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route": "#/lovelace/home",
+      "surface": "ha-interface-simulation",
+      "bytes": 53814
+    },
+    {
+      "file": "integrations.png",
+      "sha256": "3c8796ccededaef9ab065bf05ed24864289d0d9bc5e50a82e8faa0be8f060d3b",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route": "#/config/integrations",
+      "surface": "ha-interface-simulation",
+      "bytes": 48850
+    },
+    {
       "file": "gateway.png",
-      "sha256": "8f6ad41dc216c49215c9cfebc048251f85782c296a6da69ab5d0785f547c952b",
+      "sha256": "45cab002c5a75045154692c0cdf28f8af51de10217bc6ed53493edd6d0a962d3",
       "viewport": {
         "width": 1440,
         "height": 900
       },
       "device_scale_factor": 1,
       "route": "#gateway",
-      "bytes": 60185
+      "surface": "product",
+      "bytes": 60220
     },
     {
       "file": "proposal.png",
-      "sha256": "97814abc464a5b99d6588ebdcd75c17b1479d7dd017125ccb9f01e21d73a53d4",
+      "sha256": "9c228b25523276e7a65bfea021ed16decea81ae9b0fcc023b4ae17af21783077",
       "viewport": {
         "width": 1440,
         "height": 900
       },
       "device_scale_factor": 1,
-      "route": "#home/demo-proposal",
-      "bytes": 127824
+      "route": "#/agentic-home/home/demo-proposal",
+      "surface": "product-in-ha-simulation",
+      "bytes": 91049
     },
     {
       "file": "inventory.png",
-      "sha256": "a3c4efb1932749145be34ea2c3a9a6eda1d2e4746528b68677f615c62f2c7f5c",
+      "sha256": "7da21ea63c9ce8db81f1b97127df8b71052c89a3b82f54fc8f4e5b4eabe15c10",
       "viewport": {
         "width": 1440,
         "height": 900
       },
       "device_scale_factor": 1,
       "route": "#inventory",
-      "bytes": 74283
+      "surface": "product",
+      "bytes": 101066
     },
     {
       "file": "workers.png",
@@ -81,50 +158,54 @@
       },
       "device_scale_factor": 1,
       "route": "#workers",
+      "surface": "product",
       "bytes": 128517
     },
     {
       "file": "host.png",
-      "sha256": "8bad696dc3fac1fca5b8a6b90c9b2b67d60b49cfab78bedb20d491ac4ef6132b",
+      "sha256": "9f075125e1db53f37834f2afe97bff26f38d1469fe9db935927ef183014d82af",
       "viewport": {
         "width": 1440,
         "height": 900
       },
       "device_scale_factor": 1,
       "route": "#host",
-      "bytes": 68795
+      "surface": "product",
+      "bytes": 68807
     },
     {
       "file": "bridge.png",
-      "sha256": "036bdf7a912deffe1055ecd9fd9014a40045129daf961fa24ea4448b8e6b3d45",
+      "sha256": "0cac4ddafe27e13889f5e06b353d8533d56e281766ab9f3926b634cdaa9a5e11",
       "viewport": {
         "width": 1440,
         "height": 900
       },
       "device_scale_factor": 1,
-      "route": "?surface=bridge#gateway",
-      "bytes": 43426
+      "route": "#/agentic-home",
+      "surface": "product-in-ha-simulation",
+      "bytes": 62604
     },
     {
       "file": "phone.png",
-      "sha256": "2dc286cc8e8f2907f325dd900f5153c74585d2d4780684f3ae360fdcd165d2c1",
+      "sha256": "001b387e4dbca4ce5c7421b0eed6a52ee5f960568ae78e804fa4411693aa0258",
       "viewport": {
         "width": 390,
         "height": 844
       },
       "device_scale_factor": 2,
-      "route": "#gateway",
-      "bytes": 105928
+      "route": "#/lovelace/home",
+      "surface": "ha-interface-simulation",
+      "bytes": 82525
     },
     {
       "file": "../og.png",
-      "sha256": "f83b10a75739b7869a4919edadef11b4f49a0dea9c526e137ffd286ba3da74ad",
+      "sha256": "da874a70b954abab1ed99fb03bb965f413422d80802e658489deb28208a7f48e",
       "viewport": {
         "width": 1200,
         "height": 630
       },
       "device_scale_factor": 1,
-      "bytes": 69619
+      "bytes": 67260
     }
   ]
 }
