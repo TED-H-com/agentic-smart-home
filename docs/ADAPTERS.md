@@ -20,7 +20,9 @@ Home Assistant 是家庭日常介面；智能管家提供研究、對話、提�
 
 ## 設備探索
 
-設備探索新增產品契約 `GET /api/discovery`／`device-discovery-v1`，實作集中於 `agentic_controller/discovery.py`。只對已綁定且讀取前後仍有效的 HA Owner 回傳有界快照，不擴大 MCP 或 Ingress bridge allowlist。各來源失敗獨立標示，欄位白名單之外的設定、flow context、任意 URL 與錯誤本文不回傳。
+設備探索新增產品契約 `GET /api/discovery`／`device-discovery-v1`，實作集中於 `agentic_controller/discovery.py`。只對已綁定且讀取前後仍有效的 HA Owner 回傳有界快照，不擴大 MCP。D3a 精確開放 Ingress `GET /api/discovery`；D3b 再精確開放 `GET/POST /api/discovery/setups`、`GET /api/discovery/setups/{32hex}` 及 `POST .../{32hex}/select|forget`，供 Owner 管理本地追蹤。這些路徑不代理任意 HA 請求。各來源失敗獨立標示，欄位白名單之外的設定、flow context、任意 URL 與錯誤本文不回傳。
+
+D3b 的 `discovery_setup.py` 重用同一組唯讀 HA adapter，沒有新增上游設定命令。每次請求捕捉 Owner、家庭連線、Web 世代及 Host／bridge 身份，在 HA 讀取後與回應落盤後再核對。追蹤綁定另排除短期 Web 世代，使同一授權範圍可以重新登入接續；家庭 token 或來源位址改變則隔離。來源失敗、候選消失與 entry loaded 都不形成實體成功聲明。
 
 HA 探索 adapter 的來源基準為 [Core 2026.10.1 flow progress](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/config/config_entries.py) 及 [frontend 20260930.3 discovery 分類](https://github.com/home-assistant/frontend/blob/20260930.3/src/data/config_flow.ts)。使用唯讀 WS `config_entries/flow/progress`；registry/config-entry 命令與此 frontend 接點視為 `upstream_private_volatile`，不因 transport 是官方 WebSocket 就保證語意穩定。`reauth`、user/import/system 不列為新設備探索；重授權仍由原生設定處理。未知來源標示不完整。設備優先讀取 `config_entry_id`，相容舊 `config_entries`；`via_device_id` 與 `parent_device_id` 分別保留。完整方向與未實作來源見 [設備探索與接入](DEVICE_DISCOVERY.md)。
 

@@ -1,0 +1,22 @@
+{
+  "additionalProperties": false,
+  "description": "Select a current HA candidate; labels and evidence come from the server.",
+  "properties": {
+    "candidate_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,128}$",
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "integration_domain": {
+      "pattern": "^[a-z][a-z0-9_]{0,63}$",
+      "title": "Integration Domain",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "integration_domain"
+  ],
+  "title": "DiscoverySetupCreate",
+  "type": "object"
+}

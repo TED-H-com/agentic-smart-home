@@ -1,0 +1,21 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "entry_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,128}$",
+      "title": "Entry Id",
+      "type": "string"
+    },
+    "expected_revision": {
+      "minimum": 1,
+      "title": "Expected Revision",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "expected_revision",
+    "entry_id"
+  ],
+  "title": "DiscoverySetupSelect",
+  "type": "object"
+}

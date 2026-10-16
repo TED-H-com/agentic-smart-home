@@ -3,6 +3,7 @@ import {createPortal} from 'react-dom';
 import {api,haPath,haTarget} from './api';
 import {parseDiscoverySnapshot,type DiscoverySnapshot} from './discovery';
 import {Button,Notice,timestamp} from './ui';
+import {TrackingPanel} from './discovery-setup';
 import './discovery-context.css';
 
 export type DiscoverySelection={kind:'candidate'|'device'|'integration';id:string};
@@ -68,10 +69,11 @@ function itemsFor(data:DiscoverySnapshot,kind:Kind){
 export function DiscoveryContext({draft,disabled=false,onInsert}:{draft:string;disabled?:boolean;onInsert:(value:string,expectedDraft:string)=>boolean}){
   const [open,setOpen]=useState(false),[data,setData]=useState<DiscoverySnapshot|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState('');
   const [selections,setSelections]=useState<DiscoverySelection[]>([]),[kind,setKind]=useState<Kind>('candidate'),[filter,setFilter]=useState(''),[limit,setLimit]=useState(pageSize);
+  const [tracking,setTracking]=useState(false);
   const dialog=useRef<HTMLDialogElement>(null),trigger=useRef<HTMLButtonElement>(null),generation=useRef(0),mounted=useRef(true);
   const sharing=useRef(false);
   function clear(){generation.current++;setData(null);setSelections([]);setError('');setLoading(false);setFilter('');setLimit(pageSize)}
-  function close(){sharing.current=false;clear();setOpen(false);dialog.current?.close();trigger.current?.focus()}
+  function close(){sharing.current=false;clear();setTracking(false);setOpen(false);dialog.current?.close();trigger.current?.focus()}
   async function read(){
     clear();const request=++generation.current;setLoading(true);
     try{
@@ -107,7 +109,7 @@ export function DiscoveryContext({draft,disabled=false,onInsert}:{draft:string;d
   }
   function trapFocus(event:KeyboardEvent<HTMLDialogElement>){
     if(event.key!=='Tab')return;
-    const controls=[...event.currentTarget.querySelectorAll<HTMLElement>('a[href],button,input,select,textarea,[tabindex]')].filter(element=>element.tabIndex>=0&&!element.hasAttribute('disabled')&&element.getClientRects().length>0);
+    const controls=[...event.currentTarget.querySelectorAll<HTMLElement>('a[href],button,input,select,textarea,summary,[tabindex]')].filter(element=>element.tabIndex>=0&&!element.matches(':disabled')&&element.getClientRects().length>0);
     const first=controls[0],last=controls[controls.length-1];
     if(!first)return;
     if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
@@ -118,11 +120,12 @@ export function DiscoveryContext({draft,disabled=false,onInsert}:{draft:string;d
     {open&&createPortal(<dialog ref={dialog} className="discovery-context-dialog" aria-labelledby="discovery-context-title" aria-describedby="discovery-context-description" onKeyDown={trapFocus} onCancel={event=>{event.preventDefault();close()}}>
       <div className="discovery-context-heading"><h2 id="discovery-context-title">分享探索結果</h2><Button secondary type="button" onClick={close}>關閉</Button></div>
       <div className="discovery-context-body">
-        <p id="discovery-context-description">只帶入你選取的單次快照；管家不會持續取得探索資料。</p>
-        <div className="discovery-context-tools"><Button secondary type="button" disabled={loading} onClick={()=>void read()}>{loading?'讀取中…':'重新讀取'}</Button><a href={haPath('/config/integrations')} target={haTarget()} rel="noreferrer">開啟家庭設定 ↗</a></div>
-        {loading&&<p role="status">正在讀取家庭探索結果…</p>}
-        {error&&<Notice error><p>{error}</p><Button secondary type="button" disabled={loading} onClick={()=>void read()}>重試探索</Button></Notice>}
-        {data&&<>
+        <p id="discovery-context-description">{tracking?'接入進度保存在主機；分享資料仍需回到選取與預覽。':'只帶入你選取的單次快照；管家不會持續取得探索資料。'}</p>
+        {!tracking&&<div className="discovery-context-tools"><Button secondary type="button" disabled={loading} onClick={()=>void read()}>{loading?'讀取中…':'重新讀取'}</Button><a href={haPath('/config/integrations')} target={haTarget()} rel="noreferrer">開啟家庭設定 ↗</a></div>}
+        <TrackingPanel candidates={data?.candidates||[]} onOpenChange={next=>{setTracking(next);if(!next&&sharing.current)void read()}}/>
+        {!tracking&&loading&&<p role="status">正在讀取家庭探索結果…</p>}
+        {!tracking&&error&&<Notice error><p>{error}</p><Button secondary type="button" disabled={loading} onClick={()=>void read()}>重試探索</Button></Notice>}
+        {!tracking&&data&&<>
           <p className="helper-text">觀測於 {timestamp(data.observed_at)}；登錄與狀態資訊不代表已通過實際控制測試。</p>
           <div className="discovery-context-filters"><label>檢視項目<select aria-label="檢視項目" value={kind} onChange={event=>{setKind(event.target.value as Kind);setFilter('');setLimit(pageSize)}}>{(Object.keys(kindNames) as Kind[]).map(kind=><option key={kind} value={kind}>{kindNames[kind]}</option>)}</select></label><label>篩選探索結果<input type="search" aria-label="篩選探索結果" value={filter} placeholder="輸入名稱、品牌或種類" onChange={event=>{setFilter(event.target.value);setLimit(pageSize)}}/></label></div>
           {incomplete&&<Notice>此類資料尚未完整取得，清單可能不完整。</Notice>}
@@ -133,9 +136,9 @@ export function DiscoveryContext({draft,disabled=false,onInsert}:{draft:string;d
           })}</ul>:<p className="discovery-context-empty">{filter?'沒有符合篩選條件的項目。':incomplete?'目前沒有可選項目；此類資料仍未完整取得。':kind==='candidate'?'目前沒有待設定的探索結果；這不代表設備已全部完成設定。':'目前沒有可選項目。'}</p>}
           {shown.length>limit&&<Button secondary type="button" onClick={()=>setLimit(value=>value+pageSize)}>再顯示 20 項</Button>}
         </>}
-        {context&&<div className="discovery-context-preview"><label>對話預覽<textarea aria-label="對話預覽" readOnly rows={8} value={preview}/></label><p className="helper-text">包含目前草稿；帶入後仍可編輯，再按送出交給管家。{preview.length} / {maximumMessage} 字</p><p className="helper-text">按送出後，選取的資料會成為這段對話內容。</p>{tooLong&&<Notice error>超過 5,000 字，請減少選取項目，或關閉後縮短草稿。</Notice>}</div>}
+        {!tracking&&context&&<div className="discovery-context-preview"><label>對話預覽<textarea aria-label="對話預覽" readOnly rows={8} value={preview}/></label><p className="helper-text">包含目前草稿；帶入後仍可編輯，再按送出交給管家。{preview.length} / {maximumMessage} 字</p><p className="helper-text">按送出後，選取的資料會成為這段對話內容。</p>{tooLong&&<Notice error>超過 5,000 字，請減少選取項目，或關閉後縮短草稿。</Notice>}</div>}
       </div>
-      <div className="discovery-context-footer"><span>{selections.length?`已選 ${selections.length} 項`:'請選取要分享的項目'}</span><Button type="button" disabled={!preview||tooLong||loading||disabled} onClick={insert}>帶入對話</Button></div>
+      {!tracking&&<div className="discovery-context-footer"><span>{selections.length?`已選 ${selections.length} 項`:'請選取要分享的項目'}</span><Button type="button" disabled={!preview||tooLong||loading||disabled} onClick={insert}>帶入對話</Button></div>}
     </dialog>,document.body)}
   </>;
 }

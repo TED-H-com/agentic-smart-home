@@ -109,6 +109,116 @@ async def test_bridge_discovery_reads_projection_without_host_cookie_or_model_ef
     assert not runtime.calls and not ha.calls and not ha.writes
 
 
+async def test_bridge_setup_uses_same_host_record_explicit_selection_and_fresh_reads(system, store, ha, discovery_ha):
+    _, _, client, host, _, runtime = system
+    body = {'candidate_id': 'pending', 'integration_domain': 'fixture_light'}
+    created = await host.post('/api/discovery/setups', json=body, headers={'Idempotency-Key': 'host-create'})
+    assert created.status_code == 200
+    identifier = created.json()['id']
+    before = store.setting('policy')
+    assert not client.cookies
+    listing = await call(system, '/api/discovery/setups')
+    assert listing.status_code == 200 and listing.json()['setups'][0]['id'] == identifier
+    duplicate = await call(system, '/api/discovery/setups', 'POST', body)
+    assert duplicate.status_code == 200 and duplicate.json()['id'] == identifier
+    assert (await call(system, f'/api/discovery/setups/{identifier}/select', 'POST',
+                       {'expected_revision': 1, 'entry_id': 'entry'})).status_code == 200
+    view = await call(system, f'/api/discovery/setups/{identifier}')
+    assert view.status_code == 200 and view.json()['integration']['id'] == 'entry'
+    assert view.json()['available_entity_count'] == 1
+    assert len(store.list('discovery_setup')) == 1 and store.setting('policy') == before
+    assert not any(store.list(kind) for kind in ('conversation', 'case_evidence', 'proposal', 'approval', 'mcp_grant'))
+    assert not runtime.calls and not ha.calls and not ha.writes
+    assert (await call(system, f'/api/discovery/setups/{identifier}/forget', 'POST',
+                       {'expected_revision': 2})).json()['forgotten']
+    assert (await host.get(f'/api/discovery/setups/{identifier}')).status_code == 404
+
+
+@pytest.mark.parametrize('path,method', [
+    ('/api/discovery/setups?all=true', 'GET'), ('/api/discovery/setups/extra', 'GET'),
+    ('/api/discovery/setups/' + 'a' * 32 + '/select', 'GET'),
+    ('/api/discovery/setups/' + 'a' * 32, 'POST'),
+    ('/api/discovery/setups/' + 'a' * 32 + '/configure', 'POST'),
+])
+async def test_bridge_setup_allowlist_has_no_query_generic_or_ha_write_path(system, path, method):
+    assert (await call(system, path, method, {} if method == 'POST' else None)).status_code == 403
+
+
+@pytest.mark.parametrize('change', ['owner_revoked', 'owner_replaced', 'token', 'base', 'websocket', 'epoch',
+    'pairing_revoked', 'pairing_rotated', 'host_proof_expired', 'owner_freshness_expired'])
+async def test_bridge_setup_revocation_before_commit_leaves_no_tracking(system, store, ha, discovery_ha, change):
+    _, bridge, _, _, _, _ = system
+    original = discovery_ha.read
+    def revoke():
+        if change == 'owner_revoked':
+            ha.revoked = True
+        elif change == 'owner_replaced':
+            store.set_setting('owner', OTHER)
+        elif change in {'token', 'base', 'websocket'}:
+            setattr(ha, change, 'replacement')
+        elif change == 'epoch':
+            store.set_setting('hermes_web_epoch', 'new-epoch')
+        elif change == 'pairing_revoked':
+            store.set_setting('ingress_bridge', {**bridge.record(), 'state': 'revoked'})
+        elif change == 'pairing_rotated':
+            store.set_setting('ingress_bridge', {**bridge.record(), 'pairing_id': 'f' * 32})
+        elif change == 'host_proof_expired':
+            bridge.host_valid_until = 0
+        else:
+            bridge.owner_valid_until = 0
+    async def read(target):
+        value = await original(target)
+        revoke()
+        return value
+    discovery_ha.read = read
+    response = await call(system, '/api/discovery/setups', 'POST',
+                          {'candidate_id': 'pending', 'integration_domain': 'fixture_light'})
+    assert response.status_code in {401, 403, 503}
+    assert 'Desk light' not in response.text and not store.list('discovery_setup')
+
+
+@pytest.mark.parametrize('barrier', ['inner', 'outer'])
+@pytest.mark.parametrize('change', ['remote_owner', 'epoch', 'pairing', 'host_proof'])
+async def test_bridge_setup_rechecks_after_inner_and_outer_durability(system, store, ha, discovery_ha, monkeypatch,
+                                                                    barrier, change):
+    _, bridge, _, _, _, _ = system
+    durable = store.durable
+    calls = 0
+    async def wait():
+        nonlocal calls
+        calls += 1
+        await durable()
+        if calls == (1 if barrier == 'inner' else 2):
+            if change == 'remote_owner':
+                ha.revoked = True
+            elif change == 'epoch':
+                store.set_setting('hermes_web_epoch', 'changed-after-commit')
+            elif change == 'pairing':
+                store.set_setting('ingress_bridge', {**bridge.record(), 'state': 'revoked'})
+            else:
+                bridge.host_valid_until = 0
+    monkeypatch.setattr(store, 'durable', wait)
+    response = await call(system, '/api/discovery/setups', 'POST',
+                          {'candidate_id': 'pending', 'integration_domain': 'fixture_light'})
+    assert response.status_code in {401, 403, 503}
+    assert len(store.list('discovery_setup')) == 1  # Authorized commit is not rolled back.
+    assert 'id' not in response.json()
+
+
+async def test_bridge_setup_get_rechecks_remote_owner_after_outer_transport_wait(system, store, ha, discovery_ha,
+                                                                               monkeypatch):
+    created = await call(system, '/api/discovery/setups', 'POST',
+                         {'candidate_id': 'pending', 'integration_domain': 'fixture_light'})
+    assert created.status_code == 200
+    durable = store.durable
+    async def revoke():
+        await durable()
+        ha.revoked = True
+    monkeypatch.setattr(store, 'durable', revoke)
+    response = await call(system, '/api/discovery/setups')
+    assert response.status_code == 403 and 'Desk light' not in response.text
+
+
 @pytest.mark.parametrize('when', ['source_read', 'final_owner_check'])
 @pytest.mark.parametrize('change', [
     'owner_revoked', 'owner_replaced', 'token', 'epoch', 'pairing_revoked',

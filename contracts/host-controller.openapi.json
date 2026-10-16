@@ -754,6 +754,374 @@
         "title": "DiscoveryIntegration",
         "type": "object"
       },
+      "DiscoverySetup": {
+        "additionalProperties": false,
+        "description": "Public projection of a private, versioned, household-bound tracking record.",
+        "properties": {
+          "candidate": {
+            "$ref": "#/components/schemas/DiscoveryCandidate"
+          },
+          "candidate_observed_at": {
+            "title": "Candidate Observed At",
+            "type": "string"
+          },
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[a-f0-9]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "selected_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected At"
+          },
+          "selected_entry_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{1,128}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Entry Id"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "candidate",
+          "candidate_observed_at",
+          "created_at",
+          "updated_at",
+          "expires_at"
+        ],
+        "title": "DiscoverySetup",
+        "type": "object"
+      },
+      "DiscoverySetupCreate": {
+        "additionalProperties": false,
+        "description": "Select a current HA candidate; labels and evidence come from the server.",
+        "properties": {
+          "candidate_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,128}$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "integration_domain": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "title": "Integration Domain",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "integration_domain"
+        ],
+        "title": "DiscoverySetupCreate",
+        "type": "object"
+      },
+      "DiscoverySetupForget": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "DiscoverySetupForget",
+        "type": "object"
+      },
+      "DiscoverySetupList": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "limit": {
+            "const": 20,
+            "default": 20,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "retention_days": {
+            "minimum": 1.0,
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "setups": {
+            "items": {
+              "$ref": "#/components/schemas/DiscoverySetup"
+            },
+            "maxItems": 20,
+            "title": "Setups",
+            "type": "array"
+          }
+        },
+        "required": [
+          "setups",
+          "retention_days"
+        ],
+        "title": "DiscoverySetupList",
+        "type": "object"
+      },
+      "DiscoverySetupOption": {
+        "additionalProperties": false,
+        "properties": {
+          "integration": {
+            "$ref": "#/components/schemas/DiscoveryIntegration"
+          },
+          "known_before": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Before"
+          }
+        },
+        "required": [
+          "integration",
+          "known_before"
+        ],
+        "title": "DiscoverySetupOption",
+        "type": "object"
+      },
+      "DiscoverySetupReference": {
+        "additionalProperties": false,
+        "description": "Mutation acknowledgements contain no household labels or observations.",
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "forgotten": {
+            "default": false,
+            "title": "Forgotten",
+            "type": "boolean"
+          },
+          "id": {
+            "pattern": "^[a-f0-9]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "revision"
+        ],
+        "title": "DiscoverySetupReference",
+        "type": "object"
+      },
+      "DiscoverySetupSelect": {
+        "additionalProperties": false,
+        "properties": {
+          "entry_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,128}$",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "entry_id"
+        ],
+        "title": "DiscoverySetupSelect",
+        "type": "object"
+      },
+      "DiscoverySetupView": {
+        "additionalProperties": false,
+        "description": "Current readback; owner-selected association is not physical identity proof.\n\nCounts cover the related HA device records and all their registry entities,\nnot every entity of the selected integration. No action verification occurs.",
+        "properties": {
+          "available_entity_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Entity Count"
+          },
+          "candidate_state": {
+            "enum": [
+              "present",
+              "not_seen",
+              "unknown"
+            ],
+            "title": "Candidate State",
+            "type": "string"
+          },
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "device_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Count"
+          },
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/DiscoveryDevice"
+            },
+            "maxItems": 100,
+            "title": "Devices",
+            "type": "array"
+          },
+          "devices_truncated": {
+            "default": false,
+            "title": "Devices Truncated",
+            "type": "boolean"
+          },
+          "entity_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Count"
+          },
+          "integration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiscoveryIntegration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "integration_state": {
+            "enum": [
+              "unselected",
+              "present",
+              "not_seen",
+              "unknown"
+            ],
+            "title": "Integration State",
+            "type": "string"
+          },
+          "native_path": {
+            "const": "/config/integrations",
+            "default": "/config/integrations",
+            "title": "Native Path",
+            "type": "string"
+          },
+          "observed_at": {
+            "title": "Observed At",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/DiscoverySetupOption"
+            },
+            "maxItems": 100,
+            "title": "Options",
+            "type": "array"
+          },
+          "options_truncated": {
+            "default": false,
+            "title": "Options Truncated",
+            "type": "boolean"
+          },
+          "physical_verification": {
+            "const": "not_performed",
+            "default": "not_performed",
+            "title": "Physical Verification",
+            "type": "string"
+          },
+          "setup": {
+            "$ref": "#/components/schemas/DiscoverySetup"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/DiscoverySource"
+            },
+            "maxItems": 16,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "setup",
+          "observed_at",
+          "candidate_state",
+          "integration_state",
+          "options",
+          "devices",
+          "sources"
+        ],
+        "title": "DiscoverySetupView",
+        "type": "object"
+      },
       "DiscoverySnapshot": {
         "additionalProperties": false,
         "description": "Owner-visible observations, separate from entity permissions and physical verification.",
@@ -2192,6 +2560,197 @@
           }
         },
         "summary": "Discovery"
+      }
+    },
+    "/api/discovery/setups": {
+      "get": {
+        "operationId": "listing_api_discovery_setups_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverySetupList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Listing"
+      },
+      "post": {
+        "operationId": "create_api_discovery_setups_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscoverySetupCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverySetupReference"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create"
+      }
+    },
+    "/api/discovery/setups/{identifier}": {
+      "get": {
+        "operationId": "detail_api_discovery_setups__identifier__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverySetupView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Detail"
+      }
+    },
+    "/api/discovery/setups/{identifier}/forget": {
+      "post": {
+        "operationId": "forget_api_discovery_setups__identifier__forget_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscoverySetupForget"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverySetupReference"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forget"
+      }
+    },
+    "/api/discovery/setups/{identifier}/select": {
+      "post": {
+        "operationId": "select_api_discovery_setups__identifier__select_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscoverySetupSelect"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverySetupReference"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Select"
       }
     },
     "/api/evidence": {

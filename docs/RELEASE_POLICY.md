@@ -46,3 +46,9 @@ Controller 的 SQL `user_version` 仍為 3，但相同 schema 不代表舊 binar
 統一可信發行索引、內建 publisher 信任根、全產品更新／遷移與完整 Linux 恢復，仍是待交付增量。不能把現有 Controller-only manifest 重新解讀為能更新 HAOS／Core／Linux。安全公告的追蹤與緊急發版仍需持續建立實際證據，不宣稱已有值班或 SLA。
 
 各版 App、橋接身份、UI 與固定維護流程的工程結果由 [驗證紀錄](VERIFICATION.md) 記錄；工程測試通過不等於真家庭驗收。
+
+## 接入追蹤資料相容性（D3b）
+
+`discovery_setup` 是 schema 3 下的私有 v1 metadata record，只保存有界候選、建立時同類整合 ID、Owner 選取及時間／revision。HMAC 綁定 Owner 與家庭連線，原始 token 不存入 record；沒有可重播的 HA 操作、家庭授權或模型工具。到期以建立時間和目前／待套用 context 保存期限的較短者計算，讀取即過濾，prune 實際刪除。忘記／到期後，舊去重收據不能重建追蹤。
+
+舊 binary 忽略此未知 kind，不會執行任何接入副作用，但它的 prune 不認得這個 kind；metadata 可能保留到再次使用本實作清理。因此 SQL 格式不變只表示這項 effect-free metadata 可被忽略，不保證跨版本保存政策完全相同，也不取代既有 bridge／updater 的能力與靜止檢查。既有 0.9.0 ISO 不包含本增量。

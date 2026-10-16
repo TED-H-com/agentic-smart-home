@@ -1,6 +1,7 @@
 import fixtures from '../preview/fixtures.json';
 import {sha256} from '@noble/hashes/sha2.js';
 import type {DemoHome,DemoModel,DemoSurface} from './model';
+import {setupRequests} from './discovery-setup';
 
 export const AGENTIC_DEMO_BUILD='fictional-browser-only-v1';
 export const fixtureClock='2026-10-13T09:00:00+08:00';
@@ -58,6 +59,7 @@ export function createDemoModel():DemoModel{
   const messages:Row[]=data['gateway/messages'].messages;
   let serial=10;
   const nextId=(length:number)=>(serial++).toString(16).padStart(length,'0');
+  const setupRequest=setupRequests(data,nextId,time);
   function proposal(title:string,mode='upsert',automation?:Row):Row{
     const id='demo-task-'+serial++,rule=clone(automation?.intent||intent);rule.title=title;
     const final=compile(rule,automation?.id||'agentic_'+id);
@@ -124,8 +126,10 @@ export function createDemoModel():DemoModel{
     const {content_digest:_prior,...snapshot}=data.discovery;data.discovery.content_digest=digest(snapshot);
     publish();
   }
-  function request(path:string,method:string,body:Row,surface:DemoSurface){
+  function request(path:string,method:string,body:Row,surface:DemoSurface,key?:string){
     progress();let result:any,status=200;
+    const setup=setupRequest(path,method,body,key);
+    if(setup){if(method==='POST'&&setup.status===200)publish();return clone(setup)}
     if(method==='GET'){
       if(path==='deployment')result=surface==='bridge'?{mode:'bridge',authenticated:true,bridge_state:'ready'}:data.deployment;
       else if(path==='session')result=surface==='bridge'?{...data.session,mode:'bridge',storage_scope:'7'.repeat(64)}:data.session;
@@ -182,7 +186,8 @@ export function installDemo(model:DemoModel=createDemoModel(),surface:DemoSurfac
       try{body=JSON.parse(typeof options?.body==='string'?options.body:input instanceof Request?await input.clone().text():'{}');if(!body||Array.isArray(body)||typeof body!=='object')throw new Error('body')}
       catch{return new Response(JSON.stringify({detail:'示範資料格式無效。'}),{status:400,headers:{'Content-Type':'application/json'}})}
     }
-    const response=model.request(path,method,body,surface);
+    const headers=new Headers(options?.headers||(input instanceof Request?input.headers:undefined));
+    const response=model.request(path,method,body,surface,headers.get('Idempotency-Key')||undefined);
     return new Response(JSON.stringify(response.body),{status:response.status,headers:{'Content-Type':'application/json'}});
   };
   return model;

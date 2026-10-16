@@ -21,6 +21,7 @@ from agentic_controller.ha import HomeAssistant
 from agentic_controller.store import Store
 from agentic_controller.workers import Workers
 from aiohttp import web
+from test_discovery import DiscoveryHA
 
 
 @pytest.fixture
@@ -221,6 +222,42 @@ async def test_issue_68_health_status_and_post(real_app, live, monkeypatch):
         assert live.setting('paused') is True
     finally:
         release.set()
+
+
+@pytest.mark.parametrize('failure', ['owner_revoked', 'disk_failed'])
+async def test_setup_response_waits_for_disk_then_rechecks_remote_owner(real_app, live, ha, monkeypatch, failure):
+    _, client = real_app
+    observations = DiscoveryHA()
+    ha.ws, ha.request = observations.ws, observations.request
+    ha.token = 'durability-only-fixture-token'
+    live.set_setting('owner', 'owner')
+    client.headers['X-Agentic-CSRF'] = (await client.get('/api/session')).json()['csrf']
+    await live.durable()
+    entered, release = threading.Event(), threading.Event()
+
+    def hold():
+        entered.set()
+        assert release.wait(10)
+        if failure == 'disk_failed':
+            raise OSError('fixture disk failure after memory commit')
+
+    monkeypatch.setattr(store_journal, 'before_disk_commit', hold)
+    pending = asyncio.create_task(client.post('/api/discovery/setups',
+        json={'candidate_id': 'pending', 'integration_domain': 'fixture_light'},
+        headers={'Idempotency-Key': 'durability-create'}))
+    try:
+        await wait_entered(entered)
+        assert len(live.list('discovery_setup')) == 1 and not pending.done()
+        if failure == 'owner_revoked':
+            ha.revoked = True  # The credential and local owner ID did not change.
+    finally:
+        release.set()
+    response = await asyncio.wait_for(pending, 3)
+    assert response.status_code == (403 if failure == 'owner_revoked' else 503)
+    assert 'id' not in response.json() and 'Desk light' not in response.text
+    if failure == 'owner_revoked':
+        with disk_connect(live) as disk:
+            assert disk.execute("SELECT count(*) FROM records WHERE kind='discovery_setup'").fetchone()[0] == 1
 
 
 @pytest.fixture
