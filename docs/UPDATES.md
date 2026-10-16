@@ -42,6 +42,8 @@ sudo agentic-home update-publisher-add --publisher example --repository ghcr.io/
 
 固定 updater 停止 Controller，核對沒有活動／未確認的 household、Hermes、worker 工作、lease 或尚未核對的 Supervisor App 操作，保存 SQLite 一致快照。候選在無家庭資料的結構性 DB 與隔離 probe 中檢查；正式切換受 updater gate 保護，不能在健康檢查途中透過 Web 恢復 AI 或派新工作。
 
+未發布的後續修正同時核對側欄與 Home worker 的持久維護紀錄；即使 App 已停用，尚未清除的操作仍阻擋切換與失敗回復。畸形紀錄也會阻擋，不會當成閒置。已安裝的 0.9.0 Host 更新器沒有因此自動升級；這項修正需後續 Host 發行，單換 Controller image 不會套用。
+
 啟動後實際驗證 HTTP、Owner session、版本、HA／Runner 與 pause 狀態。失敗時切回前 image；較晚發現問題時，「退回前一版本」產生新的精確批准。退版保留目前 Live DB，不能拿部署前備份蓋掉新家庭操作。schema 或其他 runtime 已改變時拒絕同格式退版；狀態不確定時保留 `needs_reconcile`。
 
 image 含 `/app/source/agentic-home.bundle` 時，staging 只用 `docker create`／`docker cp` 取出 bundle，不啟動容器。唯一 head 必須等於 manifest `source_commit`，才匯入 Host coding bare repo 的 `refs/agentic/candidate/<image digest>`；此時 HEAD 不動。bundle 由 `scripts/controller_source.py` 在建置時寫入，image digest 已涵蓋它，manifest 格式不變。沒有 bundle 的 image、或主機沒有 coding source 時，照舊部署，該筆 `source_sync` 為 `unavailable`。來源只從已驗證的本機 image 取出，不從網路 fetch。

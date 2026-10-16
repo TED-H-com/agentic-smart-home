@@ -61,6 +61,8 @@ Home 專屬觀測只讀 App namespace／資源事實，以及固定 `homeassista
 
 Host 的「確認已停止」讀取固定 runner／broker 的容器 ID、boot／process 身份與停止證據。Home 路徑沒有可任意採用的 Host Docker 停止證明。不能只刪 marker 或把狀態改 cancelled。確認停止後可下載接手檢查點及 SHA-256 綁定的 diff，在新的私有 checkout 接手；此版的 `live_session:false` **不是**直接加入同一個 BAT／CLI 可寫 session。
 
+未發布的後續修正允許接手檢查點列出最多 32 件已接受的成果，與工作成果上限一致。重複、畸形或其他工作的成果 ID 均拒絕；請求途中更換配對 worker，或內容保存期限到期，也不能回傳接手成功。
+
 ## 畫面預覽
 
 工作產物含 `index.html` 時，可產生 1440／768／390 三個寬度的截圖。固定 renderer 使用獨立、無 credentials、network none 的瀏覽器容器。候選 HTML 不在管理中心 origin 執行。
@@ -74,6 +76,12 @@ Host 獨立驗證器在基準測試通過、且候選差異碰到 `web/` 時，�
 ## 內容期限
 
 Controller 會將保存期限傳給 Hermes 和所有已配對 Runners。縮短期限先生效；離線服務留下同步 barrier，未完成同步不派新工作。各服務在 idle 時也清除內容，延長保存不會復活已刪資料。有界去重 tombstone 保留 ID／digest 與狀態，不保留原 prompt／artifact，也不能重跑舊請求。
+
+## 完成通知（未發布增量）
+
+已確認停止的工作，可向原 LINE／Telegram／Discord 對話發送固定狀態與 Web 工作路徑；授權、對話、保存期限或原 bot 回覆不符合時不送出。通知不包含成果本文，不建立新的 Hermes 回合。送達不明不自動重送，Web 手動工作也不猜測收件人。
+
+通知路徑只查指定工作，不因它缺席於最近工作清單而改顯示其他成果。切換通知或瀏覽器上一頁會同步選取；找不到、期限已過或暫時讀取失敗各自提示，不會重新派工。
 
 ## 驗證範圍
 
