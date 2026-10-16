@@ -127,6 +127,40 @@ def test_discovery_setup_updates_all_views_without_granting_permission(browser, 
     page.close()
 
 
+def test_discovery_context_is_reviewed_before_send_and_does_not_create_a_control_proposal(browser, origin):
+    page = browser.new_page(viewport={'width': 390, 'height': 844})
+    errors, external = watch(page, origin)
+    page.goto(f'{origin}/demo/#/agentic-home')
+    ui = product_frame(page, 'bridge')
+    ui.get_by_role('button', name='新對話', exact=True).click()
+    ui.locator('#gateway-message').fill('請協助確認接入方式。')
+    before_messages = read_api(ui, 'gateway/messages')
+    before_tasks = read_api(ui, 'tasks')
+    before_policy = read_api(ui, 'inventory')['policy']
+    candidate = read_api(ui, 'discovery')['candidates'][0]
+    ui.get_by_role('button', name='分享探索結果', exact=True).click()
+    dialog = ui.get_by_role('dialog', name='分享探索結果', exact=True)
+    expect(dialog.get_by_role('checkbox')).not_to_be_checked()
+    dialog.get_by_role('checkbox', name=f'選取 {candidate["title"]}', exact=True).check()
+    preview = dialog.get_by_role('textbox', name='對話預覽', exact=True).input_value()
+    assert preview.startswith('請協助確認接入方式。\n\n【設備探索快照】')
+    assert candidate['title'] in preview and len(preview) <= 5000
+    dialog.get_by_role('button', name='帶入對話', exact=True).click()
+    expect(ui.locator('#gateway-message')).to_have_value(preview)
+    assert read_api(ui, 'gateway/messages') == before_messages
+    assert read_api(ui, 'tasks') == before_tasks
+    ui.get_by_role('button', name='送出訊息', exact=True).click()
+    expect(ui.locator('.assistant-answer').filter(has_text='這是固定示範回覆')).to_be_visible()
+    sent = read_api(ui, 'gateway/messages')['messages'][0]
+    assert sent['message'] == preview
+    assert read_api(ui, f"hermes/cases/{sent['case_id']}")['jobs'] == []
+    expect(ui.get_by_role('button', name='查看成果', exact=True)).to_have_count(0)
+    assert read_api(ui, 'tasks') == before_tasks
+    assert read_api(ui, 'inventory')['policy'] == before_policy
+    clean(page, errors, external)
+    page.close()
+
+
 def test_bridge_approval_publishes_native_automation_and_shared_history(browser, origin):
     page = browser.new_page(viewport={'width': 1440, 'height': 900})
     errors, external = watch(page, origin)

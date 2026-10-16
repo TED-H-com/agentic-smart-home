@@ -53,7 +53,7 @@ IDENT = r"[a-f0-9]{32}"
 ARTIFACT = r"[a-zA-Z0-9_-]{1,128}"
 HEADER = Annotated[str, Field(max_length=2048, pattern=r"^[^\r\n]*$")]
 GET_PATHS = (
-    r"/api/(deployment|session|gateway/messages)",
+    r"/api/(deployment|session|gateway/messages|discovery)",
     rf"/api/hermes/cases/{IDENT}", rf"/api/tasks/{IDENT}",
     rf"/api/worker/jobs/{IDENT}", rf"/api/worker/jobs/{IDENT}/artifacts/{ARTIFACT}",
     rf"/api/worker/previews/{IDENT}", rf"/api/bridge/previews/{IDENT}/(390|768|1440)\.png",

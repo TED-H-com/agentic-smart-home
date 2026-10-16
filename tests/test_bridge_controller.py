@@ -12,6 +12,7 @@ from agentic_controller.app import create_app
 from agentic_controller.bridge import IngressBridge
 from agentic_controller.models import utcnow
 from fastapi import HTTPException
+from test_discovery import DiscoveryHA
 
 OWNER = 'a' * 32
 OTHER = 'b' * 32
@@ -84,6 +85,100 @@ async def complete(app):
     await asyncio.gather(*list(app.state.running.values()))
 
 
+@pytest.fixture
+def discovery_ha(ha):
+    observations = DiscoveryHA()
+    ha.ws, ha.request = observations.ws, observations.request
+    return observations
+
+
+async def test_bridge_discovery_reads_projection_without_host_cookie_or_model_effects(system, store, ha, discovery_ha):
+    _, _, client, _, _, runtime = system
+    before = store.setting('policy')
+    assert not client.cookies
+    response = await call(system, '/api/discovery')
+    assert response.status_code == 200
+    value = response.json()
+    assert value['contract_version'] == 1 and value['candidates'][0]['title'] == 'Desk light'
+    assert len(value['devices']) == 4 and len(value['integrations']) == 2
+    assert response.headers['cache-control'] == 'no-store' and 'set-cookie' not in response.headers
+    assert all(secret not in response.text for secret in ('hidden-secret', 'private-serial', 'untrusted.invalid', 'latitude'))
+    assert len(discovery_ha.calls) == 6
+    assert store.setting('policy') == before
+    assert not any(store.list(kind) for kind in ('conversation', 'case_evidence', 'proposal', 'approval'))
+    assert not runtime.calls and not ha.calls and not ha.writes
+
+
+@pytest.mark.parametrize('when', ['source_read', 'final_owner_check'])
+@pytest.mark.parametrize('change', [
+    'owner_revoked', 'owner_replaced', 'token', 'epoch', 'pairing_revoked',
+    'pairing_rotated', 'host_proof_expired', 'owner_freshness_expired',
+])
+async def test_bridge_discovery_rechecks_authority_after_awaits(system, store, ha, discovery_ha, when, change):
+    _, bridge, _, _, _, runtime = system
+    entered, release = asyncio.Event(), asyncio.Event()
+    original_read, original_owner = discovery_ha.read, ha.owner
+    owner_checks = 0
+
+    async def read(target):
+        value = await original_read(target)
+        if when == 'source_read' and target == 'config_entries/flow/progress':
+            entered.set()
+            await release.wait()
+        return value
+
+    async def owner(identifier):
+        nonlocal owner_checks
+        owner_checks += 1
+        # Transport authorization, route pre-read check, then route post-read check.
+        if when == 'final_owner_check' and owner_checks == 3:
+            entered.set()
+            await release.wait()
+        return await original_owner(identifier)
+
+    discovery_ha.read, ha.owner = read, owner
+    pending = asyncio.create_task(call(system, '/api/discovery'))
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        if change == 'owner_revoked':
+            ha.revoked = True
+        elif change == 'owner_replaced':
+            store.set_setting('owner', OTHER)
+        elif change == 'token':
+            ha.token = 'changed-fixture-token'
+        elif change == 'epoch':
+            store.set_setting('hermes_web_epoch', 'changed-session')
+        elif change == 'pairing_revoked':
+            await bridge.revoke()
+        elif change == 'pairing_rotated':
+            store.set_setting('ingress_bridge', {**bridge.record(), 'pairing_id': uuid.uuid4().hex})
+        elif change == 'host_proof_expired':
+            bridge.host_valid_until = 0
+        else:
+            bridge.owner_valid_until = 0
+        release.set()
+        response = await pending
+        assert response.status_code in {401, 403, 503}, response.text
+        assert 'Desk light' not in response.text and 'devices' not in response.json()
+        assert not runtime.calls and not ha.calls and not ha.writes
+        assert not any(store.list(kind) for kind in ('conversation', 'case_evidence', 'proposal'))
+    finally:
+        release.set()
+        if not pending.done():
+            pending.cancel()
+        await asyncio.gather(pending, return_exceptions=True)
+
+
+async def test_bridge_discovery_keeps_existing_response_size_boundary(system, discovery_ha):
+    entries = [str(index).zfill(128) for index in range(100)]
+    discovery_ha.results['config/device_registry/list'] = [
+        {'id': f'device_{index}', 'name': 'Fixture device', 'config_entries': entries}
+        for index in range(100)]
+    response = await call(system, '/api/discovery')
+    assert response.status_code == 502 and response.json()['detail'] == 'bridge_response_too_large'
+    assert 'Fixture device' not in response.text
+
+
 async def test_bridge_deployment_session_separate_csrf_and_heartbeat(system, ha):
     _, bridge, _, host, _, _ = system
     heartbeat = await call(system, '/api/bridge/heartbeat', user_id='')
@@ -108,7 +203,7 @@ async def test_exact_protocol_required(system, protocol):
 
 
 @pytest.mark.parametrize('path,method', [('/api/host', 'GET'), ('/api/host/bridge/maintenance', 'GET'),
-    ('/api/discovery', 'GET'),
+    ('/api/discovery', 'POST'), ('/api/discovery?refresh=true', 'GET'), ('/api/discovery/items', 'GET'),
     ('/api/workers', 'GET'), ('/api/worker/jobs', 'POST'), ('/api/hermes/auth', 'POST'),
     ('/api/gateway', 'GET'), ('/api/retention', 'POST'), ('/api/pause', 'POST'),
     ('/api/gateway/messages?source=line', 'GET'), ('/api/../host', 'GET')])
@@ -116,13 +211,15 @@ async def test_no_host_management_or_generic_proxy(system, path, method):
     assert (await call(system, path, method, {} if method == 'POST' else None)).status_code == 403
 
 
-async def test_forged_ingress_header_or_service_alone_has_no_owner_authority(system):
+@pytest.mark.parametrize('path', ['/api/session', '/api/discovery'])
+async def test_forged_ingress_header_or_service_alone_has_no_owner_authority(system, path):
     app, _, client, _, options, _ = system
-    assert (await call(system, user_id=OTHER)).status_code == 403
+    assert (await call(system, path, user_id=OTHER)).status_code == 403
+    assert (await call(system, path, user_id='')).status_code == 403
     assert (await client.post('/v1/request', json={'protocol': 1, 'pairing_id': options['pairing_id'],
-        'user_id': OWNER, 'method': 'GET', 'path': '/api/session'}, headers={'Authorization': 'Bearer wrong'})).status_code == 401
+        'user_id': OWNER, 'method': 'GET', 'path': path}, headers={'Authorization': 'Bearer wrong'})).status_code == 401
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://localhost:8099') as outsider:
-        response = await outsider.get('/api/session', headers={'x-remote-user-id': OWNER, 'Authorization': 'Bearer ' + options['token']})
+        response = await outsider.get(path, headers={'x-remote-user-id': OWNER, 'Authorization': 'Bearer ' + options['token']})
         assert response.status_code == 401
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app.state.ingress_bridge.transport), base_url='https://bridge') as outsider:
         assert (await outsider.post('/v1/request', json={})).status_code == 403

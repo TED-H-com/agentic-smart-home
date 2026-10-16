@@ -253,24 +253,31 @@ async def test_host_login_is_not_sufficient_after_household_owner_revocation(sto
         assert response.status_code == 403 and not ha.calls
 
 
-@pytest.mark.parametrize("when", ["source_read", "final_owner_check"])
-async def test_host_logout_during_read_cannot_return_household_data(store, tmp_path, monkeypatch, when):
+@pytest.mark.parametrize("when", ["initial_owner_check", "source_read", "final_owner_check"])
+@pytest.mark.parametrize("change", ["web_epoch", "ha_token"])
+async def test_host_authority_change_during_read_cannot_return_household_data(store, tmp_path, monkeypatch, when, change):
     monkeypatch.setenv("AGENTIC_DATA", str(tmp_path))
     (tmp_path / "access-key").write_text("fixture-local-key-long-enough")
     store.set_setting("owner", "owner")
     ha = DiscoveryHA()
+    ha.token = "original-fixture-token"
     original_read, original_owner = ha.read, ha.owner
     checks = 0
+    def revoke():
+        if change == "web_epoch":
+            store.set_setting("hermes_web_epoch", "logged-out")
+        else:
+            ha.token = "changed-fixture-token"
     async def read(target):
         result = await original_read(target)
         if when == "source_read":
-            store.set_setting("hermes_web_epoch", "logged-out")
+            revoke()
         return result
     async def owner(identifier):
         nonlocal checks
         checks += 1
-        if when == "final_owner_check" and checks == 2:
-            store.set_setting("hermes_web_epoch", "logged-out")
+        if (when == "initial_owner_check" and checks == 1) or (when == "final_owner_check" and checks == 2):
+            revoke()
         return await original_owner(identifier)
     ha.read, ha.owner = read, owner
     app = create_app(store=store, ha=ha, host_mode=True)
@@ -278,7 +285,10 @@ async def test_host_logout_during_read_cannot_return_household_data(store, tmp_p
             headers={"Origin": "http://localhost:8099"}) as client:
         assert (await client.post("/api/host/login", json={"key": "fixture-local-key-long-enough"})).status_code == 200
         response = await client.get("/api/discovery")
-        assert response.status_code == 401 and "Desk light" not in response.text
+        assert response.status_code == (401 if change == "web_epoch" else 403)
+        assert "Desk light" not in response.text
+        if when == "initial_owner_check":
+            assert not ha.calls
 
 
 async def test_empty_is_success_only_for_sources_that_answered():
