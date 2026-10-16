@@ -1,9 +1,9 @@
 name: Project page
 on:
   push:
-    paths: ['site/**', 'web/**', 'scripts/site_screenshots.py', 'tests/test_site.py', '.github/workflows/pages.yml']
+    paths: ['site/**', 'web/**', 'scripts/site_screenshots.py', 'tests/test_site.py', 'tests/test_native_demo.py', '.github/workflows/pages.yml']
   pull_request:
-    paths: ['site/**', 'web/**', 'scripts/site_screenshots.py', 'tests/test_site.py', '.github/workflows/pages.yml']
+    paths: ['site/**', 'web/**', 'scripts/site_screenshots.py', 'tests/test_site.py', 'tests/test_native_demo.py', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
   contents: read
