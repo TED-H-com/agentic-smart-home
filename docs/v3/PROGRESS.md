@@ -69,6 +69,14 @@ Owner 要求實作真正內層 worker 後，已新增 HomeService／HomeSandbox�
 
 上述本機檢查使用 transport／Supervisor／模型 fixtures 與真 Chromium；本機未建置新映像或安裝媒體，也沒有新增雲端帳號、真 HAOS／家庭或 E1／E2 驗收。既有 0.9.0 發布證據保留原樣，32 案仍為 2 passed、30 not_run。
 
+## 通用設備探索 D1（2026-10-16，未發布工程增量）
+
+Owner 將家庭案例提升為通用產品概念：[設備探索與接入](../DEVICE_DISCOVERY.md)。本輪新增 Owner 唯讀 `GET /api/discovery`、contract 1 及設備頁探索區；讀取 HA 待設定探索流程、設備／實體 registry、整合設定與 API 狀態，保留各來源狀態、時間、版本和摘要。相同名稱不合併身份，Hub／子設備關係分開；缺資料或來源失敗不變成零設備／已接通。
+
+本輪不新增 MCP 讀取範圍、背景掃描或家庭權限；路由器清單、直接 LAN 探索與品牌帳號收集器明示未實作。D2 多來源盤點、D3 對話引導、D4 逐能力與持續驗證各自交付。真實設備與網路覆蓋仍按 E3 驗收，32 案維持 2 passed、30 not_run，既有 0.9.0 媒體不變。
+
+最終定向測試 **61 passed**（46 項探索後端、13 項探索瀏覽器、2 項既有設備頁回歸），隔離真 Core 2026.10.1 **1 passed**；建置、23 份契約、Ruff 與套件檢查通過。較廣回歸的先前失敗與磁碟延遲造成的既有 fixture 到期，完整保留於 [本輪驗證紀錄](../reviews/2026-10-16-DEVICE-DISCOVERY.md)，不宣稱本機完整套件全綠。
+
 ## V3-11 非同步工作完成通知（未發布工程增量）
 
 在獨立 `codex/worker-completion-notifications` 分支，補上 coding 工作結束後回到原 LINE／Telegram／Discord 對話的固定狀態通知。只處理原 case 授權、仍有效的對話與已確認停止的終態；Web 手動工作不猜聊天室。通知只含工作狀態與既有 Web 工作路徑，不含原始成果、模型摘要，也不建立新的 Hermes 回合或家庭操作。這不改寫 `53c9e79` 媒體或發布來源。

@@ -565,6 +565,383 @@
         "title": "DesktopLogin",
         "type": "object"
       },
+      "DiscoveryCandidate": {
+        "additionalProperties": false,
+        "properties": {
+          "discovery_method": {
+            "title": "Discovery Method",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "integration_domain": {
+            "title": "Integration Domain",
+            "type": "string"
+          },
+          "native_path": {
+            "const": "/config/integrations",
+            "default": "/config/integrations",
+            "title": "Native Path",
+            "type": "string"
+          },
+          "source_id": {
+            "const": "ha_discovery",
+            "default": "ha_discovery",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "integration_domain",
+          "title",
+          "discovery_method"
+        ],
+        "title": "DiscoveryCandidate",
+        "type": "object"
+      },
+      "DiscoveryDevice": {
+        "additionalProperties": false,
+        "properties": {
+          "available_entity_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Entity Count"
+          },
+          "disabled": {
+            "default": false,
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "entity_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Count"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "integration_ids": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Integration Ids",
+            "type": "array"
+          },
+          "manufacturer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manufacturer"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_device_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Device Id"
+          },
+          "source_id": {
+            "const": "ha_devices",
+            "default": "ha_devices",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "via_device_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Via Device Id"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "DiscoveryDevice",
+        "type": "object"
+      },
+      "DiscoveryIntegration": {
+        "additionalProperties": false,
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "source_id": {
+            "const": "ha_integrations",
+            "default": "ha_integrations",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "loaded",
+              "not_loaded",
+              "retry",
+              "error",
+              "disabled",
+              "ignored",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "domain",
+          "title",
+          "state"
+        ],
+        "title": "DiscoveryIntegration",
+        "type": "object"
+      },
+      "DiscoverySnapshot": {
+        "additionalProperties": false,
+        "description": "Owner-visible observations, separate from entity permissions and physical verification.",
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/DiscoveryCandidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "content_digest": {
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/DiscoveryDevice"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "integrations": {
+            "items": {
+              "$ref": "#/components/schemas/DiscoveryIntegration"
+            },
+            "title": "Integrations",
+            "type": "array"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "native_path": {
+            "const": "/config/integrations",
+            "default": "/config/integrations",
+            "title": "Native Path",
+            "type": "string"
+          },
+          "observed_at": {
+            "title": "Observed At",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/DiscoverySource"
+            },
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "observed_at",
+          "sources",
+          "candidates",
+          "devices",
+          "integrations",
+          "limitations",
+          "content_digest"
+        ],
+        "title": "DiscoverySnapshot",
+        "type": "object"
+      },
+      "DiscoverySource": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Adapter Version",
+            "type": "integer"
+          },
+          "content_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Digest"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "item_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Count"
+          },
+          "location": {
+            "default": "home_assistant",
+            "enum": [
+              "home_assistant",
+              "not_implemented"
+            ],
+            "title": "Location",
+            "type": "string"
+          },
+          "method": {
+            "enum": [
+              "websocket",
+              "rest",
+              "not_implemented"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "partial",
+              "unavailable",
+              "unsupported",
+              "not_implemented"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "upstream_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upstream Version"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "method",
+          "target"
+        ],
+        "title": "DiscoverySource",
+        "type": "object"
+      },
       "EntityPermission": {
         "additionalProperties": false,
         "properties": {
@@ -1797,6 +2174,24 @@
           }
         },
         "summary": "Deployment"
+      }
+    },
+    "/api/discovery": {
+      "get": {
+        "operationId": "discovery_api_discovery_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverySnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Discovery"
       }
     },
     "/api/evidence": {

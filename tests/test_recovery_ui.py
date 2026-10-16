@@ -989,12 +989,36 @@ def test_global_error_ownership_during_recovery_and_navigation(scenario):
 
 @pytest.mark.parametrize('view', ['deployment', 'home-waiting', 'home', 'settings-waiting', 'settings-coding', 'settings-services', 'settings-retention', 'inventory', 'automations'])
 def test_pages_resume_after_host_reboot(view):
+    from agentic_controller.models import DiscoveryCandidate, DiscoverySnapshot, DiscoverySource, digest
+
     section = view.split('-')[0]
     server, thread = _server()
-    state = {'ready': False, 'hold': False, 'held': [], 'inventory': 0}
+    state = {'ready': False, 'hold': False, 'held': [], 'inventory': 0, 'discovery': 0}
+    discovered = DiscoverySnapshot(
+        observed_at='2026-10-16T12:00:00Z', content_digest=digest({'fixture': 'recovered-discovery'}),
+        sources=[DiscoverySource(
+            id=name, state='ok', method='rest' if name in {'ha_states', 'ha_config'} else 'websocket',
+            target=name, observed_at='2026-10-16T12:00:00Z',
+            item_count=1 if name in {'ha_discovery', 'ha_config'} else 0,
+        ) for name in ('ha_discovery', 'ha_devices', 'ha_entities', 'ha_states', 'ha_integrations', 'ha_config')]
+        + [DiscoverySource(id=name, state='not_implemented', location='not_implemented',
+                           method='not_implemented', target=name)
+           for name in ('router_inventory', 'lan_probe', 'account_inventory')],
+        candidates=[DiscoveryCandidate(id='recovery-discovery-fixture', integration_domain='fixture',
+                                       title='恢復的探索結果', discovery_method='zeroconf')],
+        devices=[], integrations=[], limitations=['ha_observations_only', 'network_coverage_not_verified'],
+    ).model_dump()
 
     def route(route):
         path = route.request.url.split('/api/')[1].split('?')[0]
+        if path == 'discovery':
+            assert route.request.method == 'GET'
+            state['discovery'] += 1
+            if not state['ready']:
+                route.fulfill(status=503, json={'detail': '探索啟動中'})
+            else:
+                route.fulfill(status=200, json=discovered)
+            return
         if path == 'deployment' and view == 'deployment' and not state['ready']:
             route.fulfill(status=503, json={'detail': '服務啟動中'})
             return
@@ -1064,6 +1088,12 @@ def test_pages_resume_after_host_reboot(view):
                 page.get_by_label('任務紀錄（1–30 天）').fill('12')
                 page.get_by_role('button', name='暫停 AI', exact=True).click()
                 expect(page.locator('.settings-layout')).to_contain_text('操作衝突')
+            elif view == 'inventory':
+                discovery = page.get_by_role('region', name='探索設備')
+                expect(discovery.get_by_role('alert')).to_contain_text('探索啟動中')
+                expect(page.locator('.content > .notice.error')).to_contain_text('資料啟動中')
+                expect(page.get_by_role('alert')).to_have_count(2)
+                expect(discovery.get_by_text('目前沒有待設定', exact=False)).to_have_count(0)
             else:
                 expect(page.locator('.notice.error')).to_contain_text('資料啟動中')
             state['ready'] = True
@@ -1090,14 +1120,30 @@ def test_pages_resume_after_host_reboot(view):
                 expect(page.locator('.settings-layout')).to_contain_text('操作衝突')
             elif view == 'inventory':
                 expect(page.get_by_text('恢復的燈', exact=True)).to_be_visible()
+                # Inventory follows connection recovery; discovery reads again on return to the tab.
+                expect(discovery.get_by_role('alert')).to_contain_text('探索啟動中')
+                discovery_before = state['discovery']
+                with page.expect_response('**/api/discovery'):
+                    page.evaluate("window.dispatchEvent(new Event('focus'))")
+                expect(discovery.get_by_text('恢復的探索結果', exact=True)).to_be_visible()
+                expect(page.get_by_role('alert')).to_have_count(0)
+                assert state['discovery'] == discovery_before + 1
                 state['ready'] = False
                 page.get_by_role('button', name='重新盤點', exact=True).click()
                 expect(page.locator('.notice.error')).to_contain_text('資料啟動中')
+                with page.expect_response('**/api/discovery'):
+                    page.evaluate("window.dispatchEvent(new Event('focus'))")
+                expect(discovery.get_by_role('alert')).to_contain_text('探索啟動中')
+                expect(discovery.get_by_text('恢復的探索結果', exact=True)).to_have_count(0)
                 page.get_by_label('分享 light.test', exact=True).check()
                 before = state['inventory']
                 page.clock.run_for(10_100)
                 state['ready'] = True
                 page.clock.run_for(10_100)
+                with page.expect_response('**/api/discovery'):
+                    page.evaluate("window.dispatchEvent(new Event('focus'))")
+                expect(discovery.get_by_text('恢復的探索結果', exact=True)).to_be_visible()
+                expect(discovery.get_by_role('alert')).to_have_count(0)
                 expect(page.get_by_label('分享 light.test', exact=True)).to_be_checked()
                 assert state['inventory'] == before
             else:

@@ -536,6 +536,14 @@ def test_preview_fixtures_parse_and_cover_shell_gets():
     assert {"客廳燈", "玄關感應器", "臥室冷氣"} <= names
     assert value["bootstrap"]["state"] == "completed"
     assert value["worker/jobs"]["jobs"][0]["state"] == "succeeded"
+    from agentic_controller.models import DiscoverySnapshot, digest
+    discovery = DiscoverySnapshot.model_validate(value["discovery"]).model_dump()
+    assert discovery["content_digest"] == digest({k: v for k, v in discovery.items() if k != "content_digest"})
+    assert "synthetic_fixture_no_network_or_physical_observation" in discovery["limitations"]
+    assert {item["name"] for item in discovery["devices"]} == names
+    for source, field in (("ha_discovery", "candidates"), ("ha_devices", "devices"), ("ha_integrations", "integrations")):
+        observed = next(item for item in discovery["sources"] if item["id"] == source)
+        assert observed["content_digest"] == digest(discovery[field])
     text = data.decode()
     assert "password" not in text.lower() and "BEGIN " not in text and "sk-" not in text
 

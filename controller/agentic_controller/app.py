@@ -26,6 +26,7 @@ from .bootstrap import Bootstrap
 from .bootstrap import routes as bootstrap_routes
 from .bridge import IngressBridge
 from .bridge_maintenance import BridgeFault, BridgeMaintenance
+from .discovery import routes as discovery_routes
 from .engine import Engine, Rejected
 from .gateway import Gateway
 from .gateway import routes as gateway_routes
@@ -202,6 +203,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.engine, app.state.store, app.state.ha, app.state.running = engine, store, ha, running
+    discovery_routes(app, store, ha, host_session)
     if host_mode:
         host_routes(app, host_session, ha, store, runner, controller_id)
         ha_oauth_routes(app, host_session, ha, store)

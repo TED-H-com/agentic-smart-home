@@ -77,6 +77,8 @@ def test_interactive_preview_renders_demo_household(tmp_path):
                 expect(page.get_by_text(text).locator("visible=true").first).to_be_visible()
                 if name == "設備":
                     expect(page.get_by_text("示範家庭").locator("visible=true").first).to_be_visible()
+                    expect(page.locator(".discovery").get_by_text("示範待設定橋接器", exact=True)).to_be_visible()
+                    expect(page.locator(".discovery .notice.error")).to_have_count(0)
             click_navigation(page, "家庭提案")
             page.locator("#request").fill("請讓示範家庭的客廳燈在天黑後打開。")
             expect(page.get_by_role("button", name="送出需求")).to_be_enabled()

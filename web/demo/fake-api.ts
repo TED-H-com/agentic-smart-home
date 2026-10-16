@@ -18,7 +18,8 @@ export function installDemo(){
   const data:Row=clone(fixtures);
   // Preview fixtures are the base; timestamps and identifiers here are exclusively fictional.
   function redate(value:any):void{if(!value||typeof value!=='object')return;for(const key of Object.keys(value)){if(typeof value[key]==='string'&&/^2026-10-13T/.test(value[key]))value[key]=time();else redate(value[key])}}
-  redate(data);
+  // Discovery keeps its fixed fictional observation time and matching digest.
+  for(const key of Object.keys(data))if(key!=='discovery')redate(data[key]);
   data.session.principal='demo-owner';data.session.csrf='demo-csrf';
   data.session.resume.message_id='3'.repeat(64);data.session.resume.thread_id='4'.repeat(64);data.session.resume.case_id='5'.repeat(32);
   const initialMessage=data['gateway/messages'].messages[0];Object.assign(initialMessage,{id:'3'.repeat(64),thread_id:'4'.repeat(64),case_id:'5'.repeat(32)});

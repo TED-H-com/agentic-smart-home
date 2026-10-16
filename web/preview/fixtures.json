@@ -90,6 +90,214 @@
       "final": {"alias": "示範自動化", "triggers": [], "actions": []}
     }
   },
+  "discovery": {
+    "contract_version": 1,
+    "observed_at": "2026-10-13T01:00:00+00:00",
+    "sources": [
+      {
+        "id": "ha_discovery",
+        "state": "ok",
+        "location": "home_assistant",
+        "method": "websocket",
+        "target": "config_entries/flow/progress",
+        "adapter_version": 1,
+        "upstream_version": "demo-synthetic",
+        "observed_at": "2026-10-13T01:00:00+00:00",
+        "item_count": 1,
+        "truncated": false,
+        "reason_code": null,
+        "content_digest": "a98f66a0e08df0ec73e6abc91d378f16d7daa8741747ab43901594be46d79a5a"
+      },
+      {
+        "id": "ha_devices",
+        "state": "ok",
+        "location": "home_assistant",
+        "method": "websocket",
+        "target": "config/device_registry/list",
+        "adapter_version": 1,
+        "upstream_version": "demo-synthetic",
+        "observed_at": "2026-10-13T01:00:00+00:00",
+        "item_count": 3,
+        "truncated": false,
+        "reason_code": null,
+        "content_digest": "9e670bbf6792432d6f1521e221449c4390c17eeec954f9a52c13fea7da5fce8c"
+      },
+      {
+        "id": "ha_integrations",
+        "state": "ok",
+        "location": "home_assistant",
+        "method": "websocket",
+        "target": "config_entries/get",
+        "adapter_version": 1,
+        "upstream_version": "demo-synthetic",
+        "observed_at": "2026-10-13T01:00:00+00:00",
+        "item_count": 1,
+        "truncated": false,
+        "reason_code": null,
+        "content_digest": "1c2d7e6508f27821a17b5e9b80d2cce221d68a1649c1c2343362ae4601090706"
+      },
+      {
+        "id": "ha_entities",
+        "state": "ok",
+        "location": "home_assistant",
+        "method": "websocket",
+        "target": "config/entity_registry/list",
+        "adapter_version": 1,
+        "upstream_version": "demo-synthetic",
+        "observed_at": "2026-10-13T01:00:00+00:00",
+        "item_count": 3,
+        "truncated": false,
+        "reason_code": null,
+        "content_digest": "2e52ea4a4dd78736e41d5f421f6bcfac7c28cc0bf3f246298abd5fde46017022"
+      },
+      {
+        "id": "ha_states",
+        "state": "ok",
+        "location": "home_assistant",
+        "method": "rest",
+        "target": "/states",
+        "adapter_version": 1,
+        "upstream_version": "demo-synthetic",
+        "observed_at": "2026-10-13T01:00:00+00:00",
+        "item_count": 3,
+        "truncated": false,
+        "reason_code": null,
+        "content_digest": "5e0664206ec719107e5fd9c2ec41367ca6171670969e0be89a7b7103fb8598fd"
+      },
+      {
+        "id": "ha_config",
+        "state": "ok",
+        "location": "home_assistant",
+        "method": "rest",
+        "target": "/config",
+        "adapter_version": 1,
+        "upstream_version": "demo-synthetic",
+        "observed_at": "2026-10-13T01:00:00+00:00",
+        "item_count": 1,
+        "truncated": false,
+        "reason_code": null,
+        "content_digest": "d05ac01b9c1793e36d1b9f2cc0b0eef19895cd378adcd4a2269d5dc3c243fa83"
+      },
+      {
+        "id": "router_inventory",
+        "state": "not_implemented",
+        "location": "not_implemented",
+        "method": "not_implemented",
+        "target": "router_inventory",
+        "adapter_version": 1,
+        "upstream_version": null,
+        "observed_at": null,
+        "item_count": null,
+        "truncated": false,
+        "reason_code": null,
+        "content_digest": null
+      },
+      {
+        "id": "lan_probe",
+        "state": "not_implemented",
+        "location": "not_implemented",
+        "method": "not_implemented",
+        "target": "lan_probe",
+        "adapter_version": 1,
+        "upstream_version": null,
+        "observed_at": null,
+        "item_count": null,
+        "truncated": false,
+        "reason_code": null,
+        "content_digest": null
+      },
+      {
+        "id": "account_inventory",
+        "state": "not_implemented",
+        "location": "not_implemented",
+        "method": "not_implemented",
+        "target": "account_inventory",
+        "adapter_version": 1,
+        "upstream_version": null,
+        "observed_at": null,
+        "item_count": null,
+        "truncated": false,
+        "reason_code": null,
+        "content_digest": null
+      }
+    ],
+    "candidates": [
+      {
+        "id": "demo-pending",
+        "integration_domain": "demo_bridge",
+        "title": "示範待設定橋接器",
+        "discovery_method": "zeroconf",
+        "source_id": "ha_discovery",
+        "native_path": "/config/integrations"
+      }
+    ],
+    "devices": [
+      {
+        "id": "demo-device-0",
+        "name": "客廳燈",
+        "manufacturer": "示範品牌",
+        "model": "虛構設備",
+        "via_device_id": null,
+        "parent_device_id": null,
+        "integration_ids": [
+          "demo-integration"
+        ],
+        "disabled": false,
+        "entity_count": 1,
+        "available_entity_count": 1,
+        "source_id": "ha_devices"
+      },
+      {
+        "id": "demo-device-1",
+        "name": "玄關感應器",
+        "manufacturer": "示範品牌",
+        "model": "虛構設備",
+        "via_device_id": null,
+        "parent_device_id": null,
+        "integration_ids": [
+          "demo-integration"
+        ],
+        "disabled": false,
+        "entity_count": 1,
+        "available_entity_count": 1,
+        "source_id": "ha_devices"
+      },
+      {
+        "id": "demo-device-2",
+        "name": "臥室冷氣",
+        "manufacturer": "示範品牌",
+        "model": "虛構設備",
+        "via_device_id": null,
+        "parent_device_id": null,
+        "integration_ids": [
+          "demo-integration"
+        ],
+        "disabled": false,
+        "entity_count": 1,
+        "available_entity_count": 1,
+        "source_id": "ha_devices"
+      }
+    ],
+    "integrations": [
+      {
+        "id": "demo-integration",
+        "domain": "demo",
+        "title": "示範家庭整合",
+        "state": "loaded",
+        "source_id": "ha_integrations"
+      }
+    ],
+    "native_path": "/config/integrations",
+    "limitations": [
+      "synthetic_fixture_no_network_or_physical_observation",
+      "ha_observations_only",
+      "network_coverage_not_verified",
+      "registry_is_not_physical_identity",
+      "api_availability_is_not_physical_verification",
+      "discovery_does_not_grant_ai_access"
+    ],
+    "content_digest": "c52e6dba197f3cbfbbe63764676e73aa069d202cef9ded28f4732370709d7c8b"
+  },
   "inventory": {
     "entities": [
       {
