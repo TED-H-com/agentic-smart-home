@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites>
+  <testsuite name="haos-boundary" time="224.559" failures="0" errors="0" skipped="0" tests="2">
+    <testcase name="case-00001" classname="haos-boundary" time="0.0" />
+    <testcase name="case-00002" classname="haos-boundary" time="224.548" />
+  </testsuite>
+</testsuites>

@@ -1,0 +1,14 @@
+{
+  "kind": "real_haos_kvm",
+  "haos_image": "18.3",
+  "core": "2026.10.2",
+  "supervisor": "2026.10.2",
+  "owner_verified": true,
+  "backup_completed_and_readback": true,
+  "backup_attempts": 1,
+  "duration_seconds": 610,
+  "cloud_login": "not_run",
+  "laptop_hardware": "not_run",
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "44aa7e4d78358747f941eb2ad75185b183962e69cc50b67c8b3242c8d50c2d56"
+}

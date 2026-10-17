@@ -1,0 +1,24 @@
+{
+  "stage": "enable",
+  "commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+  "status": "passed",
+  "started": "2026-10-17T17:14:35.405279+00:00",
+  "finished": "2026-10-17T17:28:14.679652+00:00",
+  "public_channel_test": false,
+  "junit": {
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "tests": 42
+  },
+  "excluded_cli_probes": {
+    "grok": "not_run: owner instruction"
+  },
+  "cleanup": {
+    "owned_resources_absent": true,
+    "disk_basetemp_removed": true,
+    "filesystem": "ext4",
+    "scope": "known_test_name_prefixes_only"
+  },
+  "original_junit_sha256": "0f3432327789893930c5f52384063afdcb94fd52b035e4e67d57a02add41cc06"
+}

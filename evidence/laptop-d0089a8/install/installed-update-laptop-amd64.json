@@ -1,0 +1,11 @@
+{
+  "state": "passed",
+  "observed_from": "disposable_installed_linux_vm_root",
+  "real_cloud": false,
+  "real_publisher_release": false,
+  "rollback_restored_backup": false,
+  "original_image": "sha256:0bf64937a53550d536cf8c630070309429c2a33a360d164af23d4cc4ce7bdeed",
+  "candidate_image": "sha256:1761ed0f883d983bd08106d232228607f02cad4d100d9b550159b90e1c7170ca",
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "8e2f9b2bccf037e7e869c061d94c6ec19461ab947f69a06c99cda2ed98602b85"
+}

@@ -1,0 +1,21 @@
+{
+  "kind": "installed_offline_coding_sandbox",
+  "runtime_location": "disposable_outer_linux_vm",
+  "observed_from": "host_container_in_disposable_outer_vm",
+  "model_backend": "none",
+  "ha_backend": "none",
+  "device_kind": "none",
+  "cloud_login": "not_run",
+  "result": "passed",
+  "runner_image_id": "sha256:bd7052a4631327ae42525a6843dade35cf23b961e2da2a4d9badf269121a610e",
+  "original_checkout_unchanged": true,
+  "original_git_metadata_unchanged": true,
+  "process_tree_stopped": true,
+  "duration_seconds": 3.19,
+  "limitations": [
+    "Offline Python fixture; no coding CLI or model account.",
+    "Outer disposable VM only; no HAOS App, hardware or household validation."
+  ],
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "0f59a11496e2a571efd2a0b79b77315f79d13a91a1e01d0cd7f12a2703115d98"
+}

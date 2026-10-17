@@ -1,0 +1,145 @@
+{
+  "schema": 1,
+  "kind": "public_app_attempt_history",
+  "source_commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+  "candidate_manifest_sha256": "5609f3ee21693e7367f209a63a9a6d64ec83875a6944b2e9d8489fec9491b6b9",
+  "attempts": [
+    {
+      "attempt": 1,
+      "status": "failed",
+      "started": "2026-10-17T18:12:32.212892+00:00",
+      "finished": "2026-10-17T18:52:45.635932+00:00",
+      "completed_stages": [
+        {
+          "stage": "enable",
+          "status": "failed",
+          "junit": {
+            "tests": 42,
+            "failures": 1,
+            "errors": 0,
+            "skipped": 0
+          },
+          "reason": "bridge start request remained unconfirmed; Controller fenced it as needs_reconcile",
+          "fixture_cleanup_status": "failed",
+          "wrapper_cleanup_status": "failed",
+          "later_independent_observation": {
+            "owned_containers_absent": true,
+            "owned_networks_absent": true,
+            "disk_basetemp_removed": true,
+            "manual_resource_removal": false
+          },
+          "later_stages_not_started": [
+            "bridge-haos"
+          ]
+        }
+      ],
+      "source_and_stable_boundaries_passed": true,
+      "original_summary_sha256": "921ca1bce177e562459522d19f345ae36d7a45c7872893987c61a9d31a41e289"
+    },
+    {
+      "attempt": 2,
+      "status": "interrupted",
+      "started": "2026-10-17T18:53:57.380313+00:00",
+      "finished": "2026-10-17T19:03:36.650386+00:00",
+      "completed_stages": [],
+      "interrupted_stage": "enable",
+      "signal": 15,
+      "signal_sender": "unknown",
+      "junit_available": false,
+      "source_and_stable_boundaries_passed": true,
+      "cleanup_at_termination": "incomplete",
+      "later_manual_cleanup_of_exact_owned_resources": true,
+      "later_owned_resources_and_disk_basetemp_absent": true,
+      "original_summary_sha256": "e83af358a80f486a631b23d7c8962a40d545bdd4c2924033c6134e883ad56a0e"
+    },
+    {
+      "attempt": 3,
+      "status": "failed",
+      "started": "2026-10-17T19:06:02.430767+00:00",
+      "finished": "2026-10-17T20:03:14.709404+00:00",
+      "stages": [
+        {
+          "stage": "enable",
+          "status": "passed",
+          "junit": {
+            "tests": 42,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "fixture_and_wrapper_cleanup_complete": true
+        },
+        {
+          "stage": "bridge-haos",
+          "status": "failed",
+          "junit": {
+            "tests": 40,
+            "failures": 1,
+            "errors": 0,
+            "skipped": 0
+          },
+          "reason": "bridge_options_changed_or_unconfirmed",
+          "fixture_cleanup_status": "failed",
+          "fixture_cleanup_timeouts": [
+            "vm_remove",
+            "disk_fixture_ownership_restore"
+          ],
+          "later_wrapper_cleanup_complete": true
+        }
+      ],
+      "source_and_stable_boundaries_passed": true,
+      "original_summary_sha256": "8047d5b5ead1ba2f6ac4e0f7258e9dbb880dc2fa4a0c7c61e83eeba7201ee8aa"
+    },
+    {
+      "attempt": 4,
+      "status": "passed",
+      "scope": "bridge-haos only",
+      "started": "2026-10-17T20:13:52.598149+00:00",
+      "finished": "2026-10-17T20:27:22.892260+00:00",
+      "public_subset_passed": true,
+      "full_public_channel_passed_in_this_run": false,
+      "stages_not_rerun": [
+        "enable"
+      ],
+      "stages": [
+        {
+          "stage": "bridge-haos",
+          "status": "passed",
+          "junit": {
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "tests": 40
+          },
+          "fixture_and_wrapper_cleanup_complete": true
+        }
+      ],
+      "source_and_stable_boundaries_passed": true,
+      "original_summary_sha256": "83056e3f995c647f59f4405f360de0ed9246b39142bee9bd3c06ffd0d6ed2316"
+    }
+  ],
+  "limitations": [
+    "Shared host disk pressure was observed; the exact cause of the unconfirmed start was not established.",
+    "A later successful retry does not retroactively accept this failed attempt.",
+    "Selected enable and bridge stages passed in two separate executions; the bridge-only success does not claim a full public run or continuous stability between attempts."
+  ],
+  "selected_public_acceptance": {
+    "status": "passed",
+    "uninterrupted_run": false,
+    "selected_run_count": 2,
+    "stage_origins": {
+      "enable": {
+        "attempt": 3,
+        "passed": 42
+      },
+      "bridge-haos": {
+        "attempt": 4,
+        "passed": 40
+      }
+    },
+    "summary": "../summary.json",
+    "stability_observation": "before_and_after_each_selected_stage_only",
+    "continuous_stability_claimed": false,
+    "prior_failed_attempt_statuses_preserved": true
+  }
+}

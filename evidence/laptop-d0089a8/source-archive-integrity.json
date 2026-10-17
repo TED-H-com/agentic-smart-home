@@ -1,0 +1,76 @@
+{
+  "source_commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+  "observed_at": "2026-10-17T14:08:15.487738+00:00",
+  "archive_sha256": "ab83d8eb236f26189d1542153e1c598c9ad3bbddfdc67c1889ce55e58433d41a",
+  "audit_tool_sha256": "8691f8ac6e3270e7cbdeccb58d557213881f02fa5fcf06f25062cd7762ecd931",
+  "archive_bytes": 32505972,
+  "candidate_manifest_sha256": "5609f3ee21693e7367f209a63a9a6d64ec83875a6944b2e9d8489fec9491b6b9",
+  "manifest_entries": 1534,
+  "manifest_payload_matches": true,
+  "duplicate_entries": 0,
+  "git_tracked_payloads_matching_candidate": 1534,
+  "generated_payloads_not_git_tracked": [],
+  "nested_runner_source_members_matching_outer_archive": 57,
+  "shared_host_runtime_copies_matching_source": 25,
+  "frozen_source_allowlist_complete": true,
+  "source_mirrors": {
+    "bridge_mirror_pairs": 4,
+    "home_coding_source_commit": "0886a5459984e916e8dc6a881a1bd6d4249934fd",
+    "home_coding_source_repository": "https://github.com/TED-H-com/agentic-smart-home.git",
+    "final_commit_allowed_changes": [
+      "controller/static/downloads/agentic-runner.zip",
+      "pyproject.toml",
+      "runner/coding-source.lock.json",
+      "tests/ha_lan_peer.py",
+      "tests/installed_sandbox_probe.py",
+      "tests/test_coding_job_budgets.py",
+      "tests/test_coding_sandbox.py",
+      "tests/test_haos_boundary.py",
+      "tests/test_home_coding_service.py",
+      "tests/test_installed_ha_lan_probe.py",
+      "tests/test_installed_lan_callback.py",
+      "tests/test_interactive_preview.py",
+      "tests/test_linux_install.py",
+      "tests/test_linux_install_cleanup.py",
+      "tests/test_updater.py",
+      "tests/test_worker_execution.py"
+    ],
+    "remote_source_availability": "root_reported_not_rechecked_by_archive_audit",
+    "source_transition": {
+      "kind": "root_attested_test_only_descendant",
+      "anchor_commit": "614bcd3fe919303d26193cca234defb15128d2c3",
+      "candidate_tree": "5a90e8fad7497957beef658d136eafbb6b4493bc",
+      "attestation_sha256": "7452070bc9401290fcc55b51e2673fe86d0a4466d72012472f4df46404fd6f1a",
+      "anchor_to_final_changes": [
+        "pyproject.toml",
+        "tests/ha_lan_peer.py",
+        "tests/installed_sandbox_probe.py",
+        "tests/test_coding_job_budgets.py",
+        "tests/test_coding_sandbox.py",
+        "tests/test_haos_boundary.py",
+        "tests/test_home_coding_service.py",
+        "tests/test_installed_ha_lan_probe.py",
+        "tests/test_installed_lan_callback.py",
+        "tests/test_interactive_preview.py",
+        "tests/test_linux_install.py",
+        "tests/test_linux_install_cleanup.py",
+        "tests/test_updater.py",
+        "tests/test_worker_execution.py"
+      ],
+      "other_git_blobs_modes_and_types_unchanged": true,
+      "pytest_retention_checked": true
+    }
+  },
+  "controller_bundle_provenance": {
+    "sha256": "ff1a4de3d4f092e97a2fee08f0234ba28912815632332d737b0c4cd148cd8d71",
+    "bytes": 80312696,
+    "head": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+    "single_head": true,
+    "git_bundle_verified": true,
+    "history_credentials_scanned": false
+  },
+  "method": "All ZIP payload hashes and frozen Git blob identities checked; decoded Runner and shared Host copies checked.",
+  "limitations": [
+    "Archive integrity only; no credential or vulnerability conclusion."
+  ]
+}

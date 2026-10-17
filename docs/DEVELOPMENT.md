@@ -2,7 +2,7 @@
 
 先讀根 [AGENTS](../AGENTS.md)、[Plan](../PROJECT_PLAN.md) 和 [v3 原稿／進度](v3/README.md)。A Hermes/Controller、B worker isolation、C Web/preview/delivery 三線可並行，共用契約由整合者維護，同一檔案／workspace 維持一個 writer。工程測試和 32 個產品驗收分開記。
 
-本文件對應 0.10.0 候選來源；版本更新不代表已建立或驗證新媒體。既有 0.9.0 歷史證據保持原狀。
+本文件對應 0.10.0 來源。發布媒體固定於 `d0089a80e358cbd776a89327f0e58bfba68c671b`；工程測試、公開 App 與匿名下載各自記錄於 [驗證紀錄](VERIFICATION.md)。新建置不能沿用既有媒體的通過狀態，0.9.0 歷史證據保持原狀。
 
 ## 重現環境與建置
 

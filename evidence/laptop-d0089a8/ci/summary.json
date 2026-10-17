@@ -1,0 +1,360 @@
+{
+  "schema": 1,
+  "created": "2026-10-17T14:23:46.278022+00:00",
+  "result": "passed",
+  "scope": "Exact F10 PR/push CI outcomes, immutable Git and actual frozen source ZIP payload comparison.",
+  "candidate_commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+  "candidate_tree": "5a90e8fad7497957beef658d136eafbb6b4493bc",
+  "home_coding_source_commit": "0886a5459984e916e8dc6a881a1bd6d4249934fd",
+  "candidate_manifest_sha256": "5609f3ee21693e7367f209a63a9a6d64ec83875a6944b2e9d8489fec9491b6b9",
+  "local_frozen_source_zip": {
+    "sha256": "ab83d8eb236f26189d1542153e1c598c9ad3bbddfdc67c1889ce55e58433d41a",
+    "size": 32505972
+  },
+  "local_media_binding": "verified_exact_source_zip_only",
+  "runs": [
+    {
+      "run_id": 39038409282,
+      "run_url": "https://github.com/TED-H-com/agentic-smart-home/actions/runs/39038409282",
+      "event": "pull_request",
+      "run_attempt": 1,
+      "result": "success",
+      "requested_head_sha": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+      "actual_checkout_sha": "7edc0201f2b0fead07ff83e32b8082092599b6d2",
+      "checkout_tree": "5a90e8fad7497957beef658d136eafbb6b4493bc",
+      "checkout_is_exact_F10_commit": false,
+      "checkout_tree_matches_F10": true,
+      "junit": {
+        "tests": 3265,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 12,
+        "passed": 3253
+      },
+      "fixture_ptr_answer_unit_cases_passed": 6,
+      "skips": {
+        "total": 12,
+        "all_skipped_cases_enumerated": true,
+        "categories": [
+          {
+            "category": "separately_gated_haos_vm",
+            "count": 6,
+            "cases": [
+              {
+                "test": "tests.test_bridge_haos.test_real_haos_sidebar_bridge",
+                "reason": "Actual HAOS App/Ingress needs --haos-vm",
+                "result": "skipped"
+              },
+              {
+                "test": "tests.test_haos_boundary.test_actual_haos_app_boundary",
+                "reason": "Actual HAOS App probe requires --haos-vm",
+                "result": "skipped"
+              },
+              {
+                "test": "tests.test_haos_vm.test_real_haos_boot_owner_and_supervisor_backup",
+                "reason": "Use --haos-vm for isolated KVM validation",
+                "result": "skipped"
+              },
+              {
+                "test": "tests.test_home_worker_enable_haos.test_real_home_worker_enable_backup_reboot",
+                "reason": "Real HAOS one-click enable needs --haos-vm; run heavy suites serially",
+                "result": "skipped"
+              },
+              {
+                "test": "tests.test_home_worker_haos.test_real_home_coding_worker_in_haos",
+                "reason": "Actual Home Worker App needs --haos-vm; run heavy suites serially",
+                "result": "skipped"
+              },
+              {
+                "test": "tests.test_runner_supervisor_build.test_real_supervisor_builds_home_coding_app",
+                "reason": "Actual Supervisor build of the Home coding App needs --haos-vm; run heavy suites serially",
+                "result": "skipped"
+              }
+            ]
+          },
+          {
+            "category": "separately_gated_linux_install",
+            "count": 1,
+            "cases": [
+              {
+                "test": "tests.test_linux_install.test_full_linux_install_with_nested_haos",
+                "reason": "Use --linux-install to install onto a disposable virtual disk",
+                "result": "skipped"
+              }
+            ]
+          },
+          {
+            "category": "installed_desktop_uid_1000_unavailable",
+            "count": 1,
+            "cases": [
+              {
+                "test": "tests.test_desktop_login.test_desktop_ticket_private_hashed_rotating_and_fragment_only",
+                "reason": "Installed desktop handoff belongs to UID 1000",
+                "result": "skipped"
+              }
+            ]
+          },
+          {
+            "category": "qemu_probe_builder_image_unavailable",
+            "count": 1,
+            "cases": [
+              {
+                "test": "tests.test_host_compatibility.test_actual_qemu_machine_json_with_disk_fixture",
+                "reason": "builder image is installed-VM tooling, not available in regular CI",
+                "result": "skipped"
+              }
+            ]
+          },
+          {
+            "category": "real_libvirt_builder_image_unavailable",
+            "count": 2,
+            "cases": [
+              {
+                "test": "tests.test_host_ha_lan_libvirt.test_real_libvirt_rejects_uuidless_redefinition_of_existing_network",
+                "reason": "Local libvirt builder image unavailable; this test never pulls or builds images",
+                "result": "skipped"
+              },
+              {
+                "test": "tests.test_host_ha_lan_libvirt.test_real_libvirt_preserves_network_identity_through_enable_retry_and_disable",
+                "reason": "Local libvirt builder image unavailable; this test never pulls or builds images",
+                "result": "skipped"
+              }
+            ]
+          },
+          {
+            "category": "separately_gated_lan_namespace_smoke",
+            "count": 1,
+            "cases": [
+              {
+                "test": "tests.test_installed_ha_lan_probe.test_actual_lan_lab_namespace_starts_dhcp_ra_and_mdns",
+                "reason": "Explicit test-only Docker namespace smoke; not HAOS acceptance",
+                "result": "skipped"
+              }
+            ]
+          }
+        ]
+      },
+      "artifact": {
+        "id": 12103628151,
+        "sha256": "618beea1b7b8ad7e65a05db3f5935fa9c741ab9be7e8ae46409c6e7b7b7fc6ed",
+        "bytes": 62206621,
+        "github_api_digest_verified": true
+      },
+      "ci_source_zip": {
+        "sha256": "3c879fa638e5068f10b6bfb9b3fad949280c768c9a5dcf109b150276caa7e67f",
+        "bytes": 33071663,
+        "members": 1541
+      },
+      "source_payload_members_compared": 482,
+      "source_payload_differences": 0,
+      "nested_runner_members_compared": 58,
+      "nested_runner_payload_differences": 0,
+      "nested_runner_compressed_bytes_equal": true,
+      "all_internal_manifests_valid": true,
+      "source_mirrors": {
+        "host_worker_pairs": 25,
+        "bridge_pairs": 4,
+        "all_equal": true
+      },
+      "runtime_evidence_difference_count": 222,
+      "runtime_evidence_difference_categories": {
+        "platform_execution_receipt": 14,
+        "junit_execution_receipt": 1,
+        "test_generated_ui_screenshot": 207
+      },
+      "runtime_evidence_declarations_sha256": "fb3d2eb6d9a23b80f2cd5ac0a5fa653276874495fbf26dc4ecc1be15918f8091",
+      "artifact_and_source_changed_evidence_bytes_equal": true,
+      "grok_cli": "not_run: owner instruction"
+    },
+    {
+      "run_id": 39038406046,
+      "run_url": "https://github.com/TED-H-com/agentic-smart-home/actions/runs/39038406046",
+      "event": "push",
+      "run_attempt": 1,
+      "result": "success",
+      "requested_head_sha": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+      "actual_checkout_sha": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+      "checkout_tree": "5a90e8fad7497957beef658d136eafbb6b4493bc",
+      "checkout_is_exact_F10_commit": true,
+      "checkout_tree_matches_F10": true,
+      "junit": {
+        "tests": 3265,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 12,
+        "passed": 3253
+      },
+      "fixture_ptr_answer_unit_cases_passed": 6,
+      "skips": {
+        "total": 12,
+        "all_skipped_cases_enumerated": true,
+        "categories": [
+          {
+            "category": "separately_gated_haos_vm",
+            "count": 6,
+            "cases": [
+              {
+                "test": "tests.test_bridge_haos.test_real_haos_sidebar_bridge",
+                "reason": "Actual HAOS App/Ingress needs --haos-vm",
+                "result": "skipped"
+              },
+              {
+                "test": "tests.test_haos_boundary.test_actual_haos_app_boundary",
+                "reason": "Actual HAOS App probe requires --haos-vm",
+                "result": "skipped"
+              },
+              {
+                "test": "tests.test_haos_vm.test_real_haos_boot_owner_and_supervisor_backup",
+                "reason": "Use --haos-vm for isolated KVM validation",
+                "result": "skipped"
+              },
+              {
+                "test": "tests.test_home_worker_enable_haos.test_real_home_worker_enable_backup_reboot",
+                "reason": "Real HAOS one-click enable needs --haos-vm; run heavy suites serially",
+                "result": "skipped"
+              },
+              {
+                "test": "tests.test_home_worker_haos.test_real_home_coding_worker_in_haos",
+                "reason": "Actual Home Worker App needs --haos-vm; run heavy suites serially",
+                "result": "skipped"
+              },
+              {
+                "test": "tests.test_runner_supervisor_build.test_real_supervisor_builds_home_coding_app",
+                "reason": "Actual Supervisor build of the Home coding App needs --haos-vm; run heavy suites serially",
+                "result": "skipped"
+              }
+            ]
+          },
+          {
+            "category": "separately_gated_linux_install",
+            "count": 1,
+            "cases": [
+              {
+                "test": "tests.test_linux_install.test_full_linux_install_with_nested_haos",
+                "reason": "Use --linux-install to install onto a disposable virtual disk",
+                "result": "skipped"
+              }
+            ]
+          },
+          {
+            "category": "installed_desktop_uid_1000_unavailable",
+            "count": 1,
+            "cases": [
+              {
+                "test": "tests.test_desktop_login.test_desktop_ticket_private_hashed_rotating_and_fragment_only",
+                "reason": "Installed desktop handoff belongs to UID 1000",
+                "result": "skipped"
+              }
+            ]
+          },
+          {
+            "category": "qemu_probe_builder_image_unavailable",
+            "count": 1,
+            "cases": [
+              {
+                "test": "tests.test_host_compatibility.test_actual_qemu_machine_json_with_disk_fixture",
+                "reason": "builder image is installed-VM tooling, not available in regular CI",
+                "result": "skipped"
+              }
+            ]
+          },
+          {
+            "category": "real_libvirt_builder_image_unavailable",
+            "count": 2,
+            "cases": [
+              {
+                "test": "tests.test_host_ha_lan_libvirt.test_real_libvirt_rejects_uuidless_redefinition_of_existing_network",
+                "reason": "Local libvirt builder image unavailable; this test never pulls or builds images",
+                "result": "skipped"
+              },
+              {
+                "test": "tests.test_host_ha_lan_libvirt.test_real_libvirt_preserves_network_identity_through_enable_retry_and_disable",
+                "reason": "Local libvirt builder image unavailable; this test never pulls or builds images",
+                "result": "skipped"
+              }
+            ]
+          },
+          {
+            "category": "separately_gated_lan_namespace_smoke",
+            "count": 1,
+            "cases": [
+              {
+                "test": "tests.test_installed_ha_lan_probe.test_actual_lan_lab_namespace_starts_dhcp_ra_and_mdns",
+                "reason": "Explicit test-only Docker namespace smoke; not HAOS acceptance",
+                "result": "skipped"
+              }
+            ]
+          }
+        ]
+      },
+      "artifact": {
+        "id": 12103344818,
+        "sha256": "3c05b01c101044a6333d25eefeefacdcc8c688a47c5588315c13c8c75c9b093a",
+        "bytes": 62197418,
+        "github_api_digest_verified": true
+      },
+      "ci_source_zip": {
+        "sha256": "b1565e166d6b79528216052bfe70be93976287b0e83a8ca04839299b5c433db2",
+        "bytes": 33067134,
+        "members": 1541
+      },
+      "source_payload_members_compared": 482,
+      "source_payload_differences": 0,
+      "nested_runner_members_compared": 58,
+      "nested_runner_payload_differences": 0,
+      "nested_runner_compressed_bytes_equal": true,
+      "all_internal_manifests_valid": true,
+      "source_mirrors": {
+        "host_worker_pairs": 25,
+        "bridge_pairs": 4,
+        "all_equal": true
+      },
+      "runtime_evidence_difference_count": 222,
+      "runtime_evidence_difference_categories": {
+        "platform_execution_receipt": 14,
+        "junit_execution_receipt": 1,
+        "test_generated_ui_screenshot": 207
+      },
+      "runtime_evidence_declarations_sha256": "b3d1798bbc4252663d95c519efb180bc753858c74cf6a485898db848f4a2a33f",
+      "artifact_and_source_changed_evidence_bytes_equal": true,
+      "grok_cli": "not_run: owner instruction"
+    }
+  ],
+  "historical_runtime_reference": {
+    "commit": "614bcd3fe919303d26193cca234defb15128d2c3",
+    "sha256": "46583024a21091422019aedf820aeab6681a22d6b454cd3f95bd712eff8eadfc",
+    "bytes": 32498537,
+    "all_other_source_payloads_unchanged": true,
+    "reviewed_test_and_pytest_only_changes": [
+      "pyproject.toml",
+      "tests/ha_lan_peer.py",
+      "tests/installed_sandbox_probe.py",
+      "tests/test_coding_job_budgets.py",
+      "tests/test_coding_sandbox.py",
+      "tests/test_haos_boundary.py",
+      "tests/test_home_coding_service.py",
+      "tests/test_installed_ha_lan_probe.py",
+      "tests/test_installed_lan_callback.py",
+      "tests/test_interactive_preview.py",
+      "tests/test_linux_install.py",
+      "tests/test_linux_install_cleanup.py",
+      "tests/test_updater.py",
+      "tests/test_worker_execution.py"
+    ],
+    "pyproject_difference_only_two_pytest_retention_settings": true
+  },
+  "comparison_policy": {
+    "compared": "All source executable/configuration/docs/static payloads against exact F10 Git and actual frozen source ZIP; decoded nested Runner and maintained mirrors.",
+    "excluded": "Only explicitly enumerated test-generated evidence; every difference has a frozen producer binding.",
+    "historical_reference": "Preserved F7 ZIP establishes unchanged runtime plus 14 separately reviewed test/pytest-only source changes; it is not F10 media."
+  },
+  "limitations": [
+    "The PR run uses a synthetic merge commit with the exact F10 tree; its commit ID is not F10.",
+    "This receipt binds the F10 source ZIP; it does not establish ISO/TAR content equivalence or installed qualification.",
+    "This comparison establishes source payload equivalence, not CI/local container image byte identity.",
+    "CI does not run the separately gated HAOS VM or laptop ISO installation suites.",
+    "Real libvirt and QEMU builder-image probes were skipped in CI and require separate qualification.",
+    "Real household accounts, physical devices, and long-running laptop acceptance require separate evidence."
+  ],
+  "no_ci_reruns_cancellations_or_source_mutations": true
+}

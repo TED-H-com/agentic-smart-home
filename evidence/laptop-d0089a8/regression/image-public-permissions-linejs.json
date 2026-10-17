@@ -1,0 +1,10 @@
+{
+  "app": "linejs",
+  "reader_uid": 1000,
+  "status": "passed",
+  "scope": "Actual packaged public-file DAC and imports; no service startup or real-account acceptance",
+  "image_id": "sha256:fd818a276f22b0edff39c49c836f889ff519c20aa102028a51ad40d23d4ddac1",
+  "uid": 1000,
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "0eb466c3d67ebb6fa8eca90a47e843303f34ef8e1d8f9f804ffda68bc019d70e"
+}

@@ -1,0 +1,452 @@
+{
+  "source_commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+  "version": "0.10.0",
+  "all_eight_passed": true,
+  "candidate_manifest_input_sha256": "5609f3ee21693e7367f209a63a9a6d64ec83875a6944b2e9d8489fec9491b6b9",
+  "importer_sha256": "6e07e43d9543e2e97490926104f678e4e9f8f99808caa8e23b6c321834e9df29",
+  "evidence_input_bindings_sha256": "1e5bbdf470492d077a26372c4106126ed819b63ee8f7f6373a6aa50698fa957e",
+  "public_channel_passed": true,
+  "status": "passed",
+  "channels": [
+    {
+      "channel": "local",
+      "stages": [
+        {
+          "stage": "install",
+          "commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+          "status": "passed",
+          "started": "2026-10-17T14:05:54.795266+00:00",
+          "finished": "2026-10-17T15:14:16.435670+00:00",
+          "public_channel_test": false,
+          "junit": {
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "tests": 1
+          },
+          "excluded_cli_probes": {
+            "grok": "not_run: owner instruction"
+          },
+          "cleanup": {
+            "owned_resources_absent": true,
+            "disk_basetemp_removed": true,
+            "filesystem": "ext4",
+            "scope": "known_test_name_prefixes_only"
+          },
+          "original_junit_sha256": "79d30833274090a8cb395289de7dd87df4a9ddeff5ec121121935e647ffec129"
+        },
+        {
+          "stage": "regression",
+          "commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+          "status": "passed",
+          "started": "2026-10-17T15:14:16.967036+00:00",
+          "finished": "2026-10-17T15:36:55.225638+00:00",
+          "public_channel_test": false,
+          "junit": {
+            "failures": 0,
+            "errors": 0,
+            "skipped": 8,
+            "tests": 3265
+          },
+          "excluded_cli_probes": {
+            "grok": "not_run: owner instruction"
+          },
+          "cleanup": {
+            "owned_resources_absent": true,
+            "disk_basetemp_removed": true,
+            "filesystem": "ext4",
+            "scope": "known_test_name_prefixes_only"
+          },
+          "original_junit_sha256": "6131bfdda56d8d030dcd87c029eebbdab1c2dbbce0f68f68c8a29b557b38caad"
+        },
+        {
+          "stage": "enable",
+          "commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+          "status": "passed",
+          "started": "2026-10-17T17:14:35.405279+00:00",
+          "finished": "2026-10-17T17:28:14.679652+00:00",
+          "public_channel_test": false,
+          "junit": {
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "tests": 42
+          },
+          "excluded_cli_probes": {
+            "grok": "not_run: owner instruction"
+          },
+          "cleanup": {
+            "owned_resources_absent": true,
+            "disk_basetemp_removed": true,
+            "filesystem": "ext4",
+            "scope": "known_test_name_prefixes_only"
+          },
+          "original_junit_sha256": "0f3432327789893930c5f52384063afdcb94fd52b035e4e67d57a02add41cc06"
+        },
+        {
+          "stage": "home-worker-haos",
+          "commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+          "status": "passed",
+          "started": "2026-10-17T17:28:15.104125+00:00",
+          "finished": "2026-10-17T17:35:44.498018+00:00",
+          "public_channel_test": false,
+          "junit": {
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "tests": 114
+          },
+          "excluded_cli_probes": {
+            "grok": "not_run: owner instruction"
+          },
+          "cleanup": {
+            "owned_resources_absent": true,
+            "disk_basetemp_removed": true,
+            "filesystem": "ext4",
+            "scope": "known_test_name_prefixes_only"
+          },
+          "original_junit_sha256": "d04116ebbfc4f89f47f2e70eebd4c85e19e0b2ed6e011373b42a56523d9db47c"
+        },
+        {
+          "stage": "haos-boundary",
+          "commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+          "status": "passed",
+          "started": "2026-10-17T17:35:44.842215+00:00",
+          "finished": "2026-10-17T17:39:29.893285+00:00",
+          "public_channel_test": false,
+          "junit": {
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "tests": 2
+          },
+          "excluded_cli_probes": {
+            "grok": "not_run: owner instruction"
+          },
+          "cleanup": {
+            "owned_resources_absent": true,
+            "disk_basetemp_removed": true,
+            "filesystem": "ext4",
+            "scope": "known_test_name_prefixes_only"
+          },
+          "original_junit_sha256": "2c127d48f481a35b62828e674054108aa5c5edbd3e966eab374c740d5dc704a3"
+        },
+        {
+          "stage": "runner-build",
+          "commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+          "status": "passed",
+          "started": "2026-10-17T17:39:30.232653+00:00",
+          "finished": "2026-10-17T17:51:18.424116+00:00",
+          "public_channel_test": false,
+          "junit": {
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "tests": 102
+          },
+          "excluded_cli_probes": {
+            "grok": "not_run: owner instruction"
+          },
+          "cleanup": {
+            "owned_resources_absent": true,
+            "disk_basetemp_removed": true,
+            "filesystem": "ext4",
+            "scope": "known_test_name_prefixes_only"
+          },
+          "original_junit_sha256": "7b7a47011c9db7b24186ac984ff68770643e8bb35ed8e9cd0595c6ffec660590"
+        },
+        {
+          "stage": "bridge-haos",
+          "commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+          "status": "passed",
+          "started": "2026-10-17T17:51:18.749870+00:00",
+          "finished": "2026-10-17T17:58:54.551990+00:00",
+          "public_channel_test": false,
+          "junit": {
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "tests": 40
+          },
+          "excluded_cli_probes": {
+            "grok": "not_run: owner instruction"
+          },
+          "cleanup": {
+            "owned_resources_absent": true,
+            "disk_basetemp_removed": true,
+            "filesystem": "ext4",
+            "scope": "known_test_name_prefixes_only"
+          },
+          "original_junit_sha256": "a8f7d0a86d023cf86e99f51b0a933c4f78dda30b8b221ff2da2ba43710930418"
+        },
+        {
+          "stage": "haos-vm",
+          "commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+          "status": "passed",
+          "started": "2026-10-17T17:58:54.996679+00:00",
+          "finished": "2026-10-17T18:09:12.784894+00:00",
+          "public_channel_test": false,
+          "junit": {
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "tests": 2
+          },
+          "excluded_cli_probes": {
+            "grok": "not_run: owner instruction"
+          },
+          "cleanup": {
+            "owned_resources_absent": true,
+            "disk_basetemp_removed": true,
+            "filesystem": "ext4",
+            "scope": "known_test_name_prefixes_only"
+          },
+          "original_junit_sha256": "0caeed6a63341b8eee8ce86c4203d56f6bfed08daa80025667d03587e76b339c"
+        }
+      ]
+    },
+    {
+      "channel": "public",
+      "stages": [
+        {
+          "stage": "enable",
+          "commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+          "status": "passed",
+          "started": "2026-10-17T19:06:51.008359+00:00",
+          "finished": "2026-10-17T19:29:06.835212+00:00",
+          "public_channel_test": true,
+          "junit": {
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "tests": 42
+          },
+          "excluded_cli_probes": {
+            "grok": "not_run: owner instruction"
+          },
+          "cleanup": {
+            "owned_resources_absent": true,
+            "disk_basetemp_removed": true,
+            "filesystem": "ext4",
+            "scope": "known_test_name_prefixes_only"
+          },
+          "original_junit_sha256": "c5867b7a6b98082f36a047c7bab435dd0a528ff166879ce268c43ce049218e67"
+        },
+        {
+          "stage": "bridge-haos",
+          "commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+          "status": "passed",
+          "started": "2026-10-17T20:13:58.296289+00:00",
+          "finished": "2026-10-17T20:27:22.204362+00:00",
+          "public_channel_test": true,
+          "junit": {
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "tests": 40
+          },
+          "excluded_cli_probes": {
+            "grok": "not_run: owner instruction"
+          },
+          "cleanup": {
+            "owned_resources_absent": true,
+            "disk_basetemp_removed": true,
+            "filesystem": "ext4",
+            "scope": "known_test_name_prefixes_only"
+          },
+          "original_junit_sha256": "e6f232d3e7dbc9cdcd4d9f18bdef9976fa61159d3885818bff47fc4fe908ba73"
+        }
+      ]
+    }
+  ],
+  "excluded_cli_probes": {
+    "grok": "not_run: owner instruction"
+  },
+  "limitations": [
+    "Disposable VMs and synthetic LAN only; physical laptop and household devices not tested.",
+    "Cloud account login not tested; CLI protocol fixtures do not establish real-account acceptance.",
+    "Live hardware preflight ran in the disposable installer; raw preflight log stays private.",
+    "Companion evidence is separate from the frozen source ZIP and installed media.",
+    "Local acceptance selects original installation and regression plus a later six-stage continuation of the same frozen candidate. The original missing-cache failure, a failed bridge-enrollment continuation, a second continuation with failed fixture cleanup despite functional checks passing, an ineligible diagnostic failure, and a failed content-cache repair remain recorded; successful cache prerequisites are setup evidence only.",
+    "Public enable comes from a failed two-stage attempt; public bridge comes from a later independent bridge-only execution. Both selected stages passed all guards. Prior unsuccessful attempts remain recorded, including fixture cleanup failure despite later wrapper cleanup. Stable/source conditions were checked before and after each selected stage, not continuously between executions."
+  ],
+  "execution_provenance": {
+    "mode": "reviewed_same_candidate_continuation",
+    "uninterrupted_run": false,
+    "run_count": 4,
+    "selected_run_count": 2,
+    "diagnostic_run_count": 1,
+    "original_run": {
+      "status": "failed",
+      "summary_sha256": "df688194da2d882965ebd2575fa9138b082255882ad8c682badbd21f02e35242"
+    },
+    "continuation_run": {
+      "status": "passed",
+      "summary_sha256": "9b34abeef806b59752b5c7c158c3ed7011f9cdec87ffd9ce57d769a326ad084a"
+    },
+    "prior_failed_continuation": {
+      "status": "failed",
+      "stage": "enable",
+      "error_code": "bridge_auto_enroll_blocked",
+      "summary_sha256": "e8cee2325b4499c821574db56c894375305427fa90f0dee235716c644091307a"
+    },
+    "prior_cleanup_failed_continuation": {
+      "status": "failed",
+      "stage": "enable",
+      "error_code": "owned_enable_resources_not_removed",
+      "fixture_cleanup_passed": false,
+      "later_wrapper_cleanup_passed": true,
+      "summary_sha256": "470d736ab846b471791537c434188e781618fd417b9ed65817d8ca1072bb0c1e"
+    },
+    "diagnostic_run": {
+      "status": "test_failed",
+      "qualification_eligible": false,
+      "stage": "install",
+      "state": "needs_reconcile",
+      "code": "bridge_operation_unconfirmed",
+      "summary_sha256": "b7725afb0c54360da4aba33f64becfdcd1c07bfb72ad06eddc8632ed78fc4fbf"
+    },
+    "initial_failure": {
+      "stage": "enable",
+      "error_code": "pinned_image_not_present_locally",
+      "stage_sha256": "4bdbd0d833bf22f346846be6fab91f822f36f2334672894a0e05f83a59e6bc4e",
+      "evidence_sha256": "5aa20b18f98e7cc9fd67dc71d82b2d44be44c383aa34960e7a044dd310937fc1"
+    },
+    "cache_repair": {
+      "status": "ready",
+      "receipt_sha256": "0705fc827da0c91474b10368036e19e9fc448b594b9014c5463a77a6a77328cd",
+      "fixture_base_count": 3,
+      "all_six_product_ids_unchanged": true
+    },
+    "failed_content_cache_repair": {
+      "status": "failed",
+      "qualification_eligible": false,
+      "error_code": "platform-export_failed",
+      "receipt_sha256": "adb873a76a3a387dd6d6c15db4424d19b3da4d5ca2c34d02a90f3df08aa4a741"
+    },
+    "content_cache_repair": {
+      "status": "export_verified",
+      "qualification_eligible": false,
+      "method": "anonymous_verified_oci_blobs_then_normal_docker_load",
+      "receipt_sha256": "018790dd72075b7099fceb4e12e12cec6b7d5e2fab5b579cd5eaaad67b452885",
+      "complete_platform_and_fixture_exports_verified": true
+    },
+    "registry_cache_repair": {
+      "status": "export_verified",
+      "qualification_eligible": false,
+      "receipt_sha256": "b010a2f74e05cb6d1832e82e014a592bcfe16a8d9853eceb399b021a56fb8dee"
+    },
+    "stage_origins": {
+      "install": "original",
+      "regression": "original",
+      "enable": "continuation",
+      "home-worker-haos": "continuation",
+      "haos-boundary": "continuation",
+      "runner-build": "continuation",
+      "bridge-haos": "continuation",
+      "haos-vm": "continuation"
+    }
+  },
+  "continuation_proof_sha256": "f4e96ab1f5aa097d9dc7568352efd86fc3e220c94ed257ef5b4c3ad9b64e9952",
+  "public_execution_provenance": {
+    "mode": "reviewed_same_candidate_public_stages",
+    "uninterrupted_run": false,
+    "selected_run_count": 2,
+    "stage_origins": {
+      "enable": {
+        "run": "public-qualification-d0089a8-continuation-3-retry2",
+        "summary_sha256": "8047d5b5ead1ba2f6ac4e0f7258e9dbb880dc2fa4a0c7c61e83eeba7201ee8aa",
+        "wrapper_sha256": "c6836369ff856944c598f22ed391f4e89f730f590571e0e381f1d124b23dc161"
+      },
+      "bridge-haos": {
+        "run": "public-qualification-d0089a8-bridge-continuation-1",
+        "summary_sha256": "83056e3f995c647f59f4405f360de0ed9246b39142bee9bd3c06ffd0d6ed2316",
+        "wrapper_sha256": "68c276cfa6d302b0f8a75fe8795f9545d50ef00a949650efe226299a4787cabd"
+      }
+    },
+    "prior_failures": [
+      {
+        "attempt": "initial",
+        "run": "public-qualification-d0089a8-continuation-3",
+        "summary_status": "failed",
+        "summary_sha256": "921ca1bce177e562459522d19f345ae36d7a45c7872893987c61a9d31a41e289",
+        "failed_stage": "enable",
+        "stage_status": "failed",
+        "fixture_status": "failed",
+        "fixture_cleanup": "failed",
+        "wrapper_cleanup": "failed"
+      },
+      {
+        "attempt": "retry1",
+        "run": "public-qualification-d0089a8-continuation-3-retry1",
+        "summary_status": "failed",
+        "summary_sha256": "e83af358a80f486a631b23d7c8962a40d545bdd4c2924033c6134e883ad56a0e",
+        "failed_stage": "enable",
+        "stage_status": "interrupted",
+        "fixture_status": "not_recorded",
+        "fixture_cleanup": "not_recorded",
+        "wrapper_cleanup": "not_recorded"
+      },
+      {
+        "attempt": "retry2",
+        "run": "public-qualification-d0089a8-continuation-3-retry2",
+        "summary_status": "failed",
+        "summary_sha256": "8047d5b5ead1ba2f6ac4e0f7258e9dbb880dc2fa4a0c7c61e83eeba7201ee8aa",
+        "failed_stage": "bridge-haos",
+        "stage_status": "failed",
+        "fixture_status": "failed",
+        "fixture_cleanup": "failed",
+        "wrapper_cleanup": "passed"
+      }
+    ],
+    "stability_observation": "before_and_after_each_selected_stage_only",
+    "continuous_stability_claimed": false,
+    "input_sha256": {
+      "bridge/bridge-haos-after.json": "a806eb3e7566df8a254db673dfad0f68325fa3c8041dc658a6f57197a292cfdf",
+      "bridge/bridge-haos-before.json": "3bd35a178190f0793ad618f84d85ae84c365a5eeca97e884c4b9768c44ae24ea",
+      "bridge/bridge-haos/evidence-files.json": "ddd97402776e9f334f056dc2e2fc984b8256b5c8bf5a7bd51832ad35a0278295",
+      "bridge/bridge-haos/evidence/bridge-haos.json": "1320f4ca09fddb50d32805c6f30221a85d1dd2d99389ff3c0388a12add9672ad",
+      "bridge/bridge-haos/junit.xml": "e6f232d3e7dbc9cdcd4d9f18bdef9976fa61159d3885818bff47fc4fe908ba73",
+      "bridge/bridge-haos/process/command.json": "4aaa49412f15492a0d6d41bce9c2e9c90157a6d96a97ffd480eec045fb0a3b1d",
+      "bridge/bridge-haos/stage.json": "62b951aae54e36b6aaac4a20791754675a7219cb0613108ddc29de7528d43f40",
+      "bridge/candidate-manifest.json": "5609f3ee21693e7367f209a63a9a6d64ec83875a6944b2e9d8489fec9491b6b9",
+      "bridge/configuration.json": "8fc0b9cd0186e9865dc2661157212e9d51b1a562ca846223ffad6152be3fba95",
+      "bridge/local-acceptance-hashes.json": "0fee7a4b73a3410921ac292c69ccd4ac7129e817ae25742bc50cef670209a7a7",
+      "bridge/local-orchestration.py": "6ac52eaa86b49048dd3b3294f346a949365cb307aebb77d486a37af87dfd0546",
+      "bridge/qualify-public-bridge.py": "68c276cfa6d302b0f8a75fe8795f9545d50ef00a949650efe226299a4787cabd",
+      "bridge/summary.json": "83056e3f995c647f59f4405f360de0ed9246b39142bee9bd3c06ffd0d6ed2316",
+      "initial/candidate-manifest.json": "5609f3ee21693e7367f209a63a9a6d64ec83875a6944b2e9d8489fec9491b6b9",
+      "initial/configuration.json": "8fc0b9cd0186e9865dc2661157212e9d51b1a562ca846223ffad6152be3fba95",
+      "initial/enable/evidence-files.json": "c83b39b3b19a987e080a8fa04e62d285f17e6672af9373c9b5f939fffe0a4cb9",
+      "initial/enable/evidence/home-worker-enable-haos.json": "8f8d34a3805bfb21ba5200081470f319688811f558e50d6552fa7ac8ce0b6b7d",
+      "initial/enable/stage.json": "34837535a7f5f6eaaf0e0d0be3ce55d74dba561912ea33ad8518b58edcb23a59",
+      "initial/local-acceptance-hashes.json": "0fee7a4b73a3410921ac292c69ccd4ac7129e817ae25742bc50cef670209a7a7",
+      "initial/local-orchestration.py": "6ac52eaa86b49048dd3b3294f346a949365cb307aebb77d486a37af87dfd0546",
+      "initial/qualify-public.py": "c6836369ff856944c598f22ed391f4e89f730f590571e0e381f1d124b23dc161",
+      "initial/summary.json": "921ca1bce177e562459522d19f345ae36d7a45c7872893987c61a9d31a41e289",
+      "retry1/candidate-manifest.json": "5609f3ee21693e7367f209a63a9a6d64ec83875a6944b2e9d8489fec9491b6b9",
+      "retry1/configuration.json": "8fc0b9cd0186e9865dc2661157212e9d51b1a562ca846223ffad6152be3fba95",
+      "retry1/enable/stage.json": "3ed55b9974f121e0002343214c1b5fdac3e0535c04be8f7be06e44423f3b3140",
+      "retry1/local-acceptance-hashes.json": "0fee7a4b73a3410921ac292c69ccd4ac7129e817ae25742bc50cef670209a7a7",
+      "retry1/local-orchestration.py": "6ac52eaa86b49048dd3b3294f346a949365cb307aebb77d486a37af87dfd0546",
+      "retry1/qualify-public.py": "c6836369ff856944c598f22ed391f4e89f730f590571e0e381f1d124b23dc161",
+      "retry1/summary.json": "e83af358a80f486a631b23d7c8962a40d545bdd4c2924033c6134e883ad56a0e",
+      "retry2/bridge-haos/evidence-files.json": "e8e29342a283fe75d44d617745524757419de39b9a4b0f3e5d7b84a2e0c99326",
+      "retry2/bridge-haos/evidence/bridge-haos.json": "636fe246151de7a216de6b280a53564d8b9ac5bbef3dfeeb1c449361633a12e6",
+      "retry2/bridge-haos/stage.json": "fc9bbb68c2139bf872878a7ff798d77b1528485a7c23b58f9628f2ab49d4f2bf",
+      "retry2/candidate-manifest.json": "5609f3ee21693e7367f209a63a9a6d64ec83875a6944b2e9d8489fec9491b6b9",
+      "retry2/configuration.json": "8fc0b9cd0186e9865dc2661157212e9d51b1a562ca846223ffad6152be3fba95",
+      "retry2/enable-after.json": "37892f37f015a3cad481ae6a5e0b549ce1645b918b7d4c8f93f6c8acafe2165b",
+      "retry2/enable-before.json": "ab525bdaa32ad437158f2a2302c20a968ab52d3256f18fa5da0dddf70d3bcfca",
+      "retry2/enable/evidence-files.json": "5bbbb4ab7482732937afd806f78f579e5cb1aed2e976710892c297a209a81a44",
+      "retry2/enable/evidence/home-worker-enable-haos.json": "523c522cabeaaa94a7f8ca0f7ed909881c6a4127508af5e396e3283743531eb9",
+      "retry2/enable/junit.xml": "c5867b7a6b98082f36a047c7bab435dd0a528ff166879ce268c43ce049218e67",
+      "retry2/enable/process/command.json": "890c61dec83270f46c2c862c7dbf77c4405cbc03ee681ccb4aee30b0227c6886",
+      "retry2/enable/stage.json": "1dd2d69f40d58f6e1dcc19e3fcb443d4dbe4c5894a6ee8a4a9a7727cc49b8027",
+      "retry2/local-acceptance-hashes.json": "0fee7a4b73a3410921ac292c69ccd4ac7129e817ae25742bc50cef670209a7a7",
+      "retry2/local-orchestration.py": "6ac52eaa86b49048dd3b3294f346a949365cb307aebb77d486a37af87dfd0546",
+      "retry2/qualify-public.py": "c6836369ff856944c598f22ed391f4e89f730f590571e0e381f1d124b23dc161",
+      "retry2/summary.json": "8047d5b5ead1ba2f6ac4e0f7258e9dbb880dc2fa4a0c7c61e83eeba7201ee8aa"
+    }
+  }
+}

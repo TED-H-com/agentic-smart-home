@@ -1,0 +1,10 @@
+{
+  "app": "preview",
+  "reader_uid": 10004,
+  "status": "passed",
+  "scope": "Actual packaged public-file DAC and imports; no service startup or real-account acceptance",
+  "image_id": "sha256:ec3067ed331632d543ed042e2913cefebd8e87842c48b7e364b15861313bbe3a",
+  "uid": 10004,
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "ae95d67f9dcbcb8068f49f3ab1022469f92eeaf347c58d4d4f452a3b9c9c5c6f"
+}

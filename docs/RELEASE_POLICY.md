@@ -35,7 +35,7 @@ Manager 只處理本產品指定 App。使用者手動停止、移除或改變 A
 
 ## 維護端候選與發布
 
-0.10.0 正在準備新安裝候選，包含多來源盤點與 USB 硬體檢查。必須建立新 ISO、保存來源／image／媒體 digest，通過精確媒體安裝與同版 App 平台測試，再核對公開 `#stable` 安裝路徑。0.9.0 已發布媒體及收據保留原版本，不以新版 CI 或示範替換其身分。
+0.10.0 工程預覽的發布入口為 [v0.10.0](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.10.0)，工程驗證與公開下載結果：同一候選本機八階段（2+6 接續）已通過；公開 App：逐階段接續通過（enable 42、bridge-haos 40，清理完成）；匿名下載：Linux 完整下載與校驗通過，暫存清理完成。媒體及本次公開 `#stable` 測試來源固定為 `d0089a80e358cbd776a89327f0e58bfba68c671b`，Home coding 來源為 `0886a5459984e916e8dc6a881a1bd6d4249934fd`；八階段、兩個公開 App 階段及清理結果見 [companion 摘要](../evidence/laptop-d0089a8/summary.json)。CI、傳輸與匿名下載各自留證據，見 [驗證紀錄](VERIFICATION.md)。發布後 main 的文件／證據更新不重建媒體、不重指既有 tag 或本次 stable 身分；source ZIP 內的建置時文件保持原樣。0.9.0 媒體與收據亦保持不變。
 
 `#stable` 是單一移動頻道。推進後，新商店版本可能高於舊 ISO 的 Controller，首次 App 安裝會以 `*_release_ahead` 停止；不得移除版本檢查來掩蓋差異。新使用者取得的媒體、公開 App 版本和安裝說明必須配套。這也不授權自動重裝既有家庭；完整 Host 更新／遷移仍須另外交付。
 

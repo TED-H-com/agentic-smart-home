@@ -2,7 +2,7 @@
 
 外層 Linux 先啟動 Web／Hermes／固定診斷，HAOS VM 由持久 onboarding 在 CLI／Hermes／通道就緒後自動建立。Host Codex coding 與真正運行於 HAOS App 的 Home coding 已交付，家庭現場可從網頁一鍵啟用及獨立登入。真帳號及完整 E1／E2 仍待現場驗收。本頁描述當前部署，完整設計與缺口見 [v3 文件](v3/README.md) 和 [進度](v3/PROGRESS.md)。
 
-0.10.0 是正在準備的安裝候選；新來源與既有 0.9.0 精確媒體分開記錄，不能沿用舊 ISO 的通過狀態。
+0.10.0 工程預覽的來源、精確媒體與公開 App 結果見 [驗證紀錄](VERIFICATION.md)；既有 0.9.0 證據保留原版本，真帳號及實體筆電另驗。
 
 ## 建置與首次開機
 
@@ -42,9 +42,9 @@ MCP 使用專用短期 case/run capability。固定工具為 `host.status`、`wo
 
 guest 使用 non-secure OVMF、qcow2／virtio-scsi／virtio-net，預設 2 vCPU／4 GiB RAM／64 GiB sparse disk。成功 provision 後才有 libvirt autostart；未建立 HAOS 的外層重啟不會突然建立 guest。ACPI shutdown 等待 180 秒，逾時不強制斷電。
 
-loopback proxy 8123 → guest:80 保留 WebSocket，不偽造 HA 身份。基本 NAT 不提供 LAN multicast discovery；外層 broker 的鄰居表、mDNS／SSDP 與路由器清單只是獨立觀測來源，見 [設備探索](DEVICE_DISCOVERY.md)。0.10.0 候選另提供明確選擇的實體有線接入：保留 NAT 管理 NIC，增加一張 direct／macvtap 家庭 NIC；有線模式取消管理 DHCP 的預設 gateway，讓家庭 DHCP 提供 guest 預設路由，不重寫 host IP／路由。只在未建立或已正常關機的 HAOS 上配置，並保留中斷核對紀錄。Controller 在 Owner 授權後讀回 Supervisor／Core 的位址、adapter 與內部網址；原生 HA 的手動選擇由使用者處理。完整操作、LAN 可見服務與待驗證限制見 [家庭區網接入](HA_LAN.md)。產品不自動認領 USB dongle。
+loopback proxy 8123 → guest:80 保留 WebSocket，不偽造 HA 身份。基本 NAT 不提供 LAN multicast discovery；外層 broker 的鄰居表、mDNS／SSDP 與路由器清單只是獨立觀測來源，見 [設備探索](DEVICE_DISCOVERY.md)。0.10.0 另提供明確選擇的實體有線接入：保留 NAT 管理 NIC，增加一張 direct／macvtap 家庭 NIC；有線模式取消管理 DHCP 的預設 gateway，讓家庭 DHCP 提供 guest 預設路由，不重寫 host IP／路由。只在未建立或已正常關機的 HAOS 上配置，並保留中斷核對紀錄。Controller 在 Owner 授權後讀回 Supervisor／Core 的位址、adapter 與內部網址；原生 HA 的手動選擇由使用者處理。完整操作、LAN 可見服務與待驗證限制見 [家庭區網接入](HA_LAN.md)。產品不自動認領 USB dongle。
 
-既有 0.9.0 真 HAOS 工程驗證已涵蓋 Home launcher、自訂 AppArmor、cgroup／磁碟配額、credential／LAN／管理隔離與停止核對；模型使用固定測試 transport，不能當作真帳號或實體設備驗收。0.10.0 仍須重驗自己的精確來源。`host_network:false` 或未給 HA API token 不能直接證明 App 無法連其他內部服務，詳見 [Home 邊界證據](WORKERS.md#home-app-的實測範圍)。
+既有 0.9.0 真 HAOS 工程驗證已涵蓋 Home launcher、自訂 AppArmor、cgroup／磁碟配額、credential／LAN／管理隔離與停止核對；模型使用固定測試 transport，不能當作真帳號或實體設備驗收。0.10.0 的精確來源另有工程驗證紀錄，見 [驗證紀錄](VERIFICATION.md)。`host_network:false` 或未給 HA API token 不能直接證明 App 無法連其他內部服務，詳見 [Home 邊界證據](WORKERS.md#home-app-的實測範圍)。
 
 冷快照正常關機後複製磁碟＋UEFI，計算 SHA-256 後寫 manifest。restore 先驗 ownership／digest／關機狀態，記錄 `restore_pending`；中断可對同一 snapshot 核對／續作，不啟動半還原 VM。還原較舊 guest 後需 reconcile 較新的 Controller ledger，資料還原不能撤回物理動作。
 

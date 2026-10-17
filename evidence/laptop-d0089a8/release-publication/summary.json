@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "kind": "public_release_delivery_summary",
+  "status": "passed",
+  "repository": "TED-H-com/agentic-smart-home",
+  "version": "0.10.0",
+  "source_commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+  "candidate_manifest_sha256": "5609f3ee21693e7367f209a63a9a6d64ec83875a6944b2e9d8489fec9491b6b9",
+  "release": {
+    "tag": "v0.10.0",
+    "url": "https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.10.0",
+    "id": 416043791,
+    "published_at": "2026-10-17T21:33:26Z",
+    "prerelease": true,
+    "target_commit_verified": true
+  },
+  "server_assets": {
+    "status": "passed",
+    "asset_count": 78,
+    "all_sizes_and_sha256_match": true,
+    "transport_receipt_sha256": "77bb8e6493fce150dfb3d080e7b3d84d0c8d3ade18c509b44c8e29284286915f",
+    "upload_completion_sha256": "0714741f1aae259243b97b56efc74951f3101c72ac90a9f192cb7c23fc812720",
+    "verification_zip_sha256": "3d5204348517c11ca1c92d105f4ad5c21154bad174b07c199a76af8a5120905b"
+  },
+  "anonymous_download": {
+    "status": "passed",
+    "started_at": "2026-10-17T21:33:43.866414+00:00",
+    "finished_at": "2026-10-17T21:47:34.024296+00:00",
+    "credentials_or_cookie_headers_used": false,
+    "ambient_proxy_environment_used": false,
+    "published_downloader_completed": true,
+    "all_four_original_files_sha256_verified": true,
+    "additional_downloaded_assets_sha256_verified": true,
+    "release_metadata_unchanged": true,
+    "originals": [
+      {
+        "name": "agentic-home-0.10.0-laptop-amd64.iso",
+        "bytes": 6817185792,
+        "sha256": "b9e6f5b40af8eaec3a3ab2998366b6c67e6b92662ff31b8dc023aa39692ee0ca"
+      },
+      {
+        "name": "agentic-home-0.10.0-linux-amd64.tar",
+        "bytes": 2737704960,
+        "sha256": "01bbde95656ff4fd4954ff8a58dd56ee5da5380b99a658f5b1a7017a74d29275"
+      },
+      {
+        "name": "agentic-home-0.10.0-source.zip",
+        "bytes": 32505972,
+        "sha256": "ab83d8eb236f26189d1542153e1c598c9ad3bbddfdc67c1889ce55e58433d41a"
+      },
+      {
+        "name": "SHA256SUMS",
+        "bytes": 302,
+        "sha256": "33dd9cea2343e5e602ee4c744fc1ad59d2132de1bb179b38748f5f2c72080645"
+      }
+    ],
+    "source_receipt_sha256": "ed97e38a073b1ed271d996365dea88328b371834951ef496ea6874f363804601"
+  },
+  "cleanup": {
+    "status": "passed",
+    "verification_scratch_removed": true,
+    "original_media_and_assets_opened": false,
+    "source_receipt_sha256": "3fb37733de09fe210b729ce3b1b0156afea5912634a70228f68f4f07a2633ba3"
+  },
+  "limits": {
+    "transfer_platform": "Linux",
+    "native_windows_downloader": "not_run",
+    "physical_dell_usb_nic": "not_run",
+    "real_cloud_accounts_and_household_devices": "not_run",
+    "continuous_72_hour_operation": "not_run",
+    "actual_grok_cli": "not_run: owner instruction"
+  }
+}

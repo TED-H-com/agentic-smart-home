@@ -1,0 +1,13 @@
+{
+  "runtime_location": "disposable_outer_linux_vm",
+  "iso_sha256": "b9e6f5b40af8eaec3a3ab2998366b6c67e6b92662ff31b8dc023aa39692ee0ca",
+  "cli_exit": 0,
+  "cloud_login": "not_run",
+  "shipped_runtime_observed": {
+    "state": "ready",
+    "source": "release",
+    "cloud_login": "not_run"
+  },
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "ef0622cae090ce62ebebdef63b5f5b438eb14043aa32463bc1ad3055e2b689a9"
+}

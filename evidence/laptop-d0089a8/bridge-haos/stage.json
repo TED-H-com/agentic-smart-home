@@ -1,0 +1,24 @@
+{
+  "stage": "bridge-haos",
+  "commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+  "status": "passed",
+  "started": "2026-10-17T17:51:18.749870+00:00",
+  "finished": "2026-10-17T17:58:54.551990+00:00",
+  "public_channel_test": false,
+  "junit": {
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "tests": 40
+  },
+  "excluded_cli_probes": {
+    "grok": "not_run: owner instruction"
+  },
+  "cleanup": {
+    "owned_resources_absent": true,
+    "disk_basetemp_removed": true,
+    "filesystem": "ext4",
+    "scope": "known_test_name_prefixes_only"
+  },
+  "original_junit_sha256": "a8f7d0a86d023cf86e99f51b0a933c4f78dda30b8b221ff2da2ba43710930418"
+}

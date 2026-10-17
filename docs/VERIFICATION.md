@@ -1,14 +1,36 @@
 # Agentic Smart Home 驗證
 
-## 0.10.0 專用筆電候選（2026-10-17，精確媒體待驗）
+## 0.10.0 專用筆電工程預覽
 
-此候選整合 `82c816c` 的多來源設備盤點、接入追蹤及原生 HA 示範，新增 USB 開機硬體預檢和可選有線 HAOS 區網接入。外層保留固定管理網路；只有使用者選定的實體有線介面可接入，家庭關機後才可變更。Controller 以 Supervisor 與 Core 原生唯讀資料核對地址、探索介面和回呼網址；設定成功與實際接通分開顯示。見 [區網設計與限制](HA_LAN.md)及 [整機安裝步驟](../INSTALL.md)。
+本版交付多來源設備盤點、接入追蹤、原生 HA 示範、USB 開機硬體預檢，以及可選的有線 HAOS 家庭區網。管理網路保持獨立；家庭關機後才可變更有線接法，Controller 以原生 Supervisor／Core 資料讀回 LAN 位址、探索介面與內部網址。見 [區網範圍](HA_LAN.md) 與 [安裝步驟](../INSTALL.md)。
 
-定向工程檢查已通過：硬體預檢 37 項；Host／安裝 harness／預檢整合批次 125 passed、1 optional smoke skipped，另行執行的 Docker 區網 smoke 1 passed；Controller 區網契約與原生 API transport 175 項；設定介面和 Host API 13 項；停用 provider 政策批次 223 passed、2 skipped；安裝後 runtime 設定保存及更新器回歸 138 passed、2 skipped；版本相容 fixtures 270 項。這些批次有重疊，不相加為獨立案例總數。介面使用合成資料，390／768／1440 px [截圖](../evidence/ui/ha-lan/wired-fixture-390.png)不代表實體設備測試。
+發布入口：[v0.10.0](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.10.0)。工程驗證、CI 與公開交付結果：同一候選本機八階段（2+6 接續）已通過；公開 App：逐階段接續通過（enable 42、bridge-haos 40，清理完成）；匿名下載：Linux 完整下載與校驗通過，暫存清理完成。
 
-本候選的 Grok 真程序、版本探測及登入均為 `not_run`；測試真 Runner 在首次啟動前設定明確停用政策，預設產品 provider 支援保留。Home coding 研究來源由 [鎖定檔](../runner/coding-source.lock.json) 固定至獨立公開 commit，與待凍結 Host／Controller bundle 來源分開記錄。
+| 證據範圍 | 結果與來源 |
+|---|---|
+| 同一凍結來源的八個本機階段 | 8/8 通過；各階段的測試資源及磁碟暫存清理完成；[完整階段摘要](../evidence/laptop-d0089a8/summary.json)，逐階段保留 JUnit 計數、清理及分次執行來源 |
+| 公開 `#stable` 的 enable／bridge-haos 兩階段 | 逐階段接續通過（enable 42、bridge-haos 40，清理完成）；同一摘要的 public channel，分開列出測試前後來源與範圍 |
+| 精確 F10 GitHub CI | [PR run](https://github.com/TED-H-com/agentic-smart-home/actions/runs/39038409282) 與 [push run](https://github.com/TED-H-com/agentic-smart-home/actions/runs/39038406046) 各 3,253 passed、12 skipped、0 failed／error；兩次執行範圍重疊，不能相加為獨立案例總數。[CI 來源與計數核對](../evidence/laptop-d0089a8/ci/summary.json) |
+| 發布附件與匿名完整下載 | Linux 完整下載與校驗通過，暫存清理完成；[發布／匿名下載與清理摘要](../evidence/laptop-d0089a8/release-publication/summary.json) |
+| 公開互動示範 | [Pages run 39057021400](https://github.com/TED-H-com/agentic-smart-home/actions/runs/39057021400) 與部署 `7143686749` 已核對合併來源、artifact 和線上檔案；桌面 1440 px／手機 390 px 的互動檢查通過。[線上示範核驗](../evidence/laptop-d0089a8/pages/summary.json) |
 
-**這份建置前文件不宣稱新 ISO 通過或已發布。** 新媒體必須完成完整安裝、合成區網上的真 HAOS DHCP／IPv6／mDNS、重開／復原，以及八階段序列驗證；公開 App 同版安裝另外核驗。最終結果與媒體雜湊將用 companion receipts 記錄，不回改已測媒體。Dell 實機、真帳號、實體設備、72 小時試跑及 E1／E2 仍待驗收，32 案維持 2 passed、30 not_run。
+`v0.10.0` 已於 `2026-10-17T21:33:26Z` 公開為 prerelease（Release ID `416043791`）。78 份附件的名稱、大小與伺服器 SHA-256 均符合審核清單；其後在 Linux 的全新磁碟暫存使用實際公開下載工具，匿名下載、合併並核對 ISO、TAR、source ZIP 與 SHA256SUMS 四份完整原檔，另核對 USB 說明與驗證 ZIP。下載前後發布資料一致，驗證暫存已清除；Windows 原生下載工具仍為 `not_run`。驗證 ZIP 保持發布前封存的 55 個成員；本次發布／下載收據另列於 repository，不回改該 ZIP、52 份 companion 或原始媒體。
+
+CI 各次執行分開記錄：合併至 main 的 [run 39057021403，attempt 1](https://github.com/TED-H-com/agentic-smart-home/actions/runs/39057021403/attempts/1) 在擷取 Hermes 上游來源時遇到 HTTP 429，有限次重試用盡後失敗；後續真 Core／CLI／瀏覽器與打包步驟為 skipped，不能列為該次通過。上述精確候選 F10 的 PR／push CI 成功仍各自有效。另有精確 F10 tag 觸發的 [run 39067181410](https://github.com/TED-H-com/agentic-smart-home/actions/runs/39067181410) 完成成功；此補充觀測不改寫原失敗，也不替換已封存的兩次 CI 摘要或驗證 ZIP。
+
+同一合併來源 `8be5a826` 隨後進行一次有界重試，[attempt 2](https://github.com/TED-H-com/agentic-smart-home/actions/runs/39057021403/attempts/2) 完整通過：3,253 passed、12 skipped，真 Core／CLI／瀏覽器、打包與 artifact 上傳步驟均成功。這是補充的主線 CI 結論；原 attempt 1 失敗仍保留，未重新建置或替換已發布的凍結媒體。
+
+媒體、Host／Controller bundle 及本次公開頻道測試來源為 `d0089a80e358cbd776a89327f0e58bfba68c671b`；Home coding 的公開研究來源另固定為 `0886a5459984e916e8dc6a881a1bd6d4249934fd`。媒體／映像身分見 [candidate manifest](../evidence/laptop-d0089a8/candidate-manifest.json)。`#stable` 是移動分支，測試讀回其來源不等於 Supervisor 以 commit digest 安裝。後續 main 文件與 companion 證據不回改已測媒體；source ZIP 內仍保留建置時文件快照。 公開示範部署來源為合併 commit `8be5a8269809a3a3c3c9ca745bc49e5d3953909f`，tree 與 F10 相同；示範使用虛構資料和模擬 HA 畫面，並非官方 HA frontend runtime 或家庭實測。
+
+本機八階段是同一候選的分次執行結果：首次執行的 install 與 regression 通過，後續因測試環境前置映像問題停止；補齊前置條件後，以未變更的來源、媒體、映像與 harness 重跑其餘六階段。通過結果及組合依據：[交付摘要的 execution_provenance](../evidence/laptop-d0089a8/summary.json)，組合 proof SHA-256 為 `f4e96ab1f5aa097d9dc7568352efd86fc3e220c94ed257ef5b4c3ad9b64e9952`。原始失敗紀錄保留；這不是一次未中斷的完整執行，任何失敗或清理未完成的嘗試均不算通過。首次完整安裝為 1 passed；regression 為 3,257 passed、8 skipped、0 failed／error。 接續六階段依序為 enable 42、home-worker-haos 114、haos-boundary 2、runner-build 102、bridge-haos 40、haos-vm 2 passed，均無 failed／error／skipped。階段計數包含平台案例與 harness 單元測試，不代表同數量的實體設備或獨立家庭案例。
+
+公開 App 首次執行在啟動請求未確認後停於 `needs_reconcile`，enable 為 41 passed、1 failed，bridge-haos 未執行；該次 fixture 及 wrapper 清理檢查也失敗。稍後獨立觀測確認所屬容器、網路與磁碟暫存均已消失，未手動移除資源；這不回改原始失敗判定。第二次執行在 HAOS 啟動期間收到來源不明的 `SIGTERM`，沒有完整 JUnit，亦不計為通過；其遺留測試資源已另行清理。第三次的 enable 42 項通過且清理完成；Bridge 則因設定未確認而停止（39 passed、1 failed），fixture 的移除／權限還原曾超時，但後續 wrapper 確認資源及暫存已清除。[公開執行歷史](../evidence/laptop-d0089a8/public/attempt-history.json)保留各次結果。
+
+公開 App 驗證採逐階段接續：enable 取自第三次執行（retry2），bridge-haos 取自稍後獨立的 bridge-only 執行，分別為 42 與 40 passed，均為 0 failed／error／skipped，fixture 及 wrapper 清理完成。見 [enable 證據](../evidence/laptop-d0089a8/public/enable/stage.json)、[bridge-haos 證據](../evidence/laptop-d0089a8/public/bridge-haos/stage.json) 與 [交付摘要的 public_execution_provenance](../evidence/laptop-d0089a8/summary.json)。這不是一次未中斷的完整公開驗證；各階段前後均核對來源與 stable，不宣稱兩次執行之間持續不變。retry2 的整體結果仍為 failed，後續 wrapper 清理及新的 bridge-only 成功均不回改原判定。公開階段的計數包含真 HAOS 整合與 harness 單元測試，不代表真帳號或家庭設備已驗收。
+
+安裝驗證包含合成區網上的 HAOS 通路與兩次外層重開觀測；是否通過以各 receipt 為準。重開要求實際 boot ID 改變且新開機服務 active，不以舊連線恢復代替。巢狀安裝 fixture 的外層 guest 為 10 GiB，Docker 記憶體上限 16 GiB、記憶體與 swap 合計上限 24 GiB；這是測試配置，不是修改產品硬體需求。HAOS、原生 API、App 與 CLI 工具的工程案例使用各收據明示的模型／帳號／網路 fixtures，不能換算為真雲端或全屋設備通過。
+
+Grok 真程序、版本探測、登入及推論均為 `not_run`；真 Runner 在第一次啟動前套用停用政策，更新與重開後仍須保留，產品既有 provider 支援不因此移除。實體 Dell／USB／網卡、真帳號與家庭設備、Matter／Thread／Cast、72 小時運作、Windows 原生下載工具執行與 E1／E2 整案均未完成現場驗收。32 個產品案例仍為 **2 passed、30 not_run**；工程測試計數不批次升級產品案例。下載校驗只證明取得的檔案符合本版身分。
 
 ## 0.9.0 工程預覽已發布並通過匿名完整下載
 

@@ -1,0 +1,47 @@
+{
+  "kind": "real_haos_supervisor_app_build",
+  "delivery": "local_source_exact_head_files",
+  "haos_image": "18.3",
+  "observed_from": "haos_supervisor_build_and_app_container",
+  "status": "passed",
+  "phase": "completed",
+  "source_commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+  "runtime_source_uncommitted": false,
+  "core": "2026.10.2",
+  "supervisor": "2026.10.2",
+  "installed_image_id": "sha256:74bbc871c956835ad138241446452e42e3ba6c70b8b174b64cd10e1952f3fe6b",
+  "worker_source_commit": "0886a5459984e916e8dc6a881a1bd6d4249934fd",
+  "duration_seconds": 707.188,
+  "limitations": [
+    "local_source_delivery_not_public_stable_channel",
+    "no_pairing_login_model_or_coding_executed",
+    "builder_and_pinned_bases_preloaded_registry_not_blocked"
+  ],
+  "checks": {
+    "supervisor_healthy": true,
+    "pinned_bases_preloaded": true,
+    "exact_head_source_delivered": true,
+    "store_catalog_build_version": true,
+    "supervisor_build_install_completed": true,
+    "real_app_contract_installed": true,
+    "app_started": true,
+    "pairing_published_to_own_options": true,
+    "real_app_contract_configured": true,
+    "container_contract": true,
+    "docker_socket_not_mounted": true,
+    "image_version_label": true,
+    "app_health_200": true,
+    "pairing_fingerprint_matches_tls": true,
+    "codex_version_pinned": true,
+    "worker_source_matches_lock": true,
+    "custom_apparmor_enforcing": true,
+    "docker_socket_absent": true
+  },
+  "cleanup": {
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "eabe4361b84eba2ed5e25b203c80805287c41502947478486e5634656e38d550"
+}

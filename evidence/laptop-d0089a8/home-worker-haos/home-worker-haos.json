@@ -1,0 +1,49 @@
+{
+  "kind": "real_haos_home_coding_worker",
+  "status": "passed",
+  "observed_from": "haos_app",
+  "haos_image": "18.3",
+  "delivery": "local_supervisor_derived_transport_fixture",
+  "cloud": "fixed_model_transport_no_real_cloud_account",
+  "phase": "completed",
+  "source_commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+  "runtime_source_uncommitted": false,
+  "runner_base_image_id": "sha256:bd7052a4631327ae42525a6843dade35cf23b961e2da2a4d9badf269121a610e",
+  "controller_image_id": "sha256:0bf64937a53550d536cf8c630070309429c2a33a360d164af23d4cc4ce7bdeed",
+  "core": "2026.10.2",
+  "supervisor": "2026.10.2",
+  "independent_tests_executed": 39,
+  "recovery_limit": "abrupt same-boot unknown work remains fenced until trusted stop proof; VM removed at teardown",
+  "duration_seconds": 448.134,
+  "not_acceptance": [
+    "real_model_auth",
+    "autonomous_research_quality",
+    "physical_household",
+    "E2"
+  ],
+  "checks": {
+    "product_image_layers_verified": true,
+    "distinct_actual_haos_app_namespaces": true,
+    "outer_controller_actual_pinned_tls_pairing": true,
+    "home_role_login_separate_from_unpaired_host": true,
+    "actual_codex_tools": true,
+    "actual_source_patch": true,
+    "independent_baseline_tests": true,
+    "same_case_tls_artifacts": true,
+    "worker_boundary_checks": true,
+    "same_case_observation_content_and_digest": true,
+    "additional_app_namespace_view": true,
+    "fenced_checkpoint_handoff": true,
+    "actual_tls_cancel_stops_descendants_and_releases_lease": true,
+    "graceful_app_restart_keeps_confirmed_stop_without_replay": true,
+    "abrupt_same_boot_restart_retains_lease_and_prevents_replay": true
+  },
+  "cleanup": {
+    "outer_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "f7509d922cf51fc8f69402288c463ce6bea6b631a301d61407edaf265928810a"
+}

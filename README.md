@@ -1,16 +1,16 @@
-# Agentic Smart Home 0.10.0 候選版
+# Agentic Smart Home 0.10.0 工程預覽
 
 [專案介紹與互動示範](https://ted-h-com.github.io/agentic-smart-home/) · HA 介面模擬與產品管家介面，使用虛構資料。
 
 一台 Linux 主機，裝好就有 Home Assistant 家庭、一個會用工具的智能管家，以及能自己調查與修改程式的開發助手。家裡的設備照 Home Assistant 原生方式運作；AI 只提出變更，由你批准後才寫入。
 
-本分支正在準備 **0.10.0 安裝候選版**，整合多來源設備盤點、對話分享、可接續的接入追蹤，選磁碟前的 USB 硬體檢查，以及可選的 HAOS 有線家庭接入。新媒體尚待精確 ISO 安裝與公開 App 來源驗證；版本號與公開示範不代表安裝媒體已合格。已發布的 0.9.0 工程預覽有自己的 VM／HAOS 證據，但不包含這批功能。真帳號、實體筆電與家庭設備仍須現場驗收，見 [驗證紀錄](docs/VERIFICATION.md) 與 [進度帳本](docs/v3/PROGRESS.md)。
+**0.10.0 工程預覽**整合多來源設備盤點、對話分享、可接續的接入追蹤，選磁碟前的 USB 硬體檢查，以及可選的 HAOS 有線家庭接入。從 [v0.10.0 發布頁](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.10.0) 取得同版安裝媒體。工程驗證與公開下載結果：同一候選本機八階段（2+6 接續）已通過；公開 App：逐階段接續通過（enable 42、bridge-haos 40，清理完成）；匿名下載：Linux 完整下載與校驗通過，暫存清理完成。精確來源與八階段／公開 App 結果見 [交付摘要](evidence/laptop-d0089a8/summary.json)，CI 與下載核驗見 [驗證紀錄](docs/VERIFICATION.md)。實體 Dell、真帳號、家庭設備及 72 小時運作仍待現場驗收；[進度帳本](docs/v3/PROGRESS.md) 保留各項範圍。
 
 ## 安裝
 
-待發布頁提供通過驗證的同版媒體後，再依下列流程安裝；不要用舊 ISO 代替 0.10.0。
+準備一支可清除的 **32 GB USB**。可以直接在這台筆電的現有系統下載並製作 USB，再重新開機安裝；先備份要保留的資料，安裝會清除選定的內部磁碟。
 
-1. 核對 `agentic-home-0.10.0-laptop-amd64.iso` 的 SHA-256，製作 USB。接上電源與有線網路，從 USB 開機；硬體檢查通過後，在 Ubuntu 安裝器選網路、磁碟和帳號。
+1. 從發布頁下載 `download-0.10.0.py`，依 [安裝步驟](INSTALL.md#下載與製作-usb) 下載、校驗並合併 ISO，寫入 USB。接上電源與有線網路，從 USB 開機；Dell 通常使用 F12 一次性開機選單。硬體檢查通過後，在 Ubuntu 安裝器選網路、磁碟和帳號。
 2. 重開機後登入桌面，**Agentic Home** 會自己打開。
 3. 按「開始設定」前先選家庭有線接入；接著照畫面完成：AI 帳號 → 智能管家 → 通訊（LINE、Telegram、Discord，或只用網頁）→ 家庭。
 
