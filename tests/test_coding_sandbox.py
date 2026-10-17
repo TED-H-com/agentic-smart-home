@@ -450,7 +450,7 @@ def test_verifier_trusted_test_exercises_candidate_restore_helper(tmp_path, monk
         shutil.copyfile(product / "tests" / name, repo / "tests" / name)
     helper = (product / "scripts/restore_controller.py").read_bytes()
     (repo / "scripts/restore_controller.py").write_bytes(helper)
-    for args in (("init", "-q", str(repo)), ("-C", str(repo), "add", "."),
+    for args in (("init", "--template=", "-q", str(repo)), ("-C", str(repo), "add", "."),
                  ("-C", str(repo), "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
                   "commit", "-qm", "Trusted fixture baseline")):
         command("git", *args)
