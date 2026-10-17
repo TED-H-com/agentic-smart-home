@@ -108,7 +108,7 @@ def test_actual_lan_lab_namespace_starts_dhcp_ra_and_mdns(tmp_path):
     name = "agentic-lan-lab-smoke-" + uuid.uuid4().hex[:10]
     root = Path(__file__).resolve().parent
     script = '''
-import socket,subprocess,sys,time
+import ipaddress,os,socket,struct,subprocess,sys,time
 sys.path.insert(0,'/scripts')
 import ha_lan_peer as peer
 peer.os.execvp=lambda *args: None
@@ -126,7 +126,47 @@ s.setsockopt(socket.IPPROTO_IP,socket.IP_ADD_MEMBERSHIP,socket.inet_aton('224.0.
 s.settimeout(5)
 data,_=s.recvfrom(8192)
 assert b'Agentic LAN Fixture' in data
-print('isolated_namespace_dhcp_ra_mdns_started')
+s.close()
+# A listening DNS socket is insufficient: prove forwarding via the peer using
+# the container's actual resolv.conf, including on Docker's default bridge.
+transaction=os.urandom(2)
+question=peer.name('github.com.')+struct.pack('!HH',1,1)
+query=transaction+struct.pack('!5H',0x0100,1,0,0,0)+question
+with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as dns:
+    dns.settimeout(5)
+    dns.connect((peer.IPV4,53))
+    dns.send(query)
+    response=dns.recv(4096)
+assert len(response)>=12 and response[:2]==transaction
+_,flags,questions,answers,_,_=struct.unpack_from('!6H',response)
+assert flags & 0x8000 and not flags & 0x7A0F  # Response, query opcode, untruncated, NOERROR.
+assert questions==1 and 0<answers<=32
+assert response[12:12+len(question)]==question
+offset=12+len(question)
+public_address=False
+for _ in range(answers):
+    while True:
+        assert offset<len(response)
+        length=response[offset]
+        if length & 0xC0 == 0xC0:
+            assert offset+1<len(response)
+            pointer=((length & 0x3F)<<8)|response[offset+1]
+            assert 12<=pointer<len(response)
+            offset+=2
+            break
+        assert length<=63 and offset+1+length<=len(response)
+        offset+=1+length
+        if length==0:
+            break
+    assert offset+10<=len(response)
+    kind,record_class,_,size=struct.unpack_from('!HHIH',response,offset)
+    offset+=10
+    assert offset+size<=len(response)
+    if kind==1 and record_class==1 and size==4:
+        public_address=public_address or ipaddress.IPv4Address(response[offset:offset+4]).is_global
+    offset+=size
+assert public_address
+print('isolated_namespace_dhcp_ra_mdns_dns_forwarding_started')
 '''
     try:
         result = subprocess.run(["docker", "run", "--rm", "--name", name, "--cap-add", "NET_ADMIN",
@@ -135,7 +175,7 @@ print('isolated_namespace_dhcp_ra_mdns_started')
             "-i", "agentic-home-lan-lab:0.10.0", "python3", "-"], input=script, text=True,
             capture_output=True, timeout=30)
         assert result.returncode == 0, result.stderr[-2000:]
-        assert result.stdout.strip() == "isolated_namespace_dhcp_ra_mdns_started"
+        assert result.stdout.strip() == "isolated_namespace_dhcp_ra_mdns_dns_forwarding_started"
     finally:
         subprocess.run(["docker", "rm", "-fv", name], capture_output=True, timeout=20)
         remaining = subprocess.run(["docker", "ps", "-a", "--filter", "name=^/" + name + "$", "--format", "{{.Names}}"],

@@ -77,7 +77,7 @@ def launch(arguments):
     for command in commands:
         subprocess.run(command, check=True, timeout=10)
     dnsmasq = ["dnsmasq", "--no-daemon", "--conf-file=/dev/null", "--bind-interfaces", "--interface=" + DEVICE,
-               "--except-interface=lo", "--no-resolv", "--server=127.0.0.11", "--dhcp-authoritative",
+               "--except-interface=lo", "--dhcp-authoritative",
                "--dhcp-range=198.18.42.100,198.18.42.150,255.255.255.0,1h",
                "--dhcp-host=52:54:00:aa:42:01,198.18.42.10", "--dhcp-leasefile=/lab/lan-leases",
                "--enable-ra", "--dhcp-range=fd42:177:42::,ra-stateless,64,1h", "--ra-param=" + DEVICE + ",10,60"]
