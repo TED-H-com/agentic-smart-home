@@ -1,6 +1,7 @@
 """The acceptance probe requires native evidence; fixtures do not claim HAOS proof."""
 import asyncio
 import copy
+import inspect
 import json
 import os
 import struct
@@ -102,6 +103,46 @@ def test_peer_sends_actual_service_records_and_never_native_flow_requests(monkey
         ha_lan_peer.launch(["qemu-system-x86_64"])
 
 
+def assert_peer_ptr_response(response, transaction, question, expected):
+    """Validate the one exact local PTR answer emitted by the fixture dnsmasq."""
+    assert 12 <= len(response) <= 4096 and response[:2] == transaction
+    _, flags, questions, answers, _, _ = struct.unpack_from("!6H", response)
+    assert flags & 0x8000 and not flags & 0x7A0F
+    assert questions == answers == 1 and response[12:12 + len(question)] == question
+    offset = 12 + len(question)
+    owner = b"\xc0\x0c" if response[offset:offset + 2] == b"\xc0\x0c" else question[:-4]
+    assert response[offset:offset + len(owner)] == owner
+    offset += len(owner)
+    assert offset + 10 <= len(response)
+    kind, record_class, _, size = struct.unpack_from("!HHIH", response, offset)
+    assert (kind, record_class) == (12, 1) and size == len(expected)
+    assert response[offset + 10:offset + 10 + size] == expected
+
+
+@pytest.mark.parametrize("bad", [None, "transaction", "question", "answer", "rcode", "truncated"])
+def test_peer_ptr_proof_rejects_unrelated_or_incomplete_dns(bad):
+    transaction = b"\x12\x34"
+    question = ha_lan_peer.name("1.42.18.198.in-addr.arpa.") + struct.pack("!HH", 12, 1)
+    expected = ha_lan_peer.name(ha_lan_peer.DNS_HOST)
+    response = (transaction + struct.pack("!5H", 0x8580, 1, 1, 0, 0) + question
+                + b"\xc0\x0c" + struct.pack("!HHIH", 12, 1, 0, len(expected)) + expected)
+    if bad == "transaction":
+        response = b"\x00\x00" + response[2:]
+    elif bad == "question":
+        response = response[:13] + b"2" + response[14:]
+    elif bad == "answer":
+        response = response[:-2] + b"x\0"
+    elif bad == "rcode":
+        response = response[:3] + b"\x83" + response[4:]
+    elif bad == "truncated":
+        response = response[:-1]
+    if bad:
+        with pytest.raises(AssertionError):
+            assert_peer_ptr_response(response, transaction, question, expected)
+    else:
+        assert_peer_ptr_response(response, transaction, question, expected)
+
+
 def test_actual_lan_lab_namespace_starts_dhcp_ra_and_mdns(tmp_path):
     if os.environ.get("AGENTIC_LAN_LAB_SMOKE") != "1":
         pytest.skip("Explicit test-only Docker namespace smoke; not HAOS acceptance")
@@ -109,7 +150,7 @@ def test_actual_lan_lab_namespace_starts_dhcp_ra_and_mdns(tmp_path):
     (tmp_path / "linux.qcow2").touch()  # Namespace guard only; no VM is launched.
     name = "agentic-lan-lab-smoke-" + uuid.uuid4().hex[:10]
     root = Path(__file__).resolve().parent
-    script = '''
+    script = inspect.getsource(assert_peer_ptr_response) + '''
 import ipaddress,os,socket,struct,subprocess,sys,time
 sys.path.insert(0,'/scripts')
 import ha_lan_peer as peer
@@ -168,7 +209,23 @@ for _ in range(answers):
         public_address=public_address or ipaddress.IPv4Address(response[offset:offset+4]).is_global
     offset+=size
 assert public_address
-print('isolated_namespace_dhcp_ra_mdns_dns_forwarding_started')
+# Fault injection stays in this disposable smoke namespace. Block upstream
+# DNS after proving normal forwarding; queries to the peer itself stay allowed.
+for tool,address in (('iptables',peer.IPV4),('ip6tables',peer.IPV6)):
+    for protocol in ('udp','tcp'):
+        subprocess.run([tool,'-I','OUTPUT','1','-p',protocol,'--dport','53',
+                        '!','-d',address,'-j','REJECT'],check=True,timeout=5)
+for family,address in ((socket.AF_INET,peer.IPV4),(socket.AF_INET6,peer.IPV6)):
+    transaction=os.urandom(2)
+    question=peer.name(ipaddress.ip_address(address).reverse_pointer)+struct.pack('!HH',12,1)
+    query=transaction+struct.pack('!5H',0x0100,1,0,0,0)+question
+    with socket.socket(family,socket.SOCK_DGRAM) as dns:
+        dns.settimeout(5)
+        dns.connect((address,53))
+        dns.send(query)
+        response=dns.recv(4096)
+    assert_peer_ptr_response(response,transaction,question,peer.name(peer.DNS_HOST))
+print('isolated_namespace_dhcp_ra_mdns_dns_forwarding_local_ptr_started')
 '''
     try:
         result = subprocess.run(["docker", "run", "--rm", "--name", name, "--cap-add", "NET_ADMIN",
@@ -177,7 +234,7 @@ print('isolated_namespace_dhcp_ra_mdns_dns_forwarding_started')
             "-i", "agentic-home-lan-lab:0.10.0", "python3", "-"], input=script, text=True,
             capture_output=True, timeout=30)
         assert result.returncode == 0, result.stderr[-2000:]
-        assert result.stdout.strip() == "isolated_namespace_dhcp_ra_mdns_dns_forwarding_started"
+        assert result.stdout.strip() == "isolated_namespace_dhcp_ra_mdns_dns_forwarding_local_ptr_started"
     finally:
         subprocess.run(["docker", "rm", "-fv", name], capture_output=True, timeout=20)
         remaining = subprocess.run(["docker", "ps", "-a", "--filter", "name=^/" + name + "$", "--format", "{{.Names}}"],

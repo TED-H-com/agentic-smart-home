@@ -16,6 +16,7 @@ from pathlib import Path
 DEVICE = "ahltap"
 IPV4 = "198.18.42.1"
 IPV6 = "fd42:177:42::1"
+DNS_HOST = "agentic-lan-peer.fixture.invalid"
 SERVICE = "_hap._tcp.local."
 INSTANCE = "Agentic LAN Fixture." + SERVICE
 HOST = "agentic-lan-fixture.local."
@@ -78,6 +79,9 @@ def launch(arguments):
         subprocess.run(command, check=True, timeout=10)
     dnsmasq = ["dnsmasq", "--no-daemon", "--conf-file=/dev/null", "--bind-interfaces", "--interface=" + DEVICE,
                "--except-interface=lo", "--dhcp-authoritative",
+               # Core resolves an unauthenticated client's address before 401.
+               # Keep this synthetic peer's forward/PTR records entirely local.
+               "--host-record=" + DNS_HOST + "," + IPV4 + "," + IPV6,
                "--dhcp-range=198.18.42.100,198.18.42.150,255.255.255.0,1h",
                "--dhcp-host=52:54:00:aa:42:01,198.18.42.10", "--dhcp-leasefile=/lab/lan-leases",
                "--enable-ra", "--dhcp-range=fd42:177:42::,ra-stateless,64,1h", "--ra-param=" + DEVICE + ",10,60"]
