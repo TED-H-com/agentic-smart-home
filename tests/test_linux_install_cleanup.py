@@ -127,6 +127,14 @@ def test_firstboot_deadline_reaches_bounded_diagnostics_without_raw_journal(tmp_
     def command(*args, **options):
         if args[0] == "ssh-keygen":
             (tmp_path / "test-key.pub").write_text("fixture-public-key")
+        elif "xorriso" in args:
+            (tmp_path / "test.iso").write_bytes(b"installer")
+        elif "qemu-img" in args:
+            (tmp_path / "linux.qcow2").write_bytes(b"disk")
+        elif "qemu-system-x86_64" in args:
+            drive = next(arg for arg in args if arg.startswith("file=/lab/linux.qcow2,"))
+            assert "discard=unmap,detect-zeroes=unmap" in drive
+            assert (tmp_path / "test.iso").exists() == ("-cdrom" in args)
         return ""
     deadlines, calls, original = [], [], []
     def wait(ready, seconds):
@@ -150,4 +158,84 @@ def test_firstboot_deadline_reaches_bounded_diagnostics_without_raw_journal(tmp_
         install.test_full_linux_install_with_nested_haos(tmp_path, request)
     assert original == [caught.value] and deadlines == [1800, 3600]
     assert [args[1] for args in calls] == ["stop", "rm", "ps"]
-    assert json.loads((tmp_path / "evidence/installed-cleanup-laptop-amd64.json").read_text())["status"] == "passed"
+    receipt = json.loads((tmp_path / "evidence/installed-cleanup-laptop-amd64.json").read_text())
+    assert receipt["status"] == "passed"
+    assert receipt["steps"]["remove_images"]["artifacts"]["linux.qcow2"] == "removed"
+    assert receipt["steps"]["remove_images"]["artifacts"]["test.iso"] == "not_present"
+
+
+@pytest.mark.parametrize("vm_absent", [True, False])
+def test_images_removed_only_after_console_capture_and_confirmed_vm_absence(tmp_path, vm_absent):
+    for filename in install.INSTALL_DISPOSABLE_IMAGES:
+        (tmp_path / filename).write_bytes(b"disposable image")
+    (tmp_path / "serial.log").write_text("retained console")
+    untouched = tmp_path / "evidence.json"
+    untouched.write_text("keep")
+    def run(args, **options):
+        assert all((tmp_path / filename).exists() for filename in install.INSTALL_DISPOSABLE_IMAGES)
+        if args[0] == "tail":
+            options["stdout"].write(b"retained console")
+        return subprocess.CompletedProcess(args, 0, b"" if vm_absent else b"running", b"")
+    report = tmp_path / "cleanup.json"
+    if vm_absent:
+        result = install.finish_installer_cleanup(NAME, tmp_path, tmp_path / "console.log", report, run=run)
+        assert result["steps"]["remove_images"]["artifacts"] == dict.fromkeys(
+            install.INSTALL_DISPOSABLE_IMAGES, "removed")
+        assert json.loads(report.read_text()) == result
+        assert (tmp_path / "console.log").read_text() == "retained console"
+    else:
+        result = install.cleanup_installer(NAME, tmp_path, tmp_path / "console.log", run=run)
+        assert result["steps"]["remove_images"]["status"] == "not_run"
+    assert all((tmp_path / filename).exists() != vm_absent for filename in install.INSTALL_DISPOSABLE_IMAGES)
+    assert untouched.read_text() == "keep"
+
+
+def test_image_unlink_failure_is_recorded_without_skipping_other_images(tmp_path, monkeypatch):
+    for filename in install.INSTALL_DISPOSABLE_IMAGES:
+        (tmp_path / filename).write_bytes(b"image")
+    unlink = Path.unlink
+    def fail_one(path, *args, **kwargs):
+        if path.name == "linux.qcow2":
+            raise PermissionError("private error")
+        return unlink(path, *args, **kwargs)
+    monkeypatch.setattr(Path, "unlink", fail_one)
+    result = install.cleanup_installer(
+        NAME, tmp_path, tmp_path / "console.log",
+        run=lambda args, **options: subprocess.CompletedProcess(args, 0, b"", b""))
+    assert result["status"] == "passed"
+    assert result["steps"]["remove_images"] == {
+        "status": "failed", "artifacts": {"linux.qcow2": "failed", "test.iso": "removed", "nvram.fd": "removed"}}
+
+
+def test_image_cleanup_unlinks_symlink_without_following_it(tmp_path):
+    target = tmp_path / "keep.img"
+    target.write_bytes(b"preserved")
+    (tmp_path / "linux.qcow2").symlink_to(target)
+    result = install.cleanup_installer(
+        NAME, tmp_path, tmp_path / "console.log",
+        run=lambda args, **options: subprocess.CompletedProcess(args, 0, b"", b""))
+    assert result["steps"]["remove_images"]["artifacts"]["linux.qcow2"] == "removed"
+    assert target.read_bytes() == b"preserved"
+
+
+def test_haos_image_preparation_failure_still_removes_large_files(tmp_path, monkeypatch):
+    import test_haos_boundary as boundary
+
+    def fail_open(*args, **options):
+        for filename in ("haos.qcow2", "config.ext4", "images.tar", "nvram.fd"):
+            (tmp_path / filename).write_bytes(b"partial image")
+        raise OSError("fixture preparation failed")
+
+    calls = []
+    def run(args, **options):
+        calls.append(args)
+        assert options["timeout"] == 30
+        return subprocess.CompletedProcess(args, 0, b"", b"")
+
+    monkeypatch.setattr(boundary.lzma, "open", fail_open)
+    monkeypatch.setattr(boundary.subprocess, "run", run)
+    request = SimpleNamespace(config=SimpleNamespace(getoption=lambda _: True))
+    with pytest.raises(OSError, match="fixture preparation failed"):
+        boundary.test_actual_haos_app_boundary(tmp_path, request)
+    assert [args[1] for args in calls] == ["stop", "run", "rm", "ps"]
+    assert not list(tmp_path.iterdir())

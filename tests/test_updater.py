@@ -681,7 +681,7 @@ class BundleDocker:
 def product_history(tmp):
     repo = tmp / "product-repo"
     repo.mkdir()
-    subprocess.run(["git", "-C", str(repo), "init", "-b", "main"], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(repo), "init", "--template=", "-b", "main"], check=True, capture_output=True)
     subprocess.run(["git", "-C", str(repo), "config", "user.email", "fixture@example.invalid"], check=True)
     subprocess.run(["git", "-C", str(repo), "config", "user.name", "Fixture"], check=True)
     return repo, write_commit(repo, "controller/app.py", "print('A')\n", "A")
@@ -871,6 +871,7 @@ def test_source_moves_only_while_the_controller_is_stopped(updater, tmp_path):
     service, record = updater
     lock, commit_a, commit_b = staged_source(service, record, tmp_path)
     hook = service.source_repo / "hooks/reference-transaction"
+    hook.parent.mkdir(parents=True, exist_ok=True)
     hook.write_text("#!/bin/sh\ntouch \"$(dirname \"$0\")/../hook-ran\"\n")
     hook.chmod(0o755)
     current = prepare_deployment(service, record)

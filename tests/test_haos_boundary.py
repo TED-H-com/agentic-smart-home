@@ -43,22 +43,22 @@ def test_actual_haos_app_boundary(tmp_path, request):
         pytest.skip("Actual HAOS App probe requires --haos-vm")
     assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
     name = "agentic-haos-boundary-" + uuid.uuid4().hex[:10]
-    with lzma.open(ROOT / "build/cache/haos_ova-18.3.qcow2.xz", "rb") as source, (tmp_path / "haos.qcow2").open("wb") as target:
-        shutil.copyfileobj(source, target, 1024 * 1024)
-    for reference in (PYTHON, BUILDER):
-        docker("pull", reference, timeout=600)
-    # Preload exact public images, avoiding slow repeated downloads through QEMU user networking.
-    subprocess.run(["docker", "save", "-o", str(tmp_path / "images.tar"), "docker:29.7.2-cli", PYTHON],
-                   check=True, timeout=600)
-    shutil.copyfile(ROOT / "tests/haos_boundary_probe.py", tmp_path / "probe.py")
-    subprocess.run(["ssh-keygen", "-t", "ed25519", "-N", "", "-f", str(tmp_path / "key")], check=True, capture_output=True)
-    (tmp_path / "config").mkdir()
-    shutil.copyfile(tmp_path / "key.pub", tmp_path / "config/authorized_keys")
-    with (tmp_path / "config.ext4").open("wb") as stream:
-        stream.truncate(32 * 1024**2)
-    subprocess.run(["/usr/sbin/mkfs.ext4", "-q", "-F", "-L", "CONFIG", "-d", str(tmp_path / "config"),
-                    str(tmp_path / "config.ext4")], check=True, capture_output=True)
     try:
+        with lzma.open(ROOT / "build/cache/haos_ova-18.3.qcow2.xz", "rb") as source, (tmp_path / "haos.qcow2").open("wb") as target:
+            shutil.copyfileobj(source, target, 1024 * 1024)
+        for reference in (PYTHON, BUILDER):
+            docker("pull", reference, timeout=600)
+        # Preload exact public images, avoiding slow repeated downloads through QEMU user networking.
+        subprocess.run(["docker", "save", "-o", str(tmp_path / "images.tar"), "docker:29.7.2-cli", PYTHON],
+                       check=True, timeout=600)
+        shutil.copyfile(ROOT / "tests/haos_boundary_probe.py", tmp_path / "probe.py")
+        subprocess.run(["ssh-keygen", "-t", "ed25519", "-N", "", "-f", str(tmp_path / "key")], check=True, capture_output=True)
+        (tmp_path / "config").mkdir()
+        shutil.copyfile(tmp_path / "key.pub", tmp_path / "config/authorized_keys")
+        with (tmp_path / "config.ext4").open("wb") as stream:
+            stream.truncate(32 * 1024**2)
+        subprocess.run(["/usr/sbin/mkfs.ext4", "-q", "-F", "-L", "CONFIG", "-d", str(tmp_path / "config"),
+                        str(tmp_path / "config.ext4")], check=True, capture_output=True)
         docker("run", "-d", "--name", name, "--device", "/dev/kvm", "--memory", "4096m", "--cpus", "3",
                "-p", "127.0.0.1::2222", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0", "bash", "-ec",
                "cp /usr/share/OVMF/OVMF_VARS_4M.fd /lab/nvram.fd\nqemu-img resize /lab/haos.qcow2 64G\n"
@@ -204,7 +204,19 @@ profile agentic-boundary flags=(attach_disconnected,mediate_deleted) {
                 shell("ha apps stop local_" + slug, 300)
         (ROOT / "evidence/haos-app-boundary.json").write_text(json.dumps(evidence, indent=2) + "\n")
     finally:
-        subprocess.run(["docker", "stop", "-t", "10", name], capture_output=True)
-        subprocess.run(["docker", "run", "--rm", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0",
-                        "chown", "-R", f"{os.getuid()}:{os.getgid()}", "/lab"], capture_output=True)
-        subprocess.run(["docker", "rm", "-fv", name], capture_output=True)
+        # Bound each cleanup independently, including failures during image preparation.
+        with contextlib.suppress(OSError, subprocess.TimeoutExpired):
+            subprocess.run(["docker", "stop", "-t", "10", name], capture_output=True, timeout=30)
+        with contextlib.suppress(OSError, subprocess.TimeoutExpired):
+            subprocess.run(["docker", "run", "--rm", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0",
+                            "chown", "-R", f"{os.getuid()}:{os.getgid()}", "/lab"], capture_output=True, timeout=30)
+        with contextlib.suppress(OSError, subprocess.TimeoutExpired):
+            subprocess.run(["docker", "rm", "-fv", name], capture_output=True, timeout=30)
+        with contextlib.suppress(OSError, subprocess.TimeoutExpired):
+            absent = subprocess.run(
+                ["docker", "ps", "-a", "--filter", "name=^/" + name + "$", "--format", "{{.Names}}"],
+                capture_output=True, timeout=30)
+            if absent.returncode == 0 and not absent.stdout.strip():
+                for filename in ("haos.qcow2", "config.ext4", "images.tar", "nvram.fd"):
+                    with contextlib.suppress(OSError):
+                        (tmp_path / filename).unlink()

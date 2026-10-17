@@ -120,7 +120,7 @@ def test_root_collection_rejects_untrusted_tree_before_git(tmp_path, monkeypatch
 
 def committed_source(path):
     path.mkdir(parents=True)
-    subprocess.check_call(["git", "init", "-b", "main"], cwd=path, stdout=subprocess.DEVNULL)
+    subprocess.check_call(["git", "init", "--template=", "-b", "main"], cwd=path, stdout=subprocess.DEVNULL)
     subprocess.check_call(["git", "config", "user.email", "fixture@example.invalid"], cwd=path)
     subprocess.check_call(["git", "config", "user.name", "Fixture"], cwd=path)
     (path / "app.py").write_text("value = 1\n")
@@ -465,7 +465,7 @@ for name in ('source','scratch','artifacts','trusted-tests'):
 for name in ('source','scratch','artifacts'):os.chown(root/name,10000,10000)
 source=root/'source'
 (source/'README').write_text('before\n')
-subprocess.run(['git','init','-q',str(source)],check=True)
+subprocess.run(['git','init','--template=','-q',str(source)],check=True)
 subprocess.run(['git','-c','safe.directory=*','-C',str(source),'add','.'],check=True)
 subprocess.run(['git','-c','safe.directory=*','-C',str(source),'-c','user.name=fixture','-c','user.email=fixture@example.invalid','commit','-qm','baseline'],check=True)
 (source/'pytest.py').write_text('print("FAKE PASS");raise SystemExit(0)\n')
