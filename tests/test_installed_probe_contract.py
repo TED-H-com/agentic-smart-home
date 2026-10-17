@@ -742,7 +742,8 @@ def test_lifecycle_diagnostics_cover_actual_fixed_host_errors_and_checks(update_
     import ast
 
     root = Path(__file__).parents[1] / "host/agentic_host"
-    for file, exception in (("manager.py", "HostError"), ("daemon.py", "HostError"), ("bootstrap.py", "SetupError")):
+    for file, exception in (("manager.py", "HostError"), ("daemon.py", "HostError"),
+                            ("ha_lan.py", "HostError"), ("bootstrap.py", "SetupError")):
         tree = ast.parse((root / file).read_text())
         messages = [node.args[0].value for node in ast.walk(tree) if isinstance(node, ast.Call) and
                     isinstance(node.func, ast.Name) and node.func.id == exception and node.args and
@@ -750,6 +751,12 @@ def test_lifecycle_diagnostics_cover_actual_fixed_host_errors_and_checks(update_
         assert messages
         for message in messages:
             assert update_probe.lifecycle_error(message), (file, message)
+        if file == "ha_lan.py":
+            declared = {code for code in update_probe.LIFECYCLE_ERRORS if code.startswith("ha_lan_")}
+            assert declared == set(messages)
+            for message in messages:
+                assert update_probe.lifecycle_error(message) == message
+                assert update_probe.lifecycle_error(message + " private interface details") is None
     tree = ast.parse((root / "compatibility.py").read_text())
     names = next({key.value for key in node.value.keys} for node in tree.body if isinstance(node, ast.Assign) and
                  any(isinstance(target, ast.Name) and target.id == "REQUIRES" for target in node.targets))
@@ -773,6 +780,10 @@ def test_lifecycle_diagnostics_cover_actual_fixed_host_errors_and_checks(update_
     ("[Errno 2] No such file or directory: private/path", "host_file_missing", None),
     ("host_contract_private_unavailable", "unclassified_host_error", None),
     ("host_contract_route_json_unavailable private trailing text", "unclassified_host_error", None),
+    ("ha_lan_needs_reconcile", "ha_lan_needs_reconcile", None),
+    ("Unexpected interface_id", "host_interface_unexpected", None),
+    ("ha_lan_private_interface", "unclassified_host_error", None),
+    ("ha_lan_needs_reconcile private trailing text", "unclassified_host_error", None),
     ("secret-command: private data", "unclassified_host_error", None),
 ])
 def test_lifecycle_diagnostics_only_export_fixed_mechanisms(update_probe, message, expected, operation):
@@ -783,6 +794,18 @@ def test_lifecycle_diagnostics_only_export_fixed_mechanisms(update_probe, messag
     assert receipt["error_code"] == expected and receipt["operation"] == operation
     observed = failure_observation_public({"jobs": [receipt]})["jobs"][0]
     assert observed == receipt and "private" not in json.dumps(observed) and "secret" not in json.dumps(observed)
+
+
+def test_lan_lifecycle_receipt_retains_action_and_fixed_code_without_interface_details(update_probe):
+    from test_linux_install import failure_observation_public
+
+    raw = {"id": "e" * 32, "request": {"action": "configure_lan", "interface_id": "private-interface"},
+           "state": "failed", "message": "ha_lan_interface_id_invalid"}
+    receipt = update_probe.lifecycle_receipt(raw)
+    assert receipt["action"] == "configure_lan" and receipt["error_code"] == "ha_lan_interface_id_invalid"
+    assert failure_observation_public({"jobs": [receipt]})["jobs"] == [receipt]
+    assert update_probe.lifecycle_receipt(receipt) == receipt
+    assert "private" not in json.dumps(receipt) and "interface_id" not in receipt
 
 
 def compatibility_fixture(action="start"):
@@ -892,10 +915,14 @@ def test_actual_installer_failure_still_cleans_up_when_diagnostics_break(tmp_pat
     # Drive the actual installer harness to its first disposable command; every
     # external operation is substituted, so this regression never runs Docker.
     monkeypatch.setattr(module, "ROOT", tmp_path)
-    for name in ("dist", "scripts", "evidence", "build"):
+    for name in ("dist", "scripts", "evidence", "build", "tests"):
         (tmp_path / name).mkdir()
+    (tmp_path / "tests/ha_lan_peer.py").write_text("raise AssertionError('fixture peer must not execute')\n")
     (tmp_path / "dist/agentic-home-0.10.0-laptop-amd64.iso").write_bytes(b"fixture")
-    (tmp_path / "scripts/build_host.py").write_text("def autoinstall(profile): return {'autoinstall': {'late-commands': [], 'interactive-sections': []}}\n")
+    (tmp_path / "scripts/build_host.py").write_text(
+        "def autoinstall(profile): return {'autoinstall': {'late-commands': [], 'interactive-sections': [], "
+        "'early-commands': [['/usr/bin/python3', '/cdrom/agentic-home/live-preflight.py', "
+        "'--minimum-memory-mib', '7680']]}}\n")
     def command(*args, **kwargs):
         if args[0] == "ssh-keygen":
             (tmp_path / "test-key.pub").write_text("fixture-public-key")

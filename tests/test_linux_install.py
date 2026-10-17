@@ -32,6 +32,31 @@ UPDATE_DEADLINE_SECONDS = RUNTIME_MAX_SECONDS + 300
 INSTALL_CLEANUP_COMMAND_SECONDS = 30
 INSTALL_CONSOLE_BYTES = 65536
 LAN_LAB_IMAGE = "agentic-home-lan-lab:0.10.0"
+INSTALL_GUEST_MEMORY_MIB = 10240
+# The nested fixture needs page-cache/QEMU headroom above the 10 GiB guest.
+# The previous 12 GiB cgroup swapped QEMU despite spare physical host memory.
+# These are test-container limits, not a changed guest or product requirement.
+INSTALL_CONTAINER_MEMORY_GIB = 16
+INSTALL_CONTAINER_MEMORY_SWAP_GIB = 24
+REBOOT_OBSERVATION_SECONDS = 15
+REBOOT_BASELINE_SECONDS = 60
+REBOOT_REQUEST_SECONDS = 30
+REBOOT_ERRORS = {"outer_reboot_baseline_unavailable", "outer_reboot_request_failed",
+                 "outer_reboot_new_boot_not_ready"}
+OUTER_BOOT_OBSERVATION_SCRIPT = """import json,subprocess
+from pathlib import Path
+try:
+    path=Path('/proc/sys/kernel/random/boot_id')
+    before=path.read_text().strip()
+    active=subprocess.run(['systemctl','is-active','agentic-home'],
+                          stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=5).returncode == 0
+    after=path.read_text().strip()
+    if before != after:
+        raise ValueError('boot_changed_during_observation')
+    print(json.dumps({'boot_id':after,'service_active':active}),flush=True)
+except Exception:
+    raise SystemExit(1) from None
+"""
 
 
 def provider_policy_seed():
@@ -138,6 +163,97 @@ def command(*args, **kwargs):
     return subprocess.run(args, check=True, capture_output=True, text=True, **kwargs).stdout.strip()
 
 
+def observe_outer_boot(ssh, timeout, *, run=None):
+    """One fixed read-only probe; transport loss and malformed output are not ready."""
+    run = run or subprocess.run
+    try:
+        result = run([*ssh, "python3 -"], input=OUTER_BOOT_OBSERVATION_SCRIPT,
+                     text=True, capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return None
+    if result.returncode != 0 or not isinstance(result.stdout, str) or len(result.stdout) > 512:
+        return None
+    try:
+        value = json.loads(result.stdout)
+    except (ValueError, TypeError):
+        return None
+    if (not isinstance(value, dict) or set(value) != {"boot_id", "service_active"}
+            or not isinstance(value["boot_id"], str)
+            or not re.fullmatch(r"[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}", value["boot_id"])
+            or value["boot_id"] == "00000000-0000-0000-0000-000000000000"
+            or type(value["service_active"]) is not bool):
+        return None
+    return value
+
+
+def reboot_outer(ssh, seconds, *, run=None, clock=time.monotonic, pause=time.sleep):
+    """Issue one reboot, then prove a different boot and active service together.
+
+    The shared wall-clock budget includes baseline, the single write and every
+    observation. A timed-out/disconnected write may have executed: never retry it.
+    No boot identifiers or raw SSH output enter the returned public evidence.
+    """
+    if type(seconds) not in (int, float) or not 0 < seconds <= 3600:
+        raise ValueError("invalid_reboot_budget")
+    run = run or subprocess.run
+    started = clock()
+    deadline = started + seconds
+    evidence = {"boot_id_changed": False, "service_active_in_new_boot": False,
+                "reboot_requests": 0, "observations": 0, "unavailable_observations": 0,
+                "same_boot_observations": 0, "new_boot_not_ready_observations": 0}
+
+    def observe(until):
+        remaining = until - clock()
+        if remaining <= 0:
+            return None
+        evidence["observations"] += 1
+        value = observe_outer_boot(ssh, min(REBOOT_OBSERVATION_SECONDS, remaining), run=run)
+        if value is None:
+            evidence["unavailable_observations"] += 1
+        return value if clock() < until else None
+
+    def wait(until):
+        pause(min(5, max(0, until - clock())))
+
+    baseline_deadline = min(deadline, started + REBOOT_BASELINE_SECONDS)
+    before = None
+    while clock() < baseline_deadline:
+        before = observe(baseline_deadline)
+        if before is not None:
+            break
+        wait(baseline_deadline)
+    if before is None:
+        raise AssertionError("outer_reboot_baseline_unavailable")
+
+    remaining = deadline - clock()
+    if remaining <= 0:
+        raise AssertionError("outer_reboot_new_boot_not_ready")
+    evidence["reboot_requests"] = 1
+    try:
+        requested = run([*ssh, "sudo systemctl reboot"], capture_output=True, text=True,
+                        timeout=min(REBOOT_REQUEST_SECONDS, remaining))
+    except subprocess.TimeoutExpired:
+        evidence["request_result"] = "timeout"
+    else:
+        if requested.returncode not in (0, 255):
+            raise AssertionError("outer_reboot_request_failed")
+        evidence["request_result"] = "accepted" if requested.returncode == 0 else "transport_disconnected"
+
+    while clock() < deadline:
+        observed = observe(deadline)
+        if observed is not None:
+            if observed["boot_id"] == before["boot_id"]:
+                evidence["same_boot_observations"] += 1
+            elif observed["service_active"]:
+                evidence.update(boot_id_changed=True, service_active_in_new_boot=True,
+                                duration_seconds=round(clock() - started))
+                return evidence
+            else:
+                evidence["new_boot_not_ready_observations"] += 1
+        wait(deadline)
+    raise AssertionError("outer_reboot_new_boot_not_ready")
+
+
 def native_api_probe_script(base, timeout):
     return ("import urllib.request,urllib.error\ntry:\n urllib.request.urlopen(" + repr(base + "/api/")
             + ",timeout=" + str(timeout) + ")\nexcept urllib.error.HTTPError as e:\n assert e.code==401\n"
@@ -194,9 +310,7 @@ def installed_lan(ssh, container, phase, image_ids):
     wait_native("wired_lan_guest_boot")
     report["initial"] = callback(probe("wired"))
     phase("wired_lan_outer_reboot")
-    subprocess.run([*ssh, "sudo systemctl reboot"], capture_output=True, timeout=30)
-    time.sleep(15)
-    assert wait_until(lambda: remote_ok(ssh, "systemctl is-active agentic-home"), 900)
+    report["outer_reboot_observation"] = reboot_outer(ssh, 900)
     wait_native("wired_lan_after_outer_reboot")
     report["after_outer_reboot"] = callback(probe("wired"))
     phase("wired_lan_remove_and_restore_nat")
@@ -314,6 +428,9 @@ def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run):
     result = {"phase": phase, "error_type": type(exc).__name__ if type(exc).__name__ in {
         "CalledProcessError", "TimeoutExpired", "AssertionError", "JSONDecodeError", "TypeError"} else "OtherError",
         "process": process_diagnostics(process), "remote": "not_attempted"}
+    if (isinstance(exc, AssertionError) and len(exc.args) == 1
+            and isinstance(exc.args[0], str) and exc.args[0] in REBOOT_ERRORS):
+        result["reboot_error_code"] = exc.args[0]
     if isinstance(exc, subprocess.TimeoutExpired) and type(exc.timeout) in {int, float} and 0 <= exc.timeout <= 3600:
         result["timeout_seconds"] = exc.timeout
     args = getattr(exc, "cmd", ())
@@ -590,6 +707,9 @@ while data:=s.recv(65536):
     started = time.time()
     progress = {"runtime_location": "disposable_outer_linux_vm", "iso_sha256": iso_hash,
                 "result": "running", "cloud_login": "not_run",
+                "fixture_resources": {"guest_memory_mib": INSTALL_GUEST_MEMORY_MIB,
+                    "container_memory_gib": INSTALL_CONTAINER_MEMORY_GIB,
+                    "container_memory_and_swap_gib": INSTALL_CONTAINER_MEMORY_SWAP_GIB},
                 "excluded_cli_probes": {"grok": "not_run: owner instruction"}}
     progress_path = ROOT / "evidence" / ("installed-progress-" + profile + ".json")
 
@@ -609,7 +729,7 @@ while data:=s.recv(65536):
                 "-map", "/lab/user-data", "/agentic-seed/user-data", "-commit")
         command("docker", "run", "--rm", "-u", f"{os.getuid()}:{os.getgid()}", "-v", f"{tmp_path}:/lab",
                 "agentic-home-builder:0.2.0", "qemu-img", "create", "-f", "qcow2", "/lab/linux.qcow2", "120G")
-        qemu = ["qemu-system-x86_64", "-enable-kvm", "-cpu", "host", "-machine", "q35", "-m", "10240", "-smp", "4",
+        qemu = ["qemu-system-x86_64", "-enable-kvm", "-cpu", "host", "-machine", "q35", "-m", str(INSTALL_GUEST_MEMORY_MIB), "-smp", "4",
                 "-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd",
                 "-drive", "if=pflash,format=raw,file=/lab/nvram.fd",
                 "-drive", "file=/lab/linux.qcow2,format=qcow2,if=none,id=disk",
@@ -620,7 +740,8 @@ while data:=s.recv(65536):
                 "-display", "none", "-serial", "file:/lab/serial.log", "-monitor", "unix:/lab/monitor.sock,server,nowait"]
         command("docker", "run", "--rm", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0",
                 "cp", "/usr/share/OVMF/OVMF_VARS_4M.fd", "/lab/nvram.fd")
-        common = ["docker", "run", "-d", "--name", name, "--device", "/dev/kvm", "--memory", "12g", "--cpus", "4",
+        common = ["docker", "run", "-d", "--name", name, "--device", "/dev/kvm", "--memory", f"{INSTALL_CONTAINER_MEMORY_GIB}g",
+                  "--memory-swap", f"{INSTALL_CONTAINER_MEMORY_SWAP_GIB}g", "--cpus", "4",
                   "--cap-add", "NET_ADMIN", "--device", "/dev/net/tun", "--sysctl", "net.ipv4.ip_forward=1",
                   "--sysctl", "net.ipv6.conf.all.disable_ipv6=0", "-e", "AGENTIC_DISPOSABLE_LAN_LAB=1",
                   "-p", "127.0.0.1::2222", "-v", f"{tmp_path}:/lab", lan_images["lan_lab"], "python3", "/lab/ha-lan-peer.py", "launch"]
@@ -776,20 +897,16 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
         command(*ssh, "agentic-home start")
         wait_ha("nested_haos_restored_boot")
         phase("outer_reboot_and_haos_autostart")
-        subprocess.run([*ssh, "sudo systemctl reboot"], capture_output=True)
-        time.sleep(15)
-        if not wait_until(lambda: remote_ok(ssh, "systemctl is-active agentic-home"), 1800):
-            raise AssertionError("Outer product did not restart")
+        outer_reboot_observation = reboot_outer(ssh, 1800)
         assert json.loads(command(*ssh, "agentic-home status"))["vm"] == "running"
         assert hermes_image() == candidate_id
         # The same Runner policy must remain effective after all update/restore
         # paths and a real outer reboot; reading /status must not execute Grok.
         assert "AGENTIC_DISABLED_PROVIDERS=grok" in command(*ssh,
             "sudo cat /var/lib/agentic-home/host/runtime.env").splitlines()
-        policy_script = "__name__ = 'installed_auth_reboot_probe'\n" + (ROOT / "tests/installed_probe.py").read_text()
-        policy_script += "\nprint(json.dumps(probe(provisioned=True)))\n"
-        policy_result = subprocess.run([*ssh, "python3 -"], capture_output=True, text=True,
-                                      timeout=AUTH_PROBE_TIMEOUT_SECONDS, input=policy_script)
+        policy_result = subprocess.run([*ssh, "python3 - --provisioned"], capture_output=True, text=True,
+                                      timeout=AUTH_PROBE_TIMEOUT_SECONDS,
+                                      input=(ROOT / "tests/installed_probe.py").read_text())
         # The initial probe also expects bootstrap idle / unpaired Home runtime;
         # both remain true in this explicit fixture-driven provisioning flow.
         policy_probe = probe_json(policy_result, ROOT / "evidence" / ("installed-process-auth-reboot-" + profile + ".json"))
@@ -817,6 +934,8 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
                     "release_hermes": {**bootstrap_hermes, "image_id": candidate_id,
                                       "runtime_revision_readback": "passed", "persists_after_reboot": True},
                     "outer_reboot_haos_autostart": "passed",
+                    "outer_reboot_observation": outer_reboot_observation,
+                    "fixture_resources": progress["fixture_resources"],
                     "ha_readiness_check": "real Core onboarding API JSON list after startup, restore and outer reboot",
                     "duration_seconds": round(time.time() - started),
                     "installer_inputs": "Disposable disk serial + ephemeral SSH key supplied by fixture",

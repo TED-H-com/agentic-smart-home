@@ -790,7 +790,7 @@ async def test_install_observer_never_confuses_cleaned_job_with_success(outcome)
 def test_public_delivery_evidence_requires_actual_exact_repository(change):
     release = BridgeRelease()
     repositories = [{"slug": "aabbccdd", "source": release.repository}]
-    info = {"repository": "aabbccdd", "slug": "aabbccdd_agentic_bridge", "version": "0.9.0", "build": True}
+    info = {"repository": "aabbccdd", "slug": "aabbccdd_agentic_bridge", "version": release.version, "build": True}
     record = {"managed": True, "repository_id": "aabbccdd", "slug": info["slug"],
               "release": {"repository": release.repository, "app": release.app, "version": release.version}}
     if change == "source":

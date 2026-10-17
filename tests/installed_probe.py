@@ -225,11 +225,20 @@ def probe(*, provisioned=False):
             "excluded_cli_probes": {"grok": "not_run: owner instruction"}}
 
 
-if __name__ == "__main__":
+def execute(*, provisioned=False):
+    """One safe JSON entrypoint for initial and provisioned post-reboot probes."""
     try:
-        print(json.dumps({**probe(), "http_observations": OBSERVATIONS, "diagnostics": DIAGNOSTICS}, indent=2))
+        print(json.dumps({**probe(provisioned=provisioned), "http_observations": OBSERVATIONS,
+                          "diagnostics": DIAGNOSTICS}, indent=2))
+        return 0
     except Exception as exc:
         # Never print request bodies, access keys, cookies or raw exception text.
         print(json.dumps({"result": "failed", "error_type": type(exc).__name__, "stage": STAGE,
                           "http_observations": OBSERVATIONS, "diagnostics": DIAGNOSTICS}, indent=2))
-        raise SystemExit(1) from None
+        return 1
+
+
+if __name__ == "__main__":
+    if sys.argv[1:] not in ([], ["--provisioned"]):
+        raise SystemExit(2)
+    raise SystemExit(execute(provisioned=sys.argv[1:] == ["--provisioned"]))
