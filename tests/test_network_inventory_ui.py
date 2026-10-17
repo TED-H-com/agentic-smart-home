@@ -630,7 +630,7 @@ def test_inventory_host_forbidden_clears_prior_private_fields_without_logging_ou
     expect(panel.get_by_label('探索的主機網路')).to_be_disabled()
     expect(panel.get_by_label('探索的主機網路').locator('option')).to_have_count(1)
     panel.get_by_role('button', name='匯入清單', exact=True).click()
-    details = panel.locator('details').filter(has=panel.get_by_label('清單內容')).first
+    details = panel.locator('.network-inventory-import details').first
     if not details.evaluate('node=>node.open'):
         details.locator(':scope>summary').click()
     expect(panel.get_by_label('清單內容')).to_have_value('')
