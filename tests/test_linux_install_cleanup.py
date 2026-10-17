@@ -118,11 +118,12 @@ def test_cleanup_and_receipt_failure_preserve_primary_or_fail_success(tmp_path, 
 
 def test_firstboot_deadline_reaches_bounded_diagnostics_without_raw_journal(tmp_path, monkeypatch):
     monkeypatch.setattr(install, "ROOT", tmp_path)
-    for name in ("dist", "scripts", "evidence", "build"):
+    for name in ("dist", "scripts", "evidence", "build", "tests"):
         (tmp_path / name).mkdir()
-    (tmp_path / "dist/agentic-home-0.9.0-laptop-amd64.iso").write_bytes(b"fixture")
+    (tmp_path / "dist/agentic-home-0.10.0-laptop-amd64.iso").write_bytes(b"fixture")
     (tmp_path / "scripts/build_host.py").write_text(
-        "def autoinstall(profile): return {'autoinstall': {'late-commands': [], 'interactive-sections': []}}\n")
+        "def autoinstall(profile): return {'autoinstall': {'early-commands': [['python3', 'fixture-gate']], 'late-commands': [], 'interactive-sections': []}}\n")
+    (tmp_path / "tests/ha_lan_peer.py").write_text("# fixture peer is never executed\n")
     def command(*args, **options):
         if args[0] == "ssh-keygen":
             (tmp_path / "test-key.pub").write_text("fixture-public-key")
@@ -217,7 +218,8 @@ def test_image_cleanup_unlinks_symlink_without_following_it(tmp_path):
     assert target.read_bytes() == b"preserved"
 
 
-def test_haos_image_preparation_failure_still_removes_large_files(tmp_path, monkeypatch):
+@pytest.mark.parametrize("absence", ["confirmed", "present", "daemon_error", "timeout"])
+def test_haos_image_preparation_failure_preserves_files_until_vm_absence(tmp_path, monkeypatch, absence):
     import test_haos_boundary as boundary
 
     def fail_open(*args, **options):
@@ -229,6 +231,11 @@ def test_haos_image_preparation_failure_still_removes_large_files(tmp_path, monk
     def run(args, **options):
         calls.append(args)
         assert options["timeout"] == 30
+        if args[1] == "ps":
+            if absence == "timeout":
+                raise subprocess.TimeoutExpired(args, 30)
+            return subprocess.CompletedProcess(
+                args, int(absence == "daemon_error"), b"owned-vm" if absence == "present" else b"", b"")
         return subprocess.CompletedProcess(args, 0, b"", b"")
 
     monkeypatch.setattr(boundary.lzma, "open", fail_open)
@@ -236,5 +243,5 @@ def test_haos_image_preparation_failure_still_removes_large_files(tmp_path, monk
     request = SimpleNamespace(config=SimpleNamespace(getoption=lambda _: True))
     with pytest.raises(OSError, match="fixture preparation failed"):
         boundary.test_actual_haos_app_boundary(tmp_path, request)
-    assert [args[1] for args in calls] == ["stop", "run", "rm", "ps"]
-    assert not list(tmp_path.iterdir())
+    assert [args[1] for args in calls] == ["stop", "rm", "ps"]
+    assert bool(list(tmp_path.iterdir())) == (absence != "confirmed")

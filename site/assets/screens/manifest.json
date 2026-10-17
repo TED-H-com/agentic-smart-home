@@ -1,6 +1,6 @@
 {
-  "source_commit": "1a5a72d66ef538c6602f1741311ec59f08702836",
-  "source_tree": "c1faef4dd8c2a82529f0b2123f2f8b4a78e64a2b",
+  "source_commit": "82c816cfc948a1d8e33cefa3d4f82f3a0fc9604b",
+  "source_tree": "e0f936a780057965a920b34d5f6b571b634c6079",
   "frontend_source_tree": "68cec62b4c5f85f1a58749380df03d5cb1583d31",
   "source_files": [
     {
@@ -37,7 +37,11 @@
     },
     {
       "file": "web/demo/fake-api.ts",
-      "sha256": "90697797a00f469631d1797ae71f1989b5ccec036206585f23d08d2cb8072baa"
+      "sha256": "2dd8db1dffee54c6b03c0f95c4181ca2d391296b6af0772d7e8296e9cc8fb801"
+    },
+    {
+      "file": "web/demo/ha-lan.ts",
+      "sha256": "06cac5ba173453da9b60a278d8baf9dd51d486ea4cf79fb8a608001a7c83505f"
     },
     {
       "file": "web/demo/home.css",
@@ -77,7 +81,7 @@
     },
     {
       "file": "web/preview/fixtures.json",
-      "sha256": "60b7daf90c08bff114a025f6b8de3a32e6f538c03f8498ea8e76870b809dc6ee"
+      "sha256": "9fe38e4b48ec75cb0d10f38c9e1dd316f43f614e262e7a6efd0dad77ec917346"
     }
   ],
   "fixture_clock": "2026-10-13T09:00:00+08:00",
@@ -123,7 +127,7 @@
     },
     {
       "file": "discovery.png",
-      "sha256": "a903211eb3bfc704ab6fb1b8f9f1b167c25b46332842d06af9e6d5aa7cf74a48",
+      "sha256": "f1e88d7dbddfaf89fedbd108fa49c954fb0ea5f815d00a52313df510c2e704d4",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -131,11 +135,11 @@
       "device_scale_factor": 1,
       "route": "#/agentic-home",
       "surface": "product-in-ha-simulation",
-      "bytes": 112910
+      "bytes": 112903
     },
     {
       "file": "gateway.png",
-      "sha256": "c688c7c125d6499b38ce9bb4720be0039600a386597fc9ac30afddcecefefa7f",
+      "sha256": "314cd4896b7f9105c96d7166c6260292ba8aa01348de10576e36be980b1cd723",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -143,7 +147,7 @@
       "device_scale_factor": 1,
       "route": "#gateway",
       "surface": "product",
-      "bytes": 63323
+      "bytes": 63321
     },
     {
       "file": "proposal.png",
@@ -183,7 +187,7 @@
     },
     {
       "file": "host.png",
-      "sha256": "8f205c8de21698e9c2b492a5bf62e44090395919bdede3f750f290917194b850",
+      "sha256": "2a49df06b840b5fbacc67f8314afbe185f1b528f0349051fd6d069563de4d06f",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -191,7 +195,7 @@
       "device_scale_factor": 1,
       "route": "#host",
       "surface": "product",
-      "bytes": 68807
+      "bytes": 68798
     },
     {
       "file": "bridge.png",
@@ -219,7 +223,7 @@
     },
     {
       "file": "../og.png",
-      "sha256": "5de3e3850c0199bb1fd86b2247496f04030fe1683a009eb6d96956667d561ff8",
+      "sha256": "da874a70b954abab1ed99fb03bb965f413422d80802e658489deb28208a7f48e",
       "viewport": {
         "width": 1200,
         "height": 630

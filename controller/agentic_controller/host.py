@@ -14,7 +14,7 @@ from typing import Literal
 import aiohttp
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from .durability import client_session, durable, file_io
 from .ha import HAError, HomeAssistant
@@ -37,8 +37,19 @@ class ConnectHA(Strict):
 
 
 class HostAction(Strict):
-    action: str = Field(pattern="^(provision|start|shutdown|snapshot|restore)$")
+    action: str = Field(pattern="^(provision|start|shutdown|snapshot|restore|configure_lan)$")
     snapshot: str | None = Field(default=None, pattern=r"^[0-9]{8}T[0-9]{6}Z-[a-f0-9]{8}$")
+    interface_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+
+    @model_validator(mode="after")
+    def scoped_fields(self):
+        if self.action == "configure_lan":
+            if "interface_id" not in self.model_fields_set or self.snapshot is not None:
+                raise ValueError("configure_lan requires an explicit interface choice and no snapshot")
+        elif "interface_id" in self.model_fields_set:
+            raise ValueError("interface_id is only valid for configure_lan")
+        return self
+
 
 
 class HostQuestion(Strict):
@@ -290,7 +301,8 @@ def routes(app, auth, ha, store, runner, controller_id):
         if not key:
             raise HTTPException(400, "缺少 Idempotency-Key")
         await durable(store)
-        return await host_call("POST", {"id": key, **body.model_dump()}, store=store)
+        return await host_call("POST", {"id": key, **body.model_dump(
+            exclude={"interface_id"} if body.action != "configure_lan" else {"snapshot"})}, store=store)
 
     @app.post("/api/host/connect")
     async def connect(body: ConnectHA, request: Request):

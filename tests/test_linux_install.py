@@ -3,12 +3,15 @@ import base64
 import contextlib
 import hashlib
 import importlib.util
+import inspect
 import json
 import os
 import re
+import shlex
 import stat
 import subprocess
 import sys
+import textwrap
 import time
 import uuid
 from pathlib import Path
@@ -31,6 +34,45 @@ UPDATE_DEADLINE_SECONDS = RUNTIME_MAX_SECONDS + 300
 INSTALL_CLEANUP_COMMAND_SECONDS = 30
 INSTALL_CONSOLE_BYTES = 65536
 INSTALL_DISPOSABLE_IMAGES = ("linux.qcow2", "test.iso", "nvram.fd")
+LAN_LAB_IMAGE = "agentic-home-lan-lab:0.10.0"
+INSTALL_GUEST_MEMORY_MIB = 10240
+# The nested fixture needs page-cache/QEMU headroom above the 10 GiB guest.
+# The previous 12 GiB cgroup swapped QEMU despite spare physical host memory.
+# These are test-container limits, not a changed guest or product requirement.
+INSTALL_CONTAINER_MEMORY_GIB = 16
+INSTALL_CONTAINER_MEMORY_SWAP_GIB = 24
+REBOOT_OBSERVATION_SECONDS = 15
+REBOOT_BASELINE_SECONDS = 60
+REBOOT_REQUEST_SECONDS = 30
+REBOOT_ERRORS = {"outer_reboot_baseline_unavailable", "outer_reboot_request_failed",
+                 "outer_reboot_new_boot_not_ready"}
+OUTER_BOOT_OBSERVATION_SCRIPT = """import json,subprocess
+from pathlib import Path
+try:
+    path=Path('/proc/sys/kernel/random/boot_id')
+    before=path.read_text().strip()
+    active=subprocess.run(['systemctl','is-active','agentic-home'],
+                          stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=5).returncode == 0
+    after=path.read_text().strip()
+    if before != after:
+        raise ValueError('boot_changed_during_observation')
+    print(json.dumps({'boot_id':after,'service_active':active}),flush=True)
+except Exception:
+    raise SystemExit(1) from None
+"""
+
+
+def provider_policy_seed():
+    """Set the fixture's administration policy before any installed service starts.
+
+    The runtime file survives firstboot, reboots and Controller updates. Product
+    payloads and image IDs remain exact; the excluded provider is never tested.
+    """
+    return [
+        "install -d -m 0700 /target/var/lib/agentic-home/host",
+        "printf 'AGENTIC_DISABLED_PROVIDERS=grok\\n' > /target/var/lib/agentic-home/host/runtime.env",
+        "chmod 0600 /target/var/lib/agentic-home/host/runtime.env",
+    ]
 
 
 def cleanup_installer(name, temporary, console_path, *, run=None):
@@ -133,8 +175,432 @@ def bootstrap_job_diagnostics(output):
     return result
 
 
+def bootstrap_record_diagnostics(raw):
+    """Project fixed private setup diagnostics; reject arbitrary nested values."""
+    import json
+
+    invalid = {"observation": "invalid"}
+    if not isinstance(raw, (bytes, str)) or len(raw) > 16384:
+        return invalid
+    try:
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        if len(raw.encode("utf-8")) > 16384:
+            return invalid
+
+        def unique(pairs):
+            value = {}
+            for key, item in pairs:
+                if key in value:
+                    raise ValueError("duplicate_key")
+                value[key] = item
+            return value
+
+        value = json.loads(raw, object_pairs_hook=unique)
+    except (UnicodeError, ValueError, TypeError, RecursionError):
+        return invalid
+    if not isinstance(value, dict):
+        return invalid
+    names = {"diagnostic", "fallback_diagnostic", "probe_diagnostic"}
+    if set(value) == {"observation"}:
+        return value if isinstance(value["observation"], str) and value["observation"] in {
+            "absent", "invalid", "unavailable", "timeout"} else invalid
+    if not names.intersection(value):
+        return {"observation": "absent"}
+    phases = {"workspace_preparation", "image_inspection", "probe_preparation", "offline_probe",
+              "runtime_stop", "account_recheck", "environment_activation", "runtime_activation",
+              "state_commit", "temporary_cleanup", "state_readback"}
+    reasons = {"timeout", "command_failed", "invalid_contract", "state_conflict", "filesystem_error", "unexpected_error"}
+    exits = {"unavailable", "success", "rejected", "docker_error", "command_not_executable",
+             "command_not_found", "killed", "terminated", "nonzero", "signal"}
+    stages = {"consumed_signatures", "chat_tool_roundtrip", "continued_history", "provider_401",
+              "native_device_oauth", "native_responses_tool_roundtrip", "fixture_finalization"}
+    kinds = {"child_timeout", "child_exit", "invalid_output", "contract_failure", "fixture_protocol", "unexpected"}
+    result = {"observation": "ok"}
+    for name in sorted(names.intersection(value)):
+        item = value[name]
+        if not isinstance(item, dict) or type(item.get("schema")) is not int or item["schema"] != 1:
+            return invalid
+        fields = ({"stage": stages, "kind": kinds} if name == "probe_diagnostic" else
+                  {"phase": {"fallback_environment", "fallback_activation"} if name == "fallback_diagnostic" else phases,
+                   "reason": reasons, "exit_category": exits})
+        if set(item) != {"schema", *fields} or any(
+                not isinstance(item[key], str) or item[key] not in choices for key, choices in fields.items()):
+            return invalid
+        result[name] = item
+    return result
+
+
+def observe_bootstrap_diagnostics(ssh, *, run=None):
+    """One bounded read before VM cleanup; never capture the private record itself."""
+    run = run or subprocess.run
+    script = "import json\nfrom pathlib import Path\n" + inspect.getsource(bootstrap_record_diagnostics) + '''
+try:
+    path = Path('/var/lib/agentic-home/host/bootstrap-hermes.json')
+    if path.is_symlink():
+        result = {"observation": "invalid"}
+    else:
+        with path.open('rb') as stream:
+            result = bootstrap_record_diagnostics(stream.read(16385))
+except OSError:
+    result = {"observation": "unavailable"}
+print(json.dumps(result))
+'''
+    try:
+        completed = run([*ssh, "sudo python3 -"], input=script, text=True, capture_output=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        return {"observation": "timeout"}
+    except UnicodeError:
+        return {"observation": "invalid"}
+    except OSError:
+        return {"observation": "unavailable"}
+    if completed.returncode != 0:
+        return {"observation": "unavailable"}
+    return bootstrap_record_diagnostics(completed.stdout)
+
+
+def retain_bootstrap_result(ssh, latest_result, iso_hash, report):
+    """Persist safe failure details before a subsequent status transport can fail."""
+    receipt = {"runtime_location": "disposable_outer_linux_vm", "iso_sha256": iso_hash,
+               "cli_exit": latest_result.returncode, "job": bootstrap_job_diagnostics(latest_result.stdout),
+               "diagnostics": observe_bootstrap_diagnostics(ssh), "cloud_login": "not_run"}
+    report.write_text(json.dumps(receipt, indent=2) + "\n")
+    observed = json.loads(command(*ssh, "agentic-home status"))["bootstrap"]["hermes"]
+    receipt["observed"] = observed
+    report.write_text(json.dumps(receipt, indent=2) + "\n")
+    return observed
+
+
 def command(*args, **kwargs):
     return subprocess.run(args, check=True, capture_output=True, text=True, **kwargs).stdout.strip()
+
+
+def lan_probe_diagnostics(output, expected_phase):
+    """Accept only the fixed probe's bounded failure contract, never its streams."""
+    from installed_ha_lan_probe import validate_failure
+
+    if isinstance(output, bytes):
+        if len(output) > 8192:
+            return None
+        try:
+            output = output.decode("utf-8")
+        except UnicodeError:
+            return None
+    if not isinstance(output, str) or len(output) > 8192:
+        return None
+    try:
+        if len(output.encode()) > 8192:
+            return None
+    except UnicodeError:
+        return None
+
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate_key")
+            result[key] = value
+        return result
+
+    try:
+        value = validate_failure(json.loads(output, object_pairs_hook=unique_object))
+    except (ValueError, TypeError, RecursionError):
+        return None
+    if value is None or value["phase"] != expected_phase:
+        return None
+    return value
+
+
+def observe_outer_boot(ssh, timeout, *, run=None):
+    """One fixed read-only probe; transport loss and malformed output are not ready."""
+    run = run or subprocess.run
+    try:
+        result = run([*ssh, "python3 -"], input=OUTER_BOOT_OBSERVATION_SCRIPT,
+                     text=True, capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return None
+    if result.returncode != 0 or not isinstance(result.stdout, str) or len(result.stdout) > 512:
+        return None
+    try:
+        value = json.loads(result.stdout)
+    except (ValueError, TypeError):
+        return None
+    if (not isinstance(value, dict) or set(value) != {"boot_id", "service_active"}
+            or not isinstance(value["boot_id"], str)
+            or not re.fullmatch(r"[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}", value["boot_id"])
+            or value["boot_id"] == "00000000-0000-0000-0000-000000000000"
+            or type(value["service_active"]) is not bool):
+        return None
+    return value
+
+
+def reboot_outer(ssh, seconds, *, run=None, clock=time.monotonic, pause=time.sleep):
+    """Issue one reboot, then prove a different boot and active service together.
+
+    The shared wall-clock budget includes baseline, the single write and every
+    observation. A timed-out/disconnected write may have executed: never retry it.
+    No boot identifiers or raw SSH output enter the returned public evidence.
+    """
+    if type(seconds) not in (int, float) or not 0 < seconds <= 3600:
+        raise ValueError("invalid_reboot_budget")
+    run = run or subprocess.run
+    started = clock()
+    deadline = started + seconds
+    evidence = {"boot_id_changed": False, "service_active_in_new_boot": False,
+                "reboot_requests": 0, "observations": 0, "unavailable_observations": 0,
+                "same_boot_observations": 0, "new_boot_not_ready_observations": 0}
+
+    def observe(until):
+        remaining = until - clock()
+        if remaining <= 0:
+            return None
+        evidence["observations"] += 1
+        value = observe_outer_boot(ssh, min(REBOOT_OBSERVATION_SECONDS, remaining), run=run)
+        if value is None:
+            evidence["unavailable_observations"] += 1
+        return value if clock() < until else None
+
+    def wait(until):
+        pause(min(5, max(0, until - clock())))
+
+    baseline_deadline = min(deadline, started + REBOOT_BASELINE_SECONDS)
+    before = None
+    while clock() < baseline_deadline:
+        before = observe(baseline_deadline)
+        if before is not None:
+            break
+        wait(baseline_deadline)
+    if before is None:
+        raise AssertionError("outer_reboot_baseline_unavailable")
+
+    remaining = deadline - clock()
+    if remaining <= 0:
+        raise AssertionError("outer_reboot_new_boot_not_ready")
+    evidence["reboot_requests"] = 1
+    try:
+        requested = run([*ssh, "sudo systemctl reboot"], capture_output=True, text=True,
+                        timeout=min(REBOOT_REQUEST_SECONDS, remaining))
+    except subprocess.TimeoutExpired:
+        evidence["request_result"] = "timeout"
+    else:
+        if requested.returncode not in (0, 255):
+            raise AssertionError("outer_reboot_request_failed")
+        evidence["request_result"] = "accepted" if requested.returncode == 0 else "transport_disconnected"
+
+    while clock() < deadline:
+        observed = observe(deadline)
+        if observed is not None:
+            if observed["boot_id"] == before["boot_id"]:
+                evidence["same_boot_observations"] += 1
+            elif observed["service_active"]:
+                evidence.update(boot_id_changed=True, service_active_in_new_boot=True,
+                                duration_seconds=round(clock() - started))
+                return evidence
+            else:
+                evidence["new_boot_not_ready_observations"] += 1
+        wait(deadline)
+    raise AssertionError("outer_reboot_new_boot_not_ready")
+
+
+def native_api_probe_script(base, timeout):
+    return ("import urllib.request,urllib.error\ntry:\n urllib.request.urlopen(" + repr(base + "/api/")
+            + ",timeout=" + str(timeout) + ")\nexcept urllib.error.HTTPError as e:\n assert e.code==401\n"
+            "else:\n raise AssertionError('native_auth_api_expected')\n")
+
+
+def lan_callback_probe_script(base):
+    """Observe the unchanged single request; retain its original exception."""
+    return "import errno,json,urllib.error\ndef check():\n" + textwrap.indent(
+        native_api_probe_script(base, 10), " ") + '''
+try:
+ check()
+except Exception as error:
+ reason = error.reason if isinstance(error, urllib.error.URLError) else error
+ if isinstance(reason, TimeoutError):
+  code = 'socket_timeout'
+ elif isinstance(reason, OSError) and reason.errno == errno.ECONNREFUSED:
+  code = 'connection_refused'
+ elif isinstance(reason, OSError) and reason.errno in {errno.ENETUNREACH, errno.EHOSTUNREACH}:
+  code = 'network_unreachable'
+ elif isinstance(error, AssertionError):
+  code = 'unexpected_http_status'
+ else:
+  code = 'unexpected_error'
+ print(json.dumps({'schema':1,'kind':'installed_ha_lan_callback','status':'failed','error_code':code}),flush=True)
+ raise
+else:
+ print(json.dumps({'schema':1,'kind':'installed_ha_lan_callback','status':'passed','error_code':None}),flush=True)
+'''
+
+
+def lan_callback_diagnostics(raw, *, succeeded):
+    """Only a flat finite receipt is accepted, never HTTP output or URLs."""
+    if not isinstance(raw, (str, bytes)) or len(raw) > 2048:
+        return None
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate_key")
+            result[key] = value
+        return result
+    def reject_constant(value):
+        raise ValueError("nonfinite_json")
+    try:
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        if len(raw.encode("utf-8")) > 2048:
+            return None
+        value = json.loads(raw, object_pairs_hook=unique, parse_constant=reject_constant)
+    except (UnicodeError, ValueError, TypeError, RecursionError):
+        return None
+    if (not isinstance(value, dict) or set(value) != {"schema", "kind", "status", "error_code"}
+            or type(value["schema"]) is not int or value["schema"] != 1
+            or value["kind"] != "installed_ha_lan_callback"
+            or value["status"] != ("passed" if succeeded else "failed")):
+        return None
+    code = value["error_code"]
+    if ((succeeded and code is not None) or (not succeeded and (not isinstance(code, str)
+            or code not in {"socket_timeout", "connection_refused", "network_unreachable",
+                            "unexpected_http_status", "unexpected_error"}))):
+        return None
+    return {"status": value["status"], "error_code": code}
+
+
+def lan_partial_path(request, profile):
+    """Keep incomplete observations outside all distributable source inputs."""
+    assert profile in {"laptop-amd64", "server-amd64"}
+    xml = getattr(getattr(request.config, "option", None), "xmlpath", None)
+    directory = Path(xml).expanduser().resolve().parent if xml else ROOT / "build"
+    if directory.is_relative_to(ROOT.resolve()):
+        directory = ROOT / "build"
+    return directory / ("installed-ha-lan-partial-" + profile + ".json")
+
+
+def retain_lan_partial(path, value):
+    """Atomic private checkpoint; a failed diagnostic write never replaces cause."""
+    temporary = path.with_name(path.name + ".partial-" + uuid.uuid4().hex)
+    try:
+        raw = json.dumps(value, indent=2).encode() + b"\n"
+        assert len(raw) <= 8192
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(descriptor, "wb") as output:
+            output.write(raw)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+        descriptor = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        return True
+    except Exception:
+        return False
+    finally:
+        with contextlib.suppress(OSError):
+            temporary.unlink(missing_ok=True)
+
+
+def installed_lan(ssh, container, phase, image_ids, *, partial_path, profile, iso_hash):
+    """Actual second physical-from-guest NIC, native discovery, reboot, removal."""
+    report = {"kind": "real_installed_haos_wired_lan", "result": "running", "images": image_ids,
+              "network": "synthetic_tap_inside_owned_docker_namespace", "physical_household": "not_run",
+              "model_provider": "not_run", "fixture_protocol": "homekit_mdns_advertisement_only"}
+    source = (ROOT / "tests/installed_ha_lan_probe.py").read_text()
+    compose = "sudo docker compose -f /opt/agentic-home/host/compose.yaml"
+    assert profile in {"laptop-amd64", "server-amd64"} and re.fullmatch(r"[a-f0-9]{64}", iso_hash)
+    partial = {"schema": 1, "kind": "installed_ha_lan_partial", "status": "incomplete", "complete": False,
+               "profile": profile, "iso_sha256": iso_hash, "stages": {}}
+    retain_lan_partial(partial_path, partial)
+
+    def probe(stage):
+        result = command(*ssh, compose + " exec -T -e AGENTIC_LAN_PROBE_PHASE=" + stage + " controller python -",
+                         input=source, timeout=900)
+        return json.loads(result)
+
+    def wait_native(stage):
+        # Onboarding routes disappear after completed onboarding and a restart.
+        # A 401 from the Core API proves the native authenticated API is alive;
+        # the following owner probe establishes the actual network postconditions.
+        phase(stage)
+        script = native_api_probe_script("http://localhost:8123", 3)
+        def ready():
+            try:
+                result = subprocess.run([*ssh, "python3 -"], input=script, text=True, capture_output=True, timeout=15)
+                return result.returncode == 0
+            except subprocess.TimeoutExpired:
+                return False
+        assert wait_until(ready, 900), "native_core_api_unavailable"
+
+    def callback(observation, stage):
+        native = {name: observation.get(name) for name in (
+            "management_reachable", "dhcp_ipv4", "ipv6_ra", "lan_default_gateway", "management_gateway_absent",
+            "native_discovery_adapter_auto", "native_mdns_flow_observed", "product_observation_ready")}
+        assert all(value is True for value in native.values())
+        partial["stages"][stage] = {"native": native, "callback": {"status": "pending", "error_code": None}}
+        retain_lan_partial(partial_path, partial)
+        url = observation["callback_url"]
+        # Only the synthetic peer namespace contacts this observed fixture URL.
+        from urllib.parse import urlsplit
+
+        from installed_ha_lan_probe import callback_address_matches
+
+        parsed = urlsplit(url)
+        assert (re.fullmatch(r"198\.18\.42\.(?:1[0-4][0-9]|150)", parsed.hostname or "")
+                and callback_address_matches(url, [parsed.hostname]))
+        script = lan_callback_probe_script(url)
+        try:
+            output = command("docker", "exec", "-i", container, "python3", "-", input=script, timeout=20)
+            diagnostic = lan_callback_diagnostics(output, succeeded=True)
+            assert diagnostic is not None, "lan_callback_diagnostic_invalid"
+        except Exception as error:
+            diagnostic = None
+            if isinstance(error, subprocess.CalledProcessError):
+                diagnostic = lan_callback_diagnostics(error.stdout, succeeded=False)
+            code = "peer_process_timeout" if isinstance(error, subprocess.TimeoutExpired) else "peer_process_failed"
+            partial["stages"][stage]["callback"] = diagnostic or {"status": "failed", "error_code": code}
+            if not retain_lan_partial(partial_path, partial):
+                with contextlib.suppress(Exception):
+                    error.add_note("Private LAN partial observation could not be retained.")
+            raise
+        partial["stages"][stage]["callback"] = diagnostic
+        retain_lan_partial(partial_path, partial)
+        return {**native, "native_callback_reachable_from_lan_peer": True}
+
+    phase("wired_lan_native_owner_fixture")
+    report["owner"] = probe("onboard")
+    phase("wired_lan_select_and_start")
+    command(*ssh, "agentic-home shutdown", timeout=240)
+    status = json.loads(command(*ssh, "agentic-home ha-lan", timeout=30))
+    choices = [row for row in status["interfaces"] if row["address"] == "198.18.42.10"]
+    assert len(choices) == 1 and re.fullmatch(r"[a-f0-9]{64}", choices[0]["id"])
+    command(*ssh, "agentic-home configure_lan --interface-id " + choices[0]["id"], timeout=180)
+    command(*ssh, "agentic-home start", timeout=120)
+    wait_native("wired_lan_guest_boot")
+    phase("wired_lan_native_checks")
+    initial = probe("wired")
+    phase("wired_lan_initial_callback")
+    report["initial"] = callback(initial, "initial")
+    phase("wired_lan_outer_reboot")
+    report["outer_reboot_observation"] = reboot_outer(ssh, 900)
+    partial["outer_reboot_observation"] = {name: report["outer_reboot_observation"].get(name) is True
+                                          for name in ("boot_id_changed", "service_active_in_new_boot")}
+    retain_lan_partial(partial_path, partial)
+    wait_native("wired_lan_after_outer_reboot")
+    phase("wired_lan_after_reboot_native_checks")
+    after_reboot = probe("wired")
+    phase("wired_lan_after_reboot_callback")
+    report["after_outer_reboot"] = callback(after_reboot, "after_outer_reboot")
+    phase("wired_lan_remove_and_restore_nat")
+    command(*ssh, "agentic-home shutdown", timeout=240)
+    command(*ssh, "agentic-home configure_lan --disable-lan", timeout=180)
+    command(*ssh, "agentic-home start", timeout=120)
+    wait_native("nat_after_wired_lan_removal")
+    phase("nat_native_checks")
+    report["removed"] = probe("nat")
+    report["result"] = "passed"
+    return report
 
 
 def wait_until(ready, seconds, *, clock=time.monotonic, pause=time.sleep):
@@ -238,20 +704,33 @@ def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run):
     from installed_update_probe import LIFECYCLE_ACTIONS, lifecycle_receipt, process_diagnostics
 
     stdout, stderr = getattr(exc, "stdout", "") or "", getattr(exc, "stderr", "") or ""
-    process = subprocess.CompletedProcess([], getattr(exc, "returncode", None), stdout, stderr)
+    # Keep the original exception intact, including malformed private streams.
+    process = subprocess.CompletedProcess([], getattr(exc, "returncode", None),
+        stdout.encode(errors="replace") if isinstance(stdout, str) else stdout,
+        stderr.encode(errors="replace") if isinstance(stderr, str) else stderr)
     result = {"phase": phase, "error_type": type(exc).__name__ if type(exc).__name__ in {
         "CalledProcessError", "TimeoutExpired", "AssertionError", "JSONDecodeError", "TypeError"} else "OtherError",
         "process": process_diagnostics(process), "remote": "not_attempted"}
+    if (isinstance(exc, AssertionError) and len(exc.args) == 1
+            and isinstance(exc.args[0], str) and exc.args[0] in REBOOT_ERRORS):
+        result["reboot_error_code"] = exc.args[0]
     if isinstance(exc, subprocess.TimeoutExpired) and type(exc.timeout) in {int, float} and 0 <= exc.timeout <= 3600:
         result["timeout_seconds"] = exc.timeout
     args = getattr(exc, "cmd", ())
     remote_command = args[-1] if isinstance(args, (tuple, list)) and args and isinstance(args[-1], str) else ""
-    action = next((item for item in LIFECYCLE_ACTIONS if remote_command == "agentic-home " + item or
-                   (item == "restore" and remote_command.startswith("agentic-home restore --snapshot "))), None)
+    lan_probe = re.fullmatch(
+        r"sudo docker compose -f /opt/agentic-home/host/compose\.yaml exec -T "
+        r"-e AGENTIC_LAN_PROBE_PHASE=(onboard|wired|nat) controller python -", remote_command)
+    if lan_probe and (native := lan_probe_diagnostics(stdout, lan_probe[1])) is not None:
+        result["native_lan"] = native
+    action = next((item for item in LIFECYCLE_ACTIONS if (item != "configure_lan" and remote_command == "agentic-home " + item) or
+                   (item == "restore" and remote_command.startswith("agentic-home restore --snapshot ")) or
+                   (item == "configure_lan" and re.fullmatch(
+                       r"agentic-home configure_lan (?:--interface-id [a-f0-9]{64}|--disable-lan)", remote_command))), None)
     result["lifecycle_action"] = action
     output = stdout.decode(errors="replace") if isinstance(stdout, bytes) else stdout
     receipt = None
-    if isinstance(output, str) and len(output.encode()) <= 65536:
+    if not lan_probe and isinstance(output, str) and len(output.encode()) <= 65536:
         try:
             receipt = lifecycle_receipt(json.loads(output[output.index("{"):]))
         except (ValueError, TypeError, AttributeError):
@@ -475,7 +954,7 @@ def test_full_linux_install_with_nested_haos(tmp_path, request):
     assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
     profile = os.environ.get("AGENTIC_INSTALL_TEST_PROFILE", "laptop-amd64")
     assert profile in {"laptop-amd64", "server-amd64"}
-    iso = ROOT / "dist" / ("agentic-home-0.9.0-" + profile + ".iso")
+    iso = ROOT / "dist" / ("agentic-home-0.10.0-" + profile + ".iso")
     assert iso.exists()
     with iso.open("rb") as stream:
         iso_hash = hashlib.file_digest(stream, "sha256").hexdigest()
@@ -491,10 +970,18 @@ def test_full_linux_install_with_nested_haos(tmp_path, request):
                           "authorized-keys": [(tmp_path / "test-key.pub").read_text().strip()]}
     autoinstall["storage"] = {"layout": {"name": "direct", "match": {"serial": "AGENTIC_TEST_ONLY"}}}
     autoinstall["shutdown"] = "poweroff"
+    # Capture the exact shipped hardware gate's output while retaining its exit
+    # status and original position before storage. This wrapper is fixture-only.
+    gate = autoinstall["early-commands"][0]
+    autoinstall["early-commands"][0] = ["bash", "-o", "pipefail", "-c",
+        shlex.join(gate) + " | tee /run/agentic-preflight-receipt.log"]
     autoinstall["late-commands"] += [
         "printf 'tester ALL=(root) NOPASSWD: ALL\\n' > /target/etc/sudoers.d/90-agentic-test",
         "chmod 440 /target/etc/sudoers.d/90-agentic-test"]
+    autoinstall["late-commands"] += provider_policy_seed()
+    autoinstall["late-commands"] += ["cp /run/agentic-preflight-receipt.log /target/var/lib/agentic-home/host/fixture-preflight.log"]
     (tmp_path / "user-data").write_text("#cloud-config\n" + json.dumps(config, indent=2))
+    (tmp_path / "ha-lan-peer.py").write_text((ROOT / "tests/ha_lan_peer.py").read_text())
     # Connect from QEMU's loopback: Docker's outer 172.17/16 otherwise overlaps
     # Docker inside the guest after firstboot and breaks the return route.
     (tmp_path / "ssh-proxy.py").write_text('''import socket,sys,threading
@@ -509,7 +996,11 @@ while data:=s.recv(65536):
     name = "agentic-linux-install-test-" + uuid.uuid4().hex[:10]
     started = time.time()
     progress = {"runtime_location": "disposable_outer_linux_vm", "iso_sha256": iso_hash,
-                "result": "running", "cloud_login": "not_run"}
+                "result": "running", "cloud_login": "not_run",
+                "fixture_resources": {"guest_memory_mib": INSTALL_GUEST_MEMORY_MIB,
+                    "container_memory_gib": INSTALL_CONTAINER_MEMORY_GIB,
+                    "container_memory_and_swap_gib": INSTALL_CONTAINER_MEMORY_SWAP_GIB},
+                "excluded_cli_probes": {"grok": "not_run: owner instruction"}}
     progress_path = ROOT / "evidence" / ("installed-progress-" + profile + ".json")
 
     def phase(name):
@@ -517,6 +1008,10 @@ while data:=s.recv(65536):
         progress_path.write_text(json.dumps(progress, indent=2) + "\n")
 
     try:
+        phase("prepare_isolated_lan_test_image")
+        command("docker", "build", "-f", str(ROOT / "tests/ha_lan_lab.Dockerfile"), "-t", LAN_LAB_IMAGE, str(ROOT), timeout=600)
+        lan_images = {"builder": command("docker", "image", "inspect", "--format", "{{.Id}}", "agentic-home-builder:0.2.0"),
+                      "lan_lab": command("docker", "image", "inspect", "--format", "{{.Id}}", LAN_LAB_IMAGE)}
         phase("prepare_disposable_media")
         command("docker", "run", "--rm", "-u", f"{os.getuid()}:{os.getgid()}", "-v", f"{tmp_path}:/lab",
                 "-v", f"{iso}:/source.iso:ro", "agentic-home-builder:0.2.0", "xorriso",
@@ -524,17 +1019,22 @@ while data:=s.recv(65536):
                 "-map", "/lab/user-data", "/agentic-seed/user-data", "-commit")
         command("docker", "run", "--rm", "-u", f"{os.getuid()}:{os.getgid()}", "-v", f"{tmp_path}:/lab",
                 "agentic-home-builder:0.2.0", "qemu-img", "create", "-f", "qcow2", "/lab/linux.qcow2", "120G")
-        qemu = ["qemu-system-x86_64", "-enable-kvm", "-cpu", "host", "-machine", "q35", "-m", "10240", "-smp", "4",
+        qemu = ["qemu-system-x86_64", "-enable-kvm", "-cpu", "host", "-machine", "q35", "-m", str(INSTALL_GUEST_MEMORY_MIB), "-smp", "4",
                 "-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd",
                 "-drive", "if=pflash,format=raw,file=/lab/nvram.fd",
                 "-drive", "file=/lab/linux.qcow2,format=qcow2,if=none,id=disk,discard=unmap,detect-zeroes=unmap",
                 "-device", "virtio-blk-pci,drive=disk,serial=AGENTIC_TEST_ONLY",
                 "-netdev", "user,id=net,hostfwd=tcp:0.0.0.0:2222-:22", "-device", "virtio-net-pci,netdev=net",
+                "-netdev", "tap,id=lan,ifname=ahltap,script=no,downscript=no",
+                "-device", "virtio-net-pci,netdev=lan,mac=52:54:00:aa:42:01",
                 "-display", "none", "-serial", "file:/lab/serial.log", "-monitor", "unix:/lab/monitor.sock,server,nowait"]
         command("docker", "run", "--rm", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0",
                 "cp", "/usr/share/OVMF/OVMF_VARS_4M.fd", "/lab/nvram.fd")
-        common = ["docker", "run", "-d", "--name", name, "--device", "/dev/kvm", "--memory", "12g", "--cpus", "4",
-                  "-p", "127.0.0.1::2222", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0"]
+        common = ["docker", "run", "-d", "--name", name, "--device", "/dev/kvm", "--memory", f"{INSTALL_CONTAINER_MEMORY_GIB}g",
+                  "--memory-swap", f"{INSTALL_CONTAINER_MEMORY_SWAP_GIB}g", "--cpus", "4",
+                  "--cap-add", "NET_ADMIN", "--device", "/dev/net/tun", "--sysctl", "net.ipv4.ip_forward=1",
+                  "--sysctl", "net.ipv6.conf.all.disable_ipv6=0", "-e", "AGENTIC_DISPOSABLE_LAN_LAB=1",
+                  "-p", "127.0.0.1::2222", "-v", f"{tmp_path}:/lab", lan_images["lan_lab"], "python3", "/lab/ha-lan-peer.py", "launch"]
         phase("ubuntu_installation")
         command(*common, *qemu, "-cdrom", "/lab/test.iso", "-boot", "d")
         def powered_off():
@@ -559,12 +1059,14 @@ while data:=s.recv(65536):
         if not wait_until(lambda: remote_ok(ssh, "test -f /var/lib/agentic-home/installed.json"), 3600):
             raise AssertionError("Firstboot did not complete within 60 minutes")
         phase("installed_identity_and_images")
+        gate_log = command(*ssh, "sudo cat /var/lib/agentic-home/host/fixture-preflight.log", timeout=30)
+        assert re.search(r"Agentic Home hardware check passed: x86-64, [0-9]+ MiB RAM, working KVM\.", gate_log)
         host = json.loads(command(*ssh, "agentic-home status"))
         assert not host["provisioned"] and host["kvm"]
         installed = json.loads(command(*ssh, "sudo cat /var/lib/agentic-home/installed.json"))
-        assert installed["version"] == "0.9.0" and installed["profile"] == profile
+        assert installed["version"] == "0.10.0" and installed["profile"] == profile
         image_lock = json.loads(command(*ssh, "cat /opt/agentic-home/images.lock.json"))
-        expected_tags = {f"agentic-home-{service}:0.9.0" for service in ("controller", "runner", "linejs", "hermes", "preview")}
+        expected_tags = {f"agentic-home-{service}:0.10.0" for service in ("controller", "runner", "linejs", "hermes", "preview")}
         assert set(image_lock) == expected_tags
         for tag, digest in image_lock.items():
             assert command(*ssh, "sudo docker image inspect --format '{{.Id}}' " + tag) == digest
@@ -583,6 +1085,7 @@ while data:=s.recv(65536):
         (ROOT / "evidence" / ("installed-auth-" + profile + ".json")).write_text(
             json.dumps(auth_probe, indent=2) + "\n")
         assert auth_result.returncode == 0 and auth_probe.get("result") != "failed", auth_probe
+        assert auth_probe["excluded_cli_probes"] == {"grok": "not_run: owner instruction"}
         # Exercise independent console recovery before adding any household VM.
         phase("controller_stopped_console_recovery")
         diagnostics = json.loads(command(*ssh, "agentic-home diagnostics"))
@@ -632,12 +1135,8 @@ while data:=s.recv(65536):
         phase("release_hermes_probe_and_activation")
         latest_result = subprocess.run([*ssh, "agentic-home bootstrap_hermes"], capture_output=True,
                                        text=True, timeout=1500)
-        bootstrap_hermes = json.loads(command(*ssh, "agentic-home status"))["bootstrap"]["hermes"]
-        (ROOT / "evidence" / ("installed-hermes-" + profile + ".json")).write_text(json.dumps({
-            "runtime_location": "disposable_outer_linux_vm", "iso_sha256": iso_hash,
-            "cli_exit": latest_result.returncode, "job": bootstrap_job_diagnostics(latest_result.stdout),
-            "observed": bootstrap_hermes,
-            "cloud_login": "not_run"}, indent=2) + "\n")
+        bootstrap_hermes = retain_bootstrap_result(ssh, latest_result, iso_hash,
+            ROOT / "evidence" / ("installed-hermes-" + profile + ".json"))
         assert latest_result.returncode == 0 and bootstrap_hermes["state"] == "ready", bootstrap_hermes
         assert bootstrap_hermes["source"] == "release"
         phase("release_hermes_runtime_revision_readback")
@@ -687,13 +1186,26 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
         command(*ssh, "agentic-home start")
         wait_ha("nested_haos_restored_boot")
         phase("outer_reboot_and_haos_autostart")
-        subprocess.run([*ssh, "sudo systemctl reboot"], capture_output=True)
-        time.sleep(15)
-        if not wait_until(lambda: remote_ok(ssh, "systemctl is-active agentic-home"), 1800):
-            raise AssertionError("Outer product did not restart")
+        outer_reboot_observation = reboot_outer(ssh, 1800)
         assert json.loads(command(*ssh, "agentic-home status"))["vm"] == "running"
         assert hermes_image() == candidate_id
+        # The same Runner policy must remain effective after all update/restore
+        # paths and a real outer reboot; reading /status must not execute Grok.
+        assert "AGENTIC_DISABLED_PROVIDERS=grok" in command(*ssh,
+            "sudo cat /var/lib/agentic-home/host/runtime.env").splitlines()
+        policy_result = subprocess.run([*ssh, "python3 - --provisioned"], capture_output=True, text=True,
+                                      timeout=AUTH_PROBE_TIMEOUT_SECONDS,
+                                      input=(ROOT / "tests/installed_probe.py").read_text())
+        # The initial probe also expects bootstrap idle / unpaired Home runtime;
+        # both remain true in this explicit fixture-driven provisioning flow.
+        policy_probe = probe_json(policy_result, ROOT / "evidence" / ("installed-process-auth-reboot-" + profile + ".json"))
+        assert policy_result.returncode == 0 and policy_probe.get("excluded_cli_probes") == {
+            "grok": "not_run: owner instruction"}, policy_probe
         wait_ha("nested_haos_after_outer_reboot")
+        lan_report = installed_lan(ssh, name, phase, lan_images,
+                                   partial_path=lan_partial_path(request, profile), profile=profile, iso_hash=iso_hash)
+        lan_report["iso_sha256"] = iso_hash
+        (ROOT / "evidence" / ("installed-ha-lan-" + profile + ".json")).write_text(json.dumps(lan_report, indent=2) + "\n")
         evidence = {"kind": "real_linux_install_nested_kvm", "profile": profile, "base": "Ubuntu 24.04.5",
                     "iso_sha256": iso_hash,
                     "installed_version": installed["version"], "images": image_lock,
@@ -703,6 +1215,8 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
                     "runtime_location": "disposable_outer_linux_vm", "model_backend": "coding_transport_fixture",
                     "ha_backend": "nested_official_haos", "device_kind": "none",
                     "installation": "passed", "firstboot": "passed", "haos_vm_running": True,
+                    "live_hardware_preflight_executed": True, "wired_lan_qualification": lan_report["result"],
+                    "isolated_lan_test_images": lan_images,
                     "outer_ui_with_haos_off": True, "cold_snapshot_restore": "passed",
                     "firstboot_without_haos": True, "hermes_service_without_account": "needs_auth",
                     "console_rescue_with_controller_stopped": "passed",
@@ -710,10 +1224,13 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
                     "release_hermes": {**bootstrap_hermes, "image_id": candidate_id,
                                       "runtime_revision_readback": "passed", "persists_after_reboot": True},
                     "outer_reboot_haos_autostart": "passed",
+                    "outer_reboot_observation": outer_reboot_observation,
+                    "fixture_resources": progress["fixture_resources"],
                     "ha_readiness_check": "real Core onboarding API JSON list after startup, restore and outer reboot",
                     "duration_seconds": round(time.time() - started),
                     "installer_inputs": "Disposable disk serial + ephemeral SSH key supplied by fixture",
-                    "physical_laptop": "not_run", "cloud_login": "not_run"}
+                    "physical_laptop": "not_run", "cloud_login": "not_run",
+                    "excluded_cli_probes": {"grok": "not_run: owner instruction"}}
         report_name = "linux-install-server.json" if profile == "server-amd64" else "linux-install.json"
         (ROOT / "evidence" / report_name).write_text(json.dumps(evidence, indent=2) + "\n")
         progress["result"] = "passed"

@@ -7,13 +7,14 @@ import sys
 import urllib.error
 from pathlib import Path
 from types import SimpleNamespace
+from xml.etree import ElementTree as ET
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "host"))
 from agentic_host import compatibility as contracts
 from agentic_host.bootstrap import InitialSetup, native_ha_status
-from agentic_host.manager import HostError, Manager, run
+from agentic_host.manager import NAME, NETWORK, HostError, Manager, network_xml, run
 
 CAPABILITIES = '<capabilities><host/><guest><os_type>hvm</os_type><arch name="x86_64"><domain type="kvm"/></arch></guest></capabilities>'
 LIMITS = {"MemoryLimit": True, "SwapLimit": True, "PidsLimit": True, "CpuCfsQuota": True,
@@ -99,24 +100,33 @@ def test_missing_or_timed_out_dependency_is_scoped_and_redacted(exception, expec
 
 def test_mutation_rechecks_changed_dependency_and_never_dispatches_when_blocked(tmp_path, monkeypatch):
     changed, writes = [False], []
+    owner = "12345678-1234-1234-1234-123456789abc"
+    network = ET.fromstring(network_xml(owner))
+    # A real libvirt readback has its own materialized network identity.
+    ET.SubElement(network, "uuid").text = "7857bb95-bd31-4e64-86f4-c42e509fb235"
+    ET.SubElement(network, "mac", {"address": "52:54:00:bb:17:01"})
     def execute(*args, **kwargs):
+        if args[-2:] == ("net-dumpxml", NETWORK):
+            return SimpleNamespace(returncode=0, stdout=ET.tostring(network, encoding="unicode"))
         if "--readonly" in args:
             if changed[0]:
                 return SimpleNamespace(returncode=0, stdout='{"unexpected":"private"}')
             return compatible_run(*args, **kwargs)
-        if args[-2:] == ("domstate", "agentic-home-haos"):
+        if args[-2:] == ("domstate", NAME):
             return SimpleNamespace(returncode=0, stdout="shut off")
         writes.append(args)
         return SimpleNamespace(returncode=0, stdout="")
     manager = Manager(tmp_path, execute=execute)
+    manager.state_file.write_text(json.dumps({"owner": owner}))
     monkeypatch.setattr(manager, "owned", lambda: object())
     assert manager.compatibility()["state"] == "not_checked"
     assert manager.start()["vm"] == "running"
-    assert len(writes) == 1
+    expected = [("virsh", "--connect", "qemu:///system", action, NAME) for action in ("autostart", "start")]
+    assert writes == expected
     changed[0] = True
     with pytest.raises(HostError, match="host_contract_libvirt_connection_unavailable"):
         manager.start()
-    assert len(writes) == 1
+    assert writes == expected
     assert manager.compatibility()["state"] == "blocked"
 
 

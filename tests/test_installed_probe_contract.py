@@ -2,6 +2,7 @@
 import importlib.util
 import json
 import subprocess
+import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -102,6 +103,105 @@ def test_bootstrap_cli_diagnostics_preserve_only_fixed_status_and_error_codes():
         assert set(result) == {"state", "error_code"}
         assert result["state"] in {"failed", "unknown"}
         assert result["error_code"] == "unclassified_host_error"
+
+
+def test_bootstrap_record_diagnostics_keep_fixed_failure_phases_only():
+    from test_linux_install import bootstrap_record_diagnostics
+
+    safe = {"diagnostic": {"schema": 1, "phase": "offline_probe", "reason": "invalid_contract", "exit_category": "rejected"},
+            "fallback_diagnostic": {"schema": 1, "phase": "fallback_activation", "reason": "timeout", "exit_category": "unavailable"},
+            "probe_diagnostic": {"schema": 1, "stage": "native_device_oauth", "kind": "child_timeout"}}
+    raw = json.dumps({**safe, "image_id": "private-image", "private": "Bearer private-token /home/private"})
+    assert bootstrap_record_diagnostics(raw) == {"observation": "ok", **safe}
+    assert bootstrap_record_diagnostics(json.dumps(bootstrap_record_diagnostics(raw))) == {"observation": "ok", **safe}
+    assert bootstrap_record_diagnostics('{"state":"ready","private":"not-exported"}') == {"observation": "absent"}
+
+
+@pytest.mark.parametrize("raw", [
+    'not JSON', '[]', '"private"', b'\xff', 'x' * 16385, '你' * 5500, '"\ud800"',
+    '{"observation":{}}', '{"observation":true}', '{"observation":"private"}',
+    '{"diagnostic":{},"diagnostic":{}}', '{"diagnostic":null}',
+    '{"probe_diagnostic":{"schema":true,"stage":"provider_401","kind":"child_timeout"}}',
+    '{"probe_diagnostic":{"schema":1,"stage":"private","kind":"child_timeout"}}',
+    '{"probe_diagnostic":{"schema":1,"stage":"provider_401","kind":{}}}',
+    '{"probe_diagnostic":{"schema":1,"stage":"provider_401","kind":"child_timeout","raw":"private"}}',
+    '{"fallback_diagnostic":{"schema":1,"phase":"offline_probe","reason":"timeout","exit_category":"unavailable"}}',
+    '{"diagnostic":{"schema":1,"phase":"offline_probe","reason":"timeout","exit_category":"private"}}',
+    '{"diagnostic":{"schema":1,"phase":"offline_probe","reason":"timeout","exit_category":137}}',
+    '[' * 2000 + '0' + ']' * 2000,
+])
+def test_bootstrap_record_diagnostics_reject_malformed_or_private_fields(raw):
+    from test_linux_install import bootstrap_record_diagnostics
+
+    assert bootstrap_record_diagnostics(raw) == {"observation": "invalid"}
+
+
+@pytest.mark.parametrize("condition", ["nonzero", "timeout", "os_error", "malformed", "unicode_error"])
+def test_bootstrap_diagnostic_observation_is_bounded_and_never_retries(condition):
+    from test_linux_install import observe_bootstrap_diagnostics
+
+    calls = []
+    def run(args, **kwargs):
+        calls.append(args)
+        assert args == ["ssh", "fixture", "sudo python3 -"] and kwargs["timeout"] == 30
+        assert kwargs["capture_output"] is True
+        compile(kwargs["input"], "fixed-bootstrap-observation", "exec")
+        if condition == "timeout":
+            raise subprocess.TimeoutExpired(["private-command"], 30, output="private-output")
+        if condition == "os_error":
+            raise OSError("private path")
+        if condition == "unicode_error":
+            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "private output")
+        return subprocess.CompletedProcess(args, 1 if condition == "nonzero" else 0,
+                                           stdout="private-output", stderr="private-error")
+    result = observe_bootstrap_diagnostics(["ssh", "fixture"], run=run)
+    assert result == {"observation": {"nonzero": "unavailable", "timeout": "timeout",
+                                      "os_error": "unavailable", "malformed": "invalid",
+                                      "unicode_error": "invalid"}[condition]}
+    assert len(calls) == 1
+
+
+def test_bootstrap_remote_observation_projects_before_leaving_guest(tmp_path):
+    from test_linux_install import observe_bootstrap_diagnostics
+
+    record = tmp_path / "bootstrap-hermes.json"
+    safe = {"schema": 1, "phase": "runtime_stop", "reason": "timeout", "exit_category": "unavailable"}
+    record.write_text(json.dumps({"diagnostic": safe, "private": "Bearer private-fixture-secret"}))
+    def run(args, **kwargs):
+        script = kwargs["input"].replace("'/var/lib/agentic-home/host/bootstrap-hermes.json'", repr(str(record)))
+        result = subprocess.run([sys.executable, "-"], input=script, text=True, capture_output=True, timeout=10)
+        assert "private" not in result.stdout and "private" not in result.stderr
+        return result
+    assert observe_bootstrap_diagnostics(["ssh", "fixture"], run=run) == {"observation": "ok", "diagnostic": safe}
+
+
+@pytest.mark.parametrize("status_fails", [False, True])
+def test_bootstrap_diagnostics_survive_later_status_transport_failure(tmp_path, monkeypatch, status_fails):
+    import test_linux_install as install
+
+    report = tmp_path / "hermes.json"
+    diagnostics = {"observation": "ok", "probe_diagnostic": {
+        "schema": 1, "stage": "provider_401", "kind": "child_timeout"}}
+    monkeypatch.setattr(install, "observe_bootstrap_diagnostics", lambda ssh: diagnostics)
+    observed = {"state": "failed", "source": "release", "error_code": "hermes_adapter_contract_unavailable"}
+    def status(*args):
+        assert args == ("ssh", "fixture", "agentic-home status")
+        assert json.loads(report.read_text())["diagnostics"] == diagnostics
+        if status_fails:
+            raise subprocess.TimeoutExpired(["private command"], 30, output="private")
+        return json.dumps({"bootstrap": {"hermes": observed}})
+    monkeypatch.setattr(install, "command", status)
+    process = subprocess.CompletedProcess([], 1,
+        'Operation fixture\n{"state":"failed","message":"hermes_adapter_contract_unavailable"}', "private stderr")
+    if status_fails:
+        with pytest.raises(subprocess.TimeoutExpired):
+            install.retain_bootstrap_result(["ssh", "fixture"], process, "a" * 64, report)
+    else:
+        assert install.retain_bootstrap_result(["ssh", "fixture"], process, "a" * 64, report) == observed
+    retained = json.loads(report.read_text())
+    assert retained["diagnostics"] == diagnostics and retained["cli_exit"] == 1
+    assert ("observed" in retained) is not status_fails
+    assert "private" not in report.read_text()
 
 
 @pytest.fixture
@@ -586,6 +686,110 @@ def test_timeout_diagnostics_keep_partial_operation_id_and_failed_probe(tmp_path
     assert "private" not in json.dumps(result)
 
 
+@pytest.mark.parametrize("arguments", ["--interface-id " + "b" * 64, "--disable-lan"])
+def test_lan_command_failure_retains_action_and_identity_conflict_without_private_values(tmp_path, arguments):
+    from test_linux_install import record_install_failure
+
+    job = {"id": "f" * 32, "request": {"action": "configure_lan", "interface_id": "private-interface"},
+           "state": "failed", "message": "virsh: error: network 'private-network' already exists with uuid private-uuid"}
+    error = subprocess.CalledProcessError(1, ["ssh", "fixture", "agentic-home configure_lan " + arguments],
+                                         output="Operation " + job["id"] + "\n" + json.dumps(job), stderr="private stderr")
+    result = record_install_failure(error, "wired_lan_select_and_start", tmp_path / "failure.json", None)
+    assert result["lifecycle_action"] == "configure_lan"
+    receipt = result["lifecycle_receipt"]
+    assert receipt["id"] == job["id"] and receipt["action"] == "configure_lan"
+    assert receipt["error_code"] == "host_command_failed" and receipt["operation"] == "virsh"
+    assert receipt["message_signatures"]["libvirt_identity_conflict"] is True
+    assert "private" not in json.dumps(result) and "b" * 64 not in json.dumps(result)
+
+
+@pytest.mark.parametrize("arguments", ["", "--interface-id private", "--disable-lan --extra", "--disable-lan; private"])
+def test_lan_diagnostics_do_not_infer_action_from_malformed_or_extended_commands(tmp_path, arguments):
+    from test_linux_install import record_install_failure
+
+    command = "agentic-home configure_lan" + (" " + arguments if arguments else "")
+    error = subprocess.TimeoutExpired(["ssh", "fixture", command], 30,
+                                      output="Operation " + "f" * 32 + "\n")
+    result = record_install_failure(error, "wired_lan_select_and_start", tmp_path / "failure.json", None)
+    assert result["lifecycle_action"] is None and result["lifecycle_receipt"]["action"] == "unknown"
+    assert "private" not in json.dumps(result)
+
+
+def lan_failure_payload():
+    return {"kind": "installed_ha_lan_probe", "status": "failed", "phase": "wired",
+            "error_code": "probe_deadline_exceeded", "checks": {}}
+
+
+def test_native_lan_failure_receipt_survives_without_private_process_streams(tmp_path):
+    from test_linux_install import record_install_failure
+
+    value = lan_failure_payload()
+    command = ("sudo docker compose -f /opt/agentic-home/host/compose.yaml exec -T "
+               "-e AGENTIC_LAN_PROBE_PHASE=wired controller python -")
+    error = subprocess.CalledProcessError(1, ["ssh", "fixture", command], output=json.dumps(value),
+                                         stderr="private traceback and fixture credentials")
+    report = tmp_path / "failure.json"
+    result = record_install_failure(error, "wired_lan_native_checks", report, None)
+    assert result["native_lan"] == value
+    assert result["process"]["returncode"] == 1 and result["lifecycle_action"] is None
+    assert json.loads(report.read_text()) == result
+    assert "private" not in report.read_text() and "fixture credentials" not in report.read_text()
+    assert error.stderr == "private traceback and fixture credentials"
+
+
+@pytest.mark.parametrize("fault", ["duplicate", "nested_duplicate", "oversize", "multibyte_oversize",
+                                   "invalid_utf8", "surrogate", "deep_nesting", "wrong_phase", "not_json"])
+def test_native_lan_failure_parser_rejects_ambiguous_or_unbounded_streams(fault):
+    from test_linux_install import lan_probe_diagnostics
+
+    value = json.dumps(lan_failure_payload())
+    outputs = {
+        "duplicate": value[:-1] + ', "phase": "wired"}',
+        "nested_duplicate": value.replace('"checks": {}', '"checks": {"private": true, "private": false}'),
+        "oversize": " " * 8193 + value,
+        "multibyte_oversize": '"' + "測" * 3000 + '"',
+        "invalid_utf8": b"\xff",
+        "surrogate": "\ud800",
+        "deep_nesting": "[" * 2000 + "0" + "]" * 2000,
+        "wrong_phase": value.replace('"wired"', '"nat"'),
+        "not_json": "private raw output",
+    }
+    assert lan_probe_diagnostics(outputs[fault], "wired") is None
+
+
+@pytest.mark.parametrize("command", [
+    "agentic-home configure_lan --disable-lan",
+    "sudo docker compose -f /private/compose.yaml exec -T -e AGENTIC_LAN_PROBE_PHASE=wired controller python -",
+    "sudo docker compose -f /opt/agentic-home/host/compose.yaml exec -T -e AGENTIC_LAN_PROBE_PHASE=nat controller python -",
+    "sudo docker compose -f /opt/agentic-home/host/compose.yaml exec -T -e AGENTIC_LAN_PROBE_PHASE=wired controller python -; private",
+])
+def test_native_lan_failure_is_bound_to_exact_probe_invocation(tmp_path, command):
+    from test_linux_install import record_install_failure
+
+    error = subprocess.CalledProcessError(1, ["ssh", "fixture", command], output=json.dumps(lan_failure_payload()))
+    result = record_install_failure(error, "wired_lan_native_checks", tmp_path / "failure.json", None)
+    assert "native_lan" not in result
+    assert "private" not in json.dumps(result)
+
+
+@pytest.mark.parametrize("output", ["\ud800", '{"x":' * 1100 + '0' + '}' * 1100,
+                                    b"\xff", "private raw output", " " * 8193])
+def test_malformed_native_lan_output_cannot_discard_failure_receipt(tmp_path, output):
+    from test_linux_install import record_install_failure
+
+    command = ("sudo docker compose -f /opt/agentic-home/host/compose.yaml exec -T "
+               "-e AGENTIC_LAN_PROBE_PHASE=wired controller python -")
+    error = subprocess.CalledProcessError(1, ["ssh", "fixture", command], output=output,
+                                         stderr="private\ud800")
+    report = tmp_path / "failure.json"
+    result = record_install_failure(error, "wired_lan_native_checks", report, None)
+    assert result["process"]["returncode"] == 1
+    assert result["lifecycle_action"] is None and result["lifecycle_receipt"] is None
+    assert "native_lan" not in result and "private" not in report.read_text()
+    assert json.loads(report.read_text()) == result
+    assert error.stdout == output and error.stderr == "private\ud800"
+
+
 def test_remote_failure_observation_is_readonly_bounded_and_redacted(update_probe, monkeypatch):
     import sys
 
@@ -742,7 +946,8 @@ def test_lifecycle_diagnostics_cover_actual_fixed_host_errors_and_checks(update_
     import ast
 
     root = Path(__file__).parents[1] / "host/agentic_host"
-    for file, exception in (("manager.py", "HostError"), ("daemon.py", "HostError"), ("bootstrap.py", "SetupError")):
+    for file, exception in (("manager.py", "HostError"), ("daemon.py", "HostError"),
+                            ("ha_lan.py", "HostError"), ("bootstrap.py", "SetupError")):
         tree = ast.parse((root / file).read_text())
         messages = [node.args[0].value for node in ast.walk(tree) if isinstance(node, ast.Call) and
                     isinstance(node.func, ast.Name) and node.func.id == exception and node.args and
@@ -750,6 +955,12 @@ def test_lifecycle_diagnostics_cover_actual_fixed_host_errors_and_checks(update_
         assert messages
         for message in messages:
             assert update_probe.lifecycle_error(message), (file, message)
+        if file == "ha_lan.py":
+            declared = {code for code in update_probe.LIFECYCLE_ERRORS if code.startswith("ha_lan_")}
+            assert declared == set(messages)
+            for message in messages:
+                assert update_probe.lifecycle_error(message) == message
+                assert update_probe.lifecycle_error(message + " private interface details") is None
     tree = ast.parse((root / "compatibility.py").read_text())
     names = next({key.value for key in node.value.keys} for node in tree.body if isinstance(node, ast.Assign) and
                  any(isinstance(target, ast.Name) and target.id == "REQUIRES" for target in node.targets))
@@ -773,6 +984,10 @@ def test_lifecycle_diagnostics_cover_actual_fixed_host_errors_and_checks(update_
     ("[Errno 2] No such file or directory: private/path", "host_file_missing", None),
     ("host_contract_private_unavailable", "unclassified_host_error", None),
     ("host_contract_route_json_unavailable private trailing text", "unclassified_host_error", None),
+    ("ha_lan_needs_reconcile", "ha_lan_needs_reconcile", None),
+    ("Unexpected interface_id", "host_interface_unexpected", None),
+    ("ha_lan_private_interface", "unclassified_host_error", None),
+    ("ha_lan_needs_reconcile private trailing text", "unclassified_host_error", None),
     ("secret-command: private data", "unclassified_host_error", None),
 ])
 def test_lifecycle_diagnostics_only_export_fixed_mechanisms(update_probe, message, expected, operation):
@@ -783,6 +998,18 @@ def test_lifecycle_diagnostics_only_export_fixed_mechanisms(update_probe, messag
     assert receipt["error_code"] == expected and receipt["operation"] == operation
     observed = failure_observation_public({"jobs": [receipt]})["jobs"][0]
     assert observed == receipt and "private" not in json.dumps(observed) and "secret" not in json.dumps(observed)
+
+
+def test_lan_lifecycle_receipt_retains_action_and_fixed_code_without_interface_details(update_probe):
+    from test_linux_install import failure_observation_public
+
+    raw = {"id": "e" * 32, "request": {"action": "configure_lan", "interface_id": "private-interface"},
+           "state": "failed", "message": "ha_lan_interface_id_invalid"}
+    receipt = update_probe.lifecycle_receipt(raw)
+    assert receipt["action"] == "configure_lan" and receipt["error_code"] == "ha_lan_interface_id_invalid"
+    assert failure_observation_public({"jobs": [receipt]})["jobs"] == [receipt]
+    assert update_probe.lifecycle_receipt(receipt) == receipt
+    assert "private" not in json.dumps(receipt) and "interface_id" not in receipt
 
 
 def compatibility_fixture(action="start"):
@@ -892,10 +1119,14 @@ def test_actual_installer_failure_still_cleans_up_when_diagnostics_break(tmp_pat
     # Drive the actual installer harness to its first disposable command; every
     # external operation is substituted, so this regression never runs Docker.
     monkeypatch.setattr(module, "ROOT", tmp_path)
-    for name in ("dist", "scripts", "evidence", "build"):
+    for name in ("dist", "scripts", "evidence", "build", "tests"):
         (tmp_path / name).mkdir()
-    (tmp_path / "dist/agentic-home-0.9.0-laptop-amd64.iso").write_bytes(b"fixture")
-    (tmp_path / "scripts/build_host.py").write_text("def autoinstall(profile): return {'autoinstall': {'late-commands': [], 'interactive-sections': []}}\n")
+    (tmp_path / "tests/ha_lan_peer.py").write_text("raise AssertionError('fixture peer must not execute')\n")
+    (tmp_path / "dist/agentic-home-0.10.0-laptop-amd64.iso").write_bytes(b"fixture")
+    (tmp_path / "scripts/build_host.py").write_text(
+        "def autoinstall(profile): return {'autoinstall': {'late-commands': [], 'interactive-sections': [], "
+        "'early-commands': [['/usr/bin/python3', '/cdrom/agentic-home/live-preflight.py', "
+        "'--minimum-memory-mib', '7680']]}}\n")
     def command(*args, **kwargs):
         if args[0] == "ssh-keygen":
             (tmp_path / "test-key.pub").write_text("fixture-public-key")

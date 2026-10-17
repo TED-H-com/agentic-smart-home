@@ -41,6 +41,7 @@ AUTH_MESSAGES = {
     "network": "無法連線到 AI 服務，請檢查網路後再試。",
     "cli_output_unrecognized": "無法確認登入結果，請稍後再試。",
     "timeout": "AI 帳號回應逾時，請稍後再試。",
+    "provider_disabled": "此 AI 服務已由主機管理設定停用。",
 }
 SECRET_VERIFY_TIMEOUT = 120
 AUTH_CODE = re.compile(r"[A-Z0-9]{4,8}-[A-Z0-9]{4,8}")
@@ -146,6 +147,14 @@ def limits():
 
 class Providers:
     def __init__(self, root: Path):
+        # Host administration only: never supplied by a prompt or HTTP request.
+        # Read once so a runtime cannot start authentication under one policy
+        # and execute its child under another. Invalid settings fail closed.
+        configured = os.environ.get("AGENTIC_DISABLED_PROVIDERS", "")
+        disabled = {name.strip() for name in configured.split(",")} if configured.strip() else set()
+        if len(configured) > 128 or not disabled.issubset(VERSIONS):
+            raise ProviderError("AGENTIC_DISABLED_PROVIDERS 設定無效")
+        self.disabled = frozenset(disabled)
         self.root = root
         self.processes = {}
         self.auth_sessions = {}
@@ -201,6 +210,10 @@ class Providers:
         if self.unconfirmed:
             raise StopUnconfirmed()
 
+    def ensure_provider_enabled(self, provider):
+        if provider in self.disabled:
+            raise auth_error("provider_disabled")
+
     def quarantine(self, reason, pid=None):
         self.unconfirmed.setdefault(str(pid) if pid is not None else "restart", {
             "reason": reason, "runtime": self.runtime if pid is not None else self.previous_runtime or self.runtime})
@@ -254,6 +267,7 @@ class Providers:
             raise StopUnconfirmed() from None
 
     async def spawn(self, provider, args, cwd=None):
+        self.ensure_provider_enabled(provider)
         self.ensure_available()
         if not shutil.which(provider):
             raise ProviderError(f"{provider} CLI 未安裝")
@@ -404,6 +418,10 @@ class Providers:
                     "billing": "由所選官方登入方式與帳號方案決定", "hardware_verified": False}
 
     async def health(self, provider):
+        if provider in self.disabled:
+            return self._with_reason({"provider": provider, "version": "unknown", "version_matches": False,
+                "billing": "由所選官方登入方式與帳號方案決定", "hardware_verified": False,
+                "status": "unavailable", "auth_method": "unknown"}, provider, "provider_disabled")
         active = self.active_auth(provider)
         probe = await self._probe_or_cached(provider, active)
         if active:
@@ -457,6 +475,7 @@ class Providers:
         return method if method in {"api_key", "oauth_token"} else "unknown"
 
     def _validate_secret(self, provider, method, secret):
+        self.ensure_provider_enabled(provider)
         if not secret or len(secret) > 16384 or "\n" in secret or "\r" in secret:
             raise ProviderError("登入資訊格式無效")
         if provider in {"agy", "grok"} and method != "api_key":
@@ -482,6 +501,7 @@ class Providers:
             self.reasons[provider] = category
 
     def _write_secret(self, provider, method, secret):
+        self.ensure_provider_enabled(provider)
         path = self.profile(provider) / "credential.json"
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w") as file:
@@ -604,6 +624,7 @@ class Providers:
 
     async def begin_device_auth(self, id, provider="codex"):
         async with self.auth_lock:
+            self.ensure_provider_enabled(provider)
             self.ensure_available()
             if provider not in {"codex", "grok"}:
                 raise ProviderError("此 provider 未提供 device code 登入")
@@ -729,6 +750,7 @@ class Providers:
 
     async def logout(self, provider):
         async with self.auth_lock:
+            self.ensure_provider_enabled(provider)
             self.ensure_available()
             tasks = []
             for state in self.auth_sessions.values():
@@ -797,6 +819,7 @@ class Providers:
         return args
 
     async def run(self, id, provider, prompt, schema, model="", timeout=300, auth_id=None):
+        self.ensure_provider_enabled(provider)
         session = self.auth_sessions.get(auth_id) if auth_id else None
         if session and session.get("_cancel"):
             raise AuthCancelled()

@@ -1,6 +1,8 @@
-# 開發與自動化測試 · 0.9.0
+# 開發與自動化測試 · 0.10.0
 
 先讀根 [AGENTS](../AGENTS.md)、[Plan](../PROJECT_PLAN.md) 和 [v3 原稿／進度](v3/README.md)。A Hermes/Controller、B worker isolation、C Web/preview/delivery 三線可並行，共用契約由整合者維護，同一檔案／workspace 維持一個 writer。工程測試和 32 個產品驗收分開記。
+
+本文件對應 0.10.0 候選來源；版本更新不代表已建立或驗證新媒體。既有 0.9.0 歷史證據保持原狀。
 
 ## 重現環境與建置
 
@@ -13,12 +15,12 @@ npm run build --prefix web
 uv run playwright install --with-deps chromium
 uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner, package_bridge; package_runner(); package_bridge()"
 uv run python scripts/controller_source.py
-docker build -t agentic-home-controller:0.9.0 controller
-docker build -t agentic-home-runner:0.9.0 runner
-docker build -t agentic-home-linejs:0.9.0 host/linejs
-docker build -t agentic-home-hermes:0.9.0 hermes
-docker build -t agentic-home-preview:0.9.0 host/preview
-docker build -t agentic-home-bridge:0.9.0 bridge
+docker build -t agentic-home-controller:0.10.0 controller
+docker build -t agentic-home-runner:0.10.0 runner
+docker build -t agentic-home-linejs:0.10.0 host/linejs
+docker build -t agentic-home-hermes:0.10.0 hermes
+docker build -t agentic-home-preview:0.10.0 host/preview
+docker build -t agentic-home-bridge:0.10.0 bridge
 docker pull ghcr.io/home-assistant/amd64-hassio-supervisor:2026.09.3
 ```
 
@@ -46,6 +48,8 @@ uv run pytest -q --basetemp "$agentic_test_tmp"
 | 首次設定／登入 | `tests/test_bootstrap.py tests/test_bootstrap_host.py tests/test_bootstrap_runner.py tests/test_desktop_login.py tests/test_ha_oauth.py --containers --real-ha` | 持久步驟／負向恢復、真封裝CLI本機推論fixture、真Core OAuth；不登入雲端 |
 | 跨服務 onboarding E2E | `tests/test_onboarding_e2e.py --containers --real-ha` | 真 Chromium／Controller／TLS Runner／Codex／Hermes AIAgent／MCP／Core OAuth；模型與 Host 安裝副作用為 fixture，無瀏覽器 API 攔截；精確限制見測試與審查報告 |
 | 競爭與恢復回歸 | `tests/test_review_bootstrap.py tests/test_review_runtime.py tests/test_review_ui.py` | 真程序樹取消、配對回覆遺失、授權／pause race、登入表單狀態、Telegram 首次配對；外部帳號端點 fixture |
+| USB 安裝前硬體檢查 | `tests/test_live_preflight.py tests/test_host.py` | x86-64／RAM／KVM 拒絕、固定模組有界載入、fd 清理與 ISO 映射；真 live kernel 另由精確 ISO 測試驗證 |
+| 多來源設備盤點 | `tests/test_host_discovery.py tests/test_network_inventory.py tests/test_network_inventory_ui.py tests/test_network_inventory_real_ha.py --real-ha` | loopback UDP、來源／權限／保存、真 Core registry 與示範接續；非家庭 LAN、雲端帳號或實體設備驗收 |
 | 固定救援 | `tests/test_support.py tests/test_host.py` | 去密／固定 probe fixtures、真子程序 timeout/output bounds，無家庭寫入 |
 | Coding 隔離基礎 | `tests/test_coding_sandbox.py --containers` | 真 Docker 的 network／process／resource negatives；不等於真 cloud CLI、完整 ext4 lifecycle 或 HAOS App |
 | 智能管家 App | `tests/test_bridge_app.py tests/test_bridge_controller.py tests/test_bridge_maintenance.py tests/test_bridge_ui.py` | transport／Owner／CSRF／同 case 與復原，API／模型 fixtures；真 HAOS 另跑 `tests/test_bridge_haos.py --haos-vm` |
@@ -55,6 +59,8 @@ uv run pytest -q --basetemp "$agentic_test_tmp"
 | 受控 Runner／Supervisor | `tests/test_container.py --containers` | 真 CLI、TLS、UID、schema／backup filter；模型為本機 fixture |
 
 先完成 image 建置與媒體匯出，再跑容器回歸；不要讓 `docker save`／ISO 打包與限時 Docker create 測試並行。所有測試結束後，再執行一次性 Linux 安裝案例。
+
+Owner 已要求開發與驗證不執行 Grok CLI，包括間接 health／status／version 呼叫。真 Runner 測試環境以 `AGENTIC_DISABLED_PROVIDERS=grok` 啟用管理者防線；harness 必須在啟動 Runner 前設定，不能等第一次 status 後才攔截。停用的 provider 回報 `unavailable`／`provider_disabled`，登入、執行與探測在 CLI 啟動前拒絕。純 fixture adapter 測試仍可執行，實際 Grok 覆蓋明確記為 `not_run`；產品保留原 adapter，這不是宣稱它已驗證。該環境設定由受信任管理／測試程序控制，不接受模型或瀏覽器任意修改。
 
 完整候選回歸用 `pytest-disktmp uv run pytest -q --real-ha --containers`。真 Core 測試使用 2026.10.1；測試容器用唯一名稱和磁碟 temp，必須在 finally 停止／移除。不得讀開發機 credentials 或偷偷呼叫付費 inference。
 
@@ -84,7 +90,7 @@ source ZIP 明列允许目錄；不含 `_upstream`、`.venv`、node_modules、cr
 
 每個版本的媒體、一次性 VM 安裝與平台測試結果記在 [VERIFICATION](VERIFICATION.md)。
 
-本輪首要 profile 是 Ubuntu 24.04 `laptop-amd64`。firstboot 只安裝外層和配對既有 Runner，不再自動 provision HAOS；測試應明確驗證這個行為。媒體建置和一次性 VM 安裝是不同證據；Owner 實體 laptop、真帳號、真 HAOS App coding、家庭 helpers、更新／退版及長時間運作各自記錄。
+本輪首要 profile 是 Ubuntu 24.04 `laptop-amd64`。ISO 直接映射 standalone `host/live_preflight.py`，由 `early-commands` 在 Subiquity 探測磁碟與網路前執行；安裝測試修改的 seed 必須保留這個 gate，不可為了 VM 通過跳過 KVM 或 RAM 檢查。firstboot 只安裝外層和配對既有 Runner，不再自動 provision HAOS；測試應明確驗證這個行為。媒體建置和一次性 VM 安裝是不同證據；Owner 實體 laptop、真帳號、真 HAOS App coding、家庭 helpers、更新／退版及長時間運作各自記錄。
 
 `HomeAssistant.ensure_write_compatibility()` 限制未測 Core 的寫入 adapter。擴充 Core 版本需實跑原生部署／觸發／重啟和 regression，再更新 lock；沒有 Owner 逐 PR 人工簽核 gate。任何正式家庭／部署副作用仍走產品的精確 Owner 批准。
 

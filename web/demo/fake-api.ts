@@ -3,6 +3,7 @@ import {sha256} from '@noble/hashes/sha2.js';
 import type {DemoHome,DemoModel,DemoSurface} from './model';
 import {setupRequests} from './discovery-setup';
 import {inventoryRequests} from './network-inventory';
+import {haLanRequests} from './ha-lan';
 
 export const AGENTIC_DEMO_BUILD='fictional-browser-only-v1';
 export const fixtureClock='2026-10-13T09:00:00+08:00';
@@ -62,6 +63,7 @@ export function createDemoModel():DemoModel{
   const nextId=(length:number)=>(serial++).toString(16).padStart(length,'0');
   const inventoryRequest=inventoryRequests(data,time);
   const setupRequest=setupRequests(data,nextId,time);
+  const haLan=haLanRequests(data,time);
   const entityDevices=new Map<string,string>(data.inventory.entities.map((item:Row,index:number)=>[item.entity_id,`demo-device-${index}`]));
   function proposal(title:string,mode='upsert',automation?:Row):Row{
     const id='demo-task-'+serial++,rule=clone(automation?.intent||intent);rule.title=title;
@@ -144,6 +146,9 @@ export function createDemoModel():DemoModel{
   }
   function request(path:string,method:string,body:Row,surface:DemoSurface,key?:string){
     progress();let result:any,status=200;
+    if(haLan.progress())publish();
+    const lan=haLan.request(path,method,body,key);
+    if(lan){if(method==='POST'&&lan.status===202)publish();return clone(lan)}
     const inventory=inventoryRequest(path,method,body,key);
     if(inventory){if(method==='POST'&&inventory.status===200)publish();return clone(inventory)}
     const setup=setupRequest(path,method,body,key);

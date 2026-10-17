@@ -11,6 +11,8 @@ def main():
     endpoint = os.environ["E2E_MODEL_URL"]
     assert endpoint.startswith("http://127.0.0.1:")
     if os.environ["E2E_ROLE"] == "runner":
+        # Set before serve() constructs Providers or handles the first status poll.
+        os.environ["AGENTIC_DISABLED_PROVIDERS"] = "grok"
         from agentic_runner.app import serve
         from agentic_runner.providers import Providers
 

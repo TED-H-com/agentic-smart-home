@@ -72,7 +72,7 @@ STAGES = {
 ERROR_TYPES = {"RuntimeError", "AssertionError", "HostError", "UpdateError", "OSError", "FileNotFoundError",
                "PermissionError", "ImportError", "ModuleNotFoundError", "TimeoutExpired", "CalledProcessError",
                "ValueError", "KeyError", "TypeError", "JSONDecodeError", "OperationalError", "SandboxError"}
-LIFECYCLE_ACTIONS = {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes"}
+LIFECYCLE_ACTIONS = {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes", "configure_lan"}
 HOST_CONTRACT_CHECKS = {"linux_runtime", "libvirt_connection", "libvirt_kvm", "route_json", "default_route",
                         "sparse_copy", "qemu_image", "docker_limits", "compose_api"}
 HOST_CONTRACT_ERRORS = {"command_missing", "permission_denied", "probe_timeout", "command_failed",
@@ -127,6 +127,19 @@ LIFECYCLE_ERRORS = {
     "Unknown lifecycle operation": "host_lifecycle_unknown", "Unknown lifecycle action": "host_lifecycle_unknown",
     "Unknown job fields": "host_job_fields_invalid", "Invalid operation id": "host_operation_id_invalid",
     "Unexpected snapshot": "host_snapshot_unexpected",
+    "Unexpected interface_id": "host_interface_unexpected",
+    # Exact fixed codes emitted by the wired-LAN broker; never accept a prefix
+    # with arbitrary interface, address or exception text appended to it.
+    **{code: code for code in (
+        "ha_lan_autostart_readback_failed", "ha_lan_configured_autostart_unavailable",
+        "ha_lan_domain_inventory_invalid", "ha_lan_domain_not_owned", "ha_lan_interface_changed",
+        "ha_lan_interface_id_invalid", "ha_lan_interface_inventory_invalid", "ha_lan_libvirt_read_failed",
+        "ha_lan_libvirt_response_limit", "ha_lan_management_interface_changed", "ha_lan_management_subnet_overlap",
+        "ha_lan_needs_reconcile", "ha_lan_network_changed", "ha_lan_network_has_live_ports",
+        "ha_lan_network_has_other_guests", "ha_lan_network_mode_mismatch", "ha_lan_network_not_owned",
+        "ha_lan_network_state_unknown", "ha_lan_record_invalid", "ha_lan_restore_pending",
+        "ha_lan_retry_same_selection_or_disable", "ha_lan_selected_interface_unavailable", "ha_lan_shutdown_required",
+    )},
     "Idempotency key reused with different operation": "host_operation_id_conflict",
     "Invalid locked artifact": "host_artifact_lock_invalid", "Refusing symlink in artifact cache": "host_artifact_symlink_refused",
     "Artifact redirected away from HTTPS": "host_artifact_https_required",
@@ -316,6 +329,7 @@ def process_diagnostics(result):
                 "file_missing": ("no such file or directory", "cannot find the file"),
                 "kvm_unavailable": ("failed to initialize kvm", "kvm is not supported", "kvm unavailable", "could not access kvm"),
                 "libvirt_connection": ("failed to connect to the hypervisor", "failed to connect socket"),
+                "libvirt_identity_conflict": ("already exists with uuid", "already exists with name"),
                 "firmware_unavailable": ("unable to find any master var store", "could not find any firmware", "unable to find 'ovmf"),
                 "network_conflict": ("overlaps an existing route", "network is already in use", "address already in use"),
                 "checksum_mismatch": ("checksum mismatch",), "image_invalid": ("image is corrupt", "not in qcow2 format", "unsupported image format"),

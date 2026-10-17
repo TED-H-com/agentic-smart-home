@@ -812,7 +812,7 @@ def test_real_pinned_hermes_uses_only_controller_mcp(tmp_path, request, monkeypa
             env = {"PATH": "/usr/bin:/bin", "HOME": str(home), "HERMES_HOME": str(home / ".hermes"), "TMPDIR": str(home / "tmp"), "PYTHONPATH": str(Path(__file__).parents[1] / "hermes") + ":" + os.environ["AGENTIC_HERMES_TEST_UPSTREAM"], "AGENTIC_MCP_URL": mcp["url"], "AGENTIC_PROVIDER_URL": url + "/v1",
                    "HTTPS_PROXY": url, "HTTP_PROXY": url, "NO_PROXY": "127.0.0.1,localhost"}
         else:
-            command = ["docker", "run", *source_mounts(), "--rm", "--name", name, "-i", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "--network=host", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{home}:/scratch", "-e", "HOME=/scratch", "-e", "HERMES_HOME=/scratch/.hermes", "-e", "TMPDIR=/scratch/tmp", "-e", "PYTHONPATH=/app:/opt/hermes", "-e", "AGENTIC_MCP_URL=" + mcp["url"], "-e", "AGENTIC_PROVIDER_URL=" + url + "/v1", "-e", "HTTPS_PROXY=" + url, "-e", "HTTP_PROXY=" + url, "-e", "NO_PROXY=127.0.0.1,localhost", "--entrypoint=python", os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.9.0"), "-m", "agentic_hermes.child"]
+            command = ["docker", "run", *source_mounts(), "--rm", "--name", name, "-i", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "--network=host", "--user", f"{os.getuid()}:{os.getgid()}", "-v", f"{home}:/scratch", "-e", "HOME=/scratch", "-e", "HERMES_HOME=/scratch/.hermes", "-e", "TMPDIR=/scratch/tmp", "-e", "PYTHONPATH=/app:/opt/hermes", "-e", "AGENTIC_MCP_URL=" + mcp["url"], "-e", "AGENTIC_PROVIDER_URL=" + url + "/v1", "-e", "HTTPS_PROXY=" + url, "-e", "HTTP_PROXY=" + url, "-e", "NO_PROXY=127.0.0.1,localhost", "--entrypoint=python", os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.10.0"), "-m", "agentic_hermes.child"]
             env = None
         if native:
             payload.update(provider="openai-codex", model="gpt-6-astra", api_key="")
@@ -863,7 +863,7 @@ def test_packaged_runtime_starts_nonroot_without_cloud_credentials(tmp_path, req
     token_path = tmp_path / "service-token"
     token_path.write_text(TOKEN)
     token_path.chmod(0o644)  # Dedicated synthetic credential, mounted as a file.
-    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.9.0")
+    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.10.0")
     probe = (
         "import json,os,urllib.request; "
         "r=urllib.request.Request('http://127.0.0.1:8096/v1/capabilities',"
@@ -952,7 +952,7 @@ def test_offline_candidate_gate_and_real_upstream_device_flow(request):
         pytest.skip("Candidate and native device-flow probes require --containers")
     name = "agentic-hermes-oauth-" + uuid.uuid4().hex[:12]
     volume = name + "-data"
-    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.9.0")
+    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.10.0")
     common = ["docker", "run", *source_mounts(), "--rm", "--name", name, "--network=none", "--read-only", "--cap-drop=ALL",
               "--security-opt=no-new-privileges", "--memory=512m", "--pids-limit=64", "-v", volume + ":/data",
               "-e", "HOME=/data", "-e", "HERMES_HOME=/data", "-e", "TMPDIR=/data",

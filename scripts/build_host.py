@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "host"))
 from agentic_host.artifacts import fetch, sha256  # noqa: E402
 from agentic_host.manager import validate_profile  # noqa: E402
 
-VERSION = "0.9.0"
+VERSION = "0.10.0"
 SKIP = {"__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", "test-results"}
 
 
@@ -34,8 +34,14 @@ def xorriso(*args):
 def autoinstall(profile):
     # Storage, network and identity are the actual OS installer's screens, not development gates.
     # No target disk, reusable user password or preauthorized SSH key is embedded in a public ISO.
+    minimum_memory = profile.get("minimum_host_memory_mib")
+    if minimum_memory is None:
+        # The isolated ISO harness selects a shipped profile using only its ID.
+        minimum_memory = json.loads((ROOT / "host/profiles" / (profile["id"] + ".json")).read_text())["minimum_host_memory_mib"]
     return {"autoinstall": {"version": 1, "interactive-sections": ["network", "storage", "identity"],
         "locale": "en_US.UTF-8", "keyboard": {"layout": "us"}, "refresh-installer": {"update": False},
+        "early-commands": [["/usr/bin/python3", "/cdrom/agentic-home/live-preflight.py",
+                            "--minimum-memory-mib", str(minimum_memory)]],
         "ssh": {"install-server": True, "allow-pw": True},
         "late-commands": ["cd /cdrom/agentic-home && sha256sum -c SHA256SUMS", "mkdir -p /target/opt", "tar -xf /cdrom/agentic-home/product.tar -C /target/opt",
                           "/usr/bin/python3 /target/opt/agentic-home/host/install.py --stage-target /target --profile " + profile["id"]],
@@ -131,8 +137,10 @@ def iso(profile, product, destination):
             path.chmod(0o644)
             path.write_text(boot_config(path.read_text(), loopback))
         (work / "product.sha256").write_text(sha256(product) + "  product.tar\n")
+        preflight = ROOT / "host/live_preflight.py"
         replacements = {"./boot/grub/grub.cfg": work / "grub.cfg", "./boot/grub/loopback.cfg": work / "loopback.cfg",
                         "./agentic-seed/user-data": seed / "user-data", "./agentic-seed/meta-data": seed / "meta-data",
+                        "./agentic-home/live-preflight.py": preflight,
                         "./agentic-home/product.tar": product, "./agentic-home/SHA256SUMS": work / "product.sha256"}
         retained = [line for line in (work / "md5sum.txt").read_text().splitlines()
                     if line.split(maxsplit=1)[-1] not in replacements]
@@ -147,6 +155,7 @@ def iso(profile, product, destination):
             xorriso("-indev", base, "-outdev", partial, "-boot_image", "any", "replay",
                     "-volid", "AGENTIC_HOME_" + VERSION.replace(".", ""), "-map", product, "/agentic-home/product.tar",
                     "-map", work / "product.sha256", "/agentic-home/SHA256SUMS",
+                    "-map", preflight, "/agentic-home/live-preflight.py",
                     "-map", seed, "/agentic-seed", "-map", work / "grub.cfg", "/boot/grub/grub.cfg",
                     "-map", work / "loopback.cfg", "/boot/grub/loopback.cfg",
                     "-map", work / "md5sum.txt", "/md5sum.txt", "-commit")

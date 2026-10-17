@@ -69,14 +69,14 @@ class FakeRunner:
 
 
 class Supervisor:
-    def __init__(self):
+    def __init__(self, version=RELEASE.version):
         self.token, self.revoked, self.repos, self.calls = "fixture-ha-token", False, [], []
         self.timeouts = []
         self.app, self.healthy, self.publish = None, True, True
         self.code, self.before, self.fail = CODE, None, None
         self.catalog_missing, self.corrupt_on_options = False, False
         self.reload_version, self.update_state, self.lose = None, None, None
-        self.catalog = {"slug": SLUG, "repository": REPO, "version_latest": RELEASE.version, "available": True,
+        self.catalog = {"slug": SLUG, "repository": REPO, "version_latest": version, "available": True,
                         "apparmor": "default", **{key: False for key in SAFE_FLAGS}}
         self.job = {"uuid": JOB, "reference": SLUG, "done": True, "errors": []}
         self.core_state, self.core_info = "running", None  # GET /info; core_info overrides the body.
@@ -85,7 +85,7 @@ class Supervisor:
         return {"id": owner, "is_owner": True, "is_active": True} if owner and not self.revoked else None
 
     def install_app(self):
-        self.app = {**self.catalog, "version": RELEASE.version, "apparmor": "profile",
+        self.app = {**self.catalog, "version": self.catalog["version_latest"], "apparmor": "profile",
                     "privileged": list(PRIVILEGED), "devices": list(DEVICES), "network": dict(NETWORK),
                     "options": {}, "state": "stopped", "boot": "auto"}
 

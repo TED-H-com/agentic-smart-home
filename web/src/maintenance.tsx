@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {api,requestKey} from './api';
+import {HomeLanFold} from './ha-lan';
 import {plainError,shortCommit} from './labels';
 import {Button,Confirm,CopyButton,Notice,Status} from './ui';
 
@@ -45,5 +46,5 @@ function UpdateSettings(){
 export function MaintenanceSettings({version}:{version?:string}){
   const [network,setNetwork]=useState(false),[updates,setUpdates]=useState(false),[remote,setRemote]=useState<string|null>(null);
   const remember=useRef(setRemote);
-  return <><details className="host-fold" onToggle={e=>setNetwork(e.currentTarget.open)}><summary>網路與遠端{remote?` · ${remote==='tailscale'?'Tailscale':'僅家中'}`:''}</summary>{network&&<NetworkSettings onRemote={remember.current}/>}</details><details className="host-fold" onToggle={e=>setUpdates(e.currentTarget.open)}><summary>版本 {version||'讀取中'}</summary>{updates&&<UpdateSettings/>}</details></>;
+  return <><HomeLanFold/><details className="host-fold" onToggle={e=>setNetwork(e.currentTarget.open)}><summary>網路與遠端{remote?` · ${remote==='tailscale'?'Tailscale':'僅家中'}`:''}</summary>{network&&<NetworkSettings onRemote={remember.current}/>}</details><details className="host-fold" onToggle={e=>setUpdates(e.currentTarget.open)}><summary>版本 {version||'讀取中'}</summary>{updates&&<UpdateSettings/>}</details></>;
 }

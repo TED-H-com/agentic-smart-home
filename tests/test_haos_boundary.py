@@ -3,7 +3,6 @@ import base64
 import contextlib
 import json
 import lzma
-import os
 import shutil
 import subprocess
 import time
@@ -207,9 +206,8 @@ profile agentic-boundary flags=(attach_disconnected,mediate_deleted) {
         # Bound each cleanup independently, including failures during image preparation.
         with contextlib.suppress(OSError, subprocess.TimeoutExpired):
             subprocess.run(["docker", "stop", "-t", "10", name], capture_output=True, timeout=30)
-        with contextlib.suppress(OSError, subprocess.TimeoutExpired):
-            subprocess.run(["docker", "run", "--rm", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0",
-                            "chown", "-R", f"{os.getuid()}:{os.getgid()}", "/lab"], capture_output=True, timeout=30)
+        # QEMU creates only direct files in the user-owned tmp_path. They can
+        # be unlinked without a chown helper that could outlive its Docker CLI.
         with contextlib.suppress(OSError, subprocess.TimeoutExpired):
             subprocess.run(["docker", "rm", "-fv", name], capture_output=True, timeout=30)
         with contextlib.suppress(OSError, subprocess.TimeoutExpired):

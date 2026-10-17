@@ -333,7 +333,7 @@ def test_fixed_probe_launch_and_database_handles_close_before_volume_release(
 
     monkeypatch.setattr(module, "DiskVolume", DiskFixture)
     monkeypatch.setattr(module, "os", SimpleNamespace(chown=test_chown))
-    image = "agentic-home-controller:0.9.0"
+    image = "agentic-home-controller:0.10.0"
 
     def execute(*args, **kwargs):
         if args[:2] == ("docker", "run"):

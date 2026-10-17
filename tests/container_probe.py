@@ -9,24 +9,16 @@ from pathlib import Path
 import aiohttp
 import uvicorn
 from agentic_runner.app import Broker, create_api
-from agentic_runner.providers import ProviderError
 from aiohttp import web
 
 
 async def main():
+    # Enforce the actual administrator boundary before Broker construction.
+    # No test substitution can accidentally start the excluded executable.
+    os.environ["AGENTIC_DISABLED_PROVIDERS"] = "grok"
     broker = Broker(Path("/data"))
     providers = ("codex", "claude", "agy", "grok")
-    # Owner's 2026-10-16 instruction: do not execute Grok CLI, including version
-    # probes reached indirectly through /status. Retain its isolation checks and
-    # report the omitted runtime coverage explicitly, without changing product support.
-    original_spawn = broker.providers.spawn
-
-    async def permitted_spawn(provider, *args, **kwargs):
-        if provider == "grok":
-            raise ProviderError("Grok CLI execution excluded by owner instruction")
-        return await original_spawn(provider, *args, **kwargs)
-
-    broker.providers.spawn = permitted_spawn
+    assert broker.providers.disabled == {"grok"}
     probes = [await broker.providers.health(name) for name in providers if name != "grok"]
     assert all(p["version_matches"] and p["status"] == "needs_reauth" for p in probes), probes
     for provider in providers:
@@ -62,7 +54,8 @@ async def main():
                                   headers={"Authorization": "Bearer " + token}) as response:
                 status = await response.json()
                 assert response.status == 200 and status["protocol"] == 1
-                assert next(item for item in status["providers"] if item["provider"] == "grok")["status"] == "unavailable"
+                excluded = next(item for item in status["providers"] if item["provider"] == "grok")
+                assert excluded["status"] == "unavailable" and excluded["reason"] == "provider_disabled"
             try:
                 await client.get("https://127.0.0.1:8443/status", ssl=aiohttp.Fingerprint(b"\x00" * 32))
             except aiohttp.ServerFingerprintMismatch:

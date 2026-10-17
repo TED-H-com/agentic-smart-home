@@ -8,9 +8,10 @@ from typing import Annotated, Literal
 
 import aiohttp
 from fastapi import HTTPException, Request
-from pydantic import Field, StrictFloat, StrictInt
+from pydantic import Field, StrictFloat, StrictInt, ValidationError
 
 from .durability import client_session, durable
+from .ha_lan import HomeLanStatus, HostLanStatus, observe_home_lan
 from .models import Strict, WorkerPreview, canonical, digest, utcnow
 from .work import WorkerAction
 from .workers import WorkerError
@@ -65,7 +66,7 @@ class UpdateApply(UpdateOffer):
 
 async def broker_call(method, path, body=None, *, store):
     """Only trusted route code supplies a method/path; no configurable network target."""
-    allowed = (method == 'GET' and (path in {'/network', '/updates'} or
+    allowed = (method == 'GET' and (path in {'/network', '/network/ha-lan', '/updates'} or
         re.fullmatch(r'/updates/[a-f0-9]{64}|/previews/[a-f0-9]{32}', path))) or (
         method == 'POST' and (re.fullmatch(r'/previews/[a-f0-9]{32}/revoke', path) or path in {'/network/preferences', '/network/login', '/network/revoke', '/previews',
                                      '/updates/stage', '/updates/apply', '/updates/rollback-offer', '/updates/rollback'}))
@@ -183,6 +184,15 @@ def routes(app, store, workers, *, host_mode=False):
     @app.get('/api/network')
     async def network():
         return await broker_call('GET', '/network', store=store)
+
+    @app.get('/api/network/ha-lan', response_model=HomeLanStatus)
+    async def home_lan():
+        raw = await broker_call('GET', '/network/ha-lan', store=store)
+        try:
+            value = HostLanStatus.model_validate(raw).model_dump(mode='json')
+        except ValidationError:
+            raise HTTPException(503, 'ha_lan_host_contract_unavailable') from None
+        return {**value, 'home': await observe_home_lan(app.state.ha, store, value)}
 
     @app.post('/api/network/preferences')
     async def preferences(body: NetworkPreferences):

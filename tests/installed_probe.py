@@ -146,7 +146,7 @@ def verify_auth_blocked(job):
             and job["artifacts"] == [] and job["evidence_ids"] == [], "coding_without_login_blocked")
 
 
-def probe():
+def probe(*, provisioned=False):
     global STAGE
     deadline = time.monotonic() + PROBE_BUDGET_SECONDS
     base = "http://localhost:8099"
@@ -195,6 +195,9 @@ def probe():
     bridge_contract = host.get("controller_update", {}).get("ingress_bridge_contract")
     require(type(bridge_contract) is int and bridge_contract == 1, "fixed_host_bridge_update_contract")
     status = wait_for_runner_status(request, deadline=deadline)
+    excluded = next(item for item in status["runner"]["providers"] if item["provider"] == "grok")
+    require(excluded.get("status") == "unavailable" and excluded.get("reason") == "provider_disabled",
+            "excluded_cli_disabled_before_probe")
     hermes = request("/api/hermes")
     DIAGNOSTICS.update(hermes_needs_auth=hermes["runtime"].get("state") == "needs_auth",
                        hermes_inference_verified=hermes["runtime"].get("auth_verified_at") is not None)
@@ -203,7 +206,7 @@ def probe():
     verify_workers(hermes)
     bootstrap = request("/api/bootstrap")
     require(bootstrap["state"] == "idle" and len(bootstrap["steps"]) == 9, "bootstrap_get_stays_idle")
-    require(not host["provisioned"], "home_not_provisioned")
+    require(host["provisioned"] is provisioned, "home_provisioned" if provisioned else "home_not_provisioned")
     body = {"worker_id": "host-coder", "provider": "codex", "mode": "research",
             "goal": "Disposable installation check: no role login must block execution", "repo_id": "agentic-home"}
     blocked = request("/api/worker/jobs", body, key="installed-coding-without-login")
@@ -218,14 +221,24 @@ def probe():
             "vm_observed": host["vm"], "providers": [{"provider": p["provider"], "status": p["status"]}
                                                     for p in status["runner"]["providers"]],
             "hermes_service": "needs_auth", "coding_workers": {"host": "ready_needs_auth", "home": "not_paired"},
-            "coding_without_login": "blocked_no_execution", "cloud_login": "not_run"}
+            "coding_without_login": "blocked_no_execution", "cloud_login": "not_run",
+            "excluded_cli_probes": {"grok": "not_run: owner instruction"}}
 
 
-if __name__ == "__main__":
+def execute(*, provisioned=False):
+    """One safe JSON entrypoint for initial and provisioned post-reboot probes."""
     try:
-        print(json.dumps({**probe(), "http_observations": OBSERVATIONS, "diagnostics": DIAGNOSTICS}, indent=2))
+        print(json.dumps({**probe(provisioned=provisioned), "http_observations": OBSERVATIONS,
+                          "diagnostics": DIAGNOSTICS}, indent=2))
+        return 0
     except Exception as exc:
         # Never print request bodies, access keys, cookies or raw exception text.
         print(json.dumps({"result": "failed", "error_type": type(exc).__name__, "stage": STAGE,
                           "http_observations": OBSERVATIONS, "diagnostics": DIAGNOSTICS}, indent=2))
-        raise SystemExit(1) from None
+        return 1
+
+
+if __name__ == "__main__":
+    if sys.argv[1:] not in ([], ["--provisioned"]):
+        raise SystemExit(2)
+    raise SystemExit(execute(provisioned=sys.argv[1:] == ["--provisioned"]))

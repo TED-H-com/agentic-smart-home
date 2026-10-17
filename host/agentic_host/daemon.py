@@ -45,15 +45,22 @@ class Jobs:
             return copy.deepcopy(self.items.get(id))
 
     def start(self, body):
-        if set(body) - {"id", "action", "snapshot"}:
+        if set(body) - {"id", "action", "snapshot", "interface_id"}:
             raise HostError("Unknown job fields")
         id, action = body.get("id", ""), body.get("action")
         if not re.fullmatch(r"[a-zA-Z0-9_-]{8,100}", id):
             raise HostError("Invalid operation id")
-        if action not in {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes"}:
+        if action not in {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes", "configure_lan"}:
             raise HostError("Unknown lifecycle action")
         if action != "restore" and body.get("snapshot"):
             raise HostError("Unexpected snapshot")
+        if action == "configure_lan":
+            from .ha_lan import INTERFACE_ID
+            value = body.get("interface_id")
+            if "interface_id" not in body or (value is not None and (not isinstance(value, str) or not INTERFACE_ID.fullmatch(value))):
+                raise HostError("ha_lan_interface_id_invalid")
+        elif "interface_id" in body:
+            raise HostError("Unexpected interface_id")
         with self.lock:
             if id in self.items:
                 if self.items[id]["request"] != body:
@@ -69,7 +76,9 @@ class Jobs:
 
     def execute(self, job):
         try:
-            result = self.manager.action(job["request"]["action"], job["request"].get("snapshot"))
+            request = job["request"]
+            kwargs = {"interface_id": request["interface_id"]} if request["action"] == "configure_lan" else {}
+            result = self.manager.action(request["action"], request.get("snapshot"), **kwargs)
             update = {"state": "succeeded", "result": result}
         except Exception as exc:
             update = {"state": "failed", "message": str(exc)[:500]}

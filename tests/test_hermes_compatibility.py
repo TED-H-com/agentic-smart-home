@@ -191,7 +191,7 @@ def test_real_candidate_gate_refuses_changed_upstream(request, fault):
         pytest.skip("Actual candidate gate requires --containers")
     name = "agentic-hermes-incompatible-" + uuid.uuid4().hex[:12]
     volume = name + "-data"
-    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.9.0")
+    image = os.environ.get("AGENTIC_HERMES_IMAGE", "agentic-home-hermes:0.10.0")
     root = Path(__file__).parents[1] / "hermes"
     mounts = []
     if os.environ.get("AGENTIC_HERMES_TEST_SOURCE") == "1":
@@ -222,8 +222,10 @@ subprocess.run = changed
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=90)
         assert result.returncode == 1
+        stage = "chat_tool_roundtrip" if fault == "malformed_result" else "consumed_signatures"
         assert json.loads(result.stdout) == {"compatible": False, "adapter_contract": 1,
-                                            "error": "upstream_contract_incompatible", "cloud_account_verified": False}
+                                            "error": "upstream_contract_incompatible", "cloud_account_verified": False,
+                                            "diagnostic": {"schema": 1, "stage": stage, "kind": "contract_failure"}}
         assert "fixture-private-secret" not in result.stdout
     finally:
         subprocess.run(["docker", "rm", "-fv", name], capture_output=True, check=False)

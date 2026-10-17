@@ -4,7 +4,7 @@
     "mode": "host",
     "csrf": "preview-csrf",
     "principal": "preview-owner",
-    "version": "0.9.0",
+    "version": "0.10.0",
     "resume": {
       "message_id": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
       "thread_id": "1212121212121212121212121212121212121212121212121212121212121212",
@@ -12,7 +12,7 @@
     }
   },
   "status": {
-    "version": "0.9.0",
+    "version": "0.10.0",
     "paused": false,
     "events_connected": true,
     "onboarding": {"policy_confirmed": true},
@@ -495,14 +495,14 @@
     "code": null,
     "limitations": [],
     "observed_at": "2026-10-13T01:00:00Z",
-    "version": "0.9.0",
+    "version": "0.10.0",
     "auto_repair": true
   },
   "host/bridge/maintenance": {
     "contract": 1,
     "state": "healthy",
     "auto_repair": true,
-    "version": "0.9.0",
+    "version": "0.10.0",
     "observed_at": "2026-10-13T01:00:00Z",
     "code": null
   },
@@ -517,6 +517,32 @@
     "storage_free_bytes": 85899345920
   },
   "network": {"lan": "dhcp", "remote": "disabled", "managed": false, "tailscale": {"state": "not_installed"}},
+  "network/ha-lan": {
+    "contract_version": 1,
+    "mode": "wired",
+    "state": "configured",
+    "selected_interface_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "interface": "enp2s0",
+    "guest_mac": "02:00:00:00:10:20",
+    "interfaces": [{"id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "label": "示範家庭有線網路", "interface": "enp2s0", "address": "192.168.50.10", "network": "192.168.50.0/24"}],
+    "vm_state": "running",
+    "can_configure": false,
+    "limitations": ["fictional_browser_memory_only", "wired_ethernet_only", "haos_must_be_stopped", "lan_dhcp_required", "management_subnet_retained"],
+    "home": {
+      "adapter_version": 1,
+      "state": "ready",
+      "reason": "guest_lan_and_core_configuration_observed",
+      "interface": "end1",
+      "ipv4": ["192.168.50.20"],
+      "ipv6": ["fd12:3456:789a:1:1234:5678:9abc:def0"],
+      "connected": true,
+      "discovery_enabled": true,
+      "default_adapter": true,
+      "internal_url": "http://192.168.50.20:8123",
+      "observed_at": "2026-10-13T01:00:00Z",
+      "limits": ["fictional_browser_memory_only", "read_only_network_observation", "no_multicast_delivery_test", "no_device_or_matter_control_verified", "callback_reachability_not_tested", "ipv6_link_local_not_a_callback_address"]
+    }
+  },
   "updates": {"trusted_publisher_configured": false, "records": []},
   "bootstrap": {
     "contract": 1,

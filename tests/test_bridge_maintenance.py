@@ -57,13 +57,13 @@ class Bridge:
 
 
 class Supervisor:
-    def __init__(self):
+    def __init__(self, version=RELEASE.version):
         self.token = "fixture-ha-token"
         self.revoked = False
         self.repos, self.calls = [], []
         self.timeouts = []
         self.app = None
-        self.catalog = {"slug": SLUG, "repository": REPO, "version_latest": "0.9.0", "available": True,
+        self.catalog = {"slug": SLUG, "repository": REPO, "version_latest": version, "available": True,
                         "ingress": True, "build": True, "hassio_api": False, "homeassistant_api": False,
                         "auth_api": False, "docker_api": False, "full_access": False, "host_network": False,
                         "host_pid": False}
@@ -82,7 +82,7 @@ class Supervisor:
         return {"id": owner, "is_owner": True, "is_active": True} if not self.revoked else None
 
     def install_app(self):
-        self.app = {**self.catalog, "version": "0.9.0", "protected": True, "ingress_port": 8099,
+        self.app = {**self.catalog, "version": self.catalog["version_latest"], "protected": True, "ingress_port": 8099,
                     "network": {}, "options": {}, "state": "stopped", "boot": "auto",
                     "privileged": [], "devices": [], "host_ipc": False, "host_uts": False,
                     "host_dbus": False, "apparmor": "default",
@@ -956,10 +956,11 @@ async def test_start_and_restart_use_supervisor_app_start_timeout(manager):
         assert all(timeout == 30 for method, _, timeout in manager.ha.timeouts if method == "GET")
 
     # Update stays at 30.
+    next_version = ".".join([*RELEASE.version.split(".")[:2], str(int(RELEASE.version.split(".")[2]) + 1)])
     bumped = BridgeMaintenance(manager.store, manager.ha, manager.bridge,
-                               release=BridgeRelease(version="0.9.1"), clock=manager.clock)
+                               release=BridgeRelease(version=next_version), clock=manager.clock)
     assert (await bumped.tick())["state"] == "update_available"
-    manager.ha.catalog["version_latest"] = "0.9.1"
+    manager.ha.catalog["version_latest"] = next_version
     manager.ha.timeouts.clear()
     await bumped.update()
     assert [item for item in manager.ha.timeouts if item[0] == "POST"] == [

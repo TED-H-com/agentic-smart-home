@@ -21,7 +21,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agentic_hermes.models import TOOLS
-from agentic_hermes.upstream import CONTRACT_VERSION, HermesAdapter, require
+from agentic_hermes.upstream import CONTRACT_VERSION, HermesAdapter, IncompatibleUpstream, require
 
 API_KEY = "compatibility-api-fixture"
 MCP_TOKEN = "compatibility-mcp-fixture"
@@ -31,6 +31,35 @@ ACCESS_TOKEN = JWT_HEADER + "." + base64.urlsafe_b64encode(json.dumps({
     "exp": 4102444800, "https://api.openai.com/auth": {"chatgpt_account_id": "compatibility-fixture"},
 }).encode()).rstrip(b"=").decode() + ".AA"
 EXPECTED_TOOLS = {"mcp__agentic__" + name.replace(".", "_") for name in TOOLS}
+FAILURE_STAGES = frozenset({"consumed_signatures", "chat_tool_roundtrip", "continued_history", "provider_401",
+                            "native_device_oauth", "native_responses_tool_roundtrip", "fixture_finalization"})
+FAILURE_KINDS = frozenset({"child_timeout", "child_exit", "invalid_output", "contract_failure",
+                           "fixture_protocol", "unexpected"})
+
+
+class ProbeFailure(Exception):
+    """A fixed local category; never carry subprocess output or exception text."""
+
+    def __init__(self, kind):
+        require(kind in FAILURE_KINDS)
+        self.kind = kind
+        super().__init__(kind)
+
+
+class ProbeDiagnostic:
+    def __init__(self, stage):
+        self.enter(stage)
+
+    def enter(self, stage):
+        require(stage in FAILURE_STAGES)
+        self.stage = stage
+
+    def failure(self, error):
+        if isinstance(error, ProbeFailure):
+            kind = error.kind if error.kind in FAILURE_KINDS else "unexpected"
+        else:
+            kind = "contract_failure" if isinstance(error, IncompatibleUpstream) else "unexpected"
+        return {"schema": 1, "stage": self.stage, "kind": kind}
 
 
 def oauth_fixture():
@@ -217,17 +246,33 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def run_child(arguments, env, payload=None):
-    result = subprocess.run([sys.executable, *arguments], input=json.dumps(payload) if payload else None,
-                            capture_output=True, text=True, cwd=env["HOME"], env=env, timeout=30)
-    require(result.returncode == 0)
+    try:
+        result = subprocess.run([sys.executable, *arguments], input=json.dumps(payload) if payload else None,
+                                capture_output=True, text=True, cwd=env["HOME"], env=env, timeout=30)
+    except subprocess.TimeoutExpired:
+        raise ProbeFailure("child_timeout") from None
+    except UnicodeError:
+        raise ProbeFailure("invalid_output") from None
+    if result.returncode != 0:
+        raise ProbeFailure("child_exit")
+    if not isinstance(result.stdout, str):
+        raise ProbeFailure("invalid_output")
     require(all(secret not in result.stdout for secret in (API_KEY, MCP_TOKEN, ACCESS_TOKEN, REFRESH_TOKEN)))
-    return json.loads(result.stdout)
+    try:
+        value = json.loads(result.stdout)
+    except (ValueError, TypeError, RecursionError):
+        raise ProbeFailure("invalid_output") from None
+    if not isinstance(value, dict):
+        raise ProbeFailure("invalid_output")
+    return value
 
 
-def behavioral_probe():
+def behavioral_probe(diagnostic):
     # Imported upstream may print banners. Only the final bounded receipt is stdout.
+    diagnostic.enter("consumed_signatures")
     with contextlib.redirect_stdout(sys.stderr):
         HermesAdapter().validate_contract()
+    diagnostic.enter("chat_tool_roundtrip")
     server = FixtureServer()
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -255,19 +300,25 @@ def behavioral_probe():
             require(bool(denied) and any(marker in str(denied).lower()
                                         for marker in ("error", "does not exist", "not authorized")))
             payload.update(message="fixture-continuation", history=response["history"])
+            diagnostic.enter("continued_history")
             continued = run_child(["-m", "agentic_hermes.child"], turn_env, payload)
             require(continued.get("error") is None and continued["answer"] == "continuation fixture complete")
+            diagnostic.enter("provider_401")
             rejected = run_child(["-m", "agentic_hermes.child"], turn_env,
                                  {**payload, "history": [], "api_key": API_KEY + "-invalid"})
             require(rejected.get("error") == "needs_reauth" and rejected["answer"] == "" and rejected["history"] == [])
             env.update(HERMES_HOME=str(scratch / "native"), AGENTIC_PROVIDER_URL=url + "/v1")
+            diagnostic.enter("native_device_oauth")
             oauth = run_child([str(Path(__file__).resolve()), "--oauth-fixture"], env)
             require(oauth["oauth"] == "real_upstream_helpers")
+            diagnostic.enter("native_responses_tool_roundtrip")
             native = run_child(["-m", "agentic_hermes.child"], {**turn_env, "HERMES_HOME": env["HERMES_HOME"]},
                               {**payload, "provider": "openai-codex", "model": "gpt-6-astra", "history": []})
             require(native.get("error") is None and native["answer"] == "native fixture complete")
             require(set(native["tools"]) == EXPECTED_TOOLS)
-            require(not server.failures and not server.egress)
+            diagnostic.enter("fixture_finalization")
+            if server.failures or server.egress:
+                raise ProbeFailure("fixture_protocol")
             require(server.observed == {"chat": 3, "continuation": 1, "native": 2, "unauthorized": 1, "tools": 2})
         return {"compatible": True, "adapter_contract": CONTRACT_VERSION, "observed_from": "runtime_container",
                 "model": "protocol_fixture", "mcp": "official_client_loopback_fixture", "cloud_account_verified": False,
@@ -281,12 +332,15 @@ def behavioral_probe():
 
 
 def main():
+    oauth = sys.argv[1:] == ["--oauth-fixture"]
+    diagnostic = ProbeDiagnostic("native_device_oauth" if oauth else "consumed_signatures")
     try:
-        result = oauth_fixture() if sys.argv[1:] == ["--oauth-fixture"] else behavioral_probe()
-    except Exception:
+        result = oauth_fixture() if oauth else behavioral_probe(diagnostic)
+    except Exception as error:
         # Do not expose provider responses, raw stderr, filesystem paths or tokens.
         print(json.dumps({"compatible": False, "adapter_contract": CONTRACT_VERSION,
-                          "error": "upstream_contract_incompatible", "cloud_account_verified": False}))
+                          "error": "upstream_contract_incompatible", "cloud_account_verified": False,
+                          "diagnostic": diagnostic.failure(error)}))
         return 1
     print(json.dumps(result))
     return 0
