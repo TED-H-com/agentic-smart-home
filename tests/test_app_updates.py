@@ -7,7 +7,7 @@ from pathlib import Path
 import httpx
 import pytest
 import yaml
-from agentic_controller import VERSION
+from agentic_controller import VERSION as CURRENT_VERSION
 from agentic_controller.app import create_app
 from agentic_controller.bridge_maintenance import (
     JOB_TIMEOUT,
@@ -36,6 +36,8 @@ from test_home_worker_maintenance import REPO as HOME_REPO
 from test_home_worker_maintenance import SLUG as HOME_SLUG
 from test_home_worker_maintenance import Supervisor as HomeSupervisor
 
+# Historical upgrade scenarios deliberately stay at 0.9.0 → 0.9.1 across releases.
+VERSION = "0.9.0"
 LEGACY = "https://github.com/teddashh/agentic-smart-home#release/0.8.0"
 
 
@@ -44,7 +46,8 @@ def manager(store):
     store.set_setting("owner", "owner")
     store.put("bootstrap_v1", {"id": "setup", "state": "completed"})
     clock = Clock()
-    return BridgeMaintenance(store, Supervisor(), Bridge(clock), clock=clock)
+    return BridgeMaintenance(store, Supervisor(version="0.9.0"), Bridge(clock),
+                             release=BridgeRelease(version="0.9.0"), clock=clock)
 
 
 @pytest.fixture
@@ -52,7 +55,8 @@ def home(store):
     store.set_setting("owner", "owner")
     store.put("bootstrap_v1", {"id": "setup", "state": "completed", "run_id": "c" * 32})
     clock = Clock()
-    return HomeWorkerMaintenance(store, HomeSupervisor(), FakeRunner(store), "d" * 32, clock=clock)
+    return HomeWorkerMaintenance(store, HomeSupervisor(version="0.9.0"), FakeRunner(store), "d" * 32,
+                                 release=HomeWorkerRelease(version="0.9.0"), clock=clock)
 
 
 def test_versions_compare_as_numeric_tuples():
@@ -65,8 +69,8 @@ def test_versions_compare_as_numeric_tuples():
 def test_app_config_versions_match_controller_version():
     bridge = yaml.safe_load(Path("bridge/config.yaml").read_text())
     runner = yaml.safe_load(Path("runner/config.yaml").read_text())
-    assert bridge["version"] == VERSION == runner["version"]
-    assert BridgeRelease().version == VERSION == HomeWorkerRelease().version
+    assert bridge["version"] == CURRENT_VERSION == runner["version"]
+    assert BridgeRelease().version == CURRENT_VERSION == HomeWorkerRelease().version
     assert BridgeRelease().repository.endswith("#stable")
     assert HomeWorkerRelease().repository == BridgeRelease().repository
 
@@ -322,7 +326,7 @@ async def test_fresh_install_refuses_a_numerically_newer_catalog(store):
     store.set_setting("owner", "owner")
     store.put("bootstrap_v1", {"id": "setup", "state": "completed"})
     clock = Clock()
-    ha, bridge = Supervisor(), Bridge(clock)
+    ha, bridge = Supervisor(version="0.9.0"), Bridge(clock)
     ha.catalog["version_latest"] = "0.10.0"
     manager = BridgeMaintenance(store, ha, bridge, release=BridgeRelease(version="0.9.0"), clock=clock)
     await manager.authorize()
@@ -543,7 +547,7 @@ async def test_home_fresh_install_lockstep(home):
 async def test_home_fresh_install_refuses_a_numerically_newer_catalog(store):
     store.set_setting("owner", "owner")
     store.put("bootstrap_v1", {"id": "setup", "state": "completed", "run_id": "c" * 32})
-    clock, ha = Clock(), HomeSupervisor()
+    clock, ha = Clock(), HomeSupervisor(version="0.9.0")
     ha.catalog["version_latest"] = "0.10.0"
     manager = HomeWorkerMaintenance(store, ha, FakeRunner(store), "d" * 32,
                                     release=HomeWorkerRelease(version="0.9.0"), clock=clock)

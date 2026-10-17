@@ -1,0 +1,41 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "pattern": "^(provision|start|shutdown|snapshot|restore|configure_lan)$",
+      "title": "Action",
+      "type": "string"
+    },
+    "interface_id": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Interface Id"
+    },
+    "snapshot": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9]{8}T[0-9]{6}Z-[a-f0-9]{8}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Snapshot"
+    }
+  },
+  "required": [
+    "action"
+  ],
+  "title": "HostAction",
+  "type": "object"
+}

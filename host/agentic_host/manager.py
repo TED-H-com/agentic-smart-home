@@ -78,7 +78,7 @@ def validate_profile(profile, bases):
     return profile
 
 
-def domain_xml(profile, disk, nvram, owner, firmware="/usr/share/OVMF/OVMF_CODE_4M.fd"):
+def domain_xml(profile, disk, nvram, owner, firmware="/usr/share/OVMF/OVMF_CODE_4M.fd", *, lan=None):
     domain = ET.Element("domain", {"type": "kvm"})
     ET.SubElement(domain, "name").text = NAME
     ET.SubElement(domain, "uuid").text = owner
@@ -108,6 +108,9 @@ def domain_xml(profile, disk, nvram, owner, firmware="/usr/share/OVMF/OVMF_CODE_
     ET.SubElement(interface, "source", {"network": NETWORK})
     ET.SubElement(interface, "mac", {"address": MAC})
     ET.SubElement(interface, "model", {"type": "virtio"})
+    if lan:
+        from .ha_lan import add_interface
+        add_interface(domain, lan)
     channel = ET.SubElement(devices, "channel", {"type": "unix"})
     ET.SubElement(channel, "target", {"type": "virtio", "name": "org.qemu.guest_agent.0"})
     serial = ET.SubElement(devices, "serial", {"type": "pty"})
@@ -119,11 +122,17 @@ def domain_xml(profile, disk, nvram, owner, firmware="/usr/share/OVMF/OVMF_CODE_
     return ET.tostring(domain, encoding="unicode")
 
 
-def network_xml(owner):
-    return (f'<network><name>{NETWORK}</name><metadata><agentic:owner xmlns:agentic="{NS}">'
+def network_xml(owner, *, wired=False):
+    value = (f'<network><name>{NETWORK}</name><metadata><agentic:owner xmlns:agentic="{NS}">'
             f'{owner}</agentic:owner></metadata><forward mode="nat"/><bridge name="virbr-ah" stp="on" delay="0"/>'
             f'<ip address="192.168.177.1" netmask="255.255.255.0"><dhcp><host mac="{MAC}" '
             f'name="agentic-haos" ip="{IP}"/></dhcp></ip></network>')
+    if wired:
+        from .ha_lan import no_default_router
+        network = ET.fromstring(value)
+        no_default_router(network)
+        return ET.tostring(network, encoding="unicode")
+    return value
 
 
 class Manager:
@@ -179,6 +188,8 @@ class Manager:
         disks = xml.findall("devices/disk/source")
         if len(disks) != 1 or disks[0].get("file") != str(self.images / "haos.qcow2"):
             raise HostError("VM disk was changed outside Agentic Home")
+        from .ha_lan import HALan, validate_domain
+        validate_domain(xml, HALan(self).choices())
         return xml
 
     def status(self):
@@ -220,6 +231,8 @@ class Manager:
                     self.run("iptables", "-I", "DOCKER-USER", "1", *rule)
 
     def provision(self):
+        from .ha_lan import HALan, validate_network
+        lan = HALan(self).ready()
         profile = json.loads(Path("/etc/agentic-home/profile.json").read_text())
         bases = json.loads((self.product / "host/bases.lock.json").read_text())
         validate_profile(profile, bases)
@@ -274,9 +287,10 @@ class Manager:
         if network.returncode == 0:
             if ET.fromstring(network.stdout).findtext(f"metadata/{{{NS}}}owner") != state["owner"]:
                 raise HostError("Existing network is not owned by Agentic Home")
+            validate_network(ET.fromstring(network.stdout), state["owner"], {bool(lan)})
         else:
             xml = self.root / "network.xml"
-            xml.write_text(network_xml(state["owner"]))
+            xml.write_text(network_xml(state["owner"], wired=bool(lan)))
             self.virsh("net-define", str(xml))
         if not re.search(r"^Active:\s+yes$", self.virsh("net-info", NETWORK).stdout, re.MULTILINE):
             self.virsh("net-start", NETWORK)
@@ -286,7 +300,7 @@ class Manager:
         self.refresh_forwarding()
         if self.owned() is None:
             xml = self.root / "domain.xml"
-            xml.write_text(domain_xml(profile, disk, nvram, state["owner"]))
+            xml.write_text(domain_xml(profile, disk, nvram, state["owner"], lan=lan))
             self.virsh("define", str(xml))
         self.virsh("autostart", NAME)
         self.start()
@@ -297,11 +311,16 @@ class Manager:
     def start(self):
         if self.state().get("restore_pending"):
             raise HostError("Interrupted restore: re-run restore with the recorded snapshot id")
+        from .ha_lan import HALan, validate_network
+        lan = HALan(self).ready()
         if self.owned() is None:
             raise HostError("VM definition is missing; run provision")
+        network = ET.fromstring(self.virsh("net-dumpxml", NETWORK).stdout)
+        validate_network(network, self.state()["owner"], {bool(lan)})
         self.require_compatibility("start")
         state = self.virsh("domstate", NAME).stdout.strip()
         if state == "shut off":
+            self.virsh("autostart", NAME)
             self.virsh("start", NAME)
         elif state != "running":
             raise HostError("VM is " + state + "; inspect it before changing state")
@@ -324,6 +343,9 @@ class Manager:
         raise HostError("HAOS has not shut down; no forced power-off was performed")
 
     def snapshot(self):
+        from .ha_lan import HALan
+        if HALan(self).record().get("pending"):
+            raise HostError("ha_lan_needs_reconcile")
         self.owned()
         self.require_compatibility("snapshot")
         was_running = self.virsh("domstate", NAME).stdout.strip() == "running"
@@ -348,6 +370,9 @@ class Manager:
     def restore(self, id):
         if not isinstance(id, str) or not re.fullmatch(r"[0-9]{8}T[0-9]{6}Z-[a-f0-9]{8}", id):
             raise HostError("Invalid snapshot id")
+        from .ha_lan import HALan
+        if HALan(self).record().get("pending"):
+            raise HostError("ha_lan_needs_reconcile")
         self.owned()
         self.require_compatibility("restore")
         if self.virsh("domstate", NAME).stdout.strip() != "shut off":
@@ -378,10 +403,13 @@ class Manager:
         self.virsh("autostart", NAME)
         return {"restored": id, "vm": "shut off"}
 
-    def action(self, action, snapshot=None):
-        if action not in {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes"}:
+    def action(self, action, snapshot=None, *, interface_id=None):
+        if action not in {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes", "configure_lan"}:
             raise HostError("Unknown lifecycle operation")
         with self.locked():
+            if action == "configure_lan":
+                from .ha_lan import HALan
+                return HALan(self).configure(interface_id)
             if action == "bootstrap_hermes":
                 from .bootstrap import InitialSetup
                 return InitialSetup(self).install()

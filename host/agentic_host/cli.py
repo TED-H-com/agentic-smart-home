@@ -8,7 +8,7 @@ import time
 import uuid
 from pathlib import Path
 
-JOB_ACTIONS = {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes"}
+JOB_ACTIONS = {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes", "configure_lan"}
 JOB_STATES = {"running", "succeeded", "failed", "needs_reconcile"}
 JOB_READ_ATTEMPTS = 3
 JOB_POLL_SECONDS = 2
@@ -63,13 +63,19 @@ def validate_job(job, id, expected_request=None):
     if not valid_job_id(id) or not isinstance(job, dict) or job.get("id") != id:
         raise JobObservationError("host_job_response_invalid")
     request = job.get("request")
-    if (not isinstance(request, dict) or set(request) - {"id", "action", "snapshot"} or
+    if (not isinstance(request, dict) or set(request) - {"id", "action", "snapshot", "interface_id"} or
             request.get("id") != id or not isinstance(request.get("action"), str) or request["action"] not in JOB_ACTIONS or
             not isinstance(job.get("state"), str) or job["state"] not in JOB_STATES or
             (request.get("snapshot") is not None and not isinstance(request["snapshot"], str)) or
             (request["action"] != "restore" and request.get("snapshot") is not None) or
             (expected_request is not None and request != expected_request) or
             (job["state"] == "succeeded" and not isinstance(job.get("result"), dict))):
+        raise JobObservationError("host_job_response_invalid")
+    if request["action"] == "configure_lan":
+        value = request.get("interface_id")
+        if "interface_id" not in request or (value is not None and (not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{64}", value))):
+            raise JobObservationError("host_job_response_invalid")
+    elif "interface_id" in request:
         raise JobObservationError("host_job_response_invalid")
     return job
 
@@ -111,12 +117,14 @@ def unconfirmed(id, error):
 def main():
     parser = argparse.ArgumentParser(description="Agentic Home outer Linux lifecycle")
     parser.add_argument("command", choices=["status", "provision", "start", "shutdown", "snapshot", "restore",
-                                             "bootstrap_hermes", "open", "access-key", "diagnostics", "support-bundle",
+                                             "bootstrap_hermes", "configure_lan", "ha-lan", "open", "access-key", "diagnostics", "support-bundle",
                                              "network", "network-select", "network-login", "network-revoke", "updates",
                                              "update-stage", "update-apply", "update-rollback-offer", "update-rollback",
                                              "update-publisher-inspect", "update-publisher-add", "update-publisher-revoke", "job", "wait"])
     parser.add_argument("--id", help="Existing lifecycle job ID for read-only job/wait")
     parser.add_argument("--snapshot")
+    parser.add_argument("--interface-id", help="Current opaque physical Ethernet ID from ha-lan")
+    parser.add_argument("--disable-lan", action="store_true", help="Remove the HAOS LAN NIC and restore the management NAT gateway")
     parser.add_argument("--output", type=Path, help="New JSON file for support-bundle")
     parser.add_argument("--lan", choices=["dhcp", "reservation"])
     parser.add_argument("--remote", choices=["disabled", "tailscale"])
@@ -127,6 +135,11 @@ def main():
     parser.add_argument("--repository", help="Exact trusted image repository, without tag/digest")
     parser.add_argument("--public-key", type=Path, help="Ed25519 PUBLIC key PEM; never a private signing key")
     args = parser.parse_args()
+    if args.command == "configure_lan":
+        if bool(args.interface_id) == args.disable_lan or (args.interface_id and not re.fullmatch(r"[a-f0-9]{64}", args.interface_id)):
+            parser.error("configure_lan requires exactly one of --interface-id <current opaque ID> or --disable-lan")
+    elif args.interface_id is not None or args.disable_lan:
+        parser.error("LAN configuration flags require configure_lan")
     if args.command in {"job", "wait"}:
         if not valid_job_id(args.id):
             parser.error("job/wait requires a valid existing --id")
@@ -157,6 +170,9 @@ def main():
         return
     if args.command in {"network", "updates"}:
         print(json.dumps(call("GET", "/" + args.command), ensure_ascii=False, indent=2))
+        return
+    if args.command == "ha-lan":
+        print(json.dumps(call("GET", "/network/ha-lan"), ensure_ascii=False, indent=2))
         return
     if args.command.startswith("network-"):
         if args.command == "network-select":
@@ -199,6 +215,8 @@ def main():
         return
     id = uuid.uuid4().hex
     body = {"id": id, "action": args.command, "snapshot": args.snapshot}
+    if args.command == "configure_lan":
+        body["interface_id"] = args.interface_id
     # A lost POST reply must still leave the Owner an exact read-only recovery
     # handle. Never automatically resend this mutation, even with the same ID.
     print("Operation " + id, flush=True)

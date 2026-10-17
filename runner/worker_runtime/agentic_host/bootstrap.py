@@ -159,7 +159,13 @@ def write_environment(path, image, variable="AGENTIC_HERMES_IMAGE"):
             if not line.strip() or line.lstrip().startswith("#"):
                 continue
             key, separator, value = line.partition("=")
-            if not separator or key not in allowed or key in values or not re.fullmatch(r"sha256:[a-f0-9]{64}", value):
+            # Image activation must preserve the administrator's provider policy.
+            # It may never add arbitrary Compose variables or shell expansion.
+            policy = (key == "AGENTIC_DISABLED_PROVIDERS" and len(value) <= 128
+                      and (not value.strip() or re.fullmatch(
+                          r"[ \t]*(?:codex|claude|agy|grok)[ \t]*(?:,[ \t]*(?:codex|claude|agy|grok)[ \t]*)*", value)))
+            pinned_image = key in allowed and re.fullmatch(r"sha256:[a-f0-9]{64}", value)
+            if not separator or key in values or not (policy or pinned_image):
                 raise SetupError("candidate_environment_invalid")
             values[key] = value
     values[variable] = image

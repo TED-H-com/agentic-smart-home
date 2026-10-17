@@ -34,7 +34,8 @@ class Clock:
 
 def ready():
     return {"runner": {"protocol": 1, "identity": "agentic-home-runner",
-                       "providers": [{"provider": name, "status": "needs_reauth"}
+                       "providers": [{"provider": name, **({"status": "unavailable", "reason": "provider_disabled"}
+                                     if name == "grok" else {"status": "needs_reauth"})}
                                      for name in ("codex", "claude", "agy", "grok")]},
             "onboarding": {"runner_paired": True}}
 
@@ -185,7 +186,8 @@ def test_request_and_sleep_budgets_share_absolute_deadline(probe, budget):
 
 
 @pytest.mark.parametrize("expire_after_login", [False, True])
-def test_actual_probe_repeats_only_status_get_and_keeps_existing_success_checks(probe, monkeypatch, expire_after_login):
+@pytest.mark.parametrize("provisioned", [False, True])
+def test_actual_probe_repeats_only_status_get_and_keeps_existing_success_checks(probe, monkeypatch, expire_after_login, provisioned):
     clock = Clock()
     monkeypatch.setattr(probe.time, "monotonic", clock)
     original_wait = probe.wait_for_runner_status
@@ -195,7 +197,7 @@ def test_actual_probe_repeats_only_status_get_and_keeps_existing_success_checks(
     original_read = Path.read_text
     monkeypatch.setattr(Path, "read_text", lambda path, *args, **kwargs: "private-key" if
                         str(path) == "/var/lib/agentic-home/controller/access-key" else original_read(path, *args, **kwargs))
-    host = {"controller_update": {"ingress_bridge_contract": 1}, "provisioned": False, "vm": "stopped"}
+    host = {"controller_update": {"ingress_bridge_contract": 1}, "provisioned": provisioned, "vm": "stopped"}
     provider = {"id": "codex", "supported": True, "credential_state": "needs_auth",
                 "auth_methods": ["device_code", "api_key"], "models": [
                     "gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5"]}
@@ -232,13 +234,14 @@ def test_actual_probe_repeats_only_status_get_and_keeps_existing_success_checks(
     monkeypatch.setattr(probe.urllib.request, "build_opener", lambda *args: SimpleNamespace(open=open_request))
     if expire_after_login:
         with pytest.raises(AssertionError, match="auth_probe_deadline"):
-            probe.probe()
+            probe.probe(provisioned=provisioned)
         assert calls == [("POST", "/api/host/desktop-login"), ("POST", "/api/host/desktop-login"),
                          ("POST", "/api/host/login")]
         assert probe.STAGE == "auth_probe_deadline"
         return
-    result = probe.probe()
+    result = probe.probe(provisioned=provisioned)
     assert result["automatic_runner_pairing"] == "passed" and result["coding_without_login"] == "blocked_no_execution"
+    assert result["excluded_cli_probes"] == {"grok": "not_run: owner instruction"}
     assert calls.count(("GET", "/api/status")) == 2
     assert [path for method, path in calls if method == "POST"] == [
         "/api/host/desktop-login", "/api/host/desktop-login", "/api/host/login", "/api/worker/jobs", "/api/worker/jobs"]

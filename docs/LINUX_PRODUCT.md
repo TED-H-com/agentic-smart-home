@@ -1,12 +1,16 @@
 # Linux 產品架構
 
-外層 Linux 先啟動 Web／Hermes／固定診斷，HAOS VM 由持久 onboarding 在 CLI／Hermes／通道就緒後自動建立。Host Codex coding 已接通；Home coding launcher 尚未交付，真帳號及完整 E1／E2 仍待驗收。本頁描述當前部署，完整設計與缺口見 [v3 文件](v3/README.md) 和 [進度](v3/PROGRESS.md)。
+外層 Linux 先啟動 Web／Hermes／固定診斷，HAOS VM 由持久 onboarding 在 CLI／Hermes／通道就緒後自動建立。Host Codex coding 與真正運行於 HAOS App 的 Home coding 已交付，家庭現場可從網頁一鍵啟用及獨立登入。真帳號及完整 E1／E2 仍待現場驗收。本頁描述當前部署，完整設計與缺口見 [v3 文件](v3/README.md) 和 [進度](v3/PROGRESS.md)。
+
+0.10.0 是正在準備的安裝候選；新來源與既有 0.9.0 精確媒體分開記錄，不能沿用舊 ISO 的通過狀態。
 
 ## 建置與首次開機
 
 `host/bases.lock.json` 固定官方 Ubuntu ISO／HAOS 映像 URL 和 SHA-256。`host/profiles/` 選 base、桌面、VM 資源與合蓋行為。首條交付採 `laptop-amd64`；既有其他 profile 不因 recipe 存在就當作已通過整機驗收。
 
 `scripts/build_host.py` 打包五個 images（Controller、Runner、LINE.js、Hermes，以及按需啟動的 preview renderer）、產品檔案與 HAOS 官方映像，另含固定官方 Tailscale deb 和本 public repo 精確 commit 的 coding source bundle，再按需加入 NoCloud seed／GRUB 入口。xorriso boot replay 保留原映像 boot records。網路、磁碟與 Linux 帳號仍由官方安裝畫面選擇，公開 ISO 不內建預選磁碟、固定密碼或 SSH key。
+
+0.10.0 的 USB `early-commands` 先執行獨立標準函式庫 helper，檢查 x86-64、profile 最低實際 RAM 和 KVM API／暫時 VM fd。live kernel 尚未載入 KVM 時，最多以固定 Intel／AMD 模組執行一次有時限的 modprobe，再讀回能力；失敗在磁碟設定前停止並提供修正指引。它不選磁碟、不建立 guest 磁碟、不修改網路。安裝後仍檢查 Linux 版本、KVM、RAM 與 `/var/lib` 至少 40 GiB 可用空間。
 
 firstboot 安裝套件、載入已驗 hash 的 images、啟動外層服務、產生每台主機自己的登入／服務秘密並配對受控 Runner。**它不執行 HAOS provision**；沒有家庭 VM 或雲端帳號也可開 Web，Hermes 初始為 `needs_auth`。Web 設定流程在 CLI／Hermes／通道就緒後自動 provision；固定手動入口仍保留。未完成授權前可先使用外層。
 
@@ -26,7 +30,7 @@ firstboot 安裝套件、載入已驗 hash 的 images、啟動外層服務、產
 
 Hermes 安裝包回復基線使用 [commit 835c3dd…](https://github.com/NousResearch/hermes-agent/tree/835c3dd038d903182a66ecc45e34bf5e0de65f00)，版本／來源／Python 3.14／依賴各自 lock，見 [Hermes README](../hermes/README.md)。首次引導使用隨附 Hermes 映像，通過離線相容性 probe 後按 digest 啟動；結果寫入 host/runtime.env，重啟不自行追更新。它不啟動第二個 bot Gateway，也不開內建 terminal、filesystem、browser、delegate 或 Live approve/apply。Host coding 派至獨立 sandbox，不能把 coordinator 容器當成執行候選程式的環境；真雲端帳號仍須另驗。
 
-MCP 使用專用短期 case/run capability。固定工具為 `host.status`、`worker.capabilities`、`worker.submit/status/cancel/result`、`case.evidence.read`、`home.observe`、`home.propose`、`home.proposal_status`；家庭工具受既有 policy／精確 Owner 批准控制，沒有 approve／apply 工具。worker submit 依實際能力與獨立登入派至 Host coding；Home 尚未啟用。Controller 不執行 CLI／shell，产品服務容器不掛 Docker socket；root Host broker 持有 launcher，見 [Workers](WORKERS.md)。Unix peer 身份將 UID 0 Runner 限於 coding 接點，UID 1000 Owner／Controller 使用管理接點。
+MCP 使用專用短期 case/run capability。固定工具為 `host.status`、`worker.capabilities`、`worker.submit/status/cancel/result`、`case.evidence.read`、`home.observe`、`home.propose`、`home.proposal_status`；家庭工具受既有 policy／精確 Owner 批准控制，沒有 approve／apply 工具。worker submit 依實際能力與獨立登入派至 Host coding，或已明確啟用並配對的 Home coding App；未啟用的能力維持 unavailable。Controller 不執行 CLI／shell，产品服務容器不掛 Docker socket；root Host broker 持有 launcher，見 [Workers](WORKERS.md)。Unix peer 身份將 UID 0 Runner 限於 coding 接點，UID 1000 Owner／Controller 使用管理接點。
 
 桌面主要 Owner 可透過 120 秒單次票據換取 session；票據經家目錄0700私有目錄的0600暫時 HTML 導向傳遞，xdg-open 程序參數不含 bearer，120 秒後清除該暫存檔。Web 立即移除 fragment 再兌換，server 只保存 hash 並先消耗票據。手動主機 access-key 亦可換取 12 小時 HttpOnly／SameSite cookie；mutation 驗 Origin／CSRF，Host allowlist 防 DNS rebinding，遠端管理用 SSH tunnel。Hermes service token 是每台安裝生成的独立秘密；8096／8097 拒絕 browser Origin，瀏覽器不能直接取得服務 bearer。
 
@@ -34,11 +38,13 @@ MCP 使用專用短期 case/run capability。固定工具為 `host.status`、`wo
 
 ## 可選 HAOS VM 與恢復
 
-Owner 呼叫 provision 後，broker 建立並啟動固定 VM `agentic-home-haos`、network `agentic-home`、bridge `virbr-ah`、NAT `192.168.177.0/24`、guest DHCP `.2`。路由重疊或同名外部資源會拒絕；UUID、XML metadata、ownership journal 和磁碟路徑必須匹配。
+首次設定排程或 Owner 明確呼叫 provision 後，broker 建立並啟動固定 VM `agentic-home-haos`、network `agentic-home`、bridge `virbr-ah`、NAT `192.168.177.0/24`、guest DHCP `.2`。路由重疊或同名外部資源會拒絕；UUID、XML metadata、ownership journal 和磁碟路徑必須匹配。
 
 guest 使用 non-secure OVMF、qcow2／virtio-scsi／virtio-net，預設 2 vCPU／4 GiB RAM／64 GiB sparse disk。成功 provision 後才有 libvirt autostart；未建立 HAOS 的外層重啟不會突然建立 guest。ACPI shutdown 等待 180 秒，逾時不強制斷電。
 
-loopback proxy 8123 → guest:80 保留 WebSocket，不偽造 HA 身份。NAT 不提供 LAN multicast discovery；主機盤點改由外層 broker 在 Owner 選定的實體 IPv4 介面收集鄰居表、mDNS／SSDP，結果可用於原生設定交接，但不代表 HA 自身取得 multicast 或所有設備可通。路由器匯出清單可補充來源，見 [設備探索](DEVICE_DISCOVERY.md)。profile manager 不自動建立實體 Ethernet bridge 或認領 USB。真 HAOS 18.3 App 已測到限定 `SYS_ADMIN`／AppArmor 診斷設定下的 cgroup 委派與記憶體 OOM；Home launcher、credential／LAN／管理隔離仍需交付。`host_network:false` 或未給 HA API token 不能直接證明 App 無法連其他內部服務，詳見 [Home 邊界證據](WORKERS.md#home-app-的實測範圍)。
+loopback proxy 8123 → guest:80 保留 WebSocket，不偽造 HA 身份。基本 NAT 不提供 LAN multicast discovery；外層 broker 的鄰居表、mDNS／SSDP 與路由器清單只是獨立觀測來源，見 [設備探索](DEVICE_DISCOVERY.md)。0.10.0 候選另提供明確選擇的實體有線接入：保留 NAT 管理 NIC，增加一張 direct／macvtap 家庭 NIC；有線模式取消管理 DHCP 的預設 gateway，讓家庭 DHCP 提供 guest 預設路由，不重寫 host IP／路由。只在未建立或已正常關機的 HAOS 上配置，並保留中斷核對紀錄。Controller 在 Owner 授權後讀回 Supervisor／Core 的位址、adapter 與內部網址；原生 HA 的手動選擇由使用者處理。完整操作、LAN 可見服務與待驗證限制見 [家庭區網接入](HA_LAN.md)。產品不自動認領 USB dongle。
+
+既有 0.9.0 真 HAOS 工程驗證已涵蓋 Home launcher、自訂 AppArmor、cgroup／磁碟配額、credential／LAN／管理隔離與停止核對；模型使用固定測試 transport，不能當作真帳號或實體設備驗收。0.10.0 仍須重驗自己的精確來源。`host_network:false` 或未給 HA API token 不能直接證明 App 無法連其他內部服務，詳見 [Home 邊界證據](WORKERS.md#home-app-的實測範圍)。
 
 冷快照正常關機後複製磁碟＋UEFI，計算 SHA-256 後寫 manifest。restore 先驗 ownership／digest／關機狀態，記錄 `restore_pending`；中断可對同一 snapshot 核對／續作，不啟動半還原 VM。還原較舊 guest 後需 reconcile 較新的 Controller ledger，資料還原不能撤回物理動作。
 

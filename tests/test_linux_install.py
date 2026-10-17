@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 import re
+import shlex
 import stat
 import subprocess
 import sys
@@ -30,6 +31,20 @@ UPDATE_INVOKE_TIMEOUT_SECONDS = UPDATE_COMMAND_TIMEOUT_SECONDS + 60
 UPDATE_DEADLINE_SECONDS = RUNTIME_MAX_SECONDS + 300
 INSTALL_CLEANUP_COMMAND_SECONDS = 30
 INSTALL_CONSOLE_BYTES = 65536
+LAN_LAB_IMAGE = "agentic-home-lan-lab:0.10.0"
+
+
+def provider_policy_seed():
+    """Set the fixture's administration policy before any installed service starts.
+
+    The runtime file survives firstboot, reboots and Controller updates. Product
+    payloads and image IDs remain exact; the excluded provider is never tested.
+    """
+    return [
+        "install -d -m 0700 /target/var/lib/agentic-home/host",
+        "printf 'AGENTIC_DISABLED_PROVIDERS=grok\\n' > /target/var/lib/agentic-home/host/runtime.env",
+        "chmod 0600 /target/var/lib/agentic-home/host/runtime.env",
+    ]
 
 
 def cleanup_installer(name, temporary, console_path, *, run=None):
@@ -121,6 +136,77 @@ def bootstrap_job_diagnostics(output):
 
 def command(*args, **kwargs):
     return subprocess.run(args, check=True, capture_output=True, text=True, **kwargs).stdout.strip()
+
+
+def native_api_probe_script(base, timeout):
+    return ("import urllib.request,urllib.error\ntry:\n urllib.request.urlopen(" + repr(base + "/api/")
+            + ",timeout=" + str(timeout) + ")\nexcept urllib.error.HTTPError as e:\n assert e.code==401\n"
+            "else:\n raise AssertionError('native_auth_api_expected')\n")
+
+
+def installed_lan(ssh, container, phase, image_ids):
+    """Actual second physical-from-guest NIC, native discovery, reboot, removal."""
+    report = {"kind": "real_installed_haos_wired_lan", "result": "running", "images": image_ids,
+              "network": "synthetic_tap_inside_owned_docker_namespace", "physical_household": "not_run",
+              "model_provider": "not_run", "fixture_protocol": "homekit_mdns_advertisement_only"}
+    source = (ROOT / "tests/installed_ha_lan_probe.py").read_text()
+    compose = "sudo docker compose -f /opt/agentic-home/host/compose.yaml"
+
+    def probe(stage):
+        result = command(*ssh, compose + " exec -T -e AGENTIC_LAN_PROBE_PHASE=" + stage + " controller python -",
+                         input=source, timeout=900)
+        return json.loads(result)
+
+    def wait_native(stage):
+        # Onboarding routes disappear after completed onboarding and a restart.
+        # A 401 from the Core API proves the native authenticated API is alive;
+        # the following owner probe establishes the actual network postconditions.
+        phase(stage)
+        script = native_api_probe_script("http://localhost:8123", 3)
+        def ready():
+            try:
+                result = subprocess.run([*ssh, "python3 -"], input=script, text=True, capture_output=True, timeout=15)
+                return result.returncode == 0
+            except subprocess.TimeoutExpired:
+                return False
+        assert wait_until(ready, 900), "native_core_api_unavailable"
+
+    def callback(observation):
+        url = observation.pop("callback_url")
+        # Only the synthetic peer namespace contacts this observed fixture URL.
+        from urllib.parse import urlsplit
+        parsed = urlsplit(url)
+        assert parsed.scheme == "http" and re.fullmatch(r"198\.18\.42\.(?:1[0-4][0-9]|150)", parsed.hostname or "")
+        script = native_api_probe_script(url, 10)
+        command("docker", "exec", "-i", container, "python3", "-", input=script, timeout=20)
+        observation["native_callback_reachable_from_lan_peer"] = True
+        return observation
+
+    phase("wired_lan_native_owner_fixture")
+    report["owner"] = probe("onboard")
+    phase("wired_lan_select_and_start")
+    command(*ssh, "agentic-home shutdown", timeout=240)
+    status = json.loads(command(*ssh, "agentic-home ha-lan", timeout=30))
+    choices = [row for row in status["interfaces"] if row["address"] == "198.18.42.10"]
+    assert len(choices) == 1 and re.fullmatch(r"[a-f0-9]{64}", choices[0]["id"])
+    command(*ssh, "agentic-home configure_lan --interface-id " + choices[0]["id"], timeout=180)
+    command(*ssh, "agentic-home start", timeout=120)
+    wait_native("wired_lan_guest_boot")
+    report["initial"] = callback(probe("wired"))
+    phase("wired_lan_outer_reboot")
+    subprocess.run([*ssh, "sudo systemctl reboot"], capture_output=True, timeout=30)
+    time.sleep(15)
+    assert wait_until(lambda: remote_ok(ssh, "systemctl is-active agentic-home"), 900)
+    wait_native("wired_lan_after_outer_reboot")
+    report["after_outer_reboot"] = callback(probe("wired"))
+    phase("wired_lan_remove_and_restore_nat")
+    command(*ssh, "agentic-home shutdown", timeout=240)
+    command(*ssh, "agentic-home configure_lan --disable-lan", timeout=180)
+    command(*ssh, "agentic-home start", timeout=120)
+    wait_native("nat_after_wired_lan_removal")
+    report["removed"] = probe("nat")
+    report["result"] = "passed"
+    return report
 
 
 def wait_until(ready, seconds, *, clock=time.monotonic, pause=time.sleep):
@@ -461,7 +547,7 @@ def test_full_linux_install_with_nested_haos(tmp_path, request):
     assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
     profile = os.environ.get("AGENTIC_INSTALL_TEST_PROFILE", "laptop-amd64")
     assert profile in {"laptop-amd64", "server-amd64"}
-    iso = ROOT / "dist" / ("agentic-home-0.9.0-" + profile + ".iso")
+    iso = ROOT / "dist" / ("agentic-home-0.10.0-" + profile + ".iso")
     assert iso.exists()
     with iso.open("rb") as stream:
         iso_hash = hashlib.file_digest(stream, "sha256").hexdigest()
@@ -477,10 +563,18 @@ def test_full_linux_install_with_nested_haos(tmp_path, request):
                           "authorized-keys": [(tmp_path / "test-key.pub").read_text().strip()]}
     autoinstall["storage"] = {"layout": {"name": "direct", "match": {"serial": "AGENTIC_TEST_ONLY"}}}
     autoinstall["shutdown"] = "poweroff"
+    # Capture the exact shipped hardware gate's output while retaining its exit
+    # status and original position before storage. This wrapper is fixture-only.
+    gate = autoinstall["early-commands"][0]
+    autoinstall["early-commands"][0] = ["bash", "-o", "pipefail", "-c",
+        shlex.join(gate) + " | tee /run/agentic-preflight-receipt.log"]
     autoinstall["late-commands"] += [
         "printf 'tester ALL=(root) NOPASSWD: ALL\\n' > /target/etc/sudoers.d/90-agentic-test",
         "chmod 440 /target/etc/sudoers.d/90-agentic-test"]
+    autoinstall["late-commands"] += provider_policy_seed()
+    autoinstall["late-commands"] += ["cp /run/agentic-preflight-receipt.log /target/var/lib/agentic-home/host/fixture-preflight.log"]
     (tmp_path / "user-data").write_text("#cloud-config\n" + json.dumps(config, indent=2))
+    (tmp_path / "ha-lan-peer.py").write_text((ROOT / "tests/ha_lan_peer.py").read_text())
     # Connect from QEMU's loopback: Docker's outer 172.17/16 otherwise overlaps
     # Docker inside the guest after firstboot and breaks the return route.
     (tmp_path / "ssh-proxy.py").write_text('''import socket,sys,threading
@@ -495,7 +589,8 @@ while data:=s.recv(65536):
     name = "agentic-linux-install-test-" + uuid.uuid4().hex[:10]
     started = time.time()
     progress = {"runtime_location": "disposable_outer_linux_vm", "iso_sha256": iso_hash,
-                "result": "running", "cloud_login": "not_run"}
+                "result": "running", "cloud_login": "not_run",
+                "excluded_cli_probes": {"grok": "not_run: owner instruction"}}
     progress_path = ROOT / "evidence" / ("installed-progress-" + profile + ".json")
 
     def phase(name):
@@ -503,6 +598,10 @@ while data:=s.recv(65536):
         progress_path.write_text(json.dumps(progress, indent=2) + "\n")
 
     try:
+        phase("prepare_isolated_lan_test_image")
+        command("docker", "build", "-f", str(ROOT / "tests/ha_lan_lab.Dockerfile"), "-t", LAN_LAB_IMAGE, str(ROOT), timeout=600)
+        lan_images = {"builder": command("docker", "image", "inspect", "--format", "{{.Id}}", "agentic-home-builder:0.2.0"),
+                      "lan_lab": command("docker", "image", "inspect", "--format", "{{.Id}}", LAN_LAB_IMAGE)}
         phase("prepare_disposable_media")
         command("docker", "run", "--rm", "-u", f"{os.getuid()}:{os.getgid()}", "-v", f"{tmp_path}:/lab",
                 "-v", f"{iso}:/source.iso:ro", "agentic-home-builder:0.2.0", "xorriso",
@@ -516,11 +615,15 @@ while data:=s.recv(65536):
                 "-drive", "file=/lab/linux.qcow2,format=qcow2,if=none,id=disk",
                 "-device", "virtio-blk-pci,drive=disk,serial=AGENTIC_TEST_ONLY",
                 "-netdev", "user,id=net,hostfwd=tcp:0.0.0.0:2222-:22", "-device", "virtio-net-pci,netdev=net",
+                "-netdev", "tap,id=lan,ifname=ahltap,script=no,downscript=no",
+                "-device", "virtio-net-pci,netdev=lan,mac=52:54:00:aa:42:01",
                 "-display", "none", "-serial", "file:/lab/serial.log", "-monitor", "unix:/lab/monitor.sock,server,nowait"]
         command("docker", "run", "--rm", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0",
                 "cp", "/usr/share/OVMF/OVMF_VARS_4M.fd", "/lab/nvram.fd")
         common = ["docker", "run", "-d", "--name", name, "--device", "/dev/kvm", "--memory", "12g", "--cpus", "4",
-                  "-p", "127.0.0.1::2222", "-v", f"{tmp_path}:/lab", "agentic-home-builder:0.2.0"]
+                  "--cap-add", "NET_ADMIN", "--device", "/dev/net/tun", "--sysctl", "net.ipv4.ip_forward=1",
+                  "--sysctl", "net.ipv6.conf.all.disable_ipv6=0", "-e", "AGENTIC_DISPOSABLE_LAN_LAB=1",
+                  "-p", "127.0.0.1::2222", "-v", f"{tmp_path}:/lab", lan_images["lan_lab"], "python3", "/lab/ha-lan-peer.py", "launch"]
         phase("ubuntu_installation")
         command(*common, *qemu, "-cdrom", "/lab/test.iso", "-boot", "d")
         def powered_off():
@@ -542,12 +645,14 @@ while data:=s.recv(65536):
         if not wait_until(lambda: remote_ok(ssh, "test -f /var/lib/agentic-home/installed.json"), 3600):
             raise AssertionError("Firstboot did not complete within 60 minutes")
         phase("installed_identity_and_images")
+        gate_log = command(*ssh, "sudo cat /var/lib/agentic-home/host/fixture-preflight.log", timeout=30)
+        assert re.search(r"Agentic Home hardware check passed: x86-64, [0-9]+ MiB RAM, working KVM\.", gate_log)
         host = json.loads(command(*ssh, "agentic-home status"))
         assert not host["provisioned"] and host["kvm"]
         installed = json.loads(command(*ssh, "sudo cat /var/lib/agentic-home/installed.json"))
-        assert installed["version"] == "0.9.0" and installed["profile"] == profile
+        assert installed["version"] == "0.10.0" and installed["profile"] == profile
         image_lock = json.loads(command(*ssh, "cat /opt/agentic-home/images.lock.json"))
-        expected_tags = {f"agentic-home-{service}:0.9.0" for service in ("controller", "runner", "linejs", "hermes", "preview")}
+        expected_tags = {f"agentic-home-{service}:0.10.0" for service in ("controller", "runner", "linejs", "hermes", "preview")}
         assert set(image_lock) == expected_tags
         for tag, digest in image_lock.items():
             assert command(*ssh, "sudo docker image inspect --format '{{.Id}}' " + tag) == digest
@@ -566,6 +671,7 @@ while data:=s.recv(65536):
         (ROOT / "evidence" / ("installed-auth-" + profile + ".json")).write_text(
             json.dumps(auth_probe, indent=2) + "\n")
         assert auth_result.returncode == 0 and auth_probe.get("result") != "failed", auth_probe
+        assert auth_probe["excluded_cli_probes"] == {"grok": "not_run: owner instruction"}
         # Exercise independent console recovery before adding any household VM.
         phase("controller_stopped_console_recovery")
         diagnostics = json.loads(command(*ssh, "agentic-home diagnostics"))
@@ -676,7 +782,23 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
             raise AssertionError("Outer product did not restart")
         assert json.loads(command(*ssh, "agentic-home status"))["vm"] == "running"
         assert hermes_image() == candidate_id
+        # The same Runner policy must remain effective after all update/restore
+        # paths and a real outer reboot; reading /status must not execute Grok.
+        assert "AGENTIC_DISABLED_PROVIDERS=grok" in command(*ssh,
+            "sudo cat /var/lib/agentic-home/host/runtime.env").splitlines()
+        policy_script = "__name__ = 'installed_auth_reboot_probe'\n" + (ROOT / "tests/installed_probe.py").read_text()
+        policy_script += "\nprint(json.dumps(probe(provisioned=True)))\n"
+        policy_result = subprocess.run([*ssh, "python3 -"], capture_output=True, text=True,
+                                      timeout=AUTH_PROBE_TIMEOUT_SECONDS, input=policy_script)
+        # The initial probe also expects bootstrap idle / unpaired Home runtime;
+        # both remain true in this explicit fixture-driven provisioning flow.
+        policy_probe = probe_json(policy_result, ROOT / "evidence" / ("installed-process-auth-reboot-" + profile + ".json"))
+        assert policy_result.returncode == 0 and policy_probe.get("excluded_cli_probes") == {
+            "grok": "not_run: owner instruction"}, policy_probe
         wait_ha("nested_haos_after_outer_reboot")
+        lan_report = installed_lan(ssh, name, phase, lan_images)
+        lan_report["iso_sha256"] = iso_hash
+        (ROOT / "evidence" / ("installed-ha-lan-" + profile + ".json")).write_text(json.dumps(lan_report, indent=2) + "\n")
         evidence = {"kind": "real_linux_install_nested_kvm", "profile": profile, "base": "Ubuntu 24.04.5",
                     "iso_sha256": iso_hash,
                     "installed_version": installed["version"], "images": image_lock,
@@ -686,6 +808,8 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
                     "runtime_location": "disposable_outer_linux_vm", "model_backend": "coding_transport_fixture",
                     "ha_backend": "nested_official_haos", "device_kind": "none",
                     "installation": "passed", "firstboot": "passed", "haos_vm_running": True,
+                    "live_hardware_preflight_executed": True, "wired_lan_qualification": lan_report["result"],
+                    "isolated_lan_test_images": lan_images,
                     "outer_ui_with_haos_off": True, "cold_snapshot_restore": "passed",
                     "firstboot_without_haos": True, "hermes_service_without_account": "needs_auth",
                     "console_rescue_with_controller_stopped": "passed",
@@ -696,7 +820,8 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
                     "ha_readiness_check": "real Core onboarding API JSON list after startup, restore and outer reboot",
                     "duration_seconds": round(time.time() - started),
                     "installer_inputs": "Disposable disk serial + ephemeral SSH key supplied by fixture",
-                    "physical_laptop": "not_run", "cloud_login": "not_run"}
+                    "physical_laptop": "not_run", "cloud_login": "not_run",
+                    "excluded_cli_probes": {"grok": "not_run: owner instruction"}}
         report_name = "linux-install-server.json" if profile == "server-amd64" else "linux-install.json"
         (ROOT / "evidence" / report_name).write_text(json.dumps(evidence, indent=2) + "\n")
         progress["result"] = "passed"

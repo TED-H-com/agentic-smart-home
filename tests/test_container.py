@@ -20,13 +20,13 @@ def test_packaged_linejs_gateway_boundary(request, tmp_path):
         subprocess.run(["docker", "run", "-d", "--name", name, "--network", "none", "--user", f"{os.getuid()}:{os.getgid()}", "--memory", "512m",
                         "-v", f"{tmp_path / 'data'}:/data", "-v", f"{tmp_path / 'config'}:/config",
                         "-v", f"{root / 'tests/linejs_probe.mjs'}:/probe.mjs:ro",
-                        "agentic-home-linejs:0.9.0"], check=True, capture_output=True)
+                        "agentic-home-linejs:0.10.0"], check=True, capture_output=True)
         result = subprocess.run(["docker", "exec", name, "node", "/probe.mjs"],
                                 capture_output=True, text=True, timeout=45)
         assert result.returncode == 0, result.stdout + result.stderr
         report = json.loads(result.stdout.strip())
         report["image"] = subprocess.check_output(
-            ["docker", "image", "inspect", "--format", "{{.Id}}", "agentic-home-linejs:0.9.0"], text=True).strip()
+            ["docker", "image", "inspect", "--format", "{{.Id}}", "agentic-home-linejs:0.10.0"], text=True).strip()
         (root / "evidence/linejs-container.json").write_text(json.dumps(report, indent=2) + "\n")
     finally:
         subprocess.run(["docker", "rm", "-fv", name], capture_output=True)
@@ -39,11 +39,12 @@ def test_packaged_runner_cli_and_tls(request):
     name = "agentic-runner-test-" + uuid.uuid4().hex[:12]
     try:
         result = subprocess.run(["docker", "run", "--rm", "--name", name, "--memory", "1536m", "--cpus", "2",
+            "-e", "AGENTIC_DISABLED_PROVIDERS=grok",
             "--entrypoint", "python", "-v", f"{root / 'tests/container_probe.py'}:/app/container_probe.py:ro",
-            "agentic-home-runner:0.9.0", "/app/container_probe.py"], capture_output=True, text=True, timeout=120)
+            "agentic-home-runner:0.10.0", "/app/container_probe.py"], capture_output=True, text=True, timeout=120)
         assert result.returncode == 0, result.stdout + result.stderr
         report = json.loads(result.stdout.strip().splitlines()[-1])
-        report["image"] = json.loads(subprocess.run(["docker", "image", "inspect", "agentic-home-runner:0.9.0"],
+        report["image"] = json.loads(subprocess.run(["docker", "image", "inspect", "agentic-home-runner:0.10.0"],
                                 capture_output=True, check=True, text=True).stdout)[0]["Id"]
         (root / "evidence/runner-container.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     finally:
@@ -57,7 +58,8 @@ def test_packaged_app_start_restart_and_stop(request, app, uid):
     name = "agentic-lifecycle-test-" + uuid.uuid4().hex[:12]
     try:
         subprocess.run(["docker", "run", "-d", "--name", name, "--memory", "768m", "--cpus", "1",
-                        f"agentic-home-{app}:0.9.0"], check=True, capture_output=True)
+                        "-e", "AGENTIC_DISABLED_PROVIDERS=grok",
+                        f"agentic-home-{app}:0.10.0"], check=True, capture_output=True)
         for restart in (False, True):
             if restart:
                 subprocess.run(["docker", "restart", "--timeout", "8", name], check=True, capture_output=True)

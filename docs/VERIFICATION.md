@@ -1,5 +1,15 @@
 # Agentic Smart Home 驗證
 
+## 0.10.0 專用筆電候選（2026-10-17，精確媒體待驗）
+
+此候選整合 `82c816c` 的多來源設備盤點、接入追蹤及原生 HA 示範，新增 USB 開機硬體預檢和可選有線 HAOS 區網接入。外層保留固定管理網路；只有使用者選定的實體有線介面可接入，家庭關機後才可變更。Controller 以 Supervisor 與 Core 原生唯讀資料核對地址、探索介面和回呼網址；設定成功與實際接通分開顯示。見 [區網設計與限制](HA_LAN.md)及 [整機安裝步驟](../INSTALL.md)。
+
+定向工程檢查已通過：硬體預檢 37 項；Host／安裝 harness／預檢整合批次 125 passed、1 optional smoke skipped，另行執行的 Docker 區網 smoke 1 passed；Controller 區網契約與原生 API transport 175 項；設定介面和 Host API 13 項；停用 provider 政策批次 223 passed、2 skipped；安裝後 runtime 設定保存及更新器回歸 138 passed、2 skipped；版本相容 fixtures 270 項。這些批次有重疊，不相加為獨立案例總數。介面使用合成資料，390／768／1440 px [截圖](../evidence/ui/ha-lan/wired-fixture-390.png)不代表實體設備測試。
+
+本候選的 Grok 真程序、版本探測及登入均為 `not_run`；測試真 Runner 在首次啟動前設定明確停用政策，預設產品 provider 支援保留。Home coding 研究來源由 [鎖定檔](../runner/coding-source.lock.json) 固定至獨立公開 commit，與待凍結 Host／Controller bundle 來源分開記錄。
+
+**這份建置前文件不宣稱新 ISO 通過或已發布。** 新媒體必須完成完整安裝、合成區網上的真 HAOS DHCP／IPv6／mDNS、重開／復原，以及八階段序列驗證；公開 App 同版安裝另外核驗。最終結果與媒體雜湊將用 companion receipts 記錄，不回改已測媒體。Dell 實機、真帳號、實體設備、72 小時試跑及 E1／E2 仍待驗收，32 案維持 2 passed、30 not_run。
+
 ## 0.9.0 工程預覽已發布並通過匿名完整下載
 
 GitHub [v0.9.0 工程預覽](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.9.0) 已於 `2026-10-16T03:22:04Z` 發布為 prerelease，未要求設為 latest。52 份公開附件的名稱、大小與伺服器 SHA-256 全數符合已審核清單；之後使用實際公開下載的工具，在全新磁碟暫存匿名下載全部 49 份傳輸物件，重組並核對 ISO、TAR、source ZIP 與 SHA256SUMS 四份完整原檔，以及 A2 驗證 ZIP。54 份驗證檔與該次暫存目錄已清理，原始媒體、52 份本機交付檔與歷史失敗證據均保留。

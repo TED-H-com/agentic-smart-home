@@ -298,7 +298,7 @@ asyncio.run(main())
     assert result.returncode == 0 and result.stdout.strip() == "rejected_fifo"
 
 
-def test_actual_packaged_runner_status_all_four_providers(request):
+def test_actual_packaged_runner_status_preserves_catalog_with_disabled_cli(request):
     if not request.config.getoption("--containers"):
         pytest.skip("Packaged CLI requires --containers")
     name = "agentic-review-health-" + uuid.uuid4().hex[:12]
@@ -323,8 +323,11 @@ async def main():
                 body=await result.json()
             assert body['execution_state']=='idle',body
             assert {p['provider'] for p in body['providers']}=={'codex','claude','agy','grok'}
-            assert all(p['status']=='needs_reauth' and p['version_matches'] for p in body['providers']),body
+            assert all(p['status']=='needs_reauth' and p['version_matches'] for p in body['providers'] if p['provider']!='grok'),body
+            excluded=next(p for p in body['providers'] if p['provider']=='grok')
+            assert excluded['status']=='unavailable' and excluded['reason']=='provider_disabled',body
             assert not broker.providers.unconfirmed
+            body['excluded_cli_probes']={'grok':'not_run: owner instruction'}
             print(json.dumps(body))
     finally:
         server.should_exit=True
@@ -334,8 +337,9 @@ asyncio.run(main())
 '''
     try:
         result = subprocess.run(["docker", "run", "--rm", "--name", name, "--network=none", "--read-only",
+            "-e", "AGENTIC_DISABLED_PROVIDERS=grok",
             "--pids-limit=128", "--memory=1g", "-v", volume + ":/data", "-v", str(source) + ":/app/agentic_runner:ro",
-            "--entrypoint", "python", os.environ.get("AGENTIC_RUNNER_IMAGE", "agentic-home-runner:0.9.0"), "-c", script],
+            "--entrypoint", "python", os.environ.get("AGENTIC_RUNNER_IMAGE", "agentic-home-runner:0.10.0"), "-c", script],
             capture_output=True, text=True, timeout=45)
         assert result.returncode == 0, result.stdout[-3000:] + result.stderr[-3000:]
     finally:

@@ -1529,13 +1529,278 @@
         "title": "HomeEntry",
         "type": "object"
       },
+      "HomeLanObservation": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Adapter Version",
+            "type": "integer"
+          },
+          "connected": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connected"
+          },
+          "default_adapter": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Adapter"
+          },
+          "discovery_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discovery Enabled"
+          },
+          "interface": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interface"
+          },
+          "internal_url": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Url"
+          },
+          "ipv4": {
+            "items": {
+              "maxLength": 45,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Ipv4",
+            "type": "array"
+          },
+          "ipv6": {
+            "items": {
+              "maxLength": 45,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Ipv6",
+            "type": "array"
+          },
+          "limits": {
+            "items": {
+              "maxLength": 96,
+              "pattern": "^[a-z][a-z0-9_]{0,95}$",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Limits",
+            "type": "array"
+          },
+          "observed_at": {
+            "maxLength": 40,
+            "minLength": 20,
+            "title": "Observed At",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 96,
+            "pattern": "^[a-z][a-z0-9_]{0,95}$",
+            "title": "Reason",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "not_configured",
+              "needs_home_setup",
+              "unavailable",
+              "waiting_for_address",
+              "adapter_selection_required",
+              "callback_address_required",
+              "ready"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "reason"
+        ],
+        "title": "HomeLanObservation",
+        "type": "object"
+      },
+      "HomeLanStatus": {
+        "properties": {
+          "can_configure": {
+            "title": "Can Configure",
+            "type": "boolean"
+          },
+          "contract_version": {
+            "const": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "guest_mac": {
+            "anyOf": [
+              {
+                "maxLength": 17,
+                "pattern": "^[0-9a-f]{2}(?::[0-9a-f]{2}){5}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guest Mac"
+          },
+          "home": {
+            "$ref": "#/components/schemas/HomeLanObservation"
+          },
+          "interface": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "pattern": "^[A-Za-z0-9_.:-]{1,32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interface"
+          },
+          "interfaces": {
+            "items": {
+              "$ref": "#/components/schemas/HostLanInterface"
+            },
+            "maxItems": 32,
+            "title": "Interfaces",
+            "type": "array"
+          },
+          "limitations": {
+            "items": {
+              "maxLength": 96,
+              "pattern": "^[a-z][a-z0-9_]{0,95}$",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "nat",
+              "wired"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "selected_interface_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 64,
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Interface Id"
+          },
+          "state": {
+            "enum": [
+              "disabled",
+              "configured",
+              "unavailable",
+              "needs_reconcile"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "vm_state": {
+            "enum": [
+              "running",
+              "blocked",
+              "paused",
+              "in shutdown",
+              "shut off",
+              "crashed",
+              "pmsuspended",
+              "not_created",
+              "unknown"
+            ],
+            "title": "Vm State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contract_version",
+          "mode",
+          "state",
+          "selected_interface_id",
+          "interface",
+          "guest_mac",
+          "interfaces",
+          "vm_state",
+          "can_configure",
+          "limitations",
+          "home"
+        ],
+        "title": "HomeLanStatus",
+        "type": "object"
+      },
       "HostAction": {
         "additionalProperties": false,
         "properties": {
           "action": {
-            "pattern": "^(provision|start|shutdown|snapshot|restore)$",
+            "pattern": "^(provision|start|shutdown|snapshot|restore|configure_lan)$",
             "title": "Action",
             "type": "string"
+          },
+          "interface_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interface Id"
           },
           "snapshot": {
             "anyOf": [
@@ -1554,6 +1819,65 @@
           "action"
         ],
         "title": "HostAction",
+        "type": "object"
+      },
+      "HostLanInterface": {
+        "description": "Project known Host fields while tolerating bounded additions upstream.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 45,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "id": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "interface": {
+            "maxLength": 32,
+            "pattern": "^[A-Za-z0-9_.:-]{1,32}$",
+            "title": "Interface",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 96,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "network": {
+            "anyOf": [
+              {
+                "maxLength": 49,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Network"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "interface",
+          "address",
+          "network"
+        ],
+        "title": "HostLanInterface",
         "type": "object"
       },
       "HostQuestion": {
@@ -4781,6 +5105,24 @@
           }
         },
         "summary": "Network"
+      }
+    },
+    "/api/network/ha-lan": {
+      "get": {
+        "operationId": "home_lan_api_network_ha_lan_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeLanStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Home Lan"
       }
     },
     "/api/network/login": {

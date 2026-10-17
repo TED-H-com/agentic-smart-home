@@ -36,7 +36,7 @@ COPY agentic_runner ./agentic_runner
 # Normalize public code only; the private source repository and relay staging
 # under /opt/agentic-worker retain their separately enforced modes.
 RUN chown -R root:root /app /opt/agents && chmod -R u=rwX,go=rX /app /opt/agents
-ARG BUILD_VERSION=0.9.0
+ARG BUILD_VERSION=0.10.0
 ARG BUILD_ARCH=amd64
 LABEL io.hass.version=$BUILD_VERSION io.hass.type=app io.hass.arch=$BUILD_ARCH
 HEALTHCHECK --interval=30s --timeout=5s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8099/health',timeout=3)"

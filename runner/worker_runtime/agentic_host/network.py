@@ -111,6 +111,9 @@ class Network:
         return self.status()
 
     def handle(self, method, path, body=None):
+        if method == "GET" and path == "/network/ha-lan":
+            from .ha_lan import HALan
+            return 200, HALan(self.manager).status()
         if method == "GET" and path == "/network":
             return 200, self.status()
         if method == "POST" and path == "/network/preferences":

@@ -324,7 +324,7 @@ for path,uid,gid,mode in items:
  assert (stat.st_uid,stat.st_gid,stat.st_mode&0o777)==(uid,gid,mode)
 """
         await docker("run", "--rm", "--network=none", *mounted, "--entrypoint", "python",
-                     "agentic-home-runner:0.9.0", "-c", preparation, str(os.getuid()))
+                     "agentic-home-runner:0.10.0", "-c", preparation, str(os.getuid()))
         controller_access = """import asyncio,os,pathlib,aiohttp
 assert (os.getuid(),os.getgid())==(1000,1000)
 assert pathlib.Path('/controller/access-key').read_text().strip()
@@ -343,9 +343,9 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
 """
         await asyncio.gather(
             docker("run", "--rm", "--network=none", "--user", "1000:1000", *mounted,
-                   "--entrypoint", "python", "agentic-home-controller:0.9.0", "-c", controller_access),
+                   "--entrypoint", "python", "agentic-home-controller:0.10.0", "-c", controller_access),
             docker("run", "--rm", "--network=none", "--user", "10003:10003", "--group-add", "1000", *mounted,
-                   "--entrypoint", "python", "agentic-home-hermes:0.9.0", "-c", hermes_access))
+                   "--entrypoint", "python", "agentic-home-hermes:0.10.0", "-c", hermes_access))
         runtime_args = ["-v", str(ROOT / "tests/e2e_runtime_fixture.py") + ":/e2e.py:ro", "-e", "E2E_MODEL_URL=" + model_url, "-e", "PYTHONPATH=/app", "--entrypoint", "python"]
         # Docker commands below use fixture-only entrypoints, with source mounted
         # read-only. No test hook or provider URL option is added to product code.
@@ -356,12 +356,13 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
             extra = ["-v", str(dirs[role]) + ":/data", "-v", str(ROOT / role / ("agentic_" + role)) + ":/app/agentic_" + role + ":ro",
                      "-e", "E2E_ROLE=" + role, *runtime_args]
             if role == "runner":
-                extra += ["-e", "AGENTIC_HOST_MODE=1", "-v", str(dirs["pairing"]) + ":/pairing"]
+                extra += ["-e", "AGENTIC_HOST_MODE=1", "-e", "AGENTIC_DISABLED_PROVIDERS=grok",
+                          "-v", str(dirs["pairing"]) + ":/pairing"]
             else:
                 extra += ["--group-add", "1000", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "-v", str(dirs["hermes-link"]) + ":/hermes-link:ro"]
             caps = ["--memory=1536m", "--pids-limit=256"] if role == "runner" else ["--memory=768m", "--pids-limit=64", "--cpus=1"]
-            await docker("run", "-d", "--name", name, "--network=host", *caps, *extra, "agentic-home-" + role + ":0.9.0", "/e2e.py")
-        controller = await launch("controller", "agentic-home-controller:0.9.0", [
+            await docker("run", "-d", "--name", name, "--network=host", *caps, *extra, "agentic-home-" + role + ":0.10.0", "/e2e.py")
+        controller = await launch("controller", "agentic-home-controller:0.10.0", [
             "-e", "AGENTIC_HOST_MODE=1", "-e", "AGENTIC_HERMES_MCP=1", "-e", "AGENTIC_HA_URL=" + CORE,
             "-v", str(dirs["controller"]) + ":/data", "-v", str(dirs["pairing"]) + ":/pairing:ro",
             "-v", str(dirs["hermes-link"]) + ":/hermes-link:ro", "-v", str(dirs["host-socket"]) + ":/run/agentic-home",
@@ -597,6 +598,7 @@ print(json.dumps({'evidence':records('case_evidence'),
                     "memory_bytes": limits["Memory"], "pids_limit": limits["PidsLimit"], "nano_cpus": limits["NanoCpus"],
                     "oom_killed": info["State"]["OOMKilled"], "restart_count": info["RestartCount"]}
             report = {"kind": "composed_onboarding_e2e", "result": "passed", "duration_seconds": round(time.monotonic() - started, 2),
+                "excluded_cli_probes": {"grok": "not_run: owner instruction"},
                 "real": ["Chromium and compiled Web without API interception", "Controller HTTP/session/CSRF", "Runner TLS pairing and broker", "packaged Codex binary", "Hermes bridge and AIAgent", "official MCP to actual Controller", "isolated Core 2026.10.1", "native HA browser login and OAuth callback", "native dashboard entry and daily startup", "Back/reload rescue entry and explicit assistant link", "Controller restart and operation deduplication", "Web conversation reload"],
                 "fixtures": ["CLI and Hermes cloud model responses", "root Host network/install/VM lifecycle effects", "synthetic model API credentials"],
                 "not_run": ["real cloud OAuth", "LINE/Telegram external messages", "physical laptop", "HAOS App coding", "complete native HA setup wizard clicks"],
@@ -644,4 +646,4 @@ print(json.dumps({'evidence':records('case_evidence'),
         await host_server.cleanup()
         await models_server.cleanup()
         await docker("run", "--rm", "-v", str(tmp_path) + ":/lab", "-v", str(dirs["host-socket"]) + ":/host-socket",
-                     "--entrypoint", "chown", "agentic-home-runner:0.9.0", "-R", f"{os.getuid()}:{os.getgid()}", "/lab", "/host-socket")
+                     "--entrypoint", "chown", "agentic-home-runner:0.10.0", "-R", f"{os.getuid()}:{os.getgid()}", "/lab", "/host-socket")

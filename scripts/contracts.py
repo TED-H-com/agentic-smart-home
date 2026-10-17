@@ -8,6 +8,8 @@ from pathlib import Path
 from agentic_bridge.app import Options as BridgeOptions
 from agentic_controller.app import create_app
 from agentic_controller.bridge import BridgeRequest
+from agentic_controller.ha_lan import HomeLanStatus
+from agentic_controller.host import HostAction
 from agentic_controller.models import (
     AutomationIntent,
     BootstrapStart,
@@ -64,6 +66,8 @@ def main():
                        "worker-start-v1": WorkerStart.model_json_schema(),
                        "worker-preview-v1": WorkerPreview.model_json_schema(),
                        "network-preferences-v1": NetworkPreferences.model_json_schema(),
+                       "home-lan-status-v1": HomeLanStatus.model_json_schema(),
+                       "host-action-v1": HostAction.model_json_schema(),
                        "controller-update-v1": UpdateStage.model_json_schema(),
                        "case-evidence-query-v1": EvidenceQuery.model_json_schema(),
                        "hermes-auth": HermesAuth.model_json_schema(),
