@@ -3,6 +3,7 @@ import base64
 import contextlib
 import hashlib
 import importlib.util
+import inspect
 import json
 import os
 import re
@@ -157,6 +158,102 @@ def bootstrap_job_diagnostics(output):
     except (ValueError, TypeError, AttributeError):
         pass
     return result
+
+
+def bootstrap_record_diagnostics(raw):
+    """Project fixed private setup diagnostics; reject arbitrary nested values."""
+    import json
+
+    invalid = {"observation": "invalid"}
+    if not isinstance(raw, (bytes, str)) or len(raw) > 16384:
+        return invalid
+    try:
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        if len(raw.encode("utf-8")) > 16384:
+            return invalid
+
+        def unique(pairs):
+            value = {}
+            for key, item in pairs:
+                if key in value:
+                    raise ValueError("duplicate_key")
+                value[key] = item
+            return value
+
+        value = json.loads(raw, object_pairs_hook=unique)
+    except (UnicodeError, ValueError, TypeError, RecursionError):
+        return invalid
+    if not isinstance(value, dict):
+        return invalid
+    names = {"diagnostic", "fallback_diagnostic", "probe_diagnostic"}
+    if set(value) == {"observation"}:
+        return value if isinstance(value["observation"], str) and value["observation"] in {
+            "absent", "invalid", "unavailable", "timeout"} else invalid
+    if not names.intersection(value):
+        return {"observation": "absent"}
+    phases = {"workspace_preparation", "image_inspection", "probe_preparation", "offline_probe",
+              "runtime_stop", "account_recheck", "environment_activation", "runtime_activation",
+              "state_commit", "temporary_cleanup", "state_readback"}
+    reasons = {"timeout", "command_failed", "invalid_contract", "state_conflict", "filesystem_error", "unexpected_error"}
+    exits = {"unavailable", "success", "rejected", "docker_error", "command_not_executable",
+             "command_not_found", "killed", "terminated", "nonzero", "signal"}
+    stages = {"consumed_signatures", "chat_tool_roundtrip", "continued_history", "provider_401",
+              "native_device_oauth", "native_responses_tool_roundtrip", "fixture_finalization"}
+    kinds = {"child_timeout", "child_exit", "invalid_output", "contract_failure", "fixture_protocol", "unexpected"}
+    result = {"observation": "ok"}
+    for name in sorted(names.intersection(value)):
+        item = value[name]
+        if not isinstance(item, dict) or type(item.get("schema")) is not int or item["schema"] != 1:
+            return invalid
+        fields = ({"stage": stages, "kind": kinds} if name == "probe_diagnostic" else
+                  {"phase": {"fallback_environment", "fallback_activation"} if name == "fallback_diagnostic" else phases,
+                   "reason": reasons, "exit_category": exits})
+        if set(item) != {"schema", *fields} or any(
+                not isinstance(item[key], str) or item[key] not in choices for key, choices in fields.items()):
+            return invalid
+        result[name] = item
+    return result
+
+
+def observe_bootstrap_diagnostics(ssh, *, run=None):
+    """One bounded read before VM cleanup; never capture the private record itself."""
+    run = run or subprocess.run
+    script = "import json\nfrom pathlib import Path\n" + inspect.getsource(bootstrap_record_diagnostics) + '''
+try:
+    path = Path('/var/lib/agentic-home/host/bootstrap-hermes.json')
+    if path.is_symlink():
+        result = {"observation": "invalid"}
+    else:
+        with path.open('rb') as stream:
+            result = bootstrap_record_diagnostics(stream.read(16385))
+except OSError:
+    result = {"observation": "unavailable"}
+print(json.dumps(result))
+'''
+    try:
+        completed = run([*ssh, "sudo python3 -"], input=script, text=True, capture_output=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        return {"observation": "timeout"}
+    except UnicodeError:
+        return {"observation": "invalid"}
+    except OSError:
+        return {"observation": "unavailable"}
+    if completed.returncode != 0:
+        return {"observation": "unavailable"}
+    return bootstrap_record_diagnostics(completed.stdout)
+
+
+def retain_bootstrap_result(ssh, latest_result, iso_hash, report):
+    """Persist safe failure details before a subsequent status transport can fail."""
+    receipt = {"runtime_location": "disposable_outer_linux_vm", "iso_sha256": iso_hash,
+               "cli_exit": latest_result.returncode, "job": bootstrap_job_diagnostics(latest_result.stdout),
+               "diagnostics": observe_bootstrap_diagnostics(ssh), "cloud_login": "not_run"}
+    report.write_text(json.dumps(receipt, indent=2) + "\n")
+    observed = json.loads(command(*ssh, "agentic-home status"))["bootstrap"]["hermes"]
+    receipt["observed"] = observed
+    report.write_text(json.dumps(receipt, indent=2) + "\n")
+    return observed
 
 
 def command(*args, **kwargs):
@@ -899,12 +996,8 @@ while data:=s.recv(65536):
         phase("release_hermes_probe_and_activation")
         latest_result = subprocess.run([*ssh, "agentic-home bootstrap_hermes"], capture_output=True,
                                        text=True, timeout=1500)
-        bootstrap_hermes = json.loads(command(*ssh, "agentic-home status"))["bootstrap"]["hermes"]
-        (ROOT / "evidence" / ("installed-hermes-" + profile + ".json")).write_text(json.dumps({
-            "runtime_location": "disposable_outer_linux_vm", "iso_sha256": iso_hash,
-            "cli_exit": latest_result.returncode, "job": bootstrap_job_diagnostics(latest_result.stdout),
-            "observed": bootstrap_hermes,
-            "cloud_login": "not_run"}, indent=2) + "\n")
+        bootstrap_hermes = retain_bootstrap_result(ssh, latest_result, iso_hash,
+            ROOT / "evidence" / ("installed-hermes-" + profile + ".json"))
         assert latest_result.returncode == 0 and bootstrap_hermes["state"] == "ready", bootstrap_hermes
         assert bootstrap_hermes["source"] == "release"
         phase("release_hermes_runtime_revision_readback")

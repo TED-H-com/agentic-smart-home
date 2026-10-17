@@ -2,6 +2,7 @@
 import importlib.util
 import json
 import subprocess
+import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -102,6 +103,105 @@ def test_bootstrap_cli_diagnostics_preserve_only_fixed_status_and_error_codes():
         assert set(result) == {"state", "error_code"}
         assert result["state"] in {"failed", "unknown"}
         assert result["error_code"] == "unclassified_host_error"
+
+
+def test_bootstrap_record_diagnostics_keep_fixed_failure_phases_only():
+    from test_linux_install import bootstrap_record_diagnostics
+
+    safe = {"diagnostic": {"schema": 1, "phase": "offline_probe", "reason": "invalid_contract", "exit_category": "rejected"},
+            "fallback_diagnostic": {"schema": 1, "phase": "fallback_activation", "reason": "timeout", "exit_category": "unavailable"},
+            "probe_diagnostic": {"schema": 1, "stage": "native_device_oauth", "kind": "child_timeout"}}
+    raw = json.dumps({**safe, "image_id": "private-image", "private": "Bearer private-token /home/private"})
+    assert bootstrap_record_diagnostics(raw) == {"observation": "ok", **safe}
+    assert bootstrap_record_diagnostics(json.dumps(bootstrap_record_diagnostics(raw))) == {"observation": "ok", **safe}
+    assert bootstrap_record_diagnostics('{"state":"ready","private":"not-exported"}') == {"observation": "absent"}
+
+
+@pytest.mark.parametrize("raw", [
+    'not JSON', '[]', '"private"', b'\xff', 'x' * 16385, '你' * 5500, '"\ud800"',
+    '{"observation":{}}', '{"observation":true}', '{"observation":"private"}',
+    '{"diagnostic":{},"diagnostic":{}}', '{"diagnostic":null}',
+    '{"probe_diagnostic":{"schema":true,"stage":"provider_401","kind":"child_timeout"}}',
+    '{"probe_diagnostic":{"schema":1,"stage":"private","kind":"child_timeout"}}',
+    '{"probe_diagnostic":{"schema":1,"stage":"provider_401","kind":{}}}',
+    '{"probe_diagnostic":{"schema":1,"stage":"provider_401","kind":"child_timeout","raw":"private"}}',
+    '{"fallback_diagnostic":{"schema":1,"phase":"offline_probe","reason":"timeout","exit_category":"unavailable"}}',
+    '{"diagnostic":{"schema":1,"phase":"offline_probe","reason":"timeout","exit_category":"private"}}',
+    '{"diagnostic":{"schema":1,"phase":"offline_probe","reason":"timeout","exit_category":137}}',
+    '[' * 2000 + '0' + ']' * 2000,
+])
+def test_bootstrap_record_diagnostics_reject_malformed_or_private_fields(raw):
+    from test_linux_install import bootstrap_record_diagnostics
+
+    assert bootstrap_record_diagnostics(raw) == {"observation": "invalid"}
+
+
+@pytest.mark.parametrize("condition", ["nonzero", "timeout", "os_error", "malformed", "unicode_error"])
+def test_bootstrap_diagnostic_observation_is_bounded_and_never_retries(condition):
+    from test_linux_install import observe_bootstrap_diagnostics
+
+    calls = []
+    def run(args, **kwargs):
+        calls.append(args)
+        assert args == ["ssh", "fixture", "sudo python3 -"] and kwargs["timeout"] == 30
+        assert kwargs["capture_output"] is True
+        compile(kwargs["input"], "fixed-bootstrap-observation", "exec")
+        if condition == "timeout":
+            raise subprocess.TimeoutExpired(["private-command"], 30, output="private-output")
+        if condition == "os_error":
+            raise OSError("private path")
+        if condition == "unicode_error":
+            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "private output")
+        return subprocess.CompletedProcess(args, 1 if condition == "nonzero" else 0,
+                                           stdout="private-output", stderr="private-error")
+    result = observe_bootstrap_diagnostics(["ssh", "fixture"], run=run)
+    assert result == {"observation": {"nonzero": "unavailable", "timeout": "timeout",
+                                      "os_error": "unavailable", "malformed": "invalid",
+                                      "unicode_error": "invalid"}[condition]}
+    assert len(calls) == 1
+
+
+def test_bootstrap_remote_observation_projects_before_leaving_guest(tmp_path):
+    from test_linux_install import observe_bootstrap_diagnostics
+
+    record = tmp_path / "bootstrap-hermes.json"
+    safe = {"schema": 1, "phase": "runtime_stop", "reason": "timeout", "exit_category": "unavailable"}
+    record.write_text(json.dumps({"diagnostic": safe, "private": "Bearer private-fixture-secret"}))
+    def run(args, **kwargs):
+        script = kwargs["input"].replace("'/var/lib/agentic-home/host/bootstrap-hermes.json'", repr(str(record)))
+        result = subprocess.run([sys.executable, "-"], input=script, text=True, capture_output=True, timeout=10)
+        assert "private" not in result.stdout and "private" not in result.stderr
+        return result
+    assert observe_bootstrap_diagnostics(["ssh", "fixture"], run=run) == {"observation": "ok", "diagnostic": safe}
+
+
+@pytest.mark.parametrize("status_fails", [False, True])
+def test_bootstrap_diagnostics_survive_later_status_transport_failure(tmp_path, monkeypatch, status_fails):
+    import test_linux_install as install
+
+    report = tmp_path / "hermes.json"
+    diagnostics = {"observation": "ok", "probe_diagnostic": {
+        "schema": 1, "stage": "provider_401", "kind": "child_timeout"}}
+    monkeypatch.setattr(install, "observe_bootstrap_diagnostics", lambda ssh: diagnostics)
+    observed = {"state": "failed", "source": "release", "error_code": "hermes_adapter_contract_unavailable"}
+    def status(*args):
+        assert args == ("ssh", "fixture", "agentic-home status")
+        assert json.loads(report.read_text())["diagnostics"] == diagnostics
+        if status_fails:
+            raise subprocess.TimeoutExpired(["private command"], 30, output="private")
+        return json.dumps({"bootstrap": {"hermes": observed}})
+    monkeypatch.setattr(install, "command", status)
+    process = subprocess.CompletedProcess([], 1,
+        'Operation fixture\n{"state":"failed","message":"hermes_adapter_contract_unavailable"}', "private stderr")
+    if status_fails:
+        with pytest.raises(subprocess.TimeoutExpired):
+            install.retain_bootstrap_result(["ssh", "fixture"], process, "a" * 64, report)
+    else:
+        assert install.retain_bootstrap_result(["ssh", "fixture"], process, "a" * 64, report) == observed
+    retained = json.loads(report.read_text())
+    assert retained["diagnostics"] == diagnostics and retained["cli_exit"] == 1
+    assert ("observed" in retained) is not status_fails
+    assert "private" not in report.read_text()
 
 
 @pytest.fixture

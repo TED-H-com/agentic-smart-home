@@ -4,6 +4,7 @@ import ast
 import io
 import json
 import sqlite3
+import subprocess
 import sys
 import tarfile
 from pathlib import Path
@@ -20,6 +21,7 @@ from agentic_host.bootstrap import (  # noqa: E402
     initial_state,
     latest_source,
     native_ha_status,
+    probe_failure_diagnostic,
     write_environment,
 )
 from agentic_host.daemon import Jobs  # noqa: E402
@@ -132,6 +134,7 @@ def installer(tmp_path, monkeypatch):
 
     def run(*args, **kwargs):
         calls.append(args)
+        flags.setdefault("call_options", []).append((args, kwargs))
         if args[:2] == ("ip", "-json"):
             return SimpleNamespace(stdout='[{"dst":"default","dev":"eth0","flags":[]}]', returncode=0)
         if args[:2] == ("docker", "info"):
@@ -144,17 +147,24 @@ def installer(tmp_path, monkeypatch):
         if args[:3] == ("docker", "image", "inspect"):
             return SimpleNamespace(stdout=flags.get("inspected_image", CANDIDATE), returncode=0)
         if args[:2] == ("docker", "run"):
+            if "probe_error" in flags:
+                raise flags["probe_error"]
             if flags["probe_fails"]:
                 raise RuntimeError("sensitive build detail must never escape")
             return SimpleNamespace(stdout=flags.get("probe_output", json.dumps({
                 "compatible": True, "adapter_contract": 1,
-                "observed_from": "runtime_container", "cloud_account_verified": False})), returncode=0)
+                "observed_from": "runtime_container", "cloud_account_verified": False})),
+                returncode=flags.get("probe_returncode", 0))
+        if "stop" in args and "stop_error" in flags:
+            raise flags["stop_error"]
         if "stop" in args and flags["race_account"]:
             data = tmp_path / "hermes"
             data.mkdir()
             (data / "provider.json").write_text('{"state":"configured"}')
         if "up" in args:
             value = (tmp_path / "host/runtime.env").read_text()
+            if CANDIDATE in value and "activation_error" in flags:
+                raise flags["activation_error"]
             if (CANDIDATE in value and flags["activation_fails"]) or (ORIGINAL in value and flags["fallback_fails"]):
                 raise RuntimeError("sensitive activation detail must never escape")
         return SimpleNamespace(stdout="", returncode=0)
@@ -178,6 +188,7 @@ def test_candidate_is_probed_without_credentials_and_activated_once(installer):
     assert setup.install() == result and calls == before
     assert not list(setup.root.glob("hermes-install-*"))
     assert setup.environment.stat().st_mode & 0o777 == 0o600
+    assert not {"diagnostic", "fallback_diagnostic", "probe_diagnostic"} & json.loads(setup.path.read_text()).keys()
 
 
 def test_production_onboarding_uses_shipped_digest_without_upstream_discovery(installer, monkeypatch):
@@ -236,6 +247,161 @@ def test_success_exit_without_valid_adapter_contract_never_activates(installer, 
     assert setup.state()["state"] == "failed"
     assert ORIGINAL in setup.environment.read_text()
     assert not any("stop" in call or ("up" in call and "--help" not in call) for call in calls)
+
+
+@pytest.mark.parametrize("returncode,category", [
+    (1, "rejected"), (125, "docker_error"), (126, "command_not_executable"),
+    (127, "command_not_found"), (137, "killed"), (143, "terminated"),
+    (-9, "killed"), (-15, "terminated"), (-2, "signal"), (42, "nonzero"),
+])
+def test_nonzero_probe_cannot_activate_even_with_success_json(installer, returncode, category):
+    setup, calls, flags = installer
+    flags["probe_returncode"] = returncode
+    with pytest.raises(SetupError, match="hermes_adapter_contract_unavailable"):
+        setup.install()
+    record = json.loads(setup.path.read_text())
+    assert record["diagnostic"] == {
+        "schema": 1, "phase": "offline_probe", "reason": "command_failed", "exit_category": category}
+    assert "probe_diagnostic" not in record
+    assert set(setup.state()) == {"state", "commit", "source", "error_code"}
+    assert not any("stop" in call or ("up" in call and "--help" not in call) for call in calls)
+    probe, options = next((call, options) for call, options in flags["call_options"] if call[:2] == ("docker", "run"))
+    assert options == {"timeout": 90, "check": False}
+    for option, value in {"--memory": "512m", "--cpus": "1", "--pids-limit": "64",
+                          "--user": "10003:10003", "--network": "none"}.items():
+        assert probe[probe.index(option) + 1] == value
+    assert ORIGINAL in setup.environment.read_text()
+    assert not list(setup.root.glob("hermes-install-*"))
+
+
+def failed_probe_receipt():
+    return {"compatible": False, "adapter_contract": 1, "error": "upstream_contract_incompatible",
+            "cloud_account_verified": False,
+            "diagnostic": {"schema": 1, "stage": "continued_history", "kind": "child_timeout"}}
+
+
+def test_actual_failed_probe_receipt_is_retained_privately_before_stop(installer):
+    setup, calls, flags = installer
+    value = failed_probe_receipt()
+    flags.update(probe_returncode=1, probe_output=json.dumps(value))
+    with pytest.raises(SetupError, match="hermes_adapter_contract_unavailable"):
+        setup.install()
+    record = json.loads(setup.path.read_text())
+    assert record["probe_diagnostic"] == value["diagnostic"]
+    assert "probe_diagnostic" not in setup.state()
+    assert not any("stop" in call or ("up" in call and "--help" not in call) for call in calls)
+
+
+@pytest.mark.parametrize("output,returncode", [
+    ('{"compatible":false,"compatible":true,"adapter_contract":1,'
+     '"observed_from":"runtime_container","cloud_account_verified":false}', 0),
+    ('{"compatible":false,"adapter_contract":1,"error":"upstream_contract_incompatible",'
+     '"cloud_account_verified":false,"diagnostic":{"schema":2,"schema":1,'
+     '"stage":"continued_history","kind":"child_timeout"}}', 1),
+    ('[' * 2000 + '0' + ']' * 2000, 0),
+    ('{"compatible":true,"adapter_contract":1,"observed_from":"runtime_container",'
+     '"cloud_account_verified":false,"extra":' + '[' * 40 + '0' + ']' * 40 + '}', 0),
+    ('{"extra":"' + '\u4e2d' * 22000 + '"}', 0),
+    ('{"extra":"\\ud800"}', 0),
+    ('{"\\ud800":"extra"}', 0),
+    ('{"extra":"\ud800"}', 0),
+    ('{"compatible":true,"adapter_contract":1,"observed_from":"runtime_container",'
+     '"cloud_account_verified":false,"extra":NaN}', 0),
+    *[('{"compatible":true,"adapter_contract":1,"observed_from":"runtime_container",'
+       '"cloud_account_verified":false,"extra":' + exponent + '}', 0) for exponent in ("1e9999", "-1e9999")],
+])
+def test_ambiguous_or_unbounded_probe_json_cannot_activate_or_copy_diagnostics(installer, output, returncode):
+    setup, calls, flags = installer
+    flags.update(probe_output=output, probe_returncode=returncode)
+    with pytest.raises(SetupError, match="hermes_adapter_contract_unavailable"):
+        setup.install()
+    record = json.loads(setup.path.read_text())
+    assert record["diagnostic"]["phase"] == "offline_probe"
+    assert record["diagnostic"]["reason"] == ("command_failed" if returncode else "invalid_contract")
+    assert "probe_diagnostic" not in record and "extra" not in record
+    assert not any("stop" in call or ("up" in call and "--help" not in call) for call in calls)
+
+
+def test_success_probe_can_add_bounded_optional_response_fields(installer):
+    setup, calls, flags = installer
+    flags["probe_output"] = json.dumps({"compatible": True, "adapter_contract": 1,
+        "observed_from": "runtime_container", "cloud_account_verified": False,
+        "future": {"checks": ["optional", "\u53ef\u64f4\u5145"]}})
+    assert setup.install()["state"] == "ready"
+
+
+@pytest.mark.parametrize("field,value", [
+    ("schema", True), ("schema", 2), ("stage", "private/path/token"), ("stage", []),
+    ("kind", "private response"), ("kind", {}), ("extra", "private secret"),
+])
+def test_probe_diagnostic_rejects_nonfinite_or_extra_fields(field, value):
+    result = failed_probe_receipt()
+    result["diagnostic"][field] = value
+    assert probe_failure_diagnostic(result, 1) is None
+
+
+@pytest.mark.parametrize("field,value", [
+    ("compatible", True), ("compatible", 0), ("adapter_contract", True), ("adapter_contract", 2),
+    ("error", "private response"), ("cloud_account_verified", 0), ("extra", "private secret"),
+    ("diagnostic", None),
+])
+def test_probe_diagnostic_requires_exact_failure_envelope(field, value):
+    result = failed_probe_receipt()
+    result[field] = value
+    assert probe_failure_diagnostic(result, 1) is None
+
+
+@pytest.mark.parametrize("returncode", [0, None, True, "1"])
+def test_probe_diagnostic_requires_actual_nonzero_exit(returncode):
+    assert probe_failure_diagnostic(failed_probe_receipt(), returncode) is None
+
+
+@pytest.mark.parametrize("flag,phase,limit", [
+    ("probe_error", "offline_probe", 90), ("stop_error", "runtime_stop", 60),
+    ("activation_error", "runtime_activation", 120),
+])
+def test_private_diagnostic_distinguishes_timeouts_without_raw_details(installer, flag, phase, limit):
+    setup, calls, flags = installer
+    flags[flag] = subprocess.TimeoutExpired(["private-command"], limit,
+        output="private stdout token", stderr="private stderr path")
+    with pytest.raises(SetupError, match="hermes_install_failed"):
+        setup.install()
+    text = setup.path.read_text()
+    record = json.loads(text)
+    assert record["diagnostic"] == {
+        "schema": 1, "phase": phase, "reason": "timeout", "exit_category": "unavailable"}
+    assert "probe_diagnostic" not in record
+    assert "private" not in text
+    assert ORIGINAL in setup.environment.read_text()
+    assert any(call[:3] == ("docker", "rm", "-f") for call in calls)
+    if flag == "probe_error":
+        assert not any("stop" in call or ("up" in call and "--help" not in call) for call in calls)
+    if flag == "activation_error":
+        assert sum("up" in call and "--help" not in call for call in calls) == 2
+
+
+def test_fallback_failure_keeps_original_diagnostic(installer):
+    setup, calls, flags = installer
+    flags.update(activation_error=subprocess.TimeoutExpired(["private"], 120), fallback_fails=True)
+    with pytest.raises(SetupError, match="hermes_fallback_unconfirmed"):
+        setup.install()
+    record = json.loads(setup.path.read_text())
+    assert record["state"] == "needs_reconcile"
+    assert record["diagnostic"]["phase"] == "runtime_activation"
+    assert record["diagnostic"]["reason"] == "timeout"
+    assert record["fallback_diagnostic"] == {
+        "schema": 1, "phase": "fallback_activation", "reason": "unexpected_error", "exit_category": "unavailable"}
+    assert "sensitive" not in setup.path.read_text() and "private" not in setup.path.read_text()
+
+
+def test_account_race_has_fixed_private_diagnostic_and_keeps_original(installer):
+    setup, calls, flags = installer
+    flags["race_account"] = True
+    with pytest.raises(SetupError, match="existing_hermes_account"):
+        setup.install()
+    assert json.loads(setup.path.read_text())["diagnostic"] == {
+        "schema": 1, "phase": "account_recheck", "reason": "state_conflict", "exit_category": "unavailable"}
+    assert ORIGINAL in setup.environment.read_text()
 
 
 def test_failed_fallback_and_restart_never_blindly_replay(installer):

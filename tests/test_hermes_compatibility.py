@@ -222,8 +222,10 @@ subprocess.run = changed
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=90)
         assert result.returncode == 1
+        stage = "chat_tool_roundtrip" if fault == "malformed_result" else "consumed_signatures"
         assert json.loads(result.stdout) == {"compatible": False, "adapter_contract": 1,
-                                            "error": "upstream_contract_incompatible", "cloud_account_verified": False}
+                                            "error": "upstream_contract_incompatible", "cloud_account_verified": False,
+                                            "diagnostic": {"schema": 1, "stage": stage, "kind": "contract_failure"}}
         assert "fixture-private-secret" not in result.stdout
     finally:
         subprocess.run(["docker", "rm", "-fv", name], capture_output=True, check=False)

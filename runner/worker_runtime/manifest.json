@@ -3,7 +3,7 @@
   "source_hashes": {
     "host/agentic_host/__init__.py": "6277ac0695125f03b6ed2edee18abe33af50d88956e9283a600064549a71ff27",
     "host/agentic_host/artifacts.py": "62ed70cc0cce036d13e70a7620abf25161340663aeb6eb8b666e7f6f80e58514",
-    "host/agentic_host/bootstrap.py": "314eaee10214f608e1a36c2e60a7cb9c4793192fc33fc195f28a164f2649dc36",
+    "host/agentic_host/bootstrap.py": "997280e33d104ba2768e1258b7f17dc6c8e402f0280e2a994cd3e9ec5085895b",
     "host/agentic_host/cli.py": "9cc528315fe2c058b21ebb5321abdba8620edc348d3735865a872a99defc2e1e",
     "host/agentic_host/coding_program.py": "7de5ac99870b0bf34aa7c1f973135f9f8e081afd0733c39e01240fe8f57e1f80",
     "host/agentic_host/coding_relay.py": "599d37506b66245209cff638e3b7223305cf5fd6df733d9ba222f57166321f93",

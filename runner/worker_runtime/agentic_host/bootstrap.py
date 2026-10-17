@@ -8,10 +8,12 @@ This is deliberately not a general installed-system updater.
 
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
 import sqlite3
+import subprocess
 import tarfile
 import tempfile
 import time
@@ -29,6 +31,90 @@ ARCHIVE_BASE = "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/"
 MAX_ARCHIVE = 128 * 1024 * 1024
 MAX_SOURCE = 512 * 1024 * 1024
 HA_URL = "http://192.168.177.2:80/api/onboarding"
+
+INSTALL_DIAGNOSTIC_PHASES = frozenset({
+    "workspace_preparation", "image_inspection", "probe_preparation", "offline_probe",
+    "runtime_stop", "account_recheck", "environment_activation", "runtime_activation",
+    "state_commit", "temporary_cleanup", "state_readback", "fallback_environment", "fallback_activation",
+})
+
+
+def install_diagnostic(phase, error, returncode=None):
+    """Private fixed categories only; never persist exception text or process streams."""
+    if phase not in INSTALL_DIAGNOSTIC_PHASES:
+        raise ValueError("invalid_install_diagnostic_phase")
+    exit_category = "unavailable"
+    if type(returncode) is int:
+        exit_category = {
+            0: "success", 1: "rejected", 125: "docker_error", 126: "command_not_executable",
+            127: "command_not_found", 137: "killed", 143: "terminated", -9: "killed", -15: "terminated",
+        }.get(returncode, "signal" if returncode < 0 else "nonzero")
+    if isinstance(error, subprocess.TimeoutExpired):
+        reason = "timeout"
+    elif isinstance(error, SetupError):
+        reason = ("state_conflict" if str(error) in {
+            "existing_hermes_account", "existing_hermes_state", "existing_hermes_sessions"}
+            else "command_failed" if type(returncode) is int and returncode != 0 else "invalid_contract")
+    elif isinstance(error, HostError):
+        reason = "command_failed"
+    elif isinstance(error, OSError):
+        reason = "filesystem_error"
+    else:
+        reason = "unexpected_error"
+    return {"schema": 1, "phase": phase, "reason": reason, "exit_category": exit_category}
+
+
+def probe_failure_diagnostic(result, returncode):
+    """Only a failed shipped probe's exact finite diagnostic can cross this boundary."""
+    if (type(returncode) is not int or returncode == 0 or not isinstance(result, dict)
+            or set(result) != {"compatible", "adapter_contract", "error", "cloud_account_verified", "diagnostic"}
+            or result["compatible"] is not False or type(result["adapter_contract"]) is not int
+            or result["adapter_contract"] != 1 or result["error"] != "upstream_contract_incompatible"
+            or result["cloud_account_verified"] is not False):
+        return None
+    value = result["diagnostic"]
+    if (not isinstance(value, dict) or set(value) != {"schema", "stage", "kind"}
+            or type(value["schema"]) is not int or value["schema"] != 1
+            or not isinstance(value["stage"], str) or value["stage"] not in {
+                "consumed_signatures", "chat_tool_roundtrip", "continued_history", "provider_401",
+                "native_device_oauth", "native_responses_tool_roundtrip", "fixture_finalization"}
+            or not isinstance(value["kind"], str) or value["kind"] not in {
+                "child_timeout", "child_exit", "invalid_output", "contract_failure", "fixture_protocol", "unexpected"}):
+        return None
+    return {"schema": 1, "stage": value["stage"], "kind": value["kind"]}
+
+
+def probe_json(output):
+    """Bound private probe input before consuming any success or failure fields."""
+    if not isinstance(output, str) or len(output) > 65536 or len(output.encode("utf-8")) > 65536:
+        raise ValueError("invalid_probe_output")
+
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("invalid_probe_output")
+            result[key] = value
+        return result
+
+    def invalid_constant(value):
+        raise ValueError("invalid_probe_output")
+
+    result = json.loads(output, object_pairs_hook=unique_object, parse_constant=invalid_constant)
+    pending = [(result, 0)]
+    while pending:
+        value, depth = pending.pop()
+        if depth > 32:
+            raise ValueError("invalid_probe_output")
+        if isinstance(value, str):
+            value.encode("utf-8")  # Reject lone surrogates, including escaped JSON strings.
+        elif isinstance(value, float) and not math.isfinite(value):
+            raise ValueError("invalid_probe_output")
+        elif isinstance(value, dict):
+            pending.extend((item, depth + 1) for pair in value.items() for item in pair)
+        elif isinstance(value, list):
+            pending.extend((item, depth + 1) for item in value)
+    return result
 
 
 class SetupError(HostError):
@@ -231,6 +317,7 @@ class InitialSetup:
         stopped, activated = False, False
         container = "agentic-hermes-bootstrap-" + uuid.uuid4().hex
         tag = "agentic-hermes-bootstrap:" + uuid.uuid4().hex
+        phase, returncode = "workspace_preparation", None
         try:
             with tempfile.TemporaryDirectory(prefix="hermes-install-", dir=self.root) as temporary:
                 work = Path(temporary)
@@ -251,54 +338,71 @@ class InitialSetup:
                     self.run("docker", "build", "--tag", tag, str(context), timeout=1200)
                     image = self.run("docker", "image", "inspect", "--format", "{{.Id}}", tag).stdout.strip()
                 else:
+                    phase = "image_inspection"
                     inspected = self.run("docker", "image", "inspect", "--format", "{{.Id}}", original).stdout.strip()
                     if inspected != original:
                         raise SetupError("bundled_image_invalid")
                 if not re.fullmatch(r"sha256:[a-f0-9]{64}", image):
                     raise SetupError("candidate_image_invalid")
+                phase = "probe_preparation"
                 scratch = work / "probe"
                 scratch.mkdir()
                 os.chown(scratch, 10003, 10003)
                 os.chmod(scratch, 0o700)
+                phase = "offline_probe"
                 probe = self.run("docker", "run", "--rm", "--name", container, "--network", "none", "--read-only",
                          "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--memory", "512m",
                          "--pids-limit", "64", "--cpus", "1", "--user", "10003:10003",
                          "--mount", f"type=bind,src={scratch},dst=/work", "--workdir", "/work",
                          "--env", "HOME=/work", "--env", "HERMES_HOME=/work", "--env", "TMPDIR=/work",
                          "--env", "PYTHONPATH=/opt/hermes:/app", image,
-                         "python", "/app/compatibility_probe.py", timeout=90)
+                         "python", "/app/compatibility_probe.py", timeout=90, check=False)
+                returncode = probe.returncode
+                result = None
                 try:
-                    if len(probe.stdout) > 65536:
-                        raise ValueError
-                    result = json.loads(probe.stdout)
+                    result = probe_json(probe.stdout)
                     valid = (isinstance(result, dict) and result.get("compatible") is True
                              and type(result.get("adapter_contract")) is int
                              and result["adapter_contract"] == 1
                              and result.get("observed_from") == "runtime_container"
                              and result.get("cloud_account_verified") is False)
-                except (ValueError, TypeError):
+                except (ValueError, TypeError, RecursionError):
                     valid = False
-                if not valid:
+                diagnostic = probe_failure_diagnostic(result, returncode)
+                if diagnostic is not None:
+                    record["probe_diagnostic"] = diagnostic
+                if not valid or type(returncode) is not int or returncode != 0:
                     raise SetupError("hermes_adapter_contract_unavailable")
                 # Stop then re-check: a second browser might have begun auth
                 # during the probe. Never replace an authenticated runtime.
+                phase, returncode = "runtime_stop", None
                 self.compose("stop", "hermes", timeout=60)
                 stopped = True
+                phase = "account_recheck"
                 initial_state(self.data)
+                phase = "environment_activation"
                 write_environment(self.environment, image)
+                phase = "runtime_activation"
                 self.compose("up", "-d", "--no-deps", "--wait", "hermes", timeout=120)
                 activated = True
+                phase = "state_commit"
                 record.update(state="ready", image_id=image, compatibility="passed", finished_at=time.time())
                 atomic(self.path, record)
-                return self.state()
+                phase = "temporary_cleanup"
+            phase = "state_readback"
+            return self.state()
         except Exception as exc:
+            record["diagnostic"] = install_diagnostic(phase, exc, returncode)
             code = str(exc) if isinstance(exc, SetupError) else "hermes_install_failed"
             state = "failed"
             if stopped and not activated:
                 try:
+                    phase = "fallback_environment"
                     write_environment(self.environment, original)
+                    phase = "fallback_activation"
                     self.compose("up", "-d", "--no-deps", "--wait", "hermes", timeout=120)
-                except Exception:
+                except Exception as fallback_error:
+                    record["fallback_diagnostic"] = install_diagnostic(phase, fallback_error)
                     state, code = "needs_reconcile", "hermes_fallback_unconfirmed"
             record.update(state=state, error_code=code, finished_at=time.time())
             atomic(self.path, record)
