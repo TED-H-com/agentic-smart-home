@@ -35,7 +35,7 @@ def git(path, *args):
 def bare_source(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
-    subprocess.check_call(["git", "init", "-b", "main"], cwd=repo, stdout=subprocess.DEVNULL)
+    subprocess.check_call(["git", "init", "--template=", "-b", "main"], cwd=repo, stdout=subprocess.DEVNULL)
     subprocess.check_call(["git", "config", "user.name", "Budget fixture"], cwd=repo)
     subprocess.check_call(["git", "config", "user.email", "budget@example.invalid"], cwd=repo)
     (repo / "value.py").write_text("value = 1\n")

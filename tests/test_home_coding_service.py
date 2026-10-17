@@ -110,7 +110,7 @@ asyncio.run(check())
 def packaged(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
-    git(repo, "init", "-b", "main")
+    git(repo, "init", "--template=", "-b", "main")
     git(repo, "config", "user.name", "Home fixture")
     git(repo, "config", "user.email", "home@example.invalid")
     (repo / "value.py").write_text("value = 1\n")

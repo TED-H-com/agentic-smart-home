@@ -24,6 +24,8 @@ agentic_runner = ["codex-models.json", "CODEX-LICENSE"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+tmp_path_retention_policy = "failed"
+tmp_path_retention_count = 1
 testpaths = ["tests"]
 pythonpath = ["controller", "runner", "hermes", "bridge"]
 
