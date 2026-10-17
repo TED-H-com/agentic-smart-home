@@ -112,7 +112,7 @@ def _git(source, *args, check=True):
 
 def _repo(source, files):
     source.mkdir(parents=True)
-    _git(source, "init", "-q")
+    _git(source, "init", "--template=", "-q")
     _git(source, "config", "user.email", "demo@example.invalid")
     _git(source, "config", "user.name", "Demo")
     for name, data in files.items():

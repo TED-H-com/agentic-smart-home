@@ -219,7 +219,7 @@ def probe():
         repo.mkdir()
         original = "def value():\n    return 1\n"
         (repo / "sample.py").write_text(original)
-        command("git", "init", "-q", str(repo))
+        command("git", "init", "--template=", "-q", str(repo))
         command("git", "-C", str(repo), "add", "sample.py")
         command("git", "-C", str(repo), "-c", "user.name=Disposable probe",
                 "-c", "user.email=probe@example.invalid", "-c", "core.hooksPath=/dev/null",

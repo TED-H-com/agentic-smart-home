@@ -33,6 +33,7 @@ UPDATE_INVOKE_TIMEOUT_SECONDS = UPDATE_COMMAND_TIMEOUT_SECONDS + 60
 UPDATE_DEADLINE_SECONDS = RUNTIME_MAX_SECONDS + 300
 INSTALL_CLEANUP_COMMAND_SECONDS = 30
 INSTALL_CONSOLE_BYTES = 65536
+INSTALL_DISPOSABLE_IMAGES = ("linux.qcow2", "test.iso", "nvram.fd")
 LAN_LAB_IMAGE = "agentic-home-lan-lab:0.10.0"
 INSTALL_GUEST_MEMORY_MIB = 10240
 # The nested fixture needs page-cache/QEMU headroom above the 10 GiB guest.
@@ -110,8 +111,6 @@ def cleanup_installer(name, temporary, console_path, *, run=None):
     except Exception:
         result["steps"]["console_tail"] = {"status": "failed", "error_type": "OtherError"}
     step("remove_vm", ["docker", "rm", "-fv", name])
-    # All fixture entries are direct files/socket in the user-owned tmp_path;
-    # unlinking them does not require chown. pytest-disktmp removes that directory.
     observed = step("vm_absent", ["docker", "ps", "-a", "--filter", "name=^/" + name + "$",
                                  "--format", "{{.Names}}"], stdout=subprocess.PIPE)
     if observed is not None and type(observed.returncode) is int and observed.returncode == 0:
@@ -121,6 +120,21 @@ def cleanup_installer(name, temporary, console_path, *, run=None):
     # diagnostic retention, not a condition for declaring the resource absent.
     if result["steps"]["vm_absent"]["status"] == "passed":
         result["status"] = "passed"
+        # Fixed direct entries only: no recursion, globbing or symlink following.
+        # Root-owned images can be unlinked from the user-owned directory.
+        artifacts = {}
+        for filename in INSTALL_DISPOSABLE_IMAGES:
+            try:
+                (temporary / filename).unlink()
+                artifacts[filename] = "removed"
+            except FileNotFoundError:
+                artifacts[filename] = "not_present"
+            except OSError:
+                artifacts[filename] = "failed"
+        result["steps"]["remove_images"] = {"status": (
+            "failed" if "failed" in artifacts.values() else "passed"), "artifacts": artifacts}
+    else:
+        result["steps"]["remove_images"] = {"status": "not_run"}
     return result
 
 
@@ -1008,7 +1022,7 @@ while data:=s.recv(65536):
         qemu = ["qemu-system-x86_64", "-enable-kvm", "-cpu", "host", "-machine", "q35", "-m", str(INSTALL_GUEST_MEMORY_MIB), "-smp", "4",
                 "-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd",
                 "-drive", "if=pflash,format=raw,file=/lab/nvram.fd",
-                "-drive", "file=/lab/linux.qcow2,format=qcow2,if=none,id=disk",
+                "-drive", "file=/lab/linux.qcow2,format=qcow2,if=none,id=disk,discard=unmap,detect-zeroes=unmap",
                 "-device", "virtio-blk-pci,drive=disk,serial=AGENTIC_TEST_ONLY",
                 "-netdev", "user,id=net,hostfwd=tcp:0.0.0.0:2222-:22", "-device", "virtio-net-pci,netdev=net",
                 "-netdev", "tap,id=lan,ifname=ahltap,script=no,downscript=no",
@@ -1032,6 +1046,9 @@ while data:=s.recv(65536):
         if not wait_until(powered_off, 1800):
             raise AssertionError("Linux installer did not power off within 30 minutes")
         command("docker", "rm", "-fv", name)
+        # Subsequent boots use only the installed drive, never the installer CD.
+        with contextlib.suppress(OSError):
+            (tmp_path / "test.iso").unlink()
         phase("installed_firstboot")
         command(*common, *qemu)
         ssh = ["ssh", "-i", str(tmp_path / "test-key"), "-o", "BatchMode=yes",
