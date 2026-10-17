@@ -2,6 +2,7 @@
 
 This is not a LAN, router-account or physical Hue acceptance test.
 """
+import asyncio
 import json
 import secrets
 
@@ -17,6 +18,26 @@ from test_real_ha import real_container, wait_ready
 @pytest.fixture
 def inventory_core(tmp_path, request):
     yield from real_container.__wrapped__(tmp_path, request)
+
+
+async def ready_inventory_registry(ha, *, timeout=60):
+    """Wait for Core 2026.10.1's startup flows before taking the no-write baseline."""
+    async def observe():
+        while True:
+            config = await ha.request("GET", "/config")
+            if config.get("state") == "RUNNING":
+                entries = await ha.ws("config_entries/get")
+                loaded = {entry["domain"] for entry in entries
+                          if entry.get("source") == "system" and entry.get("state") == "loaded"}
+                # Core sets RUNNING before dispatching the STARTED discovery flows.
+                if {"analytics", "backup"}.issubset(loaded):
+                    return entries
+            await asyncio.sleep(1)
+
+    try:
+        return await asyncio.wait_for(observe(), timeout)
+    except TimeoutError:
+        raise AssertionError("Isolated Core startup registry did not become ready") from None
 
 
 async def test_real_core_inventory_handoff_reads_registry_without_configuring_device(inventory_core, tmp_path, monkeypatch):
@@ -43,7 +64,7 @@ async def test_real_core_inventory_handoff_reads_registry_without_configuring_de
         (tmp_path / "access-key").write_text("inventory-real-core-local-test-key")
         app = create_app(store=store, ha=ha, host_mode=True)
         policy_before = store.setting("policy")
-        entries_before = await ha.ws("config_entries/get")
+        entries_before = await ready_inventory_registry(ha)
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost:8099",
                                      headers={"Origin": "http://localhost:8099"}) as client:
             assert (await client.post("/api/host/login", json={"key": "inventory-real-core-local-test-key"})).status_code == 200
