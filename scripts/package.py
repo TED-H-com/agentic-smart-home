@@ -14,6 +14,10 @@ EXCLUDED = {"__pycache__", "node_modules", "test-results", ".pytest_cache", ".ru
 
 def files(directory):
     for path in sorted(directory.rglob("*")):
+        # Preserve the empty build-context directory, never downloaded archives.
+        relative = path.relative_to(directory)
+        if ".upstream-cache" in relative.parts and relative != Path(".upstream-cache/.gitignore"):
+            continue
         if path.is_file() and not path.is_symlink() and not EXCLUDED.intersection(path.relative_to(directory).parts):
             # The Controller build bundle is a local build input, never a source file.
             if not path.name.endswith((".pyc", ".tsbuildinfo")) and path.name != "agentic-home.bundle":

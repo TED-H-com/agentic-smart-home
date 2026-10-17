@@ -4,7 +4,8 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 COPY fetch_upstream.py hermes.lock.json ./
-RUN python fetch_upstream.py && \
+RUN --mount=type=bind,source=.upstream-cache,target=/var/cache/agentic-hermes \
+    python fetch_upstream.py --cache-dir /var/cache/agentic-hermes && \
     useradd --uid 10003 --create-home --shell /usr/sbin/nologin hermes && \
     mkdir -p /data && chown 10003:10003 /data
 COPY agentic_hermes ./agentic_hermes
