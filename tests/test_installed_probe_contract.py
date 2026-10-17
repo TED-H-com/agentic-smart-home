@@ -586,6 +586,35 @@ def test_timeout_diagnostics_keep_partial_operation_id_and_failed_probe(tmp_path
     assert "private" not in json.dumps(result)
 
 
+@pytest.mark.parametrize("arguments", ["--interface-id " + "b" * 64, "--disable-lan"])
+def test_lan_command_failure_retains_action_and_identity_conflict_without_private_values(tmp_path, arguments):
+    from test_linux_install import record_install_failure
+
+    job = {"id": "f" * 32, "request": {"action": "configure_lan", "interface_id": "private-interface"},
+           "state": "failed", "message": "virsh: error: network 'private-network' already exists with uuid private-uuid"}
+    error = subprocess.CalledProcessError(1, ["ssh", "fixture", "agentic-home configure_lan " + arguments],
+                                         output="Operation " + job["id"] + "\n" + json.dumps(job), stderr="private stderr")
+    result = record_install_failure(error, "wired_lan_select_and_start", tmp_path / "failure.json", None)
+    assert result["lifecycle_action"] == "configure_lan"
+    receipt = result["lifecycle_receipt"]
+    assert receipt["id"] == job["id"] and receipt["action"] == "configure_lan"
+    assert receipt["error_code"] == "host_command_failed" and receipt["operation"] == "virsh"
+    assert receipt["message_signatures"]["libvirt_identity_conflict"] is True
+    assert "private" not in json.dumps(result) and "b" * 64 not in json.dumps(result)
+
+
+@pytest.mark.parametrize("arguments", ["", "--interface-id private", "--disable-lan --extra", "--disable-lan; private"])
+def test_lan_diagnostics_do_not_infer_action_from_malformed_or_extended_commands(tmp_path, arguments):
+    from test_linux_install import record_install_failure
+
+    command = "agentic-home configure_lan" + (" " + arguments if arguments else "")
+    error = subprocess.TimeoutExpired(["ssh", "fixture", command], 30,
+                                      output="Operation " + "f" * 32 + "\n")
+    result = record_install_failure(error, "wired_lan_select_and_start", tmp_path / "failure.json", None)
+    assert result["lifecycle_action"] is None and result["lifecycle_receipt"]["action"] == "unknown"
+    assert "private" not in json.dumps(result)
+
+
 def test_remote_failure_observation_is_readonly_bounded_and_redacted(update_probe, monkeypatch):
     import sys
 

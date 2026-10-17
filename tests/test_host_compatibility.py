@@ -7,6 +7,7 @@ import sys
 import urllib.error
 from pathlib import Path
 from types import SimpleNamespace
+from xml.etree import ElementTree as ET
 
 import pytest
 
@@ -100,9 +101,13 @@ def test_missing_or_timed_out_dependency_is_scoped_and_redacted(exception, expec
 def test_mutation_rechecks_changed_dependency_and_never_dispatches_when_blocked(tmp_path, monkeypatch):
     changed, writes = [False], []
     owner = "12345678-1234-1234-1234-123456789abc"
+    network = ET.fromstring(network_xml(owner))
+    # A real libvirt readback has its own materialized network identity.
+    ET.SubElement(network, "uuid").text = "7857bb95-bd31-4e64-86f4-c42e509fb235"
+    ET.SubElement(network, "mac", {"address": "52:54:00:bb:17:01"})
     def execute(*args, **kwargs):
         if args[-2:] == ("net-dumpxml", NETWORK):
-            return SimpleNamespace(returncode=0, stdout=network_xml(owner))
+            return SimpleNamespace(returncode=0, stdout=ET.tostring(network, encoding="unicode"))
         if "--readonly" in args:
             if changed[0]:
                 return SimpleNamespace(returncode=0, stdout='{"unexpected":"private"}')

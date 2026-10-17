@@ -329,6 +329,7 @@ def process_diagnostics(result):
                 "file_missing": ("no such file or directory", "cannot find the file"),
                 "kvm_unavailable": ("failed to initialize kvm", "kvm is not supported", "kvm unavailable", "could not access kvm"),
                 "libvirt_connection": ("failed to connect to the hypervisor", "failed to connect socket"),
+                "libvirt_identity_conflict": ("already exists with uuid", "already exists with name"),
                 "firmware_unavailable": ("unable to find any master var store", "could not find any firmware", "unable to find 'ovmf"),
                 "network_conflict": ("overlaps an existing route", "network is already in use", "address already in use"),
                 "checksum_mismatch": ("checksum mismatch",), "image_invalid": ("image is corrupt", "not in qcow2 format", "unsupported image format"),

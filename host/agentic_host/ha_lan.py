@@ -5,6 +5,7 @@ No host interface address, bridge, route or NetworkManager profile is rewritten.
 Interrupted operations retain a journal and require an explicit configure retry.
 """
 
+import copy
 import hashlib
 import ipaddress
 import json
@@ -51,6 +52,21 @@ def no_default_router(network):
     ET.SubElement(options, f"{{{DNSMASQ}}}option", {"value": "dhcp-option=3"})
 
 
+def network_mode_xml(network, *, wired):
+    """Change only the router option on a previously validated definition.
+
+    Destroying a libvirt network stops it but retains its persistent UUID. A
+    fresh UUID-less definition generates a different UUID and collides with the
+    existing name. Preserve its actual identity, MAC and generated defaults.
+    """
+    updated = copy.deepcopy(network)
+    for options in updated.findall(f"{{{DNSMASQ}}}options"):
+        updated.remove(options)
+    if wired:
+        no_default_router(updated)
+    return ET.tostring(updated, encoding="unicode")
+
+
 def _same_interface(node, *, direct=None):
     source, mac, model = node.find("source"), node.find("mac"), node.find("model")
     if source is None or mac is None or model is None or model.get("type") != "virtio":
@@ -89,6 +105,16 @@ def validate_network(network, owner, modes):
     if (network.tag != "network" or network.findtext("name") != NETWORK
             or network.findtext(f"metadata/{{{NS}}}owner") != owner):
         raise HostError("ha_lan_network_not_owned")
+    identities, macs = network.findall("uuid"), network.findall("mac")
+    if (len(identities) != 1 or not _UUID.fullmatch(identities[0].text or "")
+            or identities[0].text == "00000000-0000-0000-0000-000000000000"
+            or identities[0].attrib or list(identities[0]) or len(macs) > 1):
+        raise HostError("ha_lan_network_changed")
+    if macs:
+        address = macs[0].get("address", "")
+        if (set(macs[0].attrib) != {"address"} or not _MAC.fullmatch(address)
+                or int(address[:2], 16) & 1 or address == "00:00:00:00:00:00" or list(macs[0])):
+            raise HostError("ha_lan_network_changed")
     if any(child.tag not in {"name", "uuid", "metadata", "forward", "bridge", "mac", "ip", f"{{{DNSMASQ}}}options"}
            for child in network):
         raise HostError("ha_lan_network_changed")
@@ -318,11 +344,10 @@ class HALan:
         # Each stage is repeatable only after validating that observed objects
         # are one of the journalled states. Unknown/manual edits remain fenced.
         if network is not None:
-            from .manager import network_xml
             if self._network_active():
                 self.manager.virsh("net-destroy", NETWORK)
             path = self.manager.root / "ha-lan-network.xml"
-            path.write_text(network_xml(owner, wired=bool(choice)))
+            path.write_text(network_mode_xml(network, wired=bool(choice)))
             self.manager.virsh("net-define", str(path))
             validate_network(self._xml("net-dumpxml", NETWORK, "--inactive"), owner, {bool(choice)})
             self.manager.virsh("net-start", NETWORK)

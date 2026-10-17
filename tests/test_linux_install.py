@@ -435,8 +435,10 @@ def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run):
         result["timeout_seconds"] = exc.timeout
     args = getattr(exc, "cmd", ())
     remote_command = args[-1] if isinstance(args, (tuple, list)) and args and isinstance(args[-1], str) else ""
-    action = next((item for item in LIFECYCLE_ACTIONS if remote_command == "agentic-home " + item or
-                   (item == "restore" and remote_command.startswith("agentic-home restore --snapshot "))), None)
+    action = next((item for item in LIFECYCLE_ACTIONS if (item != "configure_lan" and remote_command == "agentic-home " + item) or
+                   (item == "restore" and remote_command.startswith("agentic-home restore --snapshot ")) or
+                   (item == "configure_lan" and re.fullmatch(
+                       r"agentic-home configure_lan (?:--interface-id [a-f0-9]{64}|--disable-lan)", remote_command))), None)
     result["lifecycle_action"] = action
     output = stdout.decode(errors="replace") if isinstance(stdout, bytes) else stdout
     receipt = None

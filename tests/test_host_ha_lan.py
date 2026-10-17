@@ -2,6 +2,7 @@
 import copy
 import json
 import sys
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 from xml.etree import ElementTree as ET
@@ -16,6 +17,8 @@ from agentic_host.manager import IP, MAC, NAME, HostError, Manager, atomic, doma
 
 OWNER = "3d58ff36-88e0-45b2-bb6d-d9aa718ad479"
 FOREIGN = "734fa345-7f05-402e-91f0-179b753ea266"
+NETWORK_UUID = "7857bb95-bd31-4e64-86f4-c42e509fb235"
+NETWORK_MAC = "52:54:00:bb:17:01"
 
 
 class Libvirt:
@@ -61,7 +64,15 @@ class Libvirt:
         elif command == "net-destroy":
             self.active = False
         elif command == "net-define":
-            self.network = ET.fromstring(Path(args[4]).read_text())
+            replacement = ET.fromstring(Path(args[4]).read_text())
+            if replacement.find("uuid") is None:
+                ET.SubElement(replacement, "uuid").text = str(uuid.uuid4())
+            if (self.network is not None and replacement.findtext("name") == self.network.findtext("name")
+                    and replacement.findtext("uuid") != self.network.findtext("uuid")):
+                raise HostError("virsh: network already exists with uuid")
+            if replacement.find("mac") is None:
+                ET.SubElement(replacement, "mac", {"address": NETWORK_MAC})
+            self.network = replacement
         elif command == "define":
             self.domain = ET.fromstring(Path(args[4]).read_text())
         elif command == "net-start":
@@ -83,6 +94,8 @@ def lab(tmp_path):
     atomic(manager.state_file, {"owner": OWNER, "profile": profile, "complete": True})
     libvirt.domain = ET.fromstring(domain_xml(profile, manager.images / "haos.qcow2", manager.images / "nvram.fd", OWNER))
     libvirt.network = ET.fromstring(network_xml(OWNER))
+    ET.SubElement(libvirt.network, "uuid").text = NETWORK_UUID
+    ET.SubElement(libvirt.network, "mac", {"address": NETWORK_MAC})
     links = [{"ifname": "enp1s0", "address": "00:11:22:33:44:55", "link_type": "ether",
               "flags": ["UP", "LOWER_UP", "BROADCAST", "MULTICAST"]}]
     addresses = [{"ifname": "enp1s0", "addr_info": [{"family": "inet", "scope": "global", "local": "192.0.2.20", "prefixlen": 24}]}]
@@ -132,6 +145,8 @@ def test_configure_then_disable_retains_management_and_restores_gateway(lab):
     lan, vm, _, _ = lab
     selected = lan.interfaces()[0]
     before = ET.tostring(vm.domain.find("devices/interface"))
+    identity = (vm.network.findtext("uuid"), dict(vm.network.find("mac").attrib))
+    assert identity[0] != OWNER
     response = lan.configure(selected["id"])
     assert response["mode"] == "wired" and response["state"] == "configured"
     assert "online" not in response and response["guest_mac"].startswith("02:")
@@ -140,11 +155,13 @@ def test_configure_then_disable_retains_management_and_restores_gateway(lab):
     assert vm.network.find("ip/dhcp/host").attrib == {"mac": MAC, "name": "agentic-haos", "ip": IP}
     assert ET.tostring(vm.domain.find("devices/interface")) == before
     assert vm.vm == "shut off" and vm.active and vm.autostart
+    assert (vm.network.findtext("uuid"), dict(vm.network.find("mac").attrib)) == identity
     assert not any(call[0] in {"ip", "nmcli", "brctl"} for call in vm.calls)
     lan.configure(None)
     assert len(vm.domain.findall("devices/interface")) == 1
     assert vm.network.find(f"{{{DNSMASQ}}}options") is None
     assert lan.status()["state"] == "disabled"
+    assert (vm.network.findtext("uuid"), dict(vm.network.find("mac").attrib)) == identity
 
 
 def test_initial_selection_does_not_create_guest_or_network(lab):
@@ -219,6 +236,8 @@ def test_interrupted_stages_fence_start_and_explicit_retry_reconciles(lab, stage
     assert "pending" not in lan.record()
     validate_domain(vm.domain, [lan.record()["choice"]])
     validate_network(vm.network, OWNER, {True})
+    assert vm.network.findtext("uuid") == NETWORK_UUID != OWNER
+    assert vm.network.find("mac").attrib == {"address": NETWORK_MAC}
 
 
 def test_interrupted_enable_can_be_explicitly_removed_when_cable_disappears(lab):
@@ -231,6 +250,47 @@ def test_interrupted_enable_can_be_explicitly_removed_when_cable_disappears(lab)
     assert response["state"] == "disabled" and vm.autostart
     validate_domain(vm.domain, [None])
     validate_network(vm.network, OWNER, {False})
+    assert vm.network.findtext("uuid") == NETWORK_UUID
+    assert vm.network.find("mac").attrib == {"address": NETWORK_MAC}
+
+
+@pytest.mark.parametrize("fault", ["missing_uuid", "duplicate_uuid", "invalid_uuid", "nil_uuid", "uuid_attributes",
+                                   "duplicate_mac", "invalid_mac", "multicast_mac", "zero_mac", "mac_attributes"])
+def test_invalid_existing_network_identity_fails_before_any_mutation(lab, fault):
+    lan, vm, _, _ = lab
+    identity, mac = vm.network.find("uuid"), vm.network.find("mac")
+    if fault == "missing_uuid":
+        vm.network.remove(identity)
+    elif fault == "duplicate_uuid":
+        ET.SubElement(vm.network, "uuid").text = NETWORK_UUID
+    elif fault == "invalid_uuid":
+        identity.text = "not-a-uuid"
+    elif fault == "nil_uuid":
+        identity.text = "00000000-0000-0000-0000-000000000000"
+    elif fault == "uuid_attributes":
+        identity.set("unexpected", "value")
+    elif fault == "duplicate_mac":
+        ET.SubElement(vm.network, "mac", {"address": NETWORK_MAC})
+    elif fault == "mac_attributes":
+        mac.set("unexpected", "value")
+    else:
+        mac.set("address", {"invalid_mac": "invalid", "multicast_mac": "ff:ff:ff:ff:ff:ff",
+                            "zero_mac": "00:00:00:00:00:00"}[fault])
+    with pytest.raises(HostError, match="network_changed"):
+        lan.configure(lan.interfaces()[0]["id"])
+    assert not lan.path.exists() and vm.autostart and vm.active
+    assert not any(call[3] in {"autostart", "net-destroy", "net-define", "define"} for call in vm.calls)
+
+
+def test_mode_change_preserves_validated_network_definition_and_generated_defaults(lab):
+    lan, vm, _, _ = lab
+    nat = ET.SubElement(vm.network.find("forward"), "nat")
+    ET.SubElement(nat, "port", {"start": "1024", "end": "65535"})
+    original = ET.tostring(vm.network)
+    lan.configure(lan.interfaces()[0]["id"])
+    assert vm.network.find("forward/nat/port").attrib == {"start": "1024", "end": "65535"}
+    lan.configure(None)
+    assert ET.tostring(vm.network) == original
 
 
 def test_reconcile_never_overwrites_unrecognised_manual_network_edit(lab):
