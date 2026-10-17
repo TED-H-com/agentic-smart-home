@@ -11,6 +11,15 @@
       "pattern": "^[a-z][a-z0-9_]{0,63}$",
       "title": "Integration Domain",
       "type": "string"
+    },
+    "source_id": {
+      "default": "ha_discovery",
+      "enum": [
+        "ha_discovery",
+        "network_inventory"
+      ],
+      "title": "Source Id",
+      "type": "string"
     }
   },
   "required": [

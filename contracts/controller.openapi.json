@@ -73,8 +73,11 @@
             "type": "string"
           },
           "source_id": {
-            "const": "ha_discovery",
             "default": "ha_discovery",
+            "enum": [
+              "ha_discovery",
+              "network_inventory"
+            ],
             "title": "Source Id",
             "type": "string"
           },
@@ -327,6 +330,15 @@
           "integration_domain": {
             "pattern": "^[a-z][a-z0-9_]{0,63}$",
             "title": "Integration Domain",
+            "type": "string"
+          },
+          "source_id": {
+            "default": "ha_discovery",
+            "enum": [
+              "ha_discovery",
+              "network_inventory"
+            ],
+            "title": "Source Id",
             "type": "string"
           }
         },
@@ -719,6 +731,7 @@
             "default": "home_assistant",
             "enum": [
               "home_assistant",
+              "network_inventory",
               "not_implemented"
             ],
             "title": "Location",
@@ -728,6 +741,7 @@
             "enum": [
               "websocket",
               "rest",
+              "local_inventory",
               "not_implemented"
             ],
             "title": "Method",
@@ -845,6 +859,549 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "InventoryClear": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "InventoryClear",
+        "type": "object"
+      },
+      "InventoryImport": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 65536,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "format": {
+            "enum": [
+              "json",
+              "csv",
+              "dnsmasq"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "format",
+          "label",
+          "content"
+        ],
+        "title": "InventoryImport",
+        "type": "object"
+      },
+      "InventoryObservation": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 45,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "id": {
+            "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "mac": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{2}(:[0-9a-f]{2}){5}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mac"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "maxLength": 160,
+              "type": "string"
+            },
+            "maxProperties": 8,
+            "propertyNames": {
+              "maxLength": 32
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "observed_at": {
+            "maxLength": 160,
+            "title": "Observed At",
+            "type": "string"
+          },
+          "reachability": {
+            "default": "unknown",
+            "enum": [
+              "unknown",
+              "responded"
+            ],
+            "title": "Reachability",
+            "type": "string"
+          },
+          "scope_id": {
+            "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+            "title": "Scope Id",
+            "type": "string"
+          },
+          "services": {
+            "default": [],
+            "items": {
+              "maxLength": 160,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Services",
+            "type": "array"
+          },
+          "source_id": {
+            "enum": [
+              "lan_neighbors",
+              "lan_mdns",
+              "lan_ssdp",
+              "router_import"
+            ],
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_updated_at": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "source_id",
+          "scope_id",
+          "observed_at"
+        ],
+        "title": "InventoryObservation",
+        "type": "object"
+      },
+      "InventoryRecommendation": {
+        "additionalProperties": false,
+        "properties": {
+          "confidence": {
+            "enum": [
+              "service_match",
+              "hint"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "documentation_url": {
+            "pattern": "^https://www\\.home-assistant\\.io/integrations/[a-z0-9_]+/$",
+            "title": "Documentation Url",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "integration_domain": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "title": "Integration Domain",
+            "type": "string"
+          },
+          "native_path": {
+            "const": "/config/integrations",
+            "default": "/config/integrations",
+            "title": "Native Path",
+            "type": "string"
+          },
+          "next_step": {
+            "maxLength": 160,
+            "title": "Next Step",
+            "type": "string"
+          },
+          "observation_id": {
+            "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 160,
+            "title": "Reason",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 160,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "observation_id",
+          "integration_domain",
+          "title",
+          "confidence",
+          "reason",
+          "next_step",
+          "documentation_url"
+        ],
+        "title": "InventoryRecommendation",
+        "type": "object"
+      },
+      "InventoryReference": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "title": "InventoryReference",
+        "type": "object"
+      },
+      "InventoryScan": {
+        "additionalProperties": false,
+        "properties": {
+          "scope_id": {
+            "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+            "title": "Scope Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope_id"
+        ],
+        "title": "InventoryScan",
+        "type": "object"
+      },
+      "InventoryScope": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "maxLength": 45,
+            "title": "Address",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "interface": {
+            "maxLength": 32,
+            "title": "Interface",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 160,
+            "title": "Label",
+            "type": "string"
+          },
+          "network": {
+            "maxLength": 49,
+            "title": "Network",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "interface",
+          "address",
+          "network"
+        ],
+        "title": "InventoryScope",
+        "type": "object"
+      },
+      "InventoryScopes": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "limitations": {
+            "items": {
+              "maxLength": 160,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "scopes": {
+            "items": {
+              "$ref": "#/components/schemas/InventoryScope"
+            },
+            "maxItems": 32,
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "scopes",
+          "limitations"
+        ],
+        "title": "InventoryScopes",
+        "type": "object"
+      },
+      "InventorySnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "content_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "limitations": {
+            "items": {
+              "maxLength": 160,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "observations": {
+            "items": {
+              "$ref": "#/components/schemas/InventoryObservation"
+            },
+            "maxItems": 1024,
+            "title": "Observations",
+            "type": "array"
+          },
+          "observed_at": {
+            "maxLength": 160,
+            "title": "Observed At",
+            "type": "string"
+          },
+          "recommendations": {
+            "items": {
+              "$ref": "#/components/schemas/InventoryRecommendation"
+            },
+            "maxItems": 1024,
+            "title": "Recommendations",
+            "type": "array"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/InventorySource"
+            },
+            "maxItems": 4,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "revision",
+          "observed_at",
+          "sources",
+          "observations",
+          "recommendations",
+          "limitations",
+          "content_digest"
+        ],
+        "title": "InventorySnapshot",
+        "type": "object"
+      },
+      "InventorySource": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Adapter Version",
+            "type": "integer"
+          },
+          "content_digest": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Digest"
+          },
+          "id": {
+            "enum": [
+              "lan_neighbors",
+              "lan_mdns",
+              "lan_ssdp",
+              "router_import"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "item_count": {
+            "anyOf": [
+              {
+                "maximum": 1024.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Count"
+          },
+          "limitations": {
+            "default": [],
+            "items": {
+              "maxLength": 160,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "method": {
+            "enum": [
+              "neighbor_table",
+              "mdns",
+              "ssdp",
+              "json_import",
+              "csv_import",
+              "dnsmasq_import"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "partial",
+              "unavailable",
+              "not_configured",
+              "expired"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "target": {
+            "maxLength": 160,
+            "title": "Target",
+            "type": "string"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "method",
+          "target"
+        ],
+        "title": "InventorySource",
         "type": "object"
       },
       "LoginInput": {
@@ -1242,6 +1799,156 @@
           }
         },
         "summary": "Discovery"
+      }
+    },
+    "/api/discovery/inventory": {
+      "get": {
+        "operationId": "listing_api_discovery_inventory_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventorySnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Listing"
+      }
+    },
+    "/api/discovery/inventory/clear": {
+      "post": {
+        "operationId": "clear_api_discovery_inventory_clear_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryClear"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryReference"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clear"
+      }
+    },
+    "/api/discovery/inventory/import": {
+      "post": {
+        "operationId": "import_inventory_api_discovery_inventory_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryReference"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Inventory"
+      }
+    },
+    "/api/discovery/inventory/scan": {
+      "post": {
+        "operationId": "scan_api_discovery_inventory_scan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryScan"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryReference"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Scan"
+      }
+    },
+    "/api/discovery/inventory/scopes": {
+      "get": {
+        "operationId": "scopes_api_discovery_inventory_scopes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryScopes"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Scopes"
       }
     },
     "/api/discovery/setups": {

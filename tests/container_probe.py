@@ -9,13 +9,25 @@ from pathlib import Path
 import aiohttp
 import uvicorn
 from agentic_runner.app import Broker, create_api
+from agentic_runner.providers import ProviderError
 from aiohttp import web
 
 
 async def main():
     broker = Broker(Path("/data"))
     providers = ("codex", "claude", "agy", "grok")
-    probes = [await broker.providers.health(name) for name in providers]
+    # Owner's 2026-10-16 instruction: do not execute Grok CLI, including version
+    # probes reached indirectly through /status. Retain its isolation checks and
+    # report the omitted runtime coverage explicitly, without changing product support.
+    original_spawn = broker.providers.spawn
+
+    async def permitted_spawn(provider, *args, **kwargs):
+        if provider == "grok":
+            raise ProviderError("Grok CLI execution excluded by owner instruction")
+        return await original_spawn(provider, *args, **kwargs)
+
+    broker.providers.spawn = permitted_spawn
+    probes = [await broker.providers.health(name) for name in providers if name != "grok"]
     assert all(p["version_matches"] and p["status"] == "needs_reauth" for p in probes), probes
     for provider in providers:
         other = "claude" if provider == "codex" else "codex"
@@ -48,7 +60,9 @@ async def main():
                 token = (await response.json())["token"]
             async with client.get("https://127.0.0.1:8443/status", ssl=pin,
                                   headers={"Authorization": "Bearer " + token}) as response:
-                assert response.status == 200 and (await response.json())["protocol"] == 1
+                status = await response.json()
+                assert response.status == 200 and status["protocol"] == 1
+                assert next(item for item in status["providers"] if item["provider"] == "grok")["status"] == "unavailable"
             try:
                 await client.get("https://127.0.0.1:8443/status", ssl=aiohttp.Fingerprint(b"\x00" * 32))
             except aiohttp.ServerFingerprintMismatch:
@@ -137,6 +151,7 @@ async def main():
         claude_tools = {t["name"] for r in captured["claude"] for t in r.get("tools", [])}
         assert not claude_tools - {"StructuredOutput"}, claude_tools
         print(json.dumps({"probes": probes, "codex_models": ["gpt-5.4", "gpt-6-astra"], "codex_tools": [],
+                          "excluded_cli_probes": {"grok": "not_run: owner instruction"},
                           "claude_tools": sorted(claude_tools), "structured_output": "passed",
                           "tls_pin_and_pairing": "passed", "uid_and_secret_isolation": "passed", "run_at": time.time(),
                           "inference": "local protocol fixture; no cloud account"}, ensure_ascii=False))

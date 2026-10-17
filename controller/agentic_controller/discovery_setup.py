@@ -28,6 +28,7 @@ from .models import (
     DiscoverySetupReference,
     DiscoverySetupSelect,
     DiscoverySetupView,
+    DiscoverySource,
     PreviewId,
     Strict,
     canonical,
@@ -119,7 +120,12 @@ class DiscoverySetups:
         if not key or len(key) > 200:
             raise HTTPException(400, "discovery_setup_idempotency_required")
         scope = f"{KIND}:{binding}:{action}:{identifier}"
-        request_digest = digest(body.model_dump())
+        payload = body.model_dump()
+        # Existing HA create receipts predate the optional source discriminator.
+        # Omitted and explicit default HA requests retain their exact old digest.
+        if action == "create" and payload.get("source_id") == "ha_discovery":
+            payload.pop("source_id")
+        request_digest = digest(payload)
         row = self.store.db.execute("SELECT digest,result FROM requests WHERE scope=? AND key=?",
                                     (scope, key)).fetchone()
         previous = None
@@ -158,8 +164,19 @@ class DiscoverySetups:
         receipt, previous = self.receipt(request, binding, "create", body)
         if previous:
             return previous
-        candidate = next((item for item in observed.candidates if item.id == body.candidate_id and
-                          item.integration_domain == body.integration_domain), None)
+        network = self.app.state.network_inventory
+        if body.source_id == "network_inventory":
+            candidate = network.candidate(authority, body.candidate_id, body.integration_domain)
+            if candidate is None:
+                raise HTTPException(409, "discovery_setup_candidate_changed")
+            inventory = network.view(network.binding(authority))
+            suggestion = next(item for item in inventory.recommendations if item.id == candidate.id)
+            candidate_observed_at = next(item.observed_at for item in inventory.observations
+                                         if item.id == suggestion.observation_id)
+        else:
+            candidate = next((item for item in observed.candidates if item.id == body.candidate_id and
+                              item.integration_domain == body.integration_domain), None)
+            candidate_observed_at = observed.observed_at
         if candidate is None:
             source = next(item for item in observed.sources if item.id == "ha_discovery")
             raise HTTPException(409 if source.state == "ok" else 503,
@@ -167,6 +184,7 @@ class DiscoverySetups:
                                 "discovery_setup_source_unavailable")
         records = self.records(binding)
         existing = next((item for item in records if item.candidate.id == candidate.id and
+                         item.candidate.source_id == candidate.source_id and
                          item.candidate.integration_domain == candidate.integration_domain), None)
         if existing:
             return self.commit(existing, receipt)
@@ -175,7 +193,7 @@ class DiscoverySetups:
         source = next(item for item in observed.sources if item.id == "ha_integrations")
         now = utcnow()
         record = SetupRecord(id=uuid.uuid4().hex, binding=binding, candidate=candidate,
-            candidate_observed_at=observed.observed_at, created_at=now, updated_at=now,
+            candidate_observed_at=candidate_observed_at, created_at=now, updated_at=now,
             baseline_entry_ids=[item.id for item in observed.integrations if item.domain == candidate.integration_domain],
             baseline_complete=source.state == "ok")
         return self.commit(record, receipt)
@@ -229,10 +247,16 @@ class DiscoverySetups:
                                   retention_days=self.retention_days())
 
     def protect_readback(self, request, authority, binding, records):
+        inventory = self.app.state.network_inventory
+        inventory_binding = inventory.binding(authority)
+        inventory_digest = (inventory.view(inventory_binding).content_digest
+            if any(record.candidate.source_id == "network_inventory" for record in records) else None)
         async def guard():
             await authority.check_owner()
             for record in records:
                 self.revision(self.record(binding, record.id), record.revision)
+            if inventory_digest is not None and inventory.view(inventory_binding).content_digest != inventory_digest:
+                raise HTTPException(409, "inventory_revision_changed")
         request.scope[RESPONSE_GUARD] = guard
 
     async def detail(self, request, identifier):
@@ -247,6 +271,21 @@ class DiscoverySetups:
         candidate_seen = any(item.id == record.candidate.id and
                              item.integration_domain == record.candidate.integration_domain
                              for item in observed.candidates)
+        candidate_source = sources["ha_discovery"]
+        if record.candidate.source_id == "network_inventory":
+            network = self.app.state.network_inventory
+            inventory = network.view(network.binding(authority))
+            candidate_seen = any(item.id == record.candidate.id and
+                                 item.integration_domain == record.candidate.integration_domain
+                                 for item in inventory.recommendations)
+            active = [source for source in inventory.sources if source.state in {"ok", "partial"}]
+            candidate_source = DiscoverySource(id="network_inventory", location="network_inventory",
+                method="local_inventory", target="/api/discovery/inventory",
+                state="ok" if all(source.state == "ok" for source in inventory.sources) else "partial" if active else "unavailable",
+                observed_at=max((source.observed_at for source in inventory.sources if source.observed_at), default=None),
+                item_count=len(inventory.observations), content_digest=inventory.content_digest,
+                reason_code=None if active else "inventory_refresh_required")
+            observed.sources.append(candidate_source)
         options = [DiscoverySetupOption(integration=item, known_before=(True if item.id in record.baseline_entry_ids
                    else False if record.baseline_complete else None)) for item in observed.integrations
                    if item.domain == record.candidate.integration_domain]
@@ -258,7 +297,7 @@ class DiscoverySetups:
         integration_state = ("unselected" if record.selected_entry_id is None else "present" if selected else
                              "not_seen" if sources["ha_integrations"].state == "ok" else "unknown")
         return DiscoverySetupView(setup=self.public(current), observed_at=observed.observed_at,
-            candidate_state="present" if candidate_seen else "not_seen" if sources["ha_discovery"].state == "ok" else "unknown",
+            candidate_state="present" if candidate_seen else "not_seen" if candidate_source.state == "ok" else "unknown",
             integration_state=integration_state, integration=selected, options=options[:100],
             options_truncated=len(options) > 100,
             # Keep only the selected association. Other config-entry IDs can make

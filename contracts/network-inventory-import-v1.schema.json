@@ -1,0 +1,33 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "content": {
+      "maxLength": 65536,
+      "minLength": 1,
+      "title": "Content",
+      "type": "string"
+    },
+    "format": {
+      "enum": [
+        "json",
+        "csv",
+        "dnsmasq"
+      ],
+      "title": "Format",
+      "type": "string"
+    },
+    "label": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+    }
+  },
+  "required": [
+    "format",
+    "label",
+    "content"
+  ],
+  "title": "InventoryImport",
+  "type": "object"
+}

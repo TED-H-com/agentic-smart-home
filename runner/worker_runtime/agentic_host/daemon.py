@@ -12,6 +12,7 @@ import time
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
+from .discovery import Discovery
 from .manager import HostError, Manager, atomic
 from .network import Network
 from .preview import Previews, preview_server
@@ -106,6 +107,7 @@ def serve(path="/run/agentic-home/host.sock"):
     from .coding_service import CodingService
     coding = CodingService(manager)
     network = Network(manager)
+    discovery = Discovery(manager)
     previews = Previews(manager, bundles=coding.root / "web-previews")
     updater = Updater(manager)
     try:
@@ -117,7 +119,8 @@ def serve(path="/run/agentic-home/host.sock"):
         print("Preview listener unavailable; local rescue broker remains active", file=sys.stderr, flush=True)
 
     def service(method, path, body=None):
-        for prefix, handler in (("/coding", coding), ("/network", network), ("/previews", previews), ("/updates", updater)):
+        for prefix, handler in (("/coding", coding), ("/network", network), ("/discovery", discovery),
+                                ("/previews", previews), ("/updates", updater)):
             if path == prefix or path.startswith(prefix + "/"):
                 return handler.handle(method, path, body)
         return None

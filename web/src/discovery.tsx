@@ -2,15 +2,16 @@ import {useEffect,useRef,useState} from 'react';
 import {api,haPath,haTarget} from './api';
 import {Button,Notice,timestamp} from './ui';
 import {TrackingPanel} from './discovery-setup';
+import {NetworkInventory} from './network-inventory';
 import './discovery.css';
 
 type Source = {id:string;state:'ok'|'partial'|'unavailable'|'unsupported'|'not_implemented';truncated:boolean;item_count:number|null;observed_at:string|null;reason_code:string|null};
-type Candidate = {id:string;integration_domain:string;title:string;discovery_method:string;source_id:'ha_discovery';native_path:'/config/integrations'};
+type Candidate = {id:string;integration_domain:string;title:string;discovery_method:string;source_id:'ha_discovery'|'network_inventory';native_path:'/config/integrations'};
 type Device = {id:string;name:string;manufacturer:string|null;model:string|null;via_device_id:string|null;parent_device_id:string|null;integration_ids:string[];disabled:boolean;entity_count:number|null;available_entity_count:number|null};
 type Integration = {id:string;domain:string;title:string;state:'loaded'|'not_loaded'|'retry'|'error'|'disabled'|'ignored'|'unknown'};
 export type DiscoverySnapshot = {contract_version:1;observed_at:string;content_digest:string;native_path:'/config/integrations';sources:Source[];candidates:Candidate[];devices:Device[];integrations:Integration[];limitations:string[]};
 type Snapshot = DiscoverySnapshot;
-const sourceNames:Record<string,string>={ha_discovery:'家庭自動探索',ha_devices:'已登錄設備',ha_entities:'設備功能清單',ha_states:'功能目前狀態',ha_integrations:'已設定整合',ha_config:'家庭連線資料',router_inventory:'路由器設備清單',lan_probe:'內網主動探測',account_inventory:'獨立品牌帳號盤點'};
+const sourceNames:Record<string,string>={ha_discovery:'家庭自動探索',ha_devices:'已登錄設備',ha_entities:'設備功能清單',ha_states:'功能目前狀態',ha_integrations:'已設定整合',ha_config:'家庭連線資料',router_inventory:'路由器設備清單',lan_probe:'內網主動探測',account_inventory:'獨立品牌帳號盤點（另需整合）'};
 const sourceStates:Record<Source['state'],string>={ok:'已讀取',partial:'部分資料',unavailable:'暫時無法讀取',unsupported:'目前無法支援',not_implemented:'尚未接入'};
 const integrationStates:Record<Integration['state'],string>={loaded:'已載入',not_loaded:'尚未載入',retry:'等待重試',error:'設定異常',disabled:'已停用',ignored:'已忽略',unknown:'狀態未知'};
 const discoveryNames:Record<string,string>={zeroconf:'區域網路服務',ssdp:'區域網路服務',dhcp:'網路位址資訊',homekit:'HomeKit',bluetooth:'藍牙',usb:'USB',mqtt:'MQTT',integration_discovery:'家庭整合'};
@@ -22,7 +23,7 @@ const unique=(items:Record<string,unknown>[])=>items.every(item=>isText(item.id)
 
 // Shared field guards keep setup readback and the existing snapshot on the same semantics.
 export const isDiscoverySource=(item:unknown):item is Source=>isRecord(item)&&isText(item.id)&&item.id.length>0&&isText(item.state)&&Object.hasOwn(sourceStates,item.state)&&typeof item.truncated==='boolean'&&count(item.item_count)&&nullableText(item.observed_at)&&nullableText(item.reason_code);
-export const isDiscoveryCandidate=(item:unknown):item is Candidate=>isRecord(item)&&isText(item.id)&&item.id.length>0&&isText(item.title)&&isText(item.integration_domain)&&isText(item.discovery_method)&&item.source_id==='ha_discovery'&&item.native_path==='/config/integrations';
+export const isDiscoveryCandidate=(item:unknown):item is Candidate=>isRecord(item)&&isText(item.id)&&item.id.length>0&&isText(item.title)&&isText(item.integration_domain)&&isText(item.discovery_method)&&['ha_discovery','network_inventory'].includes(String(item.source_id))&&item.native_path==='/config/integrations';
 export const isDiscoveryDevice=(item:unknown):item is Device=>isRecord(item)&&isText(item.id)&&item.id.length>0&&isText(item.name)&&nullableText(item.manufacturer)&&nullableText(item.model)&&nullableText(item.via_device_id)&&nullableText(item.parent_device_id)&&typeof item.disabled==='boolean'&&Array.isArray(item.integration_ids)&&item.integration_ids.every(isText)&&count(item.entity_count)&&count(item.available_entity_count)&&(item.entity_count===null||item.available_entity_count===null||(item.available_entity_count as number)<=(item.entity_count as number));
 export const isDiscoveryIntegration=(item:unknown):item is Integration=>isRecord(item)&&isText(item.id)&&item.id.length>0&&isText(item.title)&&isText(item.domain)&&isText(item.state)&&Object.hasOwn(integrationStates,item.state);
 
@@ -44,7 +45,7 @@ export function parseDiscoverySnapshot(value:unknown):Snapshot{
 }
 
 export function Discovery(){
-  const [data,setData]=useState<Snapshot|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(true),[attempt,setAttempt]=useState(0),[limit,setLimit]=useState(20);
+  const [data,setData]=useState<Snapshot|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(true),[attempt,setAttempt]=useState(0),[limit,setLimit]=useState(20),[networkOpen,setNetworkOpen]=useState(false);
   const initial=useRef<Promise<Snapshot>|null>(null);
   useEffect(()=>{
     let alive=true,inFlight=false;
@@ -81,9 +82,10 @@ export function Discovery(){
             return <li key={device.id}><strong>{device.name}</strong><p>{[device.manufacturer,device.model].filter(Boolean).join(' · ')||'品牌與型號尚無資料'}{device.disabled?' · 已停用':''}</p>{(device.via_device_id||device.parent_device_id)&&<p>經由 {parent?.name||'其他設備'} 連接</p>}<p>{device.entity_count===null?'功能數量尚無資料':`${device.entity_count} 個功能`}{device.available_entity_count!==null?` · ${device.available_entity_count} 個顯示可用狀態`:' · 可用狀態尚未取得'}</p>{device.integration_ids.length>0&&<p>整合：{device.integration_ids.map(id=>{const integration=integrations.get(id);return integration?`${integration.title||integration.domain}（${integrationStates[integration.state]}）`:'尚無資料'}).join('、')}</p>}</li>;
           })}</ul>{data.devices.length>limit&&<Button secondary onClick={()=>setLimit(value=>value+20)}>再顯示 20 台</Button>}</>}
         </details>
-        <details><summary>盤點範圍與來源</summary><p>目前依據家庭提供的資料；探索範圍取決於網路與已設定整合。</p><ul className="discovery-sources">{data.sources.map(source=><li key={source.id}><span>{sourceNames[source.id]||'其他來源'}</span><span>{sourceStates[source.state]}{source.truncated?' · 清單已截短':''}</span></li>)}</ul><p className="helper-text">更新於 {timestamp(data.observed_at)}；返回此頁時自動讀取。</p><details><summary>技術資料</summary><p>觀測識別：<code>{data.content_digest}</code></p>{data.limitations.length>0&&<ul>{data.limitations.map((reason,index)=><li key={index}><code>{reason}</code></li>)}</ul>}{data.sources.filter(source=>source.reason_code).map(source=><p key={source.id}>{sourceNames[source.id]||source.id}：<code>{source.reason_code}</code></p>)}</details></details>
+        <details><summary>盤點範圍與來源</summary><p>目前依據家庭提供的資料；探索範圍取決於網路與已設定整合。</p><ul className="discovery-sources">{data.sources.filter(source=>!['router_inventory','lan_probe'].includes(source.id)).map(source=><li key={source.id}><span>{sourceNames[source.id]||'其他來源'}</span><span>{sourceStates[source.state]}{source.truncated?' · 清單已截短':''}</span></li>)}</ul><p className="helper-text">更新於 {timestamp(data.observed_at)}；返回此頁時自動讀取。</p><details><summary>技術資料</summary><p>觀測識別：<code>{data.content_digest}</code></p>{data.limitations.length>0&&<ul>{data.limitations.map((reason,index)=><li key={index}><code>{reason}</code></li>)}</ul>}{data.sources.filter(source=>source.reason_code).map(source=><p key={source.id}>{sourceNames[source.id]||source.id}：<code>{source.reason_code}</code></p>)}</details></details>
       </div>
     </>}
-    <TrackingPanel candidates={data?.candidates||[]}/>
+    <NetworkInventory onOpenChange={setNetworkOpen}/>
+    {!networkOpen&&<TrackingPanel candidates={data?.candidates||[]}/>}
   </section>;
 }
