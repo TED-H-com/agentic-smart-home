@@ -1,0 +1,24 @@
+{
+  "stage": "home-worker-haos",
+  "commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+  "status": "passed",
+  "started": "2026-10-17T17:28:15.104125+00:00",
+  "finished": "2026-10-17T17:35:44.498018+00:00",
+  "public_channel_test": false,
+  "junit": {
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "tests": 114
+  },
+  "excluded_cli_probes": {
+    "grok": "not_run: owner instruction"
+  },
+  "cleanup": {
+    "owned_resources_absent": true,
+    "disk_basetemp_removed": true,
+    "filesystem": "ext4",
+    "scope": "known_test_name_prefixes_only"
+  },
+  "original_junit_sha256": "d04116ebbfc4f89f47f2e70eebd4c85e19e0b2ed6e011373b42a56523d9db47c"
+}

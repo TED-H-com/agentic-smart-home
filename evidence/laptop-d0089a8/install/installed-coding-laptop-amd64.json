@@ -1,0 +1,13 @@
+{
+  "observed_from": "disposable_installed_linux_vm",
+  "cloud_account": "not_used",
+  "status": "passed",
+  "actual_cli": "0.157.1",
+  "independent_verifier": "passed",
+  "source_unchanged": true,
+  "private_credentials_not_exposed": true,
+  "stopped_workspaces_reclaimed": true,
+  "duration_seconds": 9.2,
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "b5a2d38365c02a5139a2f678008b14c0eca6c378f347dac42b86ba83c8c4369b"
+}

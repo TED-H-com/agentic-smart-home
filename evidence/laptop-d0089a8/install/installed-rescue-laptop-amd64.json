@@ -1,0 +1,8 @@
+{
+  "runtime_location": "disposable_outer_linux_vm",
+  "controller_stopped": true,
+  "support_bundle": "created",
+  "cloud_login": "not_run",
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "86bd951275af61cd5fd04d3f4a8b8fb3d2afa80ec6e42b77ec2be5338291c539"
+}

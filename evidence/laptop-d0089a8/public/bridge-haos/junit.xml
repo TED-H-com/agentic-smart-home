@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites>
+  <testsuite name="bridge-haos" time="774.466" failures="0" errors="0" skipped="0" tests="40">
+    <testcase name="case-00001" classname="bridge-haos" time="773.907" />
+    <testcase name="case-00002" classname="bridge-haos" time="0.004" />
+    <testcase name="case-00003" classname="bridge-haos" time="0.018" />
+    <testcase name="case-00004" classname="bridge-haos" time="0.044" />
+    <testcase name="case-00005" classname="bridge-haos" time="0.031" />
+    <testcase name="case-00006" classname="bridge-haos" time="0.001" />
+    <testcase name="case-00007" classname="bridge-haos" time="0.027" />
+    <testcase name="case-00008" classname="bridge-haos" time="0.029" />
+    <testcase name="case-00009" classname="bridge-haos" time="0.019" />
+    <testcase name="case-00010" classname="bridge-haos" time="0.001" />
+    <testcase name="case-00011" classname="bridge-haos" time="0.02" />
+    <testcase name="case-00012" classname="bridge-haos" time="0.001" />
+    <testcase name="case-00013" classname="bridge-haos" time="0.001" />
+    <testcase name="case-00014" classname="bridge-haos" time="0.107" />
+    <testcase name="case-00015" classname="bridge-haos" time="0.026" />
+    <testcase name="case-00016" classname="bridge-haos" time="0.001" />
+    <testcase name="case-00017" classname="bridge-haos" time="0.001" />
+    <testcase name="case-00018" classname="bridge-haos" time="0.014" />
+    <testcase name="case-00019" classname="bridge-haos" time="0.001" />
+    <testcase name="case-00020" classname="bridge-haos" time="0.001" />
+    <testcase name="case-00021" classname="bridge-haos" time="0.018" />
+    <testcase name="case-00022" classname="bridge-haos" time="0.001" />
+    <testcase name="case-00023" classname="bridge-haos" time="0.002" />
+    <testcase name="case-00024" classname="bridge-haos" time="0.0" />
+    <testcase name="case-00025" classname="bridge-haos" time="0.0" />
+    <testcase name="case-00026" classname="bridge-haos" time="0.0" />
+    <testcase name="case-00027" classname="bridge-haos" time="0.0" />
+    <testcase name="case-00028" classname="bridge-haos" time="0.0" />
+    <testcase name="case-00029" classname="bridge-haos" time="0.0" />
+    <testcase name="case-00030" classname="bridge-haos" time="0.0" />
+    <testcase name="case-00031" classname="bridge-haos" time="0.0" />
+    <testcase name="case-00032" classname="bridge-haos" time="0.0" />
+    <testcase name="case-00033" classname="bridge-haos" time="0.0" />
+    <testcase name="case-00034" classname="bridge-haos" time="0.0" />
+    <testcase name="case-00035" classname="bridge-haos" time="0.0" />
+    <testcase name="case-00036" classname="bridge-haos" time="0.0" />
+    <testcase name="case-00037" classname="bridge-haos" time="0.0" />
+    <testcase name="case-00038" classname="bridge-haos" time="0.0" />
+    <testcase name="case-00039" classname="bridge-haos" time="0.022" />
+    <testcase name="case-00040" classname="bridge-haos" time="0.056" />
+  </testsuite>
+</testsuites>

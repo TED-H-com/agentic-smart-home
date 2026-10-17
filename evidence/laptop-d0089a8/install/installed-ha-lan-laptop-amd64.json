@@ -1,0 +1,53 @@
+{
+  "kind": "real_installed_haos_wired_lan",
+  "result": "passed",
+  "network": "synthetic_tap_inside_owned_docker_namespace",
+  "physical_household": "not_run",
+  "model_provider": "not_run",
+  "fixture_protocol": "homekit_mdns_advertisement_only",
+  "iso_sha256": "b9e6f5b40af8eaec3a3ab2998366b6c67e6b92662ff31b8dc023aa39692ee0ca",
+  "outer_reboot_observation": {
+    "boot_id_changed": true,
+    "service_active_in_new_boot": true,
+    "reboot_requests": 1,
+    "observations": 28,
+    "unavailable_observations": 14,
+    "same_boot_observations": 6,
+    "new_boot_not_ready_observations": 6,
+    "request_result": "accepted",
+    "duration_seconds": 197
+  },
+  "owner": {
+    "native_owner_fixture": true,
+    "product_owner_connection": true
+  },
+  "initial": {
+    "management_reachable": true,
+    "dhcp_ipv4": true,
+    "ipv6_ra": true,
+    "lan_default_gateway": true,
+    "management_gateway_absent": true,
+    "native_discovery_adapter_auto": true,
+    "native_mdns_flow_observed": true,
+    "product_observation_ready": true,
+    "native_callback_reachable_from_lan_peer": true
+  },
+  "removed": {
+    "management_reachable": true,
+    "nat_gateway_restored": true,
+    "lan_nic_removed": true
+  },
+  "after_outer_reboot": {
+    "management_reachable": true,
+    "dhcp_ipv4": true,
+    "ipv6_ra": true,
+    "lan_default_gateway": true,
+    "management_gateway_absent": true,
+    "native_discovery_adapter_auto": true,
+    "native_mdns_flow_observed": true,
+    "product_observation_ready": true,
+    "native_callback_reachable_from_lan_peer": true
+  },
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "902caa46bbe1f959d9cfc999c847c4ddf074caab396ed55537bf98c9d0c322e7"
+}

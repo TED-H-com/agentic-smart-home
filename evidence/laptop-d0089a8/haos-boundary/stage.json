@@ -1,0 +1,24 @@
+{
+  "stage": "haos-boundary",
+  "commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+  "status": "passed",
+  "started": "2026-10-17T17:35:44.842215+00:00",
+  "finished": "2026-10-17T17:39:29.893285+00:00",
+  "public_channel_test": false,
+  "junit": {
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "tests": 2
+  },
+  "excluded_cli_probes": {
+    "grok": "not_run: owner instruction"
+  },
+  "cleanup": {
+    "owned_resources_absent": true,
+    "disk_basetemp_removed": true,
+    "filesystem": "ext4",
+    "scope": "known_test_name_prefixes_only"
+  },
+  "original_junit_sha256": "2c127d48f481a35b62828e674054108aa5c5edbd3e966eab374c740d5dc704a3"
+}

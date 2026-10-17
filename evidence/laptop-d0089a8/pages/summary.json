@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "kind": "public_pages_verification",
+  "status": "passed",
+  "repository": "TED-H-com/agentic-smart-home",
+  "version": "0.10.0",
+  "product_source_commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+  "deployment_commit": "8be5a8269809a3a3c3c9ca745bc49e5d3953909f",
+  "verified_git_tree": "5a90e8fad7497957beef658d136eafbb6b4493bc",
+  "canonical_url": "https://ted-h-com.github.io/agentic-smart-home/",
+  "workflow_run_id": 39057021400,
+  "workflow_run_url": "https://github.com/TED-H-com/agentic-smart-home/actions/runs/39057021400",
+  "deployment_id": 7143686749,
+  "started_at": "2026-10-17T18:16:49.398697Z",
+  "finished_at": "2026-10-17T18:17:11.481750Z",
+  "passed_checks": [
+    "exact-deploy-checkout-artifact-and-published-bytes",
+    "landing-all-ten-screens",
+    "native-home-1440",
+    "integration-added-without-ai-grant",
+    "fictional-network-discovery",
+    "assistant-exact-proposal",
+    "host-wired-lan-readback",
+    "native-home-390",
+    "mobile-drawer-escape"
+  ],
+  "viewports_px": [
+    1440,
+    390
+  ],
+  "temporary_browser_workspace_removed": true,
+  "limits": {
+    "data": "fictional",
+    "ha_screen": "simulation",
+    "official_ha_frontend_runtime": false,
+    "physical_household_acceptance": false,
+    "real_cloud_accounts": "not_run",
+    "native_windows_downloader": "not_run",
+    "actual_grok_cli": "not_run: owner instruction"
+  },
+  "source_receipt_sha256": "273d5a03a953fa7f6a4bf80d212cebba17bc858fb7afdc5363f8347a0755591a"
+}

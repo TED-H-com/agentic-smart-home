@@ -1,0 +1,48 @@
+{
+  "kind": "real_haos_home_worker_enable",
+  "status": "passed",
+  "delivery": "local_git_daemon_exact_head_stable_branch",
+  "observed_from": "supervisor_git_store_outer_controller_and_app_container",
+  "target": "disposable_official_haos_vm",
+  "method": "one_click_enable_cold_partial_backup_full_host_reboot",
+  "haos_image": "18.3",
+  "phase": "completion",
+  "source_commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+  "core": "2026.10.2",
+  "supervisor": "2026.10.2",
+  "duration_seconds": 816.958,
+  "limitations": [
+    "no_cloud_login_model_or_coding_executed",
+    "inference_is_protocol_fixture",
+    "host_contract_is_unix_socket_fixture",
+    "builder_and_pinned_bases_preloaded_registry_not_blocked",
+    "local_git_transport_not_github"
+  ],
+  "checks": {
+    "exact_head": true,
+    "stable_branch_is_exact_head": true,
+    "supervisor_healthy": true,
+    "pinned_bases_preloaded": true,
+    "bridge_auto_enroll": true,
+    "bridge_heartbeat": true,
+    "home_worker_enable": true,
+    "login_ready_contract": true,
+    "shared_repository": true,
+    "real_app_contract": true,
+    "persisted_record": true,
+    "tls_fingerprint": true,
+    "container_contract": true,
+    "cold_backup": true,
+    "full_reboot": true,
+    "recovery_identity": true
+  },
+  "cleanup": {
+    "outer_removed": true,
+    "git_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "b15bfc95e2caf554000ac4d4ba90a9b6e574abe7e16569cf7325045c6d25ad79"
+}

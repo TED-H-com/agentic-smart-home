@@ -1,0 +1,10 @@
+{
+  "app": "bridge",
+  "reader_uid": 10003,
+  "status": "passed",
+  "scope": "Actual packaged public-file DAC and imports; no service startup or real-account acceptance",
+  "image_id": "sha256:14a0868ed7797ed0589b3369fb7e1007d089ff253a173af57922d2dc7b10d39f",
+  "uid": 10003,
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "b2152b16a2dd08b31bd1ea650a7e446db06c46325d4bc222b6e74f3a0e5d55bf"
+}

@@ -1,0 +1,29 @@
+{
+  "kind": "real_haos_sidebar_bridge",
+  "haos_image": "18.3",
+  "status": "passed",
+  "delivery": "local_source_fixture",
+  "observed_from": "haos_app_via_core_ingress_to_outer_pinned_tls",
+  "inference": "protocol_fixture_no_cloud_account",
+  "outer_source_commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+  "outer_source_uncommitted": false,
+  "phase": "native_stop_respected",
+  "core": "2026.10.2",
+  "supervisor": "2026.10.2",
+  "product_status": "passed",
+  "cleanup_status": "passed",
+  "duration_seconds": 452.952,
+  "checks": {
+    "supervisor_app_contract": true,
+    "service_heartbeat_without_owner_capability": true,
+    "ingress_native_identity_overrides_forged_header": true,
+    "direct_app_forged_header_denied": true,
+    "wrong_tls_pin_denied_and_recovered": true,
+    "same_outer_case_and_deduplicated_conversation": true,
+    "host_management_and_cross_origin_denied": true,
+    "app_restart_preserves_options_and_outer_case": true,
+    "manual_stop_remains_stopped": true
+  },
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "cd143d72510fa8c08b2ef601178e6568b107deda50cebd8ad769486bd98750fd"
+}

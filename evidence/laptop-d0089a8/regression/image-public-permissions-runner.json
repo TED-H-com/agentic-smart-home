@@ -1,0 +1,10 @@
+{
+  "app": "runner",
+  "reader_uid": 10000,
+  "status": "passed",
+  "scope": "Actual packaged public-file DAC and imports; no service startup or real-account acceptance",
+  "image_id": "sha256:bd7052a4631327ae42525a6843dade35cf23b961e2da2a4d9badf269121a610e",
+  "uid": 10000,
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "0e57f1815a8742113ec530388de6161464116d28266f64999fc17c4a7d01d93c"
+}

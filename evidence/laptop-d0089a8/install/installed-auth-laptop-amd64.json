@@ -1,0 +1,16 @@
+{
+  "host_login": "passed",
+  "authenticated_host_api": "passed",
+  "automatic_runner_pairing": "passed",
+  "desktop_single_use_login": "passed",
+  "bootstrap_get_has_no_side_effect": "passed",
+  "vm_observed": "not_created",
+  "hermes_service": "needs_auth",
+  "coding_without_login": "blocked_no_execution",
+  "cloud_login": "not_run",
+  "excluded_cli_probes": {
+    "grok": "not_run: owner instruction"
+  },
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "dde6cae66cf5e89d4d1a12cc6944e73cb75ffc147c363aa7316e4f2be80f65cb"
+}

@@ -1,0 +1,47 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites>
+  <testsuite name="enable" time="818.648" failures="0" errors="0" skipped="0" tests="42">
+    <testcase name="case-00001" classname="enable" time="817.124" />
+    <testcase name="case-00002" classname="enable" time="0.008" />
+    <testcase name="case-00003" classname="enable" time="0.0" />
+    <testcase name="case-00004" classname="enable" time="0.0" />
+    <testcase name="case-00005" classname="enable" time="0.0" />
+    <testcase name="case-00006" classname="enable" time="0.0" />
+    <testcase name="case-00007" classname="enable" time="0.0" />
+    <testcase name="case-00008" classname="enable" time="0.004" />
+    <testcase name="case-00009" classname="enable" time="0.0" />
+    <testcase name="case-00010" classname="enable" time="0.0" />
+    <testcase name="case-00011" classname="enable" time="0.0" />
+    <testcase name="case-00012" classname="enable" time="0.0" />
+    <testcase name="case-00013" classname="enable" time="0.0" />
+    <testcase name="case-00014" classname="enable" time="0.0" />
+    <testcase name="case-00015" classname="enable" time="0.0" />
+    <testcase name="case-00016" classname="enable" time="0.0" />
+    <testcase name="case-00017" classname="enable" time="0.0" />
+    <testcase name="case-00018" classname="enable" time="0.0" />
+    <testcase name="case-00019" classname="enable" time="0.0" />
+    <testcase name="case-00020" classname="enable" time="0.0" />
+    <testcase name="case-00021" classname="enable" time="0.0" />
+    <testcase name="case-00022" classname="enable" time="0.0" />
+    <testcase name="case-00023" classname="enable" time="0.0" />
+    <testcase name="case-00024" classname="enable" time="0.0" />
+    <testcase name="case-00025" classname="enable" time="0.0" />
+    <testcase name="case-00026" classname="enable" time="0.115" />
+    <testcase name="case-00027" classname="enable" time="0.002" />
+    <testcase name="case-00028" classname="enable" time="0.001" />
+    <testcase name="case-00029" classname="enable" time="0.0" />
+    <testcase name="case-00030" classname="enable" time="0.0" />
+    <testcase name="case-00031" classname="enable" time="0.0" />
+    <testcase name="case-00032" classname="enable" time="0.0" />
+    <testcase name="case-00033" classname="enable" time="0.0" />
+    <testcase name="case-00034" classname="enable" time="0.0" />
+    <testcase name="case-00035" classname="enable" time="1.127" />
+    <testcase name="case-00036" classname="enable" time="0.0" />
+    <testcase name="case-00037" classname="enable" time="0.0" />
+    <testcase name="case-00038" classname="enable" time="0.0" />
+    <testcase name="case-00039" classname="enable" time="0.0" />
+    <testcase name="case-00040" classname="enable" time="0.0" />
+    <testcase name="case-00041" classname="enable" time="0.0" />
+    <testcase name="case-00042" classname="enable" time="0.0" />
+  </testsuite>
+</testsuites>

@@ -1,0 +1,10 @@
+{
+  "app": "controller",
+  "reader_uid": 1000,
+  "status": "passed",
+  "scope": "Actual packaged public-file DAC and imports; no service startup or real-account acceptance",
+  "image_id": "sha256:0bf64937a53550d536cf8c630070309429c2a33a360d164af23d4cc4ce7bdeed",
+  "uid": 1000,
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "32168cea2688e1e965d658666547b513beb0b57fbd9eb6752d7aa6486cb32557"
+}

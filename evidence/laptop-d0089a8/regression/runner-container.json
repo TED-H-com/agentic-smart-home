@@ -1,0 +1,12 @@
+{
+  "structured_output": "passed",
+  "tls_pin_and_pairing": "passed",
+  "uid_and_secret_isolation": "passed",
+  "inference": "local protocol fixture; no cloud account",
+  "image": "sha256:bd7052a4631327ae42525a6843dade35cf23b961e2da2a4d9badf269121a610e",
+  "excluded_cli_probes": {
+    "grok": "not_run: owner instruction"
+  },
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "a7b63c4a7d45f11e592933cf386a298ff0e8777210b72f78d3829a3528b264f8"
+}

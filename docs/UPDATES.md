@@ -4,7 +4,7 @@ HA 保留官方更新；外層負責本產品的受測發行與已授權智能�
 
 Host 的 Controller 更新不會自動更新側欄 App 或 Home worker App。兩者的信任 repository 都是 `https://github.com/TED-H-com/agentic-smart-home#stable`（發布時 `stable` 指到與 `release/X.Y.Z` 相同的 commit），版本都來自 `agentic_controller.VERSION`。同一 repository 上較舊的安裝進入 `update_available`，Owner 以無 body 的 `POST /api/host/bridge/maintenance/update` 或 `POST /api/host/home-worker/maintenance/update` 更新到恰好該版本。商店 `version_latest` 較高時是 `*_release_ahead`，不安裝也不更新；較低時重新載入商店一次，仍較低則 `waiting`／`*_release_not_published`。舊的 `#release/X.Y.Z` 是另一個 App slug，進入 `needs_reconcile`／`*_release_channel_changed`，須在 HA 手動移除舊 App 再從管理中心啟用。不會自動解除安裝、加入 repository 或重裝，也不改權限或 options，沒有自動退版。真實 Supervisor 從 0.9.0 更新到下一版仍是 `not_run`。
 
-0.10.0 候選包含新的 Host 收集器及安裝前檢查，需要同版完整媒體；Controller-only 更新不能把舊 0.9.0 主機升成完整 0.10.0。當 `#stable` 推進到 0.10.0，舊 0.9.0 ISO 的新安裝可能遇到 `*_release_ahead` 而無法首次安裝 Apps。新主機須使用發布頁上已通過驗證的同版媒體；維護者必須先完成媒體與公開來源配套核對，再把它交給使用者。已使用的主機不得以再次 `host/install.py --apply` 代替升級。
+0.10.0 包含新的 Host 收集器及安裝前檢查，需要同版完整媒體；Controller-only 更新不能把舊 0.9.0 主機升成完整 0.10.0。當 `#stable` 推進到 0.10.0，舊 0.9.0 ISO 的新安裝可能遇到 `*_release_ahead` 而無法首次安裝 Apps。新主機須使用發布頁上已通過驗證的同版媒體；維護者必須先完成媒體與公開來源配套核對，再把它交給使用者。已使用的主機不得以再次 `host/install.py --apply` 代替升級。
 
 公開來源 `53c9e79` 的 `#stable` 商店 slug、側欄 App 與 Home worker 共用 repository，已在真 HAOS 的 [第二輪公開交付](reviews/2026-10-16-PUBLIC-DELIVERY-53c9e79.md) 核對通過。該工程案例預載受測 base 映像，Host 能力與模型是 fixture，沒有登入真雲端帳號；不是跨版本更新或 Owner 家庭驗收。
 
@@ -46,7 +46,7 @@ sudo agentic-home update-publisher-add --publisher example --repository ghcr.io/
 
 固定 updater 停止 Controller，核對沒有活動／未確認的 household、Hermes、worker 工作、lease 或尚未核對的 Supervisor App 操作，保存 SQLite 一致快照。候選在無家庭資料的結構性 DB 與隔離 probe 中檢查；正式切換受 updater gate 保護，不能在健康檢查途中透過 Web 恢復 AI 或派新工作。
 
-0.10.0 候選的固定 updater 同時核對側欄與 Home worker 的持久維護紀錄；即使 App 已停用，尚未清除的操作仍阻擋切換與失敗回復。畸形紀錄也會阻擋，不會當成閒置。已安裝的 0.9.0 Host 更新器沒有因此自動升級；這項修正由新 Host 媒體交付，候選媒體的實際驗證另記；單換 Controller image 不會套用。
+0.10.0 的固定 updater 同時核對側欄與 Home worker 的持久維護紀錄；即使 App 已停用，尚未清除的操作仍阻擋切換與失敗回復。畸形紀錄也會阻擋，不會當成閒置。已安裝的 0.9.0 Host 更新器沒有因此自動升級；這項修正由新 Host 媒體交付，精確媒體的實際驗證見 [驗證紀錄](VERIFICATION.md)；單換 Controller image 不會套用。
 
 啟動後實際驗證 HTTP、Owner session、版本、HA／Runner 與 pause 狀態。失敗時切回前 image；較晚發現問題時，「退回前一版本」產生新的精確批准。退版保留目前 Live DB，不能拿部署前備份蓋掉新家庭操作。schema 或其他 runtime 已改變時拒絕同格式退版；狀態不確定時保留 `needs_reconcile`。
 
@@ -93,4 +93,4 @@ agentic-home wait --id <原工作id>
 - 選擇停用或「登出此主機」会撤銷本產品管理的節點登入，不能只是隱藏設定。既有非本產品管理的 Tailscale 身份不被接管。
 - SSH forwarding 同時包含管理中心 8099、HA 8123、PNG 預覽 127.0.0.2:8100。本機 console 与 localhost Web 保留救援用途。
 
-真 tailnet 帳號、遠端 ACL 與失網現場驗收仍須另測；官方套件 hash／簽署來源驗證不能取代真帳號連線證據。0.10.0 候選的有線 HAOS 接入需獨立媒體／平台驗證；mDNS、Matter、USB 與實體網卡仍按個別家庭場景驗收。
+真 tailnet 帳號、遠端 ACL 與失網現場驗收仍須另測；官方套件 hash／簽署來源驗證不能取代真帳號連線證據。0.10.0 的有線 HAOS 接入有獨立媒體／平台工程紀錄，見 [驗證紀錄](VERIFICATION.md)；mDNS、Matter、USB 與實體網卡仍按個別家庭場景驗收。

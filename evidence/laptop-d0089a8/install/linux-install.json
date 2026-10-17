@@ -1,0 +1,51 @@
+{
+  "kind": "real_linux_install_nested_kvm",
+  "profile": "laptop-amd64",
+  "base": "Ubuntu 24.04.5",
+  "iso_sha256": "b9e6f5b40af8eaec3a3ab2998366b6c67e6b92662ff31b8dc023aa39692ee0ca",
+  "installed_version": "0.10.0",
+  "source_commit": "d0089a80e358cbd776a89327f0e58bfba68c671b",
+  "host_coding": "passed",
+  "controller_update_rollback": "passed",
+  "runtime_location": "disposable_outer_linux_vm",
+  "model_backend": "coding_transport_fixture",
+  "ha_backend": "nested_official_haos",
+  "device_kind": "none",
+  "installation": "passed",
+  "firstboot": "passed",
+  "haos_vm_running": true,
+  "live_hardware_preflight_executed": true,
+  "wired_lan_qualification": "passed",
+  "outer_ui_with_haos_off": true,
+  "cold_snapshot_restore": "passed",
+  "firstboot_without_haos": true,
+  "hermes_service_without_account": "needs_auth",
+  "console_rescue_with_controller_stopped": "passed",
+  "desktop_single_use_login": "passed",
+  "bootstrap_get_has_no_side_effect": "passed",
+  "outer_reboot_haos_autostart": "passed",
+  "duration_seconds": 4096,
+  "physical_laptop": "not_run",
+  "cloud_login": "not_run",
+  "excluded_cli_probes": {
+    "grok": "not_run: owner instruction"
+  },
+  "outer_reboot_observation": {
+    "boot_id_changed": true,
+    "service_active_in_new_boot": true,
+    "reboot_requests": 1,
+    "observations": 37,
+    "unavailable_observations": 22,
+    "same_boot_observations": 7,
+    "new_boot_not_ready_observations": 6,
+    "request_result": "accepted",
+    "duration_seconds": 257
+  },
+  "fixture_resources": {
+    "guest_memory_mib": 10240,
+    "container_memory_gib": 16,
+    "container_memory_and_swap_gib": 24
+  },
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "4c3686b82ea293338e84a22a54c1ba4fe2f35dfaae9e208bef80d416561ae93d"
+}

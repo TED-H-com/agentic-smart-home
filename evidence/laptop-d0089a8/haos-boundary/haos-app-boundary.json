@@ -1,0 +1,12 @@
+{
+  "observed_from": "real_haos_app",
+  "haos_image": "18.3",
+  "cloud_account": "not_used",
+  "runner_coding_executed": false,
+  "observed_profiles": [
+    "narrow_sys_admin",
+    "protected_baseline"
+  ],
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "6eaa336a0aa03f0a19c21d8d13024795224af12e9930a11a2c719dd31bbbd91a"
+}

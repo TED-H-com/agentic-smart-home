@@ -1,0 +1,10 @@
+{
+  "app": "hermes",
+  "reader_uid": 10003,
+  "status": "passed",
+  "scope": "Actual packaged public-file DAC and imports; no service startup or real-account acceptance",
+  "image_id": "sha256:f337f19350f0c11b908ffdcfafa6d04da6029a249b3b1cb412563a4c7fe67391",
+  "uid": 10003,
+  "projection": "allowlisted_summary; raw diagnostics and identities omitted; original retained privately",
+  "original_input_sha256": "63f9de97a4b1f84ef7f13830b66fb5635bf88f4715ccad2f2fda1ba3f1873d26"
+}

@@ -15,13 +15,13 @@ USB 開機 → Linux 安裝／連網 → Web
 
 ## 安裝與網路
 
-0.10.0 候選整合 [多來源設備探索](DEVICE_DISCOVERY.md)：家庭綁定後，可在「設備」或管家的「分享探索結果」查看 HA 候選，並在「探索更多設備」選主機實體 IPv4 網路收集鄰居表／mDNS／SSDP，或匯入路由器清單。觀測附來源、時間與建議，接入追蹤可跨重新整理接續；原生 HA 登入／配對後，明確選取整合並讀回設備及狀態。分享只把選取項目帶入可編輯草稿，不增加 AI 控制權限。新媒體尚待驗證，既有 0.9.0 ISO 沒有這些增量。
+0.10.0 整合 [多來源設備探索](DEVICE_DISCOVERY.md)：家庭綁定後，可在「設備」或管家的「分享探索結果」查看 HA 候選，並在「探索更多設備」選主機實體 IPv4 網路收集鄰居表／mDNS／SSDP，或匯入路由器清單。觀測附來源、時間與建議，接入追蹤可跨重新整理接續；原生 HA 登入／配對後，明確選取整合並讀回設備及狀態。分享只把選取項目帶入可編輯草稿，不增加 AI 控制權限。精確媒體與公開 App 的工程結果見 [驗證紀錄](VERIFICATION.md)，既有 0.9.0 ISO 沒有這些增量。
 
 0.10.0 公共 ISO 在 Ubuntu 磁碟設定前檢查 CPU 架構、實際 RAM 與 KVM；硬體不符合時顯示原因並停止，不先寫入安裝磁碟。通過後由 Ubuntu 安裝器處理網路、磁碟及 Linux 身份；選定目標後自動完成套件、桌面、產品服務與外層配對。公共媒體不預選要清除的磁碟、不內嵌通用密碼。Linux 桌面登入後自動開啟 Web，使用本機 Owner 的 120 秒一次性票據登入；Controller 的私有票據檔只保存 hash；家目錄0700目錄中的0600暫時 HTML 傳遞票據並在120秒後清除，程序參數不含 bearer，浏览器立即清除 fragment，票據不進 storage。其他 Linux 帳號或遠端瀏覽器仍使用明確的金鑰登入。初次 firstboot 只啟動外層；HAOS 由後續 onboarding 自動啟動，故內層未準備好不阻擋外層登入。
 
 專用筆電第一次安裝應接 AC 電源與有線家庭主網路，先選 Web 通道完成管家與家庭，再接其他通訊。firstboot 需要下載桌面與 Firefox；沒有外網時不會憑空完成桌面，Wi-Fi 驅動、斷線恢復與合蓋行為仍需實機確認。
 
-0.10.0 候選在首次設定、按「開始設定」之前提供「先設定家庭區網（有線設備探索）」；Owner 選擇目前啟用的實體有線介面後保存，HAOS 建立時增加第二張家庭 NIC，原管理 NIC 保留。未選擇維持基本 NAT。已建立的家庭須正常關機後在主機維護切換，再啟動並核對 HAOS／HA 的實際讀回；新接線本身不代表設備已通，見 [家庭區網接入](HA_LAN.md)。
+0.10.0 在首次設定、按「開始設定」之前提供「先設定家庭區網（有線設備探索）」；Owner 選擇目前啟用的實體有線介面後保存，HAOS 建立時增加第二張家庭 NIC，原管理 NIC 保留。未選擇維持基本 NAT。已建立的家庭須正常關機後在主機維護切換，再啟動並核對 HAOS／HA 的實際讀回；新接線本身不代表設備已通，見 [家庭區網接入](HA_LAN.md)。
 
 主機的 network.ready 是外層預設路由觀測，並不宣稱雲端一定可用。真正下載、OAuth 和推論各自驗證對外連線。固定 IP、Tailscale 或公開網路位址尚不自動設定；現有 Web 維持 loopback／SSH tunnel 的可用路徑，不自動把管理介面曝露到網際網路。
 
@@ -100,6 +100,6 @@ Controller 使用與側欄相同的發行 repository。商店沒有 `agentic_run
 
 只有這次安裝留下的預設停止狀態會被啟動一次。之後觀察到停止、移除，或 options／權限被改過，分別是 `user_disabled`、`user_removed`、`user_modified`，tick 不再啟動或重裝。`POST .../disable` 只停止觀察，不解除安裝、不取消配對、不刪除 `/data/coding-auth`。`POST .../repair` 是 Owner 明確重試：狀態正常時不動作；否則從 repository 階段重新讀取，最多重新安裝一次被移除的 App，或啟動一次權限與 options 都仍是預設的停止 App。它不會改權限、連接埠或 options。Supervisor 回報仍在執行的 job（例如 HAOS 本機建置映像）最多等 60 分鐘；沒有 job 可觀察的操作仍是 10 分鐘。商店有無 App 以 `GET /store/addons` 清單判斷，因為 Core WebSocket 代理不回傳 404。
 
-尚未配對的 HAOS App 會把 `pairing_fingerprint` 與 `pairing_code` 寫進自己的 options，並仍把配對 JSON 印在 App 記錄。Controller 只對 `192.168.177.2:8443` 使用讀到的指紋配對；配對碼不進入維護紀錄、狀態回應或 Controller 日誌。App 在 TLS 監聽前就會發布配對，所以連線失敗會在 120 秒寬限內重試，不算配對碼被拒；寬限後才使用唯一一次 App 重啟。配對後把 options 清回 `{}` 並核對權限沒有變。已用手動 JSON 配對過的 App（options 為 `{}`、`runner_haos` 指向同一位址）直接進入登入階段，由能力輪詢核對 TLS 指紋。發布的指紋與舊 `runner_haos` 不同時，表示這是沒有 Controller 的新 App，會以新指紋重新配對。寬限後仍沒有發布配對時，原因是 `home_worker_pairing_not_published`：可能已配對到另一個 Controller，或 Supervisor 拒絕 self-options；不會打開 `hassio_api`，可用 App 記錄的配對 JSON 手動恢復。這條 self-options 與公開啟用路徑已有 0.9.0 的真 HAOS 工程證據，見 [驗證紀錄](VERIFICATION.md)；0.10.0 需依自己的候選來源與公開渠道重驗。
+尚未配對的 HAOS App 會把 `pairing_fingerprint` 與 `pairing_code` 寫進自己的 options，並仍把配對 JSON 印在 App 記錄。Controller 只對 `192.168.177.2:8443` 使用讀到的指紋配對；配對碼不進入維護紀錄、狀態回應或 Controller 日誌。App 在 TLS 監聽前就會發布配對，所以連線失敗會在 120 秒寬限內重試，不算配對碼被拒；寬限後才使用唯一一次 App 重啟。配對後把 options 清回 `{}` 並核對權限沒有變。已用手動 JSON 配對過的 App（options 為 `{}`、`runner_haos` 指向同一位址）直接進入登入階段，由能力輪詢核對 TLS 指紋。發布的指紋與舊 `runner_haos` 不同時，表示這是沒有 Controller 的新 App，會以新指紋重新配對。寬限後仍沒有發布配對時，原因是 `home_worker_pairing_not_published`：可能已配對到另一個 Controller，或 Supervisor 拒絕 self-options；不會打開 `hassio_api`，可用 App 記錄的配對 JSON 手動恢復。這條 self-options 與公開啟用路徑已有 0.9.0 的真 HAOS 工程證據，見 [驗證紀錄](VERIFICATION.md)；0.10.0 的同版來源與公開渠道另有獨立紀錄，見同頁 0.10.0 節。
 
 配對完成後狀態是 `login_ready`。畫面沿用既有 `POST /api/workers/home-coder/providers/codex/auth`。維護程式不呼叫登入 API，不複製 Host、Hermes 或 `home_operator` 憑證，也不建立 `inference-verified.json`。能力回報 `home-coder`／`haos_app`／available，且憑證狀態已是 `configured` 或 `inference_verified` 時，狀態才成為 `ready`。已登入但能力回報不可用時是 `unavailable`／`home_worker_runtime_blocked`；Runner 連不上時是 `unavailable`／`home_worker_worker_unavailable`。這兩種都不顯示登入。`configured` 不會被改寫成 `inference_verified`。同一 `#stable` 渠道上較舊的已安裝版本是 `update_available`，App 繼續跑；在 Owner 呼叫無 body 的 `POST /api/host/home-worker/maintenance/update` 之前，不重啟、不配對、不清 options、不輪詢登入。商店較新是 `home_worker_release_ahead`，較舊會重新載入一次，仍較舊則 `waiting`／`home_worker_release_not_published`。舊 `#release/X.Y.Z` 是另一個 slug，`needs_reconcile`／`home_worker_release_channel_changed`，不會自動解除安裝或加入 repository；解除安裝會刪除 `/data`，包括 `/data/coding-auth`。請在 HA 移除舊 App 後再從管理中心啟用。`user_disabled`、`user_removed`、`user_modified` 不會被主機更新改寫。當機的 App 是 `degraded`；明確 `POST .../restart` 在 `worker_lease` 或 `worker_auth_pending` 存在時拒絕。更新進行中若有 coding lease 或登入 barrier，回 409 `home_worker_busy`，不送出更新。Supervisor 不健康、owner 失效、AI 暫停或更新閘門存在時，不對 Supervisor 送出 POST。
