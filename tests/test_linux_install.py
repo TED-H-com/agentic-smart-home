@@ -11,6 +11,7 @@ import shlex
 import stat
 import subprocess
 import sys
+import textwrap
 import time
 import uuid
 from pathlib import Path
@@ -393,13 +394,111 @@ def native_api_probe_script(base, timeout):
             "else:\n raise AssertionError('native_auth_api_expected')\n")
 
 
-def installed_lan(ssh, container, phase, image_ids):
+def lan_callback_probe_script(base):
+    """Observe the unchanged single request; retain its original exception."""
+    return "import errno,json,urllib.error\ndef check():\n" + textwrap.indent(
+        native_api_probe_script(base, 10), " ") + '''
+try:
+ check()
+except Exception as error:
+ reason = error.reason if isinstance(error, urllib.error.URLError) else error
+ if isinstance(reason, TimeoutError):
+  code = 'socket_timeout'
+ elif isinstance(reason, OSError) and reason.errno == errno.ECONNREFUSED:
+  code = 'connection_refused'
+ elif isinstance(reason, OSError) and reason.errno in {errno.ENETUNREACH, errno.EHOSTUNREACH}:
+  code = 'network_unreachable'
+ elif isinstance(error, AssertionError):
+  code = 'unexpected_http_status'
+ else:
+  code = 'unexpected_error'
+ print(json.dumps({'schema':1,'kind':'installed_ha_lan_callback','status':'failed','error_code':code}),flush=True)
+ raise
+else:
+ print(json.dumps({'schema':1,'kind':'installed_ha_lan_callback','status':'passed','error_code':None}),flush=True)
+'''
+
+
+def lan_callback_diagnostics(raw, *, succeeded):
+    """Only a flat finite receipt is accepted, never HTTP output or URLs."""
+    if not isinstance(raw, (str, bytes)) or len(raw) > 2048:
+        return None
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate_key")
+            result[key] = value
+        return result
+    def reject_constant(value):
+        raise ValueError("nonfinite_json")
+    try:
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        if len(raw.encode("utf-8")) > 2048:
+            return None
+        value = json.loads(raw, object_pairs_hook=unique, parse_constant=reject_constant)
+    except (UnicodeError, ValueError, TypeError, RecursionError):
+        return None
+    if (not isinstance(value, dict) or set(value) != {"schema", "kind", "status", "error_code"}
+            or type(value["schema"]) is not int or value["schema"] != 1
+            or value["kind"] != "installed_ha_lan_callback"
+            or value["status"] != ("passed" if succeeded else "failed")):
+        return None
+    code = value["error_code"]
+    if ((succeeded and code is not None) or (not succeeded and (not isinstance(code, str)
+            or code not in {"socket_timeout", "connection_refused", "network_unreachable",
+                            "unexpected_http_status", "unexpected_error"}))):
+        return None
+    return {"status": value["status"], "error_code": code}
+
+
+def lan_partial_path(request, profile):
+    """Keep incomplete observations outside all distributable source inputs."""
+    assert profile in {"laptop-amd64", "server-amd64"}
+    xml = getattr(getattr(request.config, "option", None), "xmlpath", None)
+    directory = Path(xml).expanduser().resolve().parent if xml else ROOT / "build"
+    if directory.is_relative_to(ROOT.resolve()):
+        directory = ROOT / "build"
+    return directory / ("installed-ha-lan-partial-" + profile + ".json")
+
+
+def retain_lan_partial(path, value):
+    """Atomic private checkpoint; a failed diagnostic write never replaces cause."""
+    temporary = path.with_name(path.name + ".partial-" + uuid.uuid4().hex)
+    try:
+        raw = json.dumps(value, indent=2).encode() + b"\n"
+        assert len(raw) <= 8192
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(descriptor, "wb") as output:
+            output.write(raw)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+        descriptor = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        return True
+    except Exception:
+        return False
+    finally:
+        with contextlib.suppress(OSError):
+            temporary.unlink(missing_ok=True)
+
+
+def installed_lan(ssh, container, phase, image_ids, *, partial_path, profile, iso_hash):
     """Actual second physical-from-guest NIC, native discovery, reboot, removal."""
     report = {"kind": "real_installed_haos_wired_lan", "result": "running", "images": image_ids,
               "network": "synthetic_tap_inside_owned_docker_namespace", "physical_household": "not_run",
               "model_provider": "not_run", "fixture_protocol": "homekit_mdns_advertisement_only"}
     source = (ROOT / "tests/installed_ha_lan_probe.py").read_text()
     compose = "sudo docker compose -f /opt/agentic-home/host/compose.yaml"
+    assert profile in {"laptop-amd64", "server-amd64"} and re.fullmatch(r"[a-f0-9]{64}", iso_hash)
+    partial = {"schema": 1, "kind": "installed_ha_lan_partial", "status": "incomplete", "complete": False,
+               "profile": profile, "iso_sha256": iso_hash, "stages": {}}
+    retain_lan_partial(partial_path, partial)
 
     def probe(stage):
         result = command(*ssh, compose + " exec -T -e AGENTIC_LAN_PROBE_PHASE=" + stage + " controller python -",
@@ -420,8 +519,14 @@ def installed_lan(ssh, container, phase, image_ids):
                 return False
         assert wait_until(ready, 900), "native_core_api_unavailable"
 
-    def callback(observation):
-        url = observation.pop("callback_url")
+    def callback(observation, stage):
+        native = {name: observation.get(name) for name in (
+            "management_reachable", "dhcp_ipv4", "ipv6_ra", "lan_default_gateway", "management_gateway_absent",
+            "native_discovery_adapter_auto", "native_mdns_flow_observed", "product_observation_ready")}
+        assert all(value is True for value in native.values())
+        partial["stages"][stage] = {"native": native, "callback": {"status": "pending", "error_code": None}}
+        retain_lan_partial(partial_path, partial)
+        url = observation["callback_url"]
         # Only the synthetic peer namespace contacts this observed fixture URL.
         from urllib.parse import urlsplit
 
@@ -430,10 +535,24 @@ def installed_lan(ssh, container, phase, image_ids):
         parsed = urlsplit(url)
         assert (re.fullmatch(r"198\.18\.42\.(?:1[0-4][0-9]|150)", parsed.hostname or "")
                 and callback_address_matches(url, [parsed.hostname]))
-        script = native_api_probe_script(url, 10)
-        command("docker", "exec", "-i", container, "python3", "-", input=script, timeout=20)
-        observation["native_callback_reachable_from_lan_peer"] = True
-        return observation
+        script = lan_callback_probe_script(url)
+        try:
+            output = command("docker", "exec", "-i", container, "python3", "-", input=script, timeout=20)
+            diagnostic = lan_callback_diagnostics(output, succeeded=True)
+            assert diagnostic is not None, "lan_callback_diagnostic_invalid"
+        except Exception as error:
+            diagnostic = None
+            if isinstance(error, subprocess.CalledProcessError):
+                diagnostic = lan_callback_diagnostics(error.stdout, succeeded=False)
+            code = "peer_process_timeout" if isinstance(error, subprocess.TimeoutExpired) else "peer_process_failed"
+            partial["stages"][stage]["callback"] = diagnostic or {"status": "failed", "error_code": code}
+            if not retain_lan_partial(partial_path, partial):
+                with contextlib.suppress(Exception):
+                    error.add_note("Private LAN partial observation could not be retained.")
+            raise
+        partial["stages"][stage]["callback"] = diagnostic
+        retain_lan_partial(partial_path, partial)
+        return {**native, "native_callback_reachable_from_lan_peer": True}
 
     phase("wired_lan_native_owner_fixture")
     report["owner"] = probe("onboard")
@@ -448,14 +567,17 @@ def installed_lan(ssh, container, phase, image_ids):
     phase("wired_lan_native_checks")
     initial = probe("wired")
     phase("wired_lan_initial_callback")
-    report["initial"] = callback(initial)
+    report["initial"] = callback(initial, "initial")
     phase("wired_lan_outer_reboot")
     report["outer_reboot_observation"] = reboot_outer(ssh, 900)
+    partial["outer_reboot_observation"] = {name: report["outer_reboot_observation"].get(name) is True
+                                          for name in ("boot_id_changed", "service_active_in_new_boot")}
+    retain_lan_partial(partial_path, partial)
     wait_native("wired_lan_after_outer_reboot")
     phase("wired_lan_after_reboot_native_checks")
     after_reboot = probe("wired")
     phase("wired_lan_after_reboot_callback")
-    report["after_outer_reboot"] = callback(after_reboot)
+    report["after_outer_reboot"] = callback(after_reboot, "after_outer_reboot")
     phase("wired_lan_remove_and_restore_nat")
     command(*ssh, "agentic-home shutdown", timeout=240)
     command(*ssh, "agentic-home configure_lan --disable-lan", timeout=180)
@@ -1063,7 +1185,8 @@ print(json.dumps(json.load(o.open(base+'/api/hermes'))['runtime']['upstream_comm
         assert policy_result.returncode == 0 and policy_probe.get("excluded_cli_probes") == {
             "grok": "not_run: owner instruction"}, policy_probe
         wait_ha("nested_haos_after_outer_reboot")
-        lan_report = installed_lan(ssh, name, phase, lan_images)
+        lan_report = installed_lan(ssh, name, phase, lan_images,
+                                   partial_path=lan_partial_path(request, profile), profile=profile, iso_hash=iso_hash)
         lan_report["iso_sha256"] = iso_hash
         (ROOT / "evidence" / ("installed-ha-lan-" + profile + ".json")).write_text(json.dumps(lan_report, indent=2) + "\n")
         evidence = {"kind": "real_linux_install_nested_kvm", "profile": profile, "base": "Ubuntu 24.04.5",
