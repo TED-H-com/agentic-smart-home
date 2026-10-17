@@ -3,6 +3,7 @@
 import hashlib
 import io
 import json
+import os
 import ssl
 import tarfile
 import tempfile
@@ -65,7 +66,7 @@ def download(tmp_path, monkeypatch):
     scratch.mkdir()
     lock_path = tmp_path / "hermes.lock.json"
     state = SimpleNamespace(destination=tmp_path / "extracted", events=[], calls=[], waits=[],
-                            opened=[], scratch=scratch, temporary_paths=[], now=NOW)
+                            opened=[], scratch=scratch, temporary_paths=[], now=NOW, cache=tmp_path / "archive-cache")
 
     def use_archive(entries=None):
         state.body = archive_bytes(entries or [(ROOT, tarfile.DIRTYPE),
@@ -75,8 +76,9 @@ def download(tmp_path, monkeypatch):
         state.events = [Response(state.body)]
 
     def temporary(**kwargs):
-        assert kwargs == {"dir": "/opt"}
-        directory = original_temporary(dir=scratch)
+        assert set(kwargs) == {"dir"}
+        assert kwargs["dir"] == "/opt" or Path(kwargs["dir"]).is_relative_to(tmp_path)
+        directory = original_temporary(dir=scratch if kwargs["dir"] == "/opt" else kwargs["dir"])
         state.temporary_paths.append(Path(directory.name))
         return directory
 
@@ -281,3 +283,181 @@ def test_invalid_tar_with_valid_digest_is_not_retried(download):
         download.fetch()
     assert len(download.calls) == 1 and download.waits == []
     assert download.opened[0].closed
+
+
+def cache_path(download):
+    return download.cache / (hashlib.sha256(download.body).hexdigest() + ".tar.gz")
+
+
+def cache_archive(download, body=None):
+    download.cache.mkdir()
+    path = cache_path(download)
+    path.write_bytes(download.body if body is None else body)
+    return path
+
+
+def test_verified_cache_hit_extracts_without_network_and_does_not_modify_cache(download):
+    cached = cache_archive(download)
+    original = cached.read_bytes()
+    download.events = []
+    source.fetch(download.destination, cache_dir=download.cache)
+    assert_verified(download, 0)
+    assert cached.read_bytes() == original
+    assert list(download.cache.iterdir()) == [cached]
+
+
+@pytest.mark.parametrize("cached_body", [b"corrupt archive", b"", b"partial gzip"])
+def test_corrupt_read_only_cache_falls_back_without_writing_or_unlinking_cache(download, cached_body, monkeypatch):
+    cached = cache_archive(download, cached_body)
+    original_open, original_unlink = Path.open, Path.unlink
+
+    def guarded_open(path, mode="r", *args, **kwargs):
+        assert not (path.is_relative_to(download.cache) and any(flag in mode for flag in "wax+"))
+        return original_open(path, mode, *args, **kwargs)
+
+    def guarded_unlink(path, *args, **kwargs):
+        assert not path.is_relative_to(download.cache)
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", guarded_open)
+    monkeypatch.setattr(Path, "unlink", guarded_unlink)
+    source.fetch(download.destination, cache_dir=download.cache)
+    assert_verified(download, 1)
+    assert cached.read_bytes() == cached_body
+
+
+def test_missing_cache_directory_can_be_consumed_without_creating_it(download):
+    source.fetch(download.destination, cache_dir=download.cache)
+    assert_verified(download, 1)
+    assert not download.cache.exists()
+
+
+def test_cache_replacement_after_copy_cannot_change_bytes_extracted(download, monkeypatch):
+    cached = cache_archive(download)
+    original_digest = source._digest
+
+    def digest_then_change_cache(archive):
+        result = original_digest(archive)
+        cached.write_bytes(b"replaced after copying to private scratch")
+        return result
+
+    monkeypatch.setattr(source, "_digest", digest_then_change_cache)
+    source.fetch(download.destination, cache_dir=download.cache)
+    assert_verified(download, 0)
+
+
+def test_host_population_atomically_publishes_only_verified_bytes(download, monkeypatch):
+    replace = source.os.replace
+    published = []
+
+    def checked_replace(temporary, destination):
+        assert temporary.parent.parent == download.cache
+        assert hashlib.sha256(temporary.read_bytes()).hexdigest() == destination.stem.removesuffix(".tar")
+        assert destination == cache_path(download) and not destination.exists()
+        published.append(destination)
+        replace(temporary, destination)
+
+    monkeypatch.setattr(source.os, "replace", checked_replace)
+    assert source.populate_cache(download.cache) == cache_path(download)
+    assert published == [cache_path(download)]
+    assert list(download.cache.iterdir()) == published
+    assert cache_path(download).read_bytes() == download.body
+    assert not download.destination.exists()
+    assert len(download.calls) == 1
+
+
+def test_host_population_verified_hit_needs_no_network_or_replace(download, monkeypatch):
+    cached = cache_archive(download)
+    download.events = []
+    monkeypatch.setattr(source.os, "replace", lambda *_args: pytest.fail("verified cache rewritten"))
+    assert source.populate_cache(download.cache) == cached
+    assert download.calls == []
+
+
+def test_host_population_repairs_corruption_after_bounded_retry(download):
+    cached = cache_archive(download, b"corrupt")
+    download.events.insert(0, http_error(429))
+    source.populate_cache(download.cache)
+    assert cached.read_bytes() == download.body
+    assert len(download.calls) == 2 and download.waits == [5]
+
+
+@pytest.mark.parametrize("failure", ["digest", "retry_exhausted", "partial", "publish"])
+def test_failed_host_population_leaves_no_unverified_archive_or_partial_file(download, failure, monkeypatch):
+    if failure == "digest":
+        download.events = [Response(download.body + b"changed")]
+        expected = ValueError
+    elif failure == "retry_exhausted":
+        download.events = [http_error(429) for _ in range(3)]
+        expected = HTTPError
+    elif failure == "partial":
+        download.events = [Response(b"incomplete archive", TimeoutError("fixture interrupted transfer"))]
+        expected = TimeoutError
+    else:
+        def fail_publish(*_args):
+            raise OSError("fixture cache disk full")
+        monkeypatch.setattr(source.os, "replace", fail_publish)
+        expected = OSError
+    with pytest.raises(expected):
+        source.populate_cache(download.cache)
+    assert not list(download.cache.iterdir())
+    assert not download.destination.exists()
+    assert len(download.calls) == (3 if failure == "retry_exhausted" else 1)
+
+
+@pytest.mark.parametrize("kind", ["file_symlink", "directory_symlink", "fifo"])
+def test_cache_refuses_symlink_or_nonregular_inputs_without_network(download, kind):
+    download.cache.mkdir()
+    if kind == "file_symlink":
+        target = download.scratch / "outside"
+        target.write_bytes(download.body)
+        cache_path(download).symlink_to(target)
+    elif kind == "directory_symlink":
+        download.cache.rmdir()
+        download.cache.symlink_to(download.scratch, target_is_directory=True)
+    else:
+        os.mkfifo(cache_path(download))
+    try:
+        with pytest.raises((ValueError, OSError)):
+            source.fetch(download.destination, cache_dir=download.cache)
+        assert not download.calls and not download.destination.exists()
+    finally:
+        if kind == "file_symlink":
+            target.unlink()
+
+
+def test_cached_archive_still_applies_extraction_path_guards(download):
+    download.use_archive([(ROOT + "/../escaped", tarfile.REGTYPE)])
+    cache_archive(download)
+    with pytest.raises(ValueError, match="Unsafe source path"):
+        source.fetch(download.destination, cache_dir=download.cache)
+    assert not download.calls
+    assert not (download.destination.parent / "escaped").exists()
+    assert not (download.destination / ".agentic-commit").exists()
+
+
+@pytest.mark.parametrize("digest", ["../escape", "A" * 64, "a" * 63, None])
+def test_cache_key_requires_exact_lock_sha_before_any_download(download, digest):
+    path = Path(source.__file__).with_name("hermes.lock.json")
+    path.write_text(json.dumps({**LOCK, "sha256": digest}))
+    with pytest.raises(ValueError, match="archive digest"):
+        source.populate_cache(download.cache)
+    assert not download.calls and not download.cache.exists()
+
+
+def test_download_only_cli_populates_cache_without_extracting(download):
+    source.main(["--cache-dir", str(download.cache), "--download-only"])
+    assert cache_path(download).read_bytes() == download.body
+    assert not download.destination.exists()
+
+
+def test_identity_cli_has_no_network_or_cache_side_effect(download, capsys):
+    source.main(["--print-sha256"])
+    assert capsys.readouterr().out == hashlib.sha256(download.body).hexdigest() + "\n"
+    assert not download.calls and not download.cache.exists()
+
+
+def test_download_only_requires_explicit_writable_cache(download):
+    with pytest.raises(SystemExit) as error:
+        source.main(["--download-only"])
+    assert error.value.code == 2 and not download.calls
