@@ -163,6 +163,42 @@ def command(*args, **kwargs):
     return subprocess.run(args, check=True, capture_output=True, text=True, **kwargs).stdout.strip()
 
 
+def lan_probe_diagnostics(output, expected_phase):
+    """Accept only the fixed probe's bounded failure contract, never its streams."""
+    from installed_ha_lan_probe import validate_failure
+
+    if isinstance(output, bytes):
+        if len(output) > 8192:
+            return None
+        try:
+            output = output.decode("utf-8")
+        except UnicodeError:
+            return None
+    if not isinstance(output, str) or len(output) > 8192:
+        return None
+    try:
+        if len(output.encode()) > 8192:
+            return None
+    except UnicodeError:
+        return None
+
+    def unique_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate_key")
+            result[key] = value
+        return result
+
+    try:
+        value = validate_failure(json.loads(output, object_pairs_hook=unique_object))
+    except (ValueError, TypeError, RecursionError):
+        return None
+    if value is None or value["phase"] != expected_phase:
+        return None
+    return value
+
+
 def observe_outer_boot(ssh, timeout, *, run=None):
     """One fixed read-only probe; transport loss and malformed output are not ready."""
     run = run or subprocess.run
@@ -291,8 +327,12 @@ def installed_lan(ssh, container, phase, image_ids):
         url = observation.pop("callback_url")
         # Only the synthetic peer namespace contacts this observed fixture URL.
         from urllib.parse import urlsplit
+
+        from installed_ha_lan_probe import callback_address_matches
+
         parsed = urlsplit(url)
-        assert parsed.scheme == "http" and re.fullmatch(r"198\.18\.42\.(?:1[0-4][0-9]|150)", parsed.hostname or "")
+        assert (re.fullmatch(r"198\.18\.42\.(?:1[0-4][0-9]|150)", parsed.hostname or "")
+                and callback_address_matches(url, [parsed.hostname]))
         script = native_api_probe_script(url, 10)
         command("docker", "exec", "-i", container, "python3", "-", input=script, timeout=20)
         observation["native_callback_reachable_from_lan_peer"] = True
@@ -308,16 +348,23 @@ def installed_lan(ssh, container, phase, image_ids):
     command(*ssh, "agentic-home configure_lan --interface-id " + choices[0]["id"], timeout=180)
     command(*ssh, "agentic-home start", timeout=120)
     wait_native("wired_lan_guest_boot")
-    report["initial"] = callback(probe("wired"))
+    phase("wired_lan_native_checks")
+    initial = probe("wired")
+    phase("wired_lan_initial_callback")
+    report["initial"] = callback(initial)
     phase("wired_lan_outer_reboot")
     report["outer_reboot_observation"] = reboot_outer(ssh, 900)
     wait_native("wired_lan_after_outer_reboot")
-    report["after_outer_reboot"] = callback(probe("wired"))
+    phase("wired_lan_after_reboot_native_checks")
+    after_reboot = probe("wired")
+    phase("wired_lan_after_reboot_callback")
+    report["after_outer_reboot"] = callback(after_reboot)
     phase("wired_lan_remove_and_restore_nat")
     command(*ssh, "agentic-home shutdown", timeout=240)
     command(*ssh, "agentic-home configure_lan --disable-lan", timeout=180)
     command(*ssh, "agentic-home start", timeout=120)
     wait_native("nat_after_wired_lan_removal")
+    phase("nat_native_checks")
     report["removed"] = probe("nat")
     report["result"] = "passed"
     return report
@@ -424,7 +471,10 @@ def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run):
     from installed_update_probe import LIFECYCLE_ACTIONS, lifecycle_receipt, process_diagnostics
 
     stdout, stderr = getattr(exc, "stdout", "") or "", getattr(exc, "stderr", "") or ""
-    process = subprocess.CompletedProcess([], getattr(exc, "returncode", None), stdout, stderr)
+    # Keep the original exception intact, including malformed private streams.
+    process = subprocess.CompletedProcess([], getattr(exc, "returncode", None),
+        stdout.encode(errors="replace") if isinstance(stdout, str) else stdout,
+        stderr.encode(errors="replace") if isinstance(stderr, str) else stderr)
     result = {"phase": phase, "error_type": type(exc).__name__ if type(exc).__name__ in {
         "CalledProcessError", "TimeoutExpired", "AssertionError", "JSONDecodeError", "TypeError"} else "OtherError",
         "process": process_diagnostics(process), "remote": "not_attempted"}
@@ -435,6 +485,11 @@ def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run):
         result["timeout_seconds"] = exc.timeout
     args = getattr(exc, "cmd", ())
     remote_command = args[-1] if isinstance(args, (tuple, list)) and args and isinstance(args[-1], str) else ""
+    lan_probe = re.fullmatch(
+        r"sudo docker compose -f /opt/agentic-home/host/compose\.yaml exec -T "
+        r"-e AGENTIC_LAN_PROBE_PHASE=(onboard|wired|nat) controller python -", remote_command)
+    if lan_probe and (native := lan_probe_diagnostics(stdout, lan_probe[1])) is not None:
+        result["native_lan"] = native
     action = next((item for item in LIFECYCLE_ACTIONS if (item != "configure_lan" and remote_command == "agentic-home " + item) or
                    (item == "restore" and remote_command.startswith("agentic-home restore --snapshot ")) or
                    (item == "configure_lan" and re.fullmatch(
@@ -442,7 +497,7 @@ def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run):
     result["lifecycle_action"] = action
     output = stdout.decode(errors="replace") if isinstance(stdout, bytes) else stdout
     receipt = None
-    if isinstance(output, str) and len(output.encode()) <= 65536:
+    if not lan_probe and isinstance(output, str) and len(output.encode()) <= 65536:
         try:
             receipt = lifecycle_receipt(json.loads(output[output.index("{"):]))
         except (ValueError, TypeError, AttributeError):

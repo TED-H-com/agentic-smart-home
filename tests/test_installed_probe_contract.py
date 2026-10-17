@@ -615,6 +615,81 @@ def test_lan_diagnostics_do_not_infer_action_from_malformed_or_extended_commands
     assert "private" not in json.dumps(result)
 
 
+def lan_failure_payload():
+    return {"kind": "installed_ha_lan_probe", "status": "failed", "phase": "wired",
+            "error_code": "probe_deadline_exceeded", "checks": {}}
+
+
+def test_native_lan_failure_receipt_survives_without_private_process_streams(tmp_path):
+    from test_linux_install import record_install_failure
+
+    value = lan_failure_payload()
+    command = ("sudo docker compose -f /opt/agentic-home/host/compose.yaml exec -T "
+               "-e AGENTIC_LAN_PROBE_PHASE=wired controller python -")
+    error = subprocess.CalledProcessError(1, ["ssh", "fixture", command], output=json.dumps(value),
+                                         stderr="private traceback and fixture credentials")
+    report = tmp_path / "failure.json"
+    result = record_install_failure(error, "wired_lan_native_checks", report, None)
+    assert result["native_lan"] == value
+    assert result["process"]["returncode"] == 1 and result["lifecycle_action"] is None
+    assert json.loads(report.read_text()) == result
+    assert "private" not in report.read_text() and "fixture credentials" not in report.read_text()
+    assert error.stderr == "private traceback and fixture credentials"
+
+
+@pytest.mark.parametrize("fault", ["duplicate", "nested_duplicate", "oversize", "multibyte_oversize",
+                                   "invalid_utf8", "surrogate", "deep_nesting", "wrong_phase", "not_json"])
+def test_native_lan_failure_parser_rejects_ambiguous_or_unbounded_streams(fault):
+    from test_linux_install import lan_probe_diagnostics
+
+    value = json.dumps(lan_failure_payload())
+    outputs = {
+        "duplicate": value[:-1] + ', "phase": "wired"}',
+        "nested_duplicate": value.replace('"checks": {}', '"checks": {"private": true, "private": false}'),
+        "oversize": " " * 8193 + value,
+        "multibyte_oversize": '"' + "測" * 3000 + '"',
+        "invalid_utf8": b"\xff",
+        "surrogate": "\ud800",
+        "deep_nesting": "[" * 2000 + "0" + "]" * 2000,
+        "wrong_phase": value.replace('"wired"', '"nat"'),
+        "not_json": "private raw output",
+    }
+    assert lan_probe_diagnostics(outputs[fault], "wired") is None
+
+
+@pytest.mark.parametrize("command", [
+    "agentic-home configure_lan --disable-lan",
+    "sudo docker compose -f /private/compose.yaml exec -T -e AGENTIC_LAN_PROBE_PHASE=wired controller python -",
+    "sudo docker compose -f /opt/agentic-home/host/compose.yaml exec -T -e AGENTIC_LAN_PROBE_PHASE=nat controller python -",
+    "sudo docker compose -f /opt/agentic-home/host/compose.yaml exec -T -e AGENTIC_LAN_PROBE_PHASE=wired controller python -; private",
+])
+def test_native_lan_failure_is_bound_to_exact_probe_invocation(tmp_path, command):
+    from test_linux_install import record_install_failure
+
+    error = subprocess.CalledProcessError(1, ["ssh", "fixture", command], output=json.dumps(lan_failure_payload()))
+    result = record_install_failure(error, "wired_lan_native_checks", tmp_path / "failure.json", None)
+    assert "native_lan" not in result
+    assert "private" not in json.dumps(result)
+
+
+@pytest.mark.parametrize("output", ["\ud800", '{"x":' * 1100 + '0' + '}' * 1100,
+                                    b"\xff", "private raw output", " " * 8193])
+def test_malformed_native_lan_output_cannot_discard_failure_receipt(tmp_path, output):
+    from test_linux_install import record_install_failure
+
+    command = ("sudo docker compose -f /opt/agentic-home/host/compose.yaml exec -T "
+               "-e AGENTIC_LAN_PROBE_PHASE=wired controller python -")
+    error = subprocess.CalledProcessError(1, ["ssh", "fixture", command], output=output,
+                                         stderr="private\ud800")
+    report = tmp_path / "failure.json"
+    result = record_install_failure(error, "wired_lan_native_checks", report, None)
+    assert result["process"]["returncode"] == 1
+    assert result["lifecycle_action"] is None and result["lifecycle_receipt"] is None
+    assert "native_lan" not in result and "private" not in report.read_text()
+    assert json.loads(report.read_text()) == result
+    assert error.stdout == output and error.stderr == "private\ud800"
+
+
 def test_remote_failure_observation_is_readonly_bounded_and_redacted(update_probe, monkeypatch):
     import sys
 
