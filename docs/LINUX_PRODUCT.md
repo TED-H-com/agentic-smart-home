@@ -38,7 +38,7 @@ Owner 呼叫 provision 後，broker 建立並啟動固定 VM `agentic-home-haos`
 
 guest 使用 non-secure OVMF、qcow2／virtio-scsi／virtio-net，預設 2 vCPU／4 GiB RAM／64 GiB sparse disk。成功 provision 後才有 libvirt autostart；未建立 HAOS 的外層重啟不會突然建立 guest。ACPI shutdown 等待 180 秒，逾時不強制斷電。
 
-loopback proxy 8123 → guest:80 保留 WebSocket，不偽造 HA 身份。NAT 不提供 LAN multicast discovery；profile manager 不自動建立實體 Ethernet bridge 或認領 USB。真 HAOS 18.3 App 已測到限定 `SYS_ADMIN`／AppArmor 診斷設定下的 cgroup 委派與記憶體 OOM；Home launcher、credential／LAN／管理隔離仍需交付。`host_network:false` 或未給 HA API token 不能直接證明 App 無法連其他內部服務，詳見 [Home 邊界證據](WORKERS.md#home-app-的實測範圍)。
+loopback proxy 8123 → guest:80 保留 WebSocket，不偽造 HA 身份。NAT 不提供 LAN multicast discovery；主機盤點改由外層 broker 在 Owner 選定的實體 IPv4 介面收集鄰居表、mDNS／SSDP，結果可用於原生設定交接，但不代表 HA 自身取得 multicast 或所有設備可通。路由器匯出清單可補充來源，見 [設備探索](DEVICE_DISCOVERY.md)。profile manager 不自動建立實體 Ethernet bridge 或認領 USB。真 HAOS 18.3 App 已測到限定 `SYS_ADMIN`／AppArmor 診斷設定下的 cgroup 委派與記憶體 OOM；Home launcher、credential／LAN／管理隔離仍需交付。`host_network:false` 或未給 HA API token 不能直接證明 App 無法連其他內部服務，詳見 [Home 邊界證據](WORKERS.md#home-app-的實測範圍)。
 
 冷快照正常關機後複製磁碟＋UEFI，計算 SHA-256 後寫 manifest。restore 先驗 ownership／digest／關機狀態，記錄 `restore_pending`；中断可對同一 snapshot 核對／續作，不啟動半還原 VM。還原較舊 guest 後需 reconcile 較新的 Controller ledger，資料還原不能撤回物理動作。
 

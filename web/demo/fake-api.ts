@@ -2,6 +2,7 @@ import fixtures from '../preview/fixtures.json';
 import {sha256} from '@noble/hashes/sha2.js';
 import type {DemoHome,DemoModel,DemoSurface} from './model';
 import {setupRequests} from './discovery-setup';
+import {inventoryRequests} from './network-inventory';
 
 export const AGENTIC_DEMO_BUILD='fictional-browser-only-v1';
 export const fixtureClock='2026-10-13T09:00:00+08:00';
@@ -59,7 +60,9 @@ export function createDemoModel():DemoModel{
   const messages:Row[]=data['gateway/messages'].messages;
   let serial=10;
   const nextId=(length:number)=>(serial++).toString(16).padStart(length,'0');
+  const inventoryRequest=inventoryRequests(data,time);
   const setupRequest=setupRequests(data,nextId,time);
+  const entityDevices=new Map<string,string>(data.inventory.entities.map((item:Row,index:number)=>[item.entity_id,`demo-device-${index}`]));
   function proposal(title:string,mode='upsert',automation?:Row):Row{
     const id='demo-task-'+serial++,rule=clone(automation?.intent||intent);rule.title=title;
     const final=compile(rule,automation?.id||'agentic_'+id);
@@ -89,6 +92,7 @@ export function createDemoModel():DemoModel{
   function home():DemoHome{
     return clone({devices:data.inventory.entities,
       candidates:data.discovery.candidates,
+      inventorySuggestions:data.networkInventory.recommendations.filter((item:Row)=>!data.discovery.integrations.some((entry:Row)=>entry.id===`demo-network-entry-${item.id}`)),
       integrations:data.discovery.integrations.map((item:Row)=>({...item,device_count:data.discovery.devices.filter((device:Row)=>device.integration_ids.includes(item.id)).length})),
       automations:data.automations.automations.map((item:Row)=>({id:item.id,title:item.intent.title,enabled:item.enabled}))});
   }
@@ -106,6 +110,16 @@ export function createDemoModel():DemoModel{
     device.observed_at=time();publish();
   }
   function connectCandidate(id:string){
+    const network=data.networkInventory.recommendations.find((item:Row)=>item.id===id);
+    if(network){
+      const entry=`demo-network-entry-${id}`;
+      if(data.discovery.integrations.some((item:Row)=>item.id===entry))return;
+      data.discovery.integrations.push({id:entry,domain:network.integration_domain,title:network.title,state:'loaded',source_id:'ha_integrations'});
+      data.discovery.devices.push({id:`demo-network-device-${id}`,name:network.title,manufacturer:'示範品牌',model:'虛構設備',via_device_id:null,parent_device_id:null,integration_ids:[entry],disabled:false,entity_count:1,available_entity_count:1,source_id:'ha_devices'});
+      const entityId=`sensor.demo_network_${data.discovery.devices.length}`;entityDevices.set(entityId,`demo-network-device-${id}`);
+      data.inventory.entities.push({entity_id:entityId,name:network.title,domain:'sensor',area:'客廳',state:'online',availability:'available',actions:[],observed_at:time()});
+      refreshDiscovery();publish();return;
+    }
     const candidate=data.discovery.candidates.find((item:Row)=>item.id===id);
     if(!candidate||id!=='demo-pending')return;
     const entry='demo-bridge-integration';
@@ -116,18 +130,22 @@ export function createDemoModel():DemoModel{
       {...base,id:'demo-desk-device',name:'書桌燈',via_device_id:'demo-bridge',entity_count:1,available_entity_count:1});
     data.inventory.entities.push({entity_id:'light.demo_desk',name:'書桌燈',domain:'light',area:'客廳',state:'off',brightness:60,availability:'available',actions:['turn_on','turn_off'],observed_at:time()});
     // Discovery never grants the assistant read/write permission for this new entity.
+    entityDevices.set('light.demo_desk','demo-desk-device');refreshDiscovery();publish();
+  }
+  function refreshDiscovery(){
     const canonical=(value:any):string=>Array.isArray(value)?`[${value.map(canonical).join(',')}]`:value&&typeof value==='object'?`{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`:JSON.stringify(value);
     const digest=(value:unknown)=>hash(new TextEncoder().encode(canonical(value)));
     const values:Row={ha_discovery:data.discovery.candidates,ha_devices:data.discovery.devices,ha_integrations:data.discovery.integrations,
-      ha_entities:data.inventory.entities.map((item:Row,index:number)=>({id:item.entity_id,device_id:index===3?'demo-desk-device':`demo-device-${index}`,disabled:false})),
+      ha_entities:data.inventory.entities.map((item:Row)=>({id:item.entity_id,device_id:entityDevices.get(item.entity_id)||null,disabled:false})),
       ha_states:data.inventory.entities.map((item:Row)=>({id:item.entity_id,available:true})),ha_config:[{id:'core',version:'demo-synthetic'}]};
     for(const source of data.discovery.sources){if(!values[source.id])continue;values[source.id].sort((a:Row,b:Row)=>a.id<b.id?-1:a.id>b.id?1:0);source.item_count=values[source.id].length;source.content_digest=digest(values[source.id]);source.observed_at=time()}
     data.discovery.observed_at=time();
     const {content_digest:_prior,...snapshot}=data.discovery;data.discovery.content_digest=digest(snapshot);
-    publish();
   }
   function request(path:string,method:string,body:Row,surface:DemoSurface,key?:string){
     progress();let result:any,status=200;
+    const inventory=inventoryRequest(path,method,body,key);
+    if(inventory){if(method==='POST'&&inventory.status===200)publish();return clone(inventory)}
     const setup=setupRequest(path,method,body,key);
     if(setup){if(method==='POST'&&setup.status===200)publish();return clone(setup)}
     if(method==='GET'){
@@ -145,12 +163,12 @@ export function createDemoModel():DemoModel{
     }else if(method==='POST'){
       // Only read fields used by supported operations. Bodies are never reflected wholesale.
       if(path==='gateway/messages'){
-        const message=String(body.message||'').slice(0,5000),discoveryContext=message.includes('【設備探索快照】'),household=!discoveryContext&&/燈|冷氣|門|出門|回家|晚上|light|home/i.test(message),task=household?proposal(/冷氣/.test(message)?'回家時開啟臥室冷氣':/出門/.test(message)?'出門時關閉客廳燈':'玄關有人時開啟客廳燈'):null;
+        const message=String(body.message||'').slice(0,5000),discoveryContext=(message.includes('【設備探索快照】')||message.includes('【網路設備探索快照】')),household=!discoveryContext&&/燈|冷氣|門|出門|回家|晚上|light|home/i.test(message),task=household?proposal(/冷氣/.test(message)?'回家時開啟臥室冷氣':/出門/.test(message)?'出門時關閉客廳燈':'玄關有人時開啟客廳燈'):null;
         if(task&&/冷氣/.test(message)){task.proposal.intent.actions=[{entity_id:'climate.demo_bedroom',action:'turn_on'}];task.proposal.final=compile(task.proposal.intent,task.proposal.final.id);task.proposal.digest=hash(new TextEncoder().encode(JSON.stringify(task.proposal.final)))}
         if(task&&/出門/.test(message)){task.proposal.intent.actions[0].action='turn_off';task.proposal.final=compile(task.proposal.intent,task.proposal.final.id);task.proposal.digest=hash(new TextEncoder().encode(JSON.stringify(task.proposal.final)))}
         const caseId=discoveryContext?nextId(32):'5'.repeat(32);
         if(discoveryContext)data[`hermes/cases/${caseId}`]={jobs:[]};
-        result={id:nextId(64),thread_id:messages.find(m=>m.id===body.reply_to)?.thread_id||nextId(64),case_id:caseId,source:'web',runtime:'host',provider:'codex',coordinator:'hermes',message,answer:discoveryContext?'已收到你選取的探索快照。這是固定示範回覆：可從「分享探索結果」中的家庭設定入口接續設定，再重新讀取結果。候選消失不代表接入成功；新設備仍需另外設定管家權限。':task?'提案已準備好。先看精確內容，再決定是否批准。':'可以先看看設備與規則。想試試提案，可以說「有人經過玄關時打開燈」。',state:task?'awaiting_approval':'succeeded',created_at:time(serial*1000),task_id:task?.id||null};messages.unshift(result);
+        result={id:nextId(64),thread_id:messages.find(m=>m.id===body.reply_to)?.thread_id||nextId(64),case_id:caseId,source:'web',runtime:'host',provider:'codex',coordinator:'hermes',message,answer:discoveryContext?'已收到你選取的探索快照。這是固定示範回覆：可根據服務線索與官方整合說明核對設備，再從家庭設定接續設定並讀回結果。網路看不到的設備還可能需要品牌帳號或橋接器。候選消失不代表接入成功；新設備仍需另外設定管家權限。':task?'提案已準備好。先看精確內容，再決定是否批准。':'可以先看看設備與規則。想試試提案，可以說「有人經過玄關時打開燈」。',state:task?'awaiting_approval':'succeeded',created_at:time(serial*1000),task_id:task?.id||null};messages.unshift(result);
       }else if(/^proposals\/[^/]+\/approve$/.test(path)){
         const task=tasks.find(t=>t.proposal?.id===path.split('/')[1]);
         if(!task||task.state!=='awaiting_approval'||body.digest!==task.proposal.digest){status=409;result={detail:'提案已變更，請重新查看。'}}else{starts.set(task.id,performance.now());task.state='executing';task.message='正在備份示範設定。';result={id:task.id,state:task.state}}

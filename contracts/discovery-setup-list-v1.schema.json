@@ -22,8 +22,11 @@
           "type": "string"
         },
         "source_id": {
-          "const": "ha_discovery",
           "default": "ha_discovery",
+          "enum": [
+            "ha_discovery",
+            "network_inventory"
+          ],
           "title": "Source Id",
           "type": "string"
         },

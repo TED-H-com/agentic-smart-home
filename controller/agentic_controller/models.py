@@ -59,8 +59,8 @@ class HomeEntry(Strict):
 class DiscoverySource(Strict):
     id: str
     state: Literal["ok", "partial", "unavailable", "unsupported", "not_implemented"]
-    location: Literal["home_assistant", "not_implemented"] = "home_assistant"
-    method: Literal["websocket", "rest", "not_implemented"]
+    location: Literal["home_assistant", "network_inventory", "not_implemented"] = "home_assistant"
+    method: Literal["websocket", "rest", "local_inventory", "not_implemented"]
     target: str
     adapter_version: Literal[1] = 1
     upstream_version: str | None = None
@@ -76,7 +76,7 @@ class DiscoveryCandidate(Strict):
     integration_domain: str
     title: str
     discovery_method: str
-    source_id: Literal["ha_discovery"] = "ha_discovery"
+    source_id: Literal["ha_discovery", "network_inventory"] = "ha_discovery"
     native_path: Literal["/config/integrations"] = "/config/integrations"
 
 
@@ -124,6 +124,106 @@ class DiscoverySetupCreate(Strict):
     """Select a current HA candidate; labels and evidence come from the server."""
     candidate_id: DiscoveryIdentifier
     integration_domain: DiscoveryDomain
+    source_id: Literal["ha_discovery", "network_inventory"] = "ha_discovery"
+
+
+InventoryText = Annotated[str, Field(max_length=160)]
+InventoryId = Annotated[str, Field(pattern=r"^[a-zA-Z0-9_-]{1,128}$")]
+
+
+class InventoryScope(Strict):
+    id: InventoryId
+    label: InventoryText
+    interface: Annotated[str, Field(max_length=32)]
+    address: Annotated[str, Field(max_length=45)]
+    network: Annotated[str, Field(max_length=49)]
+
+
+class InventoryScopes(Strict):
+    contract_version: Literal[1] = 1
+    scopes: Annotated[list[InventoryScope], Field(max_length=32)]
+    limitations: Annotated[list[InventoryText], Field(max_length=16)]
+
+
+class InventorySource(Strict):
+    id: Literal["lan_neighbors", "lan_mdns", "lan_ssdp", "router_import"]
+    adapter_version: Literal[1] = 1
+    state: Literal["ok", "partial", "unavailable", "not_configured", "expired"]
+    method: Literal["neighbor_table", "mdns", "ssdp", "json_import", "csv_import", "dnsmasq_import"]
+    target: InventoryText
+    observed_at: InventoryText | None = None
+    item_count: Annotated[int, Field(ge=0, le=1024)] | None = None
+    truncated: bool = False
+    reason_code: InventoryText | None = None
+    content_digest: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None = None
+    limitations: Annotated[list[InventoryText], Field(max_length=16)] = []
+
+
+class InventoryObservation(Strict):
+    id: InventoryId
+    source_id: Literal["lan_neighbors", "lan_mdns", "lan_ssdp", "router_import"]
+    scope_id: InventoryId
+    address: Annotated[str, Field(max_length=45)] | None = None
+    mac: Annotated[str, Field(pattern=r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}$")] | None = None
+    name: InventoryText | None = None
+    services: Annotated[list[InventoryText], Field(max_length=16)] = []
+    observed_at: InventoryText
+    source_updated_at: InventoryText | None = None
+    reachability: Literal["unknown", "responded"] = "unknown"
+    metadata: dict[Annotated[str, Field(max_length=32)], InventoryText] = Field(default_factory=dict, max_length=8)
+
+
+class InventoryScan(Strict):
+    scope_id: InventoryId
+
+
+class InventoryCollection(Strict):
+    """Fixed Host broker output; contains projected observations, never credentials."""
+    contract_version: Literal[1] = 1
+    scope_id: InventoryId
+    observed_at: InventoryText
+    sources: Annotated[list[InventorySource], Field(max_length=3)]
+    observations: Annotated[list[InventoryObservation], Field(max_length=768)]
+    limitations: Annotated[list[InventoryText], Field(max_length=16)]
+
+
+class InventoryImport(Strict):
+    format: Literal["json", "csv", "dnsmasq"]
+    label: Annotated[str, Field(min_length=1, max_length=80)]
+    content: Annotated[str, Field(min_length=1, max_length=65536)]
+
+
+class InventoryClear(Strict):
+    expected_revision: Annotated[int, Field(ge=0)]
+
+
+class InventoryReference(Strict):
+    contract_version: Literal[1] = 1
+    revision: Annotated[int, Field(ge=0)]
+
+
+class InventoryRecommendation(Strict):
+    id: InventoryId
+    observation_id: InventoryId
+    integration_domain: DiscoveryDomain
+    title: InventoryText
+    confidence: Literal["service_match", "hint"]
+    reason: InventoryText
+    next_step: InventoryText
+    documentation_url: Annotated[str, Field(pattern=r"^https://www\.home-assistant\.io/integrations/[a-z0-9_]+/$")]
+    native_path: Literal["/config/integrations"] = "/config/integrations"
+
+
+class InventorySnapshot(Strict):
+    contract_version: Literal[1] = 1
+    revision: Annotated[int, Field(ge=0)]
+    observed_at: InventoryText
+    expires_at: InventoryText | None = None
+    sources: Annotated[list[InventorySource], Field(max_length=4)]
+    observations: Annotated[list[InventoryObservation], Field(max_length=1024)]
+    recommendations: Annotated[list[InventoryRecommendation], Field(max_length=1024)]
+    limitations: Annotated[list[InventoryText], Field(max_length=16)]
+    content_digest: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 
 
 class DiscoverySetupSelect(Strict):

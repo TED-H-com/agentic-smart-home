@@ -239,6 +239,10 @@ class Store:
             tx.execute("DELETE FROM records WHERE kind='conversation' AND created < ?", (context_cutoff,))
             # Passive setup selections are context, never household authority.
             tx.execute("DELETE FROM records WHERE kind='discovery_setup' AND created < ?", (context_cutoff,))
+            # Source clocks expire independently; only an opaque CAS revision
+            # remains when all private inventory context has been removed.
+            from .network_inventory import prune_inventory
+            prune_inventory(tx, context_cutoff)
             tx.execute("DELETE FROM records WHERE kind=? AND (created < ? OR NOT EXISTS ("
                 "SELECT 1 FROM records AS conversation WHERE conversation.kind='conversation' "
                 "AND conversation.id=json_extract(records.body,'$.message_id')))",

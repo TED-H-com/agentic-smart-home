@@ -52,6 +52,7 @@ from .models import (
     provider_schema,
     utcnow,
 )
+from .network_inventory import routes as network_inventory_routes
 from .operations import routes as operation_routes
 from .response_durability import ResponseDurabilityMiddleware
 from .runner import Runner, RunnerError, cancel_and_confirm
@@ -205,6 +206,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.engine, app.state.store, app.state.ha, app.state.running = engine, store, ha, running
     discovery_routes(app, store, ha, host_session)
+    network_inventory_routes(app, store, ha, host_session)
     discovery_setup_routes(app, store, ha, host_session)
     if host_mode:
         host_routes(app, host_session, ha, store, runner, controller_id)

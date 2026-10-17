@@ -20,7 +20,7 @@ const count=(value:unknown):value is number|null=>value===null||typeof value==='
 const unique=(items:{id:string}[])=>new Set(items.map(item=>item.id)).size===items.length;
 const invalid=():never=>{throw new Error('接入資料格式已變更，請重新讀取或開啟家庭設定查看。')};
 const integrationStates:Record<Integration['state'],string>={loaded:'已載入',not_loaded:'尚未載入',retry:'等待重試',error:'設定異常',disabled:'已停用',ignored:'已忽略',unknown:'狀態未知'};
-const sourceNames:Record<string,string>={ha_discovery:'家庭自動探索',ha_devices:'設備登錄',ha_entities:'設備功能清單',ha_states:'功能目前狀態',ha_integrations:'整合設定'};
+const sourceNames:Record<string,string>={ha_discovery:'家庭自動探索',ha_devices:'設備登錄',ha_entities:'設備功能清單',ha_states:'功能目前狀態',ha_integrations:'整合設定',network_inventory:'網路設備盤點'};
 const sourceStates:Record<string,string>={ok:'已讀取',partial:'部分資料',unavailable:'暫時無法讀取',unsupported:'目前無法支援',not_implemented:'尚未接入'};
 
 function parseSetup(value:unknown):Setup{
@@ -41,7 +41,8 @@ export function parseDiscoverySetupView(value:unknown,expectedId:string):SetupVi
   const sourceMap=new Map(value.sources.map(source=>[source.id,source]));
   const complete=(id:string)=>{const source=sourceMap.get(id);return source?.state==='ok'&&!source.truncated};
   if(!['ha_discovery','ha_devices','ha_entities','ha_states','ha_integrations'].every(id=>sourceMap.has(id))||value.sources.some(source=>source.observed_at!==null&&!date(source.observed_at)))return invalid();
-  if(value.candidate_state==='not_seen'&&!complete('ha_discovery')||value.integration_state==='not_seen'&&!complete('ha_integrations'))return invalid();
+  if(setup.candidate.source_id==='network_inventory'&&!sourceMap.has('network_inventory'))return invalid();
+  if(value.candidate_state==='not_seen'&&!complete(setup.candidate.source_id)||value.integration_state==='not_seen'&&!complete('ha_integrations'))return invalid();
   if(value.integration_state==='unselected'?(setup.selected_entry_id!==null||value.integration!==null):setup.selected_entry_id===null)return invalid();
   if(value.integration_state==='present'){
     if(!isDiscoveryIntegration(value.integration)||value.integration.id!==setup.selected_entry_id||value.integration.domain!==setup.candidate.integration_domain)return invalid();
@@ -56,7 +57,7 @@ function parseReference(value:unknown,action:Mutation):Reference{
 }
 
 /** Tracking is deliberately lazy: neither opening chat nor reading discovery starts it. */
-export function TrackingPanel({candidates,onOpenChange}:{candidates:Candidate[];onOpenChange?:(open:boolean)=>void}){
+export function TrackingPanel({candidates,onOpenChange,returnLabel='返回分享'}:{candidates:Candidate[];onOpenChange?:(open:boolean)=>void;returnLabel?:string}){
   const [open,setOpen]=useState(false),[list,setList]=useState<SetupList|null>(null),[view,setView]=useState<SetupView|null>(null),[id,setId]=useState<string|null>(null);
   const [choice,setChoice]=useState(''),[filter,setFilter]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(''),[fresh,setFresh]=useState(false),[uncertain,setUncertain]=useState(false),[forget,setForget]=useState(false);
   const alive=useRef(true),expanded=useRef(false),generation=useRef(0),selected=useRef<string|null>(null),inFlight=useRef(false),pending=useRef<Mutation|null>(null),panel=useRef<HTMLDetailsElement>(null);
@@ -88,7 +89,7 @@ export function TrackingPanel({candidates,onOpenChange}:{candidates:Candidate[];
       acknowledged=true;pending.current=null;setChoice('');setFilter('');clearView();
       const target=reference.forgotten?null:reference.id;selected.current=target;setId(target);
       const [nextList,nextView]=await Promise.all([api('discovery/setups').then(parseDiscoverySetupList),target?api(`discovery/setups/${target}`).then(value=>parseDiscoverySetupView(value,target)):Promise.resolve(null)]);
-      if(nextView&&(nextView.setup.revision<reference.revision||action.kind==='create'&&(nextView.setup.candidate.id!==action.body.candidate_id||nextView.setup.candidate.integration_domain!==action.body.integration_domain)||action.kind==='select'&&nextView.setup.revision===reference.revision&&nextView.setup.selected_entry_id!==action.body.entry_id))return invalid();
+      if(nextView&&(nextView.setup.revision<reference.revision||action.kind==='create'&&(nextView.setup.candidate.id!==action.body.candidate_id||nextView.setup.candidate.integration_domain!==action.body.integration_domain||nextView.setup.candidate.source_id!==(action.body.source_id||'ha_discovery'))||action.kind==='select'&&nextView.setup.revision===reference.revision&&nextView.setup.selected_entry_id!==action.body.entry_id))return invalid();
       if(isCurrent(request)){setList(nextList);setView(nextView);setFresh(!!nextView)}
     }catch(e){
       if(!isCurrent(request))return;
@@ -107,7 +108,7 @@ export function TrackingPanel({candidates,onOpenChange}:{candidates:Candidate[];
   }
   function create(candidate:Candidate){
     if(pending.current)return;
-    void mutate({kind:'create',path:'discovery/setups',body:{candidate_id:candidate.id,integration_domain:candidate.integration_domain},key:requestKey()});
+    void mutate({kind:'create',path:'discovery/setups',body:{candidate_id:candidate.id,integration_domain:candidate.integration_domain,...(candidate.source_id==='network_inventory'?{source_id:'network_inventory'}:{})},key:requestKey()});
   }
   function selectEntry(){
     if(!view||!fresh||!choice||pending.current)return;
@@ -150,7 +151,7 @@ export function TrackingPanel({candidates,onOpenChange}:{candidates:Candidate[];
         {view&&<article className="discovery-setup-detail" role="region" aria-label="接入讀回">
           <div className="discovery-setup-heading"><div><h3>{view.setup.candidate.title||view.setup.candidate.integration_domain}</h3><p>{view.setup.selected_entry_id?'已選擇整合；請查看本次讀回':'等待家庭設定與選擇整合'}</p></div><a className="button secondary" href={haPath('/config/integrations')} target={haTarget()} rel="noreferrer">開啟家庭設定 ↗</a></div>
           {!fresh&&<Notice>以下是上次讀回資料；目前狀態尚未重新確認。</Notice>}
-          <p className="helper-text">讀回於 {timestamp(view.observed_at)}。{view.candidate_state==='not_seen'?'原候選目前未見，仍不能據此判定設定完成。':view.candidate_state==='unknown'?'原候選目前無法確認。':'原候選仍出現在家庭探索中。'}</p>
+          <p className="helper-text">讀回於 {timestamp(view.observed_at)}。{view.candidate_state==='not_seen'?'原候選目前未見，仍不能據此判定設定完成。':view.candidate_state==='unknown'?'原候選目前無法確認。':view.setup.candidate.source_id==='network_inventory'?'原建議仍出現在網路盤點中。':'原候選仍出現在家庭探索中。'}</p>
           <section className="discovery-setup-readback" aria-label="目前讀回狀態">
             <dl><div><dt>整合設定</dt><dd>{view.integration_state==='present'&&view.integration?<>{view.integration.title||view.integration.domain} · {integrationStates[view.integration.state]}</>:view.integration_state==='unselected'?'尚未選擇':view.integration_state==='not_seen'?'所選整合目前未見':'尚未確認'}{view.setup.selected_entry_id&&<code className="discovery-setup-selected-id">{view.setup.selected_entry_id}</code>}</dd></div><div><dt>設備登錄</dt><dd>{deviceKnown&&view.device_count!==null?`${view.device_count} 筆設備紀錄`:'尚未完整確認'}</dd></div><div><dt>狀態讀取</dt><dd>{countsKnown&&view.available_entity_count!==null&&view.entity_count!==null?`${view.available_entity_count} / ${view.entity_count} 個功能顯示可用狀態`:'尚未完整確認'}</dd></div></dl>
             <p>尚未進行實體操作驗證。</p><p className="helper-text">功能數量涵蓋相關設備紀錄的功能，不等於整合的全部功能。</p>
@@ -165,7 +166,7 @@ export function TrackingPanel({candidates,onOpenChange}:{candidates:Candidate[];
           <div className="discovery-setup-forget">{forget?<Confirm sentence="停止追蹤只刪除此進度；家庭整合與設備會保留。" confirmLabel="確認停止追蹤" onConfirm={forgetSetup} onCancel={()=>setForget(false)} busy={locked}/>:<Button secondary type="button" disabled={locked||!fresh} onClick={()=>setForget(true)}>停止追蹤</Button>}</div>
         </article>}
       </>}
-      {onOpenChange&&<div className="discovery-setup-return"><Button secondary type="button" onClick={()=>toggle(false)}>返回分享</Button></div>}
+      {onOpenChange&&<div className="discovery-setup-return"><Button secondary type="button" onClick={()=>toggle(false)}>{returnLabel}</Button></div>}
     </div>}
   </details>;
 }

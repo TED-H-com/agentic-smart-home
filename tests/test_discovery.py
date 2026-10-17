@@ -81,7 +81,7 @@ async def test_discovery_combines_registries_without_collapsing_identity_or_leak
     assert all(secret not in raw for secret in ("hidden-secret", "private-serial", "untrusted.invalid", "latitude"))
     assert result.content_digest == digest(result.model_dump(exclude={"content_digest"}))
     assert {s.id for s in result.sources if s.state == "not_implemented"} == {
-        "router_inventory", "lan_probe", "account_inventory"}
+        "account_inventory"}
     assert "api_availability_is_not_physical_verification" in result.limitations
 
 

@@ -22,8 +22,11 @@
           "type": "string"
         },
         "source_id": {
-          "const": "ha_discovery",
           "default": "ha_discovery",
+          "enum": [
+            "ha_discovery",
+            "network_inventory"
+          ],
           "title": "Source Id",
           "type": "string"
         },
@@ -236,6 +239,7 @@
           "default": "home_assistant",
           "enum": [
             "home_assistant",
+            "network_inventory",
             "not_implemented"
           ],
           "title": "Location",
@@ -245,6 +249,7 @@
           "enum": [
             "websocket",
             "rest",
+            "local_inventory",
             "not_implemented"
           ],
           "title": "Method",

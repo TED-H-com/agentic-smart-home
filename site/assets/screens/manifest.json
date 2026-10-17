@@ -1,11 +1,11 @@
 {
-  "source_commit": "24bb86a70822aac892e8b58301586d761ca15526",
-  "source_tree": "304a4e24da9e258f12d69c173fd825257d5c0bdb",
-  "frontend_source_tree": "a906d715d3bccc1eb968b0dcad97f4ec309f9084",
+  "source_commit": "1a5a72d66ef538c6602f1741311ec59f08702836",
+  "source_tree": "c1faef4dd8c2a82529f0b2123f2f8b4a78e64a2b",
+  "frontend_source_tree": "68cec62b4c5f85f1a58749380df03d5cb1583d31",
   "source_files": [
     {
       "file": "scripts/site_screenshots.py",
-      "sha256": "b5264b3ca42a0a1fc8bc8b600011c94cea90c8fcd4eb790ca7cff2ec9a9f1201"
+      "sha256": "495e07a62a8bfee063f0e102d3c1d059aa580bf98766cb2faa87bb51120bba51"
     },
     {
       "file": "site/app.js",
@@ -13,7 +13,7 @@
     },
     {
       "file": "site/index.html",
-      "sha256": "656740ef16d85acab405627fe2b15368fb4d10f4fb62159c358f7649eba799e3"
+      "sha256": "edd45f105567fe6190e2e2319531bf2dc28f550e25131743084325ee981efc86"
     },
     {
       "file": "site/lang.js",
@@ -29,7 +29,7 @@
     },
     {
       "file": "web/demo/discovery-setup.ts",
-      "sha256": "4e7270be75c80fc31f20765ccf29eefffe30cf08868f78fb7ccb50168a8d3e0f"
+      "sha256": "6922ab3ce42a2b80e4e08d7aeba011101d01b1aa3bfab5f0571e6fec43c0134c"
     },
     {
       "file": "web/demo/entry.ts",
@@ -37,7 +37,7 @@
     },
     {
       "file": "web/demo/fake-api.ts",
-      "sha256": "ece09add14bf9844e9cfe78504a7fca54db58ab006b40cba78d262678ea7852d"
+      "sha256": "90697797a00f469631d1797ae71f1989b5ccec036206585f23d08d2cb8072baa"
     },
     {
       "file": "web/demo/home.css",
@@ -45,7 +45,7 @@
     },
     {
       "file": "web/demo/home.tsx",
-      "sha256": "0177a8a25267517ed4bca8f0c1b426e30167db38dc9c6d3b3b3c0cf66c06971d"
+      "sha256": "ff937bd760923a59dc0fad66b3e70daa08f4f151212281f9bbcc0f414e64c322"
     },
     {
       "file": "web/demo/index.html",
@@ -53,11 +53,15 @@
     },
     {
       "file": "web/demo/model.ts",
-      "sha256": "a1cff04c816dc37b36b3e880a8d81d3ccec71c1d6dc8efcdf682cf97390a33d8"
+      "sha256": "a0e307fae4f6bdede812b1bd55544e502fdfda243ee77446dde51bb48804f0ba"
     },
     {
       "file": "web/demo/navigation.ts",
       "sha256": "a5c474df17001c279475f4b570baf51bbbd9152855d5095dd68c12b18618e5bc"
+    },
+    {
+      "file": "web/demo/network-inventory.ts",
+      "sha256": "4f54b6ecc6233f7c00dd488a6a7b65ed8b009b5f51674a831d34b8a37c425eda"
     },
     {
       "file": "web/demo/shell.tsx",
@@ -118,8 +122,20 @@
       "bytes": 48850
     },
     {
+      "file": "discovery.png",
+      "sha256": "a903211eb3bfc704ab6fb1b8f9f1b167c25b46332842d06af9e6d5aa7cf74a48",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "device_scale_factor": 1,
+      "route": "#/agentic-home",
+      "surface": "product-in-ha-simulation",
+      "bytes": 112910
+    },
+    {
       "file": "gateway.png",
-      "sha256": "570abd3813bbd7804b14e51025af0fb490ff6ccf9a65eb6c3a01ded568c44765",
+      "sha256": "c688c7c125d6499b38ce9bb4720be0039600a386597fc9ac30afddcecefefa7f",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -127,7 +143,7 @@
       "device_scale_factor": 1,
       "route": "#gateway",
       "surface": "product",
-      "bytes": 63319
+      "bytes": 63323
     },
     {
       "file": "proposal.png",
@@ -143,7 +159,7 @@
     },
     {
       "file": "inventory.png",
-      "sha256": "678a5385c83041c2a060e6d4540f11ece104fd8c78a01b3df944089ee528735a",
+      "sha256": "d4547bffd0dd02c000967d998956096acc888b91aa50b0f75e0ccd042f120212",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -151,7 +167,7 @@
       "device_scale_factor": 1,
       "route": "#inventory",
       "surface": "product",
-      "bytes": 101939
+      "bytes": 96298
     },
     {
       "file": "workers.png",
@@ -167,7 +183,7 @@
     },
     {
       "file": "host.png",
-      "sha256": "2a49df06b840b5fbacc67f8314afbe185f1b528f0349051fd6d069563de4d06f",
+      "sha256": "8f205c8de21698e9c2b492a5bf62e44090395919bdede3f750f290917194b850",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -175,7 +191,7 @@
       "device_scale_factor": 1,
       "route": "#host",
       "surface": "product",
-      "bytes": 68798
+      "bytes": 68807
     },
     {
       "file": "bridge.png",

@@ -20,6 +20,15 @@ Home Assistant 是家庭日常介面；智能管家提供研究、對話、提�
 
 ## 設備探索
 
+多來源盤點的 Controller adapter 為 `network_inventory.py`，Host adapter 為 `agentic_host/discovery.py`，契約各為 v1。`GET /api/discovery/inventory` 讀保存結果，`GET .../scopes` 讀主機當前範圍；`POST .../scan|import|clear` 是經 Owner 明確操作的收集／本地資料管理，使用去重鍵和回應落盤後身份檢查。Ingress 僅精確允許這五個路徑，不開放任意 Host namespace。模型沒有新工具或任意網段參數。
+
+Host 僅接受固定 Unix `GET /discovery/scopes` 與 `POST /discovery/scan`，UID 邊界沿用 daemon。實體 IPv4 介面重新確認後，使用固定 `ip -j` 讀取鄰居與介面，以及 [RFC 6762 mDNS](https://www.rfc-editor.org/rfc/rfc6762.html)／[UPnP SSDP](https://upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v2.0.pdf) 的有界查詢。版本 1 不解析 TXT、不下載服務 URL、不做連接埠掃描，也不推斷虛擬網路拓撲。mDNS 位址是回應者，服務代理可能代答。
+
+辨識依據固定於 Core 2026.10.1 的官方 manifests：[Hue](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/hue/manifest.json)、[Cast](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/cast/manifest.json)、[ESPHome](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/esphome/manifest.json)、[HomeKit Device](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/homekit_controller/manifest.json)、[Shelly](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/shelly/manifest.json)。規則只產生建議；服務宣告仍可能偽造，名稱／廠商／匯入服務欄位只作 hint。[Tuya 官方設定](https://www.home-assistant.io/integrations/tuya/) 的帳號、User Code 與 QR 由 HA 原生流程處理，盤點不索取憑證或宣稱讀到完整 Google Home／Alexa 帳號。
+
+通用路由器匯入只讀 JSON／CSV／dnsmasq 文件，格式與欄位白名單見 [匯入格式](DEVICE_DISCOVERY.md#匯入格式)。這與連到廠商管理 API 的 adapter 分開；產品不假裝已登入未配置的防火牆。HTTP／檔案輸入、網路宣告、HA 登錄資料的來源身份保持各自命名空間，沒有猜測合併。
+
+
 設備探索新增產品契約 `GET /api/discovery`／`device-discovery-v1`，實作集中於 `agentic_controller/discovery.py`。只對已綁定且讀取前後仍有效的 HA Owner 回傳有界快照，不擴大 MCP。D3a 精確開放 Ingress `GET /api/discovery`；D3b 再精確開放 `GET/POST /api/discovery/setups`、`GET /api/discovery/setups/{32hex}` 及 `POST .../{32hex}/select|forget`，供 Owner 管理本地追蹤。這些路徑不代理任意 HA 請求。各來源失敗獨立標示，欄位白名單之外的設定、flow context、任意 URL 與錯誤本文不回傳。
 
 D3b 的 `discovery_setup.py` 重用同一組唯讀 HA adapter，沒有新增上游設定命令。每次請求捕捉 Owner、家庭連線、Web 世代及 Host／bridge 身份，在 HA 讀取後與回應落盤後再核對。追蹤綁定另排除短期 Web 世代，使同一授權範圍可以重新登入接續；家庭 token 或來源位址改變則隔離。來源失敗、候選消失與 entry loaded 都不形成實體成功聲明。

@@ -55,12 +55,14 @@ HEADER = Annotated[str, Field(max_length=2048, pattern=r"^[^\r\n]*$")]
 GET_PATHS = (
     r"/api/(deployment|session|gateway/messages|discovery)",
     r"/api/discovery/setups", rf"/api/discovery/setups/{IDENT}",
+    r"/api/discovery/inventory", r"/api/discovery/inventory/scopes",
     rf"/api/hermes/cases/{IDENT}", rf"/api/tasks/{IDENT}",
     rf"/api/worker/jobs/{IDENT}", rf"/api/worker/jobs/{IDENT}/artifacts/{ARTIFACT}",
     rf"/api/worker/previews/{IDENT}", rf"/api/bridge/previews/{IDENT}/(390|768|1440)\.png",
 )
 POST_PATHS = (
     r"/api/discovery/setups", rf"/api/discovery/setups/{IDENT}/(select|forget)",
+    r"/api/discovery/inventory/(scan|import|clear)",
     r"/api/gateway/messages", rf"/api/tasks/{IDENT}/(reply|cancel)",
     rf"/api/proposals/{IDENT}/(approve|test|reconcile)",
     rf"/api/worker/jobs/{IDENT}/(cancel|reconcile|previews)",

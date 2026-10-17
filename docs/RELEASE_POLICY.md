@@ -52,3 +52,12 @@ Controller 的 SQL `user_version` 仍為 3，但相同 schema 不代表舊 binar
 `discovery_setup` 是 schema 3 下的私有 v1 metadata record，只保存有界候選、建立時同類整合 ID、Owner 選取及時間／revision。HMAC 綁定 Owner 與家庭連線，原始 token 不存入 record；沒有可重播的 HA 操作、家庭授權或模型工具。到期以建立時間和目前／待套用 context 保存期限的較短者計算，讀取即過濾，prune 實際刪除。忘記／到期後，舊去重收據不能重建追蹤。
 
 舊 binary 忽略此未知 kind，不會執行任何接入副作用，但它的 prune 不認得這個 kind；metadata 可能保留到再次使用本實作清理。因此 SQL 格式不變只表示這項 effect-free metadata 可被忽略，不保證跨版本保存政策完全相同，也不取代既有 bridge／updater 的能力與靜止檢查。既有 0.9.0 ISO 不包含本增量。
+
+
+## 網路盤點資料相容性
+
+`network_inventory` 為 schema 3 的私有 v1 record，保存投影後的來源與觀測，不保存匯入原文或路由器密碼。ID 是 Owner／家庭來源／授權的 HMAC；原始 token 不入紀錄。內容按每來源的收集時間套用現行／待套用 context 保存期限，讀取立即過濾，prune 清除內容。24 小時 freshness 和內容保存期限分開；過期觀測不再產生當前接入建議。清除保留不含設備內容的 revision tombstone，避免舊操作重放或重設 revision。
+
+舊 binary 忽略此 kind，不會依觀測執行設備動作，但不認得它的清理政策；回退時資料可能留存到再次使用此版清理。`discovery_setup` v1 的候選來源新增 `network_inventory`，舊 binary 的嚴格 parser 會略過這些追蹤，HA 原有來源仍可讀。既有 HA create 的去重指紋保留舊格式；新網路候選另外包含明確來源，不能跨命名空間選取。這是 metadata 相容性決策，並非系統退版或硬體驗收。
+
+主機收集器需要同步交付新的 Host broker；只更新 Controller 不會使舊 Host 憑空具備掃描功能。舊 Host 回覆不支援時，介面保留路由器匯入與 HA 探索，說明主機網路暫不可用。完整打包會包含 Host、Controller 和側欄同版程式；既有 0.9.0 安裝媒體維持其原有驗證來源。

@@ -1,0 +1,15 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "scope_id": {
+      "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+      "title": "Scope Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "scope_id"
+  ],
+  "title": "InventoryScan",
+  "type": "object"
+}

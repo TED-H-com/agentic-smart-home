@@ -15,6 +15,7 @@ CLOCK = '2026-10-13T09:00:00+08:00'
 SCREENS = [
     ('home', '#/lovelace/home', 1440, 900, 1),
     ('integrations', '#/config/integrations', 1440, 900, 1),
+    ('discovery', '#/agentic-home', 1440, 900, 1),
     ('gateway', '#gateway', 1440, 900, 1),
     ('proposal', '#/agentic-home/home/demo-proposal', 1440, 900, 1),
     ('inventory', '#inventory', 1440, 900, 1),
@@ -60,10 +61,10 @@ def settle(page, name):
         page.locator('.ha-demo-integration-card' if name == 'integrations' else '.ha-demo-tile').first.wait_for()
         page.evaluate('() => document.fonts.ready')
         return
-    surface = 'bridge' if name in {'bridge', 'proposal'} else 'outer'
+    surface = 'bridge' if name in {'bridge', 'proposal', 'discovery'} else 'outer'
     frame = page.locator(f'#agentic-demo-frame-{surface}').element_handle().content_frame()
     selector = {'gateway': '#gateway-message',
-                'bridge': '#gateway-message', 'proposal': '.approval',
+                'bridge': '#gateway-message', 'discovery': '#gateway-message', 'proposal': '.approval',
                 'inventory': '.entity-row', 'workers': '.worker-result-head',
                 'host': '.vm-actions'}[name]
     frame.locator(selector).first.wait_for()
@@ -73,6 +74,14 @@ def settle(page, name):
         frame.get_by_text('家庭已連線', exact=True).wait_for()
     if name == 'proposal':
         frame.get_by_text('查看設定差異', exact=True).click()
+    if name == 'discovery':
+        frame.get_by_role('button', name='分享探索結果', exact=True).click()
+        frame.locator('.network-inventory > summary').click()
+        frame.get_by_label('探索的主機網路', exact=True).select_option('demo-home-lan')
+        frame.get_by_role('button', name='開始探索', exact=True).click()
+        frame.get_by_role('heading', name='觀測結果 · 4 筆', exact=True).wait_for()
+        frame.get_by_label('篩選網路結果', exact=True).fill('Shelly')
+        frame.locator('.network-inventory-result-heading').scroll_into_view_if_needed()
     if name == 'workers':
         frame.get_by_role('button', name='查看內容', exact=True).first.click()
         frame.locator('.diff-add').first.wait_for()
@@ -111,7 +120,7 @@ def capture():
                           'viewport': {'width': width, 'height': height},
                           'device_scale_factor': scale, 'route': route,
                           'surface': 'ha-interface-simulation' if name in {'home', 'integrations', 'phone'}
-                          else 'product-in-ha-simulation' if name in {'bridge', 'proposal'} else 'product',
+                          else 'product-in-ha-simulation' if name in {'bridge', 'proposal', 'discovery'} else 'product',
                           'bytes': path.stat().st_size})
             context.close()
         page = browser.new_page(viewport={'width': 1200, 'height': 630}, locale='en-US')

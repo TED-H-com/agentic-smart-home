@@ -118,8 +118,10 @@ def test_discovery_handoff_coverage_responsive_and_permission_draft(discovery_br
         assert button and button['height'] >= 44 and 0 <= button['y'] < height - button['height']
         page.screenshot(path=str(evidence / f'after-{width}.png'), full_page=True)
     panel.locator('summary').filter(has_text='盤點範圍與來源').click()
-    for source in ['路由器設備清單', '內網主動探測', '獨立品牌帳號盤點']:
-        expect(panel.locator('.discovery-sources li').filter(has_text=source)).to_contain_text('尚未接入')
+    for source in ['路由器設備清單', '內網主動探測']:
+        expect(panel.locator('.discovery-sources li').filter(has_text=source)).to_have_count(0)
+    expect(panel.locator('.discovery-sources li').filter(has_text='獨立品牌帳號盤點')).to_contain_text('尚未接入')
+    expect(panel.locator('.network-inventory > summary')).to_have_text('探索更多設備')
     panel.locator('summary').filter(has_text='已登錄設備').click()
     expect(panel.get_by_text('經由 燈光橋接器（介面測試資料） 連接')).to_be_visible()
     expect(panel.get_by_text('整合：燈光整合（已載入）')).to_have_count(2)

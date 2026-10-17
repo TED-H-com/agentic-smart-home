@@ -1,0 +1,75 @@
+{
+  "$defs": {
+    "InventoryScope": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "maxLength": 45,
+          "title": "Address",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "interface": {
+          "maxLength": 32,
+          "title": "Interface",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 160,
+          "title": "Label",
+          "type": "string"
+        },
+        "network": {
+          "maxLength": 49,
+          "title": "Network",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "interface",
+        "address",
+        "network"
+      ],
+      "title": "InventoryScope",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Contract Version",
+      "type": "integer"
+    },
+    "limitations": {
+      "items": {
+        "maxLength": 160,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "scopes": {
+      "items": {
+        "$ref": "#/$defs/InventoryScope"
+      },
+      "maxItems": 32,
+      "title": "Scopes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "scopes",
+    "limitations"
+  ],
+  "title": "InventoryScopes",
+  "type": "object"
+}

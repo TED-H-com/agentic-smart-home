@@ -73,6 +73,12 @@ Owner 要求實作真正內層 worker 後，已新增 HomeService／HomeSandbox�
 
 上述本機檢查使用 transport／Supervisor／模型 fixtures 與真 Chromium；本機未建置新映像或安裝媒體，也沒有新增雲端帳號、真 HAOS／家庭或 E1／E2 驗收。既有 0.9.0 發布證據保留原樣，32 案仍為 2 passed、30 not_run。
 
+## 多來源設備盤點（2026-10-16，main 工程增量）
+
+已接通 Host 實體 IPv4 介面的鄰居表、mDNS、SSDP 收集與 JSON／CSV／dnsmasq 路由器清單匯入。使用者可查看來源與辨識理由、保留未知項目、依建議建立接入追蹤、到原生 HA 完成設定，再讀回整合／設備／狀態；管家分享保留選取與預覽。流程已納入產品與公開 HA 介面示範，詳見 [實作與證據](../reviews/2026-10-16-MULTISOURCE-DISCOVERY.md)。
+
+本機後端 373 項通過，含新 Host 47、Controller 61 和真 Core 1；介面／原生示範回歸 72、最後授權修正回歸 14、網站 8 項通過（批次重疊不相加）。公開示範本機整條流程預檢及 11 張截圖／9 個資源雜湊核對通過。真Core證據只涵蓋實際授權／登錄讀取與無副作用交接；外層收集器的loopback協定測試不當成現場LAN驗收。路由器來源目前採匯出檔案，不假裝登入未配置的防火牆API。現場品牌帳號與設備、VLAN／虛擬bridge／IPv6、72h觀測及最新媒體依各自證據處理，32案維持2passed／30not_run。
+
 ## 通用設備探索 D1（2026-10-16，未發布工程增量）
 
 Owner 將家庭案例提升為通用產品概念：[設備探索與接入](../DEVICE_DISCOVERY.md)。本輪新增 Owner 唯讀 `GET /api/discovery`、contract 1 及設備頁探索區；讀取 HA 待設定探索流程、設備／實體 registry、整合設定與 API 狀態，保留各來源狀態、時間、版本和摘要。相同名稱不合併身份，Hub／子設備關係分開；缺資料或來源失敗不變成零設備／已接通。

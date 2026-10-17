@@ -8,7 +8,7 @@ export type DemoCandidate = {id:string; title:string; integration_domain:string}
 export type DemoIntegration = {id:string; title:string; domain:string; state:string; device_count:number};
 export type DemoAutomation = {id:string; title:string; enabled:boolean};
 export type DemoHome = {
-  devices:DemoDevice[]; candidates:DemoCandidate[];
+  devices:DemoDevice[]; candidates:DemoCandidate[]; inventorySuggestions:DemoCandidate[];
   integrations:DemoIntegration[]; automations:DemoAutomation[];
 };
 export type DemoResponse = {status:number; body:unknown};

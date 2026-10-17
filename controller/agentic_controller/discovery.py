@@ -188,8 +188,10 @@ async def snapshot(ha):
                     for row in related)
     if sources["ha_devices"].content_digest is not None:
         sources["ha_devices"].content_digest = digest(values["ha_devices"])
-    unimplemented = [DiscoverySource(id=name, state="not_implemented", location="not_implemented",
-        method="not_implemented", target=name) for name in ("router_inventory", "lan_probe", "account_inventory")]
+    # LAN and router observations have their own explicitly acquired, persistent
+    # inventory endpoint; a HA refresh must not trigger or mislabel those sources.
+    unimplemented = [DiscoverySource(id="account_inventory", state="not_implemented", location="not_implemented",
+        method="not_implemented", target="account_inventory")]
     result = {"contract_version": 1, "observed_at": utcnow(),
         "sources": [source.model_dump() for source in sources.values()] + [s.model_dump() for s in unimplemented],
         "candidates": values["ha_discovery"], "devices": values["ha_devices"],
