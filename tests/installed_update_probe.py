@@ -73,6 +73,8 @@ ERROR_TYPES = {"RuntimeError", "AssertionError", "HostError", "UpdateError", "OS
                "PermissionError", "ImportError", "ModuleNotFoundError", "TimeoutExpired", "CalledProcessError",
                "ValueError", "KeyError", "TypeError", "JSONDecodeError", "OperationalError", "SandboxError"}
 LIFECYCLE_ACTIONS = {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes", "configure_lan"}
+CLI_JOB_ERRORS = {"host_job_submit_unconfirmed", "host_job_observation_unavailable", "host_job_response_invalid",
+                  "host_job_not_found", "host_job_read_refused", "host_job_id_invalid"}
 HOST_CONTRACT_CHECKS = {"linux_runtime", "libvirt_connection", "libvirt_kvm", "route_json", "default_route",
                         "sparse_copy", "qemu_image", "docker_limits", "compose_api"}
 HOST_CONTRACT_ERRORS = {"command_missing", "permission_denied", "probe_timeout", "command_failed",
@@ -475,6 +477,42 @@ def bridge_contract_probe(manager, original, base_tag, fixture, identity, databa
             receipt["cleanup"] = {key: True for key in ("probe_containers_absent", "quota_volumes_absent",
                 "probe_journal_absent", "fixture_image_absent", "scratch_database_absent")}
     return receipt
+
+
+def cli_job_unconfirmed(stdout, stderr, *, expected_id=None):
+    """Recognize the fixed CLI message without exporting any surrounding text."""
+    streams = []
+    for value in (stdout, stderr):
+        if isinstance(value, bytes):
+            if len(value) > 65536:
+                return None
+            try:
+                value = value.decode("utf-8")
+            except UnicodeDecodeError:
+                return None
+        if not isinstance(value, str) or len(value.encode("utf-8", errors="replace")) > 65536:
+            return None
+        streams.append(value)
+    output, errors = streams
+    if expected_id is None:
+        handle = re.fullmatch(r"Operation ([a-f0-9]{32})\r?\n", output)
+        if handle is None:
+            return None
+        identifier = handle[1]
+    else:
+        if not isinstance(expected_id, str) or re.fullmatch(r"[a-f0-9]{32}", expected_id) is None or output:
+            return None
+        identifier = expected_id
+    pattern = (r"Job ([a-f0-9]{32}): completion is unconfirmed \((host_job_[a-z_]+)\)\. "
+               r"No operation was resubmitted\. Inspect with 'agentic-home job --id \1' "
+               r"or resume with 'agentic-home wait --id \1'\.")
+    messages = [line for line in errors.splitlines() if line.startswith("Job ")]
+    if len(messages) != 1:
+        return None
+    match = re.fullmatch(pattern, messages[0])
+    if match is None or match[1] != identifier or match[2] not in CLI_JOB_ERRORS:
+        return None
+    return {"id": identifier, "error_code": match[2]}
 
 
 def lifecycle_receipt(value):

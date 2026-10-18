@@ -507,6 +507,109 @@ def retain_lan_partial(path, value):
             temporary.unlink(missing_ok=True)
 
 
+def installed_shutdown(ssh, *, observation=None, checkpoint=lambda: None, run=None, clock=time.monotonic):
+    """Submit once; a lost acknowledgment may only resume the same read-only job."""
+    from installed_update_probe import cli_job_unconfirmed
+
+    run = run or subprocess.run
+    started = clock()
+    deadline = started + 240
+    observed = observation if observation is not None else {}
+    observed.update(action="shutdown", status="running", deadline_seconds=240, mutation_count=0, wait_count=0,
+                    operation_id=None, initial_returncode=None, initial_cli_error=None,
+                    continuation_returncode=None, continuation_cli_error=None, error_code=None,
+                    vm_shut_off=False)
+    original = None
+
+    def retain():
+        observed["elapsed_seconds"] = round(clock() - started, 3)
+        try:
+            if checkpoint() is False:
+                observed["checkpoint_failed"] = True
+        except Exception:
+            observed["checkpoint_failed"] = True
+
+    def reject(code):
+        observed["error_code"] = code
+        raise AssertionError(code)
+
+    def invoke(command, counter):
+        remaining = deadline - clock()
+        if remaining <= 0:
+            reject("shutdown_observation_deadline")
+        observed[counter] += 1
+        return run([*ssh, command], capture_output=True, text=True, timeout=remaining)
+
+    def terminal(output, identifier):
+        def unique(pairs):
+            value = {}
+            for key, item in pairs:
+                if key in value:
+                    raise ValueError("duplicate key")
+                value[key] = item
+            return value
+        def invalid_constant(value):
+            raise ValueError("invalid JSON constant")
+        try:
+            if not isinstance(output, str) or len(output.encode()) > 65536:
+                reject("shutdown_receipt_invalid")
+            job = json.loads(output, object_pairs_hook=unique, parse_constant=invalid_constant)
+        except (ValueError, UnicodeError, RecursionError):
+            reject("shutdown_receipt_invalid")
+        expected = {"id": identifier, "action": "shutdown", "snapshot": None}
+        if (not isinstance(job, dict) or job.get("id") != identifier or job.get("request") != expected
+                or job.get("state") != "succeeded" or job.get("result") != {"vm": "shut off"}):
+            reject("shutdown_receipt_invalid")
+        if clock() >= deadline:
+            reject("shutdown_observation_deadline")
+
+    try:
+        retain()
+        first = invoke("agentic-home shutdown", "mutation_count")
+        observed["initial_returncode"] = first.returncode
+        if first.returncode == 0:
+            # Even a zero exit must prove this exact shutdown, not another job.
+            output = first.stdout if isinstance(first.stdout, str) else ""
+            match = re.fullmatch(r"Operation ([a-f0-9]{32})\r?\n([\s\S]+)", output)
+            if match is None:
+                reject("shutdown_receipt_invalid")
+            observed["operation_id"] = match[1]
+            terminal(match[2], match[1])
+        else:
+            original = subprocess.CalledProcessError(first.returncode, first.args, output=first.stdout, stderr=first.stderr)
+            uncertain = cli_job_unconfirmed(first.stdout, first.stderr) if first.returncode == 2 else None
+            if uncertain:
+                observed.update(operation_id=uncertain["id"], initial_cli_error=uncertain["error_code"])
+            if not uncertain or uncertain["error_code"] not in {
+                    "host_job_submit_unconfirmed", "host_job_observation_unavailable"}:
+                observed["error_code"] = "shutdown_initial_call_failed"
+                raise original
+            retain()
+            resumed = invoke("agentic-home wait --id " + uncertain["id"], "wait_count")
+            observed["continuation_returncode"] = resumed.returncode
+            if resumed.returncode != 0:
+                detail = cli_job_unconfirmed(resumed.stdout, resumed.stderr, expected_id=uncertain["id"])
+                observed["continuation_cli_error"] = detail["error_code"] if detail else None
+                observed["error_code"] = "shutdown_readonly_wait_failed"
+                raise subprocess.CalledProcessError(resumed.returncode, resumed.args,
+                                                   output=resumed.stdout, stderr=resumed.stderr)
+            terminal(resumed.stdout, uncertain["id"])
+        observed.update(status="passed", vm_shut_off=True)
+        return observed
+    except Exception as error:
+        observed["status"] = "failed"
+        if observed["error_code"] is None:
+            observed["error_code"] = ("shutdown_observation_deadline" if isinstance(error, subprocess.TimeoutExpired)
+                                      else "shutdown_observation_failed")
+        # Keep the original lost-response cause available to failure diagnostics;
+        # the private LAN checkpoint records the separate read-only outcome.
+        if original is not None and error is not original:
+            raise original from error
+        raise
+    finally:
+        retain()
+
+
 def installed_lan(ssh, container, phase, image_ids, *, partial_path, profile, iso_hash):
     """Actual second physical-from-guest NIC, native discovery, reboot, removal."""
     report = {"kind": "real_installed_haos_wired_lan", "result": "running", "images": image_ids,
@@ -518,6 +621,12 @@ def installed_lan(ssh, container, phase, image_ids, *, partial_path, profile, is
     partial = {"schema": 1, "kind": "installed_ha_lan_partial", "status": "incomplete", "complete": False,
                "profile": profile, "iso_sha256": iso_hash, "stages": {}}
     retain_lan_partial(partial_path, partial)
+
+    def shutdown(stage):
+        observation = {}
+        partial.setdefault("shutdown_observations", {})[stage] = observation
+        report.setdefault("shutdown_observations", {})[stage] = observation
+        installed_shutdown(ssh, observation=observation, checkpoint=lambda: retain_lan_partial(partial_path, partial))
 
     def probe(stage):
         result = command(*ssh, compose + " exec -T -e AGENTIC_LAN_PROBE_PHASE=" + stage + " controller python -",
@@ -576,7 +685,7 @@ def installed_lan(ssh, container, phase, image_ids, *, partial_path, profile, is
     phase("wired_lan_native_owner_fixture")
     report["owner"] = probe("onboard")
     phase("wired_lan_select_and_start")
-    command(*ssh, "agentic-home shutdown", timeout=240)
+    shutdown("before_lan_selection")
     status = json.loads(command(*ssh, "agentic-home ha-lan", timeout=30))
     choices = [row for row in status["interfaces"] if row["address"] == "198.18.42.10"]
     assert len(choices) == 1 and re.fullmatch(r"[a-f0-9]{64}", choices[0]["id"])
@@ -598,7 +707,7 @@ def installed_lan(ssh, container, phase, image_ids, *, partial_path, profile, is
     phase("wired_lan_after_reboot_callback")
     report["after_outer_reboot"] = callback(after_reboot, "after_outer_reboot")
     phase("wired_lan_remove_and_restore_nat")
-    command(*ssh, "agentic-home shutdown", timeout=240)
+    shutdown("before_nat_restoration")
     command(*ssh, "agentic-home configure_lan --disable-lan", timeout=180)
     command(*ssh, "agentic-home start", timeout=120)
     wait_native("nat_after_wired_lan_removal")
@@ -730,7 +839,12 @@ def failure_observation_public(value):
 def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run,
                            clock=time.monotonic, pause=time.sleep):
     """Never retry effects; retain safe original diagnostics before VM teardown."""
-    from installed_update_probe import LIFECYCLE_ACTIONS, lifecycle_receipt, process_diagnostics
+    from installed_update_probe import (
+        LIFECYCLE_ACTIONS,
+        cli_job_unconfirmed,
+        lifecycle_receipt,
+        process_diagnostics,
+    )
 
     stdout, stderr = getattr(exc, "stdout", "") or "", getattr(exc, "stderr", "") or ""
     # Keep the original exception intact, including malformed private streams.
@@ -757,6 +871,8 @@ def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run,
                    (item == "configure_lan" and re.fullmatch(
                        r"agentic-home configure_lan (?:--interface-id [a-f0-9]{64}|--disable-lan)", remote_command))), None)
     result["lifecycle_action"] = action
+    if action is not None and process.returncode == 2:
+        result["cli_job_error"] = cli_job_unconfirmed(stdout, stderr)
     output = stdout.decode(errors="replace") if isinstance(stdout, bytes) else stdout
     receipt = None
     if not lan_probe and isinstance(output, str) and len(output.encode()) <= 65536:
