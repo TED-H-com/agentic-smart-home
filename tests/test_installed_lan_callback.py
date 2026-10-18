@@ -115,7 +115,7 @@ def test_private_partial_is_atomic_owner_only_and_stays_outside_package_inputs(t
 def rehearsal(tmp_path, monkeypatch):
     path = tmp_path / "partial.json"
     calls, phases, snapshots = [], [], []
-    state = {"failure_stage": "after_outer_reboot", "failure": subprocess.CalledProcessError(
+    state = {"shutdown_calls": [], "failure_stage": "after_outer_reboot", "failure": subprocess.CalledProcessError(
         1, ["docker", "exec"], output=wire(), stderr="private original stderr")}
     def command(*args, **options):
         calls.append((args, options))
@@ -142,6 +142,14 @@ def rehearsal(tmp_path, monkeypatch):
         return ""
     monkeypatch.setattr(install, "command", command)
     def readiness(args, **options):
+        if args == ["ssh", "fixture", "agentic-home shutdown"]:
+            state["shutdown_calls"].append((args, options))
+            assert options["capture_output"] is True and options["text"] is True
+            assert 0 < options["timeout"] <= 240
+            identifier = f"{len(state['shutdown_calls']):032x}"
+            job = {"id": identifier, "request": {"id": identifier, "action": "shutdown", "snapshot": None},
+                   "state": "succeeded", "result": {"vm": "shut off"}}
+            return subprocess.CompletedProcess(args, 0, f"Operation {identifier}\n" + json.dumps(job), "")
         assert args == ["ssh", "fixture", "python3 -"] and options["timeout"] == 15
         return subprocess.CompletedProcess(args, 0, "", "")
     monkeypatch.setattr(install.subprocess, "run", readiness)
@@ -176,6 +184,7 @@ def test_failure_keeps_native_partial_and_original_exception_without_retry(rehea
                 "malformed": "peer_process_failed", "false_success": "peer_process_failed"}[kind]
     assert value["stages"][stage]["callback"] == {"status": "failed", "error_code": expected}
     assert len(snapshots) == (1 if stage == "initial" else 2)
+    assert len(state["shutdown_calls"]) == 1
     assert not any(args[-1] == "agentic-home configure_lan --disable-lan" for args, _ in calls)
     if stage == "after_outer_reboot":
         assert value["stages"]["initial"]["callback"]["status"] == "passed"
@@ -188,6 +197,7 @@ def test_success_still_requires_both_callbacks_and_nat_removal_but_partial_is_ne
     state["failure_stage"] = None
     result = execute()
     assert result["result"] == "passed" and result["removed"]["nat_gateway_restored"]
+    assert len(state["shutdown_calls"]) == 2
     assert result["initial"]["native_callback_reachable_from_lan_peer"]
     assert result["after_outer_reboot"]["native_callback_reachable_from_lan_peer"]
     value = json.loads(path.read_text())
@@ -206,6 +216,7 @@ def test_failed_checkpoint_write_cannot_replace_callback_failure(rehearsal, monk
     with pytest.raises(subprocess.CalledProcessError) as caught:
         execute()
     assert caught.value is state["failure"]
+    assert len(state["shutdown_calls"]) == 1
     value = json.loads(path.read_text())
     assert value["stages"]["initial"]["callback"]["status"] == "passed"
     assert value["stages"]["after_outer_reboot"]["native"] == NATIVE
