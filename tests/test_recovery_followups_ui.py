@@ -46,6 +46,7 @@ def recovery_browser(tmp_path, monkeypatch):
             browser = playwright.chromium.launch()
             page = browser.new_page(viewport={'width': 1440, 'height': 900})
             page.clock.install()
+            page.expose_function('__heldRecoveryRequests', lambda path: len(state['hold'].get(path, [])))
             page.route('**/api/**', route)
             page.on('pageerror', lambda error: state['errors'].append(str(error)))
             yield page, f'http://127.0.0.1:{server.server_port}', state
@@ -60,6 +61,15 @@ def recovery_browser(tmp_path, monkeypatch):
 def tick(page, milliseconds=5100):
     page.clock.run_for(milliseconds)
     page.wait_for_timeout(50)
+
+
+def wait_for_held(page, path):
+    # Pump Playwright events until the route handler has captured the request.
+    page.wait_for_function('''path => {
+        const counts = window.__heldRecoveryCounts ||= {};
+        window.__heldRecoveryRequests(path).then(count => counts[path] = count);
+        return counts[path] > 0;
+    }''', arg=path, timeout=5000)
 
 
 def shots(page, name):
@@ -227,6 +237,7 @@ def test_inventory_late_reload_preserves_unsaved_permissions(recovery_browser):
     state['hold']['inventory'] = []
     page.get_by_role('button', name='重新盤點', exact=True).click()
     expect(page.get_by_role('button', name='盤點中…', exact=True)).to_be_visible()
+    wait_for_held(page, 'inventory')
     permission.check()
     held = state['hold'].pop('inventory')
     assert len(held) == 1
@@ -382,13 +393,12 @@ def test_restored_login_only_discards_confirmed_missing_handle(recovery_browser,
         state['data'][path] = auth
     page.add_init_script(f'sessionStorage.setItem({json.dumps(storage)}, {json.dumps("a" * 32)})')
     page.goto(origin + '/#' + view)
-    tick(page, 100)
     if outcome == 'missing':
-        assert page.evaluate('key => sessionStorage.getItem(key)', storage) is None
         expect(page.get_by_text('官方授權已過期，請重新開始。' if kind == 'hermes' else '這次登入已過期，請重新登入。', exact=True)).to_be_visible()
+        assert page.evaluate('key => sessionStorage.getItem(key)', storage) is None
     else:
-        assert page.evaluate('key => sessionStorage.getItem(key)', storage) == 'a' * 32
         expect(page.get_by_text('尚未確認前一次登入已停止，請重新開始。' if kind == 'hermes' else '尚未確認登入程序停止，請先核對後再登入。', exact=True)).to_be_visible()
+        assert page.evaluate('key => sessionStorage.getItem(key)', storage) == 'a' * 32
     count = state['reads'][path]
     tick(page, 30100)
     assert state['reads'][path] == count
@@ -417,11 +427,15 @@ def test_late_saved_login_read_cannot_revive_after_logout(recovery_browser, kind
 
     state['handlers'][endpoint] = logout
     page.goto(origin + '/#' + view)
-    tick(page, 100)
+    wait_for_held(page, path)
     assert len(state['hold'][path]) >= 1
     panel = page.get_by_role('region', name='智能管家登入') if kind == 'hermes' else page.locator('.coding-signed')
     panel.get_by_role('button', name='登出', exact=True).click()
-    page.wait_for_timeout(100)
+    if kind == 'hermes':
+        expect(panel.get_by_text('已登出。', exact=True)).to_be_visible()
+    else:
+        expect(page.get_by_role('region', name='開發助手登入').get_by_role('button', name='開始登入', exact=True)).to_be_visible()
+    assert page.evaluate('key => sessionStorage.getItem(key)', storage) is None
     held = state['hold'].pop(path)
     for response in held:
         response.fulfill(json=auth)
@@ -443,6 +457,7 @@ def test_late_hermes_runtime_read_cannot_adopt_login_after_logout(recovery_brows
     stale['runtime']['pending_auth'] = auth
     state['hold']['hermes'] = []
     tick(page, 10100)
+    wait_for_held(page, 'hermes')
     held = state['hold'].pop('hermes')
     assert len(held) == 1
 
@@ -511,7 +526,7 @@ def test_provider_late_read_and_stale_runtime_cannot_revive_cleared_login(recove
         tick(page, 2100)
     else:
         expect(panel.get_by_role('button', name='登出', exact=True)).to_be_visible()
-        tick(page, 100)
+    wait_for_held(page, path)
     held = state['hold'].pop(path)
     assert held
     endpoint = f'runtimes/host/providers/codex/auth/{auth["id"]}/cancel' if action == 'cancel' else 'runtimes/host/providers/codex/logout'
@@ -522,7 +537,8 @@ def test_provider_late_read_and_stale_runtime_cannot_revive_cleared_login(recove
 
     state['handlers'][endpoint] = clear
     panel.get_by_role('button', name='取消登入' if action == 'cancel' else '登出', exact=True).click()
-    page.wait_for_timeout(100)
+    expect(panel.get_by_role('button', name='開始登入', exact=True)).to_be_visible()
+    assert page.evaluate('key => sessionStorage.getItem(key)', storage) is None
     before = state['reads'][path]
     for response in held:
         response.fulfill(json=auth)
@@ -592,10 +608,11 @@ def test_inventory_save_reply_keeps_newer_unsaved_permission_edits(recovery_brow
     page.get_by_role('button', name='重新盤點', exact=True).click()
     expect(page.get_by_text('暫時讀不到資料', exact=True)).to_be_visible()
     permission.check()
-    pending = []
+    pending = state['hold']['policy'] = []
     state['handlers']['policy'] = pending.append
     page.get_by_role('button', name='儲存修改', exact=True).click()
     expect(page.get_by_role('button', name='儲存中…', exact=True)).to_be_visible()
+    wait_for_held(page, 'policy')
     assert len(pending) == 1
     posted = state['writes'][0][1]
     assert next(item for item in posted['entities'] if item['entity_id'] == 'light.demo_living_room')['read'] is True
