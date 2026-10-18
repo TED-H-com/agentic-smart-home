@@ -146,6 +146,8 @@ export function createDemoModel():DemoModel{
   }
   function request(path:string,method:string,body:Row,surface:DemoSurface,key?:string){
     progress();let result:any,status=200;
+    if((path==='notifications'||path==='notifications/config')&&surface!=='outer')
+      return {status:403,body:{detail:'請從管理與救援開啟通知設定。'}};
     if(haLan.progress())publish();
     const lan=haLan.request(path,method,body,key);
     if(lan){if(method==='POST'&&lan.status===202)publish();return clone(lan)}
@@ -167,7 +169,18 @@ export function createDemoModel():DemoModel{
       if(result===undefined){status=404;result={detail:'這份資料已過期或不存在。'};window.__agenticDemo.unhandled.push(path)}
     }else if(method==='POST'){
       // Only read fields used by supported operations. Bodies are never reflected wholesale.
-      if(path==='gateway/messages'){
+      if(path==='notifications/config'){
+        // This household has no allowed chats or installed notification integration.
+        // Only the switch is simulated in browser memory; it cannot install or send.
+        const config=data.notifications.config;
+        if(body.expected_revision!==config.revision){status=409;result={detail:'通知設定已變更，請重新讀取。'}}
+        else if(typeof body.enabled!=='boolean'||!Array.isArray(body.recipients)||body.recipients.length||Object.keys(body).some(key=>!['enabled','expected_revision','recipients'].includes(key))){status=422;result={detail:'示範家庭尚無允許的聊天室，不能加入收件人。'}}
+        else{
+          data.notifications.config={enabled:body.enabled,recipients:[],revision:hash(new TextEncoder().encode(JSON.stringify({enabled:body.enabled,recipients:[]})))};
+          data.notifications.integration={state:body.enabled?'not_installed':'disabled',source_id:null,last_seen:null,reason:body.enabled?'not_configured':null};
+          result=data.notifications;
+        }
+      }else if(path==='gateway/messages'){
         const message=String(body.message||'').slice(0,5000),discoveryContext=(message.includes('【設備探索快照】')||message.includes('【網路設備探索快照】')),household=!discoveryContext&&/燈|冷氣|門|出門|回家|晚上|light|home/i.test(message),task=household?proposal(/冷氣/.test(message)?'回家時開啟臥室冷氣':/出門/.test(message)?'出門時關閉客廳燈':'玄關有人時開啟客廳燈'):null;
         if(task&&/冷氣/.test(message)){task.proposal.intent.actions=[{entity_id:'climate.demo_bedroom',action:'turn_on'}];task.proposal.final=compile(task.proposal.intent,task.proposal.final.id);task.proposal.digest=hash(new TextEncoder().encode(JSON.stringify(task.proposal.final)))}
         if(task&&/出門/.test(message)){task.proposal.intent.actions[0].action='turn_off';task.proposal.final=compile(task.proposal.intent,task.proposal.final.id);task.proposal.digest=hash(new TextEncoder().encode(JSON.stringify(task.proposal.final)))}

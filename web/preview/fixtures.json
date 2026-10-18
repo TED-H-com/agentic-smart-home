@@ -452,6 +452,17 @@
       {"id": "telegram", "status": "disabled", "enabled": false, "chats": [], "senders": [], "has_secret": false}
     ]
   },
+  "notifications": {
+    "config": {"enabled": false, "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "recipients": []},
+    "integration": {"state": "disabled", "source_id": null, "last_seen": null, "reason": null},
+    "channels": [
+      {"channel": "line", "transport": "disabled", "login": "unknown"},
+      {"channel": "telegram", "transport": "disabled", "login": "not_required"},
+      {"channel": "discord", "transport": "disabled", "login": "not_required"}
+    ],
+    "destinations": [],
+    "deliveries": []
+  },
   "gateway/messages": {
     "messages": [
       {

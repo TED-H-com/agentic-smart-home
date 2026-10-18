@@ -3,6 +3,7 @@ import hashlib
 import json
 
 import pytest
+from agentic_controller.notifications import NotificationsSnapshot
 from playwright.sync_api import expect
 from test_site import approve, clean, nav, product_frame, watch
 from test_site import browser as browser
@@ -459,6 +460,8 @@ def test_channel_settings_route_survives_reload_and_back(browser, origin):
     ui.get_by_role('link', name='通訊設定', exact=True).click()
     expect(page).to_have_url(f'{origin}/demo/#gateway/channels')
     expect(ui.get_by_role('heading', name='通訊設定', exact=True)).to_be_visible()
+    expect(ui.get_by_role('heading', name='家庭通知', exact=True)).to_be_visible()
+    expect(ui.get_by_label('啟用家庭通知')).not_to_be_checked()
     page.reload()
     ui = product_frame(page)
     expect(ui.get_by_role('heading', name='通訊設定', exact=True)).to_be_visible()
@@ -468,6 +471,72 @@ def test_channel_settings_route_survives_reload_and_back(browser, origin):
     page.go_back()
     expect(page).to_have_url(f'{origin}/demo/#gateway/channels')
     expect(ui.get_by_role('heading', name='通訊設定', exact=True)).to_be_visible()
+    clean(page, errors, external)
+    page.close()
+
+
+def test_demo_notification_settings_are_memory_only_and_revision_bound(browser, origin):
+    page = browser.new_page(viewport={'width': 1440, 'height': 900})
+    errors, external = watch(page, origin)
+    page.goto(f'{origin}/demo/#gateway/channels')
+    ui = product_frame(page)
+    panel = ui.locator('.notification-settings')
+    expect(panel.get_by_role('heading', name='家庭通知')).to_be_visible()
+    expect(panel.get_by_label('啟用家庭通知')).not_to_be_checked()
+    expect(panel.get_by_role('button', name='新增收件人')).to_be_disabled()
+    initial = read_api(ui, 'notifications')
+    NotificationsSnapshot.model_validate(initial)
+    assert initial['config']['recipients'] == initial['destinations'] == initial['deliveries'] == []
+    assert all(channel['transport'] == 'disabled' for channel in initial['channels'])
+    assert next(channel for channel in initial['channels'] if channel['channel'] == 'line')['login'] == 'unknown'
+
+    panel.get_by_label('啟用家庭通知').check()
+    panel.get_by_role('button', name='儲存通知設定').click()
+    expect(panel.get_by_text('家庭尚未安裝通知整合，儲存設定不會自動安裝。')).to_be_visible()
+    enabled = read_api(ui, 'notifications')
+    NotificationsSnapshot.model_validate(enabled)
+    assert enabled['config']['enabled'] is True
+    assert enabled['config']['revision'] != initial['config']['revision']
+    assert enabled['integration'] == {
+        'state': 'not_installed', 'source_id': None, 'last_seen': None, 'reason': 'not_configured'}
+    assert enabled['channels'] == initial['channels']
+    assert enabled['deliveries'] == []
+
+    def post_config(body):
+        return ui.evaluate('''async body => {
+            const response = await fetch('api/notifications/config', {
+                method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+            return response.status;
+        }''', body)
+
+    # Neither an old editor nor an injected destination can change the synthetic state.
+    assert post_config({'enabled': False, 'expected_revision': initial['config']['revision'], 'recipients': []}) == 409
+    assert post_config({'enabled': True, 'expected_revision': enabled['config']['revision'], 'recipients': [
+        {'alias': 'family', 'label': '示範收件人', 'channel': 'line', 'chat': 'invented-chat'}]}) == 422
+    assert read_api(ui, 'notifications') == enabled
+    denied = page.evaluate('''() => window.__agenticDemoModel.request(
+        'notifications/config', 'POST', {enabled:false, recipients:[]}, 'bridge')''')
+    assert denied['status'] == 403
+    assert read_api(ui, 'notifications') == enabled
+
+    ui.get_by_role('button', name='回到對話', exact=True).click()
+    ui.get_by_role('link', name='通訊設定', exact=True).click()
+    expect(panel.get_by_label('啟用家庭通知')).to_be_checked()
+    panel.get_by_label('啟用家庭通知').uncheck()
+    panel.get_by_role('button', name='儲存通知設定').click()
+    expect(panel.get_by_text('設定已儲存；通知結果請看送出紀錄。')).to_be_visible()
+    disabled = read_api(ui, 'notifications')
+    NotificationsSnapshot.model_validate(disabled)
+    assert disabled['config']['enabled'] is False
+    assert disabled['integration']['state'] == 'disabled'
+    assert disabled['deliveries'] == []
+    panel.get_by_label('啟用家庭通知').check()
+    panel.get_by_role('button', name='儲存通知設定').click()
+    expect(panel.get_by_text('家庭尚未安裝通知整合，儲存設定不會自動安裝。')).to_be_visible()
+    page.reload()
+    ui = product_frame(page)
+    expect(ui.get_by_label('啟用家庭通知')).not_to_be_checked()
+    assert read_api(ui, 'notifications') == initial
     clean(page, errors, external)
     page.close()
 
