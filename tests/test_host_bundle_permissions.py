@@ -26,7 +26,7 @@ def test_bundle_public_modes_ignore_build_umask_without_chmod_cache(tmp_path, mo
     build = build_module()
     source = tmp_path / "source"
     source.mkdir()
-    for directory in ("host", "controller", "runner", "hermes", "bridge", "contracts", "docs", "scripts"):
+    for directory in ("host", "controller", "runner", "hermes", "bridge", "custom_components", "contracts", "docs", "scripts"):
         path = source / directory
         path.mkdir()
         path.chmod(0o777)
@@ -48,6 +48,7 @@ def test_bundle_public_modes_ignore_build_umask_without_chmod_cache(tmp_path, mo
     original_cache = {p.name: (p.stat().st_ino, stat.S_IMODE(p.stat().st_mode)) for p in cache.iterdir()}
     monkeypatch.setattr(build, "ROOT", source)
     monkeypatch.setitem(sys.modules, "package", SimpleNamespace(package_bridge=lambda: None,
+                                                                package_notifications=lambda: None,
                                                                 package_runner=lambda: None))
     monkeypatch.setattr(build, "coding_source", lambda assets: (assets / "coding-source.bundle").write_bytes(b"source"))
     monkeypatch.setattr(build, "fetch", lambda artifact, destination: destination / artifact["filename"])

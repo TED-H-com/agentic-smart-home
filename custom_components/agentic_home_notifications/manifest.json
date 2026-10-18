@@ -1,0 +1,13 @@
+{
+  "domain": "agentic_home_notifications",
+  "name": "Agentic Home notifications",
+  "codeowners": ["@teddashh"],
+  "config_flow": true,
+  "documentation": "https://github.com/TED-H-com/agentic-smart-home/blob/main/docs/HA_NOTIFICATIONS.md",
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/TED-H-com/agentic-smart-home/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.0"
+}

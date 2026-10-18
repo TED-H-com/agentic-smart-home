@@ -243,6 +243,8 @@ class Store:
             # remains when all private inventory context has been removed.
             from .network_inventory import prune_inventory
             prune_inventory(tx, context_cutoff)
+            from .notifications import prune_notifications
+            prune_notifications(tx, context_cutoff)
             tx.execute("DELETE FROM records WHERE kind=? AND (created < ? OR NOT EXISTS ("
                 "SELECT 1 FROM records AS conversation WHERE conversation.kind='conversation' "
                 "AND conversation.id=json_extract(records.body,'$.message_id')))",

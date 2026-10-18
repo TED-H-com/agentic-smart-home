@@ -6,6 +6,8 @@
 
 **0.10.0 工程預覽**整合多來源設備盤點、對話分享、可接續的接入追蹤，選磁碟前的 USB 硬體檢查，以及可選的 HAOS 有線家庭接入。從 [v0.10.0 發布頁](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.10.0) 取得同版安裝媒體。工程驗證與公開下載結果：同一候選本機八階段（2+6 接續）已通過；公開 App：逐階段接續通過（enable 42、bridge-haos 40，清理完成）；匿名下載：Linux 完整下載與校驗通過，暫存清理完成。精確來源與八階段／公開 App 結果見 [交付摘要](evidence/laptop-d0089a8/summary.json)，CI 與下載核驗見 [驗證紀錄](docs/VERIFICATION.md)。實體 Dell、真帳號、家庭設備及 72 小時運作仍待現場驗收；[進度帳本](docs/v3/PROGRESS.md) 保留各項範圍。
 
+主線另在開發 [HA 原生文字通知](docs/HA_NOTIFICATIONS.md)：從自動化呼叫已授權的收件者別名，沿用既有通訊帳號。這項功能需要包含新 adapter 的 Controller 與 HA 整合，**不在已發布的 0.10.0 ISO／TAR 內**；不能只下載整合 ZIP 就讓舊版 Controller 支援。
+
 ## 安裝
 
 準備一支可清除的 **32 GB USB**。可以直接在這台筆電的現有系統下載並製作 USB，再重新開機安裝；先備份要保留的資料，安裝會清除選定的內部磁碟。
@@ -52,7 +54,7 @@ uv sync --frozen
 npm ci --prefix web
 npm run build --prefix web
 uv run python scripts/contracts.py --check
-uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner, package_bridge; package_runner(); package_bridge()"
+uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner, package_bridge, package_notifications; package_runner(); package_bridge(); package_notifications()"
 uv run python scripts/controller_source.py
 for app in controller runner bridge hermes; do docker build -t agentic-home-$app:0.10.0 $app; done
 docker build -t agentic-home-linejs:0.10.0 host/linejs

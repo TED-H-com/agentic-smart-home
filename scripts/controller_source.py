@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PATHS = ["controller", "runner", "hermes", "bridge", "host", "web", "contracts", "scripts",
+PATHS = ["controller", "runner", "hermes", "bridge", "custom_components", "host", "web", "contracts", "scripts",
          "providers.lock.json", "pyproject.toml", "uv.lock", "AGENTS.md", "DESIGN.md", "README.md",
          "PROJECT_PLAN.md", "PROJECT_SPEC.md"]
 BUNDLE_NAME = "controller/source/agentic-home.bundle"

@@ -1,0 +1,69 @@
+{
+  "$defs": {
+    "NotificationRecipient": {
+      "additionalProperties": false,
+      "properties": {
+        "alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,31}$",
+          "title": "Alias",
+          "type": "string"
+        },
+        "channel": {
+          "enum": [
+            "line",
+            "discord",
+            "telegram"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "chat": {
+          "pattern": "^[A-Za-z0-9_-]{1,128}$",
+          "title": "Chat",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "alias",
+        "label",
+        "channel",
+        "chat"
+      ],
+      "title": "NotificationRecipient",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "enabled": {
+      "default": false,
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "expected_revision": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Expected Revision",
+      "type": "string"
+    },
+    "recipients": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/NotificationRecipient"
+      },
+      "maxItems": 16,
+      "title": "Recipients",
+      "type": "array"
+    }
+  },
+  "required": [
+    "expected_revision"
+  ],
+  "title": "NotificationConfigInput",
+  "type": "object"
+}

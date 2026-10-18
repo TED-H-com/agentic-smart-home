@@ -2,6 +2,8 @@
 
 外層 Controller/Gateway 維持唯一通訊 receiver。Web 一直可用，onboarding 預設 LINE，亦可選 Discord／Telegram／Web；Hermes 不啟動自己的 bot Gateway，也不取得通道 token。首次開機不建立 HAOS，不影響外層 Web、Hermes 登入或固定主機查詢。
 
+主線新增 [HA 原生文字通知](HA_NOTIFICATIONS.md)，由 HA 自動化使用已授權的收件人別名，直接交給同一個 Gateway。通知不經 AI；AI 暫停與模型重新登入不會取消通知授權。本機傳輸、帳號登入及提交結果分別顯示；結果不明不自動重送。此功能需要新的 Controller＋HA adapter，已發布的 0.10.0 媒體不包含它。
+
 ## Hermes 是一般對話的協調助手
 
 新的一般 Web／通道對話預設交給 Hermes。它執行真上游 AIAgent：首次設定使用安裝包的 [受測版本](../hermes/hermes.lock.json)，驗證隨附 digest 與離線相容性，不在家庭主機追 HEAD 或重新建置。它透過私有 adapter 的 session/run/cancel 介面與 Controller 整合，詳見 [runtime 契約](../hermes/README.md)。沒有用自製推理 loop 假稱 Hermes，也沒有把上游 `delegate_task` 當作已完成的 HAOS worker。

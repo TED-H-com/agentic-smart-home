@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -10,6 +11,21 @@ from contextlib import asynccontextmanager
 import aiohttp
 
 from .durability import client_session, durable
+from .models import digest
+
+LINE_ACCOUNT_SCOPE = "notification_line_account"
+
+
+def line_account_scope(store):
+    value = store.setting(LINE_ACCOUNT_SCOPE)
+    if (not isinstance(value, dict) or set(value) != {"account_hash", "generation"} or
+        not isinstance(value.get("generation"), str) or
+        re.fullmatch(r"[a-f0-9]{32}", value["generation"]) is None or
+        (value.get("account_hash") is not None and
+         (not isinstance(value["account_hash"], str) or
+          re.fullmatch(r"[a-f0-9]{64}", value["account_hash"]) is None))):
+        return None
+    return value
 
 
 class ChannelError(Exception):
@@ -82,6 +98,26 @@ class LineTransport:
     def __init__(self, store, config):
         self.store, self.config, self.socket = store, config, None
         self.pending = {}
+        self.notification_ready = False
+        self.notification_scope = None
+
+    async def _notification_auth(self, user_id):
+        # Invalidate synchronous pre-send guards before any disk await. A normal
+        # connection loss keeps the persisted account generation; an explicit
+        # logout or changed/malformed account rotates it, including after restart.
+        self.notification_ready = False
+        self.notification_scope = None
+        previous = line_account_scope(self.store)
+        valid = isinstance(user_id, str) and re.fullmatch(r"u[a-f0-9]{32}", user_id) is not None
+        account_hash = digest(user_id) if valid else (previous or {}).get("account_hash")
+        scope = previous if valid and previous and previous["account_hash"] == account_hash else {
+            "account_hash": account_hash, "generation": uuid.uuid4().hex}
+        if scope != previous:
+            self.store.set_setting(LINE_ACCOUNT_SCOPE, scope)
+        await durable(self.store)
+        self.notification_ready = bool(valid and line_account_scope(self.store) == scope)
+        self.notification_scope = scope if self.notification_ready else None
+        return self.notification_ready
 
     async def run(self, receive, state):
         me = None
@@ -96,10 +132,15 @@ class LineTransport:
                         frame = message.json()
                         kind = frame.get("type")
                         if kind == "auth:ready":
-                            me = frame["profile"]["userId"]
-                            state("connected")
+                            profile = frame.get("profile")
+                            me = profile.get("userId") if isinstance(profile, dict) else None
+                            ready = await self._notification_auth(me)
+                            if not ready:
+                                me = None
+                            state("connected" if ready else "needs_reauth")
                         elif kind == "auth:state" and frame.get("state") != "ready":
                             me = None
+                            await self._notification_auth(None)
                             state("needs_reauth")
                         elif kind in {"sent", "error"}:
                             future = self.pending.get(frame.get("requestId"))
@@ -111,12 +152,14 @@ class LineTransport:
                                 await receive(str(item.get("messageId", "")), str(item.get("channelId", "")),
                                               str(item.get("senderId", "")), item.get("text", ""))
                 finally:
+                    self.notification_ready = False
+                    self.notification_scope = None
                     self.socket = None
                     for future in self.pending.values():
                         if not future.done():
                             future.set_result(False)
 
-    async def send(self, chat, text):
+    async def send(self, chat, text, *, guard=None):
         if not self.socket or self.socket.closed:
             raise ChannelError("LINE 尚未連線")
         id = uuid.uuid4().hex
@@ -124,6 +167,8 @@ class LineTransport:
         self.pending[id] = future
         try:
             await durable(self.store)
+            if guard:
+                guard()
             await self.socket.send_json({"type": "message:send", "requestId": id, "chatId": chat, "text": text[:1900]})
             if not await asyncio.wait_for(future, 20):
                 raise ChannelError("LINE 未確認訊息送達")
@@ -193,9 +238,10 @@ class TelegramTransport:
                     offset = update["update_id"] + 1
                     self.store.set_setting(key, offset)
 
-    async def send(self, chat, text):
+    async def send(self, chat, text, *, guard=None):
         result = await self._call(self.session, "POST", self.base + "/sendMessage", json={
-            "chat_id": chat, "text": text[:1900], "link_preview_options": {"is_disabled": True}})
+            "chat_id": chat, "text": text[:1900], "link_preview_options": {"is_disabled": True}},
+            **({"trace_request_ctx": {"notification_guard": guard}} if guard else {}))
         if not result.get("ok"):
             code = result.get("error_code")
             if code:
@@ -235,9 +281,10 @@ class DiscordTransport:
                 state("connected")
                 await asyncio.sleep(3)
 
-    async def send(self, chat, text):
+    async def send(self, chat, text, *, guard=None):
         await json_request(self.session, "POST", self.base + f"/channels/{chat}/messages", json={
-            "content": text[:1900], "allowed_mentions": {"parse": []}})
+            "content": text[:1900], "allowed_mentions": {"parse": []}},
+            **({"trace_request_ctx": {"notification_guard": guard}} if guard else {}))
 
 
 TRANSPORTS = {"line": LineTransport, "telegram": TelegramTransport, "discord": DiscordTransport}

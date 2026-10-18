@@ -1,5 +1,6 @@
 """Browser walk of the isolated interactive preview. Demo fixtures, not a household."""
 import http.client
+import json
 import sys
 import threading
 import time
@@ -7,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from agentic_controller.notifications import NotificationsSnapshot
 from playwright.sync_api import expect, sync_playwright
 from ui_helpers import click_navigation
 
@@ -45,6 +47,8 @@ def test_interactive_preview_renders_demo_household(tmp_path):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(path.read_bytes())
     (artifacts / "web-fixtures.json").write_bytes((ROOT / "web" / "preview" / "fixtures.json").read_bytes())
+    notifications = json.loads((artifacts / "web-fixtures.json").read_text())["notifications"]
+    NotificationsSnapshot.model_validate(notifications)
     store_web_bundle(tmp_path / "web-previews" / JOB, *read_web_bundle(artifacts))
     service = Previews(SimpleNamespace(root=tmp_path, run=None), bundles=tmp_path / "web-previews")
     server = preview_server(service, ("127.0.0.2", 0))
@@ -79,6 +83,18 @@ def test_interactive_preview_renders_demo_household(tmp_path):
                     expect(page.get_by_text("示範家庭").locator("visible=true").first).to_be_visible()
                     expect(page.locator(".discovery").get_by_text("示範待設定橋接器", exact=True)).to_be_visible()
                     expect(page.locator(".discovery .notice.error")).to_have_count(0)
+                if name == "通訊":
+                    panel = page.locator(".notification-settings")
+                    expect(panel.get_by_role("heading", name="家庭通知")).to_be_visible()
+                    expect(panel.get_by_label("啟用家庭通知")).not_to_be_checked()
+                    expect(panel.get_by_role("button", name="新增收件人")).to_be_disabled()
+                    panel.get_by_label("啟用家庭通知").check()
+                    with page.expect_response(lambda response: response.url.endswith("/api/notifications/config")) as saved:
+                        panel.get_by_role("button", name="儲存通知設定").click()
+                    assert saved.value.status == 403
+                    expect(panel.get_by_text("預覽不會執行操作", exact=True)).to_be_visible()
+                    actual = page.evaluate("async () => (await fetch('api/notifications')).json()")
+                    assert actual == notifications
             click_navigation(page, "家庭提案")
             page.locator("#request").fill("請讓示範家庭的客廳燈在天黑後打開。")
             expect(page.get_by_role("button", name="送出需求")).to_be_enabled()

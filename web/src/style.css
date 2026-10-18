@@ -348,6 +348,35 @@ main:focus{outline:none}
 .channel-option strong,.channel-option small{display:block}
 .channel-option small{font-size:var(--xs);font-weight:400;margin-top:var(--s1)}
 .channel-settings{margin-bottom:var(--s6)}
+.notification-settings{border-top:1px solid var(--line);padding-top:var(--s6);min-width:0}
+.notification-settings>.helper-text{margin-bottom:var(--s4)}
+.notification-settings .row-actions{flex-wrap:wrap;gap:var(--s2)}
+.notification-enable{min-height:44px;margin-block:var(--s3)}
+.notification-install{margin-block:var(--s3)}
+.notification-install p,.notification-install .row-actions{margin-top:var(--s3)}
+.notification-install a{display:inline-flex;align-items:center;min-height:44px}
+.notification-connections{display:grid;gap:var(--s3);margin-block:var(--s4)}
+.notification-connections>div{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);flex-wrap:wrap}
+.notification-connections dl{display:flex;gap:var(--s4);margin:0;flex-wrap:wrap}
+.notification-connections dl>div{display:flex;gap:var(--s2);align-items:center}
+.notification-connections dt{font-size:var(--xs);color:var(--muted)}
+.notification-connections dd{margin:0}
+.notification-recipient{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s3);padding-block:var(--s3);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.notification-recipient>div:first-child{flex:1;min-width:0}
+.notification-recipient small{display:block;color:var(--muted);font-size:var(--xs)}
+.notification-recipient details{margin-top:var(--s1)}
+.notification-recipient code,.notification-history code{overflow-wrap:anywhere;white-space:normal}
+.notification-recipient>.confirm{width:100%}
+.notification-editor{display:grid;gap:var(--s3);margin-top:var(--s4)}
+.notification-editor label{display:grid;gap:var(--s2);min-width:0}
+.notification-editor small{color:var(--muted);font-size:var(--xs)}
+.notification-save{margin-block:var(--s4)}
+.notification-history ol{list-style:none;margin:0;padding:0}
+.notification-history li{padding-block:var(--s3);border-bottom:1px solid var(--line)}
+.notification-delivery-heading{display:flex;justify-content:space-between;gap:var(--s2);align-items:center;flex-wrap:wrap}
+.notification-delivery-heading strong,.notification-recipient strong{overflow-wrap:anywhere}
+@media(max-width:800px){.notification-editor input,.notification-editor select{font-size:16px}}
+@media(max-width:480px){.notification-connections dl{gap:var(--s2)}.notification-connections>div{align-items:flex-start}.notification-connections dl>div{min-width:120px}}
 .channel-settings label{display:block;margin-block:var(--s4)}
 .channel-settings input,.channel-settings select{display:block;width:100%;max-width:720px;margin-top:var(--s2)}
 .channel-settings textarea{margin-top:var(--s2)}

@@ -61,7 +61,7 @@ def boot_config(old, loopback=False):
 def coding_source(assets, root=ROOT):
     # Include only this public product's committed history, never parent files,
     # uncommitted work, other branches or installed role credentials.
-    paths = ["controller", "runner", "hermes", "bridge", "host", "web", "contracts", "scripts", "providers.lock.json", "pyproject.toml", "uv.lock", "AGENTS.md", "DESIGN.md", "README.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md"]
+    paths = ["controller", "runner", "hermes", "bridge", "custom_components", "host", "web", "contracts", "scripts", "providers.lock.json", "pyproject.toml", "uv.lock", "AGENTS.md", "DESIGN.md", "README.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md"]
     changed = subprocess.check_output(["git", "-C", str(root), "status", "--porcelain", "--", *paths], text=True)
     if changed.strip():
         raise ValueError("Commit product source before building its coding source bundle")
@@ -86,14 +86,15 @@ def public_bundle_member(member):
 
 
 def bundle(destination):
-    from package import package_bridge, package_runner
+    from package import package_bridge, package_notifications, package_runner
     package_runner()
+    package_notifications()
     package_bridge()
     stage = ROOT / "build/product/agentic-home"
     if stage.exists():
         shutil.rmtree(stage)
     stage.mkdir(parents=True)
-    for directory in ("host", "controller", "runner", "hermes", "bridge", "contracts", "docs", "scripts"):
+    for directory in ("host", "controller", "runner", "hermes", "bridge", "custom_components", "contracts", "docs", "scripts"):
         shutil.copytree(ROOT / directory, stage / directory,
                         ignore=shutil.ignore_patterns(*SKIP, "*.pyc", "*.tsbuildinfo", "agentic-home.bundle"))
     for name in ("README.md", "INSTALL.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md", "providers.lock.json", "upstream.lock.json", "channels.lock.json"):

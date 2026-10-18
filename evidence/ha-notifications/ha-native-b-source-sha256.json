@@ -1,0 +1,20 @@
+{
+  "custom_components/agentic_home_notifications/__init__.py": "04b15b0d463715bea2594048ff3ebe8158d03f6d6738612978e713e1c879ac57",
+  "custom_components/agentic_home_notifications/binary_sensor.py": "672a9c85bbd0d790bd7eb5f58ad521155f66e535134f2841d5ae58c1a7004910",
+  "custom_components/agentic_home_notifications/config_flow.py": "c6edf3dea74cd799488ec7fa269bd5b032ad636c2066a97d021581f7428b46e1",
+  "custom_components/agentic_home_notifications/const.py": "8e2364e9cd1a02378ffc712ea963a3963bf919034851b2a6ec79e70f8f3bfbbf",
+  "custom_components/agentic_home_notifications/entity.py": "60414358ce928fa34a6b15bdeb0ac6e2ae4006e93652a8063e15e63af74cddb0",
+  "custom_components/agentic_home_notifications/manifest.json": "1229d818480460edda79f1efbd2cf845788ea6441effa190c3eb31a69ddb22f5",
+  "custom_components/agentic_home_notifications/persistence.py": "d791ceca1864293a223c01ca0ffcbea12ea26d54a2711e2c9bbf8dc6e7e2762a",
+  "custom_components/agentic_home_notifications/queue.py": "c609b05a9e6db98f3039f1ea03053edef6394690805366ad8e60ddba39856bd9",
+  "custom_components/agentic_home_notifications/sensor.py": "0f16ae9168d79925c4d73b18410f1fd0c38a6e148af3439e144a21478d86c665",
+  "custom_components/agentic_home_notifications/services.yaml": "29af39dfd14a0ffdb4da91406bda0d682139e5c81cc6698e11d04b3d2a3d4e46",
+  "custom_components/agentic_home_notifications/storage_io.py": "9ddfa2d0d0372a2788b6a9396212f7d9109a2968ccb14ac8c3efc4772ae43a20",
+  "custom_components/agentic_home_notifications/strings.json": "9573051f44e8e6d33f4ed96486e1c76d7dc5ba2fff652fe3f2677b1b889e82b9",
+  "custom_components/agentic_home_notifications/translations/en.json": "9573051f44e8e6d33f4ed96486e1c76d7dc5ba2fff652fe3f2677b1b889e82b9",
+  "custom_components/agentic_home_notifications/translations/zh-Hant.json": "ebc991c66db1acc0e865013df4c88d48c5ea1e31dd44e32389572b6a0f2066c7",
+  "docs/HA_NOTIFICATIONS.md": "4f30678499de8912953ab170c7d0531ce790ba9fc125203634e4f632040b5a73",
+  "tests/test_ha_notifications_persistence.py": "c13d362b3918a174005b8c11f1fe54cd70ad7bf75034775942d44950930c73ba",
+  "tests/test_ha_notifications_queue.py": "bf8bcee794dc407c95ea0d8a1d4cbb9c36362d23a60af2bf6c03288c770d3ac7",
+  "tests/test_ha_notifications_real.py": "949b39dc499d035b381a20aeda7be5e67aa1ce9fff3b01bde1c0d6b6a4284a37"
+}

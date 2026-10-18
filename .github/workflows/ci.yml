@@ -22,11 +22,11 @@ jobs:
           uv sync --frozen
           npm ci --prefix web
           npm run build --prefix web
-          uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner, package_bridge; package_runner(); package_bridge()"
+          uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner, package_bridge, package_notifications; package_runner(); package_bridge(); package_notifications()"
           uv run playwright install --with-deps chromium
       - name: Source and contract checks
         run: |
-          uv run ruff check controller runner hermes bridge host scripts tests
+          uv run ruff check controller runner hermes bridge custom_components host scripts tests
           uv run python scripts/contracts.py --check
           uv run python scripts/web_toolchain.py --check
           uv run python scripts/validate_kit.py
@@ -90,4 +90,5 @@ jobs:
           retention-days: 7
           path: |
             dist/agentic-home-0.10.0-source.zip
+            controller/static/downloads/agentic-home-notifications.zip
             evidence/
