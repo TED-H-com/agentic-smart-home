@@ -4,13 +4,14 @@ This is the Plan v3 orchestrator adapter. The inference loop is the actual upstr
 `run_agent.AIAgent`, pinned to the commit and verified archive in
 [`hermes.lock.json`](hermes.lock.json). It does not launch Hermes Gateway, accept bot
 tokens, execute coding workers inside this service, or acquire household approval
-authority. It dispatches supported Host coding work through the fixed Controller
-MCP adapter; Home coding remains unavailable pending its separate App launcher.
+authority. It dispatches supported Host or Home coding work through the fixed Controller
+MCP adapter. Home coding runs in its separately enrolled HAOS App; capabilities
+and role login must be verified before dispatch.
 
 Build from the product root:
 
 ```sh
-docker build -t agentic-home-hermes:0.9.0 hermes
+docker build -t agentic-home-hermes:0.11.0 hermes
 pytest-disktmp uv run pytest -q tests/test_hermes_runtime.py --containers
 ```
 
@@ -25,9 +26,9 @@ Controller and household Runner images.
 
 The 2026-10-11 review of this repository's open Dependabot alerts identified 20
 alerts against the Hermes lock: 14 for PyJWT, five for httpx2 and one for
-httpcore2. The lock changes only these three installed package versions; the
-Hermes commit, MCP 2.0.0, other dependencies and existing cryptography 50.0.2
-override remain unchanged.
+httpcore2. That review changed only these three installed package versions; the
+Hermes commit, then-pinned MCP 2.0.0, other dependencies and existing cryptography
+50.0.2 override were unchanged.
 
 | Package | Previous | Locked | Upstream evidence |
 | --- | --- | --- | --- |
@@ -49,6 +50,15 @@ Regenerate the hash lock while retaining compatible existing resolutions:
 ```sh
 uv pip compile --python 3.14 --generate-hashes hermes/requirements.in -o hermes/requirements.txt
 ```
+
+## 0.11.0 MCP candidate
+
+The 0.11.0 candidate pins `mcp` and `mcp-types` to 2.2.0, retaining the other
+75 package versions and hashes, the Hermes source commit and all CLI/runtime
+pins. This incorporates the scoped dependency change from [PR #107](https://github.com/TED-H-com/agentic-smart-home/pull/107)
+without unrelated lock-file regeneration. Real pinned Hermes protocol fixtures
+and the offline compatibility probe are required before media qualification;
+results are recorded with the candidate in [verification](../docs/VERIFICATION.md).
 
 ## Private API, protocol 1
 

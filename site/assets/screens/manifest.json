@@ -1,6 +1,6 @@
 {
-  "source_commit": "981457599005a2246cd196f6989ec2850a755198",
-  "source_tree": "7e789c78bce8d21cab0e00caad39da90b4392f8d",
+  "source_commit": "40d1ef8ad1047949c72cf61ed6ed7dad19967116",
+  "source_tree": "3e29cdc2cba88d19f4cc09e138c0939e5b959bb5",
   "frontend_source_tree": "c8ceb70cd3b068960762a58b5a37b035a03da1f0",
   "source_files": [
     {
@@ -81,7 +81,7 @@
     },
     {
       "file": "web/preview/fixtures.json",
-      "sha256": "adcca95426982b34aae000a98f447f0859674b903d5a00df8fa224b8cb495af1"
+      "sha256": "eef0fb6d3442d3a166a97025b6bb60ab19815ad7ceafa31e3c77670c67d93e10"
     }
   ],
   "fixture_clock": "2026-10-13T09:00:00+08:00",
@@ -139,7 +139,7 @@
     },
     {
       "file": "gateway.png",
-      "sha256": "792fbbf6b0906a80642189d984a54b45a7239c73448a75c4673cabf466eaded6",
+      "sha256": "c688c7c125d6499b38ce9bb4720be0039600a386597fc9ac30afddcecefefa7f",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -147,7 +147,7 @@
       "device_scale_factor": 1,
       "route": "#gateway",
       "surface": "product",
-      "bytes": 63287
+      "bytes": 63323
     },
     {
       "file": "proposal.png",
@@ -187,7 +187,7 @@
     },
     {
       "file": "host.png",
-      "sha256": "2a49df06b840b5fbacc67f8314afbe185f1b528f0349051fd6d069563de4d06f",
+      "sha256": "8bad696dc3fac1fca5b8a6b90c9b2b67d60b49cfab78bedb20d491ac4ef6132b",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -195,7 +195,7 @@
       "device_scale_factor": 1,
       "route": "#host",
       "surface": "product",
-      "bytes": 68798
+      "bytes": 68795
     },
     {
       "file": "bridge.png",

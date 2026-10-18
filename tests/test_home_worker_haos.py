@@ -32,6 +32,7 @@ import pytest
 import yaml
 from agentic_controller.ha import HAError
 from home_worker_haos_probe import (
+    DIAGNOSTIC_CLIENT_SECONDS,
     ENTRY_CHECK_NAMES,
     FIXTURE_KEY,
     ModelFixture,
@@ -55,6 +56,43 @@ REGISTRY = 'registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d
 # App start and restart must outlast the product's own 150 s wait.
 APP_OPERATION_SECONDS = 300
 JOB_STOP_SECONDS = 120
+JOB_PROOF_SSH_SECONDS = DIAGNOSTIC_CLIENT_SECONDS + 15
+REMOTE_STEPS = frozenset({'app_json', 'job_proof', 'set_fixture_mode', 'registry_readiness',
+    'runner_image', 'registry_image', 'registry_create', 'runner_tag', 'registry_state', 'registry_start',
+    'registry_manifest', 'app_container', 'app_image', 'app_readiness', 'host_namespaces', 'source_lock',
+    'app_restart_generation', 'app_before_graceful_stop', 'app_before_abrupt_stop', 'app_kill',
+    'app_after_kill', 'failure_app_inspect', 'failure_app_logs'})
+
+
+def fixture_remote(ssh, command, evidence, *, step, timeout=30, input=None,
+                   run=subprocess.run, clock=time.monotonic, checkpoint=lambda: None):
+    """Run once; retain a fixed step and bounded stderr signatures on failure."""
+    assert step in REMOTE_STEPS, 'fixture_remote_step_invalid'
+    started = clock()
+    record = {'step': step, 'timeout_seconds': timeout}
+    try:
+        result = run([*ssh, command], timeout=timeout, input=input, capture_output=True)
+    except (subprocess.TimeoutExpired, OSError) as error:
+        record.update(error_type=type(error).__name__ if type(error).__name__ in {
+            'TimeoutExpired', 'OSError', 'PermissionError', 'FileNotFoundError'} else 'OSError',
+            stderr=stderr_summary_bytes(getattr(error, 'stderr', None) or b''))
+        result = None
+    if result is not None and result.returncode == 0:
+        return result.stdout
+    if result is not None:
+        record.update(returncode=result.returncode if type(result.returncode) is int
+            and -255 <= result.returncode <= 255 else None,
+            stderr=stderr_summary_bytes(result.stderr or b''))
+    record['elapsed_seconds'] = round(clock() - started, 3)
+    failures = evidence.setdefault('fixture_command_failures', [])
+    if len(failures) < 64:
+        failures.append(record)
+    try:
+        checkpoint()
+    except OSError:
+        record['checkpoint_failed'] = True
+    # This fixed assertion contains no private command, path or subprocess text.
+    raise AssertionError('fixture_remote_failed') from None
 
 
 def failure_hold_seconds(value):
@@ -606,13 +644,16 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
         progress.write_text(json.dumps({'phase': value, 'elapsed_seconds': round(now - started),
             'phase_timings': evidence['phase_timings']}, indent=2) + '\n')
 
-    def remote(command, *, timeout=30, input=None):
-        return process([*ssh, command], timeout=timeout, input=input)
+    def remote(command, *, step, timeout=30, input=None):
+        return fixture_remote(ssh, command, evidence, step=step, timeout=timeout, input=input,
+            checkpoint=lambda: progress.write_text(json.dumps({'phase': evidence.get('phase'),
+                'phase_timings': evidence.get('phase_timings', []),
+                'fixture_command_failures': evidence.get('fixture_command_failures', [])}, indent=2) + '\n'))
 
     def app_json(path):
         assert re.fullmatch(r'/data/home-worker-fixture/[a-z-]+\.json', path)
         # Works for failed/stopped App processes; output remains byte bounded.
-        raw = remote('docker cp ' + app_container + ':' + shlex.quote(path) + ' - | head -c 143361')
+        raw = remote('docker cp ' + app_container + ':' + shlex.quote(path) + ' - | head -c 143361', step='app_json')
         return copied_json(raw)
 
     def stopped_transport():
@@ -621,21 +662,22 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
     def job_proof(identifier):
         assert HEX32.fullmatch(identifier)
         command = 'docker exec ' + app_container + ' python -m home_worker_haos_probe job-proof ' + identifier
-        value = json.loads(remote(command, timeout=10))
+        value = json.loads(remote(command, step='job_proof', timeout=JOB_PROOF_SSH_SECONDS))
         expected = app_json('/data/home-worker-fixture/app-observation.json')['namespaces']
         assert value['diagnostic_namespace_ids'] == {name + '_ns': expected[name] for name in ('pid', 'cgroup', 'mnt')}, 'diagnostic_app_namespace_changed'
         return value
 
     def mode(value):
         assert value in {'source', 'cancel', 'restart', 'crash'}
-        remote('docker exec -i ' + app_container + " sh -c 'cat > /data/home-worker-fixture/mode'", input=value.encode())
+        remote('docker exec -i ' + app_container + " sh -c 'cat > /data/home-worker-fixture/mode'",
+               step='set_fixture_mode', input=value.encode())
 
     async def wait_registry_endpoint():
         # Empty JSON from /v2/ is the registry's own ready response. A failed exec is not ready yet.
         for _ in range(20):
             try:
                 ready = json.loads(remote(
-                    'docker exec ' + registry_container + ' wget -q -O - http://127.0.0.1:5000/v2/', timeout=5))
+                    'docker exec ' + registry_container + ' wget -q -O - http://127.0.0.1:5000/v2/', step='registry_readiness', timeout=5))
                 if ready == {}:
                     return
             except (AssertionError, ValueError):
@@ -746,23 +788,23 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             assert result.returncode == 0, 'haos_product_image_preload_failed'
             phase('disposable_loopback_registry')
             evidence['registry_step'] = 'inspect_preloaded'
-            loaded_base = json.loads(remote('docker image inspect ' + shlex.quote(runner_image)))[0]
-            loaded_registry = json.loads(remote('docker image inspect registry:3.0.0'))[0]
+            loaded_base = json.loads(remote('docker image inspect ' + shlex.quote(runner_image), step='runner_image'))[0]
+            loaded_registry = json.loads(remote('docker image inspect registry:3.0.0', step='registry_image'))[0]
             assert loaded_base['RootFS']['Layers'] == base_identity['layers'], 'loaded_base_layers_changed'
             assert loaded_registry['RootFS']['Layers'] == registry_identity['layers'], 'loaded_registry_layers_changed'
             # 512m and 256 pids: multi-gigabyte layer uploads on the shared slow disk outgrew 128m/64.
             # This registry is loopback-only inside the disposable VM.
             evidence['registry_step'] = 'start_registry'
             remote('docker run -d --name ' + registry_container + ' --network host --memory 512m --cpus 1 '
-                '--pids-limit 256 -e REGISTRY_HTTP_ADDR=127.0.0.1:5000 registry:3.0.0')
+                '--pids-limit 256 -e REGISTRY_HTTP_ADDR=127.0.0.1:5000 registry:3.0.0', step='registry_create')
             evidence['registry_step'] = 'registry_ready'
             await wait_registry_endpoint()
             evidence['registry_step'] = 'tag_base'
             local_tag = '127.0.0.1:5000/agentic-home-runner:fixture'
-            remote('docker tag ' + shlex.quote(runner_image) + ' ' + local_tag)
+            remote('docker tag ' + shlex.quote(runner_image) + ' ' + local_tag, step='runner_tag')
             # The product is amd64. Do not publish a Docker29 index containing
             # attestations or rely on local image Id/RepoDigests semantics.
-            # remote() would discard a failed push as fixture_command_failed_ssh_1. Classify it; three attempts at most.
+            # Push has its own known idempotent registry protocol and bounded retry.
             evidence['registry_step'] = 'push_base'
             evidence['registry_push_failures'] = []
             push_output = None
@@ -774,10 +816,10 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
                     running = False
                     with contextlib.suppress(AssertionError, ValueError, subprocess.TimeoutExpired):
                         raw = json.loads(remote(
-                            "docker inspect --format '{{json .State}}' " + registry_container, timeout=10))
+                            "docker inspect --format '{{json .State}}' " + registry_container, step='registry_state', timeout=10))
                         running = registry_container_state(raw).get('Running') is True
                     if not running:
-                        remote('docker start ' + registry_container, timeout=30)
+                        remote('docker start ' + registry_container, step='registry_start', timeout=30)
                     await wait_registry_endpoint()
                 try:
                     completed = subprocess.run([*ssh, 'docker push --platform linux/amd64 ' + local_tag],
@@ -797,7 +839,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             digests = re.findall(r'digest: (sha256:[a-f0-9]{64})(?:\s|$)', push_output.decode())
             assert len(set(digests)) == 1, 'local_registry_manifest_identity_missing'
             refs = ['127.0.0.1:5000/agentic-home-runner@' + digests[-1]]
-            registry_manifest = json.loads(remote('docker manifest inspect --insecure ' + refs[0]))
+            registry_manifest = json.loads(remote('docker manifest inspect --insecure ' + refs[0], step='registry_manifest'))
             assert registry_manifest['config']['digest'] == base_identity['config_digest'], 'registry_config_digest_changed'
             evidence['registry_fixture'] = {'scope': 'disposable_haos_loopback_only', 'upstream': REGISTRY,
                 'registry_config_digest': registry_identity['config_digest'], 'base_reference': refs[0],
@@ -843,13 +885,13 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             await ha.request('POST', f'/addons/{slug}/start', supervisor=True, timeout=APP_OPERATION_SECONDS)
             info = await ha.request('GET', f'/addons/{slug}/info', supervisor=True)
             evidence['app_contract'] = app_contract(info, config, slug)
-            installed = json.loads(remote('docker inspect ' + app_container))[0]
+            installed = json.loads(remote('docker inspect ' + app_container, step='app_container'))[0]
             evidence['app_container_observation'] = container_projection(installed, slug)
             container_contract(installed, slug)
             evidence['actual_apparmor_profile'] = installed['AppArmorProfile']
-            derived = json.loads(remote('docker image inspect ' + shlex.quote(installed['Image'])))[0]
+            derived = json.loads(remote('docker image inspect ' + shlex.quote(installed['Image']), step='app_image'))[0]
             assert derived['RootFS']['Layers'][:len(base_image['RootFS']['Layers'])] == base_image['RootFS']['Layers'], 'runner_base_layers_changed'
-            loaded_again = json.loads(remote('docker image inspect ' + shlex.quote(runner_image)))[0]
+            loaded_again = json.loads(remote('docker image inspect ' + shlex.quote(runner_image), step='runner_image'))[0]
             assert loaded_again['RootFS']['Layers'] == base_identity['layers'], 'runner_base_identity_changed'
             assert loaded_again['Id'] == loaded_base['Id'], 'loaded_base_identity_changed'
             evidence['derived_fixture_image_id'] = derived['Id']
@@ -868,14 +910,14 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
                     if startup.get('state') == 'failed':
                         evidence['startup_failure'] = diagnostic_projection(startup)
                         raise AssertionError('runner_fixture_initialization_failed') from None
-                    state = json.loads(remote('docker inspect ' + app_container))[0]
+                    state = json.loads(remote('docker inspect ' + app_container, step='app_readiness'))[0]
                     evidence['app_container_observation'] = container_projection(state, slug)
                     if not state['State']['Running']:
                         raise AssertionError('runner_fixture_process_exited') from None
                     await asyncio.sleep(1)
             else:
                 raise AssertionError('runner_fixture_start_timeout')
-            host_ns = json.loads(remote("printf '{\"pid\":%s,\"cgroup\":%s}' \"$(stat -Lc %i /proc/self/ns/pid)\" \"$(stat -Lc %i /proc/self/ns/cgroup)\""))
+            host_ns = json.loads(remote("printf '{\"pid\":%s,\"cgroup\":%s}' \"$(stat -Lc %i /proc/self/ns/pid)\" \"$(stat -Lc %i /proc/self/ns/cgroup)\"", step='host_namespaces'))
             assert app_observation['namespaces']['pid'] != host_ns['pid'], 'app_shares_haos_pid_namespace'
             assert app_observation['namespaces']['cgroup'] != host_ns['cgroup'], 'app_shares_haos_cgroup_namespace'
             assert (app_observation['apparmor_enforcing'] and app_observation['fuse_device_present']
@@ -1015,7 +1057,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             assert stored['source_commit_matches'], 'home_observation_source_mismatch'
             evidence['app_core_observation'] = core_view
             evidence['checks']['same_case_observation_content_and_digest'] = True
-            source_lock = json.loads(remote('docker exec ' + app_container + ' cat /opt/agentic-worker/source.json'))
+            source_lock = json.loads(remote('docker exec ' + app_container + ' cat /opt/agentic-worker/source.json', step='source_lock'))
             assert source_lock['commit'] == job['base_commit'] == startup_boundaries['source_commit']
             evidence['pinned_source'] = source_lock
             outer_view = json.loads(docker('exec', outer, 'python', '-c',
@@ -1055,7 +1097,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
                     current = app_json('/data/home-worker-fixture/app-observation.json')
                     # Supervisor may remove/recreate the same App container.
                     # Exact image identity inherits the initial verified layer proof.
-                    after = verified_app_generation(json.loads(remote('docker inspect ' + app_container))[0],
+                    after = verified_app_generation(json.loads(remote('docker inspect ' + app_container, step='app_restart_generation'))[0],
                         slug, installed['Image'])
                     if fresh_app_restart(previous, current, before, after, replacement_verified=True):
                         await app_available()
@@ -1086,7 +1128,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             phase('graceful_supervisor_stop_and_restart')
             held, before = await submit_held('restart')
             previous = app_json('/data/home-worker-fixture/app-observation.json')
-            generation = container_generation(json.loads(remote('docker inspect ' + app_container))[0])
+            generation = container_generation(json.loads(remote('docker inspect ' + app_container, step='app_before_graceful_stop'))[0])
             await ha.request('POST', f'/addons/{slug}/stop', supervisor=True, timeout=APP_OPERATION_SECONDS)
             stopped_app = await ha.request('GET', f'/addons/{slug}/info', supervisor=True)
             assert stopped_app['state'] == 'stopped', 'supervisor_stop_not_observed'
@@ -1104,13 +1146,13 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             phase('abrupt_app_restart_keeps_unknown_writer_fenced')
             held, before = await submit_held('crash')
             previous = app_json('/data/home-worker-fixture/app-observation.json')
-            generation = container_generation(json.loads(remote('docker inspect ' + app_container))[0])
+            generation = container_generation(json.loads(remote('docker inspect ' + app_container, step='app_before_abrupt_stop'))[0])
             evidence['abrupt_restart'] = {'before': before, 'generation_before': generation,
                 'process_start_ticks_before': previous['process_start_ticks']}
             # A SIGKILL is intentional fault injection in this disposable App.
             # Product does not receive a trusted Supervisor stop receipt.
-            remote('docker kill --signal KILL ' + app_container)
-            killed = container_generation(json.loads(remote('docker inspect ' + app_container))[0])
+            remote('docker kill --signal KILL ' + app_container, step='app_kill')
+            killed = container_generation(json.loads(remote('docker inspect ' + app_container, step='app_after_kill'))[0])
             assert killed['running'] is False, 'abrupt_app_stop_not_observed'
             prior_transport = stopped_transport()['crash']['requests']
             await ha.request('POST', f'/addons/{slug}/start', supervisor=True, timeout=APP_OPERATION_SECONDS)
@@ -1163,14 +1205,14 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             if evidence['phase'] == 'disposable_loopback_registry':
                 with contextlib.suppress(Exception):
                     evidence['registry_container_state'] = registry_container_state(json.loads(remote(
-                        "docker inspect --format '{{json .State}}' " + registry_container, timeout=10)))
+                        "docker inspect --format '{{json .State}}' " + registry_container, step='registry_state', timeout=10)))
             with contextlib.suppress(Exception):
-                evidence['app_container_observation'] = container_projection(json.loads(remote('docker inspect ' + app_container, timeout=10))[0], slug)
+                evidence['app_container_observation'] = container_projection(json.loads(remote('docker inspect ' + app_container, step='failure_app_inspect', timeout=10))[0], slug)
             for filename in ('startup', 'boundaries'):
                 with contextlib.suppress(Exception):
                     evidence['failure_' + filename] = diagnostic_projection(app_json('/data/home-worker-fixture/' + filename + '.json'))
             with contextlib.suppress(Exception):
-                raw = remote('docker logs --tail 80 ' + app_container + ' 2>&1 | tail -c 16385', timeout=10)
+                raw = remote('docker logs --tail 80 ' + app_container + ' 2>&1 | tail -c 16385', step='failure_app_logs', timeout=10)
                 evidence['app_stderr_summary'] = stderr_summary_bytes(raw)
         # Explicit diagnostic window is test-only, bounded and always followed
         # by normal cleanup. It never changes the failure or resubmits effects.

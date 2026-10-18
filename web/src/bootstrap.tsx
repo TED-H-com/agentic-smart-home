@@ -36,9 +36,11 @@ const retryCopy:Record<string,string>={
 
 function SelectedCli({provider,onChange}:{provider:ProviderId;onChange:()=>void}){
   const [runtime,setRuntime]=useState<any>(null),[error,setError]=useState('');
-  const refresh=useCallback(async()=>{try{setRuntime((await api('runtimes')).host);setError('');onChange()}catch(e){setError((e as Error).message)}},[onChange]);
-  useEffect(()=>{refresh()},[refresh]);
-  return <div className="bootstrap-auth">{error&&<Notice error>{error}</Notice>}<Provider key={provider} provider={provider} runtime="host" paired={runtime?.protocol===1} state={runtime?.providers?.find((p:any)=>p.provider===provider)} onChange={refresh} subscriptionFirst/></div>
+  const ticket=useRef(0);
+  const refresh=useCallback(async()=>{const current=++ticket.current;try{const value=(await api('runtimes')).host;if(current===ticket.current){setRuntime(value);setError('')}}catch(e){if(current===ticket.current)setError((e as Error).message)}},[]);
+  useEffect(()=>{let active=true;let timer:ReturnType<typeof setTimeout>;async function poll(){await refresh();if(active)timer=setTimeout(poll,5000)}poll();return()=>{active=false;ticket.current++;clearTimeout(timer)}},[refresh]);
+  const changed=useCallback(()=>{void refresh();onChange()},[refresh,onChange]);
+  return <div className="bootstrap-auth">{error&&<Notice error>{error}</Notice>}<Provider key={provider} provider={provider} runtime="host" paired={runtime?.protocol===1} unavailable={!!error||runtime?.status==='unavailable'} state={runtime?.providers?.find((p:any)=>p.provider===provider)} onChange={changed} subscriptionFirst/></div>
 }
 
 function NativeHome({onChange,ownerRequired=false}:{onChange:()=>void;ownerRequired?:boolean}){

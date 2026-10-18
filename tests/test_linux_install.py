@@ -29,12 +29,17 @@ AUTH_PROBE_TIMEOUT_SECONDS = HTTP_TIMEOUT_SECONDS * 4
 SANDBOX_PROBE_TIMEOUT_SECONDS = PROBE_ALARM_SECONDS + CLEANUP_ALARM_SECONDS + 120
 CODING_PROBE_TIMEOUT_SECONDS = JOB_WAIT_SECONDS + CLEANUP_WAIT_SECONDS + 240
 FAILURE_DIAGNOSTICS_TIMEOUT_SECONDS = UPDATE_COMMAND_TIMEOUT_SECONDS + 60
+FAILURE_DIAGNOSTICS_ATTEMPTS = 3
+FAILURE_DIAGNOSTIC_PROBE_SECONDS = 15
+FIRSTBOOT_CONNECT_SECONDS = 20
+FIRSTBOOT_PROBE_SECONDS = 60
+FIRSTBOOT_MAX_OBSERVATIONS = 721
 UPDATE_INVOKE_TIMEOUT_SECONDS = UPDATE_COMMAND_TIMEOUT_SECONDS + 60
 UPDATE_DEADLINE_SECONDS = RUNTIME_MAX_SECONDS + 300
 INSTALL_CLEANUP_COMMAND_SECONDS = 30
 INSTALL_CONSOLE_BYTES = 65536
 INSTALL_DISPOSABLE_IMAGES = ("linux.qcow2", "test.iso", "nvram.fd")
-LAN_LAB_IMAGE = "agentic-home-lan-lab:0.10.0"
+LAN_LAB_IMAGE = "agentic-home-lan-lab:0.11.0"
 INSTALL_GUEST_MEMORY_MIB = 10240
 # The nested fixture needs page-cache/QEMU headroom above the 10 GiB guest.
 # The previous 12 GiB cgroup swapped QEMU despite spare physical host memory.
@@ -609,15 +614,38 @@ def wait_until(ready, seconds, *, clock=time.monotonic, pause=time.sleep):
     while clock() < deadline:
         if ready():
             return True
-        pause(5)
+        if (remaining := deadline - clock()) > 0:
+            pause(min(5, remaining))
     return False
 
 
-def remote_ok(ssh, script, *, run=subprocess.run):
-    # A probe that times out on a loaded host is only not ready yet.
-    with contextlib.suppress(subprocess.TimeoutExpired):
-        return run([*ssh, script], capture_output=True, timeout=60).returncode == 0
-    return False
+def remote_ok(ssh, script, *, run=subprocess.run, timeout=FIRSTBOOT_PROBE_SECONDS,
+              observations=None, clock=time.monotonic, checkpoint=lambda: None):
+    """Read-only firstboot probe; retain bounded classifications, never SSH text."""
+    from installed_update_probe import process_diagnostics
+
+    started = clock()
+    record = {"timeout_seconds": round(timeout, 3), "status": "not_ready"}
+    try:
+        result = run([*ssh, script], capture_output=True, timeout=timeout)
+        ready = result.returncode == 0
+        record.update(status="ready" if ready else "not_ready", process=process_diagnostics(result))
+    except (subprocess.TimeoutExpired, OSError) as error:
+        ready = False
+        record.update(status="timeout" if isinstance(error, subprocess.TimeoutExpired) else "unavailable",
+            error_type=type(error).__name__ if type(error).__name__ in {
+                "TimeoutExpired", "PermissionError", "FileNotFoundError", "OSError"} else "OSError",
+            process=process_diagnostics(subprocess.CompletedProcess([], None,
+                getattr(error, "stdout", None), getattr(error, "stderr", None))))
+    record["elapsed_seconds"] = round(clock() - started, 3)
+    if observations is not None and len(observations) < FIRSTBOOT_MAX_OBSERVATIONS:
+        observations.append({"attempt": len(observations) + 1, **record})
+        try:
+            checkpoint()
+        except OSError:
+            record["checkpoint_failed"] = True
+            observations[-1]["checkpoint_failed"] = True
+    return ready
 
 
 def probe_json(result, diagnostic_path):
@@ -699,7 +727,8 @@ def failure_observation_public(value):
     return result
 
 
-def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run):
+def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run,
+                           clock=time.monotonic, pause=time.sleep):
     """Never retry effects; retain safe original diagnostics before VM teardown."""
     from installed_update_probe import LIFECYCLE_ACTIONS, lifecycle_receipt, process_diagnostics
 
@@ -744,21 +773,49 @@ def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run):
     identifier = receipt["id"] if receipt else None
     source = (ROOT / "tests/installed_update_probe.py").read_text()
     encoded = base64.b64encode(source.encode()).decode()
-    script = ("import base64,json\ns=base64.b64decode('" + encoded + "').decode()\n"
+    script = ("import base64,json,sys\ns=base64.b64decode('" + encoded + "').decode()\n"
               "ns={'__name__':'installed_failure_diagnostics'}\nexec(compile(s,'installed_failure_diagnostics','exec'),ns)\n"
+              "sys.path.insert(0,'/opt/agentic-home/host')\nfrom agentic_host import support\n"
+              f"support.PROBE_SECONDS={FAILURE_DIAGNOSTIC_PROBE_SECONDS}\n"
               f"print(json.dumps(ns['failure_observation']({identifier!r},{action!r})),flush=True)\n")
-    try:
-        observed = run([*ssh, "sudo env AGENTIC_DISPOSABLE_VM=1 python3 -"], capture_output=True,
-                       text=True, input=script, timeout=FAILURE_DIAGNOSTICS_TIMEOUT_SECONDS)
-        result["diagnostic_process"] = process_diagnostics(observed)
-        if observed.returncode != 0 or len(observed.stdout.encode()) > 65536:
-            raise ValueError("diagnostic_unavailable")
-        result["remote"] = failure_observation_public(json.loads(observed.stdout))
-    except Exception as diagnostic_error:
-        result["remote"] = "unavailable"
-        result["diagnostic_error_type"] = type(diagnostic_error).__name__ if isinstance(diagnostic_error, (
-            subprocess.TimeoutExpired, ValueError, OSError)) else "OtherError"
-    report.write_text(json.dumps(result, indent=2) + "\n")
+    # Only this disposable diagnostic process gets longer capture bounds; no
+    # installed service configuration or product timeout changes. Three attempts
+    # share one deadline and never repeat the failed lifecycle effect.
+    attempts = FAILURE_DIAGNOSTICS_ATTEMPTS if phase == "installed_firstboot" else 1
+    deadline = clock() + attempts * FAILURE_DIAGNOSTICS_TIMEOUT_SECONDS
+    result["diagnostic_attempts"] = []
+    for attempt in range(1, attempts + 1):
+        remaining = deadline - clock()
+        if remaining <= 0:
+            break
+        started = clock()
+        observation = {"attempt": attempt}
+        try:
+            timeout = (FAILURE_DIAGNOSTICS_TIMEOUT_SECONDS if attempts == 1
+                       else min(FAILURE_DIAGNOSTICS_TIMEOUT_SECONDS, remaining))
+            observed = run([*ssh, "sudo env AGENTIC_DISPOSABLE_VM=1 python3 -"], capture_output=True,
+                           text=True, input=script, timeout=timeout)
+            observation["process"] = result["diagnostic_process"] = process_diagnostics(observed)
+            if observed.returncode != 0 or len(observed.stdout.encode()) > 65536:
+                raise ValueError("diagnostic_unavailable")
+            result["remote"] = failure_observation_public(json.loads(observed.stdout))
+            result.pop("diagnostic_error_type", None)
+            journal = result["remote"].get("journal", {})
+            observation["status"] = {"timeout": "journal_timeout", "probe_failed": "journal_unavailable"}.get(
+                journal.get("observation"), "observed")
+        except Exception as diagnostic_error:
+            if not isinstance(result["remote"], dict):
+                result["remote"] = "unavailable"
+            observation.update(status="unavailable", error_type=type(diagnostic_error).__name__ if isinstance(
+                diagnostic_error, (subprocess.TimeoutExpired, ValueError, OSError)) else "OtherError")
+            result["diagnostic_error_type"] = observation["error_type"]
+        observation["elapsed_seconds"] = round(clock() - started, 3)
+        result["diagnostic_attempts"].append(observation)
+        report.write_text(json.dumps(result, indent=2) + "\n")
+        if observation["status"] == "observed":
+            break
+        if attempt < attempts and (remaining := deadline - clock()) > 0:
+            pause(min(5, remaining))
     return result
 
 
@@ -954,7 +1011,7 @@ def test_full_linux_install_with_nested_haos(tmp_path, request):
     assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
     profile = os.environ.get("AGENTIC_INSTALL_TEST_PROFILE", "laptop-amd64")
     assert profile in {"laptop-amd64", "server-amd64"}
-    iso = ROOT / "dist" / ("agentic-home-0.10.0-" + profile + ".iso")
+    iso = ROOT / "dist" / ("agentic-home-0.11.0-" + profile + ".iso")
     assert iso.exists()
     with iso.open("rb") as stream:
         iso_hash = hashlib.file_digest(stream, "sha256").hexdigest()
@@ -1053,10 +1110,17 @@ while data:=s.recv(65536):
         command(*common, *qemu)
         ssh = ["ssh", "-i", str(tmp_path / "test-key"), "-o", "BatchMode=yes",
                "-o", f"ProxyCommand=docker exec -i {name} python3 /lab/ssh-proxy.py",
-               "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5",
+               "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-o", f"ConnectTimeout={FIRSTBOOT_CONNECT_SECONDS}",
                "tester@127.0.0.1"]
         # The product service can keep working; this acceptance stage is bounded to one hour.
-        if not wait_until(lambda: remote_ok(ssh, "test -f /var/lib/agentic-home/installed.json"), 3600):
+        progress["firstboot_probes"] = []
+        firstboot_deadline = time.monotonic() + 3600
+        def firstboot_ready():
+            remaining = firstboot_deadline - time.monotonic()
+            return remaining > 0 and remote_ok(ssh, "test -f /var/lib/agentic-home/installed.json",
+                timeout=min(FIRSTBOOT_PROBE_SECONDS, remaining), observations=progress["firstboot_probes"],
+                checkpoint=lambda: phase("installed_firstboot"))
+        if not wait_until(firstboot_ready, 3600):
             raise AssertionError("Firstboot did not complete within 60 minutes")
         phase("installed_identity_and_images")
         gate_log = command(*ssh, "sudo cat /var/lib/agentic-home/host/fixture-preflight.log", timeout=30)
@@ -1064,9 +1128,9 @@ while data:=s.recv(65536):
         host = json.loads(command(*ssh, "agentic-home status"))
         assert not host["provisioned"] and host["kvm"]
         installed = json.loads(command(*ssh, "sudo cat /var/lib/agentic-home/installed.json"))
-        assert installed["version"] == "0.10.0" and installed["profile"] == profile
+        assert installed["version"] == "0.11.0" and installed["profile"] == profile
         image_lock = json.loads(command(*ssh, "cat /opt/agentic-home/images.lock.json"))
-        expected_tags = {f"agentic-home-{service}:0.10.0" for service in ("controller", "runner", "linejs", "hermes", "preview")}
+        expected_tags = {f"agentic-home-{service}:0.11.0" for service in ("controller", "runner", "linejs", "hermes", "preview")}
         assert set(image_lock) == expected_tags
         for tag, digest in image_lock.items():
             assert command(*ssh, "sudo docker image inspect --format '{{.Id}}' " + tag) == digest

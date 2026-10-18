@@ -31,6 +31,8 @@ from .bridge_maintenance import (
     BridgeRelease,
     maintenance_update,
     release_drift,
+    reload_store,
+    store_reload_succeeded,
     version_gate,
     version_order,
 )
@@ -836,16 +838,16 @@ class HomeWorkerMaintenance:
     async def lockstep(self, record, token, info):
         """Install or update only when ``version_latest`` is exactly this release."""
         latest = info.get("version_latest") if isinstance(info, dict) else None
-        decision = version_gate(latest, self.release.version, reloaded=bool(record.get("release_store_reloaded")))
+        decision = version_gate(latest, self.release.version, reloaded=store_reload_succeeded(record, self.release))
         if decision is None:
-            if record.get("release_store_reloaded"):
-                self.save(record, release_store_reloaded=False)
+            if record.get("release_store_reloaded") or record.get("release_store_reload"):
+                self.save(record, release_store_reloaded=False, release_store_reload=None)
             return info
         if decision == "reload":
-            self.save(record, release_store_reloaded=True)
-            await self.request(record, token, "POST", "/store/reload")
-            info = await self.request(record, token, "GET", f"/store/addons/{record['slug']}/info")
-            return await self.lockstep(record, token, info)
+            if await reload_store(self, record, token):
+                info = await self.request(record, token, "GET", f"/store/addons/{record['slug']}/info")
+                return await self.lockstep(record, token, info)
+            decision = "unpublished"
         if decision == "ahead":
             self.save(record, state="waiting", code="home_worker_release_ahead")
             raise HomeWorkerFault("home_worker_release_ahead", "waiting")
@@ -997,7 +999,8 @@ class HomeWorkerMaintenance:
         if operation:
             await self.finish_foreign_operation(record, token)
             return
-        if record.get("code") in {"home_worker_release_not_published", "home_worker_release_ahead"}:
+        if (record.get("code") in {"home_worker_release_not_published", "home_worker_release_ahead"}
+                or record.get("release_store_reload")):
             info = await self.request(record, token, "GET", f"/store/addons/{record['slug']}/info")
             await self.lockstep(record, token, info)
         raw = await self.app_info(record, token)

@@ -174,6 +174,8 @@ def serve(path="/run/agentic-home/host.sock"):
             try:
                 if not self.authorized():
                     return self.respond(403, {"detail": "broker_role_forbidden"})
+                if self.path == "/bridge-contract":
+                    return self.respond(200, manager.bridge_contract())
                 response = service("GET", self.path)
                 if response is not None:
                     return self.respond(*response)

@@ -209,6 +209,7 @@ class Previews:
         volume = self.volume(self.root / "volumes", hashlib.sha256(record["id"].encode()).hexdigest()[:32], 128)
         name = "agentic-preview-" + secrets.token_hex(16)
         stopped = False
+        result = {"state": "failed", "error_code": "preview_render_failed"}
         try:
             self.update(record, state="running", container=name)
             mount = volume.create()
@@ -244,16 +245,19 @@ class Previews:
                 data = path.read_bytes()
                 hashes[str(width)] = png(data, width)
                 (output / path.name).write_bytes(data)
-            self.update(record, state="ready", image_digests=hashes)
+            result = {"state": "ready", "image_digests": hashes}
         except Exception:
-            self.update(record, state="failed", error_code="preview_render_failed")
+            result = {"state": "failed", "error_code": "preview_render_failed"}
         finally:
             try:
                 if not stopped:
                     self.fenced(name)
                 volume.close()
             except Exception:
-                self.update(record, state="stop_unconfirmed", error_code="preview_cleanup_unconfirmed")
+                result = {"state": "stop_unconfirmed", "error_code": "preview_cleanup_unconfirmed"}
+            # Keep the renderer slot occupied until both the process and its
+            # volume are gone. A terminal result permits a new submission.
+            self.update(record, **result)
 
     def read_png(self, capability, width):
         with self.lock:

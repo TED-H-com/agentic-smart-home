@@ -231,7 +231,7 @@ print('isolated_namespace_dhcp_ra_mdns_dns_forwarding_local_ptr_started')
         result = subprocess.run(["docker", "run", "--rm", "--name", name, "--cap-add", "NET_ADMIN",
             "--device", "/dev/net/tun", "--sysctl", "net.ipv4.ip_forward=1", "--sysctl", "net.ipv6.conf.all.disable_ipv6=0",
             "-e", "AGENTIC_DISPOSABLE_LAN_LAB=1", "-v", f"{tmp_path}:/lab", "-v", f"{root}:/scripts:ro",
-            "-i", "agentic-home-lan-lab:0.10.0", "python3", "-"], input=script, text=True,
+            "-i", "agentic-home-lan-lab:0.11.0", "python3", "-"], input=script, text=True,
             capture_output=True, timeout=30)
         assert result.returncode == 0, result.stderr[-2000:]
         assert result.stdout.strip() == "isolated_namespace_dhcp_ra_mdns_dns_forwarding_local_ptr_started"

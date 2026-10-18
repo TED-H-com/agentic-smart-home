@@ -1,5 +1,5 @@
 name: 智能管家
-version: "0.10.0"
+version: "0.11.0"
 slug: agentic_bridge
 description: 在 Home Assistant 接續外層智能管家的對話、成果與家庭提案
 arch: [amd64]

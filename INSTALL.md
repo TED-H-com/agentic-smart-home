@@ -1,6 +1,6 @@
-# 安裝 Agentic Smart Home 0.10.0
+# 安裝 Agentic Smart Home 0.11.0
 
-從 [v0.10.0 發布頁](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.10.0) 取得本版工程預覽。工程驗證與公開下載結果：同一候選本機八階段（2+6 接續）已通過；公開 App：逐階段接續通過（enable 42、bridge-haos 40，清理完成）；匿名下載：Linux 完整下載與校驗通過，暫存清理完成；詳細範圍見 [驗證紀錄](docs/VERIFICATION.md)。以下流程適用於 0.10.0 同版媒體，既有 0.9.0 ISO 不包含本次的新功能。
+以下是 0.11.0 工程預覽候選的安裝流程；發布後從 [v0.11.0 發布頁](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.11.0) 取得下載工具與媒體。精確來源、同版媒體與公開 App 頻道的驗證結果見 [驗證紀錄](docs/VERIFICATION.md)；候選尚未完成交付時，不能以舊版 ISO 代替。0.10.0 的公開媒體與歷史驗證仍保留。
 
 ## 需要
 
@@ -13,24 +13,24 @@
 
 ## 下載與製作 USB
 
-在現有系統先備份需要保留的資料，再從發布頁下載 `download-0.10.0.py`。下載資料夾放在內接磁碟，至少預留 **14 GiB** 空間供分段與合併後的 ISO 使用；Windows 使用 NTFS 資料夾，不要直接下載到 FAT32／exFAT USB。需要 Python 3.8 以上，可由 [Python 官方網站](https://www.python.org/downloads/windows/) 安裝。
+在現有系統先備份需要保留的資料，再從發布頁下載 `download-0.11.0.py`。下載資料夾放在內接磁碟，至少預留 **14 GiB** 空間供分段與合併後的 ISO 使用；Windows 使用 NTFS 資料夾，不要直接下載到 FAT32／exFAT USB。需要 Python 3.8 以上，可由 [Python 官方網站](https://www.python.org/downloads/windows/) 安裝。
 
 在下載程式所在資料夾開啟終端。Windows PowerShell：
 
 ```powershell
 py -3 --version
-py -3 .\download-0.10.0.py --directory .\agentic-home-download
+py -3 .\download-0.11.0.py --directory .\agentic-home-download
 ```
 
 找不到 `py` 時，先用 `python --version` 確認版本至少為 3.8，再把命令開頭的 `py -3` 換成 `python`；參考 [Python Windows 說明](https://docs.python.org/3/using/windows.html)。macOS／Linux：
 
 ```bash
-python3 ./download-0.10.0.py --directory ./agentic-home-download
+python3 ./download-0.11.0.py --directory ./agentic-home-download
 ```
 
 工具預設下載 ISO 與 `SHA256SUMS`，驗證分段與完整檔案後才顯示完成；安裝筆電不需要下載 TAR 或 source ZIP。中斷後重跑相同命令，已驗證的完整分段可續用；校驗不符時會停止並保留原檔，依訊息移開有問題的檔案再重跑。
 
-在 Windows 用 [Rufus](https://rufus.ie/) 選取下載資料夾內的 `agentic-home-0.10.0-laptop-amd64.iso`，核對 **32 GB USB** 的型號與容量後寫入；若詢問 ISO／DD 模式，選 **DD Image mode**。這會清除所選 USB。也可用 balenaEtcher 寫入。工具的 Windows 原生執行仍為 `not_run`；平台與下載驗證範圍見 [驗證紀錄](docs/VERIFICATION.md)。
+在 Windows 用 [Rufus](https://rufus.ie/) 選取下載資料夾內的 `agentic-home-0.11.0-laptop-amd64.iso`，核對 **32 GB USB** 的型號與容量後寫入；若詢問 ISO／DD 模式，選 **DD Image mode**。這會清除所選 USB。也可用 balenaEtcher 寫入。工具的 Windows 原生執行仍為 `not_run`；平台與下載驗證範圍見 [驗證紀錄](docs/VERIFICATION.md)。
 
 ## 安裝
 
@@ -78,7 +78,7 @@ python3 ./download-0.10.0.py --directory ./agentic-home-download
 7. 上述流程通過後，再做下方的測試開關自動化；每次部署仍需看過提案並批准。暫停 AI 後，確認已部署的 HA 規則仍可觸發，再逐項擴大設備。
 8. 持續觀察 72 小時，記錄斷線、重登、合蓋／散熱與設備失聯恢復。做一份加密離機備份；長時間測試未完成前，保持這些項目為未驗收。
 
-若家庭現場暫時不能工作，記下它的狀態，仍可繼續驗收智能管家與主機開發助手；不要把未完成的家庭現場項目記為通過。公開 `#stable` 必須提供與主機相同的版本，側欄安裝與家庭現場啟用才能完成。本次公開 App 驗證所用的 `#stable` 與 0.10.0 媒體同版；它是可移動頻道，之後仍須核對版本。舊 0.9.0 媒體的新安裝可能停在「商店版本較新」；新主機應使用已發布且驗證的同版媒體。不要解除版本檢查，也不要在已用的主機直接重跑 installer 覆蓋資料。
+若家庭現場暫時不能工作，記下它的狀態，仍可繼續驗收智能管家與主機開發助手；不要把未完成的家庭現場項目記為通過。公開 `#stable` 必須提供與主機相同的版本，側欄安裝與家庭現場啟用才能完成。本版需將 `#stable` 與 0.11.0 媒體一同驗證；它是可移動頻道，之後仍須核對版本。舊版媒體的新安裝可能停在「商店版本較新」；新主機應使用已發布且驗證的同版媒體。不要解除版本檢查，也不要在已用的主機直接重跑 installer 覆蓋資料。
 
 ### 工作顯示「停止尚未確認」
 
@@ -87,6 +87,10 @@ python3 ./download-0.10.0.py --directory ./agentic-home-download
 如果仍未確認，按原工作 ID 續查並保留紀錄；`needs_reconcile`／`stop_unconfirmed` 會保留工作區租約（lease fence），直到 writer 和 verifier 均被證明停止。不要刪除記錄、解除安裝 App 或反覆重啟來繞過。展開 **技術資料** 記下工作、原因代碼、觀測位置與發生時間，再依下方救援步驟產生本機支援檔。一般支援檔不包含這份工作的詳細啟動原因。確認停止後的失敗／中斷工作不會自動重做；需要時再明確開始新工作。
 
 家庭現場在工作尚未確認停止時異常重啟 App，同一次 Home Assistant OS 開機中的核對仍可能無法證明舊程序已停止。此時保留原工作並交由維護者核對；「確認已停止」不是強制解除保護的重設按鈕。
+
+## HA 原生文字通知
+
+完成既有通訊帳號與收件人授權後，可依 [通知安裝步驟](docs/HA_NOTIFICATIONS.md) 下載並安裝 HA 自訂整合，再從原生自動化呼叫 `agentic_home_notifications.send_text`。先選一個自己可核對的聊天室，送一則測試文字；記錄 HA 的請求結果及聊天室實際觀察。`submitted` 代表通道接受提交，不保證收件人已讀；`unknown` 不會自動重送。0.11.0 媒體包含支援的 Controller 與整合 ZIP，HA 整合仍需依文件安裝。
 
 ## 第一條家庭自動化
 
@@ -111,7 +115,7 @@ sudo agentic-home access-key
 在**要安裝的那台電腦**執行，不要在開發機執行：
 
 ```bash
-tar -xf agentic-home-0.10.0-linux-amd64.tar
+tar -xf agentic-home-0.11.0-linux-amd64.tar
 cd agentic-home
 python3 host/install.py --profile laptop-amd64
 sudo python3 host/install.py --profile laptop-amd64 --apply

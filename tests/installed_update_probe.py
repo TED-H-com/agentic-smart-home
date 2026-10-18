@@ -646,8 +646,9 @@ def failure_observation(identifier=None, action=None):
             return _capture(args)
         except Exception:
             return "probe_failed", ""
-    # Thirteen fixed read-only captures, each bounded by support._capture
-    # (3s/64KiB), run in five batches within the existing SSH deadline.
+    # Thirteen fixed read-only captures run in five batches. support._capture
+    # defaults to 3s/64KiB; the installer diagnostic child may raise its time
+    # bound to 15s while retaining the byte cap and an enclosing SSH deadline.
     with ThreadPoolExecutor(max_workers=3) as pool:
         observations = list(pool.map(capture, fixed.values()))
     observations = dict(zip(fixed, observations, strict=True))
