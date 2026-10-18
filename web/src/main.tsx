@@ -75,7 +75,7 @@ function App({hostMode=false,active=true,desktopEntry=false,onLogout}:{hostMode?
   {view==='history'&&<><div className="section-intro"><p>回看每個需求、批准與結果。</p><Button secondary onClick={async()=>{try{download(new Blob([JSON.stringify(await api('evidence'),null,2)],{type:'application/json'}),'agentic-home-evidence.json')}catch(e){errorKind.current='';setError(plainError(e))}}}>匯出紀錄</Button></div><div className="history-table"><div className="history-head"><span>需求</span><span>AI</span><span>狀態</span><span>時間</span></div>{tasks.map(t=><button key={t.id} onClick={()=>openTask(t)}><strong>{t.request}</strong><span>{names[t.provider]||t.provider}</span><Status value={t.state}/><time>{timestamp(t.created_at)}</time></button>)}</div>{!tasks.length&&<Empty title="還沒有紀錄" action={<Button secondary onClick={()=>navigate('home')}>建立需求</Button>}>送出需求後，處理紀錄會留在這裡。</Empty>}</>}
   {view==='settings'&&<Settings hostMode={hostMode} status={status} onChange={refreshStatus}/>}
   {view==='entry'&&<HomeEntry automatic={dailyEntry&&active} navigate={navigate}/>}
-  {(view==='gateway'||gatewayMounted)&&<div hidden={view!=='gateway'}><GatewayPanel key={conversationSession?.storage_scope||'legacy'} visible={view==='gateway'&&active} conversationSession={conversationSession}/></div>}
+  {(view==='gateway'||gatewayMounted)&&<div hidden={view!=='gateway'}><GatewayPanel key={conversationSession?.storage_scope||'legacy'} visible={view==='gateway'&&active} hostMode={hostMode} conversationSession={conversationSession}/></div>}
   {view==='workers'&&<WorkerPanel/>}
   {view==='agents'&&<><HermesPanel/><RuntimePanel/></>}
   {view==='onboarding'&&<Onboarding status={status} onChange={refreshStatus} navigate={navigate}/>}

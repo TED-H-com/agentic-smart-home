@@ -1,0 +1,65 @@
+{
+  "title": "Agentic Home notifications",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Agentic Home notifications",
+        "description": "Add native text notification actions. Enable recipients in the outer Agentic Home settings. No credentials are copied into Home Assistant."
+      }
+    },
+    "abort": {
+      "already_configured": "Only one notification integration is supported."
+    }
+  },
+  "exceptions": {
+    "invalid_request": {
+      "message": "The notification request is invalid."
+    },
+    "storage_unavailable": {
+      "message": "Notification storage is unavailable. No send has been authorized."
+    },
+    "not_configured": {
+      "message": "Add and load the Agentic Home notifications integration first."
+    },
+    "needs_rebind": {
+      "message": "The owner or Controller binding differs. Remove and add this integration to enroll again."
+    },
+    "disabled": {
+      "message": "Enable notifications in the outer Agentic Home settings."
+    },
+    "stale_heartbeat": {
+      "message": "The Controller connection is stale. Wait for it to reconnect."
+    },
+    "unknown_recipient": {
+      "message": "This recipient alias is not authorized."
+    },
+    "queue_full": {
+      "message": "The notification queue is full."
+    },
+    "routing_conflict": {
+      "message": "Recipient settings changed without a new authorization revision."
+    },
+    "receipt_conflict": {
+      "message": "This acknowledgement does not match the existing claim or receipt."
+    },
+    "unauthorized": {
+      "message": "An active authorized Home Assistant user is required."
+    }
+  },
+  "services": {
+    "send_text": {
+      "name": "Send text",
+      "description": "Queue text to an authorized recipient alias. Queued is not a delivery confirmation.",
+      "fields": {
+        "recipient": {
+          "name": "Recipient alias",
+          "description": "An alias enabled in outer Agentic Home settings."
+        },
+        "message": {
+          "name": "Message",
+          "description": "Between 1 and 1900 characters, without truncation."
+        }
+      }
+    }
+  }
+}

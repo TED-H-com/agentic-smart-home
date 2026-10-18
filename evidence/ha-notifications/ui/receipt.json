@@ -1,0 +1,74 @@
+{
+  "workline": "C",
+  "base_commit": "0e2d1dc7cb784d136fb74f82c12c280e50cd8bac",
+  "scope": "Host #gateway/channels native text notification settings only",
+  "sources": {
+    "web/src/notifications.tsx": "ed420938818fe127489feecb8b082471afc3aa909d9d5c5c0c77fd89630a5b21",
+    "web/src/gateway.tsx": "97f4ae9226628abe258b098a0a6dfde1d908b131fda63d97c52d3ffc728ddbe4",
+    "web/src/main.tsx": "49ca483b096e2d455f69ee5c523bba0a8dfb8fb61dea57b56266e5395c97fa7c",
+    "web/src/style.css": "bc84a7230a06810367b68e02034a7c5561881fbd5eb9ff8acfcfa9621ceb89dc",
+    "tests/test_browser_notifications.py": "b917772eb4fed97e1065caed7035fd105330dd1ff59fd73f8865f7f977802dbd"
+  },
+  "root_built_assets": {
+    "controller/static/index.html": "74acf12e03ff6797774b8d3051d04c28c70d8188a655f4445c4fed2e994f44dc",
+    "controller/static/assets/index-5d71x3Gx.js": "18cdf7dd7fe99601e8782ab0b84a0dd21728cdf1e9e1a65f2198968ff8a9ce79",
+    "controller/static/assets/index-CbX0janE.css": "4ea566692c2d979dd973f4d864a070a9a024a13ada458662b6ed34deecc5dd83"
+  },
+  "tests": {
+    "command": "pytest-disktmp uv run pytest -q tests/test_browser_notifications.py",
+    "passed": 10,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 8.23,
+    "junit": "browser-junit.xml",
+    "junit_sha256": "76f23ef99eea4222596a16654ec3e0530aad71bb8db64f6d636974af64ea1382"
+  },
+  "screenshots": [
+    {
+      "file": "notifications-390.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "c86b8cd526eac2b9612e3f57d469f78bb7802b90ef3484ba3e7b91945e943350",
+      "visually_inspected": true,
+      "horizontal_overflow": false
+    },
+    {
+      "file": "notifications-768.png",
+      "width": 768,
+      "height": 844,
+      "sha256": "081dff1b5fe6fe416bb2127413340b91a9e2ec63926b91fa29d39f6f8e81d665",
+      "visually_inspected": true,
+      "horizontal_overflow": false
+    },
+    {
+      "file": "notifications-1440.png",
+      "width": 1440,
+      "height": 900,
+      "sha256": "b2ed8d55060415581415de38fcb18b4774362036cdfbfbf730af46d37996fc62",
+      "visually_inspected": true,
+      "horizontal_overflow": false
+    }
+  ],
+  "checks": [
+    "Only snapshot-provided destinations; aliases edited locally until explicit save.",
+    "Required 1..120 display label and ASCII alias validation; alias text rendered as text.",
+    "Stale revision, dirty editor and remove confirmation preserve current edits and block overwrite.",
+    "Unknown save outcome requires explicit readback; no automatic retry.",
+    "Read failure hides fresh-looking connection state; explicit disable preserves removed destinations.",
+    "Transport, login, native installation and submitted/unknown send states remain separate.",
+    "Host normal chat and legacy Ingress do not load notifications.",
+    "No send, retry-send or media controls.",
+    "No unexpected external requests or browser page errors in passing fixtures."
+  ],
+  "cleanup": {
+    "fixture_servers_and_browsers_closed": true,
+    "pytest_disk_basetemp_removed": true
+  },
+  "limitations": [
+    "Synthetic fixtures only; no real HA integration installation, account authentication, message delivery or Grok process exercised.",
+    "Generated static assets were built by root; workline C did not edit generated assets.",
+    "Published v0.10.0 release media unchanged."
+  ],
+  "backend_contract_alignment": "Workline A changed missing-owner prerequisite to HTTP422; stale revision alone uses HTTP409."
+}

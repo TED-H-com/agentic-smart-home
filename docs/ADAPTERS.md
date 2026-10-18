@@ -53,6 +53,16 @@ Web 新增 `mode=bridge`，先確認橋接與 Owner，再掛載聊天；不顯�
 
 ## 候選與發行
 
+### HA 原生通知 adapter（主線開發中）
+
+`custom_components/agentic_home_notifications` 是獨立版本的原生 HA 整合，產品 protocol 為 1。HA 自動化呼叫 `agentic_home_notifications.send_text`，外層 Controller 透過既有、經 Owner 認證的 HA WebSocket 消費有界佇列，再由原有 Gateway 傳送。沒有第二個 bot receiver、公開 listener、任意 webhook URL 或新的管理 bearer；整合不持有 LINE／Telegram／Discord 憑證。安裝與範例見 [原生通知](HA_NOTIFICATIONS.md)。
+
+收件者別名只能指向已配置的通道聊天室。每則請求固定來源、綁定世代、路由版本、內容摘要及到期時間；更換收件者或通道憑證不能讓舊通知改送新目的地。HA 的持久化 claim 只授予一次，Controller 先持久化送出狀態，再呼叫 transport。程序中斷或外部結果不明時保留 `unknown`，不自動重送；`submitted` 僅代表 transport 接受，不代表對方已收到或已讀。這不構成跨平台 exactly-once 保證，也不能把任意備份回復視為未曾送出。
+
+通知授權獨立於 AI 暫停、模型登入及家庭 AI 政策；停用通知使用自己的設定。HA Owner／連線憑證、收件人、通道憑證與 LINE 帳號世代的變更仍會使舊路由失效，更新維護期間亦停止新提交。某個通道離線時，其待送通知保留在有期限的佇列；已就緒的其他通道仍能處理。
+
+這輪借鏡 [LINE OA Add-on](https://github.com/xangin/line-oa-ha-addon/tree/3729faa66788748c17345215cc027db67dd7c443) 與 [HACS integration](https://github.com/xangin/line-oa-hacs/tree/3254f4d67b3684a9a9a40849ccc59d98313caec3) 的原生 action、別名與分層狀態設計。沿用本產品既有帳號與 durable outbox；沒有移植 OA 私有管理端點或把其 session cookie 帶入 HA。鎖定的 LINE bot API 只支援文字，本輪不提供圖片或攝影機 action。新整合與 Controller 必須一起部署到受測候選；0.10.0 已發布媒體、tag 與 `stable` 保持原身份。
+
 最新 [發行策略](RELEASE_POLICY.md) 明確讓 HA 走官方自管更新；維護者追上游並修補自家 App／adapter。Hermes 與外層封裝採受測產品版本；0.6.1 首次準備 latest 是歷史行為，新路徑另列驗證。未知 Core 家庭寫入仍 fail closed，原生瀏覽不因版本字串被阻止。
 
 1. 保留產品及各上游鎖定來源。新候選解析一次 revision／digest，測試過程不修改正式 lock、帳號或已安裝版本。

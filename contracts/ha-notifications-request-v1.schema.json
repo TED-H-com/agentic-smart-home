@@ -1,0 +1,68 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Digest",
+      "type": "string"
+    },
+    "epoch": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Epoch",
+      "type": "string"
+    },
+    "expires_at": {
+      "title": "Expires At",
+      "type": "string"
+    },
+    "id": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "kind": {
+      "const": "text",
+      "title": "Kind",
+      "type": "string"
+    },
+    "message": {
+      "maxLength": 1900,
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "recipient": {
+      "pattern": "^[a-z][a-z0-9_]{0,31}$",
+      "title": "Recipient",
+      "type": "string"
+    },
+    "routing_revision": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Routing Revision",
+      "type": "string"
+    },
+    "source_id": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Source Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "source_id",
+    "epoch",
+    "routing_revision",
+    "recipient",
+    "kind",
+    "message",
+    "created_at",
+    "expires_at",
+    "digest"
+  ],
+  "title": "NotificationRequest",
+  "type": "object"
+}

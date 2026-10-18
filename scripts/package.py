@@ -44,6 +44,7 @@ def archive(path, entries):
 
 def main():
     package_runner()
+    package_notifications()
     package_bridge()
     static = ROOT / "controller/static"
     html = (static / "index.html").read_text()
@@ -53,7 +54,7 @@ def main():
     distribution = ROOT / "dist"
     distribution.mkdir(exist_ok=True)
     source = []
-    for directory in ("controller", "runner", "hermes", "bridge", "web", "scripts", "contracts", "tests", "docs", "evidence", "host", ".github", "site"):
+    for directory in ("controller", "runner", "hermes", "bridge", "custom_components", "web", "scripts", "contracts", "tests", "docs", "evidence", "host", ".github", "site"):
         source += [(path, "agentic-home/" + str(path.relative_to(ROOT))) for path in files(ROOT / directory)]
     # site/demo is the Pages build of web/demo, not source.
     source = [entry for entry in source if not entry[0].is_relative_to(ROOT / "site/demo")]
@@ -89,6 +90,18 @@ def package_bridge():
         shutil.rmtree(assets)
     shutil.copytree(source / "assets", assets)
     shutil.copyfile(ROOT / "controller/requirements.txt", ROOT / "bridge/requirements.txt")
+
+
+def package_notifications():
+    """Installable native HA adapter; contains no Controller configuration or credentials."""
+    directory = ROOT / "custom_components/agentic_home_notifications"
+    if not (directory / "manifest.json").is_file():
+        raise SystemExit("Missing native notifications integration manifest")
+    destination = ROOT / "controller/static/downloads/agentic-home-notifications.zip"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    entries = [(path, str(path.relative_to(ROOT))) for path in files(directory)]
+    entries.append((ROOT / "docs/HA_NOTIFICATIONS.md", "INSTALL.md"))
+    archive(destination, entries)
 
 
 if __name__ == "__main__":

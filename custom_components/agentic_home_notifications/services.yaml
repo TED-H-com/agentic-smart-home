@@ -1,0 +1,19 @@
+send_text:
+  name: Send text
+  description: Queue text for an explicitly authorized recipient alias. Queued does not mean submitted or delivered.
+  fields:
+    recipient:
+      name: Recipient alias
+      description: Alias configured and enabled in the outer Agentic Home settings; never a raw chat ID.
+      required: true
+      example: household
+      selector:
+        text:
+    message:
+      name: Message
+      description: Between 1 and 1900 characters; longer text is rejected without truncation.
+      required: true
+      example: The washing machine has finished.
+      selector:
+        text:
+          multiline: true

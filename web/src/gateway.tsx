@@ -3,6 +3,7 @@ import {api,requestKey,type ConversationSession} from './api';
 import {Button,Notice,Status,labels,timestamp} from './ui';
 import {WorkerResult,retryBody} from './workers';
 import {ChannelSettings} from './channels';
+import {NotificationsPanel} from './notifications';
 import {names,type Runtime} from './labels';
 import {DiscoveryContext} from './discovery-context';
 
@@ -35,7 +36,7 @@ function CaseWork({id,bridge=false,storageScope}:{id:string;bridge?:boolean;stor
   })}</div>
 }
 
-export function GatewayPanel({visible=true,bridge=false,conversationSession}:{visible?:boolean;bridge?:boolean;conversationSession?:ConversationSession}){
+export function GatewayPanel({visible=true,bridge=false,hostMode=false,conversationSession}:{visible?:boolean;bridge?:boolean;hostMode?:boolean;conversationSession?:ConversationSession}){
   const storage=conversationSession?.storage_scope?`${conversationKey}-${conversationSession.storage_scope}`:conversationKey;
   const [data,setData]=useState<any>(null),[messages,setMessages]=useState<any[]>([]),[draft,setDraft]=useState(''),[runtime,setRuntime]=useState<Runtime>('host'),[provider,setProvider]=useState('codex'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[settings,setSettings]=useState(()=>!bridge&&location.hash==='#gateway/channels'),[history,setHistory]=useState(false),[viewedId,setViewedId]=useState<string|null>(null);
   const [replies,setReplies]=useState(()=>savedConversations(storage,conversationSession)),[loaded,setLoaded]=useState(false),[coordinator,setCoordinator]=useState('hermes'),[away,setAway]=useState(false);
@@ -95,7 +96,7 @@ export function GatewayPanel({visible=true,bridge=false,conversationSession}:{vi
   return <div className="assistant-page">
     <div className="assistant-toolbar"><Button secondary disabled={busy} aria-expanded={history} onClick={()=>setHistory(!history)}>對話紀錄{messages.length?` · ${recent.length}`:''}</Button>{!viewedId&&<Button secondary disabled={busy||!replyId} onClick={startNew}>新對話</Button>}{!bridge&&<a href="#gateway/channels">通訊設定</a>}</div>
     {history&&<section className="assistant-history" aria-label="對話紀錄">{!recent.length?<p className="subtle">還沒有對話。</p>:recent.map(m=><button key={m.id} className="assistant-history-item secondary" disabled={busy} onClick={()=>openConversation(m)}><span>{m.message}</span><small><span>{labels[m.progress||m.state]||m.progress||m.state}</span>{m.source!=='web'&&<span>{names[m.source]||m.source}</span>}<time dateTime={m.created_at}>{timestamp(m.created_at)}</time></small></button>)}</section>}
-    {!bridge&&settings&&<section className="assistant-channel-settings"><div className="section-heading"><h2>通訊設定</h2><Button secondary onClick={()=>{setSettings(false);location.hash='gateway'}}>回到對話</Button></div><ChannelSettings onChange={refresh}/></section>}
+    {!bridge&&settings&&<section className="assistant-channel-settings"><div className="section-heading"><h2>通訊設定</h2><Button secondary onClick={()=>{setSettings(false);location.hash='gateway'}}>回到對話</Button></div><ChannelSettings onChange={refresh}/>{hostMode&&<NotificationsPanel/>}</section>}
     {error&&<Notice error>{error}</Notice>}
     {!bridge&&<details className="assistant-options"><summary>進階</summary><div className="composer-controls"><label>對話方式<select aria-label="對話方式" value={coordinator} disabled={busy} onChange={e=>{setViewedId(null);setCoordinator(e.target.value)}}><option value="hermes">智能管家（建議）</option><option value="direct">直接交給開發助手</option></select></label>{coordinator==='direct'&&<><label>執行位置<select aria-label="執行位置" disabled={busy} value={runtime} onChange={e=>{setViewedId(null);setRuntime(e.target.value as Runtime)}}><option value="host">主機</option><option value="haos">家庭現場</option></select></label><label>AI<select aria-label="AI" disabled={busy} value={provider} onChange={e=>{setViewedId(null);setProvider(e.target.value)}}>{['codex','claude','agy','grok'].map(id=><option key={id} value={id}>{names[id]}</option>)}</select></label></>}</div>{data&&<Button secondary onClick={async()=>{try{await api('gateway/preferences',{...data.preferences,runtime,provider,coordinator});await refresh()}catch(e){setError((e as Error).message)}}}>設為預設</Button>}<div className="row-actions"><a href="#agents">AI 帳號</a><a href="#workers">開發助手</a></div></details>}
     <section className="assistant-conversation" aria-label="目前對話" ref={thread} onScroll={onThreadScroll}>

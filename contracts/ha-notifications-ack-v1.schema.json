@@ -1,0 +1,14 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "acknowledged": {
+      "title": "Acknowledged",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "acknowledged"
+  ],
+  "title": "NativeAck",
+  "type": "object"
+}

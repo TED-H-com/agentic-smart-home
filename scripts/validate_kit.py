@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import tomllib
+import zipfile
 from pathlib import Path
 
 import yaml
@@ -75,6 +76,20 @@ def main():
     for asset in [ROOT / "controller/static/index.html", *(ROOT / "controller/static/assets").glob("*")]:
         assert (ROOT / "bridge/static" / asset.relative_to(ROOT / "controller/static")).read_bytes() == asset.read_bytes(), "Bridge UI differs from compiled product UI"
     assert (ROOT / "controller/static/index.html").is_file(), "Build the UI first"
+    integration = ROOT / "custom_components/agentic_home_notifications"
+    native_manifest = json.loads((integration / "manifest.json").read_text())
+    assert native_manifest["domain"] == "agentic_home_notifications" and native_manifest["config_flow"]
+    assert native_manifest["requirements"] == [], "Native notifications must not install a second transport"
+    with zipfile.ZipFile(ROOT / "controller/static/downloads/agentic-home-notifications.zip") as native_zip:
+        checksums = json.loads(native_zip.read("MANIFEST.sha256.json"))
+        expected = {"INSTALL.md": ROOT / "docs/HA_NOTIFICATIONS.md"}
+        expected.update({str(p.relative_to(ROOT)): p for p in integration.rglob("*")
+                         if p.is_file() and "__pycache__" not in p.parts and not p.name.endswith(".pyc")})
+        assert set(checksums) == set(expected), "Native integration download is incomplete"
+        assert set(native_zip.namelist()) == {*expected, "MANIFEST.sha256.json"}
+        for name, path in expected.items():
+            assert native_zip.read(name) == path.read_bytes(), "Native integration download is stale: " + name
+            assert checksums[name] == hashlib.sha256(path.read_bytes()).hexdigest()
     markdown = [*ROOT.glob("*.md"), *ROOT.glob("docs/*.md"), *ROOT.glob("docs/v3/*.md"),
                 *ROOT.glob("controller/*.md"), *ROOT.glob("runner/*.md"), *ROOT.glob("hermes/*.md"), *ROOT.glob("bridge/*.md")]
     for path in markdown:

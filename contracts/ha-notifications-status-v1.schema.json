@@ -1,0 +1,170 @@
+{
+  "$defs": {
+    "AliasSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,31}$",
+          "title": "Alias",
+          "type": "string"
+        },
+        "capabilities": {
+          "items": {
+            "const": "text",
+            "type": "string"
+          },
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "channel": {
+          "enum": [
+            "line",
+            "discord",
+            "telegram"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "alias",
+        "label",
+        "channel",
+        "capabilities"
+      ],
+      "title": "AliasSummary",
+      "type": "object"
+    },
+    "NativeReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        },
+        "recipient": {
+          "pattern": "^[a-z][a-z0-9_]{0,31}$",
+          "title": "Recipient",
+          "type": "string"
+        },
+        "request_id": {
+          "pattern": "^[a-f0-9]{32}$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "submitted",
+            "unknown",
+            "not_sent"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "recipient",
+        "state",
+        "reason",
+        "updated_at"
+      ],
+      "title": "NativeReceipt",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "aliases": {
+      "items": {
+        "$ref": "#/$defs/AliasSummary"
+      },
+      "maxItems": 16,
+      "title": "Aliases",
+      "type": "array"
+    },
+    "controller_id": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{32}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Controller Id"
+    },
+    "enabled": {
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "epoch": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Epoch",
+      "type": "string"
+    },
+    "last_delivery": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NativeReceipt"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pending": {
+      "maximum": 32,
+      "minimum": 0,
+      "title": "Pending",
+      "type": "integer"
+    },
+    "protocol": {
+      "const": 1,
+      "title": "Protocol",
+      "type": "integer"
+    },
+    "routing_revision": {
+      "pattern": "^(?:[a-f0-9]{64})?$",
+      "title": "Routing Revision",
+      "type": "string"
+    },
+    "source_id": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Source Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "protocol",
+    "source_id",
+    "epoch",
+    "controller_id",
+    "enabled",
+    "routing_revision",
+    "aliases",
+    "pending",
+    "last_delivery"
+  ],
+  "title": "NativeStatus",
+  "type": "object"
+}

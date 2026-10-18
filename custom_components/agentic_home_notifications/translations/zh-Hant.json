@@ -1,0 +1,65 @@
+{
+  "title": "Agentic Home 通知",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Agentic Home 通知",
+        "description": "加入 Home Assistant 原生文字通知動作。請在外層 Agentic Home 設定中啟用收件人；不會將通訊憑證複製到 HA。"
+      }
+    },
+    "abort": {
+      "already_configured": "只能設定一組通知整合。"
+    }
+  },
+  "exceptions": {
+    "invalid_request": {
+      "message": "通知請求格式不正確。"
+    },
+    "storage_unavailable": {
+      "message": "通知儲存暫時無法確認；尚未授權傳送。"
+    },
+    "not_configured": {
+      "message": "請先加入並載入 Agentic Home 通知整合。"
+    },
+    "needs_rebind": {
+      "message": "擁有者或 Controller 綁定已不同；請移除再加入整合，重新連結。"
+    },
+    "disabled": {
+      "message": "請在外層 Agentic Home 設定中啟用通知。"
+    },
+    "stale_heartbeat": {
+      "message": "Controller 連線已逾時，請等待重新連線。"
+    },
+    "unknown_recipient": {
+      "message": "此收件人別名尚未授權。"
+    },
+    "queue_full": {
+      "message": "通知佇列已滿。"
+    },
+    "routing_conflict": {
+      "message": "收件人設定已變更，但授權版本未更新。"
+    },
+    "receipt_conflict": {
+      "message": "此確認不符合既有認領或傳送紀錄。"
+    },
+    "unauthorized": {
+      "message": "需要目前已授權的 Home Assistant 使用者。"
+    }
+  },
+  "services": {
+    "send_text": {
+      "name": "傳送文字",
+      "description": "將文字加入已授權收件人的通知佇列；排隊完成不表示已送達。",
+      "fields": {
+        "recipient": {
+          "name": "收件人別名",
+          "description": "外層 Agentic Home 設定中已啟用的別名。"
+        },
+        "message": {
+          "name": "訊息",
+          "description": "1 至 1900 個字元；不會截斷長訊息。"
+        }
+      }
+    }
+  }
+}

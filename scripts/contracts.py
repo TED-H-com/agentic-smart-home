@@ -33,6 +33,15 @@ from agentic_controller.models import (
     WorkerPreview,
     provider_schema,
 )
+from agentic_controller.notifications import (
+    NativeAck,
+    NativeClaim,
+    NativePull,
+    NativeStatus,
+    NotificationConfigInput,
+    NotificationRequest,
+    NotificationsSnapshot,
+)
 from agentic_controller.operations import NetworkPreferences, UpdateStage
 from agentic_controller.store import Store
 from agentic_controller.work import (
@@ -74,6 +83,13 @@ def main():
                        "bootstrap-start-v1": BootstrapStart.model_json_schema(),
                        "bootstrap-status-v1": BootstrapStatus.model_json_schema(),
                        "home-entry-v1": HomeEntry.model_json_schema(),
+                       "ha-notifications-config-v1": NotificationConfigInput.model_json_schema(),
+                       "ha-notifications-view-v1": NotificationsSnapshot.model_json_schema(),
+                       "ha-notifications-request-v1": NotificationRequest.model_json_schema(),
+                       "ha-notifications-status-v1": NativeStatus.model_json_schema(),
+                       "ha-notifications-pull-v1": NativePull.model_json_schema(),
+                       "ha-notifications-claim-v1": NativeClaim.model_json_schema(),
+                       "ha-notifications-ack-v1": NativeAck.model_json_schema(),
                        "device-discovery-v1": DiscoverySnapshot.model_json_schema(),
                        "network-inventory-v1": InventorySnapshot.model_json_schema(),
                        "network-inventory-scopes-v1": InventoryScopes.model_json_schema(),

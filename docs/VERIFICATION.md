@@ -1,5 +1,13 @@
 # Agentic Smart Home 驗證
 
+## 主線：HA 原生文字通知 adapter 0.1.0
+
+[通知驗證摘要](../evidence/ha-notifications/summary.json) 與 [安裝說明](HA_NOTIFICATIONS.md) 對應新的 Controller＋原生 HA 整合，**不屬於已發布的 0.10.0 ISO／TAR**。收件人別名、通道／登入／提交狀態、磁碟佇列及單次認領沿用現有 Gateway，不新增 provider 或帳號登入。
+
+隔離 Core 2026.10.1 從實際 ZIP 安裝，驗證原生 action／automation、真 Owner／非 Owner 權限、重啟後不重授 claim、磁碟故障、六個原生狀態實體及其重啟後身份。佇列／持久化／Core 組合為 53 passed；後續擴充實體檢查的 Core 案例另為 1 passed，與前一組範圍重疊，不能相加成獨立案例。最初遇到 Core 啟動狀態被誤判為停止的實作問題，已修正並保留失敗收據摘要；並非首次零失敗。通道送出只使用 fixture，真帳號、家庭設備及長時間使用仍為 `not_run`。
+
+介面 10 項瀏覽器測試與 390／768／1440 px 圖片見 [UI 收據](../evidence/ha-notifications/ui/receipt.json)。獨立複查另驗證 LINE 換帳號使舊通知失效、暫停 AI 不中斷原生通知、離線通道不阻塞其他通道，以及 HTTP 連線等待後的最後權限檢查。摘要保留這些分項證據；整體回歸與精確來源 CI 另以實作 PR 及對應 commit 檢查為準，不與先前 0.10.0 的媒體驗收混算。
+
 ## 0.10.0 專用筆電工程預覽
 
 本版交付多來源設備盤點、接入追蹤、原生 HA 示範、USB 開機硬體預檢，以及可選的有線 HAOS 家庭區網。管理網路保持獨立；家庭關機後才可變更有線接法，Controller 以原生 Supervisor／Core 資料讀回 LAN 位址、探索介面與內部網址。見 [區網範圍](HA_LAN.md) 與 [安裝步驟](../INSTALL.md)。

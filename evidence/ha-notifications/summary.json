@@ -1,0 +1,108 @@
+{
+  "schema": 1,
+  "feature": "native_ha_text_notifications",
+  "status": "targeted_validation_passed",
+  "base_commit": "0e2d1dc7cb784d136fb74f82c12c280e50cd8bac",
+  "adapter": {
+    "domain": "agentic_home_notifications",
+    "version": "0.1.0",
+    "protocol": 1,
+    "core_tested": "2026.10.1"
+  },
+  "source_sha256": {
+    "controller/agentic_controller/app.py": "23da1adcf13a4bb7c1b4ff77ab98177d16f0de0da153c0be838a5f013200db04",
+    "controller/agentic_controller/channels.py": "cb5780ed1474389bed6a09c8bea785375168eea2ad646985f9a68367c6fc3919",
+    "controller/agentic_controller/durability.py": "ceacb152e0d5bc81db65aba5b5cdabec0cd300ef2bc382c3f613a102d75ff97b",
+    "controller/agentic_controller/notifications.py": "ed6f208fe98f3b713caa61493babdaef680c12a7ff569f42375160a1153718e1",
+    "controller/agentic_controller/store.py": "7ef8b588fcbf935392b0fec2261484e5f56cf019d2fc5630e59fe5366727515b",
+    "custom_components/agentic_home_notifications/__init__.py": "04b15b0d463715bea2594048ff3ebe8158d03f6d6738612978e713e1c879ac57",
+    "custom_components/agentic_home_notifications/binary_sensor.py": "672a9c85bbd0d790bd7eb5f58ad521155f66e535134f2841d5ae58c1a7004910",
+    "custom_components/agentic_home_notifications/config_flow.py": "c6edf3dea74cd799488ec7fa269bd5b032ad636c2066a97d021581f7428b46e1",
+    "custom_components/agentic_home_notifications/const.py": "8e2364e9cd1a02378ffc712ea963a3963bf919034851b2a6ec79e70f8f3bfbbf",
+    "custom_components/agentic_home_notifications/entity.py": "60414358ce928fa34a6b15bdeb0ac6e2ae4006e93652a8063e15e63af74cddb0",
+    "custom_components/agentic_home_notifications/manifest.json": "1229d818480460edda79f1efbd2cf845788ea6441effa190c3eb31a69ddb22f5",
+    "custom_components/agentic_home_notifications/persistence.py": "d791ceca1864293a223c01ca0ffcbea12ea26d54a2711e2c9bbf8dc6e7e2762a",
+    "custom_components/agentic_home_notifications/queue.py": "c609b05a9e6db98f3039f1ea03053edef6394690805366ad8e60ddba39856bd9",
+    "custom_components/agentic_home_notifications/sensor.py": "0f16ae9168d79925c4d73b18410f1fd0c38a6e148af3439e144a21478d86c665",
+    "custom_components/agentic_home_notifications/services.yaml": "29af39dfd14a0ffdb4da91406bda0d682139e5c81cc6698e11d04b3d2a3d4e46",
+    "custom_components/agentic_home_notifications/storage_io.py": "a3bd75c22621d5b8aa192e20f2e1b0111fe4fcbed2c852dcd56301b5bd319969",
+    "custom_components/agentic_home_notifications/strings.json": "9573051f44e8e6d33f4ed96486e1c76d7dc5ba2fff652fe3f2677b1b889e82b9",
+    "custom_components/agentic_home_notifications/translations/en.json": "9573051f44e8e6d33f4ed96486e1c76d7dc5ba2fff652fe3f2677b1b889e82b9",
+    "custom_components/agentic_home_notifications/translations/zh-Hant.json": "ebc991c66db1acc0e865013df4c88d48c5ea1e31dd44e32389572b6a0f2066c7",
+    "scripts/build_host.py": "eec53e8face11ac059efe786a039700007ce5a6547e010f1a73a0219e2ea7eed",
+    "scripts/contracts.py": "3af453c8825793c8c37299f40f7ab96f8313f932c1426f0923a9d0cd9f306d8a",
+    "scripts/controller_source.py": "75dfc862e90935b50971c5254524f45a2563fc1b31a2bdbae6476d5c6aae44c4",
+    "scripts/package.py": "c66f34c1f89378b5ca8da814509747a6ca5e1461fc1fb09b18c8de030eac9ecb",
+    "scripts/validate_kit.py": "f16d4a4c2afcbfa7f41be13a205c7f1fec90a1f2d019b9812a1c796c7b1dc29a"
+  },
+  "download": {
+    "path": "controller/static/downloads/agentic-home-notifications.zip",
+    "bytes": 19450,
+    "sha256": "24befeba0f00753b58facdcde203a40f2524c8c60a0159eb9df1e27e5615e109",
+    "local_real_core_tested_sha256": "1684d70ee9b85b80ba97f57076fac30fbb4064aaeb044db713b0a4a2ebae6ab7",
+    "post_test_change": "Removed one trailing blank line from storage_io.py; Python AST is identical. Exact packaged source is revalidated by product CI."
+  },
+  "verification": {
+    "backend_gateway_transport_regression": {
+      "passed": 189,
+      "scope": "notification state machine, protocol seam, Gateway, Store durability and worker completion"
+    },
+    "native_queue_persistence_core": {
+      "passed": 53,
+      "receipt": "ha-native-real.xml"
+    },
+    "final_native_core_entities": {
+      "passed": 1,
+      "receipt": "ha-native-real-entities.xml",
+      "scope": "actual packaged ZIP, owner/non-owner users, action/automation, one-shot claim, restart, six entities and storage faults"
+    },
+    "browser": {
+      "passed": 10,
+      "receipt": "ui/receipt.json",
+      "viewports": [
+        390,
+        768,
+        1440
+      ]
+    },
+    "aggregate_local": {
+      "status": "recorded_separately",
+      "note": "Full product regression and exact-source CI conclusions are recorded on the implementation pull request; this receipt covers the listed targeted checks."
+    },
+    "contracts": {
+      "status": "passed",
+      "count": 45
+    },
+    "lint": "passed",
+    "compiled_ui_and_package_inputs": "passed"
+  },
+  "review_fixes": [
+    "LINE account change or explicit logout rotates persistent notification authorization before exposing readiness.",
+    "Native HA notifications remain independent of AI pause, provider logins, browser epochs and household AI policy.",
+    "Offline channel backlog cannot starve ready recipients on another channel.",
+    "Authorization rechecked after disk barriers and before HTTP headers, including delayed connection acquisition.",
+    "Native journal accepts initial Core not_running setup but rejects stopping, final_write and stopped states."
+  ],
+  "iteration_history": {
+    "first_run_clean": false,
+    "prior_runtime_failure": "Native journal startup incorrectly refused initial Core not_running; corrected and covered with all six Core state cases.",
+    "preserved_failure_receipt_sha256": "1f0e5ecc28bdc748166fb71d1cb614bf2e88d98dde456d6e860634ac2d288d74",
+    "harness_corrections": [
+      "Provided required Controller Store in native test client.",
+      "Asserted native service Unauthorized wrapper accurately."
+    ]
+  },
+  "cleanup": {
+    "owned_core_containers_removed": true,
+    "browser_fixture_processes_closed": true,
+    "completed_test_disk_temporaries_removed": true
+  },
+  "delivery_limits": [
+    "Text only; no image/camera action or new LINE OA provider.",
+    "Requires the new Controller adapter and this HA custom integration; the published 0.10.0 Controller cannot use the ZIP alone.",
+    "No release media, stable branch or v0.10.0 tag changed.",
+    "Real messaging accounts, physical laptop/devices and 72-hour household use: not_run.",
+    "Grok execution: not_run by owner instruction.",
+    "submitted means transport acceptance, never proof of delivery/read; ambiguous sends never automatically replay."
+  ]
+}

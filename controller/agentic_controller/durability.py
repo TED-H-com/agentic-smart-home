@@ -13,11 +13,22 @@ def client_session(store, **kwargs):
         raise ValueError("Controller Store is required for outgoing requests")
     trace = aiohttp.TraceConfig()
 
+    async def notification_guard(session, context, params):
+        request_context = context.trace_request_ctx
+        if isinstance(request_context, dict) and request_context.get("notification_guard"):
+            request_context["notification_guard"]()
+
     async def before_request(session, context, params):
         if params.method.upper() not in {"GET", "HEAD", "OPTIONS"}:
             await durable(store)
+            # Notification sends opt into a final owner/routing check after the
+            # disk barrier. Other requests keep their existing behavior.
+            await notification_guard(session, context, params)
 
     trace.on_request_start.append(before_request)
+    # aiohttp invokes this hook before serializing/writing request headers. The
+    # connection-pool/DNS await occurs after on_request_start, so check again.
+    trace.on_request_headers_sent.append(notification_guard)
     traces = list(kwargs.pop("trace_configs", ()))
     return aiohttp.ClientSession(trace_configs=[*traces, trace], **kwargs)
 

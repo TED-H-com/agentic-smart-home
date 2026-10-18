@@ -53,6 +53,8 @@ from .models import (
     utcnow,
 )
 from .network_inventory import routes as network_inventory_routes
+from .notifications import NotificationManager
+from .notifications import routes as notification_routes
 from .operations import routes as operation_routes
 from .response_durability import ResponseDurabilityMiddleware
 from .runner import Runner, RunnerError, cancel_and_confirm
@@ -135,7 +137,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     ha.store = store
     runner = runner or Runner(store)
     inner_runner = inner_runner or Runner(store, "haos")
-    gateway, bootstrap, bridge, maintenance, home_worker = None, None, None, None, None
+    gateway, bootstrap, bridge, maintenance, home_worker, notifications = None, None, None, None, None, None
     coordinator = Coordinator(store, hermes_client) if host_mode else None
     engine = Engine(store, ha)
     secret = store.setting("csrf_secret") or secrets.token_hex(32)
@@ -164,6 +166,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         watchers = [asyncio.create_task(ha.watch()), asyncio.create_task(engine.observe()), asyncio.create_task(maintain())]
         if gateway:
             await gateway.start()
+        if notifications:
+            await notifications.start()
         if coordinator:
             await coordinator.worker_manager.start()
         if bridge:
@@ -191,6 +195,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
             await bootstrap.close()
         if coordinator:
             await coordinator.worker_manager.close()
+        if notifications:
+            await notifications.close()
         if gateway:
             await gateway.close()
         tasks = list(running.values()) + watchers
@@ -261,7 +267,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                 return JSONResponse({"detail": "請求太大"}, status_code=413)
             if request.url.path.startswith("/api/") and request.url.path not in {"/api/host/login", "/api/host/desktop-login"}:
                 local = bool(identity) or host_mode and (request.method in {"GET", "HEAD"} or request.url.path.startswith(
-                    ("/api/host/", "/api/providers/", "/api/gateway/", "/api/runtimes/", "/api/hermes/", "/api/bootstrap/", "/api/worker/", "/api/workers/", "/api/network/", "/api/updates/")) or request.url.path in {"/api/pause", "/api/retention", "/api/backups/export"})
+                    ("/api/host/", "/api/providers/", "/api/gateway/", "/api/notifications/", "/api/runtimes/", "/api/hermes/", "/api/bootstrap/", "/api/worker/", "/api/workers/", "/api/network/", "/api/updates/")) or request.url.path in {"/api/pause", "/api/retention", "/api/backups/export"})
                 user_id = identity.owner if identity else ((store.setting("owner") or "host-owner") if host_mode else request.headers.get("x-remote-user-id", ""))
                 if not user_id or (store.setting("owner") and store.setting("owner") != user_id):
                     return JSONResponse({"detail": "只有綁定的 HA owner 可以操作"}, status_code=403)
@@ -670,6 +676,9 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         worker_routes(app, coordinator.worker_manager)
         app.state.operations = operation_routes(app, store, coordinator.worker_manager, host_mode=host_mode)
         gateway_routes(app, gateway, store, gateway.runners, controller_id)
+        notifications = NotificationManager(store, ha, gateway, controller_id)
+        notification_routes(app, notifications)
+        app.state.notifications = notifications
         app.state.gateway = gateway
         app.state.coordinator = coordinator
         bridge = IngressBridge(app, store, ha, gateway, coordinator, secret, host_status=bridge_host_status)

@@ -1,0 +1,309 @@
+{
+  "$defs": {
+    "NotificationChannelStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "line",
+            "discord",
+            "telegram"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "login": {
+          "enum": [
+            "ready",
+            "needs_login",
+            "unknown",
+            "not_required"
+          ],
+          "title": "Login",
+          "type": "string"
+        },
+        "transport": {
+          "enum": [
+            "connected",
+            "connecting",
+            "disconnected",
+            "error",
+            "disabled"
+          ],
+          "title": "Transport",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel",
+        "transport",
+        "login"
+      ],
+      "title": "NotificationChannelStatus",
+      "type": "object"
+    },
+    "NotificationConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "recipients": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/NotificationRecipient"
+          },
+          "maxItems": 16,
+          "title": "Recipients",
+          "type": "array"
+        },
+        "revision": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "revision"
+      ],
+      "title": "NotificationConfig",
+      "type": "object"
+    },
+    "NotificationDelivery": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "line",
+            "discord",
+            "telegram"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "recipient": {
+          "pattern": "^[a-z][a-z0-9_]{0,31}$",
+          "title": "Recipient",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "claiming",
+            "sending",
+            "submitted",
+            "unknown",
+            "not_sent"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "recipient",
+        "channel",
+        "state",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "NotificationDelivery",
+      "type": "object"
+    },
+    "NotificationDestination": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "line",
+            "discord",
+            "telegram"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "chat": {
+          "title": "Chat",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel",
+        "chat",
+        "label"
+      ],
+      "title": "NotificationDestination",
+      "type": "object"
+    },
+    "NotificationIntegration": {
+      "additionalProperties": false,
+      "properties": {
+        "last_seen": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Seen"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "source_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{32}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Id"
+        },
+        "state": {
+          "enum": [
+            "disabled",
+            "not_installed",
+            "unavailable",
+            "ready",
+            "needs_rebind"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "NotificationIntegration",
+      "type": "object"
+    },
+    "NotificationRecipient": {
+      "additionalProperties": false,
+      "properties": {
+        "alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,31}$",
+          "title": "Alias",
+          "type": "string"
+        },
+        "channel": {
+          "enum": [
+            "line",
+            "discord",
+            "telegram"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "chat": {
+          "pattern": "^[A-Za-z0-9_-]{1,128}$",
+          "title": "Chat",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "alias",
+        "label",
+        "channel",
+        "chat"
+      ],
+      "title": "NotificationRecipient",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "channels": {
+      "items": {
+        "$ref": "#/$defs/NotificationChannelStatus"
+      },
+      "maxItems": 3,
+      "title": "Channels",
+      "type": "array"
+    },
+    "config": {
+      "$ref": "#/$defs/NotificationConfig"
+    },
+    "deliveries": {
+      "items": {
+        "$ref": "#/$defs/NotificationDelivery"
+      },
+      "maxItems": 64,
+      "title": "Deliveries",
+      "type": "array"
+    },
+    "destinations": {
+      "items": {
+        "$ref": "#/$defs/NotificationDestination"
+      },
+      "maxItems": 60,
+      "title": "Destinations",
+      "type": "array"
+    },
+    "integration": {
+      "$ref": "#/$defs/NotificationIntegration"
+    }
+  },
+  "required": [
+    "config",
+    "integration",
+    "channels",
+    "destinations",
+    "deliveries"
+  ],
+  "title": "NotificationsSnapshot",
+  "type": "object"
+}
