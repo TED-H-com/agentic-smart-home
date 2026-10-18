@@ -93,15 +93,18 @@ def test_selected_cli_recovers_without_restarting_setup(recovery_browser):
     state['fail']['runtimes'] = 503
     page.goto(origin + '/#onboarding')
     button = page.locator('.bootstrap-auth').get_by_role('button', name='開始登入', exact=True)
+    error = page.locator('.bootstrap-auth .notice.error')
+    expect(error).to_have_text('暫時讀不到資料')
     expect(button).to_be_disabled()
     del state['fail']['runtimes']
     state['data']['runtimes']['host'] = {'status': 'unavailable', 'providers': []}
     tick(page)
+    expect(error).to_have_count(0)
     expect(button).to_be_disabled()
     state['data']['runtimes']['host'] = {'protocol': 1, 'providers': [{'provider': 'codex', 'status': 'needs_reauth'}]}
     tick(page)
     expect(button).to_be_enabled()
-    expect(page.locator('.bootstrap-auth .notice.error')).to_have_count(0)
+    expect(error).to_have_count(0)
     assert state['reads']['runtimes'] >= 3
     assert not state['writes']
 
