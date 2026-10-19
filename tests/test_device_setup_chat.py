@@ -153,6 +153,39 @@ async def test_labels_redacted_and_output_bounds_do_not_expose_other_record(setu
         assert private not in raw
 
 
+@pytest.mark.parametrize("entry_domain", ["shelly", "ipp"])
+async def test_selected_shelly_history_is_domain_bound_and_shared_without_writes(setup_chat, entry_domain):
+    app, client, ha, store, results, printer_id, calls = setup_chat
+    selected = "c" * 32
+    # A synthetic previously configured Shelly record; the existing printer
+    # remains unrelated history. Native setup is qualified in a separate test.
+    record = {**store.get(KIND, printer_id), "id": selected, "version": 2, "entry_id": "shelly_entry"}
+    record["candidate"] = {**record["candidate"], "id": "shelly_flow", "integration_domain": "shelly",
+        "confirmation_step": "confirm_discovery", "title": "shelly1-AABBCCDDEEFF"}
+    record["identity_digest"] = app.state.device_setups.private_hash(["shelly", "AABBCCDDEEFF"])
+    store.put(KIND, record)
+    ha.entries.append({"entry_id": "shelly_entry", "domain": entry_domain, "state": "loaded",
+                       "source": "zeroconf", "title": "shelly1-AABBCCDDEEFF"})
+    ha.devices.append({"id": "shelly_device", "name": "shelly1-AABBCCDDEEFF", "manufacturer": "Shelly",
+                       "model": "Shelly 1", "config_entries": ["shelly_entry"]})
+    ha.entities.append({"entity_id": "switch.shelly", "device_id": "shelly_device", "config_entry_id": "shelly_entry"})
+    ha.states.append({"entity_id": "switch.shelly", "state": "off"})
+    selected_system = app, client, ha, store, results, selected, calls
+    result = (await share(selected_system))["device_setup_status"]
+    assert result["setup_id"] == selected and result["setup_state"] == "configured"
+    if entry_domain == "shelly":
+        assert result["current_state"] == "present" and result["integration"]["domain"] == "shelly"
+        assert result["device_count"] == result["entity_count"] == result["available_entity_count"] == 1
+        assert result["devices"][0]["model"] == "Shelly 1"
+    else:
+        assert result["current_state"] == "not_seen" and result["integration"] is None and not result["devices"]
+    assert result["physical_verification"] == "not_performed"
+    encoded = json.dumps(result)
+    assert all(private not in encoded for private in (printer_id, "AABBCCDDEEFF", "newentry", "sensor.ink", "switch.shelly"))
+    assert calls and not ha.posts and not ha.backups
+    assert store.get(KIND, selected) == record and store.setting("policy") == {"entities": []}
+
+
 async def test_legacy_idempotency_and_exact_selection_and_reply_noninheritance(setup_chat):
     app, client, _, store, results, selected, calls = setup_chat
     response = await send(app, client, "ordinary", "legacy-key")

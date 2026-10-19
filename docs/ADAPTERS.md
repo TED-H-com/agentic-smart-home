@@ -57,6 +57,8 @@ Web 新增 `mode=bridge`，先確認橋接與 Owner，再掛載聊天；不顯�
 
 尚未發行的聊天接入 adapter 另外以 [IPP 原生設定矩陣](../evidence/device-setup-real-core-matrix-20261019.json) 核對這兩個精確版本的 `zeroconf_confirm` 空表單、設備身分與讀回。它不從自動化 adapter 的成功推定配對相容；未知 patch／預覽版不接受新的接入。真 Core 的 flow、aioipp 與登錄資料路徑保留，探索事件、印表機及 Supervisor 備份使用明示 fixture。聊天的 `home.device_setup_status` 只讀 Owner 當前訊息選定的工作，不能取得原生寫入或重送權限。
 
+Shelly 接入使用獨立的固定 adapter：同兩個 Core patch、已存在的 `zeroconf`／`confirm_discovery` 空表單，以及原生回報型號恰為 `Shelly 1`。穩定身分以種類與正規化 MAC 綁定，不沿用 IPP 身分或名稱比對。這個回報欄位不是實體世代鑑定，原生初始化可能調整連線設定，須在批准前說明；原生 Gen1 協定測試也不代表所有 Shelly 或真實繼電器已驗證。支援範圍與 v1→v2 私有紀錄遷移、降版寫入停止規則見 [設備接入](DEVICE_DISCOVERY.md#聊天內確認接入-shelly-1)。
+
 ### HA 原生通知 adapter（主線開發中）
 
 `custom_components/agentic_home_notifications` 是獨立版本的原生 HA 整合，產品 protocol 為 1。HA 自動化呼叫 `agentic_home_notifications.send_text`，外層 Controller 透過既有、經 Owner 認證的 HA WebSocket 消費有界佇列，再由原有 Gateway 傳送。沒有第二個 bot receiver、公開 listener、任意 webhook URL 或新的管理 bearer；整合不持有 LINE／Telegram／Discord 憑證。安裝與範例見 [原生通知](HA_NOTIFICATIONS.md)。

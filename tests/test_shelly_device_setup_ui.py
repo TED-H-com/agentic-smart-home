@@ -5,13 +5,18 @@ import os
 from pathlib import Path
 
 import pytest
+from agentic_controller.device_setup_adapters import ADAPTERS
 from playwright.sync_api import expect
 from test_conversation_discovery_ui import (  # noqa: F401
-    conversation_browser, printer_result, sent_messages, setup_posts, setup_result,
+    conversation_browser,
+    printer_result,
+    sent_messages,
+    setup_posts,
+    setup_result,
 )
 
 NAME = '玄關 Shelly 1（合成設備）'
-REVIEW = '確認後先備份家庭設定，再交由家庭接入；原生整合可能調整設備連線，不會切換繼電器或授予 AI 控制權限。'
+REVIEW = ADAPTERS['shelly'].proposal_message
 IDENTIFIER = 'e' * 32
 
 
@@ -105,9 +110,10 @@ def test_shelly_proposal_and_approval_are_explicit_and_device_neutral(shelly_bro
     assert setup_posts(state) == [] and len(sent_messages(state)) == 1
     result.get_by_role('button', name='核對型號', exact=True).click()
     panel = result.get_by_role('region', name='接入 ' + NAME, exact=True)
-    expect(panel).to_contain_text('先備份家庭設定')
-    expect(panel).to_contain_text('原生整合可能調整設備連線')
-    expect(panel).to_contain_text('不會切換繼電器或授予 AI 控制權限')
+    expect(panel).to_contain_text('HA 回報為 Shelly 1')
+    expect(panel).to_contain_text('原生整合可能設定設備連線')
+    expect(panel).to_contain_text('備份只涵蓋 HA 設定')
+    expect(panel).to_contain_text('不切換繼電器，也不授予 AI 控制權限')
     expect(panel.get_by_role('button', name='確認接入', exact=True)).to_be_enabled()
     assert [path for path, _, _ in setup_posts(state)] == ['device-setups']
     assert setup_posts(state)[0][1]['integration_domain'] == 'shelly'

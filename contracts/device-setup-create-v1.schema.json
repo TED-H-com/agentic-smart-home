@@ -7,8 +7,11 @@
       "type": "string"
     },
     "integration_domain": {
-      "const": "ipp",
       "default": "ipp",
+      "enum": [
+        "ipp",
+        "shelly"
+      ],
       "title": "Integration Domain",
       "type": "string"
     }
