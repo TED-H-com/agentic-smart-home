@@ -275,7 +275,7 @@ async def test_lost_store_reload_reply_observes_published_pin_without_another_po
     assert manager.record()["release_store_reload"] is None
 
 
-async def test_successful_reload_with_lost_readback_does_not_repeat(reload_update):
+async def test_successful_reload_with_lost_readback_retries_only_if_catalog_still_old(reload_update):
     manager, restart = reload_update
 
     async def before(method, path):
@@ -289,7 +289,7 @@ async def test_successful_reload_with_lost_readback_does_not_repeat(reload_updat
     manager.clock.now += 86400
     manager = restart(manager)
     await manager.tick()
-    assert len(reload_posts(manager)) == 1
+    assert len(reload_posts(manager)) == 2
 
 
 async def test_reload_retry_rechecks_current_owner(reload_update):
@@ -307,14 +307,14 @@ async def test_legacy_reload_flag_is_preserved_for_same_pin_but_new_release_gets
     manager, restart = reload_update
     record = manager.record()
     manager.save(record, release_store_reloaded=True)
-    # Legacy record was pinned to 0.9.0; 0.9.1 gets one successful refresh.
+    # Legacy record was pinned to 0.9.0; 0.9.1 gets a fresh bounded budget.
     with pytest.raises((BridgeFault, HomeWorkerFault), match="release_not_published"):
         await manager.update()
     assert len(reload_posts(manager)) == 1
     manager = restart(manager)
     manager.clock.now += 86400
     await manager.tick()
-    assert len(reload_posts(manager)) == 1
+    assert len(reload_posts(manager)) == 2
 
 
 async def test_same_release_legacy_reload_flag_is_not_replayed(reload_update):
@@ -1172,3 +1172,146 @@ async def test_h5_adopt_release_keeps_setup_stages(home):
     await bumped.update()
     assert bumped.record()["release"]["version"] == "0.9.0" and bumped.record()["stage"] == "install"
     assert bumped.record()["operation"] is None
+
+
+async def test_successful_but_stale_catalog_refresh_is_bounded_and_resumes_after_restart(reload_update):
+    manager, restart = reload_update
+    with pytest.raises((BridgeFault, HomeWorkerFault), match="release_not_published"):
+        await manager.update()
+    assert len(reload_posts(manager)) == 1
+    for attempt in range(1, STORE_RELOAD_ATTEMPTS):
+        manager = restart(manager)
+        await manager.tick()
+        assert len(reload_posts(manager)) == attempt
+        manager.clock.now += STORE_RELOAD_BACKOFF * 2 ** (attempt - 1)
+        status = await manager.tick()
+        assert status["code"].endswith("_release_not_published")
+        assert len(reload_posts(manager)) == attempt + 1
+    manager.clock.now += 86400
+    manager = restart(manager)
+    await manager.tick()
+    assert len(reload_posts(manager)) == STORE_RELOAD_ATTEMPTS
+    assert manager.record()["release_store_reloaded"] is True
+    assert not [call for call in manager.ha.calls if call[0] == "POST" and call[1].endswith("/update")]
+
+
+async def test_later_catalog_publication_recovers_without_manual_supervisor_reload(reload_update):
+    manager, restart = reload_update
+    with pytest.raises((BridgeFault, HomeWorkerFault), match="release_not_published"):
+        await manager.update()
+    manager = restart(manager)
+    manager.ha.reload_version = "0.9.1"
+    manager.clock.now += STORE_RELOAD_BACKOFF
+    status = await manager.tick()
+    assert len(reload_posts(manager)) == 2
+    assert status["state"] == "update_available"
+    assert manager.record()["release_store_reload"] is None
+    assert not [call for call in manager.ha.calls if call[0] == "POST" and call[1].endswith("/update")]
+
+
+async def test_owner_catalog_retry_grants_new_budget_without_replaying_app_effect(reload_update):
+    manager, restart = reload_update
+    with pytest.raises((BridgeFault, HomeWorkerFault), match="release_not_published"):
+        await manager.update()
+    for _ in range(STORE_RELOAD_ATTEMPTS - 1):
+        manager.clock.now += 86400
+        manager = restart(manager)
+        await manager.tick()
+    before = dict(manager.record())
+    sent = len(manager.ha.calls)
+    await manager.repair()
+    assert manager.record()["stage"] == before["stage"]
+    assert manager.record().get("operation") == before.get("operation")
+    assert manager.record()["release_store_reload"]["attempts"] == 0
+    assert not [call for call in manager.ha.calls[sent:] if call[0] == "POST"]
+    manager.ha.reload_version = "0.9.1"
+    status = await manager.tick()
+    assert len(reload_posts(manager)) == STORE_RELOAD_ATTEMPTS + 1
+    assert status["state"] == "update_available"
+    assert not [call for call in manager.ha.calls if call[0] == "POST" and call[1].endswith("/update")]
+
+
+@pytest.mark.parametrize("app,waiting_stage", [("bridge", "install"), ("home", "repository")])
+async def test_first_install_resumes_from_stale_catalog_after_restart_without_replaying_install(request, app, waiting_stage):
+    manager = request.getfixturevalue("manager" if app == "bridge" else "home")
+    restart = bump if app == "bridge" else bump_home
+    slug = BRIDGE_SLUG if app == "bridge" else HOME_SLUG
+    manager.ha.catalog["version_latest"] = "0.8.0"
+    await manager.authorize()
+    for _ in range(4):
+        await manager.tick()
+        if reload_posts(manager):
+            break
+    assert manager.record()["stage"] == waiting_stage
+    assert manager.record()["code"].endswith("_release_not_published")
+    assert len(reload_posts(manager)) == 1 and manager.ha.app is None
+    assert not [call for call in manager.ha.calls if call[0] == "POST" and
+                call[1].endswith(("/install", "/start", "/update"))]
+
+    manager = restart(manager, version=VERSION)
+    await manager.tick()
+    assert len(reload_posts(manager)) == 1 and manager.ha.app is None
+    manager.clock.now += STORE_RELOAD_BACKOFF
+    manager.ha.reload_version = VERSION
+    install_path = f"/store/addons/{slug}/install"
+    manager.ha.lose = ("POST", install_path)
+    for _ in range(3):
+        await manager.tick()
+        if manager.ha.app:
+            break
+    assert len(reload_posts(manager)) == 2
+    assert manager.ha.app["version"] == VERSION
+    assert manager.record()["operation"]["kind"] == "install"
+    assert manager.record()["operation"]["state"] == "sent"
+    assert len([call for call in manager.ha.calls if call[:2] == ("POST", install_path)]) == 1
+
+    # The first install happened but its response was lost. After another
+    # restart, use the installed postcondition before proceeding with setup.
+    manager = restart(manager, version=VERSION)
+    sent = len(manager.ha.calls)
+    await manager.tick()
+    assert manager.record()["stage"] == ("configure" if app == "bridge" else "start")
+    assert manager.record()["operation"] is None
+    assert not [call for call in manager.ha.calls[sent:] if call[0] == "POST"]
+    assert len([call for call in manager.ha.calls if call[:2] == ("POST", install_path)]) == 1
+
+
+@pytest.mark.parametrize("app", ["bridge", "home"])
+@pytest.mark.parametrize("kind", ["install", "start", "update"])
+async def test_owner_catalog_retry_preserves_a_sent_app_operation_and_reads_it_back(request, app, kind):
+    manager = request.getfixturevalue("manager" if app == "bridge" else "home")
+    restart = bump if app == "bridge" else bump_home
+    slug = BRIDGE_SLUG if app == "bridge" else HOME_SLUG
+    if kind == "update":
+        await (healthy(manager) if app == "bridge" else login_ready(manager))
+        manager = restart(manager)
+        await manager.tick()
+        manager.ha.catalog["version_latest"] = manager.release.version
+    else:
+        await manager.authorize()
+        await advance_to(manager, kind)
+    effect_path = f"/addons/{slug}/start" if kind == "start" else f"/store/addons/{slug}/{kind}"
+    manager.ha.lose = ("POST", effect_path)
+    await (manager.update() if kind == "update" else manager.tick())
+    assert manager.record()["state"] == "unavailable"
+    assert manager.record()["operation"]["kind"] == kind
+    assert manager.record()["operation"]["state"] == "sent"
+
+    # Recovery may contain an old catalog warning alongside a newer, uncertain
+    # operation. That warning must not grant a fresh budget or erase its fence.
+    manager.ha.catalog["version_latest"] = "0.8.0"
+    prefix = "bridge" if app == "bridge" else "home_worker"
+    manager.save(manager.record(), code=f"{prefix}_release_not_published", release_store_reloaded=True,
+                 release_store_reload={"release": asdict_release(manager.release.version, manager.release.app),
+                                       "attempts": STORE_RELOAD_ATTEMPTS, "retry_at": manager.clock() + 120})
+    manager = restart(manager, version=manager.release.version)
+    before = copy.deepcopy(manager.record())
+    sent = len(manager.ha.calls)
+    await manager.repair()
+    for field in ("stage", "operation", "release_store_reload", "release_store_reloaded", "start_sent",
+                  "started_once", "owner_start", "pair_restarts", "repairs", "repair_count"):
+        assert manager.record().get(field) == before.get(field)
+    assert not [call for call in manager.ha.calls[sent:] if call[0] == "POST"]
+    await manager.tick()
+    assert not [call for call in manager.ha.calls[sent:] if call[0] == "POST"]
+    assert len([call for call in manager.ha.calls if call[:2] == ("POST", effect_path)]) == 1

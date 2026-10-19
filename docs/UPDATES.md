@@ -2,7 +2,7 @@
 
 HA 保留官方更新；外層負責本產品的受測發行與已授權智能管家 App 的有限維護，見 [發行策略](RELEASE_POLICY.md)。不攔截 HA 更新，也不停止 Linux 安全更新。下文描述 **固定 Controller updater**（0.7.0 起），不是全系統更新／退版聲明。
 
-Host 的 Controller 更新不會自動更新側欄 App 或 Home worker App。兩者的信任 repository 都是 `https://github.com/TED-H-com/agentic-smart-home#stable`（發布時 `stable` 指到與 `release/X.Y.Z` 相同的 commit），版本都來自 `agentic_controller.VERSION`。同一 repository 上較舊的安裝進入 `update_available`，Owner 以無 body 的 `POST /api/host/bridge/maintenance/update` 或 `POST /api/host/home-worker/maintenance/update` 更新到恰好該版本。商店 `version_latest` 較高時是 `*_release_ahead`，不安裝也不更新；較低時重新載入商店一次，仍較低則 `waiting`／`*_release_not_published`。舊的 `#release/X.Y.Z` 是另一個 App slug，進入 `needs_reconcile`／`*_release_channel_changed`，須在 HA 手動移除舊 App 再從管理中心啟用。不會自動解除安裝、加入 repository 或重裝，也不改權限或 options，沒有自動退版。真實 Supervisor 從 0.9.0 更新到下一版仍是 `not_run`。
+Host 的 Controller 更新不會自動更新側欄 App 或 Home worker App。兩者的信任 repository 都是 `https://github.com/TED-H-com/agentic-smart-home#stable`（發布時 `stable` 指到與 `release/X.Y.Z` 相同的 commit），版本都來自 `agentic_controller.VERSION`。同一 repository 上較舊的安裝進入 `update_available`，Owner 以無 body 的 `POST /api/host/bridge/maintenance/update` 或 `POST /api/host/home-worker/maintenance/update` 更新到恰好該版本。商店 `version_latest` 較高時是 `*_release_ahead`，不安裝也不更新；較低時依保存的重試次數與退避重新載入商店（最多三次），仍較低則 `waiting`／`*_release_not_published`。舊的 `#release/X.Y.Z` 是另一個 App slug，進入 `needs_reconcile`／`*_release_channel_changed`，須在 HA 手動移除舊 App 再從管理中心啟用。不會自動解除安裝、加入 repository 或重裝，也不改權限或 options，沒有自動退版。真實 Supervisor 從 0.9.0 更新到下一版仍是 `not_run`。
 
 0.10.0 包含新的 Host 收集器及安裝前檢查，需要同版完整媒體；Controller-only 更新不能把舊 0.9.0 主機升成完整 0.10.0。當 `#stable` 推進到 0.10.0，舊 0.9.0 ISO 的新安裝可能遇到 `*_release_ahead` 而無法首次安裝 Apps。新主機須使用發布頁上已通過驗證的同版媒體；維護者必須先完成媒體與公開來源配套核對，再把它交給使用者。已使用的主機不得以再次 `host/install.py --apply` 代替升級。
 
@@ -94,3 +94,6 @@ agentic-home wait --id <原工作id>
 - SSH forwarding 同時包含管理中心 8099、HA 8123、PNG 預覽 127.0.0.2:8100。本機 console 与 localhost Web 保留救援用途。
 
 真 tailnet 帳號、遠端 ACL 與失網現場驗收仍須另測；官方套件 hash／簽署來源驗證不能取代真帳號連線證據。0.10.0 的有線 HAOS 接入有獨立媒體／平台工程紀錄，見 [驗證紀錄](VERIFICATION.md)；mDNS、Matter、USB 與實體網卡仍按個別家庭場景驗收。
+
+
+商店重載成功但仍回舊版時，也會使用同一個有限重試預算；重啟不重置次數或退避期限。用完三次後停止自動重載，Owner 可按「重新檢查版本」授權新的一輪商店查詢。這個動作只重置商店重載預算，保留原本階段與操作狀態；已有未確認的 App 操作時不重置，也不重送 install、start 或 update。商店恢復正確版本後，既有較舊 App 仍等待 Owner 明確同意更新。
