@@ -62,17 +62,17 @@ jobs:
           builder: ${{ steps.hermes-builder.outputs.name }}
           context: ./hermes
           load: true
-          tags: agentic-home-hermes:0.11.0
+          tags: agentic-home-hermes:0.11.1
           cache-from: type=gha,scope=agentic-home-hermes-linux-amd64
           cache-to: type=gha,mode=max,scope=agentic-home-hermes-linux-amd64,ignore-error=true
       - name: Build installable App images
         run: |
           uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner; package_runner()"
-          docker build -t agentic-home-controller:0.11.0 controller
-          docker build -t agentic-home-runner:0.11.0 runner
-          docker build -t agentic-home-linejs:0.11.0 host/linejs
-          docker build -t agentic-home-preview:0.11.0 host/preview
-          docker build -t agentic-home-bridge:0.11.0 bridge
+          docker build -t agentic-home-controller:0.11.1 controller
+          docker build -t agentic-home-runner:0.11.1 runner
+          docker build -t agentic-home-linejs:0.11.1 host/linejs
+          docker build -t agentic-home-preview:0.11.1 host/preview
+          docker build -t agentic-home-bridge:0.11.1 bridge
           docker pull ghcr.io/home-assistant/amd64-hassio-supervisor:2026.09.3
       - name: Real Core, CLI containers and browser tests
         run: |
@@ -86,9 +86,9 @@ jobs:
           uv run python scripts/package.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: agentic-home-0.11.0
+          name: agentic-home-0.11.1
           retention-days: 7
           path: |
-            dist/agentic-home-0.11.0-source.zip
+            dist/agentic-home-0.11.1-source.zip
             controller/static/downloads/agentic-home-notifications.zip
             evidence/

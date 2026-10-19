@@ -79,7 +79,7 @@ print(json.dumps({'observed_from':'actual_pinned_runner_container','prepare':'ac
         result = subprocess.run(['docker', 'run', '--rm', '--name', name, '--network', 'none', '--memory', '768m',
             '--memory-swap', '768m', '--pids-limit', '128', '--cpus', '1', '--mount',
             f'type=bind,src={root / "host"},dst=/host,readonly', '--env', 'PYTHONPATH=/host', '--entrypoint', 'python',
-            'agentic-home-runner:0.11.0', '-c', script], capture_output=True, text=True, timeout=50)
+            'agentic-home-runner:0.11.1', '-c', script], capture_output=True, text=True, timeout=50)
         assert result.returncode == 0, result.stdout + result.stderr
         evidence = json.loads(result.stdout)
         assert evidence['verifier_tests_executed'] == 2

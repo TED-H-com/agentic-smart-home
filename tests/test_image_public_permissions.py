@@ -115,7 +115,7 @@ def test_packaged_public_files_are_readable_as_runtime_uid(request, app):
     if not request.config.getoption("--containers"):
         pytest.skip("Use --containers after building the six product images")
     spec = CASES[app]
-    image = os.environ.get("AGENTIC_IMAGE_PERMISSION_TEST_" + app.upper(), f"agentic-home-{app}:0.11.0")
+    image = os.environ.get("AGENTIC_IMAGE_PERMISSION_TEST_" + app.upper(), f"agentic-home-{app}:0.11.1")
     name = "agentic-lifecycle-test-permissions-" + uuid.uuid4().hex[:12]
     report = {"app": app, "reader_uid": spec["uid"], "status": "failed",
               "scope": "Actual packaged public-file DAC and imports; no service startup or real-account acceptance"}

@@ -1,0 +1,32 @@
+{
+  "format": 1,
+  "observed_at": "2026-10-19T16:19:54.490630+00:00",
+  "repository": "https://github.com/home-assistant/core",
+  "source_url": "https://api.github.com/repos/home-assistant/core/git/refs/tags/2026.10.2",
+  "tag": "2026.10.2",
+  "git_ref": "refs/tags/2026.10.2",
+  "object_type": "commit",
+  "commit": "8d7fd8b68677c2585be36ec86043308f403875b8",
+  "commit_url": "https://github.com/home-assistant/core/commit/8d7fd8b68677c2585be36ec86043308f403875b8",
+  "commit_api_url": "https://api.github.com/repos/home-assistant/core/git/commits/8d7fd8b68677c2585be36ec86043308f403875b8",
+  "method": "GitHub REST API via gh; official tag reference resolved directly to commit; commit endpoint confirmed identical SHA",
+  "scope": "public source provenance only; no runtime compatibility or household acceptance claim",
+  "tag_response": {
+    "ref": "refs/tags/2026.10.2",
+    "node_id": "MDM6UmVmMTI4ODg5OTM6cmVmcy90YWdzLzIwMjYuMTAuMg==",
+    "url": "https://api.github.com/repos/home-assistant/core/git/refs/tags/2026.10.2",
+    "object": {
+      "sha": "8d7fd8b68677c2585be36ec86043308f403875b8",
+      "type": "commit",
+      "url": "https://api.github.com/repos/home-assistant/core/git/commits/8d7fd8b68677c2585be36ec86043308f403875b8"
+    }
+  },
+  "isolated_integration_image": {
+    "image": "ghcr.io/home-assistant/home-assistant:2026.10.2",
+    "repo_digests": [
+      "ghcr.io/home-assistant/home-assistant@sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4"
+    ],
+    "report": "real-core-integration-2026.10.2.json",
+    "scope": "isolated proposal/deploy/helper/context/restart integration only; OAuth/notifications/inventory matrix completion tracked separately"
+  }
+}

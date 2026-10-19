@@ -1,18 +1,18 @@
-# Agentic Smart Home 0.11.0 工程預覽候選
+# Agentic Smart Home 0.11.1 工程預覽候選
 
 [專案介紹與互動示範](https://ted-h-com.github.io/agentic-smart-home/) · HA 介面模擬與產品管家介面，使用虛構資料。
 
 一台 Linux 主機，裝好就有 Home Assistant 家庭、一個會用工具的智能管家，以及能自己調查與修改程式的開發助手。家裡的設備照 Home Assistant 原生方式運作；AI 只提出變更，由你批准後才寫入。
 
-**0.11.0 候選**將 HA 原生文字通知、重開機恢復、App 更新重試與診斷補強整合進同版主機媒體。延續 0.10.0 的設備盤點、有線家庭接入與內外層開發助手。發布後可從 [v0.11.0 發布頁](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.11.0) 取得下載工具。候選的精確來源、媒體與測試結果見 [驗證紀錄](docs/VERIFICATION.md)；完成驗證與公開頻道銜接前，不將已合併功能視為可下載交付。
+**0.11.1 候選**將 #122 的專用主機電源／網路政策（G15／G16）納入 #123 的正式 Host bootstrap 與受批准更新路徑，並沿用 0.11.0 的通知與恢復功能。這是待驗證、待發布的候選；既有家庭須走一次性圖形遷移，不重跑 installer。發布後可從 [v0.11.1 發布頁](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.11.1) 取得下載工具。候選的精確來源、媒體與測試結果見 [驗證紀錄](docs/VERIFICATION.md)；完成驗證與公開頻道銜接前，不將已合併功能視為可下載交付。
 
-上一個已發布版本仍可在 [v0.10.0](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.10.0) 查閱；既有媒體與驗證紀錄保留。實體筆電、真帳號、家庭設備及 72 小時運作由 Owner 現場驗收。
+既有 0.11.0 發布資產可在 [v0.11.0](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.11.0) 查閱；既有媒體與驗證紀錄保留。實體筆電、真帳號、家庭設備及 72 小時運作由 Owner 現場驗收。
 
 ## 安裝
 
 準備一支可清除的 **32 GB USB**。可以直接在這台筆電的現有系統下載並製作 USB，再重新開機安裝；先備份要保留的資料，安裝會清除選定的內部磁碟。
 
-1. 從發布頁下載 `download-0.11.0.py`，依 [安裝步驟](INSTALL.md#下載與製作-usb) 下載、校驗並合併 ISO，寫入 USB。接上電源與有線網路，從 USB 開機；Dell 通常使用 F12 一次性開機選單。硬體檢查通過後，在 Ubuntu 安裝器選網路、磁碟和帳號。
+1. 從發布頁下載 `download-0.11.1.py`，依 [安裝步驟](INSTALL.md#下載與製作-usb) 下載、校驗並合併 ISO，寫入 USB。接上電源與有線網路，從 USB 開機；Dell 通常使用 F12 一次性開機選單。硬體檢查通過後，在 Ubuntu 安裝器選網路、磁碟和帳號。
 2. 重開機後登入桌面，**Agentic Home** 會自己打開。
 3. 按「開始設定」前先選家庭有線接入；接著照畫面完成：AI 帳號 → 智能管家 → 通訊（LINE、Telegram、Discord，或只用網頁）→ 家庭。
 
@@ -59,14 +59,14 @@ npm run build --prefix web
 uv run python scripts/contracts.py --check
 uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner, package_bridge, package_notifications; package_runner(); package_bridge(); package_notifications()"
 uv run python scripts/controller_source.py
-for app in controller runner bridge hermes; do docker build -t agentic-home-$app:0.11.0 $app; done
-docker build -t agentic-home-linejs:0.11.0 host/linejs
-docker build -t agentic-home-preview:0.11.0 host/preview
+for app in controller runner bridge hermes; do docker build -t agentic-home-$app:0.11.1 $app; done
+docker build -t agentic-home-linejs:0.11.1 host/linejs
+docker build -t agentic-home-preview:0.11.1 host/preview
 python3 scripts/build_host.py
 uv run python scripts/package.py
 ```
 
-`dist/` 會有 `agentic-home-0.11.0-linux-amd64.tar`、source ZIP 和 `SHA256SUMS`。安裝媒體：
+`dist/` 會有 `agentic-home-0.11.1-linux-amd64.tar`、source ZIP 和 `SHA256SUMS`。安裝媒體：
 
 ```bash
 docker build -f host/Builder.Dockerfile -t agentic-home-builder:0.2.0 host

@@ -11,7 +11,7 @@ and role login must be verified before dispatch.
 Build from the product root:
 
 ```sh
-docker build -t agentic-home-hermes:0.11.0 hermes
+docker build -t agentic-home-hermes:0.11.1 hermes
 pytest-disktmp uv run pytest -q tests/test_hermes_runtime.py --containers
 ```
 

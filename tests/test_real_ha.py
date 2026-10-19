@@ -16,19 +16,19 @@ import aiohttp
 import pytest
 from agentic_controller.discovery import snapshot as discovery_snapshot
 from agentic_controller.engine import Engine
-from agentic_controller.ha import HomeAssistant
+from agentic_controller.ha import TESTED_CORE_VERSIONS, HAError, HomeAssistant
 from agentic_controller.models import HELPERS, digest, utcnow
 from agentic_controller.store import Store
 from conftest import TARGET
 
-IMAGE = "ghcr.io/home-assistant/home-assistant:2026.10.1"
+IMAGE_REPOSITORY = "ghcr.io/home-assistant/home-assistant"
 
 
 def docker(*args):
     return subprocess.run(["docker", *args], check=True, capture_output=True, text=True).stdout.strip()
 
 
-@pytest.fixture
+@pytest.fixture(params=sorted(TESTED_CORE_VERSIONS))
 def real_container(tmp_path, request):
     if not request.config.getoption("--real-ha"):
         pytest.skip("Use --real-ha to run the isolated real Core integration")
@@ -58,15 +58,48 @@ input_boolean:
 """)
     (config / "automations.yaml").write_text("[]\n")
     name = "agentic-home-test-" + uuid.uuid4().hex[:12]
-    docker("pull", IMAGE)
+    image = IMAGE_REPOSITORY + ":" + request.param
+    docker("pull", image)
     try:
         docker("run", "-d", "--name", name, "--memory", "1536m", "--cpus", "2",
-               "-p", "127.0.0.1::8123", "-v", f"{config}:/config", IMAGE)
+               "-p", "127.0.0.1::8123", "-v", f"{config}:/config", image)
         port = json.loads(docker("inspect", name))[0]["NetworkSettings"]["Ports"]["8123/tcp"][0]["HostPort"]
         yield name, f"http://127.0.0.1:{port}", config
     finally:
         subprocess.run(["docker", "exec", name, "chown", "-R", f"{os.getuid()}:{os.getgid()}", "/config"], capture_output=True)
         subprocess.run(["docker", "rm", "-fv", name], capture_output=True)
+
+
+@pytest.fixture
+def core_version(request):
+    return request.node.callspec.params["real_container"]
+
+
+@pytest.mark.parametrize("version", sorted(TESTED_CORE_VERSIONS))
+async def test_tested_core_patch_passes_write_compatibility(version, monkeypatch):
+    ha = HomeAssistant("isolated-fixture-token")
+    async def config(method, path):
+        assert (method, path) == ("GET", "/config")
+        return {"version": version}
+    monkeypatch.setattr(ha, "request", config)
+    await ha.ensure_write_compatibility()
+
+
+@pytest.mark.parametrize("version", [None, "", "2026.10.0", "2026.10.3", "2026.11.0", "2026.10.2.dev0"])
+async def test_unknown_core_stops_before_native_rule_validation(version, monkeypatch):
+    ha = HomeAssistant("isolated-fixture-token")
+    calls = []
+    async def config(method, path):
+        calls.append((method, path))
+        return {"version": version}
+    async def unexpected(*args, **kwargs):
+        pytest.fail("Unknown Core must not reach native rule validation")
+    monkeypatch.setattr(ha, "request", config)
+    monkeypatch.setattr(ha, "ws", unexpected)
+    with pytest.raises(HAError) as rejected:
+        await ha.validate({})
+    assert rejected.value.status == 409
+    assert calls == [("GET", "/config")]
 
 
 async def wait_ready(base):
@@ -88,7 +121,7 @@ class RealCore(HomeAssistant):
         return {"id": "supervisor-contract-fixture", "name": name, "created_at": utcnow()}
 
 
-async def test_real_core_proposal_deploy_trigger_restart(real_container, tmp_path, intent):
+async def test_real_core_proposal_deploy_trigger_restart(real_container, core_version, tmp_path, intent):
     name, base, config = real_container
     await wait_ready(base)
     async with aiohttp.ClientSession() as session:
@@ -112,7 +145,7 @@ async def test_real_core_proposal_deploy_trigger_restart(real_container, tmp_pat
         discovered = await discovery_snapshot(ha)
         native_sources = [source for source in discovered.sources if source.location == "home_assistant"]
         assert all(source.state == "ok" for source in native_sources), discovered.model_dump_json()
-        assert all(source.upstream_version == "2026.10.1" for source in native_sources)
+        assert all(source.upstream_version == core_version for source in native_sources)
         # This isolated config has no LAN discovery enabled. Empty flows test the
         # actual upstream read contract, not physical discovery or whole-home coverage.
         assert discovered.candidates == []
@@ -198,8 +231,10 @@ async def test_real_core_proposal_deploy_trigger_restart(real_container, tmp_pat
         task2 = engine.task("same rule again", "fixture")
         duplicate = await engine.propose(task2, intent)
         assert duplicate["resource_id"] == p["resource_id"] and duplicate["state"] == "succeeded"
-        report = {"run_at": utcnow(), "core": (await ha.request("GET", "/config"))["version"],
-                  "image": IMAGE, "image_digest": json.loads(docker("image", "inspect", IMAGE))[0]["RepoDigests"],
+        image = IMAGE_REPOSITORY + ":" + core_version
+        assert (await ha.request("GET", "/config"))["version"] == core_version
+        report = {"run_at": utcnow(), "core": core_version,
+                  "image": image, "image_digest": json.loads(docker("image", "inspect", image))[0]["RepoDigests"],
                   "real": ["owner WebSocket authorization", "states and registries", "native validate_config",
                            "automation config POST/GET", "staging and activation", "helper state transition",
                            "correlated automation/target events", "enabled state and real trigger after Core restart"],
@@ -207,7 +242,8 @@ async def test_real_core_proposal_deploy_trigger_restart(real_container, tmp_pat
                   "before_restart": before_restart, "after_restart": after_restart,
                   "not_tested": ["HAOS Ingress", "Supervisor backup role", "laptop hardware", "cloud account login", "72h soak"]}
         evidence_dir = Path(__file__).parents[1] / "evidence"
-        (evidence_dir / "real-core-integration.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
+        filename = "real-core-integration.json" if core_version == "2026.10.1" else f"real-core-integration-{core_version}.json"
+        (evidence_dir / filename).write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
     finally:
         observer.cancel()
         with contextlib.suppress(asyncio.CancelledError):
