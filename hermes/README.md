@@ -157,11 +157,19 @@ Allowed tools are exactly `host.status`, `worker.capabilities`, `worker.submit`,
 are policy filtered; proposals reuse the Controller compiler and exact Owner
 approval flow. These tools cannot approve, apply, or call general HA services.
 `home.discover` returns a sharing action card until the current Owner message
-explicitly opts in. It then shares at most eight fresh HA discovery candidates
-and source coverage, independently of device control permissions. It never
-reads saved LAN inventory, scans networks, configures integrations, or grants
-device authority. Consent is not a tool argument and is not inherited by a
-follow-up message. Pairing remains the existing Owner/native HA setup flow.
+explicitly opts in. The original `discover_devices` scope shares at most eight
+fresh HA discovery candidates and source coverage, independently of device
+control permissions. The separate `discover_environment` scope also shares up
+to sixteen records each from HA devices, integrations, and the existing
+Owner/HA-bound network inventory, plus fixed read-only LAN diagnostics. Source
+times, expiry, incomplete coverage and truncation remain explicit. Saved
+observations are not a new scan or proof of physical identity/reachability.
+IP/MAC addresses, raw metadata, configuration credentials and source network
+labels are not shared. Owner/session/connection checks and inventory
+revision/expiry checks remain active through response durability. Neither scope
+configures integrations or grants device authority. Consent is not a tool
+argument and is not inherited by a follow-up message. Pairing requires the
+Owner's selection and an available supported setup flow.
 Discovery is filtered, `enabled_toolsets` is only `mcp-agentic`, the upstream
 tool-search wrapper is disabled, and dispatch has an additional exact allowlist.
 Built-in terminal, filesystem, browser, coding, delegate, memory, skills,

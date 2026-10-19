@@ -15,7 +15,7 @@ from .work import EvidenceQuery, NoArguments, WorkerQuery, WorkerSubmit
 from .workers import WorkerError
 
 TOOLS = {
-    "home.discover": (NoArguments, "Find devices to set up using fresh HA discovery, even with no entity control permissions. Without current-message sharing consent, returns a discovery action card; never scans, configures or grants access."),
+    "home.discover": (NoArguments, "Read the current Owner-approved discovery scope even with no entity control permissions. Environment sharing includes HA devices/integrations, saved LAN observations and fixed network diagnostics. Without current-message consent returns a sharing card; never scans, configures or grants access."),
     "home.observe": (HomeObserve, "Read fresh policy-authorized HA states; API state is not physical verification."),
     "home.propose": (HomePropose, "Validate a precise household proposal for Owner review. This never approves or deploys."),
     "home.proposal_status": (HomeStatus, "Read a household task in this case; cannot approve, apply or control devices."),
