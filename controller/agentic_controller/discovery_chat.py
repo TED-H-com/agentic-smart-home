@@ -227,7 +227,7 @@ class DiscoveryChat:
         candidates = [DiscoveryChatCandidate(id=item.id, integration_domain=item.integration_domain,
             title=safe(item.title) or "待確認的設備或服務", discovery_method="network_inventory",
             source_id="network_inventory", integration_name=INTEGRATION_NAMES.get(item.integration_domain, "待確認的設備或服務"),
-            next_step="這是已儲存盤點的接入線索，尚未確認設備身分。先選擇「協助設定」，再依提示登入或配對。")
+            next_step=safe(item.next_step) or "這是已儲存盤點的接入線索，尚未確認設備身分。先選擇「協助設定」，再依提示登入或配對。")
             for item in view.recommendations]
         return environment, candidates, known
 

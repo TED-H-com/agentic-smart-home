@@ -20,8 +20,12 @@ from pathlib import Path
 
 from .manager import HostError
 
+# Fixed discovery types from the corresponding Core 2026.10.2 manifests.
+# Read PTR instances and only a Synology vendor classification from matching TXT.
+# Never retain raw TXT values, credentials or fetch device descriptions.
 SERVICES = ("_hue._tcp.local.", "_googlecast._tcp.local.", "_esphomelib._tcp.local.",
-            "_hap._tcp.local.", "_hap._udp.local.", "_shelly._tcp.local.", "_matter._tcp.local.", "_http._tcp.local.")
+            "_hap._tcp.local.", "_hap._udp.local.", "_shelly._tcp.local.", "_matter._tcp.local.",
+            "_matterc._udp.local.", "_ipp._tcp.local.", "_ipps._tcp.local.", "_http._tcp.local.")
 MAX_ROWS = 256
 MAX_PACKET = 8192
 MAX_PACKETS = 512
@@ -139,7 +143,24 @@ def mdns_query(service):
     return struct.pack("!6H", 0, 0, 1, 0, 0, 0) + encoded + struct.pack("!HH", 12, 0x8001)
 
 
-def parse_mdns(packet):
+def _synology_vendor(data):
+    """Classify one bounded TXT record; never return its raw field values."""
+    position, vendors = 0, []
+    while position < len(data):
+        size = data[position]
+        position += 1
+        if position + size > len(data):
+            return False
+        field = data[position:position + size]
+        position += size
+        key, separator, value = field.partition(b"=")
+        if key.lower() == b"vendor":
+            vendors.append(bool(separator) and value.lower().startswith(b"synology"))
+    # Duplicate keys are ambiguous, even when both make the same claim.
+    return vendors == [True]
+
+
+def _mdns_observations(packet):
     if not 12 <= len(packet) <= MAX_PACKET:
         raise ValueError("dns_packet_size")
     _, flags, questions, answers, authorities, additional = struct.unpack_from("!6H", packet)
@@ -147,7 +168,7 @@ def parse_mdns(packet):
         raise ValueError("dns_response_invalid")
     if questions > 64 or answers + authorities + additional > 512:
         raise ValueError("dns_record_limit")
-    position, found = 12, set()
+    position, found, vendors = 12, {}, {}
     for _ in range(questions):
         _, position = _name(packet, position)
         position += 4
@@ -171,9 +192,20 @@ def parse_mdns(packet):
             if target.lower().endswith(suffix):
                 display = _text(target[:-len(suffix)])
                 if display:
-                    found.add((owner, display))
+                    found[(owner, display)] = target.lower()
+        if kind == 16 and cls & 0x7FFF == 1 and ttl and owner.endswith("._http._tcp.local."):
+            # A claim applies only to a PTR instance in this same packet. Do not
+            # join devices by responder IP or a similar display name. Multiple
+            # TXT records for an instance are ambiguous and provide no claim.
+            vendors[owner] = _synology_vendor(packet[position:end]) if owner not in vendors else False
         position = end
-    return sorted(found)
+    return [(service, name, {"vendor": "synology"} if service == "_http._tcp.local."
+             and vendors.get(target) else {}) for (service, name), target in sorted(found.items())]
+
+
+def parse_mdns(packet):
+    """Compatibility view of the fixed service types and instance labels."""
+    return [(service, name) for service, name, _ in _mdns_observations(packet)]
 
 
 def parse_ssdp(packet):
@@ -348,6 +380,7 @@ class Discovery:
                                      ["bounded_advertisement_window", "unverified_protocol_hints", "no_description_or_txt_fetch"])
                    for kind in ("mdns", "ssdp")}
         sources["mdns"]["limitations"].append("mdns_address_is_responder_not_verified_device")
+        sources["mdns"]["limitations"].append("txt_only_matching_synology_vendor_classification")
         rows = {kind: {} for kind in sources}
         sockets, packets, received = [], 0, 0
         try:
@@ -390,8 +423,8 @@ class Discovery:
                         try:
                             if kind == "mdns":
                                 additions = [_observation("lan_mdns", scope, stamp, sender[0], name=name,
-                                                          services=[service], metadata={"service_type": service})
-                                             for service, name in parse_mdns(packet)]
+                                                          services=[service], metadata={"service_type": service, **metadata})
+                                             for service, name, metadata in _mdns_observations(packet)]
                             else:
                                 service, metadata = parse_ssdp(packet)
                                 additions = [_observation("lan_ssdp", scope, stamp, sender[0], services=[service], metadata=metadata)]

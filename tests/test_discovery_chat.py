@@ -344,6 +344,68 @@ async def test_environment_shares_existing_sources_without_control_permissions_o
     assert not any(system[3].list(kind) for kind in ("approval", "proposal", "discovery_setup"))
 
 
+async def test_common_network_packets_reach_chat_as_distinct_guidance_not_setup_authority(environment_chat, monkeypatch):
+    from test_host_discovery import discovery as host_discovery
+    from test_host_discovery import ptr_packet, with_vendor_txt
+    from test_network_inventory import collection
+
+    system, _ = environment_chat
+    app, client, ha, store, _ = system
+    payload = collection()
+    stamp = payload["observed_at"]
+    packets = [ptr_packet(service=service, name=name, txt=True) for service, name in [
+        ("_ipp._tcp.local.", "Shared printer"), ("_ipps._tcp.local.", "Shared printer"),
+        ("_matterc._udp.local.", "Pairing service"), ("_matter._tcp.local.", "Operational service")]]
+    packets.append(with_vendor_txt(ptr_packet(service="_http._tcp.local.", name="Fixture NAS"),
+                                  b"vendor=Synology-private-suffix", b"token=private-txt"))
+    payload["observations"] = []
+    for index, packet in enumerate(packets):
+        for service, name, metadata in host_discovery._mdns_observations(packet):
+            payload["observations"].append({"id": f"mdns_{index}", "source_id": "lan_mdns",
+                "scope_id": "fixture_lan", "address": "192.0.2.28", "name": name, "services": [service],
+                "observed_at": stamp, "reachability": "responded", "metadata": metadata})
+    for source in payload["sources"]:
+        source.update(state="ok", item_count=len(packets) if source["id"] == "lan_mdns" else 0,
+                      reason_code=None)
+    scan_calls = []
+
+    async def scan(method, path, body=None, **kwargs):
+        assert (method, path, body) == ("POST", "/discovery/scan", {"scope_id": "fixture_lan"})
+        scan_calls.append(path)
+        assert len(scan_calls) == 1, "Chat must not rescan the household"
+        return payload
+
+    monkeypatch.setattr(network_inventory, "broker_call", scan)
+    saved = await client.post("/api/discovery/inventory/scan", json={"scope_id": "fixture_lan"},
+                              headers={"Idempotency-Key": "explicit-fixture-scan"})
+    assert saved.status_code == 200
+    inventory = (await client.get("/api/discovery/inventory")).json()
+    flow = ha.results["config_entries/flow/progress"][0]
+    flow.update(handler="ipp")
+    flow["context"]["title_placeholders"]["name"] = "Shared printer"
+    result = await environment_result(system)
+    candidates = result["candidates"]
+    network = [item for item in candidates if item["source_id"] == "network_inventory"]
+    assert len(network) == 4 and len(candidates) == 5
+    assert len([item for item in candidates if item["title"] == "Shared printer"]) == 3
+    assert {item["integration_domain"] for item in network} == {"ipp", "synology_dsm", "matter"}
+    guidance = {item["id"]: item["next_step"] for item in inventory["recommendations"]}
+    assert all(item["next_step"] == guidance[item["id"]] for item in network)
+    assert not any(item["title"] == "Operational service" for item in candidates)
+    assert len(result["environment"]["inventory_observations"]) == 5
+    assert scan_calls == ["/discovery/scan"]
+    raw = json.dumps(result)
+    assert not any(secret in raw for secret in ("192.0.2.28", "private-suffix", "private-txt", "api_key"))
+    # Even a forged proposal for a network IPP clue cannot substitute for an HA flow.
+    ha.results["/config"]["version"] = "2026.10.2"
+    candidate = next(item for item in network if item["integration_domain"] == "ipp")
+    denied = await client.post("/api/device-setups", json={"candidate_id": candidate["id"]},
+                               headers={"Idempotency-Key": "network-clue-is-not-ha-flow"})
+    assert denied.status_code == 409 and denied.json()["detail"] == "device_setup_candidate_changed"
+    assert not any(store.list(kind) for kind in ("approval", "proposal", "device_setup_v1", "discovery_setup"))
+    assert store.setting("policy") == {"entities": []}
+
+
 async def test_environment_redacts_addresses_links_and_credentials_inside_display_fields(environment_chat):
     system, _ = environment_chat
     name = "Printer 192.0.2.28 02:00:00:00:00:28 fe80::beef https://private.invalid/?token=SECRET"
