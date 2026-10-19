@@ -237,8 +237,13 @@ def test_actual_lvm_report_fields_in_isolated_container(request):
 
     if not request.config.getoption("--containers"):
         pytest.skip("requires isolated LVM tooling container")
+    available = subprocess.run(["docker", "image", "inspect", "agentic-home-builder:0.2.0"],
+                               capture_output=True, text=True, timeout=10)
+    if available.returncode and "No such image" in available.stderr:
+        pytest.skip("local LVM builder image unavailable; this test never pulls or builds")
+    assert available.returncode == 0, "Cannot inspect isolated LVM tooling image"
     result = subprocess.run([
-        "docker", "run", "--rm", "--network", "none", "--read-only", "--cap-drop", "ALL",
+        "docker", "run", "--rm", "--pull=never", "--network", "none", "--read-only", "--cap-drop", "ALL",
         "--security-opt", "no-new-privileges", "--memory", "128m", "--pids-limit", "32",
         "agentic-home-builder:0.2.0", "lvs", "--readonly", "--nolocking", "--reportformat", "json",
         "--units", "b", "--nosuffix", "--options", FIELDS,
