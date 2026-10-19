@@ -27,16 +27,25 @@ Host 的 Controller 更新不會自動更新側欄 App 或 Home worker App。兩
 
 **舊 Host 只換 Controller image，不會取得新版固定更新器。** 側欄首次配對、管理及使用前，Controller 必須從固定 Unix Host broker 取得 `controller_update.ingress_bridge_contract: 1`；值由 Host updater 實作提供，資料庫設定或產品版本號不能代替。證明只保存在程序記憶體並定期重驗，Host 過舊、失聯或證明失效時停止側欄連接與其工作，外層救援仍可用。0.7.0 媒體包含這項 Host 保護；既有 0.6.x Host 的就地升級流程尚未交付，不能用 Controller-only 更新宣稱整套升級完成。
 
-## 發行者與候選
+## 官方更新來源與 Owner 批准
 
-產品預設不附虛造的可信發行者。Owner 在本機核對發行者 Ed25519 公鑰與 image repository 後，以固定 CLI 設定信任：
+一般使用者從「設定 → 主機維護 → 版本」完成，不需要終端機或 sudo。這個路徑只允許信任**受信任安裝媒體已附帶的官方公鑰**，不能從瀏覽器、聊天、worker 或更新檔加入任意公鑰／repository。
 
-```bash
-agentic-home update-publisher-inspect --publisher example --repository ghcr.io/example/controller --public-key publisher.pem
-sudo agentic-home update-publisher-add --publisher example --repository ghcr.io/example/controller --public-key publisher.pem --approval <上一步的完整review_digest>
-```
+目前原始碼的官方來源描述檔尚未填入正式公鑰。公開 v0.9.0、v0.10.0、v0.11.0 都是工程預覽，現有資產沒有正式 Controller 更新簽章／公鑰。`SHA256SUMS` 與 bundle hashes 只能檢查檔案完整性，不是發行者身份簽章；保留 Ubuntu 的 signed boot chain 也不等於重新製作的產品 ISO 已簽章。因此本版會誠實顯示需要含官方更新來源憑證的受信任主機版本，不會把 GitHub 帳號、`stable` branch 或現場下載的 key 當作信任根。
 
-這是管理者動作；Web、Hermes、worker 和 Unix broker 都沒有安裝信任公鑰的 API。只保存公開 key，私鑰由發行者離機保管。`update-publisher-revoke` 使用相同參數與精確 review digest 撤銷；換 key 需先撤銷舊 key。主機信任檔為 root-only `/etc/agentic-home/update-publishers.json`。
+正式發行前，維護者必須核准 Ed25519 **公鑰**及其 DER SHA-256 fingerprint，將兩者與精確 image repository 一起放入 `host/official-update-channel.json`，再透過已驗證身份的簽署 image／ISO 或受控 Host 遷移交付。私鑰保留於發行端，本變更不產生、發布或保存正式私鑰。指定的未來 Controller image repository 為 `ghcr.io/ted-h-com/agentic-smart-home-controller`；這是固定來源契約，不是已有 image 或簽署 release 可下載的聲明。
+
+新安裝只有在媒體帶有有效、相符的官方 pin，且尚未存在本機信任設定時，才使用該 pin 建立預設來源。已存在的設定（包含明確清空／撤銷）不會被安裝預設值覆寫。既有安裝不因 Controller 或 Host 程式升級就自動加入信任。
+
+既有安裝的 Owner 必須分別批准：
+
+1. **信任官方更新來源**：在版本頁檢查 `TED-H-com/agentic-smart-home`、頻道、完整金鑰指紋及「只更新管理中心」範圍，按確認。這只保存媒體已附帶的 pin，不下載、不部署任何版本。確認綁定當前媒體 pin、本機信任版本與短效一次性憑據；重新登入、逾期或 pin 改變時必須重新檢查。
+2. **更新指定版本**：選取發行者提供的簽署更新說明檔。產品驗簽、核對不可變 image digest、相容性與隔離檢查後，再確認這個精確候選版本。信任來源不代表批准未來所有更新。
+3. **需要時退版**：另行檢查前一版本並確認新的退版批准；更新批准不兼作退版批准。
+
+舊 Host 不認得這些固定端點時，版本頁會說明需要受信任的主機更新。現有 Controller-only updater 無法交付 Host broker、安裝 pin 或整機遷移；不能在已使用的 Dell 上重跑 installer 代替遷移。正式公鑰、媒體身份簽署及安全 Host 遷移是仍需 Ted 核准／交付的前置條件，本 PR 不宣稱已讓舊裝置取得它們。
+
+本機 root 的進階救援工具仍保留 `update-publisher-inspect`、`update-publisher-add`、`update-publisher-revoke`；它們能管理自訂發行者，要求精確 review digest。這不是一般使用者的操作步驟。Web 的新端點只能批准固定官方 pin，沒有通用 key 匯入能力。信任檔仍是 root-only `/etc/agentic-home/update-publishers.json`。
 
 發行者提供 JSON `{manifest,signature}`，signature 為 canonical JSON 的 Ed25519 簽章。manifest 必須有 publisher、version、source_commit、不可變 repository digest、實際 image ID、相容矩陣、測試名稱／證據 SHA-256、發行／到期時間。它不接受 shell、hooks、Docker mounts 或任意 compose。詳見產生的 [Owner OpenAPI](../contracts/host-controller.openapi.json)。
 

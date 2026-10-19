@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from agentic_host import VERSION  # noqa: E402
 from agentic_host.artifacts import sha256  # noqa: E402
 from agentic_host.manager import HostError, atomic, validate_profile  # noqa: E402
+from agentic_host.publisher import install_official_default  # noqa: E402
 from agentic_host.source import provision_source  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -99,10 +100,20 @@ def desktop_login_note(access):
 def install(profile, bases):
     preflight(profile, bases)
     verify_bundle(ROOT)
+    # Used systems retain their trust policy even when the installer is rerun.
+    new_install = not any(path.exists() or path.is_symlink() for path in (
+        STATE / "controller/access-key", STATE / "host/state.json", STATE / "host/runtime.env"))
     if ROOT != TARGET:
         if TARGET.exists():
             raise HostError("/opt/agentic-home exists; use a versioned update, do not overwrite an installation")
         shutil.copytree(ROOT, TARGET)
+    # This pin is usable only when explicitly covered by the verified bundle.
+    # The bundle checksum is integrity metadata, not an independent signature;
+    # distribution must authenticate the media before supplying a real key.
+    bundle = json.loads((TARGET / "BUNDLE.sha256.json").read_text())
+    if "host/official-update-channel.json" not in bundle:
+        raise HostError("Official update metadata is not covered by the install bundle")
+    install_official_default(TARGET, new_install=new_install)
     atomic("/etc/agentic-home/profile.json", profile)
     STATE.mkdir(parents=True, exist_ok=True)
     os.environ["DEBIAN_FRONTEND"] = "noninteractive"

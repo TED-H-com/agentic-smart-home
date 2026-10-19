@@ -49,7 +49,7 @@ Controller 的 SQL `user_version` 仍為 3，但相同 schema 不代表舊 binar
 
 上述保護需要新版 **Host 固定更新器**。只更新 Controller 的舊 Host 不具備它；側欄必須先通過固定 Unix broker 的能力握手，不能信任 DB marker 或僅比較版本字串。首次連接及運作中的證明都受期限與身份範圍限制，失聯時停用受影響的側欄並停止其工作。現有 Controller-only 發布工具不更新 Host，0.6.x Host 的受控就地升級仍需另交付；不得以新 Controller 能啟動作為已完成遷移的證據。
 
-統一可信發行索引、內建 publisher 信任根、全產品更新／遷移與完整 Linux 恢復，仍是待交付增量。不能把現有 Controller-only manifest 重新解讀為能更新 HAOS／Core／Linux。安全公告的追蹤與緊急發版仍需持續建立實際證據，不宣稱已有值班或 SLA。
+官方 publisher 的安裝 pin 與既有 Owner 確認流程現在有固定實作，但原始碼尚未配置正式公鑰，不能宣稱官方可信頻道已上線。現有媒體只有完整性雜湊，產品 image／ISO 身份簽署、可信發行索引、全產品更新／遷移與完整 Linux 恢復仍待交付。維護者需先核准公鑰 fingerprint，經驗證的發行／Host 遷移路徑交付，既有 Owner 再在產品內明確信任來源。不能把現有 Controller-only manifest 重新解讀為能更新 HAOS／Core／Linux。安全公告的追蹤與緊急發版仍需持續建立實際證據，不宣稱已有值班或 SLA。
 
 各版 App、橋接身份、UI 與固定維護流程的工程結果由 [驗證紀錄](VERIFICATION.md) 記錄；工程測試通過不等於真家庭驗收。
 

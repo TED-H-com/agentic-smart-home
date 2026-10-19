@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "observed_at": "2026-10-19T08:22:28.328756+00:00",
+  "observed_at": "2026-10-19T09:29:40.027130+00:00",
   "source_commit": "cdfbb00343be3e86d4c51708f8b72b125ecd8a0a",
   "application_version": "0.11.0",
   "scope": "Local isolated Controller/HA/Supervisor protocol fixtures and real Chromium against synthetic household data; not a release-media or physical-device acceptance.",
@@ -57,7 +57,9 @@
     "desktop-container-regression.xml": "0084eb2a97f7584db531ac6130a3044724a2f58f8a987edceba8c36265d6e736",
     "desktop-fixture-regression.xml": "7ed3ececa72bc5c66ab95816fe3963765fe64e7dc049d627dfb0ba5abfa89655",
     "integrated-backend.xml": "09b17f902e8d425e17b712709441e8ad5d777af870e8ececa561b323d7d6dbce",
-    "integrated-ui.xml": "d41baaf3e7d30a262b8d6217eb305571542b735c27410448de8a23076e918250"
+    "integrated-ui.xml": "d41baaf3e7d30a262b8d6217eb305571542b735c27410448de8a23076e918250",
+    "main-merge-backend.xml": "fbbe02221dca458f3da8b38fe613e4b3cca25e97ddb15486e25fbb1021915dc4",
+    "main-merge-ui.xml": "b0f6026607c968c78b0776344da1bb2e0004911fee3d1438561f67c7aa4f30f3"
   },
   "ci_attempts": [
     {
@@ -68,6 +70,16 @@
       "skipped": 12,
       "failed": 2,
       "cause": "Desktop login fixtures omitted the private access key created by host/install.py; updated fixtures preserve all rejection/replay assertions."
+    },
+    {
+      "source": "18a9c8fef87f4e67e9cbb8b42127edd1a89f3660",
+      "run": 39226109075,
+      "status": "passed",
+      "passed": 3630,
+      "skipped": 12,
+      "failed": 0,
+      "warnings": 3,
+      "seconds": 1519.69
     }
   ],
   "followup": {
@@ -83,5 +95,25 @@
       "image_id": "sha256:18239602c54ca43f22bc0b38bab24615bf0ae19bdb214c4c0573d9f3882e79d7"
     },
     "overlap": "These runs overlap earlier tests; do not add them to an independent total."
+  },
+  "main_integration": {
+    "parents": [
+      "18a9c8fef87f4e67e9cbb8b42127edd1a89f3660",
+      "b8af0d65cc02a94a7986ffd6bf72bf92b5bc0d25"
+    ],
+    "scope": "Merge trusted official publisher source approval from PR121; regenerate shared contracts, UI and runner package.",
+    "backend": {
+      "passed": 283,
+      "skipped": 4,
+      "failed": 0,
+      "junit": "main-merge-backend.xml"
+    },
+    "browser": {
+      "passed": 35,
+      "skipped": 0,
+      "failed": 0,
+      "junit": "main-merge-ui.xml"
+    },
+    "overlap": "Targeted integration cases overlap earlier suites; counts are not added together. Full merged-source CI is recorded on PR120."
   }
 }
