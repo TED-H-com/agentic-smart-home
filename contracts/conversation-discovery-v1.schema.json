@@ -1,0 +1,284 @@
+{
+  "$defs": {
+    "DiscoveryChatCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "discovery_method": {
+          "title": "Discovery Method",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "integration_domain": {
+          "title": "Integration Domain",
+          "type": "string"
+        },
+        "integration_name": {
+          "maxLength": 160,
+          "title": "Integration Name",
+          "type": "string"
+        },
+        "native_path": {
+          "const": "/config/integrations",
+          "default": "/config/integrations",
+          "title": "Native Path",
+          "type": "string"
+        },
+        "next_step": {
+          "maxLength": 160,
+          "title": "Next Step",
+          "type": "string"
+        },
+        "source_id": {
+          "default": "ha_discovery",
+          "enum": [
+            "ha_discovery",
+            "network_inventory"
+          ],
+          "title": "Source Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "integration_domain",
+        "title",
+        "discovery_method",
+        "integration_name",
+        "next_step"
+      ],
+      "title": "DiscoveryChatCandidate",
+      "type": "object"
+    },
+    "DiscoverySource": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Adapter Version",
+          "type": "integer"
+        },
+        "content_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Digest"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "item_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Item Count"
+        },
+        "location": {
+          "default": "home_assistant",
+          "enum": [
+            "home_assistant",
+            "network_inventory",
+            "not_implemented"
+          ],
+          "title": "Location",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "websocket",
+            "rest",
+            "local_inventory",
+            "not_implemented"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed At"
+        },
+        "reason_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason Code"
+        },
+        "state": {
+          "enum": [
+            "ok",
+            "partial",
+            "unavailable",
+            "unsupported",
+            "not_implemented"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        },
+        "upstream_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upstream Version"
+        }
+      },
+      "required": [
+        "id",
+        "state",
+        "method",
+        "target"
+      ],
+      "title": "DiscoverySource",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Bounded observations shared for one explicitly requested chat turn.",
+  "properties": {
+    "candidate_count": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Candidate Count"
+    },
+    "candidates": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DiscoveryChatCandidate"
+      },
+      "maxItems": 8,
+      "title": "Candidates",
+      "type": "array"
+    },
+    "content_digest": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Content Digest"
+    },
+    "contract_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Contract Version",
+      "type": "integer"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "maxLength": 160,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "native_path": {
+      "const": "/config/integrations",
+      "default": "/config/integrations",
+      "title": "Native Path",
+      "type": "string"
+    },
+    "observed_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Observed At"
+    },
+    "sources": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DiscoverySource"
+      },
+      "maxItems": 7,
+      "title": "Sources",
+      "type": "array"
+    },
+    "state": {
+      "enum": [
+        "consent_required",
+        "ready",
+        "unavailable"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "state"
+  ],
+  "title": "ConversationDiscovery",
+  "type": "object"
+}

@@ -632,6 +632,9 @@ class Gateway:
         id = digest([source, chat, event] if source == "web" else [source, chat, sender, event, config])
         # Preserve old Web idempotency keys; resolve the automatic parent only after deduplication.
         request_body = body.model_dump(exclude={"reply_to", "new_conversation", "coordinator"})
+        if not request_body.get("discover_devices"):
+            # Default-false sharing preserves receipts made before discovery chat.
+            request_body.pop("discover_devices", None)
         if body.coordinator != "direct":
             request_body["coordinator"] = body.coordinator
         if body.reply_to:

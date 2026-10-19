@@ -5,6 +5,7 @@ import hashlib
 import json
 import secrets
 import time
+from http.cookies import SimpleCookie
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
@@ -23,13 +24,13 @@ ACCESS = "synthetic-ha-access-" + "a" * 25
 REFRESH = "synthetic-ha-refresh-" + "b" * 25
 PERSISTENT = "synthetic-ha-durable-" + "c" * 25
 SIGNING_SECRET = "test-signing-secret"
-SESSION_EXPIRES = str(int(time.time()) + 43200)
 
 
 def request(cookie=None, host="localhost:8099", auth=None):
     if cookie is None:
-        auth = auth or HostSession(Path("."), SIGNING_SECRET)
-        cookie = SESSION_EXPIRES + "." + auth.sign(SESSION_EXPIRES)
+        if not hasattr(auth, "test_cookie"):
+            auth.test_cookie = SimpleCookie(auth.cookie().headers["set-cookie"])["agentic_host"].value
+        cookie = auth.test_cookie
     return SimpleNamespace(cookies={"agentic_host": cookie}, headers={"host": host})
 
 
@@ -66,7 +67,8 @@ class Candidate:
 
 @pytest.fixture
 def authorization(store, tmp_path):
-    auth = HostSession(tmp_path, SIGNING_SECRET)
+    (tmp_path / "access-key").write_text("fixture-local-machine-access-key")
+    auth = HostSession(tmp_path, SIGNING_SECRET, store)
     ha = HomeAssistant("", "http://fixture.invalid/api", "ws://fixture.invalid/api/websocket", external=True)
     candidate = Candidate()
     effects = []
@@ -100,12 +102,12 @@ async def test_oauth_callback_binds_owner_once_without_persisting_codes_or_grant
     service, candidate, effects = authorization
     state = begin(service)
     assert begin(service) == state  # Lost start response does not create another grant.
-    result = await service.finish(request(), state, "one-use-code")
+    result = await service.finish(request(auth=service.auth), state, "one-use-code")
     assert result == {"state": "connected", "error_code": None}
     assert effects == ["/auth/token", "bound", "/auth/revoke"]
     assert not any(call[0] == "auth/delete_refresh_token" for call in candidate.calls)
     with pytest.raises(HTTPException):
-        await service.finish(request(), state, "one-use-code")
+        await service.finish(request(auth=service.auth), state, "one-use-code")
     records = str(store.db.execute("SELECT body FROM records WHERE kind='ha_oauth'").fetchall())
     assert all(value not in records for value in (ACCESS, REFRESH, PERSISTENT, "one-use-code", "owner-session"))
 
@@ -114,12 +116,12 @@ async def test_oauth_callback_binds_owner_once_without_persisting_codes_or_grant
 async def test_callback_scope_and_expiry_fail_before_any_exchange(authorization, mutation):
     service, candidate, effects = authorization
     state = begin(service)
-    req = request()
+    req = request(auth=service.auth)
     record = service.store.get("ha_oauth", service.store.setting("ha_oauth_current"))
     if mutation == "cookie":
         req = request("different-session")
     elif mutation == "host":
-        req = request(host="127.0.0.1:8099")
+        req = request(host="127.0.0.1:8099", auth=service.auth)
     elif mutation == "expired":
         record["expires"] = 0
         service.store.put("ha_oauth", record)
@@ -137,7 +139,7 @@ async def test_callback_scope_and_expiry_fail_before_any_exchange(authorization,
 async def test_nonowner_is_rejected_and_temporary_grant_is_revoked(authorization):
     service, candidate, effects = authorization
     candidate.is_owner = False
-    result = await service.finish(request(), begin(service), "code")
+    result = await service.finish(request(auth=service.auth), begin(service), "code")
     assert result == {"state": "failed", "error_code": "ha_owner_required"}
     assert effects == ["/auth/token", "/auth/revoke"]
     assert not any(call[0] == "auth/long_lived_access_token" for call in candidate.calls)
@@ -148,7 +150,7 @@ async def test_failed_bind_removes_only_this_attempts_generated_token(authorizat
     async def fail(*args, **kwargs):
         raise RuntimeError(PERSISTENT)
     service.bind = fail
-    result = await service.finish(request(), begin(service), "code")
+    result = await service.finish(request(auth=service.auth), begin(service), "code")
     assert result == {"state": "failed", "error_code": "ha_authorization_failed"}
     assert ("auth/delete_refresh_token", {"refresh_token_id": "new-token-id"}) in candidate.calls
     assert effects[-1] == "/auth/revoke"
@@ -259,7 +261,8 @@ async def test_host_authorization_routes_require_cookie_csrf_and_fixed_host(stor
 async def test_real_core_oauth_to_revocable_persistent_owner_binding(real_container, tmp_path, store):  # noqa: F811
     _, base, _ = real_container
     await wait_ready(base)
-    auth = HostSession(tmp_path, "isolated-core-oauth-secret")
+    (tmp_path / "access-key").write_text("fixture-local-machine-access-key")
+    auth = HostSession(tmp_path, "isolated-core-oauth-secret", store)
     ha = HomeAssistant("", base + "/api", base.replace("http:", "ws:") + "/api/websocket", external=True)
     ha.store = store
     await ha.start()

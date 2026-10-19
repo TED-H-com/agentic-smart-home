@@ -15,6 +15,7 @@ from .work import EvidenceQuery, NoArguments, WorkerQuery, WorkerSubmit
 from .workers import WorkerError
 
 TOOLS = {
+    "home.discover": (NoArguments, "Find devices to set up using fresh HA discovery, even with no entity control permissions. Without current-message sharing consent, returns a discovery action card; never scans, configures or grants access."),
     "home.observe": (HomeObserve, "Read fresh policy-authorized HA states; API state is not physical verification."),
     "home.propose": (HomePropose, "Validate a precise household proposal for Owner review. This never approves or deploys."),
     "home.proposal_status": (HomeStatus, "Read a household task in this case; cannot approve, apply or control devices."),
@@ -102,7 +103,13 @@ def create_mcp(coordinator):
                     raise ValueError("tool_budget_exhausted")
                 store.put("mcp_grant", {**grant, "calls": count + 1})
                 arguments = TOOLS[name][0].model_validate(params.get("arguments", {}))
-                if name.startswith("home."):
+                if name == "home.discover":
+                    discovery = getattr(coordinator, "discovery", None)
+                    if not discovery:
+                        raise ValueError("discovery_unavailable")
+                    value = await discovery.discover(auth[7:], request)
+                    coordinator.authorize(auth[7:])
+                elif name.startswith("home."):
                     household = getattr(coordinator, "household", None)
                     if not household:
                         raise ValueError("household_unavailable")

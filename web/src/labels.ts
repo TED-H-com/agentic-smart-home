@@ -27,7 +27,7 @@ export function appUpdateView(app:string,prefix:'bridge'|'home_worker',record?:A
   if(update?.available&&!blocked&&code===`${prefix}_update_available`)return {chip:'有新版本',sentence:`${app} 可以更新到 ${to}（目前 ${from}）。`,action:'update',tone:'s-pending'};
   if(update?.available&&!blocked&&code===`${prefix}_update_failed`)return {chip:'更新未完成',sentence:`上次更新沒有完成，目前仍是 ${from}，可以再更新一次。`,action:'update',tone:'s-failed'};
   if(code===`${prefix}_update_starting`)return {chip:'啟動中',sentence:`${app} 已更新，正在啟動。`,action:'none',tone:'s-pending'};
-  if(code===`${prefix}_release_not_published`)return {chip:'等待中',sentence:'新版本還沒出現在 App 商店，稍後會自動再檢查。',action:'none',tone:'s-pending'};
+  if(code===`${prefix}_release_not_published`)return {chip:'等待中',sentence:'目前還沒取得需要的版本，可以重新檢查。',action:'recheck',tone:'s-pending'};
   if(code===`${prefix}_release_ahead`)return {chip:'需要更新主機',sentence:'App 商店的版本比主機新，請先更新主機。',action:'none',tone:'s-failed'};
   if(code===`${prefix}_release_channel_changed`)return {chip:'需要處理',sentence:`目前裝的是舊發行頻道的${app}。請在 Home Assistant 移除它，再回來重新啟用。`,action:'recheck',tone:'s-needs_reconcile'};
   if(code===`${prefix}_update_app_missing`||new RegExp(`^${prefix}_update_[a-z0-9]+_mismatch$`).test(code))return {chip:'需要處理',sentence:`更新後的${app}和預期不同，需要你確認。`,action:'recheck',tone:'s-needs_reconcile'};
