@@ -1,0 +1,3 @@
+discover:
+  name: Inject synthetic Shelly discovery
+  description: Start native Zeroconf discovery against the container loopback fixture.
