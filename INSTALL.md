@@ -2,6 +2,8 @@
 
 以下是 0.11.0 工程預覽候選的安裝流程；發布後從 [v0.11.0 發布頁](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.11.0) 取得下載工具與媒體。精確來源、同版媒體與公開 App 頻道的驗證結果見 [驗證紀錄](docs/VERIFICATION.md)；候選尚未完成交付時，不能以舊版 ISO 代替。0.10.0 的公開媒體與歷史驗證仍保留。
 
+官方更新來源的正式公鑰與 fingerprint 已由 Ted 於 2026-10-19 核准並釘選，私鑰由發行端保存在 repo 之外。尚未發布以此金鑰簽署的 Controller image 或 Host bundle；既有安裝仍需經身份驗證的 Host 遷移及產品內的明確信任步驟，不能重跑 installer 代替遷移。公鑰、完整 fingerprint 與批准流程見 [更新說明](docs/UPDATES.md#官方更新來源與-owner-批准)。
+
 ## 需要
 
 - Intel／AMD x86-64 電腦、UEFI，開啟 Intel VT-x／AMD-V。建議 **16 GB RAM、128 GB SSD**；硬體檢查以系統實際可用記憶體至少 **7,680 MiB** 與可建立 VM 的 KVM 為準。約五年前的 Dell 仍需確認實際規格，年份本身不是相容證明。

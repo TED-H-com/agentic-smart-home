@@ -31,6 +31,8 @@
 
 家庭變更一律先顯示精確內容，由你批准；批准後系統備份、寫入，再確認狀態。Home Assistant、HAOS 與其他 App 照官方流程更新。
 
+官方更新來源的正式公鑰與 fingerprint 已由 Ted 於 2026-10-19 核准並釘選，私鑰由發行端保存在 repo 之外。尚未發布以此金鑰簽署的 Controller image 或 Host bundle；既有安裝仍需經身份驗證的 Host 遷移及產品內的明確信任步驟，詳見 [更新來源與批准](docs/UPDATES.md#官方更新來源與-owner-批准)。
+
 ## 架構
 
 ```text

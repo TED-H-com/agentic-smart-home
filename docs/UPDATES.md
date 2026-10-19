@@ -33,9 +33,17 @@ Host 的 Controller 更新不會自動更新側欄 App 或 Home worker App。兩
 
 一般使用者從「設定 → 主機維護 → 版本」完成，不需要終端機或 sudo。這個路徑只允許信任**受信任安裝媒體已附帶的官方公鑰**，不能從瀏覽器、聊天、worker 或更新檔加入任意公鑰／repository。
 
-目前原始碼的官方來源描述檔尚未填入正式公鑰。公開 v0.9.0、v0.10.0、v0.11.0 都是工程預覽，現有資產沒有正式 Controller 更新簽章／公鑰。`SHA256SUMS` 與 bundle hashes 只能檢查檔案完整性，不是發行者身份簽章；保留 Ubuntu 的 signed boot chain 也不等於重新製作的產品 ISO 已簽章。因此本版會誠實顯示需要含官方更新來源憑證的受信任主機版本，不會把 GitHub 帳號、`stable` branch 或現場下載的 key 當作信任根。
+Ted 已於 **2026-10-19** 核准正式 Ed25519 **公鑰**及其 DER SHA-256 fingerprint；`host/official-update-channel.json` 已釘選兩者與精確 Controller image repository `ghcr.io/ted-h-com/agentic-smart-home-controller`，啟用原始碼中的官方更新來源。公鑰為：
 
-正式發行前，維護者必須核准 Ed25519 **公鑰**及其 DER SHA-256 fingerprint，將兩者與精確 image repository 一起放入 `host/official-update-channel.json`，再透過已驗證身份的簽署 image／ISO 或受控 Host 遷移交付。私鑰保留於發行端，本變更不產生、發布或保存正式私鑰。指定的未來 Controller image repository 為 `ghcr.io/ted-h-com/agentic-smart-home-controller`；這是固定來源契約，不是已有 image 或簽署 release 可下載的聲明。
+```pem
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEA1fUHnQTX7LEJxfdrkmuvpdPw7r8uBwozTfqns+na97c=
+-----END PUBLIC KEY-----
+```
+
+DER SHA-256 fingerprint：`18dd73f8b96d115d076be6b362cd62ed011c4be2b6dfdaf808e9b3e5a6a53d39`。正式私鑰由發行端持有，保存在本 repo 之外，不加入原始碼、產物內的來源或日誌。
+
+這項釘選不代表已有簽署產物可下載：**尚未發布以此正式金鑰簽署的 Controller image 或 Host bundle**。既有工程預覽媒體也不會因此改變。`SHA256SUMS` 與 bundle hashes 只能檢查檔案完整性，不是發行者身份簽章；保留 Ubuntu 的 signed boot chain 也不等於重新製作的產品 ISO 已簽章。官方 pin 仍須透過已驗證身份的發行媒體或受控 Host 遷移交付，不把 GitHub 帳號、`stable` branch 或現場下載的 key 當作信任根。
 
 新安裝只有在媒體帶有有效、相符的官方 pin，且尚未存在本機信任設定時，才使用該 pin 建立預設來源。已存在的設定（包含明確清空／撤銷）不會被安裝預設值覆寫。既有安裝不因 Controller 或 Host 程式升級就自動加入信任。
 
@@ -45,7 +53,7 @@ Host 的 Controller 更新不會自動更新側欄 App 或 Home worker App。兩
 2. **更新指定版本**：選取發行者提供的簽署更新說明檔。產品驗簽、核對不可變 image digest、相容性與隔離檢查後，再確認這個精確候選版本。信任來源不代表批准未來所有更新。
 3. **需要時退版**：另行檢查前一版本並確認新的退版批准；更新批准不兼作退版批准。
 
-舊 Host 不認得這些固定端點時，版本頁會說明需要受信任的主機更新。現有 Controller-only updater 無法交付 Host broker、安裝 pin 或整機遷移；不能在已使用的 Dell 上重跑 installer 代替遷移。正式公鑰、媒體身份簽署及安全 Host 遷移是仍需 Ted 核准／交付的前置條件，本 PR 不宣稱已讓舊裝置取得它們。
+舊 Host 不認得這些固定端點時，版本頁會說明需要受信任的主機更新。現有 Controller-only updater 無法交付 Host broker、安裝 pin 或整機遷移；不能在已使用的 Dell 上重跑 installer 代替遷移。正式公鑰已由 Ted 核准並釘選，但既有安裝仍需經身份驗證的 Host 遷移交付 pin，並由 Owner 在產品內明確信任來源；本變更不宣稱已交付簽署媒體或完成舊裝置遷移。
 
 本機 root 的進階救援工具仍保留 `update-publisher-inspect`、`update-publisher-add`、`update-publisher-revoke`；它們能管理自訂發行者，要求精確 review digest。這不是一般使用者的操作步驟。Web 的新端點只能批准固定官方 pin，沒有通用 key 匯入能力。信任檔仍是 root-only `/etc/agentic-home/update-publishers.json`。
 
