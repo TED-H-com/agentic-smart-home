@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {api,ApiError,requestKey} from './api';
+import {api,ApiError,haPath,haTarget,requestKey} from './api';
 import {Button,Notice,timestamp} from './ui';
 import {isDiscoveryCandidate,isDiscoveryDevice,isDiscoveryIntegration,isDiscoverySource,type DiscoverySnapshot} from './discovery';
 import './device-setup.css';
@@ -22,11 +22,14 @@ const identifier=(value:unknown)=>typeof value==='string'&&/^[A-Za-z0-9_-]{1,128
 const label=(value:unknown)=>typeof value==='string'&&value.length<=160;
 const optionalLabel=(value:unknown)=>value===null||label(value);
 const pendingStates=new Set(['preparing','applying']);
+const nativeSetupReasons=new Set(['device_setup_model_unsupported','device_setup_core_unsupported','device_setup_flow_unsupported']);
 export const setupStateNames:Record<Setup['state'],string>={proposed:'確認接入',preparing:'正在備份',applying:'正在接入',configured:'接入結果',needs_reconcile:'待確認結果',blocked:'接入暫停'};
 const invalid=()=>{throw new Error('接入資料尚未確認，請重新讀取。')};
 
 export function supportsChatSetup(candidate:Candidate){
-  return candidate.source_id==='ha_discovery'&&candidate.integration_domain==='ipp'&&candidate.discovery_method==='zeroconf';
+  return candidate.source_id==='ha_discovery'&&candidate.discovery_method==='zeroconf'&&(
+    candidate.integration_domain==='ipp'&&(candidate.confirmation_step==null||candidate.confirmation_step==='zeroconf_confirm')||
+    candidate.integration_domain==='shelly'&&candidate.confirmation_step==='confirm_discovery');
 }
 
 export function parseDeviceSetup(value:unknown,candidate?:Candidate,expectedId?:string):Setup{
@@ -38,7 +41,7 @@ export function parseDeviceSetup(value:unknown,candidate?:Candidate,expectedId?:
   if(expectedId&&value.id!==expectedId)return invalid();
   if(typeof value.can_approve!=='boolean'||typeof value.can_reconcile!=='boolean'||typeof value.message!=='string'||value.message.length>1000||!(value.reason_code===null||typeof value.reason_code==='string'&&value.reason_code.length<=160)||!date(value.created_at)||!date(value.updated_at)||typeof value.expires_at!=='number'||!Number.isFinite(value.expires_at))return invalid();
   if(value.backup_scope!=='home_assistant_configuration'||!(value.backup_id===null||typeof value.backup_id==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(value.backup_id))||value.physical_verification!=='not_performed'||value.native_path!=='/config/integrations')return invalid();
-  if(!(value.integration===null||isDiscoveryIntegration(value.integration)&&value.integration.domain==='ipp')||!Array.isArray(value.devices)||value.devices.length>100||!value.devices.every(isDiscoveryDevice)||typeof value.devices_truncated!=='boolean')return invalid();
+  if(!(value.integration===null||isDiscoveryIntegration(value.integration)&&value.integration.domain===value.candidate.integration_domain)||!Array.isArray(value.devices)||value.devices.length>100||!value.devices.every(isDiscoveryDevice)||typeof value.devices_truncated!=='boolean')return invalid();
   if(value.integration!==null&&(!identifier(value.integration.id)||!label(value.integration.title)))return invalid();
   if(!value.devices.every(item=>identifier(item.id)&&label(item.name)&&optionalLabel(item.manufacturer)&&optionalLabel(item.model)&&
     (item.via_device_id===null||identifier(item.via_device_id))&&(item.parent_device_id===null||identifier(item.parent_device_id))&&
@@ -60,25 +63,26 @@ export function parseDeviceSetupList(value:unknown):Setup[]{
 /** Owner actions stay on the trusted page; the model never submits approval. */
 export function DeviceSetupPanel({candidate,disabled,visible=true,exactId,onShare}:{candidate:Candidate;disabled:boolean;visible?:boolean;exactId?:string;onShare?:(id:string)=>void}){
   const [setup,setSetup]=useState<Setup|null>(null),[open,setOpen]=useState(!!exactId),[busy,setBusy]=useState(false),[fresh,setFresh]=useState(false),[error,setError]=useState('');
+  const [nativeReason,setNativeReason]=useState<string|null>(null);
   const alive=useRef(true),generation=useRef(0),inFlight=useRef(false),allowed=useRef(!disabled),readable=useRef(visible),revoked=useRef(false);
   const latest=useRef<Setup|null>(null),pending=useRef<Mutation|null>(null);
   readable.current=visible&&!revoked.current;allowed.current=!disabled&&readable.current;
   function current(ticket:number){return alive.current&&readable.current&&generation.current===ticket}
-  function accept(value:Setup){latest.current=value;setSetup(value);setOpen(true);setFresh(true)}
-  async function read(ticket:number){
+  function accept(value:Setup){latest.current=value;setSetup(value);setOpen(true);setFresh(true);setNativeReason(null)}
+  async function read(ticket:number,clearError=true){
     let next:Setup|null=null;
     const id=exactId||latest.current?.id;
     if(id){
       next=parseDeviceSetup(await api(`device-setups/${id}`),exactId?candidate:latest.current?.candidate,id);
     }else{
-      const matches=parseDeviceSetupList(await api('device-setups')).filter(item=>item.candidate.id===candidate.id||item.candidate_aliases?.includes(candidate.id));
+      const matches=parseDeviceSetupList(await api('device-setups')).filter(item=>item.candidate.integration_domain===candidate.integration_domain&&(item.candidate.id===candidate.id||item.candidate_aliases?.includes(candidate.id)));
       if(matches.length){
         next=parseDeviceSetup(await api(`device-setups/${matches[0].id}`),matches[0].candidate,matches[0].id);
       }
     }
     if(current(ticket)){
       if(next)accept(next);
-      setError('');
+      if(next||clearError)setError('');
     }
     return next;
   }
@@ -89,14 +93,14 @@ export function DeviceSetupPanel({candidate,disabled,visible=true,exactId,onShar
     finally{if(current(ticket)){setBusy(false);inFlight.current=false}}
   }
   async function send(path:string,body:Record<string,unknown>){
+    if(!supportsChatSetup(candidate))return;
     if(exactId&&path!==`device-setups/${exactId}/reconcile`)return;
     if((path.endsWith('/reconcile')?!readable.current:!allowed.current)||inFlight.current)return;
-    inFlight.current=true;const ticket=++generation.current;setBusy(true);setFresh(false);setError('');setOpen(true);
+    inFlight.current=true;const ticket=++generation.current;setBusy(true);setFresh(false);setError('');setNativeReason(null);setOpen(true);
     if(!pending.current||pending.current.path!==path||JSON.stringify(pending.current.body)!==JSON.stringify(body))pending.current={path,body,key:requestKey()};
     const action=pending.current;
     try{
-      const result=parseDeviceSetup(await api(action.path,action.body,false,action.key),exactId?candidate:undefined,exactId);
-      if(!exactId&&result.candidate.id!==candidate.id&&!result.candidate_aliases?.includes(candidate.id))return invalid();
+      const result=parseDeviceSetup(await api(action.path,action.body,false,action.key),candidate,exactId);
       if(!current(ticket))return;
       if(latest.current&&result.id!==latest.current.id&&!(path==='device-setups'&&(latest.current.state==='blocked'||latest.current.state==='proposed')))return invalid();
       pending.current=null;accept(result);
@@ -104,10 +108,15 @@ export function DeviceSetupPanel({candidate,disabled,visible=true,exactId,onShar
     }catch(e){
       if(!current(ticket))return;
       if(e instanceof ApiError&&e.status>0&&e.status<500)pending.current=null;
+      if(e instanceof ApiError&&e.status===409&&e.code&&nativeSetupReasons.has(e.code)){
+        setNativeReason(e.code);setFresh(false);
+        setError(e.code==='device_setup_model_unsupported'?'這個型號尚未支援對話接入，請到家庭設定繼續。':e.message);
+        return;
+      }
       setError((e as Error).message);setFresh(false);
       // A lost response only triggers readback, never another approval/HA write.
       if(!(e instanceof ApiError)||![401,403].includes(e.status)){
-        try{await read(ticket)}catch{/* Explicit refresh remains available. */}
+        try{await read(ticket,false)}catch{/* Explicit refresh remains available. */}
       }
     }finally{if(current(ticket)){setBusy(false);inFlight.current=false}}
   }
@@ -124,7 +133,7 @@ export function DeviceSetupPanel({candidate,disabled,visible=true,exactId,onShar
     const timer=setInterval(()=>{
       if(document.visibilityState==='visible'&&latest.current&&pendingStates.has(latest.current.state))void refresh();
     },3000);
-    const expired=()=>{revoked.current=true;readable.current=false;allowed.current=false;generation.current++;inFlight.current=false;pending.current=null;latest.current=null;setSetup(null);setOpen(false);setFresh(false);setBusy(false)};
+    const expired=()=>{revoked.current=true;readable.current=false;allowed.current=false;generation.current++;inFlight.current=false;pending.current=null;latest.current=null;setSetup(null);setNativeReason(null);setOpen(false);setFresh(false);setBusy(false)};
     const events=['agentic-session-expired','agentic-bridge-expired'];
     const unavailable=()=>{readable.current=false;allowed.current=false;generation.current++;inFlight.current=false;setBusy(false);setFresh(false)};
     window.addEventListener('agentic-bridge-unavailable',unavailable);
@@ -133,31 +142,33 @@ export function DeviceSetupPanel({candidate,disabled,visible=true,exactId,onShar
     // Candidate changes remount this component using its source/id key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[visible]);
-  if(!open&&!exactId)return <div className="device-setup-action"><Button secondary type="button" disabled={disabled||busy} onClick={()=>void send('device-setups',{candidate_id:candidate.id,integration_domain:'ipp'})}>協助設定</Button>{error&&<Notice error>{error}</Notice>}</div>;
+  if(!open&&!exactId)return <div className="device-setup-action"><Button secondary type="button" disabled={disabled||busy} onClick={()=>void send('device-setups',{candidate_id:candidate.id,integration_domain:candidate.integration_domain})}>{candidate.integration_domain==='shelly'?'核對型號':'協助設定'}</Button>{error&&<Notice error>{error}</Notice>}</div>;
   const working=setup&&pendingStates.has(setup.state);
-  const canApprove=!!setup&&fresh&&setup.can_approve&&setup.expires_at>Date.now()/1000;
+  const needsNativeSetup=!!nativeReason||!!setup?.reason_code&&nativeSetupReasons.has(setup.reason_code);
+  const canApprove=!!setup&&!needsNativeSetup&&fresh&&setup.can_approve&&setup.expires_at>Date.now()/1000;
   return <section className="device-setup" aria-label={`接入 ${candidate.title}`} aria-busy={busy||!!working}>
-    <h4>{setup?setupStateNames[setup.state]:'正在確認設備'}</h4>
+    <h4>{setup?setupStateNames[setup.state]:needsNativeSetup?'需要到家庭設定':'正在確認設備'}</h4>
     {error&&<Notice error>{error}</Notice>}
     {setup&&<>
-      <p><strong>{setup.candidate.title||candidate.title||'網路印表機'}</strong></p>
+      <p><strong>{setup.candidate.title||candidate.title||'設備'}</strong></p>
       <p role={working?'status':undefined}>{setup.message}</p>
       {!fresh&&!working&&<p className="helper-text">正在顯示保存的紀錄，請重新讀取目前狀態。</p>}
       {setup.state==='configured'&&<div className="device-setup-readback">
-        <p>{setup.integration?.state==='loaded'?'家庭已載入這台印表機。':setup.integration?'家庭已保存設定，仍在確認設備是否可用。':'尚未取得這次設定的最新狀態。'}</p>
+        <p>{setup.integration?.state==='loaded'?'家庭已載入這項設備設定。':setup.integration?'家庭已保存設定，仍在確認設備是否可用。':'尚未取得這次設定的最新狀態。'}</p>
         {setup.device_count!==null&&<p>{setup.device_count} 筆設備登錄{setup.available_entity_count!==null&&setup.entity_count!==null?` · ${setup.available_entity_count} / ${setup.entity_count} 個功能目前可讀取`:''}</p>}
-        <p className="helper-text">尚未驗證實體功能；可以先確認印表機已開機。</p>
+        <p className="helper-text">尚未驗證實體功能；可以先確認設備已開機。</p>
       </div>}
       {!exactId&&setup.state==='proposed'&&<Button type="button" disabled={disabled||busy||!canApprove} onClick={()=>void send(`device-setups/${setup.id}/approve`,{expected_revision:setup.revision,proposal_digest:setup.proposal_digest})}>確認接入</Button>}
       {setup.state==='needs_reconcile'&&<Button type="button" disabled={!visible||busy||!fresh||revoked.current||!setup.can_reconcile} onClick={()=>void send(`device-setups/${setup.id}/reconcile`,{expected_revision:setup.revision})}>確認接入結果</Button>}
-      {!exactId&&(setup.state==='blocked'||setup.state==='proposed'&&(setup.expires_at<=Date.now()/1000||setup.reason_code==='device_setup_credentials_changed'))&&<Button type="button" disabled={disabled||busy||!fresh} onClick={()=>void send('device-setups',{candidate_id:candidate.id,integration_domain:'ipp'})}>重新準備接入</Button>}
+      {!exactId&&!needsNativeSetup&&(setup.state==='blocked'||setup.state==='proposed'&&(setup.expires_at<=Date.now()/1000||setup.reason_code==='device_setup_credentials_changed'))&&<Button type="button" disabled={disabled||busy||!fresh} onClick={()=>void send('device-setups',{candidate_id:candidate.id,integration_domain:candidate.integration_domain})}>重新準備接入</Button>}
       {exactId&&['proposed','blocked'].includes(setup.state)&&<p className="helper-text">需要重新接入時，請先探索目前的設備。</p>}
       {setup.backup_id&&<p className="helper-text">已保存家庭設定備份。</p>}
       {setup.observed_at&&<p className="helper-text">讀回於 {timestamp(setup.observed_at)}</p>}
       {setup.reason_code&&<details><summary>診斷資訊</summary><code>{setup.reason_code}</code></details>}
     </>}
+    {needsNativeSetup&&visible&&!revoked.current&&<a className="button secondary" href={haPath('/config/integrations')} target={haTarget()} rel="noreferrer">開啟家庭設定 ↗</a>}
     {(!working||error)&&<Button secondary type="button" disabled={!visible||busy||revoked.current} onClick={()=>void refresh()}>重新讀取</Button>}
-    {!exactId&&!setup&&!busy&&<Button secondary type="button" disabled={disabled} onClick={()=>void send('device-setups',{candidate_id:candidate.id,integration_domain:'ipp'})}>重試設定</Button>}
+    {!exactId&&!setup&&!busy&&!needsNativeSetup&&<Button secondary type="button" disabled={disabled} onClick={()=>void send('device-setups',{candidate_id:candidate.id,integration_domain:candidate.integration_domain})}>重試設定</Button>}
     {onShare&&setup&&<div className="device-setup-share"><p className="helper-text">將這筆接入進度與設備狀態交給管家，用於這則訊息。</p><Button secondary type="button" disabled={disabled||busy||!fresh||!visible||revoked.current} onClick={()=>{if(allowed.current&&fresh&&!inFlight.current)onShare(setup.id)}}>請管家解讀結果</Button></div>}
   </section>;
 }

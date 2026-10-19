@@ -241,10 +241,10 @@ def test_printer_setup_stays_in_chat_requires_approval_and_reads_back(conversati
     assert setup_posts(state)[1][1] == {'expected_revision': 1, 'proposal_digest': 'c' * 64}
     assert len(setup_posts(state)) == 2
     state['finish_setup'] = True
-    expect(panel.get_by_text('家庭已載入這台印表機。', exact=True)).to_be_visible(timeout=15000)
+    expect(panel.get_by_text('家庭已載入這項設備設定。', exact=True)).to_be_visible(timeout=15000)
     expect(panel.get_by_text('1 筆設備登錄 · 2 / 2 個功能目前可讀取', exact=True)).to_be_visible()
     expect(panel.get_by_text('已保存家庭設定備份。', exact=True)).to_be_visible()
-    expect(panel.get_by_text('尚未驗證實體功能；可以先確認印表機已開機。', exact=True)).to_be_visible()
+    expect(panel.get_by_text('尚未驗證實體功能；可以先確認設備已開機。', exact=True)).to_be_visible()
     expect(page.get_by_label('對話訊息', exact=True)).to_have_value('保留這份草稿')
     assert len(setup_posts(state)) == 2
 
@@ -264,7 +264,7 @@ def test_printer_lost_approval_reply_resumes_without_resubmitting(conversation_b
     expect(panel.get_by_role('status')).to_contain_text('正在建立家庭設定備份')
     assert len(setup_posts(state)) == 2
     state['finish_setup'] = True
-    expect(panel.get_by_text('家庭已載入這台印表機。', exact=True)).to_be_visible(timeout=15000)
+    expect(panel.get_by_text('家庭已載入這項設備設定。', exact=True)).to_be_visible(timeout=15000)
     assert len(setup_posts(state)) == 2
 
 
@@ -306,7 +306,7 @@ def test_printer_progress_survives_followup_and_reload(conversation_browser):
     page.get_by_role('button', name='送出訊息', exact=True).click()
     page.reload()
     state['finish_setup'] = True
-    expect(panel.get_by_text('家庭已載入這台印表機。', exact=True)).to_be_visible(timeout=15000)
+    expect(panel.get_by_text('家庭已載入這項設備設定。', exact=True)).to_be_visible(timeout=15000)
     assert setup_posts(state) == []
 
 
@@ -349,7 +349,7 @@ def test_printer_sidebar_reconnect_restores_readback(conversation_browser, event
     expect(retry).to_be_visible()
     state['finish_setup'] = True
     retry.click()
-    expect(panel.get_by_text('家庭已載入這台印表機。', exact=True)).to_be_visible(timeout=15000)
+    expect(panel.get_by_text('家庭已載入這項設備設定。', exact=True)).to_be_visible(timeout=15000)
     assert setup_posts(state) == []
 
 

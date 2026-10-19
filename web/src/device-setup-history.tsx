@@ -47,7 +47,7 @@ export function DeviceSetupHistory({disabled,onShare}:{disabled:boolean;onShare:
         <DeviceSetupPanel key={selected.id} candidate={selected.candidate} exactId={selected.id} disabled={disabled||fenced} visible={!fenced} onShare={id=>{if(enabled.current&&expanded.current&&!revoked.current&&id===selected.id)onShare(id)}}/>
       </>:<>
         {items&&!items.length&&<p>還沒有接入紀錄，可以先探索家庭設備。</p>}
-        {items&&items.length>0&&<ul className="device-setup-history-list">{items.map(item=><li key={item.id}><Button secondary type="button" disabled={disabled||fenced} onClick={()=>{if(enabled.current&&!revoked.current)setSelected(item)}}><strong>{item.candidate.title||'網路印表機'}</strong><span>{setupStateNames[item.state]} · {timestamp(item.updated_at)}</span><small>紀錄 {item.id.slice(0,8)}</small></Button></li>)}</ul>}
+        {items&&items.length>0&&<ul className="device-setup-history-list">{items.map(item=><li key={item.id}><Button secondary type="button" disabled={disabled||fenced} onClick={()=>{if(enabled.current&&!revoked.current)setSelected(item)}}><strong>{item.candidate.title||'設備'}</strong><span>{setupStateNames[item.state]} · {timestamp(item.updated_at)}</span><small>紀錄 {item.id.slice(0,8)}</small></Button></li>)}</ul>}
         {!busy&&<Button secondary type="button" disabled={fenced} onClick={()=>void load()}>重新讀取進度</Button>}
       </>}
     </section>}

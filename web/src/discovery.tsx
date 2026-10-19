@@ -6,7 +6,7 @@ import {NetworkInventory} from './network-inventory';
 import './discovery.css';
 
 type Source = {id:string;state:'ok'|'partial'|'unavailable'|'unsupported'|'not_implemented';truncated:boolean;item_count:number|null;observed_at:string|null;reason_code:string|null};
-type Candidate = {id:string;integration_domain:string;title:string;discovery_method:string;source_id:'ha_discovery'|'network_inventory';native_path:'/config/integrations'};
+type Candidate = {id:string;integration_domain:string;title:string;discovery_method:string;confirmation_step?:'zeroconf_confirm'|'confirm_discovery'|null;source_id:'ha_discovery'|'network_inventory';native_path:'/config/integrations'};
 type Device = {id:string;name:string;manufacturer:string|null;model:string|null;via_device_id:string|null;parent_device_id:string|null;integration_ids:string[];disabled:boolean;entity_count:number|null;available_entity_count:number|null};
 type Integration = {id:string;domain:string;title:string;state:'loaded'|'not_loaded'|'retry'|'error'|'disabled'|'ignored'|'unknown'};
 export type DiscoverySnapshot = {contract_version:1;observed_at:string;content_digest:string;native_path:'/config/integrations';sources:Source[];candidates:Candidate[];devices:Device[];integrations:Integration[];limitations:string[]};
@@ -23,7 +23,7 @@ const unique=(items:Record<string,unknown>[])=>items.every(item=>isText(item.id)
 
 // Shared field guards keep setup readback and the existing snapshot on the same semantics.
 export const isDiscoverySource=(item:unknown):item is Source=>isRecord(item)&&isText(item.id)&&item.id.length>0&&isText(item.state)&&Object.hasOwn(sourceStates,item.state)&&typeof item.truncated==='boolean'&&count(item.item_count)&&nullableText(item.observed_at)&&nullableText(item.reason_code);
-export const isDiscoveryCandidate=(item:unknown):item is Candidate=>isRecord(item)&&isText(item.id)&&item.id.length>0&&isText(item.title)&&isText(item.integration_domain)&&isText(item.discovery_method)&&['ha_discovery','network_inventory'].includes(String(item.source_id))&&item.native_path==='/config/integrations';
+export const isDiscoveryCandidate=(item:unknown):item is Candidate=>isRecord(item)&&isText(item.id)&&item.id.length>0&&isText(item.title)&&isText(item.integration_domain)&&isText(item.discovery_method)&&(item.confirmation_step===undefined||item.confirmation_step===null||isText(item.confirmation_step)&&['zeroconf_confirm','confirm_discovery'].includes(item.confirmation_step))&&['ha_discovery','network_inventory'].includes(String(item.source_id))&&item.native_path==='/config/integrations';
 export const isDiscoveryDevice=(item:unknown):item is Device=>isRecord(item)&&isText(item.id)&&item.id.length>0&&isText(item.name)&&nullableText(item.manufacturer)&&nullableText(item.model)&&nullableText(item.via_device_id)&&nullableText(item.parent_device_id)&&typeof item.disabled==='boolean'&&Array.isArray(item.integration_ids)&&item.integration_ids.every(isText)&&count(item.entity_count)&&count(item.available_entity_count)&&(item.entity_count===null||item.available_entity_count===null||(item.available_entity_count as number)<=(item.entity_count as number));
 export const isDiscoveryIntegration=(item:unknown):item is Integration=>isRecord(item)&&isText(item.id)&&item.id.length>0&&isText(item.title)&&isText(item.domain)&&isText(item.state)&&Object.hasOwn(integrationStates,item.state);
 
