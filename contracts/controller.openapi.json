@@ -861,6 +861,574 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HostBundle": {
+        "additionalProperties": false,
+        "properties": {
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "maximum": 134217728.0,
+            "minimum": 1024.0,
+            "title": "Size",
+            "type": "integer"
+          },
+          "url": {
+            "maxLength": 512,
+            "pattern": "^https://github\\.com/TED-H-com/agentic-smart-home/releases/download/v[0-9a-z.-]+/agentic-home-host-[0-9a-z.-]+\\.tar$",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "sha256",
+          "size"
+        ],
+        "title": "HostBundle",
+        "type": "object"
+      },
+      "HostBundleApply": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_id": {
+            "pattern": "^[A-Za-z0-9_-]{32,100}$",
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "candidate_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Candidate Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_digest",
+          "approval_id"
+        ],
+        "title": "HostBundleApply",
+        "type": "object"
+      },
+      "HostBundleCheck": {
+        "properties": {
+          "candidate_digest": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Digest"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]{0,95}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "message": {
+            "maxLength": 256,
+            "title": "Message",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "idle",
+              "checking",
+              "available",
+              "unavailable",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "message"
+        ],
+        "title": "HostBundleCheck",
+        "type": "object"
+      },
+      "HostBundleCompatibility": {
+        "additionalProperties": false,
+        "properties": {
+          "controller_protocol": {
+            "const": 1,
+            "title": "Controller Protocol",
+            "type": "integer"
+          },
+          "controller_schema": {
+            "const": 3,
+            "title": "Controller Schema",
+            "type": "integer"
+          },
+          "host_protocol": {
+            "const": 1,
+            "title": "Host Protocol",
+            "type": "integer"
+          },
+          "reconcile": {
+            "const": 1,
+            "title": "Reconcile",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "host_protocol",
+          "controller_protocol",
+          "controller_schema",
+          "reconcile"
+        ],
+        "title": "HostBundleCompatibility",
+        "type": "object"
+      },
+      "HostBundleManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "bundle": {
+            "$ref": "#/components/schemas/HostBundle"
+          },
+          "compatibility": {
+            "$ref": "#/components/schemas/HostBundleCompatibility"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "format": {
+            "const": 1,
+            "title": "Format",
+            "type": "integer"
+          },
+          "issued_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Issued At"
+          },
+          "kind": {
+            "const": "agentic-home-host-bundle",
+            "title": "Kind",
+            "type": "string"
+          },
+          "publisher": {
+            "const": "ted-h-com-agentic-smart-home",
+            "title": "Publisher",
+            "type": "string"
+          },
+          "source_commit": {
+            "pattern": "^[a-f0-9]{40}$",
+            "title": "Source Commit",
+            "type": "string"
+          },
+          "tests": {
+            "items": {
+              "$ref": "#/components/schemas/HostBundleTest"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Tests",
+            "type": "array"
+          },
+          "version": {
+            "maxLength": 100,
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[a-z0-9.]+)?$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "format",
+          "kind",
+          "publisher",
+          "version",
+          "source_commit",
+          "bundle",
+          "compatibility",
+          "issued_at",
+          "expires_at",
+          "tests"
+        ],
+        "title": "HostBundleManifest",
+        "type": "object"
+      },
+      "HostBundleRecord": {
+        "properties": {
+          "approval_expires_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Expires At"
+          },
+          "approval_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{32,100}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Id"
+          },
+          "auto_rollback": {
+            "default": false,
+            "title": "Auto Rollback",
+            "type": "boolean"
+          },
+          "candidate_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Candidate Digest",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Created At"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]{0,95}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/HostBundleManifest"
+          },
+          "message": {
+            "maxLength": 256,
+            "title": "Message",
+            "type": "string"
+          },
+          "restore_point": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HostRestoreSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rollback_approval_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{32,100}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rollback Approval Id"
+          },
+          "rollback_expires_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rollback Expires At"
+          },
+          "state": {
+            "enum": [
+              "staging",
+              "staged",
+              "queued",
+              "activating",
+              "deployed",
+              "rolling_back",
+              "rolled_back",
+              "failed",
+              "needs_reconcile"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "candidate_digest",
+          "manifest",
+          "state",
+          "created_at",
+          "updated_at",
+          "message"
+        ],
+        "title": "HostBundleRecord",
+        "type": "object"
+      },
+      "HostBundleReference": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Candidate Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_digest"
+        ],
+        "title": "HostBundleReference",
+        "type": "object"
+      },
+      "HostBundleStage": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/HostBundleManifest"
+          },
+          "signature": {
+            "maxLength": 100,
+            "minLength": 80,
+            "pattern": "^[A-Za-z0-9+/]+=*$",
+            "title": "Signature",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest",
+          "signature"
+        ],
+        "title": "HostBundleStage",
+        "type": "object"
+      },
+      "HostBundleStatus": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "check": {
+            "$ref": "#/components/schemas/HostBundleCheck"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]{0,95}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "compatibility": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HostBundleCompatibility"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contract": {
+            "const": 1,
+            "title": "Contract",
+            "type": "integer"
+          },
+          "current_source_commit": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{40}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Source Commit"
+          },
+          "message": {
+            "maxLength": 256,
+            "title": "Message",
+            "type": "string"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/HostBundleRecord"
+            },
+            "maxItems": 50,
+            "title": "Records",
+            "type": "array"
+          },
+          "scope": {
+            "const": "host_bundle_same_schema",
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contract",
+          "scope",
+          "compatibility",
+          "available",
+          "message",
+          "records",
+          "check"
+        ],
+        "title": "HostBundleStatus",
+        "type": "object"
+      },
+      "HostBundleTest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "pattern": "^[A-Za-z0-9_.-]{1,96}$",
+            "title": "Name",
+            "type": "string"
+          },
+          "result": {
+            "const": "passed",
+            "title": "Result",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "result",
+          "sha256"
+        ],
+        "title": "HostBundleTest",
+        "type": "object"
+      },
+      "HostRestoreSummary": {
+        "properties": {
+          "ha_snapshot": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Snapshot"
+          },
+          "root_snapshot_name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Snapshot Name"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]{0,95}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          }
+        },
+        "title": "HostRestoreSummary",
+        "type": "object"
+      },
       "InventoryClear": {
         "additionalProperties": false,
         "properties": {
@@ -1622,6 +2190,12 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "WorkerAction": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "WorkerAction",
+        "type": "object"
       }
     }
   },
@@ -2156,6 +2730,253 @@
           }
         },
         "summary": "Evidence"
+      }
+    },
+    "/api/host-updates": {
+      "get": {
+        "operationId": "status_api_host_updates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostBundleStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Status"
+      }
+    },
+    "/api/host-updates/apply": {
+      "post": {
+        "operationId": "apply_api_host_updates_apply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostBundleApply"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostBundleRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply"
+      }
+    },
+    "/api/host-updates/check": {
+      "post": {
+        "operationId": "check_api_host_updates_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostBundleStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check"
+      }
+    },
+    "/api/host-updates/rollback": {
+      "post": {
+        "operationId": "rollback_api_host_updates_rollback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostBundleApply"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostBundleRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback"
+      }
+    },
+    "/api/host-updates/rollback-offer": {
+      "post": {
+        "operationId": "rollback_offer_api_host_updates_rollback_offer_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostBundleReference"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostBundleRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback Offer"
+      }
+    },
+    "/api/host-updates/stage": {
+      "post": {
+        "operationId": "stage_api_host_updates_stage_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostBundleStage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostBundleRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stage"
+      }
+    },
+    "/api/host-updates/{candidate_digest}": {
+      "get": {
+        "operationId": "record_api_host_updates__candidate_digest__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_digest",
+            "required": true,
+            "schema": {
+              "title": "Candidate Digest",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostBundleRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record"
       }
     },
     "/api/inventory": {

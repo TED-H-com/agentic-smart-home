@@ -13,6 +13,8 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
 from .discovery import Discovery
+from .host_update import CONTRACT as HOST_UPDATE_CONTRACT
+from .host_update import HostBundle
 from .manager import HostError, Manager, atomic
 from .network import Network
 from .preview import Previews, preview_server
@@ -119,6 +121,12 @@ def serve(path="/run/agentic-home/host.sock"):
     discovery = Discovery(manager)
     previews = Previews(manager, bundles=coding.root / "web-previews")
     updater = Updater(manager)
+    host_updates = HostBundle(manager)
+    try:
+        host_updates.recover_preparations()
+    except HostError:
+        pass  # unresolved approved work remains fenced; rescue GET stays available
+    mutation_lock = threading.RLock()
     try:
         viewer = preview_server(previews)
         threading.Thread(target=viewer.serve_forever, daemon=True).start()
@@ -129,7 +137,7 @@ def serve(path="/run/agentic-home/host.sock"):
 
     def service(method, path, body=None):
         for prefix, handler in (("/coding", coding), ("/network", network), ("/discovery", discovery),
-                                ("/previews", previews), ("/updates", updater)):
+                                ("/previews", previews), ("/updates", updater), ("/host-updates", host_updates)):
             if path == prefix or path.startswith(prefix + "/"):
                 return handler.handle(method, path, body)
         return None
@@ -174,6 +182,8 @@ def serve(path="/run/agentic-home/host.sock"):
             try:
                 if not self.authorized():
                     return self.respond(403, {"detail": "broker_role_forbidden"})
+                if self.path == "/host-update-contract":
+                    return self.respond(200, dict(HOST_UPDATE_CONTRACT))
                 if self.path == "/bridge-contract":
                     return self.respond(200, manager.bridge_contract())
                 response = service("GET", self.path)
@@ -199,12 +209,17 @@ def serve(path="/run/agentic-home/host.sock"):
                 if not 0 < size <= maximum:
                     return self.respond(400, {"detail": "Invalid request"})
                 body = json.loads(self.rfile.read(size))
-                response = service("POST", self.path, body)
-                if response is not None:
-                    return self.respond(*response)
-                if self.path != "/actions" or size >= 4096:
-                    return self.respond(400, {"detail": "Invalid request"})
-                return self.respond(202, jobs.start(body))
+                # Serialize the durable queue handoff with other Host effects.
+                # Background jobs keep their own process locks; this lock only
+                # closes the guard-to-dispatch race with Controller staging.
+                with mutation_lock:
+                    host_updates.guard(self.path, body)
+                    response = service("POST", self.path, body)
+                    if response is not None:
+                        return self.respond(*response)
+                    if self.path != "/actions" or size >= 4096:
+                        return self.respond(400, {"detail": "Invalid request"})
+                    return self.respond(202, jobs.start(body))
             except (ValueError, HostError, TypeError) as exc:
                 return self.respond(409, {"detail": str(exc)[:500]})
             except Exception:

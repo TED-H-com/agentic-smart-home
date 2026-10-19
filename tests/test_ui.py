@@ -455,6 +455,10 @@ def test_update_source_commit_and_sync_are_plain_and_short():
         elif path == 'host/status':
             result = {'vm': 'running', 'provisioned': True, 'jobs': [], 'snapshots': [],
                       'profile': {'label': '家庭筆電', 'memory_mib': 4096, 'vcpus': 2}}
+        elif path == 'host-updates':
+            result = {'contract': 1, 'scope': 'host_bundle_same_schema', 'available': False, 'compatibility': None,
+                      'message': '主機需要先經你核准一次更新啟用；不需重裝。', 'records': [],
+                      'check': {'state': 'unavailable', 'message': ''}}
         elif path == 'updates':
             result = payload()
         else:
@@ -575,6 +579,10 @@ def test_update_record_error_is_a_sentence_and_the_code_stays_folded():
         elif path == 'host/status':
             result = {'vm': 'running', 'provisioned': True, 'jobs': [], 'snapshots': [],
                       'profile': {'label': '家庭筆電', 'memory_mib': 4096, 'vcpus': 2}}
+        elif path == 'host-updates':
+            result = {'contract': 1, 'scope': 'host_bundle_same_schema', 'available': False, 'compatibility': None,
+                      'message': '主機需要先經你核准一次更新啟用；不需重裝。', 'records': [],
+                      'check': {'state': 'unavailable', 'message': ''}}
         elif path == 'updates':
             result = {'trusted_publisher_configured': True, 'records': [record]}
         else:

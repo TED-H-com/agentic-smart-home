@@ -42,7 +42,7 @@ def test_bundle_public_modes_ignore_build_umask_without_chmod_cache(tmp_path, mo
     (upstream / "partial").mkdir()
     (upstream / "partial/.gitignore").write_bytes(b"not a build input")
     for name in ("README.md", "INSTALL.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md", "providers.lock.json",
-                 "upstream.lock.json", "channels.lock.json"):
+                 "upstream.lock.json", "channels.lock.json", "pyproject.toml"):
         (source / name).write_text("{}\n")
     (source / "host/bases.lock.json").write_text(json.dumps({"haos": {"filename": "haos.xz"}}))
     (source / "host/network.lock.json").write_text(json.dumps({"tailscale": {"filename": "tailscale.tgz"}}))

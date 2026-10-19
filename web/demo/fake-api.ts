@@ -46,6 +46,7 @@ export function createDemoModel():DemoModel{
   data['host/status'].snapshots=[{id:'6'.repeat(64),created_at:time(-86400000)}];
   data['host/status'].jobs=[{id:'demo-snapshot',state:'succeeded',request:{action:'snapshot'},at:(clock-86400000)/1000,message:'示範快照已建立。'}];
   data.updates={trusted_publisher_configured:true,records:[]};
+  data['host-updates']={contract:1,scope:'host_bundle_same_schema',available:false,compatibility:null,message:'主機需要先經你核准一次更新啟用；不需重裝。',records:[],check:{state:'unavailable',message:''}};
   data.inventory.entities[0].brightness=60;
   Object.assign(data.inventory.entities[2],{temperature:24,current_temperature:26.5});
   let revision=0;const listeners=new Set<()=>void>();

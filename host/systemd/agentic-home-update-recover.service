@@ -1,0 +1,18 @@
+[Unit]
+Description=Agentic Home interrupted Host update recovery
+After=docker.service libvirtd.service agentic-home-host.service
+Wants=agentic-home-host.service
+Requires=docker.service libvirtd.service
+
+[Service]
+Type=oneshot
+Environment=PYTHONPATH=/usr/lib/agentic-home-update/current
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -m agentic_host.host_update --recover
+TimeoutStartSec=900
+UMask=0077
+ProtectHome=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -33,7 +33,11 @@ def ui_page():
 
 
 def common(path):
-    return {'deployment': {'mode': 'host', 'authenticated': True},
+    return {'host-updates': {'contract': 1, 'scope': 'host_bundle_same_schema', 'available': False,
+             'compatibility': None, 'code': 'host_update_bootstrap_required',
+             'message': '主機需要先經你核准一次更新啟用；不需重裝。', 'records': [],
+             'check': {'state': 'unavailable', 'message': ''}},
+            'deployment': {'mode': 'host', 'authenticated': True},
             'session': {'principal': 'host-owner', 'csrf': 'fixture-csrf'},
             'status': {'ha': {'status': 'connected', 'location_name': '家庭測試環境'}, 'runner': {'protocol': 1, 'providers': []}, 'version': 'fixture', 'paused': False},
             'tasks': {'tasks': []},
