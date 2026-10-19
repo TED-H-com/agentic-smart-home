@@ -8,6 +8,7 @@ import {names,type Runtime} from './labels';
 import {DiscoveryContext} from './discovery-context';
 import {ConversationDiscovery,DiscoverDevicesAction,discoveryRequest} from './conversation-discovery';
 import {ConversationNetworkDiscovery} from './conversation-network';
+import {DeviceSetupHistory} from './device-setup-history';
 
 const conversationKey='agentic-auth-conversations';
 const continuable=new Set(['queued','planning','awaiting_user','awaiting_approval','succeeded']);
@@ -58,13 +59,13 @@ export function GatewayPanel({visible=true,bridge=false,hostMode=false,conversat
   function refill(message:any){const text=typeof message.message==='string'?message.message:'';startNew();setDraft(text);restoreFocus.current=true}
   function replyAction(message:any){if(message.state==='needs_reconcile'||message.error_code==='stop_unconfirmed'||message.reason==='stop_unconfirmed')return null;if(message.state==='interrupted')return <div className="row-actions"><Button type="button" onClick={()=>refill(message)}>重新送出</Button></div>;const code=message.error_code||message.reason;if(code==='needs_reauth')return bridge?<p>{message.coordinator==='hermes'?'請到主機重新登入智能管家。':'請到主機重新登入 AI 帳號。'}</p>:<div className="row-actions"><a className="button" href="#agents">{message.coordinator==='hermes'?'重新登入智能管家':'重新登入 AI 帳號'}</a></div>;if(typeof code==='string'&&retryable.has(code))return <div className="row-actions"><Button type="button" onClick={()=>refill(message)}>重試</Button></div>;return null}
   function continueFrom(message:any){setViewedId(null);setHistory(false);setRuntime(message.runtime);setProvider(message.provider);setCoordinator(message.coordinator||'direct');setReplies(previous=>({...previous,[`${message.coordinator==='hermes'?'hermes-':''}${message.runtime}-${message.provider}`]:message.id}));setError('');document.getElementById('gateway-message')?.focus()}
-  async function sendMessage(message:string,discoverDevices=false,clearDraft=true){
+  async function sendMessage(message:string,discoverDevices=false,clearDraft=true,deviceSetupId?:string){
     if(busy||!loaded||!message.trim()||(replyId&&!active)||viewedId)return;
     pin.current=true;setBusy(true);setError('');
-    let body={message,runtime:coordinator==='hermes'?'host':runtime,provider:coordinator==='hermes'?'codex':provider,reply_to:active?.id||null,...(coordinator==='hermes'?{coordinator,...(discoverDevices?{discover_devices:true,discover_environment:true}:{})}: {})};
+    let body={message,runtime:coordinator==='hermes'?'host':runtime,provider:coordinator==='hermes'?'codex':provider,reply_to:active?.id||null,...(coordinator==='hermes'?{coordinator,...(discoverDevices?{discover_devices:true,discover_environment:true}:{}),...(deviceSetupId?{device_setup_id:deviceSetupId}:{})}: {})};
     const previous=pending.current?JSON.parse(pending.current.body):null;
     // A lost reply must retry the original parent and key even after polling sees its result.
-    if(previous&&pending.current?.thread===(active?.thread_id||null)&&previous.message===body.message&&previous.runtime===body.runtime&&previous.provider===body.provider&&previous.coordinator===body.coordinator&&previous.discover_devices===body.discover_devices&&previous.discover_environment===body.discover_environment)body=previous;
+    if(previous&&pending.current?.thread===(active?.thread_id||null)&&previous.message===body.message&&previous.runtime===body.runtime&&previous.provider===body.provider&&previous.coordinator===body.coordinator&&previous.discover_devices===body.discover_devices&&previous.discover_environment===body.discover_environment&&previous.device_setup_id===body.device_setup_id)body=previous;
     const serialized=JSON.stringify(body);
     if(pending.current?.body!==serialized)pending.current={body:serialized,key:requestKey(),thread:active?.thread_id||null};
     try{const result=await api('gateway/messages',body,false,pending.current!.key);setReplies(previous=>({...previous,[scope]:result.id}));setMessages(previous=>[result,...previous.filter(m=>m.id!==result.id)]);restoreFocus.current=true;if(clearDraft)setDraft('');setViewedId(null);pending.current=null;await refresh()}
@@ -72,6 +73,7 @@ export function GatewayPanel({visible=true,bridge=false,hostMode=false,conversat
   }
   function submit(e:React.FormEvent){e.preventDefault();void sendMessage(draft)}
   function discover(message=discoveryRequest){if(!visible||coordinator!=='hermes'||history||settings)return;void sendMessage(message,true,false)}
+  function shareDeviceSetup(id:string){if(!visible||coordinator!=='hermes'||history||settings||!/^[a-f0-9]{32}$/.test(id))return;void sendMessage('請幫我解讀這筆設備接入的目前結果，並說明下一步。',false,false,id)}
   function onComposerKey(e:React.KeyboardEvent<HTMLTextAreaElement>){
     const native=e.nativeEvent;
     if(native.isComposing||native.keyCode===229)return;
@@ -117,7 +119,7 @@ export function GatewayPanel({visible=true,bridge=false,hostMode=false,conversat
       {viewedId||(loaded&&ended)?<div className="assistant-readonly"><p>{viewedId&&selected?.source!=='web'?'請回原來的聊天室繼續。':'這段對話已結束。'}</p><Button onClick={startNew}>開始新對話</Button></div>:<form className="assistant-composer" onSubmit={submit}>
         {replyId&&loaded&&!active&&latest?.state!=='needs_reconcile'&&!(latest&&ownAction(latest))&&<Notice>這段對話暫時無法接續，請等候完成或開始新對話。</Notice>}
         <div className="chat-compose"><label className="sr-only" htmlFor="gateway-message">對話訊息</label><textarea id="gateway-message" ref={box} disabled={busy} maxLength={5000} rows={1} value={draft} onChange={e=>{setDraft(e.target.value);fitComposer(e.target)}} onKeyDown={onComposerKey} placeholder={active?'繼續說…':'輸入訊息…'}/><Button type="submit" className="chat-send" aria-label="送出訊息" disabled={busy||!loaded||!draft.trim()||!!(replyId&&!active)}>{busy?'送出中…':<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h12M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}</Button></div>
-        {visible&&loaded&&coordinator==='hermes'&&!history&&!settings&&<>{active?.discovery?.state!=='consent_required'&&<DiscoverDevicesAction disabled={busy||!!(replyId&&!active)} onDiscover={()=>discover()}/>}<div className="conversation-extra-actions"><ConversationNetworkDiscovery key={`${storage}:${scope}:${active?.thread_id||replyId||'new'}`} disabled={busy||!!(replyId&&!active)} onDiscovered={()=>discover()}/><DiscoveryContext key={`${storage}:${scope}:${active?.thread_id||replyId||'new'}:${discoveryEpoch}`} draft={draft} disabled={busy||!!(replyId&&!active)} onInsert={(value,expectedDraft)=>{if(currentDraft.current!==expectedDraft||busy||!visible||coordinator!=='hermes')return false;setDraft(value);restoreFocus.current=true;return true}}/></div></>}
+        {visible&&loaded&&coordinator==='hermes'&&!history&&!settings&&<>{active?.discovery?.state!=='consent_required'&&<DiscoverDevicesAction disabled={busy||!!(replyId&&!active)} onDiscover={()=>discover()}/>}<div className="conversation-extra-actions"><DeviceSetupHistory disabled={busy||!!(replyId&&!active)} onShare={shareDeviceSetup}/><ConversationNetworkDiscovery key={`${storage}:${scope}:${active?.thread_id||replyId||'new'}`} disabled={busy||!!(replyId&&!active)} onDiscovered={()=>discover()}/><DiscoveryContext key={`${storage}:${scope}:${active?.thread_id||replyId||'new'}:${discoveryEpoch}`} draft={draft} disabled={busy||!!(replyId&&!active)} onInsert={(value,expectedDraft)=>{if(currentDraft.current!==expectedDraft||busy||!visible||coordinator!=='hermes')return false;setDraft(value);restoreFocus.current=true;return true}}/></div></>}
       </form>}
     </div>
   </div>
