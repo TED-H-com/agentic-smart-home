@@ -1,7 +1,7 @@
 {
-  "source_commit": "02ab744c8015cf38881e7127f62bb88164175a7b",
-  "source_tree": "0dc5990392dad663451b100eb0fecb5b1fcf9e0f",
-  "frontend_source_tree": "ad661f33608407f284f22f2fb677ee4e3467c374",
+  "source_commit": "a5def176d5a4e25db4e77be0180d88a103fa6e2c",
+  "source_tree": "53623def5b4865128ed60f8c3eed36d8cf0fd4b6",
+  "frontend_source_tree": "743095a1a0a8f4a0f8ce189804af99ac8f70e6c3",
   "source_files": [
     {
       "file": "scripts/site_screenshots.py",
@@ -41,7 +41,7 @@
     },
     {
       "file": "web/demo/ha-lan.ts",
-      "sha256": "06cac5ba173453da9b60a278d8baf9dd51d486ea4cf79fb8a608001a7c83505f"
+      "sha256": "ed4ada349e4552b6b67203d13a8bf2e30b37d95b94db7fcef58a56b190c27cb5"
     },
     {
       "file": "web/demo/home.css",
@@ -127,7 +127,7 @@
     },
     {
       "file": "discovery.png",
-      "sha256": "a903211eb3bfc704ab6fb1b8f9f1b167c25b46332842d06af9e6d5aa7cf74a48",
+      "sha256": "4dde769309b2bf9b480ab62a39d371f632783d085705c1ff40255bb216b12698",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -135,11 +135,11 @@
       "device_scale_factor": 1,
       "route": "#/agentic-home",
       "surface": "product-in-ha-simulation",
-      "bytes": 112910
+      "bytes": 112727
     },
     {
       "file": "gateway.png",
-      "sha256": "314cd4896b7f9105c96d7166c6260292ba8aa01348de10576e36be980b1cd723",
+      "sha256": "caca7eae49bb9270e70cac3eaf74b208a8a25bfd7bcd1d624a62be6b26fe38e2",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -147,11 +147,11 @@
       "device_scale_factor": 1,
       "route": "#gateway",
       "surface": "product",
-      "bytes": 63321
+      "bytes": 62308
     },
     {
       "file": "proposal.png",
-      "sha256": "9c228b25523276e7a65bfea021ed16decea81ae9b0fcc023b4ae17af21783077",
+      "sha256": "a38fe9bd62bf2340cb81ad0734863a45b89106a89528cfb497bb5d9d18a27230",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -159,11 +159,11 @@
       "device_scale_factor": 1,
       "route": "#/agentic-home/home/demo-proposal",
       "surface": "product-in-ha-simulation",
-      "bytes": 91049
+      "bytes": 90824
     },
     {
       "file": "inventory.png",
-      "sha256": "d4547bffd0dd02c000967d998956096acc888b91aa50b0f75e0ccd042f120212",
+      "sha256": "f2899f141d7cd5f9c908a51ec3d5c9c84b35fae49514a4d878809de422923540",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -171,11 +171,11 @@
       "device_scale_factor": 1,
       "route": "#inventory",
       "surface": "product",
-      "bytes": 96298
+      "bytes": 95789
     },
     {
       "file": "workers.png",
-      "sha256": "9634840b529855086dba07cf6e5de51024b6e3e4717a0c55a1c5cd6377522179",
+      "sha256": "36c024520e981e65caa43e352a1abfe3adfd5d0ebdc13711cbe8fdd76e303397",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -183,11 +183,11 @@
       "device_scale_factor": 1,
       "route": "#workers",
       "surface": "product",
-      "bytes": 128517
+      "bytes": 127834
     },
     {
       "file": "host.png",
-      "sha256": "8f205c8de21698e9c2b492a5bf62e44090395919bdede3f750f290917194b850",
+      "sha256": "976607baceecb1808c6b85e923b45a173f1eee01fc72983c0b66578e4391efdf",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -195,11 +195,11 @@
       "device_scale_factor": 1,
       "route": "#host",
       "surface": "product",
-      "bytes": 68807
+      "bytes": 68152
     },
     {
       "file": "bridge.png",
-      "sha256": "cf7e600c1c1fdd14a37aa7f8de54d730e14e33b06cdf410c7bad2f6aab49f559",
+      "sha256": "c7265a9bfbd1f6356f40aebfbb60fb3f54788151740baa2645d2666079af3799",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -207,7 +207,7 @@
       "device_scale_factor": 1,
       "route": "#/agentic-home",
       "surface": "product-in-ha-simulation",
-      "bytes": 65754
+      "bytes": 65173
     },
     {
       "file": "phone.png",
@@ -223,7 +223,7 @@
     },
     {
       "file": "../og.png",
-      "sha256": "da874a70b954abab1ed99fb03bb965f413422d80802e658489deb28208a7f48e",
+      "sha256": "5de3e3850c0199bb1fd86b2247496f04030fe1683a009eb6d96956667d561ff8",
       "viewport": {
         "width": 1200,
         "height": 630
