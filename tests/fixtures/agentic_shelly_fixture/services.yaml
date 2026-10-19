@@ -1,3 +1,6 @@
 discover:
   name: Inject synthetic Shelly discovery
   description: Start native Zeroconf discovery against the container loopback fixture.
+model_boundary:
+  name: Inspect native reported-model boundary
+  description: Demonstrate native model text does not attest device generation without starting an RPC flow.

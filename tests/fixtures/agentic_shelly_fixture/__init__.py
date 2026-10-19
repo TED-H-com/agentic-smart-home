@@ -125,10 +125,25 @@ async def async_setup(hass, config):
                 hostname=HOSTNAME + ".local.", type="_http._tcp.local.",
                 name=HOSTNAME + "._http._tcp.local.", properties={}))
 
+    async def model_boundary(call):
+        # Exercise the actual pinned Core formatter and support predicate only.
+        # This deliberately inconsistent RPC report is NOT a real RPC flow or
+        # a physical-device qualification: it demonstrates why model text does
+        # not attest generation, even with native helpers left unmodified.
+        from homeassistant.components.shelly.utils import get_model_name, is_device_supported
+
+        rpc_report = {"gen": 2, "model": MODEL, "mac": MAC, "auth_en": False}
+        hass.states.async_set("sensor.agentic_shelly_model_boundary", "observed", {
+            "gen1_reported_model": get_model_name(SHELLY),
+            "inconsistent_rpc_reported_model": get_model_name(rpc_report),
+            "inconsistent_rpc_support_predicate": is_device_supported(rpc_report),
+            "scope": "native formatter only; no RPC connection or flow"})
+
     async def stop(event):
         transport.close()
         await runner.cleanup()
 
     hass.services.async_register(DOMAIN, "discover", discover)
+    hass.services.async_register(DOMAIN, "model_boundary", model_boundary)
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, stop)
     return True

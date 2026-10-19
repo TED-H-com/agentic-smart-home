@@ -9,17 +9,20 @@ import asyncio
 import hashlib
 import json
 import os
+import secrets
 import shutil
 import socket
 import subprocess
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from agentic_controller.device_setup import KIND, DeviceSetupApprove, DeviceSetupCreate, DeviceSetups
 from agentic_controller.ha import HomeAssistant
 from agentic_controller.models import utcnow
 from agentic_controller.store import Store
-from test_device_setup_real_ha import docker, owner_token
+from test_device_setup_real_ha import docker, owner_request, owner_token
 
 CORE_VERSIONS = ("2026.10.1", "2026.10.2")
 MAC = "AABBCC112233"
@@ -125,7 +128,9 @@ async def readback(ha, entry_id):
 def preserve_evidence(tmp_path, report):
     root = Path(__file__).parents[1]
     sources = ["tests/test_device_setup_shelly_real_ha.py", "tests/fixtures/agentic_shelly_fixture/__init__.py",
-               "tests/fixtures/agentic_shelly_fixture/manifest.json", "controller/agentic_controller/device_setup.py"]
+               "tests/fixtures/agentic_shelly_fixture/manifest.json", "tests/fixtures/agentic_shelly_fixture/services.yaml",
+               "controller/agentic_controller/device_setup.py", "controller/agentic_controller/device_setup_adapters.py",
+               "controller/agentic_controller/models.py", "controller/agentic_controller/discovery.py"]
     report["source_sha256"] = {path: hashlib.sha256((root / path).read_bytes()).hexdigest() for path in sources}
     encoded = json.dumps(report, indent=2) + "\n"
     (tmp_path / "shelly-qualification.json").write_text(encoded)
@@ -186,5 +191,150 @@ async def test_real_native_shelly_confirmation_startup_and_core_restart(shelly_c
                            "LAN multicast discovery", "Supervisor backup", "HAOS", "live household",
                            "product DeviceSetups service", "relay actuation", "unlisted Core versions"]})
     finally:
+        await ha.close()
+        store.close()
+
+
+class ShellyCoreWithFixtureBackup(HomeAssistant):
+    """Real transport and send guards; only absent Supervisor backup is a fixture."""
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.confirmations = []
+        self.backups = []
+        self.events = []
+
+    async def request(self, method, path, data=None, **kwargs):
+        response = await super().request(method, path, data, **kwargs)
+        if method == "POST" and path.startswith("/config/config_entries/flow/"):
+            self.confirmations.append({"path": path, "data": data, "response": response})
+            self.events.append("confirmation_response")
+        return response
+
+    async def backup(self, name, *, send_guard):
+        await send_guard()
+        self.backups.append(name)
+        self.events.append("fixture_backup_completed")
+        return {"id": "supervisor-shelly-fixture", "name": name, "created_at": utcnow()}
+
+
+async def test_real_service_shelly_approval_readback_restart_and_no_repeat(shelly_core_container, tmp_path):
+    name, base, config, provenance = shelly_core_container
+    token = await owner_token(base)
+    store = Store(tmp_path / "controller.sqlite3")
+    ha = ShellyCoreWithFixtureBackup(token, base + "/api", base.replace("http:", "ws:") + "/api/websocket")
+    ha.store = store
+    tasks = []
+
+    def spawn(_id, coroutine):
+        task = asyncio.create_task(coroutine)
+        tasks.append(task)
+        return task
+
+    await ha.start()
+    try:
+        core = (await ha.request("GET", "/config"))["version"]
+        assert core == provenance["expected_core"]
+        owner = (await ha.ws("auth/current_user"))["id"]
+        assert await ha.owner(owner)
+        store.set_setting("owner", owner)
+        store.set_setting("csrf_secret", secrets.token_hex(32))
+        app = SimpleNamespace(state=SimpleNamespace())
+        session = SimpleNamespace(verify=lambda _request: True)
+        service = DeviceSetups(app, store, ha, session, spawn=spawn)
+        policy = store.setting("policy")
+        flow, _ = await discover(ha)
+        # Native discovery loads its dependencies; baseline the product's
+        # proposal only after that separate native operation has completed.
+        baseline = await ha.ws("config_entries/get")
+        assert not any(entry["domain"] == "shelly" for entry in baseline)
+        counter_before_proposal = await ha.request("GET", COUNTER)
+        proposal = await service.create(owner_request(owner, "shelly-propose"),
+            DeviceSetupCreate(candidate_id=flow["flow_id"], integration_domain="shelly"))
+        assert proposal.state == "proposed" and proposal.can_approve
+        assert proposal.candidate.integration_domain == "shelly"
+        assert "設備連線" in proposal.message and "不切換繼電器" in proposal.message
+        assert store.get(KIND, proposal.id)["version"] == 2
+        assert not ha.backups and not ha.confirmations
+        assert await ha.ws("config_entries/get") == baseline
+        assert (await ha.request("GET", COUNTER))["state"] == counter_before_proposal["state"]
+        approval = DeviceSetupApprove(expected_revision=proposal.revision, proposal_digest=proposal.proposal_digest)
+        assert (await service.approve(owner_request(owner, "shelly-approve"), proposal.id, approval)).state == "preparing"
+        await asyncio.wait_for(asyncio.gather(*tasks), timeout=60)
+        result = await service.detail(owner_request(owner, "read"), proposal.id)
+        assert result.state == "configured", result.model_dump_json()
+        assert ha.events == ["fixture_backup_completed", "confirmation_response"]
+        assert len(ha.backups) == len(ha.confirmations) == 1
+        confirmation = ha.confirmations[0]
+        assert confirmation["path"] == "/config/config_entries/flow/" + flow["flow_id"]
+        assert confirmation["data"] == {}
+        response = confirmation["response"]
+        assert response["type"] == "create_entry" and response["handler"] == "shelly"
+        assert response["flow_id"] == flow["flow_id"]
+        entry_id = response["result"]["entry_id"]
+        assert response["result"]["source"] == "zeroconf" and response["result"]["domain"] == "shelly"
+        assert result.integration.id == entry_id
+        _, device, entities, switch = await readback(ha, entry_id)
+        result = await service.detail(owner_request(owner, "read-ready"), proposal.id)
+        assert result.device_count == 1 and result.entity_count == len(entities)
+        assert (result.available_entity_count or 0) >= 1
+        assert [row.id for row in result.devices] == [device["id"]]
+        assert (await ha.request("GET", COUNTER))["attributes"]["rejected_operations"] == 0
+
+        # Check the native formatter boundary without claiming to exercise RPC.
+        await ha.request("POST", "/services/agentic_shelly_fixture/model_boundary", {})
+        boundary = (await ha.request("GET", "/states/sensor.agentic_shelly_model_boundary"))["attributes"]
+        assert boundary["gen1_reported_model"] == boundary["inconsistent_rpc_reported_model"] == "Shelly 1"
+        assert boundary["inconsistent_rpc_support_predicate"] is True
+
+        await ha.close()
+        store.close()
+        await asyncio.to_thread(docker, "restart", "--time", "30", name)
+        store = Store(tmp_path / "controller.sqlite3")
+        ha.store = store
+        await ha.start()
+        await wait_ready(ha)
+        _, restarted_device, restarted_entities, restarted_switch = await readback(ha, entry_id)
+        assert restarted_device["id"] == device["id"] and restarted_switch["entity_id"] == switch["entity_id"]
+        assert {row["entity_id"] for row in restarted_entities} == {row["entity_id"] for row in entities}
+        service = DeviceSetups(app, store, ha, session, spawn=spawn)
+        service.recover()
+        assert (await service.approve(owner_request(owner, "shelly-approve"), proposal.id, approval)).state == "configured"
+        recovered = await service.detail(owner_request(owner, "read-restarted"), proposal.id)
+        assert recovered.state == "configured" and recovered.integration.id == entry_id
+        assert recovered.device_count == 1 and recovered.entity_count == len(entities)
+        assert recovered.backup_id == "supervisor-shelly-fixture" and recovered.physical_verification == "not_performed"
+        assert len(ha.backups) == len(ha.confirmations) == 1
+        assert store.setting("policy") == policy
+        assert (tmp_path / "snapshots" / (proposal.id + ".sqlite3")).is_file()
+        counter = await ha.request("GET", COUNTER)
+        operations = counter["attributes"]["operations"]
+        assert operations["fixture_boot"] == 2 and counter["attributes"]["rejected_operations"] == 0
+        assert set(operations) == {"fixture_boot", "http:/shelly", "http:/settings", "http:/status",
+                                  "http:/cit/d", "coap:/cit/s"}
+        assert all(operations[key] >= 3 for key in ("http:/shelly", "http:/settings", "http:/status", "http:/cit/d"))
+        journal = [json.loads(line) for line in (config / "agentic_shelly_fixture_requests.jsonl").read_text().splitlines()]
+        assert len(journal) == int(counter["state"]) and all(row["operation"] != "rejected" for row in journal)
+        persisted = json.dumps(store.get(KIND, proposal.id)) + recovered.model_dump_json()
+        assert token not in persisted and MAC not in persisted and base not in persisted
+        preserve_evidence(tmp_path, {**provenance, "core": core, "mode": "service", "model": "SHSW-1",
+            "reported_model": "Shelly 1", "result": "all_runtime_assertions_passed", "finished_at": utcnow(),
+            "operations": operations, "device_count": recovered.device_count, "entity_count": recovered.entity_count,
+            "available_entity_count": recovered.available_entity_count, "confirmation_posts": len(ha.confirmations),
+            "fixture_backups": len(ha.backups), "full_core_restart": True, "controller_store_reopened": True,
+            "approval_replay_caused_no_effects": True, "native_model_text_not_generation_attestation": True,
+            "real": ["Core Owner authorization", "production proposal/approval/send guards/persistence",
+                     "native Shelly flow", "unmodified aioshelly HTTP/CoIoT", "native coordinator/relay entity",
+                     "exact registry and state readback", "Core restart and idempotent persisted approval"],
+            "fixtures": ["synthetic Zeroconf injection", "loopback SHSW-1 HTTP and CoIoT responder",
+                         "Supervisor backup response", "outer HTTP session transport"],
+            "not_tested": ["physical Shelly", "physical generation attestation", "RPC/Bluetooth flows",
+                           "LAN multicast discovery", "Supervisor backup", "HAOS", "live household",
+                           "relay actuation", "real transport response loss", "unlisted Core versions"]})
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
         await ha.close()
         store.close()
