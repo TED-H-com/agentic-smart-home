@@ -1,7 +1,7 @@
 {
-  "source_commit": "d2fc3cb4a7595be283f923ec5b38fba8bd385d84",
-  "source_tree": "3e3add244ce07074331e557a0a9ff03301556a4e",
-  "frontend_source_tree": "747bbed9f588fd37fa416f46c94795f174a3bb3b",
+  "source_commit": "df63f4f9fccb457fa1c532f071950b55c194d0e8",
+  "source_tree": "a12fc6550c0537332fe0d8433e43c8eb47339894",
+  "frontend_source_tree": "6f1d469e75bc750103a7abebd037a2f598d26604",
   "source_files": [
     {
       "file": "scripts/site_screenshots.py",
@@ -81,7 +81,7 @@
     },
     {
       "file": "web/preview/fixtures.json",
-      "sha256": "eef0fb6d3442d3a166a97025b6bb60ab19815ad7ceafa31e3c77670c67d93e10"
+      "sha256": "792ab1cdffc33728d07597af64cbfbd1193c6971264073101e68eb5480d9bd67"
     }
   ],
   "fixture_clock": "2026-10-13T09:00:00+08:00",
@@ -127,7 +127,7 @@
     },
     {
       "file": "discovery.png",
-      "sha256": "4dde769309b2bf9b480ab62a39d371f632783d085705c1ff40255bb216b12698",
+      "sha256": "2811130fb4c9984f3460e31a5e6645a8bbb5c01f9621c29cef3edaa180d0ef5c",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -135,11 +135,11 @@
       "device_scale_factor": 1,
       "route": "#/agentic-home",
       "surface": "product-in-ha-simulation",
-      "bytes": 112727
+      "bytes": 112721
     },
     {
       "file": "gateway.png",
-      "sha256": "caca7eae49bb9270e70cac3eaf74b208a8a25bfd7bcd1d624a62be6b26fe38e2",
+      "sha256": "3ab1b89637cb0434a488d014df533bb10ff2f2ecfe6a085b0213db1206c2b7bb",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -147,7 +147,7 @@
       "device_scale_factor": 1,
       "route": "#gateway",
       "surface": "product",
-      "bytes": 62308
+      "bytes": 72132
     },
     {
       "file": "proposal.png",
@@ -187,7 +187,7 @@
     },
     {
       "file": "host.png",
-      "sha256": "9850125afdaa791970d3a77e44f35b3bb9d46769c6dd1d9ddf93ed2f236e2095",
+      "sha256": "0cf6711250b19f52fa7d9f9077585bc45e218e5bcb220cf5d742b205c69e4e08",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -195,11 +195,11 @@
       "device_scale_factor": 1,
       "route": "#host",
       "surface": "product",
-      "bytes": 68168
+      "bytes": 76181
     },
     {
       "file": "bridge.png",
-      "sha256": "c7265a9bfbd1f6356f40aebfbb60fb3f54788151740baa2645d2666079af3799",
+      "sha256": "71ca46af26567dc7d4b09ec9281b8db88ed11a3e37180c5fd22a693eebb3a887",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -207,7 +207,7 @@
       "device_scale_factor": 1,
       "route": "#/agentic-home",
       "surface": "product-in-ha-simulation",
-      "bytes": 65173
+      "bytes": 74724
     },
     {
       "file": "phone.png",
