@@ -18,7 +18,7 @@ from agentic_controller.ha import HomeAssistant
 from agentic_controller.ha_oauth import HomeAuthorization
 from agentic_controller.host import HostSession, connect_home_owner
 from fastapi import HTTPException
-from test_real_ha import real_container, wait_ready  # noqa: F401
+from test_real_ha import core_version, real_container, wait_ready  # noqa: F401
 
 ACCESS = "synthetic-ha-access-" + "a" * 25
 REFRESH = "synthetic-ha-refresh-" + "b" * 25
@@ -258,7 +258,7 @@ async def test_host_authorization_routes_require_cookie_csrf_and_fixed_host(stor
         assert rejected.status_code == 303 and rejected.headers["location"] == "/#onboarding"
 
 
-async def test_real_core_oauth_to_revocable_persistent_owner_binding(real_container, tmp_path, store):  # noqa: F811
+async def test_real_core_oauth_to_revocable_persistent_owner_binding(real_container, core_version, tmp_path, store):  # noqa: F811
     _, base, _ = real_container
     await wait_ready(base)
     (tmp_path / "access-key").write_text("fixture-local-machine-access-key")
@@ -283,15 +283,16 @@ async def test_real_core_oauth_to_revocable_persistent_owner_binding(real_contai
         # Temporary OAuth grant was revoked; persisted token still works.
         user = await ha.ws("auth/current_user")
         assert await ha.owner(user["id"])
-        assert (await ha.request("GET", "/config"))["version"] == "2026.10.1"
+        assert (await ha.request("GET", "/config"))["version"] == core_version
         tokens = await ha.ws("auth/refresh_tokens")
         assert len(tokens) == 1 and tokens[0]["type"] == "long_lived_access_token"
         assert tokens[0]["client_name"].startswith("Agentic Smart Home ")
         report = {"kind": "real_core_oauth_owner_binding", "runtime_location": "isolated_core_container",
-                  "ha_version": "2026.10.1", "model_backend": "none", "device_kind": "none",
+                  "ha_version": core_version, "model_backend": "none", "device_kind": "none",
                   "authorization_code": "native_onboarding_endpoint", "one_year_named_token": "passed",
                   "owner_readback_after_temporary_grant_revoked": "passed", "token_permissions": "0600",
                   "browser_login_screen": "not_run", "owner_household": "not_run"}
-        (Path(__file__).parents[1] / "evidence/ha-onboarding-oauth.json").write_text(json.dumps(report, indent=2) + "\n")
+        filename = "ha-onboarding-oauth.json" if core_version == "2026.10.1" else f"ha-onboarding-oauth-{core_version}.json"
+        (Path(__file__).parents[1] / "evidence" / filename).write_text(json.dumps(report, indent=2) + "\n")
     finally:
         await ha.close()

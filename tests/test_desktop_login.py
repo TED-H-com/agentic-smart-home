@@ -80,7 +80,7 @@ def test_packaged_controller_accepts_real_host_ticket_once(request):
         pytest.skip("Use --containers for the real host writer to Controller handoff")
     name = "agentic-desktop-handoff-" + uuid.uuid4().hex[:12]
     host = Path(__file__).resolve().parents[1] / "host"
-    image = os.environ.get("AGENTIC_TEST_CONTROLLER_IMAGE", "agentic-home-controller:0.11.0")
+    image = os.environ.get("AGENTIC_TEST_CONTROLLER_IMAGE", "agentic-home-controller:0.11.1")
     try:
         subprocess.run(["docker", "run", "-d", "--name", name, "--network", "none", "--memory", "256m",
                         "--pids-limit", "64", "-e", "AGENTIC_HOST_MODE=1", "-v", str(host) + ":/host:ro",

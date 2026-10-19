@@ -366,7 +366,7 @@ print(json.dumps({'shipped_pin_only':True,'root_store_mode':'0600','approval_one
             '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--memory', '128m', '--pids-limit', '32',
             '--cpus', '1', '--entrypoint', 'python', '--env', 'PYTHONPATH=/product/host',
             '--mount', f'type=bind,src={root / "host"},dst=/product/host,readonly',
-            'agentic-home-preview:0.11.0', '-c', script,
+            'agentic-home-preview:0.11.1', '-c', script,
         ], capture_output=True, text=True, timeout=60)
         assert result.returncode == 0, result.stderr
         assert json.loads(result.stdout) == {'shipped_pin_only': True, 'root_store_mode': '0600',

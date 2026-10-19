@@ -169,7 +169,7 @@ async def main():
 asyncio.run(main())
 '''
     try:
-        result = subprocess.run(["docker", "run", "--rm", "--name", name, "--network=none", "--read-only", "-e", "AGENTIC_DISABLED_PROVIDERS=grok", "--pids-limit=128", "--memory=1g", "-v", volume + ":/data", "-v", str(source) + ":/app/agentic_runner:ro", "--entrypoint", "python", os.environ.get("AGENTIC_RUNNER_IMAGE", "agentic-home-runner:0.11.0"), "-c", script], capture_output=True, text=True, timeout=100)
+        result = subprocess.run(["docker", "run", "--rm", "--name", name, "--network=none", "--read-only", "-e", "AGENTIC_DISABLED_PROVIDERS=grok", "--pids-limit=128", "--memory=1g", "-v", volume + ":/data", "-v", str(source) + ":/app/agentic_runner:ro", "--entrypoint", "python", os.environ.get("AGENTIC_RUNNER_IMAGE", "agentic-home-runner:0.11.1"), "-c", script], capture_output=True, text=True, timeout=100)
         assert result.returncode == 0, result.stdout[-3000:] + result.stderr[-3000:]
         assert json.loads(result.stdout)["cli"] == "real_packaged_codex"
     finally:

@@ -11,7 +11,7 @@ import aiohttp
 from .durability import client_session, durable
 from .models import digest, utcnow
 
-TESTED_CORE_VERSIONS = frozenset({"2026.10.1"})
+TESTED_CORE_VERSIONS = frozenset({"2026.10.1", "2026.10.2"})
 # MCP tool calls must wait longer than this. See hermes MCP_TOOL_TIMEOUT.
 HA_CLIENT_TIMEOUT = 30
 # These commands observe Core state or subscribe to observations. Unknown

@@ -17,7 +17,7 @@ from agentic_host.artifacts import fetch, sha256  # noqa: E402
 from agentic_host.manager import validate_profile  # noqa: E402
 from agentic_host.publisher import validate_official_channel  # noqa: E402
 
-VERSION = "0.11.0"
+VERSION = "0.11.1"
 SKIP = {"__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", "test-results"}
 
 

@@ -10,6 +10,14 @@
 
 TypeScript/Vite、Ruff、51 份契約、工具鏈與封裝結構檢查通過。此分支尚未執行完整 CI、Dell 部署、真帳號登入、新 USB 人工互動路徑或 ISO 驗收；既有實機登入問題仍需現場狀態驗證，不因本輪協定測試標成已修復。這次未建立新發行版，也未變更家庭設定。
 
+## 0.11.1 Host 更新候選（2026-10-19）
+
+候選基於主線 `9b2f8d4`，將 #122 的專用主機電源／網路政策（G15／G16）透過 #123 正式 Host bootstrap／bundle 路徑交付，保留既有 0.11.0 家庭的獨立身份驗證、圖形審閱與 AH-UPDATE USB 一次性遷移要求。正式公鑰已由 Ted 核准並釘選，私鑰保存在 repo 外的發行端；候選尚未簽署、發布或完成本版媒體／遷移驗收。
+
+候選另擴充精確的自動化寫入相容範圍，保留 Core 2026.10.1 並加入 2026.10.2。[隔離 Core 矩陣](../evidence/core-patch-matrix.json) 在 `8589bdf` 加本輪相容修正的工作樹執行，**36 passed、0 failed／error／skipped（323.62 秒）**：八項真 Core 案例涵蓋兩版各自的提案／批准／寫入、事件與重啟、Owner OAuth、原生通知及唯讀盤點，其餘 28 項為單元／契約測試。分版收據見 [Core .1](../evidence/real-core-integration.json)、[Core .2](../evidence/real-core-integration-2026.10.2.json)、[OAuth .1](../evidence/ha-onboarding-oauth.json) 與 [OAuth .2](../evidence/ha-onboarding-oauth-2026.10.2.json)；[.2 官方來源](../evidence/core-2026.10.2-source.json) 保留 tag／commit 與實際 image digest。
+
+Supervisor 備份回應仍為 fixture，HAOS／Supervisor 真備份與家庭端讀回不在此矩陣內；實體 Dell、真帳號與家庭、斷電恢復及 72 小時運作仍為 `not_run`。本輪未讀取家庭端點、不更新家庭 HA，不沿用舊 CI 作為新候選通過證據；最終提交的廣泛回歸、CI 與產物雜湊另記。不執行 Grok CLI，不變更歷史媒體、上游參考 lock 或獨立鎖定的 Home coding source。
+
 ## 2026-10-19 主線家庭接入修正
 
 本輪新增可撤銷的 [Host 登入 session](HOST_SESSIONS.md)、[明確分享的對話探索](DEVICE_DISCOVERY.md#對話中的唯讀探索)，並修正已連接家庭卻反覆回到初始化，以及 App 商店仍回舊版時停止重試的問題。商店刷新最多三次，Owner 可明確開啟新預算；原先已送出的安裝、啟動與更新仍先讀回，不能藉此重送。

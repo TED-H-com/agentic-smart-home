@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source_hashes": {
-    "host/agentic_host/__init__.py": "431d15ea9e67cb35ea167c01beb956b20cb6c4bd0d4b54b4c45fb34f44dcc27c",
+    "host/agentic_host/__init__.py": "503513fa03bf0469442fb3aa881f0d0ed63ad53ac45a5b4bb454cbf5be14bb0a",
     "host/agentic_host/appliance.py": "aa791571bb63cd07c2039c878593e6709b0318926348963787b45e71b6c2a279",
     "host/agentic_host/appliance_network.py": "0d0ef01731b9248cfc54d94746e07970be3bbff5cd11abefeaa8f88f614f957c",
     "host/agentic_host/appliance_power.py": "f2a66e6985d2a70e61b6b0a581ee91a712aa5021ce13ac1ae07161055989f2d0",
