@@ -24,7 +24,7 @@ from .bootstrap import NoRedirect, write_environment
 from .coding_volume import DiskVolume
 from .fence import fence
 from .manager import HostError, atomic, sync_path
-from .publisher import TRUST, public_key
+from .publisher import TRUST, OfficialPublisher, public_key, store_value
 from .resources import ready
 from .source import SHA40, source_identity
 
@@ -144,7 +144,8 @@ class Updater:
         self.environment = manager.root / "runtime.env"
         self.data = manager.root.parent / "controller"
         self.database = self.data / "controller.sqlite3"
-        self.trust = TRUST if TRUST.exists() else manager.product / "host/update-publishers.json"
+        self.trust = TRUST if TRUST.exists() or TRUST.is_symlink() else manager.product / "host/update-publishers.json"
+        self.official_publisher = OfficialPublisher(manager)
         self.probe_path = self.root / "probe.json"
         self.lock = threading.RLock()
         self.records = json.loads(self.path.read_text()) if self.path.exists() else {}
@@ -216,17 +217,13 @@ class Updater:
         return hashlib.sha256(canonical(values)).hexdigest()
 
     def publishers(self):
-        trust = TRUST if TRUST.exists() else self.trust
-        if not trust.exists():
-            return {}
-        # The browser/worker can never install a signing key or change trust.
-        for path in (trust, *trust.parents):
-            if path.is_symlink() or path.stat().st_uid != 0 or path.stat().st_mode & 0o022:
-                raise UpdateError("update_publisher_store_untrusted")
-        value = json.loads(trust.read_text())
-        if set(value) != {"format", "publishers"} or value["format"] != 1 or not isinstance(value["publishers"], dict):
-            raise UpdateError("update_publisher_store_invalid")
-        return value["publishers"]
+        # An empty local store is a deliberate revocation tombstone. A broken
+        # symlink is an error, never a reason to fall back to bundled authority.
+        trust = TRUST if TRUST.exists() or TRUST.is_symlink() else self.trust
+        try:
+            return store_value(trust)["publishers"]
+        except (OSError, ValueError, TypeError, HostError) as exc:
+            raise UpdateError("update_publisher_store_untrusted") from exc
 
     def verify(self, manifest, signature, *, rollback=False):
         validate_manifest(manifest, now=manifest.get("issued_at") if rollback else None)
@@ -727,10 +724,17 @@ class Updater:
         except UpdateError:
             trusted = False
         return {"contract": 1, "scope": "controller_only_same_schema", "trusted_publisher_configured": trusted,
+                "publisher": self.official_publisher.status(),
                 "runtime_digest": self.runtime_digest(), "deployed_source_commit": source_identity(self.coding)["source_commit"],
                 "records": [self.public(r) for r in self.records.values()]}
 
     def handle(self, method, path, body=None):
+        if method == "GET" and path == "/updates/publisher":
+            return 200, self.official_publisher.status()
+        if method == "POST" and path == "/updates/publisher/offer":
+            return 200, self.official_publisher.offer(body)
+        if method == "POST" and path == "/updates/publisher/approve":
+            return 200, self.official_publisher.approve(body)
         if method == "GET" and path == "/updates":
             return 200, self.status()
         if method == "GET" and path.startswith("/updates/"):
