@@ -4,7 +4,9 @@
 
 候選基於主線 `9b2f8d4`，將 #122 的專用主機電源／網路政策（G15／G16）透過 #123 正式 Host bootstrap／bundle 路徑交付，保留既有 0.11.0 家庭的獨立身份驗證、圖形審閱與 AH-UPDATE USB 一次性遷移要求。正式公鑰已由 Ted 核准並釘選，私鑰保存在 repo 外的發行端；候選尚未簽署、發布或完成本版媒體／遷移驗收。
 
-此版本準備只更新版本與產生物，不沿用舊 CI 或 fixture 結果作為本候選通過證據。精確候選來源、命令、產物雜湊及測試結果將另行記錄；實體 Dell、真帳號與家庭、斷電恢復及 72 小時運作仍為 `not_run`。不執行 Grok CLI，不變更歷史媒體或獨立鎖定的 Home coding source。
+候選另擴充精確的自動化寫入相容範圍，保留 Core 2026.10.1 並加入 2026.10.2。[隔離 Core 矩陣](../evidence/core-patch-matrix.json) 在 `8589bdf` 加本輪相容修正的工作樹執行，**36 passed、0 failed／error／skipped（323.62 秒）**：八項真 Core 案例涵蓋兩版各自的提案／批准／寫入、事件與重啟、Owner OAuth、原生通知及唯讀盤點，其餘 28 項為單元／契約測試。分版收據見 [Core .1](../evidence/real-core-integration.json)、[Core .2](../evidence/real-core-integration-2026.10.2.json)、[OAuth .1](../evidence/ha-onboarding-oauth.json) 與 [OAuth .2](../evidence/ha-onboarding-oauth-2026.10.2.json)；[.2 官方來源](../evidence/core-2026.10.2-source.json) 保留 tag／commit 與實際 image digest。
+
+Supervisor 備份回應仍為 fixture，HAOS／Supervisor 真備份與家庭端讀回不在此矩陣內；實體 Dell、真帳號與家庭、斷電恢復及 72 小時運作仍為 `not_run`。本輪未讀取家庭端點、不更新家庭 HA，不沿用舊 CI 作為新候選通過證據；最終提交的廣泛回歸、CI 與產物雜湊另記。不執行 Grok CLI，不變更歷史媒體、上游參考 lock 或獨立鎖定的 Home coding source。
 
 ## 2026-10-19 主線家庭接入修正
 
