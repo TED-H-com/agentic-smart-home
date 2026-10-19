@@ -1,0 +1,38 @@
+{
+  "source_commit": "d2fc3cb4a7595be283f923ec5b38fba8bd385d84",
+  "captured_at": "2026-10-19T09:46:43.977168+00:00",
+  "synthetic_data": true,
+  "acceptance": "protocol fixture only; physical household, signing pipeline and nested HAOS not_run",
+  "source_files": [
+    {
+      "file": "web/src/host-updates.tsx",
+      "sha256": "9fa79bf00fc4b35270edd96bed1584bfa49bf262e9c558ba1ed4602f359d421a"
+    },
+    {
+      "file": "web/src/maintenance.tsx",
+      "sha256": "7e31bc165398c437af6a45000cf9c9750ed903dfe90a2507553eed9dc785afa6"
+    },
+    {
+      "file": "controller/agentic_controller/host_updates.py",
+      "sha256": "2f69bd7638c838f90c9cc10985f8c3b3d5ec78cb32cda424eaa3efe5fd4d9df5"
+    },
+    {
+      "file": "tests/test_host_updates_ui.py",
+      "sha256": "d190519f03fed996076a62fbb2a86a1a77147c4ceb1c4a77d13081bee3973c47"
+    }
+  ],
+  "files": [
+    {
+      "file": "review-fixture-1440.png",
+      "sha256": "cf395f05acc41c3c5c170a06444d558daa119205aa175fa5bb0d0bd50ad41634"
+    },
+    {
+      "file": "review-fixture-390.png",
+      "sha256": "5e38d2d941de1b47f5b07c729e3ecd08940ea23829b77eeb95aa0ce5d605016b"
+    },
+    {
+      "file": "review-fixture-768.png",
+      "sha256": "bd2f5003d2570e60d7fc25ba7ab44ba9af75df0306ec7ba6ebe3d370079fded3"
+    }
+  ]
+}

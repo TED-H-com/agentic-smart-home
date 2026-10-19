@@ -1,7 +1,7 @@
 {
-  "source_commit": "84966a4c58ecbdd73f541bf1d48bbbe8d3315650",
-  "source_tree": "0324bc34461374443f6ed51347d0854171151c90",
-  "frontend_source_tree": "ff605030eb2b3e88c91a589317d53ec7d18a81a0",
+  "source_commit": "d2fc3cb4a7595be283f923ec5b38fba8bd385d84",
+  "source_tree": "3e3add244ce07074331e557a0a9ff03301556a4e",
+  "frontend_source_tree": "747bbed9f588fd37fa416f46c94795f174a3bb3b",
   "source_files": [
     {
       "file": "scripts/site_screenshots.py",
@@ -139,7 +139,7 @@
     },
     {
       "file": "gateway.png",
-      "sha256": "093bca80074c965bc947550995b4b76e0de8a04975f44998fcedc6fd1b6f8105",
+      "sha256": "caca7eae49bb9270e70cac3eaf74b208a8a25bfd7bcd1d624a62be6b26fe38e2",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -147,7 +147,7 @@
       "device_scale_factor": 1,
       "route": "#gateway",
       "surface": "product",
-      "bytes": 62305
+      "bytes": 62308
     },
     {
       "file": "proposal.png",
@@ -223,7 +223,7 @@
     },
     {
       "file": "../og.png",
-      "sha256": "da874a70b954abab1ed99fb03bb965f413422d80802e658489deb28208a7f48e",
+      "sha256": "5de3e3850c0199bb1fd86b2247496f04030fe1683a009eb6d96956667d561ff8",
       "viewport": {
         "width": 1200,
         "height": 630
@@ -231,11 +231,5 @@
       "device_scale_factor": 1,
       "bytes": 67260
     }
-  ],
-  "source_worktree_dirty": true,
-  "merge_source_parents": [
-    "84966a4c58ecbdd73f541bf1d48bbbe8d3315650",
-    "b8af0d65cc02a94a7986ffd6bf72bf92b5bc0d25"
-  ],
-  "source_note": "Captured from the resolved merge working tree; source_files records exact source bytes."
+  ]
 }
