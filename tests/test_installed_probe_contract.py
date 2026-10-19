@@ -972,21 +972,28 @@ def test_lifecycle_diagnostics_cover_actual_fixed_host_errors_and_checks(update_
     import ast
 
     root = Path(__file__).parents[1] / "host/agentic_host"
+    lan_codes = set()
     for file, exception in (("manager.py", "HostError"), ("daemon.py", "HostError"),
-                            ("ha_lan.py", "HostError"), ("bootstrap.py", "SetupError")):
+                            ("ha_lan.py", "HostError"), ("cow.py", "HostError"), ("bootstrap.py", "SetupError")):
         tree = ast.parse((root / file).read_text())
-        messages = [node.args[0].value for node in ast.walk(tree) if isinstance(node, ast.Call) and
-                    isinstance(node.func, ast.Name) and node.func.id == exception and node.args and
-                    isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)]
+        messages = []
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                    and node.func.id == exception and node.args):
+                continue
+            argument = node.args[0]
+            values = (argument.body, argument.orelse) if isinstance(argument, ast.IfExp) else (argument,)
+            messages.extend(value.value for value in values
+                            if isinstance(value, ast.Constant) and isinstance(value.value, str))
         assert messages
         for message in messages:
             assert update_probe.lifecycle_error(message), (file, message)
-        if file == "ha_lan.py":
-            declared = {code for code in update_probe.LIFECYCLE_ERRORS if code.startswith("ha_lan_")}
-            assert declared == set(messages)
-            for message in messages:
-                assert update_probe.lifecycle_error(message) == message
-                assert update_probe.lifecycle_error(message + " private interface details") is None
+        lan_codes.update(message for message in messages if message.startswith("ha_lan_"))
+    declared = {code for code in update_probe.LIFECYCLE_ERRORS if code.startswith("ha_lan_")}
+    assert declared == lan_codes
+    for message in lan_codes:
+        assert update_probe.lifecycle_error(message) == message
+        assert update_probe.lifecycle_error(message + " private interface details") is None
     tree = ast.parse((root / "compatibility.py").read_text())
     names = next({key.value for key in node.value.keys} for node in tree.body if isinstance(node, ast.Assign) and
                  any(isinstance(target, ast.Name) and target.id == "REQUIRES" for target in node.targets))
