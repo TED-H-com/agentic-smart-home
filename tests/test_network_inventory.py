@@ -327,7 +327,7 @@ async def test_inventory_synology_requires_exact_reviewed_predicates(inventory_s
     else:
         suggestion = result["recommendations"][0]
         assert suggestion["integration_domain"] == "synology_dsm" and suggestion["confidence"] == expected
-        assert "HA 原生" in suggestion["next_step"] and "不傳給管家" in suggestion["next_step"]
+        assert "家庭設定" in suggestion["next_step"] and "不傳給管家" in suggestion["next_step"]
         assert "尚未確認接入" in suggestion["next_step"]
     if source == "lan_mdns" and "vendor" in metadata:
         row = next(row for row in result["observations"] if row["source_id"] == "lan_mdns")
@@ -395,14 +395,14 @@ async def test_inventory_printer_proxy_and_matter_hints_never_merge_or_grant_set
     assert len({row["id"] for row in result["recommendations"]}) == 3
     for row in result["recommendations"]:
         if row["integration_domain"] == "ipp":
-            assert "CUPS" in row["next_step"] and "只有 HA 已發現並驗證" in row["next_step"]
+            assert "分享的印表機" in row["next_step"] and "家庭系統也找到可支援的印表機後" in row["next_step"]
             assert "尚未確認印表機身分" in row["reason"]
             response = await client.post("/api/device-setups", json={"candidate_id": row["id"]},
                                          headers={"Idempotency-Key": row["id"]})
             assert response.status_code == 409  # A LAN clue is not a native HA discovered flow.
             assert response.json()["detail"] == "device_setup_candidate_changed"
         else:
-            assert "不代表已加入 HA" in row["next_step"] and "配對碼" in row["next_step"]
+            assert "尚未確認接入" in row["next_step"] and "配對碼" in row["next_step"]
     assert len(calls) == 1 and store.setting("policy") == before
     assert not any(store.list(kind) for kind in ("device_setup_v1", "proposal", "approval", "conversation"))
     assert set(ha.calls) <= {"/config", "config_entries/flow/progress", "config_entries/get"}

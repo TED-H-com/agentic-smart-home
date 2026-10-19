@@ -2,14 +2,13 @@
 import copy
 import json
 import os
-from pathlib import Path
 import re
+from pathlib import Path
 
 import pytest
 from playwright.sync_api import expect
-from test_conversation_discovery_ui import (  # noqa: F401
-    conversation_browser, printer_result, sent_messages, setup_posts,
-)
+from test_conversation_discovery_ui import conversation_browser as conversation_browser
+from test_conversation_discovery_ui import printer_result, sent_messages, setup_posts
 from test_discovery_ui import observation
 from test_network_inventory_ui import inventory_snapshot
 

@@ -214,10 +214,10 @@ def imported_rows(body):
 # https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/synology_dsm/manifest.json
 # https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/matter/manifest.json
 # These are service clues, never HA config-flow readiness or physical identity.
-IPP_STEP = "這只是 IPP 網路線索，可能來自 CUPS 列印代理；先在 HA 核對實際印表機。只有 HA 已發現並驗證的確認流程才能在管家中提案接入；不代表已加入或已測試列印。"
-MATTER_STEP = "這只是 Matter 可配對服務線索，不代表已加入 HA。請在 HA 原生 Matter／手機 Companion 流程確認設備並輸入配對碼；若已在其他平台使用，先依該平台開啟分享配對。"
+IPP_STEP = "找到網路列印服務，可能是電腦或 NAS 分享的印表機。先請管家核對來源；家庭系統也找到可支援的印表機後，才會提供接入確認。這不代表已能列印。"
+MATTER_STEP = "找到 Matter 可配對服務的線索，尚未確認接入。請用手機的 Home Assistant App 掃描設備配對碼；已在其他平台使用時，先在該平台開啟分享配對。不要把配對碼傳給管家。"
 SYNOLOGY = ("synology", "synology_dsm", "Synology DSM",
-    "這只是 Synology DSM 網路線索；請在 HA 原生 Synology DSM 流程確認 NAS 並登入。帳密與雙重驗證碼只在 HA 輸入，不傳給管家；尚未確認接入或可用。")
+    "找到 Synology 儲存設備的線索。接入前還需要在家庭設定中確認設備並登入；帳密與驗證碼只填在家庭設定頁，不傳給管家。目前尚未確認接入或可用。")
 SYNOLOGY_SSDP_TYPE = "urn:schemas-upnp-org:device:Basic:1"
 FINGERPRINTS = (
     ("_hue._tcp", "hue", "Philips Hue", "在 HA 新增 Hue，並依提示按下橋接器上的連線按鈕。"),

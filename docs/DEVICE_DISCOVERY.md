@@ -59,14 +59,31 @@ Adapter 依固定上游來源核對：[IPP config flow](https://github.com/home-
 | 取得方式 | 實際收集內容 | 涵蓋範圍 |
 |---|---|---|
 | 主機鄰居表 | 所選介面的 IPv4／MAC 快取 | 快取不是設備在線證明，不發送網段掃描 |
-| mDNS | 固定服務類型的 PTR 回應和服務名稱 | 有界 multicast 查詢；回應位址可能是服務代理，不是已核對的設備 IP |
+| mDNS | 固定服務類型的 PTR 回應和服務名稱；同封包、同完整 HTTP 服務實例的 Synology 廠商分類 | 有界 multicast 查詢；不保存原始 TXT 欄位，回應位址可能是服務代理，不是已核對的設備 IP |
 | SSDP | M-SEARCH 回應的服務類型與有限宣告欄位 | 不下載 LOCATION、不讀設備管理頁、不抓完整描述或 TXT |
 | 路由器／防火牆匯出 | JSON、CSV、dnsmasq 租約中的選定欄位 | 使用者匯入的清單；沒有登入路由器，也不持有管理憑證 |
 | HA | 探索候選、整合、設備、entities 與 API 狀態 | 繼續使用既有唯讀來源，不因盤點而增加控制權限 |
 
 主機只提供目前啟用、具實體裝置證明的 Ethernet／Wi-Fi IPv4 介面。介面識別碼由主機產生，掃描前重新核對；不接受模型或瀏覽器指定任意 IP／CIDR。每次只保存最近一次選定網路的 LAN 結果，匯入清單另外保存；新掃描取代舊 LAN 結果，新匯入取代舊匯入。虛擬 bridge、VLAN、VPN、IPv6、隔離訪客網路、休眠設備及非 IP 子設備需其他來源補足，空結果不代表全部設備已接通。
 
-辨識規則是有版本、可審查的 adapter，依官方 HA manifest 支援 Hue、Google Cast、ESPHome、HomeKit Device、Shelly 服務線索；匯入名稱／廠商中 Tuya、Smart Life 等線索提供帳號接入指引。Google Cast 不代表 Google Home 的全部帳號設備，品牌名稱與 MAC 不構成已確認型號。未辨識項目仍保留，可選取交給管家協助核對。不同來源不按名稱、IP 或 MAC 自動合併，列表筆數稱「觀測」，不宣稱有同樣數量的實體設備。
+辨識規則是有版本、可審查的 adapter，依官方 HA manifest 支援 Hue、Google Cast、ESPHome、HomeKit Device、Shelly，以及下列 IPP、Synology、Matter 服務線索；匯入名稱／廠商中 Tuya、Smart Life 等線索提供帳號接入指引。Google Cast 不代表 Google Home 的全部帳號設備，品牌名稱與 MAC 不構成已確認型號。未辨識項目仍保留，可選取交給管家協助核對。不同來源不按名稱、IP 或 MAC 自動合併，列表筆數稱「觀測」，不宣稱有同樣數量的實體設備。
+
+### 常見網路服務帶入聊天
+
+固定收集器增加 `_ipp._tcp`、`_ipps._tcp` 與 `_matterc._udp`，沿用原本選定實體 IPv4 網路、明確確認、時間／封包／大小限制與冷卻時間。Controller 的辨識規則摘要版本為 2；保存格式與 API 契約仍為 1，舊觀測依目前規則重新投影，不重跑掃描。新增查詢需要新版 Host 收集器，僅更新 Controller 不會改變已安裝 Host 的查詢範圍。
+
+| 線索 | 可以說明的下一步 | 不能推定的事 |
+|---|---|---|
+| IPP／IPPS 服務 | 核對是印表機本身或共享佇列；HA 已發現的支援候選才提供接入提案 | CUPS 可能代答；不按同名／同位址合併，不代表已裝列印服務或可列印 |
+| HTTP 服務及同實例 `vendor=synology*` | 作為 Synology 儲存服務線索，依原生流程完成帳號設定 | 只保存固定 `synology` 分類；不是已核對型號、設備身分或原生設定已就緒 |
+| Matter `_matterc._udp` | 說明待配對服務的可能性，依手機原生流程及配對碼核對 | 不保證設備尚未加入其他家庭；不分享配對碼，不代表 IPv6／Thread 通路已可用 |
+| Matter `_matter._tcp` | 保留為運作中的服務觀測 | 不因此新增待配對建議或要求重設設備 |
+
+Synology 的通用 HTTP 名稱、SSDP Basic 類型或品牌字樣不足以證明身分。廠商宣告須綁定同封包的精確 PTR／TXT 實例，重複或畸形 TXT 不提供分類；其他 TXT、原始值與後綴不保存。匯入清單的服務／廠商仍只是 `hint`；SSDP 未下載 XML，因此不能取得官方規則所需的廠商證據。Home Connect 不從任意家電名稱猜測，繼續使用 HA 已提供的候選。
+
+聊天逐筆區分 HA 已發現候選與保存的網路線索，保留各類型的下一步。按「請管家核對」仍帶著所選來源與種類，不把同名線索當成同一設備。網路 IPP 線索不能直接批准接入；後端仍要求精確的 HA 原生確認流程。
+
+規則依 Core `2026.10.2` 的 [IPP manifest](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/ipp/manifest.json)、[Synology manifest](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/synology_dsm/manifest.json)、[Synology 設定流程](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/synology_dsm/config_flow.py) 及 [Matter manifest](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/matter/manifest.json) 核對；服務語意另見 [Matter 探索](https://github.com/project-chip/connectedhomeip/blob/master/docs/tips_and_troubleshooting/discovery_from_a_host_computer.md) 與 [CUPS 共享](https://openprinting.github.io/cups/doc/sharing.html)。合成封包／聊天驗證不能代替實際家中探索與配對。
 
 ### 第一次家庭接入
 

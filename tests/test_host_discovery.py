@@ -181,6 +181,39 @@ def test_malformed_vendor_txt_cannot_supply_classification():
     assert discovery._mdns_observations(packet) == [("_http._tcp.local.", "Fixture NAS", {})]
 
 
+@pytest.mark.parametrize("ptr_labels,txt_labels", [
+    ([b"Fixture.NAS"], [b"Fixture", b"NAS"]),
+    ([b"Fixture\xffNAS"], [b"Fixture\xfeNAS"]),
+])
+def test_mdns_instance_matching_preserves_wire_label_boundaries_and_bytes(ptr_labels, txt_labels):
+    def wire(labels):
+        return b"".join(bytes([len(label)]) + label for label in labels) + b"\0"
+
+    service = [b"_http", b"_tcp", b"local"]
+    target = wire(ptr_labels + service)
+    ptr = wire(service) + struct.pack("!HHIH", 12, 1, 120, len(target)) + target
+    txt = b"\x0fvendor=Synology"
+    record = wire(txt_labels + service) + struct.pack("!HHIH", 16, 1, 120, len(txt)) + txt
+    packet = struct.pack("!6H", 0, 0x8400, 0, 1, 0, 1) + ptr + record
+    observations = discovery._mdns_observations(packet)
+    assert len(observations) == 1 and observations[0][2] == {}
+
+
+def test_mdns_vendor_has_no_cross_packet_memory_and_handles_record_order():
+    packet = ptr_packet(service="_http._tcp.local.", name="Fixture NAS")
+    combined = with_vendor_txt(packet, b"vendor=Synology")
+    ptr, txt = packet[12:], combined[len(packet):]
+    txt_only = struct.pack("!6H", 0, 0x8400, 0, 0, 0, 1) + txt
+    assert discovery._mdns_observations(txt_only) == []
+    assert discovery._mdns_observations(packet) == [("_http._tcp.local.", "Fixture NAS", {})]
+    # Rebuild the PTR uncompressed because its old compression offset changes.
+    target = dns_name("Fixture NAS._http._tcp.local.")
+    ptr = dns_name("_http._tcp.local.") + struct.pack("!HHIH", 12, 1, 120, len(target)) + target
+    reordered = struct.pack("!6H", 0, 0x8400, 0, 2, 0, 0) + txt + ptr
+    assert discovery._mdns_observations(reordered) == [("_http._tcp.local.", "Fixture NAS", {"vendor": "synology"})]
+    assert not discovery._synology_vendor(b"\x0fvendor=Synology\xfftruncated")
+
+
 @pytest.mark.parametrize("packet", [b"", b"\0" * 11, b"x" * (discovery.MAX_PACKET + 1),
     struct.pack("!6H", 0, 0, 0, 0, 0, 0), struct.pack("!6H", 0, 0x8200, 0, 0, 0, 0),
     struct.pack("!6H", 0, 0x8000, 65, 0, 0, 0), struct.pack("!6H", 0, 0x8000, 0, 513, 0, 0),
