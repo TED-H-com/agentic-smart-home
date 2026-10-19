@@ -27,6 +27,7 @@ from .bootstrap import routes as bootstrap_routes
 from .bridge import IngressBridge
 from .bridge_maintenance import BridgeFault, BridgeMaintenance
 from .device_setup import routes as device_setup_routes
+from .device_setup_chat import DeviceSetupChat
 from .discovery import routes as discovery_routes
 from .discovery_chat import DiscoveryChat
 from .discovery_setup import routes as discovery_setup_routes
@@ -693,6 +694,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         coordinator.scope_valid = gateway.scope_valid
         coordinator.household = Household(store, engine, coordinator)
         coordinator.discovery = DiscoveryChat(app, store, ha, coordinator)
+        coordinator.device_setup_status = DeviceSetupChat(app, store, ha, coordinator)
         coordinator.worker_manager.runners = {"host": runner, "haos": inner_runner}
         hermes_routes(app, coordinator, store)
         worker_routes(app, coordinator.worker_manager)

@@ -26,7 +26,7 @@
 
 ### 聊天內確認接入 IPP 印表機
 
-目前可直接執行的第一條接入路徑是 Core `2026.10.1` 已發現的 IPP `zeroconf_confirm` 空表單。這是窄範圍的原生設定 adapter；不接受任意網址、表單欄位、帳密或模型提供的核准，也不擴大到未知版本／品牌的配對。
+目前可直接執行的第一條接入路徑是 Core `2026.10.1`／`2026.10.2` 已發現的 IPP `zeroconf_confirm` 空表單。版本使用精確白名單；其他 patch／預覽版仍需另外驗證。這是窄範圍的原生設定 adapter；不接受任意網址、表單欄位、帳密或模型提供的核准，也不擴大到未知版本／品牌的配對。
 
 1. Owner 在當前對話選擇具體印表機。Controller 重新核對 HA Owner、連線、原始探索身分及確認表單，保存有期限的提案。
 2. 聊天顯示設備、操作與備份範圍；Owner 按「確認接入」後，綁定提案摘要與版本。API 先保存工作再回傳，畫面讀取同一份進度。
@@ -41,6 +41,14 @@
 Adapter 依固定上游來源核對：[IPP config flow](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/ipp/config_flow.py)、[flow HTTP adapter](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/helpers/data_entry_flow.py)、[IPP device identity](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/ipp/coordinator.py)。這些私人前端 API 的相容性限制只停用相關接入能力。
 
 其他候選仍提供來源與下一步、原生配對或既有接入追蹤；目前不宣稱所有品牌均可在聊天內接入。合成設備、HTTP／WebSocket 協定測試與瀏覽器測試不代表實機驗收；真實印表機、HAOS 備份還原及現場使用仍需各自驗證。
+
+### 換對話後續接與解讀結果
+
+聊天的「設備接入進度」在展開時讀取保存清單。Owner 明確選定一筆後，才讀回該工作的最新狀態；不因開啟、切換對話或重新整理而重送批准。歷史入口可以核對結果不明的原工作，不提供新的接入批准。
+
+「請管家解讀結果」以當前 Web／Hermes 訊息的 `device_setup_id` 分享精確一筆紀錄，保留原草稿。`home.device_setup_status` 不接受模型參數，只能讀取這次訊息選定的工作。它重新確認 Owner、家庭連線、對話／側欄授權及紀錄版本，回傳經去密的摘要與最多十六筆關聯設備；不提供批准、備份識別或任意家庭 API 存取。
+
+已完成的接入是歷史事實，目前整合是否存在、是否載入及功能狀態是否可讀取則來自這次觀測。來源失敗或截短保留未知／範圍限制；不以舊成功紀錄推定目前可用，也不當成實體功能驗證。未在當前訊息選定工作時，工具只說明如何分享，不讀取清單。後續訊息不繼承新的讀取授權；已分享摘要仍依原本的對話保存政策保留。
 
 ## 現行多來源流程
 

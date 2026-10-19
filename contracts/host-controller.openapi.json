@@ -465,6 +465,18 @@
             "title": "Coordinator",
             "type": "string"
           },
+          "device_setup_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Setup Id"
+          },
           "discover_devices": {
             "default": false,
             "title": "Discover Devices",

@@ -55,6 +55,8 @@ Web 新增 `mode=bridge`，先確認橋接與 Owner，再掛載聊天；不顯�
 
 0.11.1 候選保留 Core **2026.10.1**，並將 **2026.10.2** 納入精確的自動化寫入相容範圍。[隔離真 Core 矩陣](../evidence/core-patch-matrix.json) 的八項實測涵蓋兩版的提案／批准／寫入與事件重連、Owner OAuth、原生通知及唯讀盤點；[Core .2 官方來源](../evidence/core-2026.10.2-source.json) 另記 tag、不可變 commit 與受測 image digest。Supervisor 備份回應仍是 fixture；HAOS／Supervisor 真備份、實體家庭及 72 小時驗收仍為 `not_run`。這項結果不授權更新家庭的 HA，也不變更 `upstream.lock.json` 的既有參考基準或其他依賴。
 
+尚未發行的聊天接入 adapter 另外以 [IPP 原生設定矩陣](../evidence/device-setup-real-core-matrix-20261019.json) 核對這兩個精確版本的 `zeroconf_confirm` 空表單、設備身分與讀回。它不從自動化 adapter 的成功推定配對相容；未知 patch／預覽版不接受新的接入。真 Core 的 flow、aioipp 與登錄資料路徑保留，探索事件、印表機及 Supervisor 備份使用明示 fixture。聊天的 `home.device_setup_status` 只讀 Owner 當前訊息選定的工作，不能取得原生寫入或重送權限。
+
 ### HA 原生通知 adapter（主線開發中）
 
 `custom_components/agentic_home_notifications` 是獨立版本的原生 HA 整合，產品 protocol 為 1。HA 自動化呼叫 `agentic_home_notifications.send_text`，外層 Controller 透過既有、經 Owner 認證的 HA WebSocket 消費有界佇列，再由原有 Gateway 傳送。沒有第二個 bot receiver、公開 listener、任意 webhook URL 或新的管理 bearer；整合不持有 LINE／Telegram／Discord 憑證。安裝與範例見 [原生通知](HA_NOTIFICATIONS.md)。

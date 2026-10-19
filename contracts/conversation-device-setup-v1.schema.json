@@ -1,0 +1,464 @@
+{
+  "$defs": {
+    "DeviceSetupChatDevice": {
+      "additionalProperties": false,
+      "description": "Only devices linked to the selected entry, without unrelated topology.",
+      "properties": {
+        "available_entity_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Available Entity Count"
+        },
+        "disabled": {
+          "title": "Disabled",
+          "type": "boolean"
+        },
+        "entity_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity Count"
+        },
+        "manufacturer": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manufacturer"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "name": {
+          "maxLength": 160,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "disabled"
+      ],
+      "title": "DeviceSetupChatDevice",
+      "type": "object"
+    },
+    "DiscoveryIntegration": {
+      "additionalProperties": false,
+      "properties": {
+        "domain": {
+          "title": "Domain",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "source_id": {
+          "const": "ha_integrations",
+          "default": "ha_integrations",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "loaded",
+            "not_loaded",
+            "retry",
+            "error",
+            "disabled",
+            "ignored",
+            "unknown"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "domain",
+        "title",
+        "state"
+      ],
+      "title": "DiscoveryIntegration",
+      "type": "object"
+    },
+    "DiscoverySource": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Adapter Version",
+          "type": "integer"
+        },
+        "content_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Digest"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "item_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Item Count"
+        },
+        "location": {
+          "default": "home_assistant",
+          "enum": [
+            "home_assistant",
+            "network_inventory",
+            "not_implemented"
+          ],
+          "title": "Location",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "websocket",
+            "rest",
+            "local_inventory",
+            "not_implemented"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed At"
+        },
+        "reason_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason Code"
+        },
+        "state": {
+          "enum": [
+            "ok",
+            "partial",
+            "unavailable",
+            "unsupported",
+            "not_implemented"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        },
+        "upstream_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upstream Version"
+        }
+      },
+      "required": [
+        "id",
+        "state",
+        "method",
+        "target"
+      ],
+      "title": "DiscoverySource",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One current-message setup selection; history is not current HA health.",
+  "properties": {
+    "available_entity_count": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Available Entity Count"
+    },
+    "content_digest": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Content Digest"
+    },
+    "contract_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Contract Version",
+      "type": "integer"
+    },
+    "current_state": {
+      "default": "unknown",
+      "enum": [
+        "not_recorded",
+        "present",
+        "not_seen",
+        "unknown"
+      ],
+      "title": "Current State",
+      "type": "string"
+    },
+    "device_count": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Device Count"
+    },
+    "devices": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DeviceSetupChatDevice"
+      },
+      "maxItems": 16,
+      "title": "Devices",
+      "type": "array"
+    },
+    "entity_count": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Entity Count"
+    },
+    "integration": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DiscoveryIntegration"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "maxLength": 160,
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "observed_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Observed At"
+    },
+    "physical_verification": {
+      "const": "not_performed",
+      "default": "not_performed",
+      "title": "Physical Verification",
+      "type": "string"
+    },
+    "reason_code": {
+      "anyOf": [
+        {
+          "maxLength": 160,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason Code"
+    },
+    "setup_id": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{32}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Setup Id"
+    },
+    "setup_state": {
+      "anyOf": [
+        {
+          "enum": [
+            "proposed",
+            "preparing",
+            "applying",
+            "configured",
+            "needs_reconcile",
+            "blocked"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Setup State"
+    },
+    "setup_updated_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Setup Updated At"
+    },
+    "sources": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DiscoverySource"
+      },
+      "maxItems": 4,
+      "title": "Sources",
+      "type": "array"
+    },
+    "state": {
+      "enum": [
+        "consent_required",
+        "ready",
+        "unavailable"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "title": {
+      "anyOf": [
+        {
+          "maxLength": 160,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Title"
+    },
+    "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "state"
+  ],
+  "title": "ConversationDeviceSetup",
+  "type": "object"
+}

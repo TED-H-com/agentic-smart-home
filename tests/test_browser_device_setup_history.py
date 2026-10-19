@@ -6,7 +6,11 @@ import re
 import pytest
 from playwright.sync_api import expect
 from test_conversation_discovery_ui import (  # noqa: F401
-    conversation_browser, printer_result, sent_messages, setup_posts, setup_result,
+    conversation_browser,
+    printer_result,
+    sent_messages,
+    setup_posts,
+    setup_result,
 )
 
 
