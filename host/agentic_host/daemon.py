@@ -112,6 +112,17 @@ def install_broker_stops(server, coding):
 def serve(path="/run/agentic-home/host.sock"):
     os.umask(0o077)
     manager = Manager()
+    from .appliance import reconcile_appliance
+    # Fixed installed Host code only; never execute Controller/coding source as root.
+    # Reconciliation must not hold up the rescue socket if a utility is slow.
+    def appliance_startup():
+        try:
+            reconcile_appliance(manager)
+            from .appliance_status import observe_network
+            observe_network(manager.root, manager.run)
+        except Exception:
+            print("Appliance settings need attention; rescue remains available", file=sys.stderr, flush=True)
+    threading.Thread(target=appliance_startup, name="appliance-startup", daemon=True).start()
     jobs = Jobs(manager)
     from .coding_service import CodingService
     coding = CodingService(manager)

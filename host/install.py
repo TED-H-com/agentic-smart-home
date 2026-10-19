@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from agentic_host import VERSION  # noqa: E402
+from agentic_host.appliance_power import reconcile_power  # noqa: E402
 from agentic_host.artifacts import sha256  # noqa: E402
 from agentic_host.manager import HostError, atomic, validate_profile  # noqa: E402
 from agentic_host.publisher import install_official_default  # noqa: E402
@@ -24,7 +25,8 @@ TARGET = Path("/opt/agentic-home")
 STATE = Path("/var/lib/agentic-home")
 PACKAGES = ["qemu-kvm", "qemu-utils", "libvirt-daemon-system", "libvirt-clients", "ovmf", "dnsmasq-base",
             "docker.io", "docker-compose-v2", "python3", "ca-certificates", "curl", "openssh-server",
-            "git", "e2fsprogs", "util-linux"]
+            "git", "e2fsprogs", "util-linux", "python3-yaml", "ethtool", "netplan.io",
+            "avahi-daemon", "libnss-mdns"]
 
 
 def run(*args):
@@ -54,6 +56,7 @@ def stage_target(target, profile):
     if ROOT.resolve() != dest.resolve():
         shutil.copytree(ROOT, dest, dirs_exist_ok=True)
     atomic(target / "etc/agentic-home/profile.json", profile)
+    reconcile_power(profile, root=target, runtime=False)
     units = target / "etc/systemd/system"
     shutil.copyfile(ROOT / "host/systemd/agentic-home-firstboot.service", units / "agentic-home-firstboot.service")
     wants = units / "multi-user.target.wants"
@@ -97,6 +100,17 @@ def desktop_login_note(access):
         note.chmod(0o600)
 
 
+def verify_appliance(profile):
+    """An install succeeds only after generated network and live power readback."""
+    from agentic_host.appliance_network import reconcile_network
+    network_check = reconcile_network()
+    power_check = reconcile_power(profile)
+    if not network_check.get("verified"):
+        raise HostError("網路省電設定尚未確認，請重試安裝；診斷：appliance_network_verification")
+    if power_check["applicable"] and not power_check["verified"]:
+        raise HostError("蓋上蓋子後繼續運作的設定尚未確認，請重試安裝；診斷：appliance_power_verification")
+
+
 def install(profile, bases):
     preflight(profile, bases)
     verify_bundle(ROOT)
@@ -118,6 +132,11 @@ def install(profile, bases):
     STATE.mkdir(parents=True, exist_ok=True)
     os.environ["DEBIAN_FRONTEND"] = "noninteractive"
     run("apt-get", "update")
+    # Pin the first boot's renderer/identity before desktop packages install NM's global default.
+    run("apt-get", "install", "-y", "python3-yaml", "ethtool", "netplan.io")
+    from agentic_host.appliance_network import reconcile_network
+    if not reconcile_network().get("verified"):
+        raise HostError("網路設定尚未確認，請重試安裝；診斷：appliance_network_verification")
     packages = PACKAGES + (["ubuntu-desktop-minimal", "firefox", "language-pack-zh-hant", "dconf-cli"] if profile["desktop"] else [])
     run("apt-get", "install", "-y", *packages)
     network = json.loads((TARGET / "host/network.lock.json").read_text())["tailscale"]
@@ -153,15 +172,13 @@ def install(profile, bases):
     cli = Path("/usr/local/bin/agentic-home")
     cli.write_text('#!/bin/sh\nexport PYTHONPATH=/opt/agentic-home/host\nexec /usr/bin/python3 -m agentic_host.cli "$@"\n')
     cli.chmod(0o755)
-    if profile["appliance_lid"]:
-        folder = Path("/etc/systemd/logind.conf.d")
-        folder.mkdir(exist_ok=True)
-        (folder / "60-agentic-home.conf").write_text("[Login]\nHandleLidSwitch=ignore\nHandleLidSwitchExternalPower=ignore\nHandleLidSwitchDocked=ignore\n")
+    verify_appliance(profile)
     if profile["desktop"]:
         dconf = Path("/etc/dconf/db/local.d")
         dconf.mkdir(parents=True, exist_ok=True)
-        (dconf / "60-agentic-home").write_text("[org/gnome/settings-daemon/plugins/power]\n"
-                                               "sleep-inactive-ac-type='nothing'\nsleep-inactive-ac-timeout=0\n")
+        if not profile["appliance_lid"]:
+            (dconf / "60-agentic-home").write_text("[org/gnome/settings-daemon/plugins/power]\n"
+                                                   "sleep-inactive-ac-type='nothing'\nsleep-inactive-ac-timeout=0\n")
         dconf_profile = Path("/etc/dconf/profile/user")
         dconf_profile.parent.mkdir(parents=True, exist_ok=True)
         previous = dconf_profile.read_text() if dconf_profile.exists() else "user-db:user\n"
@@ -176,7 +193,8 @@ def install(profile, bases):
         run("systemctl", "set-default", "graphical.target")
         desktop_login_note(access)
     # Only product images are loaded; manifests pin image IDs separately from version tags.
-    run("systemctl", "enable", "--now", "docker", "libvirtd", "ssh", "tailscaled")
+    run("hostnamectl", "set-hostname", "castle-agentic-home")
+    run("systemctl", "enable", "--now", "docker", "libvirtd", "ssh", "tailscaled", "avahi-daemon")
     run("docker", "load", "-i", str(TARGET / "assets/agentic-images.tar"))
     images = json.loads((TARGET / "images.lock.json").read_text())
     for tag, expected in images.items():
