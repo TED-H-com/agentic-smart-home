@@ -38,7 +38,7 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
     pairing = {channel: {'state': 'idle', 'code': None, 'expires_at': None, 'chat': None, 'sender': None}
                for channel in ['line', 'telegram']}
     authorization = {'state': 'idle', 'error_code': None}
-    failure = {'read': False, 'start_reply': True, 'authorize_url': True}
+    failure = {'read': False, 'authorize_url': True}
     calls, errors, urls = [], [], []
 
     def stage(step, state='running', action=None):
@@ -50,6 +50,10 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
                         verified_at='2026-10-12T08:00:00Z' if number < index else None)
             if item['id'] == 'channel' and flow['channel'] == 'web' and number < index:
                 item['state'] = 'skipped'
+
+    flow['provider'] = 'grok'
+    stage('cli_auth', 'waiting_input', {'kind': 'cli_login', 'provider': 'grok',
+                                       'message': '請完成選定 CLI 的官方授權。'})
 
     def route(route):
         request = route.request
@@ -74,16 +78,6 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
         elif path == 'bootstrap':
             if failure['read']:
                 route.fulfill(status=503, content_type='application/json', body='{"detail":"fixture disconnected"}')
-                return
-            result = flow
-        elif path == 'bootstrap/start':
-            assert body == {'provider': 'grok', 'channel': 'line'}
-            flow['provider'] = body['provider']
-            stage('cli_auth', 'waiting_input', {'kind': 'cli_login', 'provider': 'grok',
-                                               'message': '請完成選定 CLI 的官方授權。'})
-            if failure['start_reply']:
-                failure['start_reply'] = False
-                route.abort('failed')
                 return
             result = flow
         elif path == 'bootstrap/retry':
@@ -175,35 +169,9 @@ def test_cli_first_bootstrap_resumes_and_waits_for_real_backend_states():
             page.on('pageerror', lambda error, errors=errors: errors.append(str(error)))
             page.route('**/api/**', route)
             page.goto(f'http://127.0.0.1:{server.server_port}/#onboarding')
-            page.get_by_role('heading', name='先選一個 AI 帳號', exact=True).wait_for()
-            assert page.locator('article.provider').count() == 0
-            expect(page.locator('.onboarding-body').get_by_role('heading')).to_have_count(1)
-            expect(page.locator('.topbar .ha-status')).to_have_count(0)
-            expect(page.get_by_role('list', name='自動設定進度').locator('li')).to_have_count(5)
-            expect(page.get_by_role('radio', name='Codex ChatGPT 訂閱', exact=True)).to_be_checked()
-            page.get_by_role('radio', name='Codex ChatGPT 訂閱', exact=True).focus()
-            page.keyboard.press('ArrowRight')
-            expect(page.get_by_role('radio', name='Claude Code Claude 訂閱', exact=True)).to_be_checked()
-            expect(page.get_by_text('Claude Code 使用官方 setup-token', exact=False)).to_have_count(0)
-            page.get_by_role('radio', name='Antigravity Gemini API 金鑰', exact=True).check()
-            expect(page.get_by_text('Google 訂閱登入尚未整合', exact=False)).to_have_count(0)
-            page.get_by_role('radio', name='Grok Build Grok 訂閱', exact=True).check()
-            shots(page, 'choose')
-            start = page.locator('.onboarding-body').get_by_role('button', name='開始設定', exact=True)
-            assert start.bounding_box()['y'] + start.bounding_box()['height'] <= page.viewport_size['height']
-            progress = page.get_by_role('list', name='自動設定進度')
-            for label in ('主機', 'AI 帳號', '智能管家', '通訊', '家庭'):
-                expect(progress).to_contain_text(label)
-            expect(page.get_by_role('button', name='稍後再設定', exact=True)).to_be_visible()
-            assert page.get_by_role('link', name='主機狀態', exact=True).count() == 0
-            page.get_by_text('詳細說明', exact=True).click()
-            expect(page.get_by_text('開始即會安裝並維護智能管家側欄；不改家庭的系統更新，你停止或移除後不會自動裝回，可隨時在設定撤銷。', exact=True)).to_be_visible()
-            expect(page.get_by_role('button', name='選單', exact=True)).to_have_count(0)
-            expect(page.locator('#main-navigation')).to_have_count(0)
-            page.locator('.onboarding-body').get_by_role('button', name='開始設定', exact=True).click()
-            # Server accepted the start but the response was lost: GET resumes the persisted flow.
             page.get_by_role('button', name='開始登入', exact=True).wait_for()
-            assert len([call for call in calls if call[0] == 'bootstrap/start']) == 1
+            assert not any(call[0] == 'bootstrap/start' for call in calls)
+            expect(page.get_by_role('list', name='自動設定進度').locator('li')).to_have_count(5)
             assert page.locator('article.provider').count() == 1
             expect(page.locator('article.provider').get_by_role('heading')).to_have_text('Grok Build')
             page.get_by_role('button', name='開始登入', exact=True).click()
@@ -436,7 +404,7 @@ def test_desktop_ticket_is_consumed_once_and_never_persisted():
                 page.route('**/api/**', route)
                 page.goto(f'http://127.0.0.1:{server.server_port}/#desktop-login={fragment}')
                 if scenario == 'valid':
-                    page.get_by_role('heading', name='先選一個 AI 帳號', exact=True).wait_for()
+                    page.get_by_role('heading', name='開始準備你的家庭', exact=True).wait_for()
                     assert calls[0] == 'deployment'
                     assert calls.count('host/desktop-login') == 1
                     expect(page.get_by_label('主機登入金鑰')).to_have_count(0)
@@ -457,7 +425,7 @@ def test_desktop_ticket_is_consumed_once_and_never_persisted():
                 assert first_count == (0 if scenario == 'malformed' else 1)
                 page.reload()
                 if scenario == 'valid':
-                    page.get_by_role('heading', name='先選一個 AI 帳號', exact=True).wait_for()
+                    page.get_by_role('heading', name='開始準備你的家庭', exact=True).wait_for()
                 else:
                     page.get_by_label('主機登入金鑰').wait_for()
                 assert calls.count('host/desktop-login') == first_count

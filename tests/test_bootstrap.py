@@ -6,8 +6,8 @@ import json
 import httpx
 import pytest
 from agentic_controller.app import create_app
-from agentic_controller.bootstrap import Bootstrap
-from agentic_controller.models import BootstrapPreferences, BootstrapStart, GatewayPreferences
+from agentic_controller.bootstrap import Bootstrap, STEPS
+from agentic_controller.models import BootstrapPreferences, BootstrapStart, BootstrapStatus, BootstrapStep, GatewayPreferences
 from agentic_controller.runner import RunnerError
 from agentic_controller.store import Conflict
 
@@ -119,10 +119,25 @@ def setup(store, ha, monkeypatch):
     return bootstrap, backend, runner, hermes, gateway
 
 
+async def start_legacy(bootstrap, body, key):
+    """Resume a shipped CLI-first record with no additive workflow marker."""
+    if not bootstrap.record():
+        bootstrap.store.put("bootstrap_v1", {
+            **BootstrapStatus(provider=body.provider, channel=body.channel,
+                steps=[BootstrapStep(id=step) for step in STEPS]).model_dump(),
+            "id": "setup", "data_contract": 1, "run_id": "fixture-legacy-setup", "state": "running",
+            "current_step": "network", "jobs": {}, "attempts": {}, "bridge_auto_enroll": True,
+        })
+        bootstrap.store.set_setting("gateway", {**bootstrap.gateway.preferences().model_dump(),
+            "primary": body.channel, "provider": body.provider, "runtime": "host", "coordinator": "hermes"})
+        bootstrap.store.set_setting("gateway_selected", True)
+    return await bootstrap.start(body, key)
+
+
 async def start_at_install(setup, channel="web"):
     bootstrap, _, runner, _, _ = setup
     runner.connected = True
-    await bootstrap.start(BootstrapStart(provider="codex", channel=channel), "start")
+    await start_legacy(bootstrap, BootstrapStart(provider="codex", channel=channel), "start")
     await bootstrap.advance()
     assert bootstrap.public()["current_step"] == "hermes_install"
 
@@ -135,9 +150,9 @@ async def ready_for_channel(setup, channel="line"):
     await bootstrap.advance()
 
 
-async def test_start_pairs_automatically_waits_for_actual_auth_and_resumes(setup):
+async def test_existing_cli_first_setup_pairs_waits_for_actual_auth_and_resumes(setup):
     bootstrap, backend, runner, _, _ = setup
-    first = await bootstrap.start(BootstrapStart(provider="codex"), "same-key")
+    first = await start_legacy(bootstrap, BootstrapStart(provider="codex"), "same-key")
     assert first["state"] == "running"
     assert bootstrap.record()["bridge_auto_enroll"] is True
     await bootstrap.advance()
@@ -145,9 +160,9 @@ async def test_start_pairs_automatically_waits_for_actual_auth_and_resumes(setup
     assert waiting["current_step"] == "cli_auth"
     assert waiting["human_action"]["kind"] == "cli_login"
     assert not any(method == "POST" for method, _ in backend.calls)
-    assert await bootstrap.start(BootstrapStart(provider="codex"), "same-key") == waiting
+    assert await start_legacy(bootstrap, BootstrapStart(provider="codex"), "same-key") == waiting
     with pytest.raises(Conflict):
-        await bootstrap.start(BootstrapStart(provider="grok"), "same-key")
+        await start_legacy(bootstrap, BootstrapStart(provider="grok"), "same-key")
     runner.connected = True
     await bootstrap.advance()
     assert bootstrap.public()["current_step"] == "hermes_install"
@@ -156,7 +171,7 @@ async def test_start_pairs_automatically_waits_for_actual_auth_and_resumes(setup
 
 async def test_account_error_categories_reach_login_and_assist(setup):
     bootstrap, _, runner, _, _ = setup
-    await bootstrap.start(BootstrapStart(provider="codex"), "start-plain")
+    await start_legacy(bootstrap, BootstrapStart(provider="codex"), "start-plain")
     await bootstrap.advance()
     plain = bootstrap.public()
     assert plain["human_action"]["message"] == "請完成所選 CLI 的官方登入；完成後會自動繼續。"
@@ -165,11 +180,12 @@ async def test_account_error_categories_reach_login_and_assist(setup):
     runner.reason = "rate_limited"
     await bootstrap.advance()
     limited = bootstrap.public()
-    assert limited["current_step"] == "cli_auth" and limited["human_action"]["kind"] == "cli_login"
+    assert limited["current_step"] == "cli_auth" and limited["human_action"]["kind"] == "retry"
     assert limited["human_action"]["code"] == "rate_limited"
     assert limited["human_action"]["message"] == "已達用量上限，請稍後再試。"
-    assert next(step["code"] for step in limited["steps"] if step["id"] == "cli_auth") == "cli_login_required"
+    assert next(step["code"] for step in limited["steps"] if step["id"] == "cli_auth") == "rate_limited"
     runner.connected, runner.reason, runner.assist_error = True, None, "needs_reauth"
+    await bootstrap.retry("retry-status")
     await bootstrap.advance()
     failed = bootstrap.public()
     assert failed["state"] == "blocked" and failed["current_step"] == "cli_assist"
@@ -183,7 +199,7 @@ async def test_account_error_categories_reach_login_and_assist(setup):
 async def test_no_network_prevents_pairing_auth_and_any_host_action(setup):
     bootstrap, backend, runner, _, _ = setup
     backend.value["bootstrap"]["network"]["ready"] = False
-    await bootstrap.start(BootstrapStart(provider="codex"), "start")
+    await start_legacy(bootstrap, BootstrapStart(provider="codex"), "start")
     await bootstrap.advance()
     assert bootstrap.public()["current_step"] == "network"
     assert not runner.calls and all(method == "GET" for method, _ in backend.calls)
@@ -195,7 +211,7 @@ async def test_no_network_prevents_pairing_auth_and_any_host_action(setup):
 async def test_lost_runner_reply_uses_exact_persisted_handle_without_second_inference(setup):
     bootstrap, backend, runner, _, _ = setup
     runner.connected, runner.lost = True, True
-    await bootstrap.start(BootstrapStart(provider="codex"), "start")
+    await start_legacy(bootstrap, BootstrapStart(provider="codex"), "start")
     await bootstrap.advance()
     original = copy.deepcopy(bootstrap.record()["assist_request"])
     assert bootstrap.public()["current_step"] == "cli_assist"
@@ -361,7 +377,7 @@ async def test_failed_host_job_needs_explicit_idempotent_retry_with_new_handle(s
 
 async def test_lifespan_resume_keeps_background_progress_without_page(setup, store, ha):
     bootstrap, backend, runner, hermes, gateway = setup
-    await bootstrap.start(BootstrapStart(provider="codex"), "start")
+    await start_legacy(bootstrap, BootstrapStart(provider="codex"), "start")
     resumed = Bootstrap(store, runner, hermes, gateway, ha, "fixture-controller", host_request=backend)
     resumed.resume()
     try:
@@ -424,7 +440,7 @@ async def test_controller_request_passes_real_runner_bootstrap_contract(setup, t
                         raise RunnerError("fixture HTTP rejection", response.status_code)
                     return response.json()
             bootstrap.runner = Adapter()
-            await bootstrap.start(BootstrapStart(provider="codex", channel="web"), "start")
+            await start_legacy(bootstrap, BootstrapStart(provider="codex", channel="web"), "start")
             await bootstrap.advance()
             await asyncio.gather(*list(broker.tasks.values()))
             await bootstrap.advance()

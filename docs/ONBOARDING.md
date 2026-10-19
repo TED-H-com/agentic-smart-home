@@ -1,17 +1,19 @@
-# 自動 onboarding：CLI 先行
+# 自動 onboarding：家庭準備與主要管家
 
-依 2026-10-12 Owner 指示，首次使用從選擇熟悉的 coding CLI 開始。0.7.0 起加入薄型 HA 側欄與自家 App 維護；HA 系統更新由 HA 官方流程管理。預設區域網路自動取得位址；固定 IP／Tailscale 的選擇保留稍後處理，不是登入助手的前提。
+依 2026-10-19 Owner 後續指示，新啟動的首次設定先準備家庭環境，只要求主要 Hermes 管家登入。初始化 CLI 的登入與模型查證不再是前置條件；開發助手與外部通訊留到使用時再設定。0.7.0 起加入薄型 HA 側欄與自家 App 維護；HA 系統更新由 HA 官方流程管理。預設區域網路自動取得位址；固定 IP／Tailscale 的選擇保留稍後處理，不是登入助手的前提。
 
 ```text
 USB 開機 → Linux 安裝／連網 → Web
-  → 選一個 CLI → 官方登入
-  → CLI 檢查設定需求 → 準備發行受測的 Hermes
-  → Hermes 帳號驗證 → LINE／Telegram／Discord／Web
-  → 自動建立或啟動 HAOS → HA 原生 onboarding → 綁定家庭 Owner
+  → 自動配對主機 → 自動建立或啟動 HAOS
+  → 準備發行受測的 Hermes → Hermes 官方登入與模型驗證
+  → HA 原生 onboarding → 綁定家庭 Owner
   → 加入智能管家側欄 → 日常使用原生 HA
+  → 需要時再啟用開發助手、LINE／Telegram／Discord
 ```
 
-使用者選擇一次 CLI 和主要通道；「開始設定」旁說明完成後加入側欄，展開可查看只維護本產品 App 的授權範圍。啟動設定後，Controller 的持久工作會自動執行已授權步驟。關閉 Web 不取消工作；重新開啟讀取原進度。讀取進度本身不建立工作。帳號授權、LINE 掃碼、建立 Telegram bot、家庭密碼和設備權限仍需真正的 Owner 操作；無法登入或服務中斷時顯示實際等待原因。
+Web 新設定預設使用 Web 通道；「開始設定」旁說明完成後加入側欄，展開可查看只維護本產品 App 的授權範圍。啟動設定後，Controller 的持久工作會自動執行已授權步驟。HAOS 準備不查詢模型、不要求 CLI／Hermes 已登入，仍保留暫停、KVM、還原中與不確定主機操作的檢查。關閉 Web 不取消工作；重新開啟讀取原進度。讀取進度本身不建立工作。帳號授權、LINE 掃碼、建立 Telegram bot、家庭密碼和設備權限仍需真正的 Owner 操作；無法登入或服務中斷時顯示實際等待原因。
+
+這是尚未發布的程式增量，不表示既有 0.11.0 媒體或 Owner 主機已更新。新紀錄在既有 `bootstrap_v1` 加入內部 `workflow=butler_v1`，沿用原 step ID；CLI 步驟明示略過，不偽造登入或推論完成。公開 start 契約保留 `provider`，新 Web 固定送 `codex` 作相容欄位，實際主要模型仍在 Hermes 登入中選擇。明確由 API 指定外部通道的呼叫仍保留該選擇，通道接在原生家庭設定之後，也可改選 Web。沒有新 workflow 欄位的既有紀錄沿原順序續跑，保留已完成／略過的步驟、授權與工作 ID；不自動遷移正在登入或執行中的舊流程。舊 CLI 路徑的網路、逾時、用量與未辨識狀態改為重試核對，不重新啟動登入。這不宣稱已定位實機的登入循環。
 
 ## 安裝與網路
 
@@ -19,7 +21,7 @@ USB 開機 → Linux 安裝／連網 → Web
 
 0.10.0 公共 ISO 在 Ubuntu 磁碟設定前檢查 CPU 架構、實際 RAM 與 KVM；硬體不符合時顯示原因並停止，不先寫入安裝磁碟。通過後由 Ubuntu 安裝器處理網路、磁碟及 Linux 身份；選定目標後自動完成套件、桌面、產品服務與外層配對。公共媒體不預選要清除的磁碟、不內嵌通用密碼。Linux 桌面登入後自動開啟 Web，使用本機 Owner 的 120 秒一次性票據登入；Controller 的私有票據檔只保存 hash；家目錄0700目錄中的0600暫時 HTML 傳遞票據並在120秒後清除，程序參數不含 bearer，浏览器立即清除 fragment，票據不進 storage。其他 Linux 帳號或遠端瀏覽器仍使用明確的金鑰登入。初次 firstboot 只啟動外層；HAOS 由後續 onboarding 自動啟動，故內層未準備好不阻擋外層登入。
 
-專用筆電第一次安裝應接 AC 電源與有線家庭主網路，先選 Web 通道完成管家與家庭，再接其他通訊。firstboot 需要下載桌面與 Firefox；沒有外網時不會憑空完成桌面，Wi-Fi 驅動、斷線恢復與合蓋行為仍需實機確認。
+專用筆電第一次安裝應接 AC 電源與有線家庭主網路，新流程使用 Web 完成管家與家庭，再接其他通訊。firstboot 需要下載桌面與 Firefox；沒有外網時不會憑空完成桌面，Wi-Fi 驅動、斷線恢復與合蓋行為仍需實機確認。
 
 0.10.0 在首次設定、按「開始設定」之前提供「先設定家庭區網（有線設備探索）」；Owner 選擇目前啟用的實體有線介面後保存，HAOS 建立時增加第二張家庭 NIC，原管理 NIC 保留。未選擇維持基本 NAT。已建立的家庭須正常關機後在主機維護切換，再啟動並核對 HAOS／HA 的實際讀回；新接線本身不代表設備已通，見 [家庭區網接入](HA_LAN.md)。
 
@@ -27,7 +29,7 @@ USB 開機 → Linux 安裝／連網 → Web
 
 ## Agent 與程式的分工
 
-選定的 CLI 實際執行固定 bootstrap prompt，只取得必要且無秘密的觀測，產出經 schema 驗證的建議。它不能提供任意 URL、shell、套件名或磁碟路徑給 root broker。安裝、設定與狀態核對由固定程式執行；CLI 回覆「成功」不算完成證據。這個受限設定助手不是 v3 的通用 coding worker，不解除既有 home_operator 限制。
+安裝、設定與狀態核對由固定程式執行；新流程不必先呼叫模型才能準備 HAOS 或受測 Hermes。既有 CLI-first 紀錄仍會讓原選定 CLI 執行固定 bootstrap prompt，只取得必要且無秘密的觀測，產出經 schema 驗證的建議。它不能提供任意 URL、shell、套件名或磁碟路徑給 root broker；CLI 回覆「成功」不算完成證據。這個舊流程的受限設定助手不是 v3 的通用 coding worker，不解除既有 home_operator 限制。
 
 Hermes 的 OAuth 與 CLI 登入由各自的受信任接點管理，不複製可輪換 refresh token、不共用可寫 HOME。Codex 可使用官方 device-code 流程；其他 CLI 依實際 adapter 支援呈現，未支援的訂閱登入不冒充可用。Hermes 仍須真實推論成功才標示 ready，僅保存憑證為 configured。相關官方文件：[Codex 登入](https://learn.chatgpt.com/docs/auth)、[Hermes 認證池](https://hermes-agent.nousresearch.com/docs/user-guide/features/credential-pools)。
 
@@ -53,9 +55,9 @@ Owner 後續改採 [自家發行策略](RELEASE_POLICY.md)：新版本安裝產�
 
 家庭 Owner 已確認，但尚未選擇可讀設備時，「繼續設定」會進入智能管家協助接入，不再回到已完成的主機初始化。家庭連線與設備控制授權分開判定；暫時斷線保留救援入口。對話探索須由 Owner 明確分享這次結果，未授權控制的家庭也能找出待設定候選；登入、配對與設備權限仍各自確認，見 [對話探索](DEVICE_DISCOVERY.md#對話中的唯讀探索)。
 
-LINE 為預設選项；Web 一直可用，選 Web 是明確略過外部通道。沿用唯一 Gateway，不同時啟動另一個 Hermes bot receiver 消費相同 token。LINE 掃碼後選定聊天室，再傳送配對碼；Telegram 建立 BotFather bot、貼 token 並傳送 `/pair CODE`。配對碼短效、可取消且只綁定真實 sender／chat；配對之前的訊息不交給模型。Discord 保留原本明確頻道／使用者設定。通道必須實際 connected 且建立允許的聊天室／使用者範圍才繼續；帳號保存或 QR 畫面不能當成已連線。
+新 Web 首次設定預設略過外部通道；既有紀錄保留原通道選擇。需要外部通訊時沿用唯一 Gateway，不同時啟動另一個 Hermes bot receiver 消費相同 token。LINE 掃碼後選定聊天室，再傳送配對碼；Telegram 建立 BotFather bot、貼 token 並傳送 `/pair CODE`。配對碼短效、可取消且只綁定真實 sender／chat；配對之前的訊息不交給模型。Discord 保留原本明確頻道／使用者設定。明確選擇的通道必須實際 connected 且建立允許的聊天室／使用者範圍才算完成；帳號保存或 QR 畫面不能當成已連線。
 
-完成外層與所選通道後，固定 Host broker 自動 provision／start 產品管理的 HAOS。只核對固定內部 Core `/api/onboarding`，逐項回報真實步驟；VM running 不等於 Core 就緒，API 斷線或 401 也不等於 onboarding 完成。原生 HA 頁面由 Owner 設定家庭與帳號，之後透過 HA 官方瀏覽器授權返回 Controller，驗證 active owner 後建立專用長效授權，保存成功再撤銷臨時 OAuth refresh grant。code／token 不回傳 Web 或模型；state 綁本機 session、origin、時限與授權世代，重播／舊流程回呼拒絕。手動 token 僅保留進階備援。已完成設定的 Core 重啟後可能移除 onboarding 路由；404 必須再有獨立的有效 owner 與 `/config` 證據才能標示完成。模型不讀取家庭密碼或管理 bearer，不替使用者猜地理位置、同意遙測或授權設備。
+新流程在模型登入前，由固定 Host broker 自動 provision／start 產品管理的 HAOS；既有 CLI-first 紀錄仍在外層與所選通道完成後執行。只核對固定內部 Core `/api/onboarding`，逐項回報真實步驟；VM running 不等於 Core 就緒，API 斷線或 401 也不等於 onboarding 完成。原生 HA 頁面由 Owner 設定家庭與帳號，之後透過 HA 官方瀏覽器授權返回 Controller，驗證 active owner 後建立專用長效授權，保存成功再撤銷臨時 OAuth refresh grant。code／token 不回傳 Web 或模型；state 綁本機 session、origin、時限與授權世代，重播／舊流程回呼拒絕。手動 token 僅保留進階備援。已完成設定的 Core 重啟後可能移除 onboarding 路由；404 必須再有獨立的有效 owner 與 `/config` 證據才能標示完成。模型不讀取家庭密碼或管理 bearer，不替使用者猜地理位置、同意遙測或授權設備。
 
 ## 驗證界線
 
