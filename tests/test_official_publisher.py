@@ -30,8 +30,8 @@ def metadata(pem=None):
             "pin": {"public_key_pem": pem, "key_sha256": public_key(pem)[1]} if pem else None}
 
 
-@pytest.fixture
-def official(tmp_path, monkeypatch):
+@pytest.fixture(params=["throwaway", "shipped"])
+def official(tmp_path, monkeypatch, request):
     # Simulate root ownership only; preserve real modes/types and symlink checks.
     # No test may enroll anything outside this fixture's explicit trust_path.
     previous_umask = os.umask(0o077)
@@ -49,7 +49,9 @@ def official(tmp_path, monkeypatch):
     product = tmp_path / "product"
     (product / "host").mkdir(parents=True)
     descriptor = product / "host/official-update-channel.json"
-    descriptor.write_text(json.dumps(metadata(key())))
+    value = (json.loads((Path(__file__).parents[1] / "host/official-update-channel.json").read_text())
+             if request.param == "shipped" else metadata(key()))
+    descriptor.write_text(json.dumps(value))
     manager = SimpleNamespace(product=product, locked=nullcontext)
     service = OfficialPublisher(manager, trust_path=tmp_path / "etc/update-publishers.json")
     try:
@@ -58,10 +60,24 @@ def official(tmp_path, monkeypatch):
         os.umask(previous_umask)
 
 
-def test_shipped_current_metadata_honestly_has_no_official_key():
+def test_shipped_production_metadata_has_approved_public_key_and_fingerprint():
     value = json.loads((Path(__file__).parents[1] / "host/official-update-channel.json").read_text())
-    assert validate_official_channel(value)["pin"] is None
-    assert value["image_repository"] is None
+    assert validate_official_channel(value) == value
+    assert value["image_repository"] == "ghcr.io/ted-h-com/agentic-smart-home-controller"
+    expected_pem = ("-----BEGIN PUBLIC KEY-----\n"
+                    "MCowBQYDK2VwAyEA1fUHnQTX7LEJxfdrkmuvpdPw7r8uBwozTfqns+na97c=\n"
+                    "-----END PUBLIC KEY-----\n")
+    expected_fingerprint = "18dd73f8b96d115d076be6b362cd62ed011c4be2b6dfdaf808e9b3e5a6a53d39"
+    assert value["pin"] == {"public_key_pem": expected_pem, "key_sha256": expected_fingerprint}
+    assert public_key(expected_pem) == (expected_pem, expected_fingerprint)
+
+
+def test_unconfigured_metadata_remains_valid_without_inventing_a_publisher():
+    value = metadata()
+    assert validate_official_channel(value) == value
+    assert value["pin"] is None and value["image_repository"] is None
+    with pytest.raises(HostError, match="metadata_invalid"):
+        validate_official_channel({**value, "image_repository": OFFICIAL_IMAGE})
 
 
 @pytest.mark.parametrize("field,value", [("format", True), ("repository", "evil/repo"),
