@@ -89,7 +89,7 @@ def build(product, host_manifest, host_bundle, controller_update, controller_ima
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
         target.chmod(0o644)
-    for name in ("bootstrap_owner.py", "bootstrap_media.py", "host_update.py", "host_restore.py", "host_reconcile.py", "update_bootstrap.py"):
+    for name in ("bootstrap_owner.py", "bootstrap_media.py", "host_update.py", "host_restore.py", "host_reconcile.py", "update_bootstrap.py", "update_service.py"):
         if not (code / name).is_file():
             raise ValueError("Bootstrap product is incomplete")
     shutil.copyfile(descriptor, payload / "product/host/official-update-channel.json")
@@ -125,7 +125,7 @@ def build(product, host_manifest, host_bundle, controller_update, controller_ima
     control.mkdir()
     version = host["manifest"]["version"]
     (control / "control").write_text("Package: agentic-home-update-bootstrap\nVersion: " + version +
-        "\nArchitecture: amd64\nMaintainer: Agentic Home maintainers\nDepends: python3, openssl, policykit-1, zenity, lvm2, udisks2, util-linux\n"
+        "\nArchitecture: amd64\nMaintainer: Agentic Home maintainers\nDepends: python3, python3-yaml, openssl, policykit-1, zenity, lvm2, udisks2, util-linux, ethtool, netplan.io, dconf-cli\n"
         "Description: One-time owner-approved Agentic Home Host updater bootstrap\n")
     (control / "postinst").write_text(POSTINST)
     (control / "postinst").chmod(0o755)

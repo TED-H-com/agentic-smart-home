@@ -45,7 +45,7 @@ def owner(tmp_path, monkeypatch):
     (root / "runtime.env").write_text("# Original runtime\n")
     source = payload / "product/host"
     (source / "agentic_host").mkdir(parents=True)
-    for name in ("__init__.py", "bootstrap_owner.py", "bootstrap_media.py", "host_update.py", "host_restore.py", "host_reconcile.py", "update_bootstrap.py"):
+    for name in ("__init__.py", "bootstrap_owner.py", "bootstrap_media.py", "host_update.py", "host_restore.py", "host_reconcile.py", "update_bootstrap.py", "update_service.py"):
         (source / "agentic_host" / name).write_text("# public synthetic fixture\n")
     (source / "systemd").mkdir()
     for name in module.ENGINE_UNITS:
@@ -605,3 +605,12 @@ def test_gui_timeout_reports_unknown_state_and_closes_progress(monkeypatch, phas
     if phase == "apply":
         assert progress == ["closed"]
         assert "請勿重送" in calls[-1][-1]
+
+
+def test_unsafe_appliance_baseline_is_rejected_in_review_before_stopping_or_restoring(owner):
+    module_path = owner.manager.product / "host/agentic_host/appliance.py"
+    module_path.parent.mkdir(parents=True)
+    module_path.write_text("# older autonomous startup without updater guard\n")
+    with pytest.raises(HostError, match="目前主機版本尚未支援安全還原"):
+        owner.review()
+    assert not owner.path.exists() and not owner.trust.exists() and not owner.fixture.calls

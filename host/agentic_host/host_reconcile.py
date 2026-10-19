@@ -113,7 +113,9 @@ class HostReconcile:
         if manifest.exists() or manifest.is_symlink():
             raw = self._read(manifest)
             value = json.loads(base64.b64decode(raw["content"]))
-            if not isinstance(value, dict) or set(value) != {"format", "files"} or type(value["format"]) is not int or value["format"] != 1:
+            if (not isinstance(value, dict) or set(value) not in ({"format", "files"}, {"format", "files", "appliance_policy"})
+                    or type(value["format"]) is not int or value["format"] != 1
+                    or "appliance_policy" in value and (type(value["appliance_policy"]) is not int or value["appliance_policy"] != 1)):
                 raise HostError("Host managed configuration manifest is invalid")
             entries = value["files"]
         else:
@@ -131,6 +133,17 @@ class HostReconcile:
             source = self._read(product / item["source"])
             plan[target] = {**source, "mode": item["mode"]}
         return plan
+
+    def _appliance(self):
+        from .appliance_update import ApplianceUpdate
+        return ApplianceUpdate(self)
+
+    def _appliance_requested(self):
+        manifest = self.product / "host/managed-system.json"
+        if not manifest.exists():
+            return False
+        value = json.loads(base64.b64decode(self._read(manifest)["content"]))
+        return value.get("appliance_policy") == 1
 
     def prepare(self, candidate, *, previous_product=None):
         path = self._journal(candidate)
@@ -150,6 +163,11 @@ class HostReconcile:
             if before is not None and before != after and (expected is None or before["sha256"] != expected.get("sha256") or before["mode"] != expected.get("mode")):
                 raise HostError("偵測到自行修改的主機設定，已停止更新並保留原設定。")
             items.append({"target": target, "before": before, "after": after, "state": "prepared"})
+        if self._appliance_requested():
+            from .appliance_update import TARGETS as appliance_targets
+            if set(plan) & set(appliance_targets):
+                raise HostError("Appliance configuration cannot also use a static file plan")
+            self._appliance().prepare(candidate)
         record = {"format": 1, "candidate_digest": candidate, "phase": "prepared", "files": items}
         self._save(candidate, record)
         return record
@@ -207,6 +225,8 @@ class HostReconcile:
             item["state"] = "applied"
             self._save(candidate, record)
         self._reload(record)
+        appliance = self._appliance()
+        appliance_result = appliance.apply(candidate) if appliance.journal(candidate).exists() else None
         record["phase"] = "applied"
         self._save(candidate, record)
         self._trusted(self.ledger, optional=True)
@@ -215,13 +235,16 @@ class HostReconcile:
         for item in record["files"]:
             owned[item["target"]] = {key: item["after"][key] for key in ("sha256", "mode")}
         atomic(self.ledger, owned)
-        return {"state": "applied", "reboot_required": any(item["target"].startswith("/etc/netplan/") for item in record["files"])}
+        return {"state": "applied", "reboot_required": bool(appliance_result) or any(item["target"].startswith("/etc/netplan/") for item in record["files"])}
 
     def rollback(self, candidate):
         record = self._load(candidate)
         record["phase"] = "rolling_back"
         self._save(candidate, record)
         preserved = []
+        appliance = self._appliance()
+        if appliance.journal(candidate).exists():
+            preserved.extend(appliance.rollback(candidate))
         for item in reversed(record["files"]):
             current = self._read(self._path(item["target"]), optional=True)
             if self._same(current, item["before"]):
@@ -264,6 +287,9 @@ class HostReconcile:
                     raise HostError("Host systemd unit readback mismatch")
                 self.manager.run("systemctl", "is-active", "--quiet", unit, timeout=10)
                 units.append(unit)
+        appliance = self._appliance()
+        if appliance.journal(candidate).exists():
+            appliance.health(candidate)
         return {"state": "healthy", "units": units, "configuration_files_verified": len(record["files"])}
 
 

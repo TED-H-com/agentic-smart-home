@@ -29,6 +29,7 @@ from .host_update import (
     digest,
     exact_protocol,
     read_json,
+    require_appliance_baseline,
     secure,
 )
 from .manager import HostError, Manager, atomic
@@ -48,6 +49,7 @@ TOOL = "/usr/bin/agentic-home-update-bootstrap"
 SECONDS = 600
 MAX_CACHE = 16 * 1024**3
 MISSING_PIN = "安裝包未附正式官方驗證金鑰，無法進行更新；請取得受信任的正式安裝包。"
+APPLIANCE_BASELINE = "目前主機版本尚未支援安全還原這些設定；請使用相容的受信任更新啟用媒體。"
 RECOVERED = "已恢復先前運行的管理與家庭服務；先前主機更新結果尚未確認，不會重送更新。請聯絡支援核對。"
 RECOVERY_NAME = "agentic-home-update-bootstrap-recover.service"
 ENGINE_UNITS = ("agentic-home-update.service", "agentic-home-update-recover.service", "agentic-home-update-api.service")
@@ -139,6 +141,10 @@ class BootstrapOwner:
         if current.is_symlink():
             current = current.resolve(strict=True)
         trusted(current, directory=True)
+        try:
+            require_appliance_baseline(current)
+        except HostError:
+            raise HostError(APPLIANCE_BASELINE) from None
         view = HostBundle(self.manager)
         health = view.controller_probe()
         needs_controller = not isinstance(health, dict) or health.get("status") != "ok" or not exact_protocol(health.get("host_update"), COMPATIBILITY)
@@ -558,7 +564,7 @@ def main():
         result = tool.recover_availability() if args.recover_availability else tool.review() if args.review else tool.apply(args.apply)
         print(json.dumps(result, ensure_ascii=False))
     except HostError as exc:
-        parser.exit(1, (str(exc) if str(exc) in {MISSING_PIN, RECOVERED, INSERT_USB} else "無法安全完成主機更新；尚未確認的操作不會重送，原有還原點已保留。請聯絡支援核對。") + "\n")
+        parser.exit(1, (str(exc) if str(exc) in {MISSING_PIN, RECOVERED, INSERT_USB, APPLIANCE_BASELINE} else "無法安全完成主機更新；尚未確認的操作不會重送，原有還原點已保留。請聯絡支援核對。") + "\n")
     except (OSError, ValueError, KeyError, TypeError):
         parser.exit(1, "無法安全完成主機更新；尚未確認的操作不會重送，原有還原點已保留。請聯絡支援核對。\n")
 

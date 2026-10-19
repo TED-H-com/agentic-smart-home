@@ -49,6 +49,27 @@ def runtime_baseline(product):
     return files
 
 
+def appliance_manifest(files):
+    """Explicitly enroll the reviewed fixed adapter, never a candidate hook."""
+    if "host/agentic_host/appliance.py" not in files:
+        return None
+    source = files.get("host/managed-system.json")
+    if source is not None:
+        value = json.loads(source.read_bytes())
+        if (not isinstance(value, dict) or set(value) not in ({"format", "files"}, {"format", "files", "appliance_policy"})
+                or type(value["format"]) is not int or value["format"] != 1 or not isinstance(value["files"], list)
+                or ("appliance_policy" in value and (type(value["appliance_policy"]) is not int or value["appliance_policy"] != 1))):
+            raise ValueError("Unsupported managed appliance policy")
+    else:
+        # Preserve the reconciler's default service plan when adding an explicit
+        # manifest to a complete product which previously relied on that default.
+        units = ("agentic-home.service", "agentic-home-host.service", "agentic-home-proxy.service")
+        value = {"format": 1, "files": [{"target": "/etc/systemd/system/" + unit,
+                  "source": "host/systemd/" + unit, "mode": 0o644}
+                 for unit in units if "host/systemd/" + unit in files]}
+    return canonical({**value, "appliance_policy": 1})
+
+
 def build(product, destination, *, baseline_product, version, source_commit, tests, now=None):
     product, destination = Path(product), Path(destination)
     baseline = runtime_baseline(baseline_product)
@@ -87,9 +108,13 @@ def build(product, destination, *, baseline_product, version, source_commit, tes
     # Host-only updates retain the old OCI/runtime contract and boot references.
     # The separately signed Controller prerequisite uses runtime.env explicitly.
     files.update(baseline)
-    if not REQUIRED <= files.keys() or len(files) > 10000 or sum(p.stat().st_size for p in files.values()) > 256 * 1024**2:
+    policy = appliance_manifest(files)
+    if policy is not None:
+        files["host/managed-system.json"] = policy
+    if (not REQUIRED <= files.keys() or len(files) > 10000
+            or sum(len(p) if isinstance(p, bytes) else p.stat().st_size for p in files.values()) > 256 * 1024**2):
         raise ValueError("Host candidate is incomplete or exceeds its bounds")
-    manifest = {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in files.items()}
+    manifest = {name: hashlib.sha256(path if isinstance(path, bytes) else path.read_bytes()).hexdigest() for name, path in files.items()}
     destination.mkdir(parents=True, exist_ok=True)
     archive = destination / f"agentic-home-host-{version}.tar"
     if archive.exists():
@@ -97,6 +122,12 @@ def build(product, destination, *, baseline_product, version, source_commit, tes
     import io
     with tarfile.open(archive, "w", format=tarfile.USTAR_FORMAT) as output:
         for name, path in files.items():
+            if isinstance(path, bytes):
+                info = tarfile.TarInfo(name)
+                info.mode, info.size = 0o644, len(path)
+                info.uname = info.gname = "root"
+                output.addfile(info, io.BytesIO(path))
+                continue
             info = output.gettarinfo(str(path), arcname=name)
             info.uid = info.gid = 0
             info.uname = info.gname = "root"

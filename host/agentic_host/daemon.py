@@ -111,9 +111,36 @@ def install_broker_stops(server, coding):
     return previous
 
 
+def appliance_startup(manager):
+    """Observe always; updater-owned OS policy never reapplies outside its ledger."""
+    try:
+        with manager.locked():
+            # The updater captures preimages under this same lifecycle lock.
+            # Re-check the permanent marker only after acquiring that lock.
+            marker = manager.root / "appliance-update-managed.json"
+            try:
+                marker.lstat()
+            except FileNotFoundError:
+                from .appliance import reconcile_appliance
+                reconcile_appliance(manager)
+            except OSError:
+                pass  # Unreadable/uncertain never authorizes writes.
+            # Any inode, even malformed/non-root/a broken symlink, suppresses
+            # writes. Never repair/delete the updater's authority marker.
+    except Exception:
+        print("Appliance settings need attention; rescue remains available", file=sys.stderr, flush=True)
+    try:
+        from .appliance_status import observe_network
+        observe_network(manager.root, manager.run)
+    except Exception:
+        print("Appliance settings need attention; rescue remains available", file=sys.stderr, flush=True)
+
+
 def serve(path="/run/agentic-home/host.sock"):
     os.umask(0o077)
     manager = Manager()
+    # Fixed installed Host code only; a slow utility cannot hold up rescue.
+    threading.Thread(target=appliance_startup, args=(manager,), name="appliance-startup", daemon=True).start()
     jobs = Jobs(manager)
     from .coding_service import CodingService
     coding = CodingService(manager)

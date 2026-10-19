@@ -99,7 +99,9 @@ def test_built_product_can_be_verified_and_staged_by_the_actual_updater(lab, tmp
     runtime.write_text("AGENTIC_CONTROLLER_IMAGE=sha256:" + "c" * 64 + "\n")
     runtime_before = runtime.read_bytes()
     files.update({"docs/HOST_UPDATES.md": b"public documentation", "INSTALL.md": b"installation",
-                  "channels.lock.json": b"{}", "upstream.lock.json": b"{}"})
+                  "channels.lock.json": b"{}", "upstream.lock.json": b"{}",
+                  "host/agentic_host/appliance.py": b"fixture reviewed installed policy",
+                  "host/managed-system.json": b'{"format":1,"files":[]}'})
     for name, content in files.items():
         path = source / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -119,7 +121,35 @@ def test_built_product_can_be_verified_and_staged_by_the_actual_updater(lab, tmp
     assert (source / "images.lock.json").read_bytes() == files["images.lock.json"]
     assert (source / "host/compose.yaml").read_bytes() == files["host/compose.yaml"]
     assert runtime.read_bytes() == runtime_before  # separately approved Controller override survives
+    assert json.loads((candidate / "host/managed-system.json").read_text()) == {"format": 1, "files": [], "appliance_policy": 1}
+    assert (source / "host/managed-system.json").read_bytes() == files["host/managed-system.json"]
     assert lab.current() == lab._test.previous
+
+
+def test_appliance_optin_retains_implicit_service_plan_without_modifying_source(product, tmp_path):
+    (product / "host/agentic_host/appliance.py").write_text("public installed policy")
+    units = ("agentic-home.service", "agentic-home-host.service", "agentic-home-proxy.service")
+    (product / "host/systemd").mkdir()
+    for unit in units:
+        (product / "host/systemd" / unit).write_text("public fixed unit")
+    output = tmp_path / "output"
+    build(product, output)
+    with tarfile.open(output / "agentic-home-host-0.11.1.tar") as package:
+        plan = json.load(package.extractfile("host/managed-system.json"))
+        assert plan == {"format": 1, "appliance_policy": 1, "files": [
+            {"target": "/etc/systemd/system/" + unit, "source": "host/systemd/" + unit, "mode": 0o644}
+            for unit in units]}
+        index = json.load(package.extractfile("BUNDLE.sha256.json"))
+        assert hashlib.sha256(package.extractfile("host/managed-system.json").read()).hexdigest() == index["host/managed-system.json"]
+    assert not (product / "host/managed-system.json").exists()
+
+
+@pytest.mark.parametrize("version", [True, False, 0, 2, "1", None])
+def test_appliance_policy_version_must_be_exact_integer_one(product, tmp_path, version):
+    (product / "host/agentic_host/appliance.py").write_text("public installed policy")
+    (product / "host/managed-system.json").write_text(json.dumps({"format": 1, "files": [], "appliance_policy": version}))
+    with pytest.raises(ValueError, match="appliance policy"):
+        build(product, tmp_path / "output")
 
 
 @pytest.mark.parametrize("fault", ["link", "missing", "contract"])

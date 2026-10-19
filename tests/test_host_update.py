@@ -674,6 +674,64 @@ def test_bad_controller_gate_cleanup_cannot_rollback_healthy_install(lab, monkey
         assert connection.execute("SELECT value FROM settings WHERE key='host_bundle_update_gate'").fetchone()[0] == "invalid-json"
 
 
+def baseline_appliance(engine, contract=None):
+    path = engine._test.previous / "host/agentic_host/appliance.py"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("fixed installed appliance OS writer")
+    if contract is not None:
+        (engine._test.previous / "host/host-update-contract.json").write_text(json.dumps(contract))
+
+
+def test_released_011_without_appliance_writer_remains_supported(lab):
+    module.require_appliance_baseline(lab.current())
+    assert staged(lab)["state"] == "staged"
+
+
+@pytest.mark.parametrize("contract", [None, {}, {key: value for key, value in CONTRACT.items() if key != "appliance_guard"},
+                                     {**CONTRACT, "appliance_guard": True}, {**CONTRACT, "appliance_guard": 2}])
+def test_unguarded_appliance_baseline_rejected_before_copy_or_backup(lab, monkeypatch, contract):
+    baseline_appliance(lab, contract)
+    body = envelope(lab)
+    monkeypatch.setattr(lab, "fetch", lambda *args: pytest.fail("must not copy an update"))
+    with pytest.raises(HostUpdateError, match="appliance_baseline_unsupported"):
+        lab.stage(body, background=False)
+    assert not lab.records() and lab._test.restore.calls == [] and lab._test.calls == []
+    status = lab.status()
+    assert not status["available"] and status["code"] == "host_update_appliance_baseline_unsupported"
+
+
+def test_exact_guarded_future_appliance_baseline_can_stage(lab):
+    baseline_appliance(lab, CONTRACT)
+    module.require_appliance_baseline(lab.current())
+    assert staged(lab)["state"] == "staged"
+
+
+def test_baseline_guard_rechecked_before_approval_and_before_live_executor(lab, monkeypatch):
+    record = staged(lab)
+    baseline_appliance(lab)
+    with pytest.raises(HostUpdateError, match="appliance_baseline_unsupported"):
+        lab._approval({"candidate_digest": record["candidate_digest"], "approval_id": record["approval_id"]})
+    assert lab.records()[record["candidate_digest"]]["state"] == "staged" and not lab._test.calls
+    # Simulate an accepted attempt queued before an external baseline change.
+    saved = lab.records()[record["candidate_digest"]]
+    saved.update(state="queued", phase="approved", operation="apply", consumed_token_sha256="a" * 64)
+    lab.save(saved)
+    lab._test.restore.calls.clear()
+    monkeypatch.setattr(lab, "_stop_controller", lambda record: pytest.fail("must not stop services"))
+    assert lab.execute()["state"] == "failed"
+    assert lab._test.restore.calls == [] and lab.current() == lab._test.previous
+
+
+@pytest.mark.parametrize("guard", [True, None, 0])
+def test_candidate_appliance_guard_requires_exact_integer_capability(lab, guard):
+    files = files_for(lab)
+    files["host/agentic_host/appliance.py"] = b"fixed appliance module"
+    files["host/managed-system.json"] = b'{"format":1,"files":[],"appliance_policy":1}'
+    files["host/host-update-contract.json"] = canonical({**CONTRACT, "appliance_guard": guard})
+    record = lab.stage(envelope(lab, files=files), background=False)
+    assert record["state"] == "failed" and lab.current() == lab._test.previous
+
+
 @pytest.mark.parametrize("change", [{"operation": []}, {"operation": "delete"}, {"approval_digest": "bad"},
                                     {"candidate_digest": "bad"}, {"extra": "forbidden"}])
 def test_cancellation_request_is_strict(lab, change):

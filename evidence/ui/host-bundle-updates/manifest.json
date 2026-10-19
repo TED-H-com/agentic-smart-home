@@ -1,6 +1,6 @@
 {
-  "source_commit": "3a72ed8c848524d9f8e6e89dc0b349ec26374f29",
-  "captured_at": "2026-10-19T10:39:14.861309+00:00",
+  "source_commit": "5025fcf440cfe9ca3982bcecabab487d5f6518ae",
+  "captured_at": "2026-10-19T11:01:38.514554+00:00",
   "synthetic_data": true,
   "acceptance": "protocol fixture only; physical household, signing pipeline and nested HAOS not_run",
   "source_files": [
@@ -32,29 +32,29 @@
   "files": [
     {
       "file": "review-fixture-1440.png",
-      "sha256": "be20e2962ce2deae71fedad9d5eb5276d92b63c9b6e3eb33fe5e357eb00d6265"
+      "sha256": "a51ea19864dbda6cd53eb52fa496a105be6f487c90670a0b58cb12f21e812097"
     },
     {
       "file": "review-fixture-390.png",
-      "sha256": "7abbece73ed65b0d391a11b54bb1f9db80e5a2a75d4bc55fcca2becd8b3de02b"
+      "sha256": "f4faa5244ea978ac590cb32b6e5723c7434f2b8927130a0bff47de5fbde12ed4"
     },
     {
       "file": "review-fixture-768.png",
-      "sha256": "fa317be5f8eb58acb8012e0896e2e33f3143f8f818037838307b728bafa828e7"
+      "sha256": "7bf267502bd14a78610e00459347f7ef61dc9f074a9801f3167428609ccaf2b7"
     },
     {
       "file": "unconfirmed-offer-1440.png",
-      "sha256": "8c7d8f65796fed3f62c732ff4d403b8ac8ed1dd4d6966b9f480685d9edf2130e"
+      "sha256": "53895665352f6404904cbda4d7c5ac35753006852c6026d2fae67b31eedf7277"
     },
     {
       "file": "unconfirmed-offer-390.png",
-      "sha256": "1a1b08f03062059246eeb2c7c6aabccfcbcc83055d51500394df95f1283fb444"
+      "sha256": "ada118cf791dbd36c3ff8a1e488546ff48781a3976d742d38504d3e0988b2bc4"
     },
     {
       "file": "unconfirmed-offer-768.png",
-      "sha256": "fcdd8426b4f06754fcca4ca6b47fe027d2fc8f358a8226c3020e0f95606a7a65"
+      "sha256": "6963a3ae0dc8df870005e5d8c5518485b490608a4096620a9698079898f996e3"
     }
   ],
   "source_worktree_dirty": true,
-  "source_note": "Captured from the pending single recovery/API fix batch on this base commit; exact source_files hashes identify the tested source. Physical household and production signing acceptance are not_run."
+  "source_note": "Captured after integrating main appliance fixes and the controlled OS-policy adapter; exact source_files hashes identify this pending merge. Physical household and production signing acceptance remain not_run."
 }

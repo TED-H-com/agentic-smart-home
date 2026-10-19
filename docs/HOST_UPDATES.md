@@ -70,14 +70,26 @@ persistent operation record, not treated as permission to install twice.
    switch; it never turns a merely staged candidate into a new installation.
    An unconfirmed recovery remains visibly blocked for review.
 
-Reconcile supports a fixed set of product unit files, the product logind drop-in
-and a product netplan file. It records before/after bytes and modes and verifies
-ownership. It refuses to overwrite unexpected owner edits; rollback also keeps
-later owner edits and reports the conflict. It accepts no shell commands or
-arbitrary paths. Network configuration requiring activation is reported as
-requiring a restart rather than applying a live network change behind the
-owner's back. G15/G16 implementations can ship their reviewed declarative files
-through this hook; this PR does not replace those concurrent fixes.
+Reconcile supports fixed product units, the product logind/netplan files and a
+versioned `appliance_policy: 1` adapter for G15/G16. The builder adds that signed
+opt-in when the candidate contains the appliance implementation. The immutable
+engine derives policy from the installed profile and bounded, root-owned inputs;
+it does not run a candidate hook. It journals before/after bytes, modes and the
+five exact sleep-target masks, preserves unexpected or later owner edits, and
+rebuilds dconf from the remaining inputs on rollback. It accepts no arbitrary
+commands or paths. Power changes use logind HUP and verified readback. Netplan
+and persistent WoL policy are generated and checked, then explicitly reported as
+requiring reboot: no live DHCP edit, connection activation, reconnect, package
+installation or runtime ethtool write occurs during a Host update.
+
+Updater-managed installs retain a root-private marker suppressing the broker's
+autonomous appliance writer under the shared lifecycle lock, including after
+rollback. Candidates and compatible appliance-writing baselines must declare
+`appliance_guard: 1` in the exact Host contract. The released 0.11.0 baseline,
+which has no autonomous appliance module, is supported. The intermediate #122
+engineering baseline without that guard is rejected before copying or stopping
+services; it cannot safely be a rollback target. It needs a separately reviewed
+migration, rather than a silent baseline patch.
 
 The Controller durably fences ordinary product mutations before dispatching an
 approved Host operation, including Controller-image updates. It retains that
@@ -145,6 +157,14 @@ the exact approved official key, installs the immutable executor, converts the
 old product directory into a retained baseline using an atomic directory/link
 exchange, installs a compatible signed Controller when needed and applies the
 exact signed Host bundle. It preserves household data and the prior tree.
+
+The bootstrap OS package declares `python3-yaml`, `ethtool`, `netplan.io` and
+`dconf-cli` prerequisites for the fixed appliance adapter. Their installation by
+the trusted OS package channel happens outside Host bundle rollback. The package's
+read-only 80 MiB pre-install capacity guard bounds its own at-most-16 MiB payload;
+it does not bound package-manager dependency downloads or writes. Ted must verify
+those prerequisites and adequate root/CoW headroom in the initial signed OS
+package/media delivery. Do not claim whole-OS rollback for dependency changes.
 
 The bootstrap's initial authenticity must already be established by the signed
 OS package channel or independently authenticated signed media. A public key

@@ -56,7 +56,7 @@ def engine():
  def hook(action,candidate,**kwargs):
   environment={'PATH':'/usr/local/bin:/usr/bin:/bin','PYTHONDONTWRITEBYTECODE':'1','PYTHONPATH':'/product/host' if kwargs.get('immutable') else str(active/'host')}
   result=subprocess.run(['python','-m','agentic_host.host_reconcile','--'+action,'--candidate',candidate],capture_output=True,env=environment,timeout=30)
-  if result.returncode:raise RuntimeError('fixed reconcile CLI failed')
+  if result.returncode:raise RuntimeError('fixed reconcile CLI failed: '+result.stderr.decode(errors='replace'))
  e._hook=hook
  return e
 e=engine();record=e.stage(fixture['envelope'],background=False);assert record['state']=='staged'
@@ -70,7 +70,7 @@ def gate_cleared():
  with sqlite3.connect(database) as db:
   assert json.loads(db.execute("SELECT value FROM settings WHERE key='host_bundle_update_gate'").fetchone()[0]) is None
 dispatch_gate()
-assert e.execute()['state']=='deployed'
+result=e.execute();assert result['state']=='deployed',result
 gate_cleared()
 cache=active/'host/agentic_host/__pycache__';cache.mkdir();(cache/'runtime.pyc').write_bytes(b'cache')
 offer=e.rollback_offer({'candidate_digest':record['candidate_digest']})
@@ -132,7 +132,8 @@ def test_root_container_extract_switch_rollback_and_interrupted_executor(lab, tm
     version = tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]
     from test_host_update import files_for
     files = files_for(lab)
-    for name in ("__init__.py", "manager.py", "artifacts.py", "host_reconcile.py"):
+    for name in ("__init__.py", "manager.py", "artifacts.py", "host_reconcile.py", "appliance_update.py",
+                 "appliance_network.py", "appliance_power.py"):
         files["host/agentic_host/" + name] = (root / "host/agentic_host" / name).read_bytes()
     files["host/managed-system.json"] = b'{"format":1,"files":[]}'
     body = envelope(lab, files=files)
@@ -152,7 +153,8 @@ def test_root_container_extract_switch_rollback_and_interrupted_executor(lab, tm
                              "--mount", f"type=bind,src={tmp_path / 'product.tar'},dst=/fixture/product.tar,readonly",
                              "--env", "PYTHONDONTWRITEBYTECODE=1", "--env", "PYTHONPATH=/product/host",
                              "agentic-home-preview:" + version, "-c", PROBE],
-                            check=True, capture_output=True, text=True, timeout=120)
+                            check=False, capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr
     evidence = json.loads(result.stdout)
     assert evidence["signature"] == evidence["safe_extraction"] == evidence["atomic_switch"] == "passed"
     assert evidence["manual_rollback"] == evidence["interrupted_executor_recovery"] == "passed"

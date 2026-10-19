@@ -33,7 +33,7 @@ PUBLISHER = "ted-h-com-agentic-smart-home"
 REPOSITORY = "TED-H-com/agentic-smart-home"
 IMAGE_REPOSITORY = "ghcr.io/ted-h-com/agentic-smart-home-controller"
 COMPATIBILITY = {"host_protocol": 1, "controller_protocol": 1, "controller_schema": 3, "reconcile": 1}
-CONTRACT = {"contract": 1, **COMPATIBILITY, "executor": 1}
+CONTRACT = {"contract": 1, **COMPATIBILITY, "executor": 1, "appliance_guard": 1}
 DIGEST = re.compile(r"[a-f0-9]{64}\Z")
 VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.]+)?\Z")
 RELEASE = "https://github.com/TED-H-com/agentic-smart-home/releases/"
@@ -100,6 +100,21 @@ def read_json(path, maximum=131072):
 def exact_protocol(value, expected=COMPATIBILITY):
     return (isinstance(value, dict) and set(value) == set(expected)
             and all(type(value[key]) is int and value[key] == wanted for key, wanted in expected.items()))
+
+
+def require_appliance_baseline(product):
+    """Old released brokers lack OS writers; newer writers must honor the fence."""
+    try:
+        product = Path(product)
+        secure(product)
+        module = product / "host/agentic_host/appliance.py"
+        secure(module, optional=True)
+        if not module.exists():
+            return
+        if not module.is_file() or not exact_protocol(read_json(product / "host/host-update-contract.json", 16384), CONTRACT):
+            raise HostUpdateError("host_update_appliance_baseline_unsupported")
+    except (OSError, ValueError, HostError):
+        raise HostUpdateError("host_update_appliance_baseline_unsupported") from None
 
 
 def validate_manifest(value, *, now=None):
@@ -281,8 +296,12 @@ class HostBundle:
         code, available = None, True
         try:
             self.authority_pin()
-            self.current()
-        except (HostError, OSError, ValueError, TypeError, KeyError):
+            require_appliance_baseline(self.current())
+        except HostError as exc:
+            code = ("host_update_appliance_baseline_unsupported" if str(exc) == "host_update_appliance_baseline_unsupported"
+                    else "host_update_bootstrap_or_official_pin_required")
+            available = False
+        except (OSError, ValueError, TypeError, KeyError):
             code, available = "host_update_bootstrap_or_official_pin_required", False
         records = self.records()
         current_source = None
@@ -295,7 +314,9 @@ class HostBundle:
             "state": "idle", "code": None, "message": "尚未檢查主機更新。", "candidate_digest": None, "checked_at": None}
         return {"contract": 1, "scope": "host_bundle_same_schema", "compatibility": dict(COMPATIBILITY),
                 "available": available, "code": code,
-                "message": "可檢查主機更新；安裝前會請您核准並自動建立還原點。" if available else "此主機尚未備妥受信任的更新元件或官方金鑰；請使用經驗證的安裝媒體準備更新。",
+                "message": ("可檢查主機更新；安裝前會請您核准並自動建立還原點。" if available else
+                            "目前主機版本尚未支援安全還原這些設定；請使用相容的受信任更新啟用媒體。" if code == "host_update_appliance_baseline_unsupported" else
+                            "此主機尚未備妥受信任的更新元件或官方金鑰；請使用經驗證的安裝媒體準備更新。"),
                 "current_source_commit": current_source, "check": check,
                 "records": [self.public(row) for row in sorted(records.values(), key=lambda row: row["created_at"], reverse=True)[:50]]}
 
@@ -339,7 +360,7 @@ class HostBundle:
         if body != {}:
             raise HostUpdateError("host_update_request_invalid")
         self.authority_pin()
-        self.current()
+        require_appliance_baseline(self.current())
         with self.locked():
             if self.busy():
                 raise HostUpdateError("host_update_pending_recovery")
@@ -367,7 +388,7 @@ class HostBundle:
 
     def stage(self, body, *, background=True):
         candidate, fingerprint = self.verify_envelope(body)
-        self.current()
+        require_appliance_baseline(self.current())
         with self.locked():
             if self.busy():
                 raise HostUpdateError("host_update_pending_recovery")
@@ -405,6 +426,7 @@ class HostBundle:
                 return
             try:
                 with self.manager.locked():
+                    require_appliance_baseline(self.current())
                     self._stage_copy(record)
             except Exception:
                 record.update(state="failed", error_code="host_update_host_busy",
@@ -590,7 +612,9 @@ class HostBundle:
                 raise HostUpdateError("host_update_approval_invalid")
             self.require_no_controller_update()
             current = self.current()
+            require_appliance_baseline(current)
             if rollback:
+                require_appliance_baseline(Path(record["previous"]))
                 if (current not in {self.bundles / candidate, Path(record["previous"])}
                         or (not recovery_only and current != self.bundles / candidate)
                         or self._tree_identity(Path(record["previous"])) != record["previous_tree_digest"]):
@@ -929,6 +953,7 @@ print(json.dumps(result))'''
             operation = record["operation"]
             try:
                 self.require_no_controller_update()
+                require_appliance_baseline(self.current())
                 if operation == "apply":
                     _, fingerprint = self.verify_envelope({"manifest": record["manifest"], "signature": record["signature"]})
                     if fingerprint != record["key_sha256"] or str(self.current()) != record["previous"]:
@@ -942,6 +967,7 @@ print(json.dumps(result))'''
                         raise HostUpdateError("host_update_controller_protocol_unsupported")
                 elif operation == "rollback":
                     target = Path(record["previous"])
+                    require_appliance_baseline(target)
                     if self.current() != self.bundles / record["candidate_digest"] or self._tree_identity(target) != record["previous_tree_digest"]:
                         raise HostUpdateError("host_update_product_changed")
                 else:
