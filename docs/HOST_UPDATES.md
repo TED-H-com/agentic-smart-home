@@ -42,8 +42,11 @@ persistent operation record, not treated as permission to install twice.
    `/opt/agentic-home-bundles/<candidate digest>`. Reject traversal, links,
    special files, duplicate entries and mismatched manifests. Validate the
    explicit Host/Controller/reconcile contracts, database schema and unchanged
-   OCI/runtime locks. Shared existing image assets remain in the retained
-   baseline; they are not recopied or replaced by the Host bundle.
+   OCI/runtime locks **and the baseline compose file**. Shared existing image
+   assets remain in the retained baseline; they are not recopied or replaced
+   by the Host bundle. A separately approved compatible Controller image may
+   already be active through its existing runtime override; Host staging does
+   not replace the other installed runtimes or change their boot references.
 3. Under the Host lifecycle lock, stop/gate the Controller and check root LVM
    identity, free extents and existing snapshot capacity. Take an HAOS cold disk
    and UEFI snapshot when provisioned, returning HA to its original running
@@ -93,13 +96,23 @@ Updating its Controller cannot install either one. Rerunning `install.py --apply
 over the household, granting a worker root shell, or downloading and running an
 unsigned script is **not** the migration.
 
-A maintainer must first produce an authenticated bootstrap package/media using
-Ted's approved public pin and externally signed Controller/Host envelopes. The
-bootstrap payload is fixed and root-owned; the graphical launcher reviews its
+A maintainer must first produce authenticated bootstrap media using Ted's
+approved public pin and externally signed Controller/Host envelopes. The small
+bootstrap package carries the verifier, pin, signed envelopes and expected
+payload hashes. Large image/archive payloads remain on the official USB volume
+(label `AH-UPDATE`) until the approved capacity checks and restore point are
+complete. The graphical launcher finds that media without terminal or manual
+mount commands, and the root-private copy is rehashed before it is parsed.
+The fixed root-owned bootstrap metadata binds the removable payloads; trusting
+the removable filesystem's ownership is not a substitute for authentication.
+The graphical launcher reviews its
 exact versions, fingerprints, candidate hashes and authority. The local OS
 administrator authentication belongs to installing/launching that trusted
 bootstrap, not a remote Controller root endpoint. The owner then approves the
-single bootstrap review. The bootstrap takes restore points first, enrolls only
+single bootstrap review. Interrupted Controller and broker stop intents are
+recorded before each stop and compensated only against the exact recorded
+baseline. This also covers the period before the permanent executor exists.
+The bootstrap takes restore points first, enrolls only
 the exact approved official key, installs the immutable executor, converts the
 old product directory into a retained baseline using an atomic directory/link
 exchange, installs a compatible signed Controller when needed and applies the
@@ -109,6 +122,31 @@ The bootstrap's initial authenticity must already be established by the signed
 OS package channel or independently authenticated signed media. A public key
 inside an otherwise unauthenticated download cannot authenticate itself. The
 current repository cannot supply this missing production trust decision.
+
+New installs with a null pin defer installing an active executor. If an earlier
+engineering build already installed a null-pin executor, the local bootstrap
+review must bind that exact verified inactive engine digest before its pointer
+can move to a real pinned engine. The old directory is retained. This cannot
+replace an already active signing key or silently rotate a trusted engine.
+
+For the existing installation's owner, the one-time actions are:
+
+1. Obtain the bootstrap through the authenticated official package channel or
+   independently authenticated official USB that Ted has approved. Use the
+   graphical package installer and authenticate with the local administrator
+   account. Do not use an unsigned download merely because it includes a key.
+2. Insert the prepared official update USB labelled **AH-UPDATE**. Open
+   **Agentic Home 主機更新** from the desktop applications menu; the launcher
+   locates the files automatically. No terminal, SSH or manual mount is needed.
+3. Review the shown public-key fingerprint, Controller/Host versions and
+   interruption/restore-point scope against the authenticated release identity.
+   Approve that exact bootstrap once. This also approves enrollment of that
+   exact official key if it has not already been enrolled; it cannot replace a
+   revoked or different existing key.
+4. Leave the machine and USB connected while the tool runs. On completion, use
+   the maintenance page to read the installed versions. An interrupted or
+   uncertain operation is recovered/read back; repeating the launcher does not
+   silently authorize another installation.
 
 After that one-time migration, future signed Host updates and rollbacks use the
 existing maintenance page. Ordinary owners do not need SSH, sudo commands,
@@ -134,7 +172,12 @@ pretending a Controller-only update delivered Host capabilities.
   household or power-loss acceptance is claimed here.
 
 Maintainer artifact preparation uses `scripts/build_host_update.py` against an
-already-built public product directory. It creates a bounded tar and an
+already-built public product directory plus `--baseline-product` pointing to
+the independently authenticated complete installed release. It copies the
+baseline compose file and image/provider/base/network locks into the new Host
+archive, leaving the new build's runtime image IDs and tags out of this update.
+This is required even when the new build also supplies a compatible Controller
+prerequisite. It creates a bounded tar and an
 **unsigned** envelope for the external signer, never a key or a signed release.
 The signed wrapper published by the approved pipeline is
 `agentic-home-host-update.json` containing `{manifest, signature}`. Its exact

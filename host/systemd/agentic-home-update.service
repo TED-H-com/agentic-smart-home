@@ -2,6 +2,7 @@
 Description=Agentic Home approved Host bundle update
 After=docker.service libvirtd.service
 Requires=docker.service libvirtd.service
+ConditionPathExists=/usr/lib/agentic-home-update/current/agentic_host/host_update.py
 
 [Service]
 Type=oneshot

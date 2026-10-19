@@ -18,6 +18,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
+from .bootstrap import write_environment
+from .bootstrap_media import INSERT_USB, PREINST, BootstrapMedia
 from .host_restore import HostRestore
 from .host_update import (
     COMPATIBILITY,
@@ -31,7 +33,14 @@ from .host_update import (
 )
 from .manager import HostError, Manager, atomic
 from .publisher import TRUST, enroll, inspect, public_key, store_digest
-from .update_bootstrap import install_engine, tree_identity, trusted, version_layout
+from .update_bootstrap import (
+    BUNDLES,
+    install_engine,
+    installed_engine_identity,
+    tree_identity,
+    trusted,
+    version_layout,
+)
 from .updater import Updater, offline_check
 
 PAYLOAD = Path("/usr/share/agentic-home-update-bootstrap")
@@ -39,7 +48,7 @@ TOOL = "/usr/bin/agentic-home-update-bootstrap"
 SECONDS = 600
 MAX_CACHE = 16 * 1024**3
 MISSING_PIN = "安裝包未附正式官方驗證金鑰，無法進行更新；請取得受信任的正式安裝包。"
-RECOVERED = "家庭系統已重新啟動；先前主機更新的還原點結果尚未確認，不會重送更新。請聯絡支援核對。"
+RECOVERED = "已恢復先前運行的管理與家庭服務；先前主機更新結果尚未確認，不會重送更新。請聯絡支援核對。"
 RECOVERY_NAME = "agentic-home-update-bootstrap-recover.service"
 RECOVERY_UNIT = ("[Unit]\nDescription=Recover approved Agentic Home bootstrap guest availability\n"
                  "After=libvirtd.service agentic-home-host.service\nWants=libvirtd.service\n\n[Service]\n"
@@ -84,14 +93,14 @@ class BootstrapOwner:
             raise HostError(MISSING_PIN)
         pem, fingerprint = public_key(pin.get("public_key_pem"))
         host = read_json(self.payload / "host-update.json")
-        archive = self.payload / "host-bundle.tar"
-        trusted(archive)
+        media = BootstrapMedia(self.manager, self.payload / "media.json")
         with tempfile.TemporaryDirectory(prefix="owner-bootstrap-", dir=self.manager.root) as temporary:
             trust = Path(temporary) / "publishers.json"
             atomic(trust, {"format": 1, "publishers": {PUBLISHER: {"public_key_pem": pem, "image_repository": IMAGE_REPOSITORY}}})
             verifier = HostBundle(self.manager, authority=source / "host/official-update-channel.json", trust=trust)
             candidate, verified = verifier.verify_envelope(host)
-            if verified != fingerprint or archive.stat().st_size != host["manifest"]["bundle"]["size"] or file_digest(archive) != host["manifest"]["bundle"]["sha256"]:
+            expected = media.manifest["files"]["host-bundle.tar"]
+            if verified != fingerprint or expected["size"] != host["manifest"]["bundle"]["size"] or expected["sha256"] != host["manifest"]["bundle"]["sha256"]:
                 raise HostError("主機更新檔案與官方簽章不符，尚未變更主機。")
         controller_path = self.payload / "controller-update.json"
         controller = read_json(controller_path) if controller_path.exists() else None
@@ -108,14 +117,15 @@ class BootstrapOwner:
             verifier.publishers = lambda: {PUBLISHER: {"public_key_pem": pem, "image_repository": IMAGE_REPOSITORY}}
             verifier.verify(manifest, controller["signature"])
             controller_candidate = digest(manifest)
-            cache = self.payload / "controller-images.tar"
-            trusted(cache)
-            if not 0 < cache.stat().st_size <= MAX_CACHE:
-                raise HostError("管理服務映像檔大小無法安全確認。")
-            cache_hash = file_digest(cache)
+            cache_hash = media.manifest["files"]["controller-images.tar"]["sha256"]
+        # The root-installed manifest authenticates the review. Hash bulky USB
+        # bytes once, during the approved private copy, before any parser runs.
+        media.inspect(verify=False)
         return SimpleNamespace(source=source, pem=pem, fingerprint=fingerprint, host=host, candidate=candidate,
-                               archive=archive, controller=controller, controller_candidate=controller_candidate,
-                               cache=cache, cache_hash=cache_hash)
+                               archive=None, controller=controller, controller_candidate=controller_candidate,
+                               cache=cache, cache_hash=cache_hash, media=media,
+                               archive_size=media.manifest["files"]["host-bundle.tar"]["size"],
+                               cache_size=media.manifest["files"]["controller-images.tar"]["size"])
 
     def _summary(self):
         payload = self._payload()
@@ -136,8 +146,10 @@ class BootstrapOwner:
         engine, _, _ = tree_identity(payload.source)
         recovery = Path("/etc/systemd/system") / RECOVERY_NAME
         postinst = Path("/var/lib/dpkg/info/agentic-home-update-bootstrap.postinst")
+        preinst = Path("/var/lib/dpkg/info/agentic-home-update-bootstrap.preinst")
         if (file_digest(trusted(recovery)) != hashlib.sha256(RECOVERY_UNIT.encode()).hexdigest()
-                or file_digest(trusted(postinst)) != hashlib.sha256(POSTINST.encode()).hexdigest()):
+                or file_digest(trusted(postinst)) != hashlib.sha256(POSTINST.encode()).hexdigest()
+                or file_digest(trusted(preinst)) != hashlib.sha256(PREINST.encode()).hexdigest()):
             raise HostError("更新復原安裝包無法安全核對，尚未變更主機。")
         runtime = trusted(self.manager.root / "runtime.env")
         units = {}
@@ -157,8 +169,10 @@ class BootstrapOwner:
                 "current_controller_image": self._controller_view().image(),
                 "current_runtime_sha256": file_digest(runtime),
                 "availability_recovery": {"unit_sha256": file_digest(recovery), "postinst_sha256": file_digest(postinst),
-                                          "scope": "only restore original running HA after this approved interrupted snapshot; never repeat backup or update"},
-                "engine": engine, "units": units,
+                                          "preinst_sha256": file_digest(preinst),
+                                          "scope": "only restore approved interrupted baseline service availability; never repeat backup or update"},
+                "media_manifest_sha256": file_digest(self.payload / "media.json"),
+                "installed_engine": installed_engine_identity(), "engine": engine, "units": units,
                 "scope": "pause household AI, exact official key enrollment, restore points, fixed Host updater and Host bundle; same-schema Controller prerequisite if listed"}
 
     @contextmanager
@@ -186,20 +200,28 @@ class BootstrapOwner:
             return self._review()
 
     def _recover_availability(self, value):
+        if value.get("state") not in {"applying", "needs_reconcile"}:
+            return {"state": "not_needed"}
         attempt = value.get("restore_attempt")
         journal = attempt.get("restore_point") if isinstance(attempt, dict) else None
-        if (value.get("state") not in {"applying", "needs_reconcile"} or not isinstance(journal, dict)
-                or journal.get("phase") not in {"ha_shutdown_requested", "ha_snapshot_requested", "ha_snapshot_complete"}
-                or journal.get("ha_original_state") != "running"):
+        recover_ha = (isinstance(journal, dict) and journal.get("phase") in {
+            "ha_shutdown_requested", "ha_snapshot_requested", "ha_snapshot_complete"} and journal.get("ha_original_state") == "running")
+        availability = value.get("availability", {})
+        recover_service = any(isinstance(item, dict) and item.get("state") in {"stop_requested", "start_requested"}
+                              for item in availability.values())
+        if not recover_ha and not recover_service:
             return {"state": "not_needed"}
         def save(item):
             value["restore_attempt"] = item
             self._save(value)
         with self.manager.locked():
             try:
-                receipt = HostRestore(self.manager, save=save).recover_ha(attempt)
-                if receipt.get("state") != "running_verified":
-                    raise HostError("尚未確認家庭系統已重新啟動。")
+                self._resume_broker(value)
+                self._resume_controller(value)
+                if recover_ha:
+                    receipt = HostRestore(self.manager, save=save).recover_ha(attempt)
+                    if receipt.get("state") != "running_verified":
+                        raise HostError("尚未確認家庭系統已重新啟動。")
             finally:
                 value["state"] = "needs_reconcile"
                 self._save(value)
@@ -247,19 +269,82 @@ class BootstrapOwner:
                     "staging", "deploying", "rolling_back", "needs_reconcile"} for item in records.values()):
                 raise HostError("管理服務有尚未完成的更新作業，已停止主機更新。")
 
-    def _pause_existing(self):
+    def _baseline_current(self, value):
+        current = self.manager.product.resolve(strict=True)
+        trusted(current, directory=True)
+        allowed = {Path(value["summary"]["current_path"])}
+        layout = self.manager.root / "host-update-bootstrap.json"
+        if layout.exists():
+            record = read_json(layout)
+            name = record.get("baseline")
+            import re
+            if not isinstance(name, str) or not re.fullmatch(r"bootstrap-[a-f0-9]{32}", name):
+                raise HostError("無法確認原有主機程式，未重啟服務。")
+            allowed.add(BUNDLES / name)
+        if current not in allowed or HostBundle(self.manager)._tree_identity(current) != value["summary"]["current_tree"]:
+            raise HostError("主機程式已變更，未以舊版本重啟服務；請聯絡支援。")
+
+    def _resume_controller(self, value):
+        intent = value.get("availability", {}).get("controller")
+        if not isinstance(intent, dict) or intent.get("state") not in {"stop_requested", "start_requested"}:
+            return
+        self._baseline_current(value)
+        current = file_digest(trusted(self.manager.root / "runtime.env"))
+        if current not in intent["runtime_sha256"]:
+            raise HostError("管理服務設定已變更，未套用舊設定；請聯絡支援。")
+        service = self._controller_view()
+        if service.image() != intent["image"]:
+            raise HostError("管理服務版本已變更，未切回舊版本；請聯絡支援。")
+        intent["state"] = "start_requested"
+        self._save(value)
+        service.activate(intent["image"])
+        if service.image() != intent["image"]:
+            raise HostError("尚未確認原有管理服務已重新啟動。")
+        service.health()
+        intent["state"] = "running_verified"
+        self._save(value)
+
+    def _resume_broker(self, value):
+        intent = value.get("availability", {}).get("broker")
+        if not isinstance(intent, dict) or intent.get("state") not in {"stop_requested", "start_requested"}:
+            return
+        self._baseline_current(value)
+        intent["state"] = "start_requested"
+        self._save(value)
+        self.manager.run("systemctl", "start", "agentic-home-host.service", timeout=90)
+        self.manager.run("systemctl", "is-active", "--quiet", "agentic-home-host.service", timeout=15)
+        proof = HostBundle(self.manager).broker_probe()
+        if (not isinstance(proof, dict) or not isinstance(proof.get("status"), dict)
+                or "vm" not in proof["status"] or not isinstance(proof.get("bridge"), dict)
+                or not exact_protocol(proof["bridge"].get("controller_update"), {"ingress_bridge_contract": 1})):
+            raise HostError("尚未確認主機管理服務已恢復，請聯絡支援。")
+        intent["state"] = "running_verified"
+        self._save(value)
+
+    def _pause_existing(self, value):
         self._updates_idle()
         service = self._controller_view()
         with self.manager.locked():
             baseline = service.image()
+            original = trusted(self.manager.root / "runtime.env")
+            if baseline != value["summary"]["current_controller_image"] or file_digest(original) != value["summary"]["current_runtime_sha256"]:
+                raise HostError("管理服務版本或設定已變更，尚未停止服務；請重新核對。")
+            with tempfile.TemporaryDirectory(prefix="bootstrap-runtime-", dir=self.manager.root) as temporary:
+                target = Path(temporary) / "runtime.env"
+                target.write_bytes(original.read_bytes())
+                write_environment(target, baseline, "AGENTIC_CONTROLLER_IMAGE")
+                after = file_digest(target)
+            value.setdefault("availability", {})["controller"] = {
+                "state": "stop_requested", "image": baseline, "runtime_sha256": [file_digest(original), after]}
+            value["phase"] = "controller_stop_requested"
+            self._save(value)
             try:
                 service.stop()
                 offline_check(service.data / "controller.sqlite3", 3, pause=True)
             finally:
                 # A stop can succeed while its reply is lost. Never leave the
                 # original UI stopped merely because a preflight was rejected.
-                service.activate(baseline)
-                service.health()
+                self._resume_controller(value)
 
     def _controller(self, payload):
         self._updates_idle()
@@ -329,20 +414,28 @@ class BootstrapOwner:
             self._save(value)
             stopped = False
             try:
-                required = 256 * 1024**2 + (payload.cache.stat().st_size * 4 if value["summary"]["controller_required"] else 0)
+                required = 256 * 1024**2 + payload.archive_size + payload.cache_size + (payload.cache_size * 4 if value["summary"]["controller_required"] else 0)
                 restore = HostRestore(self.manager, save=lambda item: (value.update(restore_attempt=item), self._save(value)))
                 attempt = {"candidate_digest": digest({"bootstrap": approval}), "restore_required_bytes": required}
                 restore.capacity(required)  # Before any docker load or filesystem conversion.
                 value["phase"] = "pausing"
                 self._save(value)
-                self._pause_existing()
+                self._pause_existing(value)
                 value["phase"] = "restoring"
                 self._save(value)
                 with self.manager.locked():
                     restore.create(attempt)
                     value["restore_attempt"] = attempt
                     self._save(value)
+                    value["phase"] = "copying_media"
+                    self._save(value)
+                    self._updates_idle()
+                    copied = payload.media.copy(self.manager.root / "bootstrap-cache" / approval)
+                    payload.archive, payload.cache = copied["host-bundle.tar"], copied["controller-images.tar"]
                     stopped = True
+                    value.setdefault("availability", {})["broker"] = {"state": "stop_requested"}
+                    value["phase"] = "broker_stop_requested"
+                    self._save(value)
                     self.manager.run("systemctl", "stop", "agentic-home-host.service", timeout=90)
                     trust_identity, trust = self._trust()
                     if trust_identity != value["summary"]["trust"]:
@@ -351,7 +444,13 @@ class BootstrapOwner:
                         pin_review = inspect(PUBLISHER, IMAGE_REPOSITORY, payload.pem)
                         enroll(PUBLISHER, IMAGE_REPOSITORY, payload.pem, pin_review["review_digest"], path=self.trust,
                                expected_store_digest=store_digest(trust))
-                    install_engine(payload.source)
+                    reviewed_engine = value["summary"]["installed_engine"]
+                    if installed_engine_identity() != reviewed_engine:
+                        raise HostError("主機更新器已變更，尚未替換；請聯絡支援。")
+                    if reviewed_engine["state"] == "inactive":
+                        install_engine(payload.source, expected_inactive_engine_digest=reviewed_engine["digest"])
+                    else:
+                        install_engine(payload.source)
                     version_layout(self.manager)
                     for name in value["summary"]["units"]:
                         source = payload.source / "host/systemd" / name
@@ -364,9 +463,11 @@ class BootstrapOwner:
                             target.chmod(0o644)
                     self.manager.run("systemctl", "daemon-reload", timeout=30)
                     self.manager.run("systemctl", "enable", "agentic-home-update-recover.service", timeout=30)
-                self.manager.run("systemctl", "start", "agentic-home-host.service", timeout=90)
+                self._resume_broker(value)
                 stopped = False
                 if value["summary"]["controller_required"]:
+                    value["phase"] = "controller_updating"
+                    self._save(value)
                     self._controller(payload)
                 def local_bundle(url, destination, maximum):
                     if url != payload.host["manifest"]["bundle"]["url"] or maximum != payload.archive.stat().st_size:
@@ -374,10 +475,14 @@ class BootstrapOwner:
                     shutil.copyfile(payload.archive, destination)
                 reusable = SimpleNamespace(capacity=restore.capacity, create=lambda _: restore.create(attempt))
                 engine = HostBundle(self.manager, download=local_bundle, restore=reusable, launch=lambda: None)
+                value["phase"] = "host_staging"
+                self._save(value)
                 record = engine.stage(payload.host, background=False)
                 if record["state"] != "staged":
                     raise HostError("主機更新檔案未通過驗證，尚未切換主機版本。")
                 engine._approval({"candidate_digest": record["candidate_digest"], "approval_id": record["approval_id"]})
+                value["phase"] = "host_executing"
+                self._save(value)
                 result = engine.execute()
                 if not result or result["state"] != "deployed":
                     raise HostError("主機更新未完成；已保留原版本與還原點，請查看管理頁狀態。")
@@ -390,11 +495,15 @@ class BootstrapOwner:
                 raise
             finally:
                 if stopped:
-                    self.manager.run("systemctl", "start", "agentic-home-host.service", timeout=90)
+                    self._resume_broker(value)
 
 
 def gui():
-    review = subprocess.run(["/usr/bin/pkexec", TOOL, "--review"], capture_output=True, text=True, timeout=180)
+    try:
+        review = subprocess.run(["/usr/bin/pkexec", TOOL, "--review"], capture_output=True, text=True, timeout=600)
+    except subprocess.TimeoutExpired:
+        subprocess.run(["/usr/bin/zenity", "--error", "--title=主機更新", "--text=核對結果尚未確認，請重新開啟更新工具查看狀態。"], check=False)
+        return
     if review.returncode:
         subprocess.run(["/usr/bin/zenity", "--error", "--title=主機更新", "--text=" + (review.stderr.strip() or "無法核對更新安裝包。")], check=False)
         return
@@ -405,7 +514,24 @@ def gui():
     answer = subprocess.run(["/usr/bin/zenity", "--question", "--title=確認主機更新", "--width=620", "--text=" + text], check=False)
     if answer.returncode:
         return
-    result = subprocess.run(["/usr/bin/pkexec", TOOL, "--apply", value["review_digest"]], capture_output=True, text=True, timeout=2400)
+    progress = subprocess.Popen(["/usr/bin/zenity", "--progress", "--pulsate", "--no-cancel", "--auto-close",
+                                 "--title=主機更新", "--text=正在核對並更新主機，可能需要一段時間，請保持更新 USB 連接。"],
+                                stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        result = subprocess.run(["/usr/bin/pkexec", TOOL, "--apply", value["review_digest"]], capture_output=True, text=True, timeout=7200)
+    except subprocess.TimeoutExpired:
+        result = SimpleNamespace(returncode=1, stderr="更新結果尚未確認，請重新開啟更新工具查看狀態；請勿重送更新。")
+    finally:
+        if progress.stdin:
+            progress.stdin.close()
+        try:
+            progress.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            progress.terminate()
+            try:
+                progress.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                progress.kill()
     subprocess.run(["/usr/bin/zenity", "--info" if result.returncode == 0 else "--error", "--title=主機更新",
                     "--text=" + ("更新完成，請重新開啟管家管理頁。" if result.returncode == 0 else result.stderr.strip() or "更新結果尚未確認，請聯絡支援。")], check=False)
 
@@ -427,7 +553,7 @@ def main():
         result = tool.recover_availability() if args.recover_availability else tool.review() if args.review else tool.apply(args.apply)
         print(json.dumps(result, ensure_ascii=False))
     except HostError as exc:
-        parser.exit(1, (str(exc) if str(exc) in {MISSING_PIN, RECOVERED} else "無法安全完成主機更新；尚未確認的操作不會重送，原有還原點已保留。請聯絡支援核對。") + "\n")
+        parser.exit(1, (str(exc) if str(exc) in {MISSING_PIN, RECOVERED, INSERT_USB} else "無法安全完成主機更新；尚未確認的操作不會重送，原有還原點已保留。請聯絡支援核對。") + "\n")
     except (OSError, ValueError, KeyError, TypeError):
         parser.exit(1, "無法安全完成主機更新；尚未確認的操作不會重送，原有還原點已保留。請聯絡支援核對。\n")
 

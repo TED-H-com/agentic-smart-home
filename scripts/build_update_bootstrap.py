@@ -17,6 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "host"))
+from agentic_host.bootstrap_media import DIRECTORY, LABEL, PREINST, SMALL_LIMIT  # noqa: E402
 from agentic_host.bootstrap_owner import POSTINST, RECOVERY_NAME, RECOVERY_UNIT, file_digest  # noqa: E402
 from agentic_host.host_update import IMAGE_REPOSITORY, PUBLISHER, REPOSITORY, canonical, validate_manifest  # noqa: E402
 from agentic_host.publisher import public_key  # noqa: E402
@@ -88,7 +89,7 @@ def build(product, host_manifest, host_bundle, controller_update, controller_ima
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
         target.chmod(0o644)
-    for name in ("bootstrap_owner.py", "host_update.py", "host_restore.py", "host_reconcile.py", "update_bootstrap.py"):
+    for name in ("bootstrap_owner.py", "bootstrap_media.py", "host_update.py", "host_restore.py", "host_reconcile.py", "update_bootstrap.py"):
         if not (code / name).is_file():
             raise ValueError("Bootstrap product is incomplete")
     shutil.copyfile(descriptor, payload / "product/host/official-update-channel.json")
@@ -99,9 +100,18 @@ def build(product, host_manifest, host_bundle, controller_update, controller_ima
         if source.is_symlink() or not source.is_file():
             raise ValueError("Fixed update/recovery services are required")
         shutil.copyfile(source, units / name)
-    for source, name in ((host_manifest, "host-update.json"), (archive, "host-bundle.tar"),
-                         (controller_update, "controller-update.json"), (cache, "controller-images.tar")):
+    for source, name in ((host_manifest, "host-update.json"), (controller_update, "controller-update.json")):
         shutil.copyfile(source, payload / name)
+    media = destination / "media" / DIRECTORY
+    media.mkdir(parents=True)
+    files = {}
+    for source, name in ((archive, "host-bundle.tar"), (cache, "controller-images.tar")):
+        shutil.copyfile(source, media / name)
+        files[name] = {"size": source.stat().st_size, "sha256": file_digest(source)}
+    (payload / "media.json").write_text(json.dumps({"format": 1, "label": LABEL, "directory": DIRECTORY, "files": files}, indent=2) + "\n")
+    (destination / "media/USB-INSTRUCTIONS.txt").write_text(
+        "Use an independently authenticated official USB. Format/label the USB AH-UPDATE, then place the agentic-home-update folder at its root.\n"
+        "Large archives remain on USB; the small authenticated OS package verifies and copies them only after owner approval and capacity checks.\n")
     binary = stage / "usr/bin/agentic-home-update-bootstrap"
     binary.parent.mkdir(parents=True)
     binary.write_text("#!/bin/sh\nexec /usr/bin/python3 -I -c 'import runpy,sys;"
@@ -115,10 +125,12 @@ def build(product, host_manifest, host_bundle, controller_update, controller_ima
     control.mkdir()
     version = host["manifest"]["version"]
     (control / "control").write_text("Package: agentic-home-update-bootstrap\nVersion: " + version +
-        "\nArchitecture: amd64\nMaintainer: Agentic Home maintainers\nDepends: python3, openssl, policykit-1, zenity, lvm2\n"
+        "\nArchitecture: amd64\nMaintainer: Agentic Home maintainers\nDepends: python3, openssl, policykit-1, zenity, lvm2, udisks2, util-linux\n"
         "Description: One-time owner-approved Agentic Home Host updater bootstrap\n")
     (control / "postinst").write_text(POSTINST)
     (control / "postinst").chmod(0o755)
+    (control / "preinst").write_text(PREINST)
+    (control / "preinst").chmod(0o755)
     recovery = stage / "etc/systemd/system"
     recovery.mkdir(parents=True)
     (recovery / RECOVERY_NAME).write_text(RECOVERY_UNIT)
@@ -129,14 +141,16 @@ def build(product, host_manifest, host_bundle, controller_update, controller_ima
     for path in stage.rglob("*"):
         if path.is_dir():
             path.chmod(0o755)
-        elif path not in {binary, control / "postinst"}:
+        elif path not in {binary, control / "postinst", control / "preinst"}:
             path.chmod(0o644)
+    if sum(path.stat().st_size for path in stage.rglob("*") if path.is_file()) > SMALL_LIMIT:
+        raise ValueError("Bootstrap package must remain below its declared 16 MiB unpacked bound")
     output = destination / ("agentic-home-update-bootstrap_" + version + "_amd64.UNSIGNED.deb")
     if package:
         if output.exists():
             raise ValueError("Refusing to overwrite an existing package")
         subprocess.run(["dpkg-deb", "--root-owner-group", "--build", str(stage), str(output)], check=True, timeout=300)
-    return {"stage": str(stage), "unsigned_package": str(output) if package else None, "key_sha256": fingerprint,
+    return {"stage": str(stage), "media": str(media), "unsigned_package": str(output) if package else None, "key_sha256": fingerprint,
             "authentication": "external_authenticated_distribution_required"}
 
 

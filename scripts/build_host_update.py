@@ -2,7 +2,8 @@
 """Build an unsigned Host candidate for an external, approved signing pipeline.
 
 No private key is accepted, generated, stored or published by this command.
-Use an already-built product directory so actual OCI/runtime pins remain exact.
+Use a new product source tree and an independently authenticated old complete
+product. Only the baseline's OCI/runtime pins and compose references are retained.
 """
 import argparse
 import hashlib
@@ -14,7 +15,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "host"))
-from agentic_host.host_update import CONTRACT, REQUIRED, TOP_FILES, TOPS  # noqa: E402
+from agentic_host.host_update import CONTRACT, LOCKS, REQUIRED, TOP_FILES, TOPS  # noqa: E402
 
 MAX_BYTES = 128 * 1024**2
 
@@ -23,8 +24,34 @@ def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
 
-def build(product, destination, *, version, source_commit, tests, now=None):
+def runtime_baseline(product):
+    """Read only pinned runtime inputs from an independently authenticated bundle.
+
+    Its checksum index establishes file integrity, not initial authenticity.
+    Maintainers must authenticate the baseline media through their release chain.
+    """
+    product = Path(product).resolve(strict=True)
+    index_path = product / "BUNDLE.sha256.json"
+    if index_path.is_symlink() or not index_path.is_file() or index_path.stat().st_size > 8 * 1024**2:
+        raise ValueError("An authenticated complete baseline product with its checksum index is required")
+    index = json.loads(index_path.read_text())
+    if not isinstance(index, dict):
+        raise ValueError("The baseline checksum index is invalid")
+    files = {}
+    for name in LOCKS:
+        path = product / name
+        if (any(part.is_symlink() for part in (path, *path.parents) if part.is_relative_to(product))
+                or not path.is_file() or path.stat().st_size > 32 * 1024**2
+                or not isinstance(index.get(name), str) or not re.fullmatch(r"[a-f0-9]{64}", index[name])
+                or hashlib.sha256(path.read_bytes()).hexdigest() != index[name]):
+            raise ValueError("The baseline runtime inputs must match its authenticated checksum index")
+        files[name] = path
+    return files
+
+
+def build(product, destination, *, baseline_product, version, source_commit, tests, now=None):
     product, destination = Path(product), Path(destination)
+    baseline = runtime_baseline(baseline_product)
     if (not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.]+)?", version)
             or not re.fullmatch(r"[0-9a-f]{40}", source_commit)
             or not isinstance(tests, list) or not 1 <= len(tests) <= 20):
@@ -57,6 +84,9 @@ def build(product, destination, *, version, source_commit, tests, now=None):
         if path.stat().st_size > 32 * 1024**2:
             raise ValueError("Host candidate file exceeds 32 MiB")
         files[relative.as_posix()] = path
+    # Host-only updates retain the old OCI/runtime contract and boot references.
+    # The separately signed Controller prerequisite uses runtime.env explicitly.
+    files.update(baseline)
     if not REQUIRED <= files.keys() or len(files) > 10000 or sum(p.stat().st_size for p in files.values()) > 256 * 1024**2:
         raise ValueError("Host candidate is incomplete or exceeds its bounds")
     manifest = {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in files.items()}
@@ -98,12 +128,14 @@ def build(product, destination, *, version, source_commit, tests, now=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--product", required=True, type=Path)
+    parser.add_argument("--baseline-product", required=True, type=Path,
+                        help="Independently authenticated complete old product; retain its runtime pins and compose")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--version", required=True)
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--test-evidence", required=True, type=Path)
     args = parser.parse_args()
-    build(args.product, args.output, version=args.version, source_commit=args.source_commit,
+    build(args.product, args.output, baseline_product=args.baseline_product, version=args.version, source_commit=args.source_commit,
           tests=json.loads(args.test_evidence.read_text()))
     print("Unsigned Host bundle built; an approved external signer must produce the release envelope.")
 

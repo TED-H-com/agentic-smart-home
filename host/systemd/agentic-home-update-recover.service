@@ -3,6 +3,7 @@ Description=Agentic Home interrupted Host update recovery
 After=docker.service libvirtd.service agentic-home-host.service
 Wants=agentic-home-host.service
 Requires=docker.service libvirtd.service
+ConditionPathExists=/usr/lib/agentic-home-update/current/agentic_host/host_update.py
 
 [Service]
 Type=oneshot

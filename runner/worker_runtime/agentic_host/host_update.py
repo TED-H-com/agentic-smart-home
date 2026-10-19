@@ -50,7 +50,7 @@ BUSY = {"queued", "activating", "rolling_back", "needs_reconcile"}
 STATES = BUSY | {"staging", "staged", "deployed", "rolled_back", "failed"}
 REQUIRED = {"host/agentic_host/__init__.py", "host/agentic_host/daemon.py", "host/agentic_host/host_reconcile.py",
             "host/compose.yaml", "host/host-update-contract.json", "images.lock.json", "pyproject.toml", "providers.lock.json"}
-LOCKS = ("images.lock.json", "providers.lock.json", "host/bases.lock.json", "host/network.lock.json")
+LOCKS = ("images.lock.json", "providers.lock.json", "host/bases.lock.json", "host/network.lock.json", "host/compose.yaml")
 TOPS = {"host", "controller", "runner", "hermes", "bridge", "custom_components", "web", "contracts", "scripts", "docs"}
 TOP_FILES = {"pyproject.toml", "uv.lock", "providers.lock.json", "images.lock.json", "BUNDLE.sha256.json",
              "AGENTS.md", "DESIGN.md", "README.md", "INSTALL.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md",

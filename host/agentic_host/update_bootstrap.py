@@ -8,10 +8,12 @@ import ctypes
 import hashlib
 import json
 import os
+import re
 import stat
 from pathlib import Path
 
 from .manager import HostError, atomic
+from .publisher import validate_official_channel
 
 ENGINE = Path("/usr/lib/agentic-home-update")
 BUNDLES = Path("/opt/agentic-home-bundles")
@@ -76,13 +78,59 @@ def exchange(first, second):
     sync_directory(Path(second).parent)
 
 
-def install_engine(source, *, engine=ENGINE):
-    """Install once, with immutable content-addressed modules; never replace."""
+def installed_engine_identity(*, engine=ENGINE):
+    """Inspect the exact installed immutable tree; no key or code is replaced."""
+    engine = Path(engine)
+    if not engine.exists() and not engine.is_symlink():
+        return {"state": "absent", "digest": None}
+    trusted(engine, directory=True)
+    current = engine / "current"
+    if not current.exists() and not current.is_symlink():
+        return {"state": "absent", "digest": None}
+    if not current.is_symlink() or current.lstat().st_uid != 0:
+        raise HostError("host_bootstrap_executor_untrusted")
+    relative = current.readlink()
+    if relative.parent != Path(".") or not re.fullmatch(r"[a-f0-9]{64}", relative.name):
+        raise HostError("host_bootstrap_executor_untrusted")
+    target = trusted(engine / relative, directory=True)
+    files = {}
+    for path in sorted(target.rglob("*")):
+        name = path.relative_to(target)
+        if "__pycache__" in name.parts or path.suffix == ".pyc":
+            continue
+        if path.is_dir() and not path.is_symlink():
+            trusted(path, directory=True)
+            continue
+        if (str(name) != "official-update-channel.json" and
+                (not name.parts or name.parts[0] != "agentic_host" or path.suffix != ".py")):
+            raise HostError("host_bootstrap_executor_untrusted")
+        files[name.as_posix()] = hashlib.sha256(trusted(path).read_bytes()).hexdigest()
+    required = {"official-update-channel.json", "agentic_host/host_update.py", "agentic_host/host_restore.py", "agentic_host/host_reconcile.py"}
+    if not required <= files.keys():
+        raise HostError("host_bootstrap_engine_incomplete")
+    observed = hashlib.sha256(json.dumps(files, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    if observed != relative.name:
+        raise HostError("host_bootstrap_engine_changed")
+    descriptor = validate_official_channel(json.loads(trusted(target / "official-update-channel.json").read_text()))
+    return {"state": "inactive" if descriptor["pin"] is None else "active", "digest": observed}
+
+
+def install_engine(source, *, engine=ENGINE, expected_inactive_engine_digest=None):
+    """Install immutable modules; only reviewed inactive-pin migration may relink."""
     if os.geteuid() != 0:
         raise HostError("host_bootstrap_local_root_required")
     source, engine = Path(source), Path(engine)
     trusted(source, directory=True)
     digest, files, manifest = tree_identity(source)
+    descriptor = validate_official_channel(json.loads(trusted(source / "host/official-update-channel.json").read_text()))
+    previous = installed_engine_identity(engine=engine)
+    migration = previous["digest"] not in {None, digest}
+    if migration:
+        if (previous["state"] != "inactive" or descriptor["pin"] is None
+                or expected_inactive_engine_digest != previous["digest"]):
+            raise HostError("host_bootstrap_executor_already_installed")
+    elif expected_inactive_engine_digest is not None and expected_inactive_engine_digest != previous["digest"]:
+        raise HostError("host_bootstrap_executor_revision_changed")
     engine.mkdir(parents=True, mode=0o755, exist_ok=True)
     trusted(engine, directory=True)
     target = engine / digest
@@ -111,13 +159,15 @@ def install_engine(source, *, engine=ENGINE):
         except BaseException:
             # Unreferenced partial stage has no active effect; preserve for inspection.
             raise
+    actual = {path.relative_to(target).as_posix() for path in target.rglob("*")
+              if path.is_file() and "__pycache__" not in path.relative_to(target).parts and path.suffix != ".pyc"}
+    if actual != set(manifest):
+        raise HostError("host_bootstrap_engine_changed")
     current = engine / "current"
-    if current.is_symlink():
-        if current.readlink() != Path(digest):
-            raise HostError("host_bootstrap_executor_already_installed")
-    elif current.exists():
-        raise HostError("host_bootstrap_executor_already_installed")
-    else:
+    # Recheck after copying, immediately before changing the active pointer.
+    if installed_engine_identity(engine=engine) != previous:
+        raise HostError("host_bootstrap_executor_revision_changed")
+    if previous["digest"] != digest:
         next_link = engine / ".current-next"
         if next_link.exists() or next_link.is_symlink():
             raise HostError("host_bootstrap_engine_interrupted")
@@ -182,6 +232,9 @@ def pristine(manager, *, engine=ENGINE, bundles=BUNDLES):
     """Initial installation already has disk/OS approval, no used home to migrate."""
     if manager.state() or (manager.root.parent / "controller/controller.sqlite3").exists():
         raise HostError("host_bootstrap_existing_install_requires_owner_approval")
-    # Install the fixed engine even with a null pin; it remains inactive.
-    install_engine(manager.product, engine=engine)
+    descriptor = validate_official_channel(json.loads(trusted(manager.product / "host/official-update-channel.json").read_text()))
+    # No usable authority exists yet. Defer installation so authenticated media
+    # can later install the owner's explicitly approved first signing pin.
+    if descriptor["pin"] is not None:
+        install_engine(manager.product, engine=engine)
     return version_layout(manager, bundles=bundles)

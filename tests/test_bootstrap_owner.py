@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "host"))
 from agentic_host import bootstrap_owner as module  # noqa: E402
+from agentic_host.bootstrap_media import DIRECTORY, LABEL, BootstrapMedia  # noqa: E402
 from agentic_host.bootstrap_owner import BootstrapOwner  # noqa: E402
 from agentic_host.host_update import COMPATIBILITY, IMAGE_REPOSITORY, PUBLISHER, REPOSITORY, canonical, digest  # noqa: E402
 from agentic_host.manager import HostError  # noqa: E402
@@ -41,9 +42,10 @@ def owner(tmp_path, monkeypatch):
     root.mkdir(parents=True)
     product.mkdir()
     (product / "images.lock.json").write_text('{}')
+    (root / "runtime.env").write_text("# Original runtime\n")
     source = payload / "product/host"
     (source / "agentic_host").mkdir(parents=True)
-    for name in ("__init__.py", "bootstrap_owner.py", "host_update.py", "host_restore.py", "host_reconcile.py", "update_bootstrap.py"):
+    for name in ("__init__.py", "bootstrap_owner.py", "bootstrap_media.py", "host_update.py", "host_restore.py", "host_reconcile.py", "update_bootstrap.py"):
         (source / "agentic_host" / name).write_text("# public synthetic fixture\n")
     (source / "systemd").mkdir()
     for name in ("agentic-home-update.service", "agentic-home-update-recover.service"):
@@ -74,6 +76,16 @@ def owner(tmp_path, monkeypatch):
     controller = {"manifest": controller_manifest, "signature": base64.b64encode(private.sign(canonical(controller_manifest))).decode()}
     (payload / "controller-update.json").write_text(json.dumps(controller))
     (payload / "controller-images.tar").write_bytes(b"synthetic-cache")
+    usb = tmp_path / "usb"
+    (usb / DIRECTORY).mkdir(parents=True)
+    files = {}
+    for name in ("host-bundle.tar", "controller-images.tar"):
+        data = (payload / name).read_bytes()
+        (usb / DIRECTORY / name).write_bytes(data)
+        files[name] = {"size": len(data), "sha256": module.file_digest(payload / name)}
+    (payload / "media.json").write_text(json.dumps({"format": 1, "label": LABEL, "directory": DIRECTORY, "files": files}))
+    monkeypatch.setattr(BootstrapMedia, "locate", lambda _: usb)
+    monkeypatch.setattr(module, "installed_engine_identity", lambda: {"state": "absent", "digest": None})
     calls = []
 
     def run(*args, **kwargs):
@@ -84,7 +96,7 @@ def owner(tmp_path, monkeypatch):
 
     manager = SimpleNamespace(root=root, product=product, run=run, locked=nullcontext)
     tool = BootstrapOwner(manager, payload=payload, trust=tmp_path / "etc/publishers.json")
-    tool.fixture = SimpleNamespace(private=private, metadata=metadata, host=host, controller=controller, calls=calls)
+    tool.fixture = SimpleNamespace(private=private, metadata=metadata, host=host, controller=controller, calls=calls, usb=usb)
     try:
         yield tool
     finally:
@@ -105,7 +117,7 @@ def test_invalid_or_missing_authenticity_evidence_never_changes_trust(owner, fau
         value = {**owner.fixture.metadata, "pin": None, "image_repository": None}
         (owner.payload / "product/host/official-update-channel.json").write_text(json.dumps(value))
     elif fault == "archive":
-        (owner.payload / "host-bundle.tar").write_bytes(b"tampered")
+        (owner.fixture.usb / DIRECTORY / "host-bundle.tar").write_bytes(b"tampered")
     else:
         path = owner.payload / ("host-update.json" if fault == "host_signature" else "controller-update.json")
         value = json.loads(path.read_text())
@@ -123,7 +135,10 @@ def summary(owner):
     return {"host_candidate": digest(owner.fixture.host["manifest"]), "host_version": "0.12.0", "current_tree": "a" * 64,
             "trust": {"exists": False, "sha256": None}, "key_sha256": owner.fixture.metadata["pin"]["key_sha256"],
             "controller_candidate": digest(owner.fixture.controller["manifest"]), "controller_version": "0.12.0",
-            "controller_required": True, "controller_cache_sha256": module.file_digest(owner.payload / "controller-images.tar"), "units": {}}
+            "controller_required": True, "controller_cache_sha256": module.file_digest(owner.payload / "controller-images.tar"),
+            "current_path": str(owner.manager.product), "current_controller_image": "sha256:" + "d" * 64,
+            "current_runtime_sha256": module.file_digest(owner.manager.root / "runtime.env"),
+            "installed_engine": {"state": "absent", "digest": None}, "units": {}}
 
 
 def test_review_is_exact_expiring_and_contains_no_private_key_or_capability(owner, monkeypatch):
@@ -169,8 +184,11 @@ def test_lost_or_interrupted_bootstrap_cannot_be_reoffered_or_repeated(owner, mo
         owner.review()
 
 
-def test_apply_orders_capacity_restore_trust_engine_controller_and_host_without_duplicate_snapshot(owner, monkeypatch):
+@pytest.mark.parametrize("engine_state", ["absent", "inactive"])
+def test_apply_orders_capacity_restore_trust_engine_controller_and_host_without_duplicate_snapshot(owner, monkeypatch, engine_state):
     reviewed = summary(owner)
+    reviewed["installed_engine"] = {"state": engine_state, "digest": "e" * 64 if engine_state == "inactive" else None}
+    monkeypatch.setattr(module, "installed_engine_identity", lambda: reviewed["installed_engine"])
     monkeypatch.setattr(owner, "_summary", lambda: copy.deepcopy(reviewed))
     payload = owner._payload()
     monkeypatch.setattr(owner, "_payload", lambda: payload)
@@ -217,7 +235,7 @@ def test_apply_orders_capacity_restore_trust_engine_controller_and_host_without_
 
     class Engine:
         def __init__(self, manager, **kwargs):
-            self.restore = kwargs["restore"]
+            self.restore = kwargs.get("restore")
 
         def stage(self, envelope, **kwargs):
             events.append(("host_stage",))
@@ -238,17 +256,22 @@ def test_apply_orders_capacity_restore_trust_engine_controller_and_host_without_
     def convert(event):
         assert state["locked"]
         events.append((event,))
-    monkeypatch.setattr(module, "install_engine", lambda *args: convert("engine"))
+    def install(*args, **kwargs):
+        assert kwargs == ({"expected_inactive_engine_digest": "e" * 64} if engine_state == "inactive" else {})
+        convert("engine")
+    monkeypatch.setattr(module, "install_engine", install)
     monkeypatch.setattr(module, "version_layout", lambda *args: convert("layout"))
     monkeypatch.setattr(owner, "_controller", lambda *args: events.append(("controller",)))
-    monkeypatch.setattr(owner, "_pause_existing", lambda: events.append(("pause",)))
+    monkeypatch.setattr(owner, "_pause_existing", lambda _: events.append(("pause",)))
+    monkeypatch.setattr(owner, "_baseline_current", lambda _: None)
+    Engine.broker_probe = lambda self: {"status": {"vm": "running"}, "bridge": {"controller_update": {"ingress_bridge_contract": 1}}}
     review = owner.review()
     assert owner.apply(review["review_digest"])["state"] == "complete"
     names = [item[0] for item in events]
     assert names == ["capacity", "pause", "restore", "trust", "engine", "layout", "controller", "host_stage", "host_approved", "host_execute"]
-    assert events[0][1] == payload.cache.stat().st_size * 4 + 256 * 1024**2
+    assert events[0][1] == payload.cache_size * 5 + payload.archive_size + 256 * 1024**2
     assert len([item for item in events if item[0] == "restore"]) == 1
-    assert owner.fixture.calls[-1] == ("systemctl", "start", "agentic-home-host.service")
+    assert ("systemctl", "start", "agentic-home-host.service") in owner.fixture.calls
     with pytest.raises(HostError):
         owner.apply(review["review_digest"])
 
@@ -256,7 +279,9 @@ def test_apply_orders_capacity_restore_trust_engine_controller_and_host_without_
 def test_failed_or_uncertain_broker_stop_still_attempts_original_broker_restart(owner, monkeypatch):
     monkeypatch.setattr(owner, "_summary", lambda: summary(owner))
     monkeypatch.setattr(module, "HostRestore", lambda *args, **kw: SimpleNamespace(capacity=lambda _: None, create=lambda _: {}))
-    monkeypatch.setattr(owner, "_pause_existing", lambda: None)
+    monkeypatch.setattr(owner, "_pause_existing", lambda _: None)
+    monkeypatch.setattr(owner, "_baseline_current", lambda _: None)
+    monkeypatch.setattr(module.HostBundle, "_broker_probe", staticmethod(lambda: {"status": {"vm": "running"}, "bridge": {"controller_update": {"ingress_bridge_contract": 1}}}))
     run = owner.manager.run
 
     def uncertain(*args, **kwargs):
@@ -269,12 +294,13 @@ def test_failed_or_uncertain_broker_stop_still_attempts_original_broker_restart(
     with pytest.raises(HostError, match="synthetic lost"):
         owner.apply(review["review_digest"])
     assert json.loads(owner.path.read_text())["state"] == "needs_reconcile"
-    assert owner.fixture.calls[-1] == ("systemctl", "start", "agentic-home-host.service")
+    assert ("systemctl", "start", "agentic-home-host.service") in owner.fixture.calls
 
 
 @pytest.mark.parametrize("bad_protocol", [False, True])
 def test_bundled_controller_prepare_uses_only_verified_local_image_and_never_network_pull(owner, monkeypatch, bad_protocol):
     payload = owner._payload()
+    payload.cache = owner.payload / "controller-images.tar"
     calls = owner.fixture.calls
 
     class Service:
@@ -326,9 +352,14 @@ def test_unsigned_builder_stages_only_public_fixed_inputs_and_gui_with_isolated_
     assert "/usr/bin/python3 -I -c" in wrapper
     assert "install.py" not in wrapper and "sudo" not in wrapper
     assert (stage / "DEBIAN/postinst").read_text() == module.POSTINST
+    assert (stage / "DEBIAN/preinst").read_text() == module.PREINST
     assert "--apply" not in module.POSTINST and "--review" not in module.POSTINST
     assert (stage / "etc/systemd/system" / module.RECOVERY_NAME).read_text() == module.RECOVERY_UNIT
     assert (stage / "usr/share/applications/agentic-home-update-bootstrap.desktop").is_file()
+    assert not (stage / "usr/share/agentic-home-update-bootstrap/host-bundle.tar").exists()
+    assert not (stage / "usr/share/agentic-home-update-bootstrap/controller-images.tar").exists()
+    assert (Path(result["media"]) / "host-bundle.tar").is_file()
+    assert (Path(result["media"]) / "controller-images.tar").is_file()
     assert "UNSIGNED" in (stage / "usr/share/agentic-home-update-bootstrap/AUTHENTICATION-REQUIRED.txt").read_text()
 
 
@@ -352,10 +383,15 @@ def test_gui_only_dispatches_fixed_pkexec_tool_after_explicit_owner_confirmation
         return SimpleNamespace(returncode=0, stdout=json.dumps(review), stderr="")
 
     monkeypatch.setattr(module.subprocess, "run", run)
+    progress = []
+    monkeypatch.setattr(module.subprocess, "Popen", lambda args, **kwargs: (
+        progress.append(args) or SimpleNamespace(stdin=SimpleNamespace(close=lambda: progress.append("closed")), wait=lambda **kwargs: None)))
     module.gui()
     assert calls[0] == ["/usr/bin/pkexec", module.TOOL, "--review"]
     assert calls[1][:2] == ["/usr/bin/zenity", "--question"]
     assert calls[2] == ["/usr/bin/pkexec", module.TOOL, "--apply", "b" * 64]
+    assert progress[0][:5] == ["/usr/bin/zenity", "--progress", "--pulsate", "--no-cancel", "--auto-close"]
+    assert progress[-1] == "closed"
 
 
 def test_gui_cancel_never_dispatches_privileged_apply(monkeypatch):
@@ -389,9 +425,10 @@ def test_pause_preflight_failure_restarts_and_probes_exact_original_controller(o
     service = SimpleNamespace(image=lambda: image, stop=stop, data=owner.manager.root.parent / "controller",
                               activate=lambda actual: calls.append(("activate", actual)), health=lambda: calls.append("health"))
     monkeypatch.setattr(owner, "_controller_view", lambda: service)
+    monkeypatch.setattr(owner, "_baseline_current", lambda _: None)
     monkeypatch.setattr(module, "offline_check", check)
     with pytest.raises(HostError):
-        owner._pause_existing()
+        owner._pause_existing({"state": "applying", "summary": summary(owner)})
     assert calls[-2:] == [("activate", image), "health"]
 
 
@@ -468,7 +505,96 @@ def test_reopening_gui_compensates_availability_but_does_not_offer_another_updat
 
     monkeypatch.setattr(module, "HostRestore", lambda *args, **kw: SimpleNamespace(recover_ha=recover))
     monkeypatch.setattr(owner, "_summary", lambda: pytest.fail("cannot mint another approval for uncertain snapshot"))
-    with pytest.raises(HostError, match="家庭系統已重新啟動"):
+    with pytest.raises(HostError, match="已恢復先前運行"):
         owner.review()
     assert calls == ["recover_availability"]
     assert json.loads(owner.path.read_text())["state"] == "needs_reconcile"
+
+
+@pytest.mark.parametrize("service_name", ["controller", "broker"])
+@pytest.mark.parametrize("intent_state", ["stop_requested", "start_requested"])
+def test_crash_after_approved_service_stop_recovers_exact_baseline_only(owner, monkeypatch, service_name, intent_state):
+    calls = []
+    image = "sha256:" + "d" * 64
+    intent = {"state": intent_state, "image": image, "runtime_sha256": [module.file_digest(owner.manager.root / "runtime.env")]}
+    value = {"state": "applying", "summary": summary(owner), "availability": {service_name: intent}}
+    owner.path.write_text(json.dumps(value))
+    monkeypatch.setattr(owner, "_baseline_current", lambda record: calls.append("baseline_verified"))
+    monkeypatch.setattr(owner, "_controller_view", lambda: SimpleNamespace(image=lambda: image,
+                        activate=lambda actual: calls.append(("activate", actual)), health=lambda: calls.append("health")))
+    monkeypatch.setattr(module.HostBundle, "_broker_probe", staticmethod(lambda: {
+        "status": {"vm": "running"}, "bridge": {"controller_update": {"ingress_bridge_contract": 1}}})
+    )
+    monkeypatch.setattr(module, "HostRestore", lambda *args, **kwargs: pytest.fail("no backup or HA mutation needed"))
+    assert owner.recover_availability()["state"] == "availability_restored"
+    persisted = json.loads(owner.path.read_text())
+    assert persisted["availability"][service_name]["state"] == "running_verified"
+    assert persisted["state"] == "needs_reconcile"
+    assert calls[0] == "baseline_verified"
+    if service_name == "controller":
+        assert calls[-2:] == [("activate", image), "health"]
+        assert not owner.fixture.calls
+    else:
+        assert owner.fixture.calls == [("systemctl", "start", "agentic-home-host.service"),
+                                       ("systemctl", "is-active", "--quiet", "agentic-home-host.service")]
+    assert owner.recover_availability() == {"state": "not_needed"}
+
+
+@pytest.mark.parametrize("drift", ["runtime", "image", "product"])
+def test_availability_recovery_never_rolls_back_owner_changes_or_completed_candidate(owner, monkeypatch, drift):
+    image = "sha256:" + "d" * 64
+    value = {"state": "applying", "summary": summary(owner), "availability": {"controller": {
+        "state": "stop_requested", "image": image, "runtime_sha256": [module.file_digest(owner.manager.root / "runtime.env")]}}}
+    owner.path.write_text(json.dumps(value))
+    if drift == "product":
+        monkeypatch.setattr(module.HostBundle, "_tree_identity", lambda self, path: "changed_candidate")
+    else:
+        monkeypatch.setattr(owner, "_baseline_current", lambda _: None)
+    if drift == "runtime":
+        (owner.manager.root / "runtime.env").write_text("# owner changed configuration\n")
+    monkeypatch.setattr(owner, "_controller_view", lambda: SimpleNamespace(
+        image=lambda: "sha256:" + "e" * 64 if drift == "image" else image,
+        activate=lambda actual: pytest.fail("must preserve changed owner/candidate version")))
+    with pytest.raises(HostError):
+        owner.recover_availability()
+    assert json.loads(owner.path.read_text())["state"] == "needs_reconcile"
+    assert not owner.fixture.calls
+
+
+def test_controller_stop_intent_is_durable_before_stop_even_when_process_disappears(owner, monkeypatch):
+    class ProcessKilled(BaseException):
+        pass
+    image = "sha256:" + "d" * 64
+    value = {"state": "applying", "summary": summary(owner)}
+    def stop():
+        saved = json.loads(owner.path.read_text())
+        assert saved["availability"]["controller"]["state"] == "stop_requested"
+        assert saved["availability"]["controller"]["image"] == image
+        raise ProcessKilled()
+    monkeypatch.setattr(owner, "_controller_view", lambda: SimpleNamespace(image=lambda: image, stop=stop,
+                        data=owner.manager.root.parent / "controller"))
+    # SIGKILL skips finally entirely; leave the durable stop intent untouched.
+    monkeypatch.setattr(owner, "_resume_controller", lambda _: None)
+    with pytest.raises(ProcessKilled):
+        owner._pause_existing(value)
+    assert json.loads(owner.path.read_text())["availability"]["controller"]["state"] == "stop_requested"
+
+
+@pytest.mark.parametrize("phase", ["review", "apply"])
+def test_gui_timeout_reports_unknown_state_and_closes_progress(monkeypatch, phase):
+    calls, progress = [], []
+    review = {"message": "fixture", "host_version": "0.12.0", "controller_required": False,
+              "key_sha256": "a" * 64, "review_digest": "b" * 64}
+    def run(args, **kwargs):
+        calls.append(args)
+        if args[0] == "/usr/bin/pkexec" and args[2] == "--" + phase:
+            raise module.subprocess.TimeoutExpired(args, kwargs["timeout"])
+        return SimpleNamespace(returncode=0, stdout=json.dumps(review), stderr="")
+    monkeypatch.setattr(module.subprocess, "run", run)
+    monkeypatch.setattr(module.subprocess, "Popen", lambda args, **kwargs: SimpleNamespace(
+        stdin=SimpleNamespace(close=lambda: progress.append("closed")), wait=lambda **kwargs: None))
+    module.gui()
+    assert "尚未確認" in calls[-1][-1]
+    if phase == "apply":
+        assert progress == ["closed"]
+        assert "請勿重送" in calls[-1][-1]

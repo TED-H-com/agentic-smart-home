@@ -60,6 +60,10 @@ def lab(tmp_path, monkeypatch):
     (previous / "assets/kept").write_text("existing-images-never-copied")
     (previous / "images.lock.json").write_text("{}")
     (previous / "providers.lock.json").write_text("{}")
+    for name in ("host/bases.lock.json", "host/network.lock.json"):
+        (previous / name).write_text("{}")
+    (previous / "host/compose.yaml").write_text("fixture source")
+    (previous / "BUNDLE.sha256.json").write_text(json.dumps({name: hashlib.sha256((previous / name).read_bytes()).hexdigest() for name in module.LOCKS}))
     active = tmp_path / "product"
     active.symlink_to(previous, target_is_directory=True)
     root = tmp_path / "state/host"
@@ -107,6 +111,8 @@ def files_for(engine):
     files["host/host-update-contract.json"] = canonical(CONTRACT)
     files["images.lock.json"] = b"{}"
     files["providers.lock.json"] = b"{}"
+    files["host/bases.lock.json"] = b"{}"
+    files["host/network.lock.json"] = b"{}"
     return files
 
 
@@ -220,7 +226,7 @@ def test_unsafe_archive_never_switches_or_writes_outside_staging(lab, monkeypatc
     elif kind == "setuid":
         member.mode = 0o4755
     elif kind == "many":
-        monkeypatch.setattr(module, "MAX_FILES", 2)
+        monkeypatch.setattr(module, "MAX_FILES", 8)
     else:
         monkeypatch.setattr(module, "MAX_FILE", 2)
     record = lab.stage(envelope(lab, members=[member]), background=False)
@@ -525,3 +531,11 @@ def test_deferred_os_configuration_is_reported_as_requiring_reboot(lab, monkeypa
     assert result["state"] == "deployed"
     assert "部分主機設定將在重新開機後生效" in result["message"]
     assert lab.records()[result["candidate_digest"]]["reboot_required"] is True
+
+
+
+def test_compose_boot_references_cannot_change_under_a_host_only_update(lab):
+    files = files_for(lab)
+    files["host/compose.yaml"] = b"services:\n  runner:\n    image: unexpected-new-runtime:latest\n"
+    result = lab.stage(envelope(lab, files=files), background=False)
+    assert result["state"] == "failed" and lab.current() == lab._test.previous
