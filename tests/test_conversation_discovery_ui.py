@@ -194,6 +194,8 @@ def test_explore_is_explicit_preserves_draft_and_conversation(conversation_brows
     assert '書房印表機（合成資料）' in sent_messages(state)[1]['message']
     expect(composer).to_have_value('保留草稿：暫時不要開啟控制。')
     expect(results.first.get_by_role('button', name='協助設定', exact=True)).to_be_disabled()
+    expect(results.first.locator('summary', has_text='接入進度')).to_have_count(0)
+    expect(results.last.locator('summary', has_text='接入進度')).to_be_visible()
 
     # Consent is specific to the action; ordinary follow-up does not silently share again.
     state['response'] = {}

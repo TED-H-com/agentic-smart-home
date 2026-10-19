@@ -44,7 +44,7 @@ export function ConversationDiscovery({value,disabled,onDiscover,onSelect}:{valu
       {data.candidates.length>0&&incomplete&&<p className="helper-text">目前只取得部分結果，尚未確認家中所有設備。</p>}
       {data.truncated&&<p className="helper-text">{data.candidate_count===null?'這次先列出部分結果。':`這次先列出 ${data.candidates.length} 項，共找到 ${data.candidate_count} 項待設定結果。`}</p>}
       <p className="helper-text">找到設備不代表已接入；配對和控制權限仍需你確認。</p>
-      {data.candidates.length>0&&<TrackingPanel candidates={data.candidates}/>}
+      {data.candidates.length>0&&!disabled&&<TrackingPanel candidates={data.candidates}/>}
     </>}
     {data.observed_at&&<p className="helper-text">探索於 <time dateTime={data.observed_at}>{timestamp(data.observed_at)}</time>，是這次對話的觀測結果。</p>}
     {data.sources.length>0&&<details><summary>探索範圍</summary><p>已讀取家庭提供的探索資料；尚未掃描整個家庭網路。</p><ul className="conversation-discovery-sources">{data.sources.map(source=><li key={source.id}><span>{sourceNames[source.id]||'其他來源'}</span><span>{sourceStates[source.state]}{source.truncated?' · 部分清單':''}</span></li>)}</ul></details>}
