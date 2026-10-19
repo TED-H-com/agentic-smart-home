@@ -1,3 +1,7 @@
+# 0.11.1 候選版
+
+- 與 0.11.1 Host 更新候選同版；G15／G16 由正式 Host bootstrap／bundle 路徑交付，簽署、發布及實體家庭驗收仍待完成。
+
 # 0.6.1 native home and upstream boundaries
 
 - Make native HA the completed household daily entry, retain explicit conversations and independent rescue, and prevent Back/reload redirect loops.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentic-home"
-version = "0.11.0"
+version = "0.11.1"
 description = "Home Assistant controller and isolated cloud agent runner"
 requires-python = ">=3.13"
 dependencies = [

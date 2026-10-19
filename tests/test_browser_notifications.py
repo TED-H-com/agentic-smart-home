@@ -43,7 +43,7 @@ def notifications_browser(tmp_path, monkeypatch):
         "bootstrap": {"contract": 1, "id": None, "state": "idle", "provider": None,
                       "channel": "line", "current_step": None, "steps": [], "human_action": None, "updated_at": None},
         "status": {"ha": {"status": "connected"}, "runner": {"protocol": 1, "providers": []},
-                   "gateway": gateway, "version": "0.11.0"},
+                   "gateway": gateway, "version": "0.11.1"},
         "services": {"services": []}, "retention": {"audit_days": 30, "context_days": 7},
         "tasks": {"tasks": []}, "workers": {"workers": []},
         "gateway": gateway, "gateway/messages": {"messages": []},

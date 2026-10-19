@@ -1,5 +1,10 @@
 # 更新紀錄
 
+## 0.11.1 候選
+
+- 將 #122 專用主機電源／網路政策（G15／G16）透過 #123 的正式 Host bootstrap 與受批准 Host bundle 更新路徑交付；既有 0.11.0 家庭使用一次經獨立身份驗證的圖形 bootstrap 與 AH-UPDATE USB，不重跑 installer。
+- 沿用 Ted 於 2026-10-19 核准的官方公鑰 pin；私鑰僅留在外部發行端。候選尚未簽署或發布，尚無本版媒體／遷移或實體家庭驗收，結果另見 [驗證紀錄](docs/VERIFICATION.md)。
+
 ## 0.11.0 候選
 
 本輪整合筆電試裝前的 issue／PR 候補修正，待同版媒體、公開 App 與驗證完成後交付；實際狀態見 [驗證紀錄](docs/VERIFICATION.md)。

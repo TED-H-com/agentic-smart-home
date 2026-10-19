@@ -1,3 +1,3 @@
 """Isolated cloud CLI broker; never receives Home Assistant credentials."""
 
-VERSION = "0.11.0"
+VERSION = "0.11.1"
