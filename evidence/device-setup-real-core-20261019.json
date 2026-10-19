@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-19T16:44:27Z",
+  "classification": "isolated_synthetic_lab_contract_evidence",
+  "test_source_commit": "75d5041",
+  "test": "tests/test_device_setup_real_ha.py::test_real_core_ipp_confirmation_and_exact_registry_readback",
+  "command": "pytest-disktmp uv run --no-sync pytest -q tests/test_device_setup_real_ha.py --real-ha",
+  "result": "passed",
+  "pytest_summary": "1 passed in 14.01s",
+  "duration_seconds": 14.01,
+  "platform": {
+    "core_version": "2026.10.1",
+    "image": "ghcr.io/home-assistant/home-assistant:2026.10.1",
+    "image_id": "sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0",
+    "repo_digest": "ghcr.io/home-assistant/home-assistant@sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0",
+    "image_pulled_during_test": false,
+    "memory_limit_mib": 1536,
+    "cpu_limit": 2,
+    "configuration_storage": "disk_backed_isolated_pytest_directory",
+    "published_api": "random_host_loopback_port",
+    "ipp_endpoint": "container_loopback_only",
+    "container_cleanup_verified": true
+  },
+  "observed_contract_behavior": [
+    "Real Core onboarding and token exchange authenticated a fresh isolated owner; production owner authorization succeeded.",
+    "Native IPP flow processed injected ZeroconfServiceInfo and decoded binary IPP Get-Printer-Attributes over actual HTTP using shipped aioipp.",
+    "Native config_entries/flow/progress returned one ipp flow with source zeroconf, exact fixture identity and zeroconf_confirm step.",
+    "Native flow GET returned type form, the same flow ID and handler, an empty data_schema and empty errors.",
+    "DeviceSetups proposal performed no backup or confirmation POST and left native config entries unchanged.",
+    "Exact owner approval completed one fixture backup and one guarded native confirmation POST with an empty body.",
+    "The real POST returned create_entry, the exact flow ID and ipp handler, and a result containing an ipp/zeroconf config-entry ID accepted by the unmodified production adapter.",
+    "Native registry readback contained exactly one loaded IPP integration and one device linked to that exact config-entry ID and fixture IPP identity.",
+    "At least one entity was registered and available, including an idle printer sensor; service counts matched exact native entity/state readback.",
+    "The native IPP coordinator made additional successful binary IPP requests; the fixture received no unsupported printer operation.",
+    "The completed native discovery flow was absent from flow progress.",
+    "Recreating DeviceSetups from persisted state and repeating the same approval preserved the exact configured entry without another backup or confirmation POST.",
+    "The Controller snapshot existed, household policy remained unchanged, and public/persisted setup data excluded the token, raw printer identity and API base URL.",
+    "Physical verification remained not_performed."
+  ],
+  "fixtures": [
+    "Test-only custom integration injects a synthetic ZeroconfServiceInfo through native config_entries.flow.async_init.",
+    "A loopback HTTP server returns synthetic binary IPP printer attributes and supports no printing or device control.",
+    "Supervisor backup returns an explicitly labeled fixture identifier while invoking the production send guard.",
+    "Direct DeviceSetups invocation uses a synthetic outer HTTP session verifier; Core owner checks are real."
+  ],
+  "not_run": [
+    "Physical printer discovery, status or printing",
+    "LAN multicast discovery and real network inventory",
+    "Supervisor backup creation or restore",
+    "HAOS VM, Ingress and actual appliance deployment",
+    "Existing household access",
+    "Lost-response recovery against real Core",
+    "Controller HTTP routing/session/cookie integration"
+  ],
+  "evidence_limits": [
+    "This summary records completed pytest assertions and the independently inspected local image identity; it is not a physical-device or whole-system acceptance report.",
+    "The repository default tmp_path_retention_policy=failed removed successful task-local raw artifacts; no raw responses or credentials are retained here.",
+    "Import ordering was linted and corrected after the passing runtime test; production code and runtime test behavior were unchanged."
+  ]
+}

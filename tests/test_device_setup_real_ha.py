@@ -15,22 +15,20 @@ establishes compatibility with the local image.
 import asyncio
 import json
 import os
-from pathlib import Path
 import secrets
 import shutil
 import subprocess
-from types import SimpleNamespace
 import uuid
+from pathlib import Path
+from types import SimpleNamespace
 
 import aiohttp
 import pytest
-from starlette.requests import Request
-
 from agentic_controller.device_setup import KIND, DeviceSetupApprove, DeviceSetupCreate, DeviceSetups
 from agentic_controller.ha import HomeAssistant
 from agentic_controller.models import utcnow
 from agentic_controller.store import Store
-
+from starlette.requests import Request
 
 IMAGE = "ghcr.io/home-assistant/home-assistant:2026.10.1"
 IDENTITY = "11111111-2222-4333-8444-555555555555"

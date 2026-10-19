@@ -4,11 +4,10 @@ The shipped IPP integration and aioipp parser are unmodified. This fixture
 answers only Get-Printer-Attributes; it has no printing/device-control support.
 No multicast discovery or physical printer is involved.
 """
-from ipaddress import IPv4Address
 import struct
+from ipaddress import IPv4Address
 
 from aiohttp import web
-
 from homeassistant.config_entries import SOURCE_ZEROCONF
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.helpers import config_validation as cv
