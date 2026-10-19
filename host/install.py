@@ -23,7 +23,7 @@ TARGET = Path("/opt/agentic-home")
 STATE = Path("/var/lib/agentic-home")
 PACKAGES = ["qemu-kvm", "qemu-utils", "libvirt-daemon-system", "libvirt-clients", "ovmf", "dnsmasq-base",
             "docker.io", "docker-compose-v2", "python3", "ca-certificates", "curl", "openssh-server",
-            "git", "e2fsprogs", "util-linux"]
+            "git", "e2fsprogs", "util-linux", "lvm2"]
 
 
 def run(*args):

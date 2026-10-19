@@ -73,7 +73,7 @@ def validate_job(job, id, expected_request=None):
         raise JobObservationError("host_job_response_invalid")
     if request["action"] == "configure_lan":
         value = request.get("interface_id")
-        if "interface_id" not in request or (value is not None and (not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{64}", value))):
+        if value is not None and (not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{64}", value)):
             raise JobObservationError("host_job_response_invalid")
     elif "interface_id" in request:
         raise JobObservationError("host_job_response_invalid")
@@ -114,32 +114,68 @@ def unconfirmed(id, error):
     raise SystemExit(2)
 
 
-def main():
+def argument_parser():
     parser = argparse.ArgumentParser(description="Agentic Home outer Linux lifecycle")
-    parser.add_argument("command", choices=["status", "provision", "start", "shutdown", "snapshot", "restore",
-                                             "bootstrap_hermes", "configure_lan", "ha-lan", "open", "access-key", "diagnostics", "support-bundle",
-                                             "network", "network-select", "network-login", "network-revoke", "updates",
-                                             "update-stage", "update-apply", "update-rollback-offer", "update-rollback",
-                                             "update-publisher-inspect", "update-publisher-add", "update-publisher-revoke", "job", "wait"])
-    parser.add_argument("--id", help="Existing lifecycle job ID for read-only job/wait")
-    parser.add_argument("--snapshot")
-    parser.add_argument("--interface-id", help="Current opaque physical Ethernet ID from ha-lan")
-    parser.add_argument("--disable-lan", action="store_true", help="Remove the HAOS LAN NIC and restore the management NAT gateway")
-    parser.add_argument("--output", type=Path, help="New JSON file for support-bundle")
-    parser.add_argument("--lan", choices=["dhcp", "reservation"])
-    parser.add_argument("--remote", choices=["disabled", "tailscale"])
-    parser.add_argument("--manifest", type=Path, help="Signed update envelope JSON (publisher public key is never accepted here)")
-    parser.add_argument("--candidate", help="Exact staged candidate digest")
-    parser.add_argument("--approval", help="Short-lived approval from the inspected candidate or rollback offer")
-    parser.add_argument("--publisher", help="Local-root release publisher identifier")
-    parser.add_argument("--repository", help="Exact trusted image repository, without tag/digest")
-    parser.add_argument("--public-key", type=Path, help="Ed25519 PUBLIC key PEM; never a private signing key")
+    # Shared defaults keep dispatch simple; options belong only to the command
+    # that actually accepts them, so unrelated flags fail before any request.
+    parser.set_defaults(id=None, snapshot=None, interface_id=None, disable_lan=False,
+                        output=None, lan=None, remote=None, manifest=None, candidate=None,
+                        approval=None, publisher=None, repository=None, public_key=None)
+    commands = parser.add_subparsers(dest="command", required=True)
+    descriptions = {
+        "status": "Read product, home network and restore point status",
+        "provision": "Prepare the product-owned Home Assistant VM",
+        "start": "Start Home Assistant", "shutdown": "Cleanly shut down Home Assistant",
+        "snapshot": "Create a Home Assistant restore point",
+        "restore": "Restore an existing Home Assistant restore point",
+        "bootstrap_hermes": "Prepare the shipped assistant runtime",
+        "configure_lan": "Connect to home network automatically, with a restore point and NAT fallback",
+        "ha-lan": "Read Home Assistant home network address and diagnostics",
+        "open": "Open the product on this desktop", "access-key": "Read the local rescue access key",
+        "diagnostics": "Read safe product diagnostics", "support-bundle": "Save a new diagnostic bundle",
+        "network": "Read host network preferences", "network-select": "Choose the host address and remote access policy",
+        "network-login": "Start the selected remote network login", "network-revoke": "Revoke remote network access",
+        "updates": "Read trusted update candidates",
+        "update-stage": "Verify and stage a signed update envelope",
+        "update-apply": "Apply an exact approved staged Controller update",
+        "update-rollback-offer": "Inspect an exact Controller rollback offer",
+        "update-rollback": "Apply an exact approved Controller rollback",
+        "update-publisher-inspect": "Inspect a publisher public key without granting trust",
+        "update-publisher-add": "Approve a publisher trust pin as local root",
+        "update-publisher-revoke": "Revoke an exact publisher trust pin as local root",
+        "job": "Read an existing lifecycle job without resubmitting",
+        "wait": "Wait for an existing lifecycle job without resubmitting",
+    }
+    sub = {name: commands.add_parser(name, help=description, description=description)
+           for name, description in descriptions.items()}
+    for name in ("job", "wait"):
+        sub[name].add_argument("--id", required=True, help="Existing lifecycle job ID")
+    sub["restore"].add_argument("--snapshot", required=True, help="Existing restore point ID")
+    selection = sub["configure_lan"].add_mutually_exclusive_group()
+    selection.add_argument("--interface-id", help="Current opaque Ethernet ID from ha-lan; omit for the only wired NIC")
+    selection.add_argument("--disable-lan", action="store_true", help="Return Home Assistant to its basic NAT network")
+    sub["support-bundle"].add_argument("--output", required=True, type=Path, help="New JSON file")
+    sub["network-select"].add_argument("--lan", required=True, choices=["dhcp", "reservation"], help="Host address policy")
+    sub["network-select"].add_argument("--remote", required=True, choices=["disabled", "tailscale"])
+    sub["update-stage"].add_argument("--manifest", required=True, type=Path, help="Signed update envelope JSON")
+    for name in ("update-apply", "update-rollback-offer", "update-rollback"):
+        sub[name].add_argument("--candidate", required=True, help="Exact staged candidate digest")
+        if name != "update-rollback-offer":
+            sub[name].add_argument("--approval", required=True, help="Short-lived approval from the inspected offer")
+    for name in ("update-publisher-inspect", "update-publisher-add", "update-publisher-revoke"):
+        sub[name].add_argument("--publisher", required=True, help="Release publisher identifier")
+        sub[name].add_argument("--repository", required=True, help="Exact trusted image repository, without tag/digest")
+        sub[name].add_argument("--public-key", required=True, type=Path, help="Ed25519 PUBLIC key PEM")
+        if name != "update-publisher-inspect":
+            sub[name].add_argument("--approval", required=True, help="Exact inspected review_digest; requires local root")
+    return parser
+
+
+def main():
+    parser = argument_parser()
     args = parser.parse_args()
-    if args.command == "configure_lan":
-        if bool(args.interface_id) == args.disable_lan or (args.interface_id and not re.fullmatch(r"[a-f0-9]{64}", args.interface_id)):
-            parser.error("configure_lan requires exactly one of --interface-id <current opaque ID> or --disable-lan")
-    elif args.interface_id is not None or args.disable_lan:
-        parser.error("LAN configuration flags require configure_lan")
+    if args.interface_id is not None and not re.fullmatch(r"[a-f0-9]{64}", args.interface_id):
+        parser.error("--interface-id must be a current opaque Ethernet ID from ha-lan")
     if args.command in {"job", "wait"}:
         if not valid_job_id(args.id):
             parser.error("job/wait requires a valid existing --id")
@@ -215,8 +251,8 @@ def main():
         return
     id = uuid.uuid4().hex
     body = {"id": id, "action": args.command, "snapshot": args.snapshot}
-    if args.command == "configure_lan":
-        body["interface_id"] = args.interface_id
+    if args.command == "configure_lan" and (args.disable_lan or args.interface_id is not None):
+        body["interface_id"] = None if args.disable_lan else args.interface_id
     # A lost POST reply must still leave the Owner an exact read-only recovery
     # handle. Never automatically resend this mutation, even with the same ID.
     print("Operation " + id, flush=True)

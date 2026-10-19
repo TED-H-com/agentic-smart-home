@@ -233,7 +233,7 @@ def test_workers_and_host(browser, origin):
 
 
 @pytest.mark.parametrize('width', [390, 768, 1440])
-def test_ha_lan_shutdown_disable_save_start_is_browser_only(browser, origin, width):
+def test_ha_lan_one_action_connect_and_nat_return_is_browser_only(browser, origin, width):
     from agentic_controller.ha_lan import HomeLanStatus
 
     page = browser.new_page(viewport={'width': width, 'height': 900 if width == 1440 else 844})
@@ -243,10 +243,9 @@ def test_ha_lan_shutdown_disable_save_start_is_browser_only(browser, origin, wid
     ui = product_frame(page)
     ui.locator('summary').filter(has_text='家庭區網接入').click()
     lan = ui.get_by_role('region', name='家庭區網接入')
-    select = lan.get_by_label('接到家庭路由器的網路線')
-    expect(select).to_be_disabled()
-    expect(lan.get_by_text('已讀回家庭的區網位址、探索介面與本機網址。', exact=True)).to_be_visible()
-    expect(lan.get_by_text('接著到「裝置與服務」新增設備，並實測控制；這項檢查不代表所有設備已接通。')).to_be_visible()
+    expect(lan.get_by_text('HA 已連上家庭網路：192.168.50.20', exact=True)).to_be_visible()
+    # One wired NIC requires no technical selection control.
+    expect(lan.get_by_label('接到家庭路由器的網路線')).to_have_count(0)
     lan.locator('summary').filter(has_text='連線資料').click()
     expect(lan.get_by_text('http://192.168.50.20:8123', exact=True)).to_be_visible()
     assert ui.evaluate('document.documentElement.scrollWidth <= innerWidth')
@@ -260,43 +259,30 @@ def test_ha_lan_shutdown_disable_save_start_is_browser_only(browser, origin, wid
     initial = readback()
     assert initial['home']['state'] == 'ready'
     assert 'no_device_or_matter_control_verified' in initial['home']['limits']
-    ui.get_by_role('button', name='正常關機', exact=True).click()
-    expect(ui.get_by_text('關閉家庭系統？家中自動化會暫停。', exact=True)).to_be_visible()
-    assert readback()['vm_state'] == 'running'  # Opening the confirmation makes no change.
-    ui.get_by_role('button', name='確認關機', exact=True).click()
+    lan.get_by_role('button', name='使用基本網路', exact=True).click()
+    expect(lan.get_by_role('button', name='正在連接…', exact=True)).to_be_disabled()
     page.clock.run_for(6500)
-    expect(ui.get_by_role('region', name='家庭系統').get_by_text('已關機', exact=True)).to_be_visible()
-    expect(select).to_be_enabled()
-    assert readback()['home']['state'] == 'unavailable'
-    expect(lan.get_by_text('http://192.168.50.20:8123', exact=True)).to_have_count(0)
-    select.select_option('')
-    lan.get_by_role('button', name='保存家庭接線', exact=True).click()
-    expect(lan.get_by_role('button', name='正在保存…', exact=True)).to_be_disabled()
-    page.clock.run_for(6500)
-    expect(lan.get_by_text('尚未接入區網', exact=True)).to_be_visible()
     disabled = readback()
     assert disabled['mode'] == 'nat' and disabled['selected_interface_id'] is None
     assert disabled['home']['state'] == 'not_configured' and disabled['home']['ipv4'] == []
     assert disabled['home']['internal_url'] is None
-    ui.get_by_role('button', name='啟動', exact=True).click()
+    assert disabled['vm_state'] == 'running'
+    lan.get_by_role('button', name='連上家庭網路', exact=True).click()
     page.clock.run_for(6500)
-    expect(ui.get_by_role('region', name='家庭系統').get_by_text('運作中', exact=True)).to_be_visible()
-    expect(select).to_be_disabled()
     restarted = readback()
-    assert restarted['vm_state'] == 'running' and restarted['mode'] == 'nat'
-    assert restarted['home']['state'] == 'not_configured'
-    # Collapsing/reopening reads the same memory state; reloading resets the fictional household.
-    ui.locator('summary').filter(has_text='家庭區網接入').click()
-    ui.locator('summary').filter(has_text='家庭區網接入').click()
-    expect(ui.get_by_role('region', name='家庭區網接入').get_by_text('尚未接入區網', exact=True)).to_be_visible()
+    assert restarted['vm_state'] == 'running' and restarted['mode'] == 'wired'
+    assert restarted['home']['state'] == 'ready'
+    expect(lan.get_by_text('HA 已連上家庭網路：192.168.50.20', exact=True)).to_be_visible()
     jobs = page.evaluate("window.__agenticDemoModel.request('host/status','GET',{},'outer').body.jobs")
-    assert [job['request']['action'] for job in jobs[-3:]] == ['shutdown', 'configure_lan', 'start']
-    assert all(job['state'] == 'succeeded' for job in jobs[-3:])
+    assert [job['request']['action'] for job in jobs[-2:]] == ['configure_lan', 'configure_lan']
+    assert all(job['state'] == 'succeeded' for job in jobs[-2:])
+    assert jobs[-2]['request']['interface_id'] is None
+    assert 'interface_id' not in jobs[-1]['request']
     clean(page, errors, external)
     page.reload()
     ui = product_frame(page)
     ui.locator('summary').filter(has_text='家庭區網接入').click()
-    expect(ui.get_by_role('region', name='家庭區網接入').get_by_text('已設定接線', exact=True)).to_be_visible()
+    expect(ui.get_by_role('region', name='家庭區網接入').get_by_text('已連接', exact=True)).to_be_visible()
     assert readback()['home']['state'] == 'ready'
     clean(page, errors, external)
     page.close()
@@ -327,8 +313,6 @@ def test_ha_lan_demo_rejects_unsafe_selection_and_reuses_jobs(browser, origin):
     initial = request('network/ha-lan')['body']
     change = {'action': 'configure_lan', 'interface_id': None}
     assert submit(change, None)['status'] == 400
-    assert submit(change, 'demo-running') == {'status': 409, 'body': {'detail': 'ha_lan_shutdown_required'}}
-    assert submit({'action': 'configure_lan'}, 'demo-missing')['status'] == 422
     assert submit({'action': 'configure_lan', 'interface_id': 'invalid'}, 'demo-invalid')['status'] == 422
     assert request('network/ha-lan')['body'] == initial
     shutdown = submit({'action': 'shutdown'}, 'demo-shutdown')
@@ -345,10 +329,9 @@ def test_ha_lan_demo_rejects_unsafe_selection_and_reuses_jobs(browser, origin):
     assert submit(configure, 'demo-disable')['status'] == 409
     assert submit(configure, 'demo-enable')['status'] == 202
     wired = complete()
-    assert wired['mode'] == 'wired' and wired['home']['state'] == 'unavailable'
-    assert wired['home']['ipv4'] == [] and wired['home']['internal_url'] is None
-    assert submit({'action': 'start'}, 'demo-start')['status'] == 202
-    assert complete()['home']['state'] == 'ready'
+    assert wired['mode'] == 'wired' and wired['home']['state'] == 'ready'
+    assert wired['home']['ipv4'] and wired['home']['internal_url']
+    assert wired['vm_state'] == 'running'
     # Replaying completed work returns its original job, without undoing later state.
     repeated = submit(change, 'demo-disable')
     assert repeated['body']['id'] == first['body']['id'] and repeated['body']['state'] == 'succeeded'

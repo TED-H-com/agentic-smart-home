@@ -1,19 +1,17 @@
 import {useEffect,useRef,useState} from 'react';
-import {api,haPath,requestKey} from './api';
+import {api,requestKey} from './api';
 import {plainError} from './labels';
 import {Button,Notice,Status,timestamp} from './ui';
 
-type HomeObservation={state:string;ipv4?:string[];ipv6?:string[];interface?:string|null;internal_url?:string|null;observed_at?:string|null;discovery_enabled?:boolean|null;default_adapter?:boolean|null};
-type LanState={contract_version:1;mode:'nat'|'wired';state:string;selected_interface_id:string|null;interface:string|null;guest_mac:string|null;interfaces:{id:string;label:string;interface:string;address:string|null;network:string|null}[];vm_state:string;can_configure:boolean;limitations:string[];home?:HomeObservation};
+type HomeObservation={state:string;ipv4?:string[];ipv6?:string[];interface?:string|null;internal_url?:string|null;observed_at?:string|null};
+type LanState={contract_version:1;mode:'nat'|'wired';state:string;selected_interface_id:string|null;interface:string|null;guest_mac:string|null;interfaces:{id:string;label:string;interface:string;address:string|null;network:string|null}[];vm_state:string;can_configure:boolean;can_connect?:boolean;core_configuration_pending?:boolean;limitations:string[];home?:HomeObservation;ha_lan_ip?:string|null;message?:string|null};
 type Job={id:string;state:string;message?:string};
 const homeCopy:Record<string,string>={
-  not_configured:'尚未讓家庭系統直接接入區網。',
-  needs_home_setup:'接線設定已保存；完成家庭帳號與授權後，會檢查實際連線。',
-  unavailable:'暫時無法核對家庭網路，恢復連線後會再讀取。',
-  waiting_for_address:'家庭系統尚未取得區網位址，請確認網路線與路由器。',
-  adapter_selection_required:'請到家庭網路設定，選用接上區網的網路卡來探索設備。',
-  callback_address_required:'請到家庭網路設定，將本機網址設為這個區網位址。',
-  ready:'已讀回家庭的區網位址、探索介面與本機網址。',
+  needs_home_setup:'家庭已取得區網位址；完成家庭授權後會自動核對探索功能。',
+  unavailable:'正在重新核對家庭網路。',
+  waiting_for_address:'正在等待路由器分配家庭位址。',
+  adapter_selection_required:'正在完成家庭設備探索設定。',
+  callback_address_required:'正在完成家庭本機網址設定。',
 };
 
 export function HomeLanSettings(){
@@ -33,48 +31,49 @@ export function HomeLanSettings(){
       }
       if(!alive.current||request!==serial.current)return;
       setValue(next);setReadError(false);
-      if(!selectionDirty.current)setChoice(next.selected_interface_id||'')
+      if(!selectionDirty.current)setChoice(next.selected_interface_id||'');
       if(observed){jobRef.current=observed;setJob(observed)}
     }catch{if(alive.current&&request===serial.current)setReadError(true)}
   }
   useEffect(()=>{alive.current=true;let timer:ReturnType<typeof setTimeout>;async function poll(){await refresh();if(alive.current)timer=setTimeout(poll,5000)}void poll();return()=>{alive.current=false;++serial.current;clearTimeout(timer)}},[]);
-  async function save(){
+  async function save(disable=false){
     setBusy(true);setError(null);
-    if(pending.current?.choice!==choice)pending.current={choice,key:requestKey()};
+    const selection=disable?'disabled':value?.interfaces.length===1?'auto':choice;
+    if(pending.current?.choice!==selection)pending.current={choice:selection,key:requestKey()};
+    const body=disable?{action:'configure_lan',interface_id:null}:selection==='auto'?{action:'configure_lan'}:{action:'configure_lan',interface_id:choice};
     try{
-      const result=await api('host/actions',{action:'configure_lan',interface_id:choice||null},false,pending.current.key);
+      const result=await api('host/actions',body,false,pending.current.key);
       if(alive.current){jobRef.current=result;setJob(result);pending.current=null;selectionDirty.current=false;await refresh()}
     }catch(e){if(alive.current)setError(plainError(e))}
     finally{if(alive.current)setBusy(false)}
   }
-  const running=job?.state==='running',blocked=busy||running||readError||!value?.can_configure;
-  const changed=value&&(choice!==(value.selected_interface_id||'')||value.state==='needs_reconcile');
-  const home=value?.home,explain=homeCopy[home?.state||'']||'家庭啟動並授權後，會檢查實際連線。';
+  const running=job?.state==='running',blocked=busy||running||readError||!(value?.can_connect??value?.can_configure);
+  const wired=value?.mode==='wired'&&value.state==='configured';
+  const home=value?.home,ip=home?.state==='ready'?home.ipv4?.[0]||home.ipv6?.[0]:value?.ha_lan_ip;
+  const explain=ip?`HA 已連上家庭網路：${ip}`:homeCopy[home?.state||'']||'家庭啟動後會自動讀回區網位址。';
+  const connectionComplete=wired&&(home?.state==='ready'||value?.core_configuration_pending===true);
   const failed=job&&['failed','needs_reconcile'].includes(job.state);
   return <section className="maintenance-content" aria-label="家庭區網接入" aria-busy={busy}>
-    <p>讓 Home Assistant 透過網路線連到家中設備，也讓同一區網的手機開啟家庭。</p>
-    {readError&&<Notice error><p>暫時無法讀取接線狀態，恢復連線後會自動重試。</p><Button secondary disabled={busy} onClick={()=>void refresh()}>重新讀取</Button></Notice>}
+    <p>讓家庭連上家中設備；系統會自動備份、重新啟動並確認位址。</p>
+    {readError&&<Notice error><p>暫時無法讀取家庭網路，恢復連線後會自動重試。</p></Notice>}
     {error&&<Notice error reason={error.code}>{error.text}</Notice>}
-    {failed&&<Notice error reason={job.message}>{job.message&&/^[a-z][a-z0-9_]+$/.test(job.message)?plainError(job.message).text:'這次接線設定未完成，請重新讀取並核對主機。'}</Notice>}
+    {value?.mode==='nat'&&value.message&&!failed&&<Notice>{value.message}</Notice>}
+    {failed&&<Notice error reason={job.message}>{value?.mode==='nat'?'家庭網路未能連上，已恢復基本網路，可稍後重試。':'家庭網路尚未完成，正在核對復原狀態。'}</Notice>}
     {!value?<p role="status">正在檢查可用的有線網路…</p>:<>
-      <div className="section-heading"><h3>{value.mode==='wired'?'有線家庭網路':'基本網路'}</h3><Status value={running?'running':value.state==='needs_reconcile'?'needs_reconcile':value.state==='unavailable'?'unavailable':value.mode==='wired'?'succeeded':'not_started'} label={running?'正在保存':value.state==='needs_reconcile'?'需要核對':value.state==='unavailable'?'接線待檢查':value.mode==='wired'?'已設定接線':'尚未接入區網'}/></div>
-      {value.mode==='nat'&&<p className="helper-text">目前可用雲端整合或手填設備 IP；自動探索、Matter 與設備回連仍受限制。</p>}
-      {!value.can_configure&&<p className="helper-text">更改接線前，請在主機維護將家庭正常關機。期間家庭自動化會暫停。</p>}
-      <form onSubmit={event=>{event.preventDefault();void save()}}>
-        <label>接到家庭路由器的網路線<select value={choice} disabled={!!blocked} onChange={event=>{selectionDirty.current=true;setChoice(event.target.value);setError(null);jobRef.current=null;setJob(null)}}>
-          <option value="">暫不接入，使用基本網路</option>
-          {choice&&!value.interfaces.some(item=>item.id===choice)&&<option value={choice}>原網路卡目前無法使用</option>}
-          {value.interfaces.map(item=><option key={item.id} value={item.id}>{item.interface}{item.address?` · ${item.address}`:''}</option>)}
-        </select></label>
-        {!value.interfaces.length&&<p className="helper-text">尚未找到可用的有線網路。請插上網路線，或接上 USB 網路卡；此接入方式不支援 Wi-Fi。</p>}
-        {choice&&<p className="helper-text">家庭會取得自己的 IP；HA 與已開放連接埠的 App 可從區網連線。請選家用網路，並保留登入保護。主機原本的 IP 保持不變。</p>}
-        <Button secondary type="submit" disabled={!!blocked||!changed}>{busy||running?'正在保存…':value.state==='needs_reconcile'?'核對並套用接線':'保存家庭接線'}</Button>
-      </form>
-      {value.mode==='wired'&&<div className="service-row"><p role="status">{readError?'等待重新核對家庭網路。':explain}</p>
-        {value.vm_state==='shut off'&&<p>接線保存後，回到家庭系統按「啟動」。</p>}
-        {home?.state==='ready'&&<p className="helper-text">接著到「裝置與服務」新增設備，並實測控制；這項檢查不代表所有設備已接通。</p>}
-        {home&&['adapter_selection_required','callback_address_required'].includes(home.state)&&<a className="button secondary" href={haPath('/config/network')} target="_blank" rel="noreferrer">開啟家庭網路設定 ↗</a>}
-        <details><summary>連線資料</summary><dl className="worker-evidence"><dt>主機網路卡</dt><dd>{value.interface||'尚無'}</dd><dt>家庭網路卡</dt><dd>{home?.interface||'尚未讀回'}</dd><dt>家庭區網位址</dt><dd>{[...(home?.ipv4||[]),...(home?.ipv6||[])].join('、')||'尚未讀回'}</dd><dt>家庭本機網址</dt><dd>{home?.internal_url||'尚未核對'}</dd><dt>讀回時間</dt><dd>{timestamp(home?.observed_at||undefined)}</dd></dl><p className="helper-text">重新讀回只核對網路狀態，不替你修改 Home Assistant 的網路選擇。</p></details>
+      <div className="section-heading"><h3>家庭網路</h3><Status value={running?'running':value.state==='needs_reconcile'?'needs_reconcile':wired?'succeeded':'not_started'} label={running?'正在連接':value.state==='needs_reconcile'?'需要核對':wired?'已連接':'尚未接入'}/></div>
+      {wired&&<p role="status">{explain}</p>}
+      {wired&&home?.state==='needs_home_setup'&&ip&&<p className="helper-text">{homeCopy.needs_home_setup}</p>}
+      {!wired&&<p className="helper-text">連接期間家庭自動化會短暫暫停；未能連上時會自動恢復基本網路。</p>}
+      {value.interfaces.length>1&&<label>接到家庭路由器的網路線<select value={choice} disabled={!!blocked} onChange={event=>{selectionDirty.current=true;setChoice(event.target.value);setError(null);jobRef.current=null;setJob(null)}}>
+        <option value="">選擇有線網路</option>
+        {value.interfaces.map(item=><option key={item.id} value={item.id}>{item.interface}{item.address?` · ${item.address}`:''}</option>)}
+      </select></label>}
+      {!value.interfaces.length&&<p className="helper-text">請插上網路線，或接上 USB 有線網路卡。</p>}
+      <Button onClick={()=>void save()} disabled={!!blocked||!!connectionComplete||!value.interfaces.length||(value.interfaces.length>1&&!choice)}>{busy||running?'正在連接…':'連上家庭網路'}</Button>
+      {wired&&<Button secondary disabled={!!blocked} onClick={()=>void save(true)}>使用基本網路</Button>}
+      {wired&&<div className="service-row">
+        {home?.state==='ready'&&<p className="helper-text">可到「裝置與服務」新增設備，再實測控制。</p>}
+        <details><summary>連線資料</summary><dl className="worker-evidence"><dt>主機網路卡</dt><dd>{value.interface||'尚無'}</dd><dt>家庭網路卡</dt><dd>{home?.interface||'尚未讀回'}</dd><dt>家庭區網位址</dt><dd>{[...(home?.ipv4||[]),...(home?.ipv6||[])].join('、')||value.ha_lan_ip||'尚未讀回'}</dd><dt>家庭本機網址</dt><dd>{home?.internal_url||'尚未核對'}</dd><dt>讀回時間</dt><dd>{timestamp(home?.observed_at||undefined)}</dd></dl><p className="helper-text">網路隔離會讓主機無法直接連到家庭區網位址，這是正常情況；系統透過專用管理連線核對。這項檢查不代表所有設備已接通。</p></details>
       </div>}
     </>}
   </section>
@@ -82,5 +81,5 @@ export function HomeLanSettings(){
 
 export function HomeLanFold({setup=false}:{setup?:boolean}){
   const [open,setOpen]=useState(false);
-  return <details className={setup?'bootstrap-manual':'host-fold'} onToggle={event=>setOpen(event.currentTarget.open)}><summary>{setup?'先設定家庭區網（有線設備探索）':'家庭區網接入'}</summary>{open&&<HomeLanSettings/>}</details>
+  return <details className={setup?'bootstrap-manual':'host-fold'} onToggle={event=>setOpen(event.currentTarget.open)}><summary>{setup?'家庭網路（有線設備探索）':'家庭區網接入'}</summary>{open&&<HomeLanSettings/>}</details>
 }

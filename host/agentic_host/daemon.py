@@ -57,7 +57,7 @@ class Jobs:
         if action == "configure_lan":
             from .ha_lan import INTERFACE_ID
             value = body.get("interface_id")
-            if "interface_id" not in body or (value is not None and (not isinstance(value, str) or not INTERFACE_ID.fullmatch(value))):
+            if value is not None and (not isinstance(value, str) or not INTERFACE_ID.fullmatch(value)):
                 raise HostError("ha_lan_interface_id_invalid")
         elif "interface_id" in body:
             raise HostError("Unexpected interface_id")
@@ -77,7 +77,7 @@ class Jobs:
     def execute(self, job):
         try:
             request = job["request"]
-            kwargs = {"interface_id": request["interface_id"]} if request["action"] == "configure_lan" else {}
+            kwargs = {"interface_id": request["interface_id"]} if request["action"] == "configure_lan" and "interface_id" in request else {}
             result = self.manager.action(request["action"], request.get("snapshot"), **kwargs)
             update = {"state": "succeeded", "result": result}
         except Exception as exc:
@@ -113,6 +113,7 @@ def serve(path="/run/agentic-home/host.sock"):
     os.umask(0o077)
     manager = Manager()
     jobs = Jobs(manager)
+    threading.Thread(target=manager.root_cow.monitor, name="root-cow-monitor", daemon=True).start()
     from .coding_service import CodingService
     coding = CodingService(manager)
     network = Network(manager)
@@ -128,6 +129,9 @@ def serve(path="/run/agentic-home/host.sock"):
         print("Preview listener unavailable; local rescue broker remains active", file=sys.stderr, flush=True)
 
     def service(method, path, body=None):
+        if method == "POST" and path == "/network/ha-lan/observation":
+            from .ha_lan import HALan
+            return 200, HALan(manager).observe(body)
         for prefix, handler in (("/coding", coding), ("/network", network), ("/discovery", discovery),
                                 ("/previews", previews), ("/updates", updater)):
             if path == prefix or path.startswith(prefix + "/"):
@@ -138,6 +142,12 @@ def serve(path="/run/agentic-home/host.sock"):
         while True:
             try:
                 manager.refresh_forwarding()
+                from .ha_lan import HALan
+                with manager.locked():
+                    lan = HALan(manager)
+                    if lan.transaction_path.exists():
+                        lan.recover()
+                    lan.refresh_observation()
             except Exception as exc:
                 print("Product network reconciliation: " + str(exc)[:300], file=sys.stderr, flush=True)
             try:

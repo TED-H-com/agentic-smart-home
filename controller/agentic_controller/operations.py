@@ -11,7 +11,15 @@ from fastapi import HTTPException, Request
 from pydantic import Field, StrictFloat, StrictInt, ValidationError
 
 from .durability import client_session, durable
-from .ha_lan import HomeLanStatus, HostLanStatus, observe_home_lan
+from .ha import HAError
+from .ha_lan import (
+    HomeLanStatus,
+    HostLanStatus,
+    ObservationInvalid,
+    compensate_home_lan,
+    converge_home_lan,
+    observe_home_lan,
+)
 from .models import Strict, WorkerPreview, canonical, digest, utcnow
 from .work import WorkerAction
 from .workers import WorkerError
@@ -68,7 +76,7 @@ async def broker_call(method, path, body=None, *, store):
     """Only trusted route code supplies a method/path; no configurable network target."""
     allowed = (method == 'GET' and (path in {'/network', '/network/ha-lan', '/updates'} or
         re.fullmatch(r'/updates/[a-f0-9]{64}|/previews/[a-f0-9]{32}', path))) or (
-        method == 'POST' and (re.fullmatch(r'/previews/[a-f0-9]{32}/revoke', path) or path in {'/network/preferences', '/network/login', '/network/revoke', '/previews',
+        method == 'POST' and (re.fullmatch(r'/previews/[a-f0-9]{32}/revoke', path) or path in {'/network/ha-lan/observation', '/network/preferences', '/network/login', '/network/revoke', '/previews',
                                      '/updates/stage', '/updates/apply', '/updates/rollback-offer', '/updates/rollback'}))
     if not allowed:
         raise HTTPException(422, 'invalid_host_operation')
@@ -89,6 +97,44 @@ async def broker_call(method, path, body=None, *, store):
                 return value
     except (OSError, aiohttp.ClientError, TimeoutError, ValueError):
         raise HTTPException(503, 'host_operation_unavailable') from None
+
+
+async def maintain_home_lan(ha, store):
+    """Continue the fixed Host attempt without requiring an open browser.
+
+    Only Host creates attempts (under its action/restore-point policy). This
+    loop cannot select a NIC, start a guest, or invent a network target.
+    """
+    async def status():
+        return HostLanStatus.model_validate(await broker_call('GET', '/network/ha-lan', store=store)).model_dump(mode='json')
+
+    while True:
+        try:
+            initial = await status()
+            async def check_compensation(initial=initial):
+                current = await status()
+                if any(current.get(key) != initial.get(key) for key in ('attempt_id', 'mode', 'state')):
+                    raise ObservationInvalid('home_lan_attempt_changed')
+
+            await compensate_home_lan(ha, store, initial, check_compensation)
+            if initial['mode'] == 'wired' and initial['state'] == 'configured' and initial['attempt_id']:
+                async def check_attempt(initial=initial):
+                    current = await status()
+                    if any(current.get(key) != initial.get(key) for key in (
+                            'attempt_id', 'guest_mac', 'selected_interface_id', 'mode', 'state', 'core_configuration_pending')):
+                        raise ObservationInvalid('home_lan_attempt_changed')
+
+                observed = await converge_home_lan(ha, store, initial, check_attempt)
+                if observed['state'] == 'ready':
+                    await check_attempt()
+                    await durable(store)
+                    await broker_call('POST', '/network/ha-lan/observation', {
+                        'attempt_id': initial['attempt_id'], 'guest_mac': initial['guest_mac'], 'home': observed}, store=store)
+        except (HTTPException, ValidationError, ObservationInvalid, HAError, OSError, TimeoutError):
+            # Broker/HA restarts remain retryable. Host owns the bounded deadline
+            # and NAT fallback; a failed observation never becomes a success.
+            pass
+        await asyncio.sleep(5)
 
 
 class Operations:
@@ -192,7 +238,10 @@ def routes(app, store, workers, *, host_mode=False):
             value = HostLanStatus.model_validate(raw).model_dump(mode='json')
         except ValidationError:
             raise HTTPException(503, 'ha_lan_host_contract_unavailable') from None
-        return {**value, 'home': await observe_home_lan(app.state.ha, store, value)}
+        home = await observe_home_lan(app.state.ha, store, value)
+        if home['state'] == 'ready':
+            value['limitations'] = [item for item in value['limitations'] if item != 'guest_dhcp_and_discovery_not_yet_verified']
+        return {**value, 'home': home}
 
     @app.post('/api/network/preferences')
     async def preferences(body: NetworkPreferences):

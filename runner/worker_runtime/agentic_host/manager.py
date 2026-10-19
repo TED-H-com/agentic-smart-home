@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import time
 import uuid
 import xml.etree.ElementTree as ET
@@ -24,6 +25,13 @@ ET.register_namespace("agentic", NS)
 
 class HostError(Exception):
     pass
+
+
+def parse_xml(value):
+    try:
+        return ET.fromstring(value)
+    except (ET.ParseError, TypeError):
+        raise HostError("ha_lan_libvirt_xml_invalid") from None
 
 
 def sync_path(path):
@@ -129,7 +137,7 @@ def network_xml(owner, *, wired=False):
             f'name="agentic-haos" ip="{IP}"/></dhcp></ip></network>')
     if wired:
         from .ha_lan import no_default_router
-        network = ET.fromstring(value)
+        network = parse_xml(value)
         no_default_router(network)
         return ET.tostring(network, encoding="unicode")
     return value
@@ -142,6 +150,9 @@ class Manager:
         self.run = execute
         self.root.mkdir(parents=True, exist_ok=True)
         self.state_file = self.root / "state.json"
+        from .cow import RootCow
+        self.root_cow = RootCow(self)
+        self.lan_observation_lock = threading.Lock()
 
     def state(self):
         return json.loads(self.state_file.read_text()) if self.state_file.exists() else {}
@@ -182,7 +193,7 @@ class Manager:
         result = self.virsh("dumpxml", NAME, "--inactive", check=False)
         if result.returncode:
             return None
-        xml = ET.fromstring(result.stdout)
+        xml = parse_xml(result.stdout)
         if xml.findtext(f"metadata/{{{NS}}}owner") != state["owner"] or xml.findtext("uuid") != state["owner"]:
             raise HostError("Existing VM is not owned by Agentic Home")
         disks = xml.findall("devices/disk/source")
@@ -202,6 +213,11 @@ class Manager:
         from .bootstrap import InitialSetup
 
         state = self.state()
+        from .ha_lan import HALan
+        lan = HALan(self).status()
+        profile = dict(state["profile"]) if state.get("profile") else None
+        if profile:
+            profile["network"] = lan["mode"]
         try:
             result = self.virsh("domstate", NAME, check=False, timeout=3)
             vm = result.stdout.strip() if result.returncode == 0 else "not_created"
@@ -213,12 +229,14 @@ class Manager:
         for path in sorted((self.root / "snapshots").glob("*/manifest.json"), reverse=True):
             value = json.loads(path.read_text())
             snapshots.append({"id": path.parent.name, "created_at": value["created_at"]})
-        return {"vm": vm, "profile": state.get("profile"), "ha_url": "http://localhost:8123",
-                "ha_internal_url": f"http://{IP}:80", "network": "nat", "snapshots": snapshots,
+        return {"vm": vm, "profile": profile, "ha_url": "http://localhost:8123",
+                "ha_internal_url": lan.get("ha_internal_url") if lan["mode"] == "wired" else f"http://{IP}:80",
+                "network": lan["mode"], "ha_lan": lan, "network_message": lan["message"], "snapshots": snapshots,
                 "kvm": os.access("/dev/kvm", os.R_OK | os.W_OK),
                 "storage_free_bytes": shutil.disk_usage(self.root).free,
                 "provisioned": bool(state.get("complete")), "restore_pending": state.get("restore_pending"),
                 "bootstrap": InitialSetup(self).status(), "compatibility": self.compatibility(),
+                "root_cow": self.root_cow.status(),
                 **self.bridge_contract()}
 
     def refresh_forwarding(self):
@@ -227,7 +245,7 @@ class Manager:
         if not owner:
             return
         network = self.virsh("net-dumpxml", NETWORK, check=False)
-        if network.returncode or ET.fromstring(network.stdout).findtext(f"metadata/{{{NS}}}owner") != owner:
+        if network.returncode or parse_xml(network.stdout).findtext(f"metadata/{{{NS}}}owner") != owner:
             return
         if self.run("iptables", "-n", "-L", "DOCKER-USER", check=False).returncode == 0:
             for rule in (("-i", "virbr-ah", "-j", "ACCEPT"),
@@ -237,7 +255,9 @@ class Manager:
 
     def provision(self):
         from .ha_lan import HALan, validate_network
-        lan = HALan(self).ready()
+        lan_manager = HALan(self)
+        lan_manager.default_choice()
+        lan = lan_manager.ready()
         profile = json.loads(Path("/etc/agentic-home/profile.json").read_text())
         bases = json.loads((self.product / "host/bases.lock.json").read_text())
         validate_profile(profile, bases)
@@ -262,10 +282,15 @@ class Manager:
             raise HostError("Installed profile differs from VM ownership record; no implicit replacement")
         if state.get("restore_pending"):
             raise HostError("Finish the recorded restore before starting the VM")
-        self.images.mkdir(parents=True, exist_ok=True)
-        artifact = fetch(bases["haos"], self.product / "assets")
         disk = self.images / "haos.qcow2"
         if not disk.exists():
+            # Bound all first-image/download writes before extraction while the
+            # lifecycle lock prevents the monitor from quiescing HA. Sparse
+            # allocation is usually smaller; this is a conservative safe bound.
+            self.root_cow.require_capacity(profile["disk_gib"] * 1024**3 + 64 * 1024**2)
+        self.images.mkdir(parents=True, exist_ok=True)
+        if not disk.exists():
+            artifact = fetch(bases["haos"], self.product / "assets")
             temporary = disk.with_suffix(".partial")
             try:
                 with lzma.open(artifact, "rb") as source, temporary.open("wb") as target:
@@ -290,9 +315,9 @@ class Manager:
         self.run("chmod", "0600", str(disk), str(nvram))
         network = self.virsh("net-dumpxml", NETWORK, check=False)
         if network.returncode == 0:
-            if ET.fromstring(network.stdout).findtext(f"metadata/{{{NS}}}owner") != state["owner"]:
+            if parse_xml(network.stdout).findtext(f"metadata/{{{NS}}}owner") != state["owner"]:
                 raise HostError("Existing network is not owned by Agentic Home")
-            validate_network(ET.fromstring(network.stdout), state["owner"], {bool(lan)})
+            validate_network(parse_xml(network.stdout), state["owner"], {bool(lan)})
         else:
             xml = self.root / "network.xml"
             xml.write_text(network_xml(state["owner"], wired=bool(lan)))
@@ -308,7 +333,22 @@ class Manager:
             xml.write_text(domain_xml(profile, disk, nvram, state["owner"], lan=lan))
             self.virsh("define", str(xml))
         self.virsh("autostart", NAME)
-        self.start()
+        try:
+            self.start()
+            if lan:
+                lan_manager.verify(initial=True)
+        except (OSError, ValueError, HostError, subprocess.SubprocessError):
+            if not lan:
+                raise
+            try:
+                self.shutdown()
+                lan_manager.configure(None)
+                self.start()
+            except (OSError, ValueError, HostError, subprocess.SubprocessError):
+                raise HostError("家庭網路暫時無法接通，自動恢復尚未完成；已保留管理入口，請稍後重試。") from None
+            record = lan_manager.record()
+            record["fallback_message"] = "家庭網路尚未準備好，已自動使用基本網路完成安裝；家庭資料保留，可稍後重試。"
+            atomic(lan_manager.path, record)
         state["complete"] = True
         atomic(self.state_file, state)
         return self.status()
@@ -320,11 +360,13 @@ class Manager:
         lan = HALan(self).ready()
         if self.owned() is None:
             raise HostError("VM definition is missing; run provision")
-        network = ET.fromstring(self.virsh("net-dumpxml", NETWORK).stdout)
+        network = parse_xml(self.virsh("net-dumpxml", NETWORK).stdout)
         validate_network(network, self.state()["owner"], {bool(lan)})
         self.require_compatibility("start")
+        self.root_cow.require_capacity(0)
         state = self.virsh("domstate", NAME).stdout.strip()
         if state == "shut off":
+            HALan(self).begin_attempt(allow_configuration=False)
             self.virsh("autostart", NAME)
             self.virsh("start", NAME)
         elif state != "running":
@@ -347,18 +389,30 @@ class Manager:
             time.sleep(1)
         raise HostError("HAOS has not shut down; no forced power-off was performed")
 
-    def snapshot(self):
-        from .ha_lan import HALan
-        if HALan(self).record().get("pending"):
+    def snapshot(self, *, restart=True, lan_recovery=False):
+        from .ha_lan import HALan, validate_network
+        lan = HALan(self)
+        pending = lan.record().get("pending")
+        if pending and not lan_recovery:
             raise HostError("ha_lan_needs_reconcile")
         self.owned()
+        if pending:
+            # Internal explicit recovery only. Accepted journalled XML must still
+            # match; a backup never authorizes overwriting unknown manual edits.
+            owner = self.state()["owner"]
+            for args in (("net-dumpxml", NETWORK, "--inactive"), ("net-dumpxml", NETWORK)):
+                network = lan._xml(*args, missing=True)
+                if network is not None:
+                    validate_network(network, owner, {bool(item) for item in lan.choices()})
         self.require_compatibility("snapshot")
+        self.root_cow.require_copy_capacity([self.images / "haos.qcow2", self.images / "nvram.fd"])
         was_running = self.virsh("domstate", NAME).stdout.strip() == "running"
         self.shutdown()
         id = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-" + uuid.uuid4().hex[:8]
         destination = self.root / "snapshots" / id
-        destination.mkdir(parents=True, mode=0o700)
+        complete = False
         try:
+            destination.mkdir(parents=True, mode=0o700)
             entries = {}
             for name in ("haos.qcow2", "nvram.fd"):
                 self.run("cp", "--reflink=auto", "--sparse=always", "--", str(self.images / name),
@@ -367,8 +421,9 @@ class Manager:
                 entries[name] = sha256(destination / name)
             atomic(destination / "manifest.json", {"owner": self.state()["owner"], "files": entries,
                                                    "created_at": time.time()})
+            complete = True
         finally:
-            if was_running:
+            if was_running and (restart or not complete) and not pending:
                 self.start()
         return {"snapshot": id, "scope": "HAOS disk and UEFI; outer Agent data backed up separately"}
 
@@ -389,6 +444,7 @@ class Manager:
         for name, hash_value in manifest["files"].items():
             if sha256(source / name) != hash_value:
                 raise HostError("Snapshot checksum mismatch")
+        self.root_cow.require_copy_capacity([source / name for name in manifest["files"]])
         state = self.state()
         if state.get("restore_pending") not in {None, id}:
             raise HostError("A different restore must be completed first")
@@ -408,13 +464,13 @@ class Manager:
         self.virsh("autostart", NAME)
         return {"restored": id, "vm": "shut off"}
 
-    def action(self, action, snapshot=None, *, interface_id=None):
+    def action(self, action, snapshot=None, **kwargs):
         if action not in {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes", "configure_lan"}:
             raise HostError("Unknown lifecycle operation")
         with self.locked():
             if action == "configure_lan":
                 from .ha_lan import HALan
-                return HALan(self).configure(interface_id)
+                return HALan(self).connect(**kwargs)
             if action == "bootstrap_hermes":
                 from .bootstrap import InitialSetup
                 return InitialSetup(self).install()

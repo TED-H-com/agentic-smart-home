@@ -106,7 +106,9 @@ def test_status_bridge_update_contract_comes_from_fixed_updater_not_state(tmp_pa
     contract = status["controller_update"]["ingress_bridge_contract"]
     assert type(contract) is int and contract == INGRESS_BRIDGE_CONTRACT == 1
     assert calls == [("virsh", "--connect", "qemu:///system", "domstate", "agentic-home-haos"),
-                     ("ip", "-json", "route", "show", "default")]
+                     ("virsh", "--connect", "qemu:///system", "domstate", "agentic-home-haos"),
+                     ("ip", "-json", "route", "show", "default"),
+                     ("findmnt", "--noheadings", "--output", "SOURCE", "--target", "/")]
     assert manager.state()["controller_update"]["ingress_bridge_contract"] == 999
 
 

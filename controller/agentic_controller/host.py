@@ -44,8 +44,8 @@ class HostAction(Strict):
     @model_validator(mode="after")
     def scoped_fields(self):
         if self.action == "configure_lan":
-            if "interface_id" not in self.model_fields_set or self.snapshot is not None:
-                raise ValueError("configure_lan requires an explicit interface choice and no snapshot")
+            if self.snapshot is not None:
+                raise ValueError("configure_lan does not accept a snapshot")
         elif "interface_id" in self.model_fields_set:
             raise ValueError("interface_id is only valid for configure_lan")
         return self
@@ -317,7 +317,7 @@ def routes(app, auth, ha, store, runner, controller_id):
             raise HTTPException(400, "缺少 Idempotency-Key")
         await durable(store)
         return await host_call("POST", {"id": key, **body.model_dump(
-            exclude={"interface_id"} if body.action != "configure_lan" else {"snapshot"})}, store=store)
+            exclude={"interface_id"} if body.action != "configure_lan" else ({"snapshot"} | ({"interface_id"} if "interface_id" not in body.model_fields_set else set())))}, store=store)
 
     @app.post("/api/host/connect")
     async def connect(body: ConnectHA, request: Request):

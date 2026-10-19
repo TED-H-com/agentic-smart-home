@@ -339,3 +339,217 @@ def test_unconfigured_and_pending_host_states_retain_explicit_null_selection():
     # capability never grants more authority and remains a valid observation.
     raw["can_configure"] = False
     assert ha_lan.HostLanStatus.model_validate(raw).can_configure is False
+
+
+class ConvergingHA(NetworkHA):
+    def __init__(self):
+        super().__init__()
+        self.network['adapters'][0]['enabled'] = False
+        self.network['configured_adapters'] = []
+        self.urls['internal'] = 'http://192.168.177.2:8123'
+        self.internal_url = None
+        self.mutations = []
+        self.compatible = True
+
+    async def ensure_write_compatibility(self):
+        if not self.compatible:
+            raise HAError('unsupported_core')
+
+    async def request(self, method, path, **kwargs):
+        if path == '/config':
+            return {'version': '2026.10.1', 'internal_url': self.internal_url}
+        return await super().request(method, path, **kwargs)
+
+    async def ws(self, command, **kwargs):
+        if command == 'network/configure':
+            self.mutations.append((command, copy.deepcopy(kwargs['config'])))
+            self.network['configured_adapters'] = kwargs['config']['configured_adapters']
+            self.network['adapters'][0]['enabled'] = 'end1' in self.network['configured_adapters']
+            return {'configured_adapters': self.network['configured_adapters']}
+        if command == 'config/core/update':
+            self.mutations.append((command, {'internal_url': kwargs['internal_url']}))
+            self.internal_url = kwargs['internal_url']
+            self.urls['internal'] = self.internal_url
+            return None
+        return await super().ws(command, **kwargs)
+
+
+def attempt():
+    return {**HOST, 'attempt_id': 'b' * 64, 'core_configuration_pending': True}
+
+
+async def test_fixed_attempt_converges_then_reads_back_without_manual_core_settings(network, store):
+    ha = ConvergingHA()
+    checks = []
+    async def guard():
+        checks.append(True)
+    result = await ha_lan.converge_home_lan(ha, store, attempt(), guard)
+    assert result['state'] == 'ready' and result['internal_url'] == 'http://192.168.10.20:8123'
+    assert ha.mutations == [('network/configure', {'configured_adapters': ['end1']}),
+                            ('config/core/update', {'internal_url': 'http://192.168.10.20:8123'})]
+    assert len(checks) >= 4 and ha.owner_reads >= 6
+    record = store.setting('home_lan_configuration_rollback')
+    assert record['previous_adapters'] == [] and record['previous_internal_url'] is None
+    assert 'fixture-token' not in json.dumps(record)
+    ha.mutations.clear()
+    assert (await ha_lan.converge_home_lan(ha, store, attempt(), guard))['state'] == 'ready'
+    assert ha.mutations == []
+
+
+async def test_convergence_preserves_existing_selected_management_adapters(network, store):
+    ha = ConvergingHA()
+    ha.network['configured_adapters'] = ['management0']
+    async def guard():
+        pass
+    result = await ha_lan.converge_home_lan(ha, store, attempt(), guard)
+    assert result['state'] == 'ready'
+    assert ha.network['configured_adapters'] == ['management0', 'end1']
+
+
+@pytest.mark.parametrize('fault', ['attempt_changed', 'revoked', 'unsupported', 'wrong_mac', 'mismatch', 'invalid_previous_url', 'invalid_configured'])
+async def test_convergence_never_writes_without_current_authority_and_valid_contract(network, store, fault):
+    ha = ConvergingHA()
+    async def guard():
+        if fault == 'attempt_changed':
+            raise ha_lan.ObservationInvalid('home_lan_attempt_changed')
+    if fault == 'revoked':
+        ha.owner_value['is_owner'] = False
+    elif fault == 'unsupported':
+        ha.compatible = False
+    elif fault == 'wrong_mac':
+        ha.supervisor_info['interfaces'][0]['mac'] = '02:00:00:00:00:01'
+    elif fault == 'mismatch':
+        ha.network['adapters'][0]['ipv4'] = [{'address': '192.168.10.21'}]
+        ha.network['adapters'][0]['ipv6'] = []
+    elif fault == 'invalid_previous_url':
+        ha.internal_url = 'https://user:secret@private.invalid/'
+    elif fault == 'invalid_configured':
+        ha.network['configured_adapters'] = [None]
+    result = await ha_lan.converge_home_lan(ha, store, attempt(), guard)
+    assert result['state'] != 'ready' and ha.mutations == []
+
+
+async def test_completed_attempt_only_observes_and_does_not_reapply_over_owner_edits(network, store):
+    ha = ConvergingHA()
+    async def guard():
+        raise AssertionError('completed attempt must not have a mutation scope')
+    result = await ha_lan.converge_home_lan(ha, store, {**attempt(), 'core_configuration_pending': False}, guard)
+    assert result['state'] == 'adapter_selection_required' and ha.mutations == []
+    result = await ha_lan.converge_home_lan(ha, store, {**attempt(), 'attempt_id': None}, guard)
+    assert result['reason'] == 'home_lan_attempt_required' and ha.mutations == []
+
+
+@pytest.mark.parametrize('owner_edit', [False, True])
+async def test_nat_fallback_compensates_exact_settings_and_preserves_intervening_owner_edits(network, store, owner_edit):
+    ha = ConvergingHA()
+    async def guard():
+        pass
+    assert (await ha_lan.converge_home_lan(ha, store, attempt(), guard))['state'] == 'ready'
+    if owner_edit:
+        ha.network['configured_adapters'] = ['owner-selection']
+        ha.internal_url = 'https://owner.example.invalid'
+    ha.mutations.clear()
+    await ha_lan.compensate_home_lan(ha, store, {'mode': 'nat', 'attempt_id': None})
+    if owner_edit:
+        assert ha.mutations == []
+    else:
+        assert ha.mutations == [('network/configure', {'configured_adapters': []}),
+                                ('config/core/update', {'internal_url': None})]
+    assert store.setting('home_lan_configuration_rollback') is None
+
+
+async def test_compensation_never_replays_under_changed_home_authority(network, store):
+    ha = ConvergingHA()
+    async def guard():
+        pass
+    await ha_lan.converge_home_lan(ha, store, attempt(), guard)
+    store.set_setting('hermes_web_epoch', 'new-login')
+    ha.mutations.clear()
+    await ha_lan.compensate_home_lan(ha, store, {'mode': 'nat'})
+    assert ha.mutations == [] and store.setting('home_lan_configuration_rollback') is None
+
+
+async def test_failed_core_write_keeps_compensation_journal_and_recovers_on_nat(network, store):
+    ha = ConvergingHA()
+    original = ha.ws
+    async def lose_response(command, **kwargs):
+        result = await original(command, **kwargs)
+        if command == 'network/configure':
+            raise HAError('lost_after_write')
+        return result
+    ha.ws = lose_response
+    async def guard():
+        pass
+    result = await ha_lan.converge_home_lan(ha, store, attempt(), guard)
+    assert result['state'] == 'unavailable' and store.setting('home_lan_configuration_rollback')
+    ha.ws = original
+    ha.mutations.clear()
+    await ha_lan.compensate_home_lan(ha, store, {'mode': 'nat'})
+    assert ha.mutations == [('network/configure', {'configured_adapters': []})]
+    assert store.setting('home_lan_configuration_rollback') is None
+
+
+async def test_fallback_compensation_rechecks_host_before_each_effect(network, store):
+    ha = ConvergingHA()
+    async def guard():
+        pass
+    await ha_lan.converge_home_lan(ha, store, attempt(), guard)
+    ha.mutations.clear()
+    async def changed_host():
+        raise ha_lan.ObservationInvalid('home_lan_attempt_changed')
+    with pytest.raises(ha_lan.ObservationInvalid):
+        await ha_lan.compensate_home_lan(ha, store, {'mode': 'nat'}, changed_host)
+    assert ha.mutations == [] and store.setting('home_lan_configuration_rollback')
+
+
+async def test_background_maintenance_converges_without_browser_and_publishes_exact_attempt(network, store, monkeypatch):
+    from agentic_controller import operations
+    ha = ConvergingHA()
+    initial = {**host_contract(), **attempt()}
+    posts = []
+    async def broker(method, path, body=None, *, store):
+        if method == 'GET':
+            assert path == '/network/ha-lan'
+            return copy.deepcopy(initial)
+        assert path == '/network/ha-lan/observation'
+        posts.append(body)
+        return {'accepted': True}
+    async def end_loop(_):
+        raise asyncio.CancelledError()
+    monkeypatch.setattr(operations, 'broker_call', broker)
+    monkeypatch.setattr(operations.asyncio, 'sleep', end_loop)
+    with pytest.raises(asyncio.CancelledError):
+        await operations.maintain_home_lan(ha, store)
+    assert len(posts) == 1 and posts[0]['attempt_id'] == initial['attempt_id']
+    assert posts[0]['guest_mac'] == GUEST and posts[0]['home']['state'] == 'ready'
+    assert ha.mutations
+
+
+async def test_successful_lan_retains_field_ownership_for_later_explicit_nat_switch(network, store):
+    ha = ConvergingHA()
+    async def guard():
+        pass
+    assert (await ha_lan.converge_home_lan(ha, store, attempt(), guard))['state'] == 'ready'
+    await ha_lan.compensate_home_lan(ha, store, {**attempt(), 'core_configuration_pending': False})
+    assert store.setting('home_lan_configuration_rollback')
+    ha.mutations.clear()
+    await ha_lan.compensate_home_lan(ha, store, {'mode': 'nat'})
+    assert ha.mutations == [('network/configure', {'configured_adapters': []}),
+                            ('config/core/update', {'internal_url': None})]
+
+
+async def test_reconnect_adopts_owned_fields_without_overwriting_original_baseline(network, store):
+    ha = ConvergingHA()
+    async def guard():
+        pass
+    await ha_lan.converge_home_lan(ha, store, attempt(), guard)
+    reconnect = {**attempt(), 'attempt_id': 'c' * 64}
+    await ha_lan.compensate_home_lan(ha, store, reconnect)
+    ha.mutations.clear()
+    assert (await ha_lan.converge_home_lan(ha, store, reconnect, guard))['state'] == 'ready'
+    assert ha.mutations == []
+    record = store.setting('home_lan_configuration_rollback')
+    assert record['attempt_id'] == 'c' * 64 and record['previous_adapters'] == []
+    assert record['previous_internal_url'] is None
+    await ha_lan.compensate_home_lan(ha, store, {'mode': 'nat'})
+    assert ha.internal_url is None and ha.network['configured_adapters'] == []
