@@ -69,11 +69,12 @@ export function ConversationDiscovery({value,disabled,visible=true,onDiscover,on
   return <section className="conversation-discovery" aria-label="設備探索結果">
     {data.environment&&<EnvironmentContext value={data.environment}/>}
     {data.state==='unavailable'?<><Notice>{friendlySentence(data.limitations[0],'家庭暫時沒有回應，尚無法確認有哪些設備。')}</Notice><Button secondary type="button" disabled={disabled} onClick={onDiscover}>重試探索</Button></>:<>
-      <h3>待接入的設備</h3>
-      {data.candidates.length?<ul className="conversation-discovery-candidates">{data.candidates.map(candidate=><li key={`${candidate.source_id}:${candidate.id}`}><div><strong>{candidate.title&&candidate.title!==candidate.integration_domain?candidate.title:candidate.integration_name}</strong>{candidate.title&&candidate.title!==candidate.integration_domain&&candidate.title!==candidate.integration_name&&<span>{candidate.integration_name}</span>}<p>{candidate.next_step}</p></div>{supportsChatSetup(candidate)?<DeviceSetupPanel candidate={candidate} disabled={disabled} visible={visible}/>:<Button secondary type="button" disabled={disabled} onClick={()=>onSelect(candidate)}>協助設定</Button>}</li>)}</ul>:<p>{incomplete?'探索資料尚未完整取得，目前無法確認待接入的設備。':'這次未找到待接入的設備；仍可能有需要登入或配對的設備。'}</p>}
+      <h3>設備接入線索</h3>
+      {data.candidates.length?<ul className="conversation-discovery-candidates">{data.candidates.map(candidate=><li key={`${candidate.source_id}:${candidate.id}`}><div><strong>{candidate.title&&candidate.title!==candidate.integration_domain?candidate.title:candidate.integration_name}</strong>{candidate.title&&candidate.title!==candidate.integration_domain&&candidate.title!==candidate.integration_name&&<span>{candidate.integration_name}</span>}<span>{candidate.source_id==='network_inventory'?'保存的網路線索 · 尚未核對接入':'家庭發現 · 待確認接入'}</span><p>{candidate.next_step}</p></div>{supportsChatSetup(candidate)?<DeviceSetupPanel candidate={candidate} disabled={disabled} visible={visible}/>:<Button secondary type="button" disabled={disabled} onClick={()=>onSelect(candidate)}>{candidate.source_id==='network_inventory'?'請管家核對':'協助設定'}</Button>}</li>)}</ul>:<p>{incomplete?'探索資料尚未完整取得，目前無法確認待接入的設備。':'這次未找到待接入的設備；仍可能有需要登入或配對的設備。'}</p>}
       {data.candidates.length>0&&incomplete&&<p className="helper-text">目前只取得部分結果，尚未確認家中所有設備。</p>}
       {data.truncated&&<p className="helper-text">{data.candidate_count===null?'這次先列出部分結果。':`這次先列出 ${data.candidates.length} 項，共找到 ${data.candidate_count} 項待設定結果。`}</p>}
-      <p className="helper-text">找到設備不代表已接入；配對和控制權限仍需你確認。</p>
+      {data.candidates.some(candidate=>candidate.source_id==='network_inventory')&&<p className="helper-text">不同來源可能來自同一設備，尚未合併身分。</p>}
+      <p className="helper-text">接入與控制權限仍需你確認。</p>
       {data.candidates.some(candidate=>!supportsChatSetup(candidate))&&!disabled&&<TrackingPanel candidates={data.candidates.filter(candidate=>!supportsChatSetup(candidate))}/>}
     </>}
     {data.observed_at&&<p className="helper-text">探索於 <time dateTime={data.observed_at}>{timestamp(data.observed_at)}</time>，是這次對話的觀測結果。</p>}
