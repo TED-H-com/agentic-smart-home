@@ -187,6 +187,38 @@ def test_signatures_require_exact_official_pinned_key_and_bound_manifest(lab):
     assert lab.current() == lab._test.previous
 
 
+@pytest.mark.parametrize("trust_state", ["missing", "conflicting", "matching"])
+def test_shipped_production_authority_requires_matching_household_trust(lab, trust_state):
+    shipped = json.loads((Path(__file__).parents[1] / "host/official-update-channel.json").read_text())
+    lab.authority.write_text(json.dumps(shipped))
+    if trust_state == "missing":
+        lab.trust.write_text('{"format":1,"publishers":{}}')
+    elif trust_state == "matching":
+        lab.trust.write_text(json.dumps({"format": 1, "publishers": {module.PUBLISHER: {
+            "public_key_pem": shipped["pin"]["public_key_pem"], "image_repository": module.IMAGE_REPOSITORY}}}))
+    # The conflicting case retains the lab's independently generated test key.
+    if trust_state == "matching":
+        pem, fingerprint = lab.authority_pin()
+        assert pem == shipped["pin"]["public_key_pem"]
+        assert fingerprint == shipped["pin"]["key_sha256"] == (
+            "18dd73f8b96d115d076be6b362cd62ed011c4be2b6dfdaf808e9b3e5a6a53d39")
+        assert shipped["image_repository"] == module.IMAGE_REPOSITORY
+    else:
+        with pytest.raises(HostUpdateError, match="official_publisher_not_trusted"):
+            lab.authority_pin()
+    assert lab._test.calls == []
+
+
+def test_null_pin_fixture_leaves_executor_unavailable(lab):
+    descriptor = json.loads(lab.authority.read_text())
+    descriptor.update(pin=None, image_repository=None)
+    lab.authority.write_text(json.dumps(descriptor))
+    with pytest.raises(HostUpdateError, match="official_pin_missing"):
+        lab.authority_pin()
+    assert lab.status()["available"] is False
+    assert lab._test.calls == []
+
+
 @pytest.mark.parametrize("change", [{"format": True}, {"kind": "controller"}, {"publisher": "fixture"},
                                    {"shell": "evil"}, {"compatibility": {**COMPATIBILITY, "host_protocol": True}},
                                    {"compatibility": {**COMPATIBILITY, "controller_schema": 4}},

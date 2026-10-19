@@ -49,7 +49,7 @@ Controller 的 SQL `user_version` 仍為 3，但相同 schema 不代表舊 binar
 
 上述保護需要新版 **Host 固定更新器**。只更新 Controller 的舊 Host 不具備它；側欄必須先通過固定 Unix broker 的能力握手，不能信任 DB marker 或僅比較版本字串。首次連接及運作中的證明都受期限與身份範圍限制，失聯時停用受影響的側欄並停止其工作。現有 Controller-only 發布工具不更新 Host，0.6.x Host 的受控就地升級仍需另交付；不得以新 Controller 能啟動作為已完成遷移的證據。
 
-Ted 已於 **2026-10-19** 核准正式官方更新 Ed25519 公鑰及其 DER SHA-256 fingerprint `18dd73f8b96d115d076be6b362cd62ed011c4be2b6dfdaf808e9b3e5a6a53d39`；原始碼的 `host/official-update-channel.json` 已釘選兩者與 `ghcr.io/ted-h-com/agentic-smart-home-controller`，啟用官方更新來源。私鑰由發行端保存在本 repo 之外，公鑰詳見 [Updates](UPDATES.md#官方更新來源與-owner-批准)。**尚未發布以此正式金鑰簽署的 Controller image 或 Host bundle**；既有媒體的完整性雜湊也不因此成為身份簽章。產品 image／ISO 身份簽署、可信發行索引、全產品更新／遷移與完整 Linux 恢復仍待交付。既有安裝仍須透過經身份驗證的 Host 遷移取得 pin，再由 Owner 在產品內明確信任來源；程式升級本身不建立信任。不能把現有 Controller-only manifest 重新解讀為能更新 HAOS／Core／Linux。安全公告的追蹤與緊急發版仍需持續建立實際證據，不宣稱已有值班或 SLA。
+Ted 已於 **2026-10-19** 核准正式官方更新 Ed25519 公鑰及其 DER SHA-256 fingerprint `18dd73f8b96d115d076be6b362cd62ed011c4be2b6dfdaf808e9b3e5a6a53d39`；原始碼的 `host/official-update-channel.json` 已釘選兩者與 `ghcr.io/ted-h-com/agentic-smart-home-controller`，啟用官方更新來源。私鑰由發行端保存在本 repo 之外，公鑰詳見 [Updates](UPDATES.md#官方更新來源與-owner-批准)。**尚未發布以此正式金鑰簽署的 Controller image、Host bundle、bootstrap 套件或產品媒體**；既有媒體的完整性雜湊也不因此成為身份簽章。可信發行索引、實際遷移交付與完整 Linux 恢復仍待交付。既有 0.11.0 家庭主機須先透過經獨立身份驗證的圖形 bootstrap 配合 **AH-UPDATE** USB，由 Owner 明確批准一次信任與遷移，不重跑 installer；程式升級本身不建立信任。新安裝從經獨立身份驗證且帶有效官方 pin 的媒體安裝啟用中的不可變 Host 更新執行器，有效且明確設定 `pin: null`、`image_repository: null` 的工程 fixture 則延後安裝啟用中的執行器。[Host bundle 更新](HOST_UPDATES.md) 的權限、還原點與回復範圍另有固定契約，不能把現有 Controller-only manifest 重新解讀為能更新 HAOS／Core／Linux。安全公告的追蹤與緊急發版仍需持續建立實際證據，不宣稱已有值班或 SLA。
 
 各版 App、橋接身份、UI 與固定維護流程的工程結果由 [驗證紀錄](VERIFICATION.md) 記錄；工程測試通過不等於真家庭驗收。
 

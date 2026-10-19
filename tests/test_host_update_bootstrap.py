@@ -1,4 +1,6 @@
 """One-time conversion retains the complete old tree through an atomic exchange."""
+import hashlib
+import importlib.util
 import json
 import os
 import sys
@@ -10,7 +12,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parents[1] / "host"))
 from agentic_host import update_bootstrap as bootstrap
 from agentic_host.manager import HostError
-from agentic_host.publisher import public_key
+from agentic_host.publisher import public_key, validate_official_channel
 from test_publisher import key
 
 
@@ -160,6 +162,68 @@ def test_pristine_null_pin_defers_engine_until_real_authenticated_media(layout, 
     real_source = engine_source(tmp_path / "real-media", pem=key())
     installed = bootstrap.install_engine(real_source, engine=engine)
     assert bootstrap.installed_engine_identity(engine=engine) == {"state": "active", "digest": installed}
+
+
+def test_pristine_shipped_pin_installs_active_immutable_engine(layout, tmp_path):
+    manager, bundles = layout
+    source = engine_source(manager.product)
+    shipped = json.loads((Path(__file__).parents[1] / "host/official-update-channel.json").read_text())
+    assert validate_official_channel(shipped) == shipped
+    assert shipped["image_repository"] == "ghcr.io/ted-h-com/agentic-smart-home-controller"
+    assert public_key(shipped["pin"]["public_key_pem"])[1] == shipped["pin"]["key_sha256"] == (
+        "18dd73f8b96d115d076be6b362cd62ed011c4be2b6dfdaf808e9b3e5a6a53d39")
+    (source / "host/official-update-channel.json").write_text(json.dumps(shipped))
+    engine = tmp_path / "engine"
+    baseline = bootstrap.pristine(manager, engine=engine, bundles=bundles)
+    assert manager.product.readlink() == baseline
+    digest = (engine / "current").readlink().name
+    assert bootstrap.installed_engine_identity(engine=engine) == {"state": "active", "digest": digest}
+    assert json.loads((engine / digest / "official-update-channel.json").read_text()) == shipped
+    assert bootstrap.install_engine(baseline, engine=engine) == digest
+
+
+def test_new_installer_enrolls_shipped_pin_and_engine_before_system_packages(layout, tmp_path, monkeypatch):
+    from agentic_host.publisher import install_official_default
+
+    manager, bundles = layout
+    source = engine_source(manager.product)
+    descriptor = source / "host/official-update-channel.json"
+    descriptor.write_bytes((Path(__file__).parents[1] / "host/official-update-channel.json").read_bytes())
+    shipped = json.loads(descriptor.read_text())
+    (source / "BUNDLE.sha256.json").write_text(json.dumps({
+        "host/official-update-channel.json": hashlib.sha256(descriptor.read_bytes()).hexdigest()}))
+    spec = importlib.util.spec_from_file_location("sandboxed_pinned_installer", Path(__file__).parents[1] / "host/install.py")
+    installer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(installer)
+    trust = tmp_path / "etc/update-publishers.json"
+    engine = tmp_path / "engine"
+    monkeypatch.setattr(installer, "ROOT", source)
+    monkeypatch.setattr(installer, "TARGET", source)
+    monkeypatch.setattr(installer, "STATE", manager.root.parent)
+    monkeypatch.setattr(installer, "preflight", lambda *args: None)
+    monkeypatch.setattr(installer, "Manager", lambda **kwargs: manager)
+    monkeypatch.setattr(installer, "atomic", lambda path, value: bootstrap.atomic(tmp_path / "profile.json", value))
+    monkeypatch.setattr(installer, "install_official_default", lambda product, **kwargs:
+                        install_official_default(product, trust_path=trust, **kwargs))
+    pristine = bootstrap.pristine
+    monkeypatch.setattr(bootstrap, "pristine", lambda manager: pristine(manager, engine=engine, bundles=bundles))
+    monkeypatch.setenv("DEBIAN_FRONTEND", "fixture")
+
+    class BeforeSystemEffects(Exception):
+        pass
+
+    def stop_before_system_effects(*args):
+        assert args == ("apt-get", "update")
+        entry = json.loads(trust.read_text())["publishers"]["ted-h-com-agentic-smart-home"]
+        assert entry == {"public_key_pem": shipped["pin"]["public_key_pem"],
+                         "image_repository": shipped["image_repository"]}
+        assert bootstrap.installed_engine_identity(engine=engine)["state"] == "active"
+        assert source.is_symlink()
+        raise BeforeSystemEffects
+
+    monkeypatch.setattr(installer, "run", stop_before_system_effects)
+    with pytest.raises(BeforeSystemEffects):
+        installer.install({}, {})
 
 
 def test_installer_enables_independent_api_with_null_pin_condition():

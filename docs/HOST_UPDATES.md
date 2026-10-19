@@ -12,14 +12,21 @@ The authority is the **same official Ed25519 public key** designated by
 `host/official-update-channel.json` and the official publisher flow in PR #121.
 The fixed external executor keeps its own authenticated, root-owned copy at
 `/usr/lib/agentic-home-update/current/official-update-channel.json`. Both that
-pin and the enrolled official publisher must agree. An absent/null pin disables
-checking, staging and application. A moving GitHub branch, HTTPS, an image tag,
+pin and the enrolled official publisher must agree. Valid engineering metadata
+with explicit `pin: null` and `image_repository: null` disables checking, staging
+and application. Missing or invalid metadata fails validation; it does not
+silently defer executor installation. A moving GitHub branch, HTTPS, an image tag,
 repository ownership and checksums do not create a publisher trust root.
 
-The checked-in descriptor has **no production pin**. No production signing key,
-signed Host release, signed bootstrap package or product-signed ISO is created
-or published by this change. Existing ISO checksums and Ubuntu's signed boot
-chain do not authenticate our remastered product media.
+Ted approved the production **public** Ed25519 key on **2026-10-19**. The
+checked-in descriptor pins that key, its DER SHA-256 fingerprint
+`18dd73f8b96d115d076be6b362cd62ed011c4be2b6dfdaf808e9b3e5a6a53d39`, and the exact
+Controller image repository `ghcr.io/ted-h-com/agentic-smart-home-controller`.
+The private key remains outside this repository on the release side. See
+[the public key and approval flow](UPDATES.md#官方更新來源與-owner-批准).
+No production-signed Controller image, Host bundle, bootstrap package or
+product-signed media has been published yet. Existing ISO checksums and Ubuntu's
+signed boot chain do not authenticate our remastered product media.
 
 Publisher enrollment in #121 grants Controller-image trust. It does not by
 itself approve a root Host update. The maintenance page offers **檢查主機更新**,
@@ -169,9 +176,14 @@ package/media delivery. Do not claim whole-OS rollback for dependency changes.
 The bootstrap's initial authenticity must already be established by the signed
 OS package channel or independently authenticated signed media. A public key
 inside an otherwise unauthenticated download cannot authenticate itself. The
-current repository cannot supply this missing production trust decision.
+approved repository pin does not authenticate the bootstrap's distribution path;
+that delivery remains outstanding.
 
-New installs with a null pin defer installing an active executor. If an earlier
+New installs from independently authenticated media carrying the approved pin
+install an active immutable executor. The media's pin and default official
+publisher enrollment must agree; an existing trust choice is not overwritten.
+Valid engineering fixtures with explicit `pin: null` and
+`image_repository: null` defer installing an active executor. If an earlier
 engineering build already installed a null-pin executor, the local bootstrap
 review must bind that exact verified inactive engine digest before its pointer
 can move to a real pinned engine. The old directory is retained. This cannot
@@ -189,8 +201,10 @@ For the existing installation's owner, the one-time actions are:
 3. Review the shown public-key fingerprint, Controller/Host versions and
    interruption/restore-point scope against the authenticated release identity.
    Approve that exact bootstrap once. This also approves enrollment of that
-   exact official key if it has not already been enrolled; it cannot replace a
-   revoked or different existing key.
+   exact official key when it is absent from the current trust store, including
+   after revocation. It cannot silently replace a different existing official
+   key. This explicit owner enrollment differs from fresh-install defaults,
+   which preserve an existing empty trust store.
 4. Leave the machine and USB connected while the tool runs. On completion, use
    the maintenance page to read the installed versions. An interrupted or
    uncertain operation is recovered/read back; repeating the launcher does not
@@ -202,12 +216,13 @@ interface identifiers or a reinstallation. If the old Host is still installed,
 the UI says that the one-time trusted bootstrap is required, rather than
 pretending a Controller-only update delivered Host capabilities.
 
-## What Ted must approve before delivery
+## Remaining delivery approvals and evidence
 
-- The production **public** Ed25519 key and independent DER SHA-256 fingerprint,
-  official publisher identity, stable release channel and exact image repository.
-  A test key is never a production substitute; private keys stay outside the
-  repository and build artifacts.
+- The production public key and DER SHA-256 fingerprint were approved by Ted on
+  2026-10-19 and are already pinned with the official publisher identity, stable
+  release channel and exact image repository. Delivery must preserve that exact
+  approved identity. A test key is never a production substitute; private keys
+  stay outside the repository and build artifacts on the release side.
 - An authenticated initial bootstrap/media distribution path, package signing
   and owner-visible identity verification. The bootstrap verifier itself must
   arrive through that authenticated path.
