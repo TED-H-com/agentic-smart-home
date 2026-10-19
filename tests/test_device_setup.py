@@ -32,6 +32,7 @@ class IPPHA:
         self.backup_hook = None
         self.form_hook = None
         self.post_hook = None
+        self.reply_hook = None
         self.config = {"version": "2026.10.1"}
         self.flow = {"flow_id": "pending", "handler": "ipp", "step_id": "zeroconf_confirm", "context": {
             "source": "zeroconf", "unique_id": "private-serial", "title_placeholders": {"name": "Office printer"}}}
@@ -78,6 +79,8 @@ class IPPHA:
         await send_guard()
         self.posts.append((target, data))
         entry = self.created()
+        if self.reply_hook:
+            await self.reply_hook()
         if self.lose_reply:
             raise HAUnreachable("private connection detail")
         return {"type": "create_entry", "flow_id": self.form["flow_id"], "handler": "ipp", "result": entry,
@@ -303,10 +306,11 @@ async def test_background_acceptance_returns_before_long_backup(setup_service):
     await finish(setup_service)
 
 
-async def test_changed_connection_hides_private_setup(setup_service):
+@pytest.mark.parametrize("field", ["base", "websocket"])
+async def test_changed_home_endpoint_hides_private_setup(setup_service, field):
     service, ha, _, _ = setup_service
     proposal = await propose(setup_service)
-    ha.token = "new-token"
+    setattr(ha, field, "different-home")
     assert (await service.listing(request())).setups == []
     with pytest.raises(HTTPException) as exc:
         await service.detail(request(), proposal.id)
@@ -424,3 +428,235 @@ async def test_completed_then_removed_integration_can_be_reviewed_with_new_flow(
     replacement = await service.create(request("new-review"), DeviceSetupCreate(candidate_id="rediscovered"))
     assert replacement.id != proposal.id and replacement.state == "proposed"
     assert len(ha.posts) == 1
+
+
+async def test_credential_rotation_preserves_uncertain_fence_and_allows_readonly_reconcile(setup_service):
+    service, ha, store, _ = setup_service
+    old_flow = copy.deepcopy(ha.flow)
+    ha.lose_reply = True
+    proposal = await propose(setup_service)
+    await approve(setup_service, proposal)
+    await finish(setup_service)
+    original_binding = store.get(KIND, proposal.id)["binding"]
+    ha.token = "replacement-token"
+    listed = (await service.listing(request())).setups
+    assert [row.id for row in listed] == [proposal.id]
+    assert listed[0].state == "needs_reconcile" and listed[0].can_reconcile and not listed[0].can_approve
+    assert (await service.detail(request(), proposal.id)).state == "needs_reconcile"
+    # Rediscovery and a new key under new credentials cannot create a second
+    # operation for the uncertain identity. The old approval remains unusable.
+    ha.flow = {**old_flow, "flow_id": "rediscovered"}
+    ha.form["flow_id"] = "rediscovered"
+    resumed = await service.create(request("fresh"), DeviceSetupCreate(candidate_id="rediscovered"))
+    assert resumed.id == proposal.id and resumed.candidate_aliases == ["rediscovered"]
+    with pytest.raises(HTTPException) as exc:
+        await approve(setup_service, proposal, "old-approval-new-credential")
+    assert exc.value.detail == "device_setup_credentials_changed"
+    reconciled = await service.reconcile(request("recover"), proposal.id,
+        DeviceSetupReconcile(expected_revision=resumed.revision))
+    assert reconciled.state == "configured"
+    assert store.get(KIND, proposal.id)["binding"] == original_binding
+    assert len(ha.posts) == len(ha.backups) == 1
+
+
+async def test_rotation_before_approval_requires_new_proposal_and_new_approval(setup_service):
+    service, ha, store, _ = setup_service
+    original = await propose(setup_service)
+    original_record = store.get(KIND, original.id)
+    ha.token = "replacement-token"
+    historical = await service.detail(request(), original.id)
+    assert not historical.can_approve and historical.reason_code == "device_setup_credentials_changed"
+    with pytest.raises(HTTPException) as exc:
+        await approve(setup_service, original)
+    assert exc.value.detail == "device_setup_credentials_changed"
+    reviewed = await propose(setup_service, "fresh")
+    assert reviewed.id != original.id and reviewed.can_approve
+    assert store.get(KIND, original.id)["state"] == "blocked"
+    new_record = store.get(KIND, reviewed.id)
+    assert new_record["home_binding"] == original_record["home_binding"]
+    assert new_record["binding"] != original_record["binding"]
+    assert not ha.posts and not ha.backups
+    await approve(setup_service, reviewed, "fresh-approval")
+    await finish(setup_service)
+    assert (await service.detail(request(), reviewed.id)).state == "configured"
+    assert len(ha.posts) == 1
+
+
+async def test_rotation_while_backup_inflight_never_reuses_old_execution_authority(setup_service):
+    service, ha, store, _ = setup_service
+    entered, release = asyncio.Event(), asyncio.Event()
+    async def slow_backup():
+        entered.set()
+        await release.wait()
+    ha.backup_hook = slow_backup
+    original = await propose(setup_service)
+    await approve(setup_service, original)
+    await asyncio.wait_for(entered.wait(), 2)
+    try:
+        ha.token = "replacement-token"
+        resumed = await propose(setup_service, "new-credential")
+        assert resumed.id == original.id and resumed.state == "preparing" and not resumed.can_approve
+    finally:
+        release.set()
+        await finish(setup_service)
+    assert not ha.posts and store.get(KIND, original.id)["state"] == "blocked"
+    reviewed = await propose(setup_service, "new-review")
+    ha.backup_hook = None
+    await approve(setup_service, reviewed, "new-approval")
+    await finish(setup_service)
+    assert reviewed.id != original.id and len(ha.posts) == 1
+
+
+async def test_rotation_after_confirmation_sent_retains_exact_receipt_for_new_owner_session(setup_service):
+    service, ha, store, _ = setup_service
+    entered, release = asyncio.Event(), asyncio.Event()
+    async def slow_reply():
+        entered.set()
+        await release.wait()
+    ha.reply_hook = slow_reply
+    original = await propose(setup_service)
+    await approve(setup_service, original)
+    await asyncio.wait_for(entered.wait(), 2)
+    try:
+        ha.token = "replacement-token"
+        historical = await service.detail(request(), original.id)
+        assert historical.state == "applying" and not historical.can_approve
+    finally:
+        release.set()
+        await finish(setup_service)
+    record = store.get(KIND, original.id)
+    assert record["state"] == "needs_reconcile" and record["entry_id"] == "newentry"
+    observed = await service.reconcile(request("reconcile-new-credential"), original.id,
+        DeviceSetupReconcile(expected_revision=record["revision"]))
+    assert observed.state == "configured" and len(ha.posts) == 1
+
+
+async def test_legacy_private_scope_requires_original_credential_proof_before_adoption(setup_service):
+    service, ha, store, _ = setup_service
+    proposal = await propose(setup_service)
+    legacy = store.get(KIND, proposal.id)
+    legacy.pop("home_binding")
+    store.put(KIND, legacy)
+    ha.token = "replacement-token"
+    assert (await service.listing(request())).setups == []
+    with pytest.raises(HTTPException) as exc:
+        await service.detail(request(), proposal.id)
+    assert exc.value.status_code == 404
+    ha.token = "private-token"
+    assert (await service.listing(request())).setups[0].id == proposal.id
+    assert store.get(KIND, proposal.id)["home_binding"]
+    ha.token = "replacement-token"
+    assert (await service.listing(request())).setups[0].id == proposal.id
+
+
+async def test_rotated_credential_still_requires_fresh_active_owner(setup_service):
+    service, ha, _, _ = setup_service
+    proposal = await propose(setup_service)
+    ha.token, ha.revoked = "replacement-token", True
+    with pytest.raises(HTTPException) as exc:
+        await service.detail(request(), proposal.id)
+    assert exc.value.status_code == 403
+
+
+def bridge_request(key, generation):
+    value = request(key)
+    value.state.bridge_identity = SimpleNamespace(pairing_id=generation)
+    return value
+
+
+@pytest.mark.parametrize("other_origin", [None, "new-pairing"])
+async def test_bridge_stop_cancels_only_captured_origin_and_preserves_other_writer(setup_service, other_origin):
+    service, ha, store, _ = setup_service
+    service.app.state.ingress_bridge = SimpleNamespace(
+        identity=lambda value: getattr(value.state, "bridge_identity", None))
+    first = await propose(setup_service)
+    ha.flow["context"]["unique_id"] = "other-printer"
+    second = await propose(setup_service, "other-printer")
+    await service.writer.acquire()
+    try:
+        await service.approve(bridge_request("bridge-approval", "old-pairing"), first.id,
+            DeviceSetupApprove(expected_revision=first.revision, proposal_digest=first.proposal_digest))
+        other_request = bridge_request("other-approval", other_origin) if other_origin else request("other-approval")
+        await service.approve(other_request, second.id,
+            DeviceSetupApprove(expected_revision=second.revision, proposal_digest=second.proposal_digest))
+        await asyncio.sleep(0)
+        assert service.bridge_active("old-pairing")
+        assert service.bridge_active("new-pairing") is bool(other_origin)
+        await service.stop_bridge("unknown-pairing")
+        assert first.id in service.running and second.id in service.running
+        await service.stop_bridge("old-pairing")
+        assert not service.bridge_active("old-pairing")
+        assert first.id not in service.authorities and second.id in service.running
+        assert store.get(KIND, first.id)["state"] == "blocked"
+        assert store.get(KIND, second.id)["state"] == "preparing"
+    finally:
+        service.writer.release()
+        await finish(setup_service)
+    assert store.get(KIND, second.id)["state"] == "configured"
+    assert not service.authorities and not service.running and len(ha.posts) == 1
+
+
+async def test_bridge_stop_after_send_preserves_uncertain_confirmation_for_reconcile(setup_service):
+    service, ha, store, _ = setup_service
+    service.app.state.ingress_bridge = SimpleNamespace(
+        identity=lambda value: getattr(value.state, "bridge_identity", None))
+    entered = asyncio.Event()
+    async def hold_after_send():
+        entered.set()
+        await asyncio.Event().wait()
+    ha.reply_hook = hold_after_send
+    proposal = await propose(setup_service)
+    await service.approve(bridge_request("bridge-approval", "pairing"), proposal.id,
+        DeviceSetupApprove(expected_revision=proposal.revision, proposal_digest=proposal.proposal_digest))
+    await asyncio.wait_for(entered.wait(), 2)
+    assert service.bridge_active("pairing")
+    await service.stop_bridge("pairing")
+    record = store.get(KIND, proposal.id)
+    assert record["state"] == "needs_reconcile" and record["phase"] == "confirmation_prepared"
+    assert not service.running and not service.authorities and len(ha.posts) == 1
+    result = await service.reconcile(request("recover"), proposal.id,
+        DeviceSetupReconcile(expected_revision=record["revision"]))
+    assert result.state == "configured" and len(ha.posts) == 1
+
+
+async def test_bridge_stop_before_coroutine_start_settles_durable_approval(setup_service):
+    service, ha, store, _ = setup_service
+    service.app.state.ingress_bridge = SimpleNamespace(
+        identity=lambda value: getattr(value.state, "bridge_identity", None))
+    proposal = await propose(setup_service)
+    await service.approve(bridge_request("bridge-approval", "pairing"), proposal.id,
+        DeviceSetupApprove(expected_revision=proposal.revision, proposal_digest=proposal.proposal_digest))
+    # No event-loop yield after approve spawned the coroutine.
+    await service.stop_bridge("pairing")
+    assert store.get(KIND, proposal.id)["state"] == "blocked"
+    assert not service.authorities and not service.running and not ha.posts and not ha.backups
+
+
+async def test_history_scope_never_crosses_fresh_owner_identity(setup_service):
+    service, ha, store, _ = setup_service
+    proposal = await propose(setup_service)
+    store.set_setting("owner", "another-owner")
+    async def another_owner(value):
+        return {"id": value, "is_owner": True} if value == "another-owner" else None
+    ha.owner = another_owner
+    current_request = request()
+    current_request.state.principal = "another-owner"
+    assert (await service.listing(current_request)).setups == []
+    with pytest.raises(HTTPException) as exc:
+        await service.detail(current_request, proposal.id)
+    assert exc.value.status_code == 404
+
+
+async def test_unscoped_legacy_unknown_cannot_be_bypassed_under_replacement_token(setup_service):
+    service, ha, store, _ = setup_service
+    proposal = await propose(setup_service)
+    record = store.get(KIND, proposal.id)
+    record.pop("home_binding")
+    record.update(state="needs_reconcile", phase="confirmation_prepared")
+    store.put(KIND, record)
+    ha.token = "replacement-token"
+    assert (await service.listing(request())).setups == []
+    with pytest.raises(HTTPException) as exc:
+        await propose(setup_service, "replacement-proposal")
+    assert exc.value.detail == "device_setup_history_authority_unavailable"
+    assert not ha.posts and not ha.backups

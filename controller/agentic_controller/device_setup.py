@@ -101,6 +101,10 @@ class SetupRecord(Strict):
     version: Literal[1] = 1
     id: PreviewId
     binding: Hash
+    # Access to history survives credential replacement for the same freshly
+    # authenticated HA Owner and exact home endpoints. Execution still binds
+    # the original token in binding and in the captured request authority.
+    home_binding: Hash | None = None
     revision: DiscoveryRevision = 1
     proposal_digest: Hash
     candidate: DiscoveryCandidate
@@ -136,6 +140,34 @@ class DeviceSetups:
         self.writer = writer or asyncio.Lock()
         self.spawn = spawn or (lambda _id, coroutine: asyncio.create_task(coroutine))
         self.running = {}
+        self.authorities = {}
+
+    def bridge_active(self, generation):
+        return bool(generation) and any(authority.identity is not None
+            and authority.identity.pairing_id == generation and operation_id in self.running
+            and not self.running[operation_id].done() for operation_id, authority in self.authorities.items())
+
+    async def stop_bridge(self, generation):
+        if not generation:
+            return
+        pending = []
+        for operation_id, authority in tuple(self.authorities.items()):
+            task = self.running.get(operation_id)
+            if (authority.identity is not None and authority.identity.pairing_id == generation
+                    and task is not None and not task.done()):
+                if not task.cancelling():
+                    task.cancel()
+                pending.append((operation_id, authority, task))
+        if pending:
+            await asyncio.gather(*(task for _, _, task in pending), return_exceptions=True)
+            for operation_id, authority, _ in pending:
+                # A task cancelled before its coroutine's first instruction
+                # cannot run execute()'s cancellation handler.
+                current = self.record(self.binding(authority), operation_id)
+                if current.state in {"preparing", "applying"}:
+                    state = "blocked" if current.phase in PRE_CONFIRMATION_PHASES else "needs_reconcile"
+                    self.save(current, state=state, reason_code="device_setup_interrupted")
+            await self.store.durable()
 
     def private_hash(self, value):
         return hmac.new(bytes.fromhex(self.store.setting("csrf_secret")), canonical(value).encode(),
@@ -144,10 +176,23 @@ class DeviceSetups:
     def binding(self, authority):
         return self.private_hash([KIND, authority.owner, *authority.connection])
 
+    def home_binding(self, authority):
+        _token, base, websocket = authority.connection
+        return self.private_hash([KIND, "household-history", authority.owner, base, websocket])
+
+    def adopt_legacy_scope(self, binding, home_binding):
+        # A one-way credential hash cannot prove which home an old record
+        # belonged to after rotation. Only its original verified binding can
+        # supply the missing access scope; never guess from names/flow IDs.
+        for record in self.records(binding):
+            if record.home_binding is None:
+                self.save(record, home_binding=home_binding)
+
     async def authorize(self, request):
         authority = DiscoveryAuthority(self.app, self.store, self.ha, request, self.host_session)
         await authority.check_owner()
         self.prune()
+        self.adopt_legacy_scope(self.binding(authority), self.home_binding(authority))
         request.scope[RESPONSE_GUARD] = authority.check_owner
         return authority, self.binding(authority)
 
@@ -161,10 +206,11 @@ class DeviceSetups:
         if self.store.setting("paused", False):
             raise HTTPException(409, "device_setup_paused")
 
-    def records(self, binding, *, for_write=False):
+    def records(self, binding, home_binding=None, *, for_write=False):
         result = []
         for row in self.store.db.execute("SELECT body FROM records WHERE kind=? AND "
-                "json_extract(body,'$.binding')=? ORDER BY created DESC,id DESC", (KIND, binding)):
+                "(json_extract(body,'$.binding')=? OR json_extract(body,'$.home_binding')=?) "
+                "ORDER BY created DESC,id DESC", (KIND, binding, home_binding)):
             try:
                 result.append(SetupRecord.model_validate_json(row[0]))
             except ValidationError:
@@ -173,7 +219,7 @@ class DeviceSetups:
                 continue  # Future records do not grant authority to old binaries.
         return result
 
-    def record(self, binding, identifier):
+    def record(self, binding, identifier, home_binding=None):
         if not re.fullmatch(r"[a-f0-9]{32}", identifier):
             raise HTTPException(404, "device_setup_not_found")
         raw = self.store.get(KIND, identifier)
@@ -181,7 +227,7 @@ class DeviceSetups:
             record = SetupRecord.model_validate(raw)
         except ValidationError:
             raise HTTPException(404, "device_setup_not_found") from None
-        if record.binding != binding:
+        if record.binding != binding and (home_binding is None or record.home_binding != home_binding):
             raise HTTPException(404, "device_setup_not_found")
         return record
 
@@ -304,25 +350,42 @@ class DeviceSetups:
         if (flow_hash, form_hash, identity_hash) != (record.flow_digest, record.form_digest, record.identity_digest):
             raise HTTPException(409, "device_setup_candidate_changed")
 
-    def view(self, record):
-        return DeviceSetupView(**record.model_dump(include={"id", "revision", "proposal_digest", "candidate", "candidate_aliases",
+    def view(self, record, binding=None):
+        result = DeviceSetupView(**record.model_dump(include={"id", "revision", "proposal_digest", "candidate", "candidate_aliases",
             "state", "reason_code", "created_at", "updated_at", "expires_at", "backup_id"}),
-            can_approve=record.state == "proposed" and time.time() < record.expires_at,
+            can_approve=record.state == "proposed" and time.time() < record.expires_at
+                and (binding is None or record.binding == binding),
             can_reconcile=record.state in {"needs_reconcile", "configured"}, message=MESSAGES[record.state])
+        if binding is not None and record.binding != binding and record.state == "proposed":
+            result.reason_code = "device_setup_credentials_changed"
+            result.message = "Home Assistant 登入授權已更新；請重新預覽接入提案，舊批准不會沿用。"
+        return result
 
     async def create(self, request, body):
         authority, binding = await self.authorize(request)
+        home_binding = self.home_binding(authority)
         receipt, previous = self.receipt(request, binding, "create", body)
         if previous:
-            return self.view(self.record(binding, previous))
+            return self.view(self.record(binding, previous, home_binding), binding)
         candidate, flow_hash, form_hash, identity_hash = await self.current_flow(authority, body.candidate_id)
         entries = await self.entries(authority)
         await authority.check_owner()
         self.guard(authority)
         receipt, previous = self.receipt(request, binding, "create", body)
         if previous:
-            return self.view(self.record(binding, previous))
-        records = self.records(binding, for_write=True)
+            return self.view(self.record(binding, previous, home_binding), binding)
+        # Older records lack a provable household scope after token rotation.
+        # Do not expose them or silently step around their uncertain effects.
+        legacy_fence = self.store.db.execute("SELECT 1 FROM records WHERE kind=? AND "
+            "json_extract(body,'$.home_binding') IS NULL AND json_extract(body,'$.identity_digest')=? AND "
+            "json_extract(body,'$.state') IN ('preparing','applying','needs_reconcile') LIMIT 1",
+            (KIND, identity_hash)).fetchone()
+        if legacy_fence:
+            raise HTTPException(409, "device_setup_history_authority_unavailable")
+        records = self.records(binding, home_binding, for_write=True)
+        for index, row in enumerate(records):
+            if row.identity_digest == identity_hash and row.binding != binding and row.state == "proposed":
+                records[index] = self.save(row, state="blocked", reason_code="device_setup_credentials_changed")
         current_entries = {row["entry_id"] for row in entries}
         def previously_completed_and_removed(row):
             return (row.phase == "registration_readback" and row.entry_id is not None
@@ -338,24 +401,27 @@ class DeviceSetups:
                     raise HTTPException(409, "device_setup_alias_limit_reached")
                 existing = self.save(existing, candidate_aliases=[*existing.candidate_aliases, candidate.id])
             self.commit_receipt(existing, receipt)
-            return self.view(existing)
+            return self.view(existing, binding)
         if len(records) >= 100:
             raise HTTPException(409, "device_setup_limit_reached")
         now = utcnow()
-        proposal = dict(id=uuid.uuid4().hex, binding=binding, candidate=candidate.model_dump(),
+        proposal = dict(id=uuid.uuid4().hex, binding=binding, home_binding=home_binding, candidate=candidate.model_dump(),
             flow_digest=flow_hash, form_digest=form_hash, identity_digest=identity_hash,
             baseline_entry_ids=sorted(row["entry_id"] for row in entries), created_at=now, updated_at=now,
             expires_at=time.time() + 600)
         record = SetupRecord(**proposal, proposal_digest=digest(proposal))
         self.commit_receipt(record, receipt)
-        return self.view(record)
+        return self.view(record, binding)
 
     async def approve(self, request, identifier, body):
         authority, binding = await self.authorize(request)
+        home_binding = self.home_binding(authority)
         receipt, previous = self.receipt(request, binding, "approve", body, identifier)
         if previous:
-            return self.view(self.record(binding, previous))
-        record = self.record(binding, identifier)
+            return self.view(self.record(binding, previous, home_binding), binding)
+        record = self.record(binding, identifier, home_binding)
+        if record.binding != binding:
+            raise HTTPException(409, "device_setup_credentials_changed")
         if (record.revision != body.expected_revision or record.proposal_digest != body.proposal_digest
                 or record.state != "proposed" or time.time() >= record.expires_at):
             raise HTTPException(409, "device_setup_proposal_changed")
@@ -372,8 +438,13 @@ class DeviceSetups:
             raise
         task = self.spawn("device-setup:" + record.id, self.execute(authority, record))
         self.running[record.id] = task
-        task.add_done_callback(lambda _done: self.running.pop(record.id, None))
-        return self.view(record)
+        self.authorities[record.id] = authority
+        def finished(done):
+            if self.running.get(record.id) is done:
+                self.running.pop(record.id, None)
+                self.authorities.pop(record.id, None)
+        task.add_done_callback(finished)
+        return self.view(record, binding)
 
     async def execute(self, authority, record):
         try:
@@ -508,13 +579,14 @@ class DeviceSetups:
 
     async def detail(self, request, identifier):
         authority, binding = await self.authorize(request)
-        record = self.record(binding, identifier)
-        result = self.view(record)
+        home_binding = self.home_binding(authority)
+        record = self.record(binding, identifier, home_binding)
+        result = self.view(record, binding)
         if record.entry_id:
             observed = await snapshot(self.ha)
             await authority.check_owner()
             self.guard(authority)
-            if self.record(binding, identifier).revision != record.revision:
+            if self.record(binding, identifier, home_binding).revision != record.revision:
                 raise HTTPException(409, "device_setup_revision_changed")
             sources = {item.id: item for item in observed.sources}
             selected = next((item for item in observed.integrations if item.id == record.entry_id
@@ -542,7 +614,7 @@ class DeviceSetups:
                 result.message = ("先前的接入結果已保存，但這次未看到對應整合；請核對 HA 是否移除或無法讀取。")
         async def guard():
             await authority.check_owner()
-            if self.record(binding, identifier).revision != record.revision:
+            if self.record(binding, identifier, home_binding).revision != record.revision:
                 raise HTTPException(409, "device_setup_revision_changed")
         request.scope[RESPONSE_GUARD] = guard
         return result
@@ -586,23 +658,25 @@ class DeviceSetups:
             return entities, None
 
     async def listing(self, request):
-        _, binding = await self.authorize(request)
-        return DeviceSetupList(setups=[self.view(record) for record in self.records(binding)[:100]])
+        authority, binding = await self.authorize(request)
+        return DeviceSetupList(setups=[self.view(record, binding)
+            for record in self.records(binding, self.home_binding(authority))[:100]])
 
     async def reconcile(self, request, identifier, body):
         authority, binding = await self.authorize(request)
+        home_binding = self.home_binding(authority)
         async with self.writer:
             receipt, previous = self.receipt(request, binding, "reconcile", body, identifier)
             if previous:
-                return self.view(self.record(binding, previous))
-            record = self.record(binding, identifier)
+                return self.view(self.record(binding, previous, home_binding), binding)
+            record = self.record(binding, identifier, home_binding)
             if record.revision != body.expected_revision:
                 raise HTTPException(409, "device_setup_revision_changed")
             if record.state not in {"configured", "needs_reconcile"} or identifier in self.running:
                 raise HTTPException(409, "device_setup_reconcile_unavailable")
             updated = await self.reconcile_record(authority, record)
             self.commit_receipt(updated, receipt)
-            return self.view(updated)
+            return self.view(updated, binding)
 
 
 def routes(app, store, ha, host_session=None, *, writer=None, spawn=None):
