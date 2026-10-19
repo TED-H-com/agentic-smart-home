@@ -443,6 +443,10 @@ async def test_desktop_ticket_is_single_use_origin_bound_and_not_a_general_auth_
     import time
 
     monkeypatch.setenv("AGENTIC_DATA", str(tmp_path))
+    # host/install.py enrolls this private key before exposing desktop login.
+    access = tmp_path / "access-key"
+    access.write_text(secrets.token_urlsafe(32) + "\n")
+    access.chmod(0o600)
     app = create_app(store=store, ha=ha, host_mode=True)
     ticket = secrets.token_urlsafe(32)
     path = tmp_path / "desktop-ticket.json"

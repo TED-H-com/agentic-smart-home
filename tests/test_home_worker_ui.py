@@ -555,8 +555,8 @@ def test_home_app_update_states_keys_poll_and_blocked(ui_page):
         ('running', 'home_worker_observation_pending', '更新中', f'正在更新{app}，通常需要幾分鐘。', None, quiet,
          {'kind': 'update', 'state': 'running', 'job_id': 'job-upd-1', 'deadline': '2026-10-13T03:00:00Z'}),
         ('running', 'home_worker_update_starting', '啟動中', f'{app} 已更新，正在啟動。', None, quiet, None),
-        ('waiting', 'home_worker_release_not_published', '等待中', '新版本還沒出現在 App 商店，稍後會自動再檢查。',
-         None, quiet, None),
+        ('waiting', 'home_worker_release_not_published', '等待中', '目前還沒取得需要的版本，可以重新檢查。',
+         '重新檢查版本', quiet, None),
         ('waiting', 'home_worker_release_ahead', '需要更新主機', 'App 商店的版本比主機新，請先更新主機。', None, quiet, None),
         ('needs_reconcile', 'home_worker_release_channel_changed', '需要處理',
          f'目前裝的是舊發行頻道的{app}。請在 Home Assistant 移除它，再回來重新啟用。', '重新檢查', quiet, None),
@@ -570,7 +570,7 @@ def test_home_app_update_states_keys_poll_and_blocked(ui_page):
          '重新檢查', {'available': False, 'from': None, 'to': None, 'blocked_code': 'home_worker_release_unparsable'}, None),
     ]
     flow = {'state': rows[0][0], 'code': rows[0][1], 'update': rows[0][5], 'operation': rows[0][6]}
-    gets, errors = [], []
+    gets, errors, repairs = [], [], []
     hold = {'items': None}
 
     def route(route):
@@ -579,6 +579,10 @@ def test_home_app_update_states_keys_poll_and_blocked(ui_page):
         body = request.post_data_json if request.method == 'POST' else None
         if path == 'host/home-worker/maintenance' and request.method == 'GET':
             gets.append(time.monotonic())
+        if path == 'host/home-worker/maintenance/repair' and request.method == 'POST':
+            assert request.headers['x-agentic-csrf'] == 'fixture-csrf'
+            assert len(request.headers['idempotency-key']) == 32
+            repairs.append(body)
         if path == 'host/home-worker/maintenance/update':
             assert body == {}
             assert request.headers['x-agentic-csrf'] == 'fixture-csrf'
@@ -681,7 +685,7 @@ def test_home_app_update_states_keys_poll_and_blocked(ui_page):
         assert row[1] not in visible and 'job-upd-1' not in visible
         if row[4]:
             expect(card.get_by_role('button', name=row[4], exact=True)).to_be_visible()
-        for absent in ('更新家庭現場 App', '重新檢查'):
+        for absent in ('更新家庭現場 App', '重新檢查', '重新檢查版本'):
             if absent != row[4]:
                 expect(card.get_by_role('button', name=absent, exact=True)).to_have_count(0)
         if row[5] and row[5].get('from') and row[5].get('to'):
@@ -691,6 +695,11 @@ def test_home_app_update_states_keys_poll_and_blocked(ui_page):
             expect(details).to_contain_text('started')
             if row[6]:
                 expect(details).to_contain_text(row[6]['job_id'])
+
+    card = apply(rows[4])
+    card.get_by_role('button', name='重新檢查版本', exact=True).click()
+    expect(card.get_by_role('button', name='重新檢查版本', exact=True)).to_be_enabled()
+    assert repairs == [{}]
 
     flow.update(state='update_available', code='home_worker_update_available', operation=None, update={
         'available': False, 'from': '0.8.0', 'to': '0.9.0', 'blocked_code': 'home_worker_update_not_allowed'})

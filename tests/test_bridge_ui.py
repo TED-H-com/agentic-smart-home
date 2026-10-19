@@ -406,7 +406,7 @@ def _bridge_record(state_name, code, update=None, operation=None):
 
 def test_sidebar_app_update_states_keys_and_poll(bridge_browser):
     """Fixture maintenance. Not a real HAOS App update."""
-    page, _, base, state, calls, _, _, _ = bridge_browser
+    page, _, base, state, calls, mutations, _, _ = bridge_browser
     state["mode"] = "host"
     app = "側欄 App"
     offered = {"available": True, "from": "0.8.0", "to": "0.9.0", "blocked_code": None}
@@ -419,7 +419,7 @@ def test_sidebar_app_update_states_keys_and_poll(bridge_browser):
         ("running", "bridge_observation_pending", "更新中", f"正在更新{app}，通常需要幾分鐘。", None, quiet,
          {"kind": "update", "state": "running", "job_id": "job-upd-1", "deadline": "2026-10-13T03:00:00Z"}),
         ("running", "bridge_update_starting", "啟動中", f"{app} 已更新，正在啟動。", None, quiet, None),
-        ("waiting", "bridge_release_not_published", "等待中", "新版本還沒出現在 App 商店，稍後會自動再檢查。", None, quiet, None),
+        ("waiting", "bridge_release_not_published", "等待中", "目前還沒取得需要的版本，可以重新檢查。", "重新檢查版本", quiet, None),
         ("waiting", "bridge_release_ahead", "需要更新主機", "App 商店的版本比主機新，請先更新主機。", None, quiet, None),
         ("needs_reconcile", "bridge_release_channel_changed", "需要處理",
          f"目前裝的是舊發行頻道的{app}。請在 Home Assistant 移除它，再回來重新啟用。", "檢查側欄連線", quiet, None),
@@ -519,9 +519,16 @@ def test_sidebar_app_update_states_keys_and_poll(bridge_browser):
         assert "job-upd-1" not in visible
         if button_name:
             expect(panel.get_by_role("button", name=button_name, exact=True)).to_be_visible()
-        for absent in ("更新側欄 App", "檢查側欄連線"):
+        for absent in ("更新側欄 App", "檢查側欄連線", "重新檢查版本"):
             if absent != button_name:
                 expect(panel.get_by_role("button", name=absent, exact=True)).to_have_count(0)
+
+    panel = show(_bridge_record("waiting", "bridge_release_not_published", update=quiet))
+    mark = len(mutations)
+    panel.get_by_role("button", name="重新檢查版本", exact=True).click()
+    expect(panel.get_by_role("button", name="重新檢查版本", exact=True)).to_be_enabled()
+    assert len(mutations) == mark + 1
+    assert mutations[-1][:2] == ("host/bridge/maintenance/repair", {})
 
     blocked = _bridge_record("update_available", "bridge_update_available", update={
         "available": False, "from": "0.8.0", "to": "0.9.0", "blocked_code": "bridge_update_not_allowed"})
