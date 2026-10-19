@@ -17,8 +17,16 @@ from pydantic import ValidationError
 from .discovery import snapshot
 from .ha import HAError
 from .ha_lan import HomeLanObservation, HostLanStatus, observe_home_lan
-from .models import (ConversationDiscovery, DiscoveryChatCandidate, DiscoveryChatEnvironment,
-                     DiscoveryChatNetwork, DiscoveryChatObservation, InventorySource, digest, utcnow)
+from .models import (
+    ConversationDiscovery,
+    DiscoveryChatCandidate,
+    DiscoveryChatEnvironment,
+    DiscoveryChatNetwork,
+    DiscoveryChatObservation,
+    InventorySource,
+    digest,
+    utcnow,
+)
 from .operations import broker_call
 from .response_durability import RESPONSE_GUARD
 
@@ -37,6 +45,7 @@ INTEGRATION_NAMES = {
     "home_connect": "Home Connect 家電",
 }
 SETUP_STEP = "先確認是你要加入的設備，再選擇「協助設定」；可在「接入進度」繼續登入與配對。"
+IPP_SETUP_STEP = "選擇「協助設定」查看這台印表機的接入提案；你確認後，系統會先保存家庭設定備份，再接入並讀回結果。"
 LIMITATIONS = [
     "這次只讀取家庭系統已發現的項目；沒有掃描整個區域網路，也沒有分享已儲存的網路盤點。",
     "探索結果不是設備控制授權；設定、帳號登入與實體配對仍需由你確認。",
@@ -172,7 +181,8 @@ class DiscoveryChat:
     def environment(self, authority, observed, network):
         """Reuse only the inventory belonging to this verified Owner/HA binding."""
         authority.guard()
-        safe = lambda value: shared_label(value, secrets=authority.connection)
+        def safe(value):
+            return shared_label(value, secrets=authority.connection)
         sources = {source.id: source for source in observed.sources}
         devices = [device.model_copy(update={"name": safe(device.name) or "未命名設備",
             "manufacturer": safe(device.manufacturer), "model": safe(device.model)})
@@ -261,7 +271,8 @@ class DiscoveryChat:
             title = name if candidate.title == candidate.integration_domain else shared_label(
                 candidate.title, secrets=authority.connection) or name
             candidates.append(DiscoveryChatCandidate(**{**candidate.model_dump(), "title": title},
-                integration_name=name, next_step=SETUP_STEP))
+                integration_name=name, next_step=IPP_SETUP_STEP if candidate.integration_domain == "ipp"
+                and candidate.source_id == "ha_discovery" and candidate.discovery_method == "zeroconf" else SETUP_STEP))
         candidates = interleave(candidates, inventory_candidates)
         available = source.state in {"ok", "partial"}
         if environment is not None:

@@ -7,7 +7,7 @@ from agentic_controller.models import BootstrapPreferences, BootstrapStart
 from test_bootstrap import setup, start_legacy  # noqa: F401 - pytest fixture
 
 
-async def test_new_setup_prepares_ha_without_cli_or_model_and_requires_only_hermes_login(setup, store, monkeypatch):
+async def test_new_setup_prepares_ha_without_cli_or_model_and_requires_only_hermes_login(setup, store, monkeypatch):  # noqa: F811 - shared pytest fixture
     bootstrap, backend, runner, hermes, gateway = setup
     original_capabilities = hermes.capabilities
 
@@ -47,7 +47,7 @@ async def test_new_setup_prepares_ha_without_cli_or_model_and_requires_only_herm
     assert [body for method, body in backend.calls if method == "POST"] == posts
 
 
-async def test_new_ha_job_survives_lost_reply_and_restart_without_replaying(setup, store, ha, monkeypatch):
+async def test_new_ha_job_survives_lost_reply_and_restart_without_replaying(setup, store, ha, monkeypatch):  # noqa: F811 - shared pytest fixture
     bootstrap, backend, runner, hermes, gateway = setup
     backend.lost = True
     await bootstrap.start(BootstrapStart(provider="codex", channel="web"), "start")
@@ -76,7 +76,7 @@ async def test_new_ha_job_survives_lost_reply_and_restart_without_replaying(setu
 
 
 @pytest.mark.parametrize("gate", ["paused", "restore_pending", "kvm"])
-async def test_new_ha_preparation_preserves_pause_restore_and_hardware_gates(setup, store, gate):
+async def test_new_ha_preparation_preserves_pause_restore_and_hardware_gates(setup, store, gate):  # noqa: F811 - shared pytest fixture
     bootstrap, backend, _, _, _ = setup
     await bootstrap.start(BootstrapStart(provider="codex", channel="web"), "start")
     if gate == "paused":
@@ -88,7 +88,7 @@ async def test_new_ha_preparation_preserves_pause_restore_and_hardware_gates(set
     assert all(method == "GET" for method, _ in backend.calls)
 
 
-async def test_new_explicit_channel_can_be_deferred_after_vm_preparation(setup):
+async def test_new_explicit_channel_can_be_deferred_after_vm_preparation(setup):  # noqa: F811 - shared pytest fixture
     bootstrap, backend, _, _, _ = setup
     await bootstrap.start(BootstrapStart(provider="codex", channel="line"), "start")
     await bootstrap.advance()
@@ -101,7 +101,7 @@ async def test_new_explicit_channel_can_be_deferred_after_vm_preparation(setup):
 
 
 @pytest.mark.parametrize("reason", ["network", "timeout", "rate_limited", "cli_output_unrecognized"])
-async def test_existing_cli_transient_status_requires_recheck_not_new_login(setup, reason):
+async def test_existing_cli_transient_status_requires_recheck_not_new_login(setup, reason):  # noqa: F811 - shared pytest fixture
     bootstrap, backend, runner, _, _ = setup
     await start_legacy(bootstrap, BootstrapStart(provider="codex", channel="web"), "legacy")
     runner.reason = reason
@@ -117,7 +117,7 @@ async def test_existing_cli_transient_status_requires_recheck_not_new_login(setu
     assert len(runner.jobs) == 1
 
 
-async def test_legacy_completed_steps_and_ha_job_remain_unchanged_on_resume(setup, store, ha, monkeypatch):
+async def test_legacy_completed_steps_and_ha_job_remain_unchanged_on_resume(setup, store, ha, monkeypatch):  # noqa: F811 - shared pytest fixture
     bootstrap, backend, runner, hermes, gateway = setup
     await start_legacy(bootstrap, BootstrapStart(provider="codex", channel="web"), "legacy")
     record = bootstrap.record()

@@ -6,8 +6,14 @@ import json
 import httpx
 import pytest
 from agentic_controller.app import create_app
-from agentic_controller.bootstrap import Bootstrap, STEPS
-from agentic_controller.models import BootstrapPreferences, BootstrapStart, BootstrapStatus, BootstrapStep, GatewayPreferences
+from agentic_controller.bootstrap import STEPS, Bootstrap
+from agentic_controller.models import (
+    BootstrapPreferences,
+    BootstrapStart,
+    BootstrapStatus,
+    BootstrapStep,
+    GatewayPreferences,
+)
 from agentic_controller.runner import RunnerError
 from agentic_controller.store import Conflict
 

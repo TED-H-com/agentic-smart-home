@@ -151,11 +151,12 @@ export function ConversationNetworkDiscovery({disabled,onDiscovered}:{disabled:b
       <h3>探索家庭網路</h3>
       {busy&&<p role="status">{busy==='loading'?'正在讀取可探索的主機網路…':busy==='scan'?'正在探索所選網路…':'正在確認已保存的探索結果…'}</p>}
       {error&&<Notice error>{error}</Notice>}
-      {done?<p role="status">探索結果已保存，已交給管家協助。</p>:uncertain?<>
+      {done?<p role="status">探索結果已保存，正在交給管家協助。</p>:uncertain?<>
         <p>這次探索的結果仍待確認，會保留原請求並讀取已保存的觀測。</p>
         <Button secondary type="button" disabled={!!busy} onClick={()=>void check()}>重新確認探索結果</Button>
+        <Button secondary type="button" disabled={!!busy} onClick={()=>{pending.current=null;setUncertain(false);setError('');void load()}}>重新選擇網路</Button>
       </>:<>
-        {scopes?.scopes.length===1?<p>找到一個可探索的主機網路：<strong>{scopes.scopes[0].label}</strong>。</p>:scopes&&scopes.scopes.length>1?<label>探索的家庭網路<select value={scope} disabled={!!busy} onChange={event=>setScope(event.target.value)}><option value="">請選擇家中設備所在的網路</option>{scopes.scopes.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label>:null}
+        {scopes?.scopes.length===1?<p>找到一個可探索的主機網路：<strong>{scopes.scopes[0].label}</strong>。</p>:scopes&&scopes.scopes.length>1?<label>探索的家庭網路<select aria-label="探索的家庭網路" value={scope} disabled={!!busy} onChange={event=>setScope(event.target.value)}><option value="">請選擇家中設備所在的網路</option>{scopes.scopes.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label>:null}
         {scopes&&!scopes.scopes.length&&<p>目前沒有可探索的主機實體網路。請確認主機已接上家庭網路後，重新讀取。</p>}
         {selected&&<><p>確認後，會在「{selected.label}」讀取鄰居紀錄及設備服務公告，將結果與已保存的家庭設備觀測交給管家協助。這次探索不會操作或部署設備。</p>
           <p className="helper-text">只涵蓋所選網路；離線、隔離網路、藍牙及需要品牌帳號的設備可能看不到。</p>

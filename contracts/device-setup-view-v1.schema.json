@@ -1,0 +1,537 @@
+{
+  "$defs": {
+    "DiscoveryCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "discovery_method": {
+          "title": "Discovery Method",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "integration_domain": {
+          "title": "Integration Domain",
+          "type": "string"
+        },
+        "native_path": {
+          "const": "/config/integrations",
+          "default": "/config/integrations",
+          "title": "Native Path",
+          "type": "string"
+        },
+        "source_id": {
+          "default": "ha_discovery",
+          "enum": [
+            "ha_discovery",
+            "network_inventory"
+          ],
+          "title": "Source Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "integration_domain",
+        "title",
+        "discovery_method"
+      ],
+      "title": "DiscoveryCandidate",
+      "type": "object"
+    },
+    "DiscoveryDevice": {
+      "additionalProperties": false,
+      "properties": {
+        "available_entity_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Available Entity Count"
+        },
+        "disabled": {
+          "default": false,
+          "title": "Disabled",
+          "type": "boolean"
+        },
+        "entity_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity Count"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "integration_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Integration Ids",
+          "type": "array"
+        },
+        "manufacturer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manufacturer"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "parent_device_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Device Id"
+        },
+        "source_id": {
+          "const": "ha_devices",
+          "default": "ha_devices",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "via_device_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Via Device Id"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "DiscoveryDevice",
+      "type": "object"
+    },
+    "DiscoveryIntegration": {
+      "additionalProperties": false,
+      "properties": {
+        "domain": {
+          "title": "Domain",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "source_id": {
+          "const": "ha_integrations",
+          "default": "ha_integrations",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "loaded",
+            "not_loaded",
+            "retry",
+            "error",
+            "disabled",
+            "ignored",
+            "unknown"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "domain",
+        "title",
+        "state"
+      ],
+      "title": "DiscoveryIntegration",
+      "type": "object"
+    },
+    "DiscoverySource": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Adapter Version",
+          "type": "integer"
+        },
+        "content_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Digest"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "item_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Item Count"
+        },
+        "location": {
+          "default": "home_assistant",
+          "enum": [
+            "home_assistant",
+            "network_inventory",
+            "not_implemented"
+          ],
+          "title": "Location",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "websocket",
+            "rest",
+            "local_inventory",
+            "not_implemented"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed At"
+        },
+        "reason_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason Code"
+        },
+        "state": {
+          "enum": [
+            "ok",
+            "partial",
+            "unavailable",
+            "unsupported",
+            "not_implemented"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        },
+        "upstream_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upstream Version"
+        }
+      },
+      "required": [
+        "id",
+        "state",
+        "method",
+        "target"
+      ],
+      "title": "DiscoverySource",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "available_entity_count": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Available Entity Count"
+    },
+    "backup_id": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9_-]{1,128}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Backup Id"
+    },
+    "backup_scope": {
+      "const": "home_assistant_configuration",
+      "default": "home_assistant_configuration",
+      "title": "Backup Scope",
+      "type": "string"
+    },
+    "can_approve": {
+      "title": "Can Approve",
+      "type": "boolean"
+    },
+    "can_reconcile": {
+      "title": "Can Reconcile",
+      "type": "boolean"
+    },
+    "candidate": {
+      "$ref": "#/$defs/DiscoveryCandidate"
+    },
+    "candidate_aliases": {
+      "default": [],
+      "items": {
+        "pattern": "^[A-Za-z0-9_-]{1,128}$",
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Candidate Aliases",
+      "type": "array"
+    },
+    "contract_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Contract Version",
+      "type": "integer"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "device_count": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Device Count"
+    },
+    "devices": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DiscoveryDevice"
+      },
+      "maxItems": 100,
+      "title": "Devices",
+      "type": "array"
+    },
+    "devices_truncated": {
+      "default": false,
+      "title": "Devices Truncated",
+      "type": "boolean"
+    },
+    "entity_count": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Entity Count"
+    },
+    "expires_at": {
+      "title": "Expires At",
+      "type": "number"
+    },
+    "id": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "integration": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DiscoveryIntegration"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "message": {
+      "title": "Message",
+      "type": "string"
+    },
+    "native_path": {
+      "const": "/config/integrations",
+      "default": "/config/integrations",
+      "title": "Native Path",
+      "type": "string"
+    },
+    "observed_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Observed At"
+    },
+    "physical_verification": {
+      "const": "not_performed",
+      "default": "not_performed",
+      "title": "Physical Verification",
+      "type": "string"
+    },
+    "proposal_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Proposal Digest",
+      "type": "string"
+    },
+    "reason_code": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason Code"
+    },
+    "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "sources": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DiscoverySource"
+      },
+      "title": "Sources",
+      "type": "array"
+    },
+    "state": {
+      "enum": [
+        "proposed",
+        "preparing",
+        "applying",
+        "configured",
+        "needs_reconcile",
+        "blocked"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "updated_at": {
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "revision",
+    "proposal_digest",
+    "candidate",
+    "state",
+    "can_approve",
+    "can_reconcile",
+    "message",
+    "created_at",
+    "updated_at",
+    "expires_at"
+  ],
+  "title": "DeviceSetupView",
+  "type": "object"
+}

@@ -1,0 +1,21 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "expected_revision": {
+      "minimum": 1,
+      "title": "Expected Revision",
+      "type": "integer"
+    },
+    "proposal_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Proposal Digest",
+      "type": "string"
+    }
+  },
+  "required": [
+    "expected_revision",
+    "proposal_digest"
+  ],
+  "title": "DeviceSetupApprove",
+  "type": "object"
+}

@@ -1,0 +1,19 @@
+.device-setup-action{flex:none}
+.device-setup{flex:1 1 100%;border:1px solid var(--line);border-radius:8px;padding:var(--s3);min-width:0;background:var(--surface)}
+.device-setup h4{font-size:var(--body);margin:0 0 var(--s2)}
+.device-setup p{margin:var(--s2) 0;color:inherit}
+.device-setup .button{margin:var(--s2) var(--s2) 0 0}
+.device-setup-readback{border-top:1px solid var(--line);margin-top:var(--s3);padding-top:var(--s2)}
+.conversation-discovery-candidates li{flex-wrap:wrap}
+.conversation-environment{margin-bottom:var(--s3)}
+.conversation-environment details{margin:var(--s2) 0}
+.conversation-environment ul{padding-left:var(--s4);margin:var(--s2) 0}
+.conversation-extra-actions{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--s2);margin-top:var(--s2)}
+.conversation-extra-actions>.discovery-context-trigger{margin-top:0}
+.conversation-network-discovery{display:contents}
+.conversation-network-panel{order:1;flex-basis:100%;min-width:0;padding:var(--s3);border:1px solid var(--line);border-radius:8px;max-height:55vh;overflow:auto;overflow-wrap:anywhere}
+.conversation-network-panel h3{font-size:var(--body);margin:0 0 var(--s2)}
+.conversation-network-panel p{margin:var(--s2) 0}
+.conversation-network-panel label{display:grid;gap:var(--s2)}
+.conversation-network-panel select{width:100%;min-width:0;font-size:16px;min-height:44px}
+.conversation-network-panel .button{margin:var(--s2) var(--s2) 0 0;white-space:normal}

@@ -115,6 +115,24 @@ def test_lost_scan_only_rechecks_saved_results_and_rejects_other_scope(chat_netw
     assert len(network_requests(state, "POST")) == 1 and len(sent_messages(state)) == 1
 
 
+def test_scan_without_saved_result_can_be_explicitly_reconfirmed(chat_network):
+    page, state = chat_network
+    state['scan_mode'] = 'lost_pending'
+    panel = open_network(page)
+    panel.get_by_role('button', name='確認探索並交給管家').click()
+    choose = panel.get_by_role('button', name='重新選擇網路')
+    expect(choose).to_be_enabled(timeout=10000)
+    assert len(network_requests(state, 'POST')) == 1
+    choose.click()
+    confirm = panel.get_by_role('button', name='確認探索並交給管家')
+    expect(confirm).to_be_enabled()
+    assert len(network_requests(state, 'POST')) == 1
+    state['scan_mode'] = 'normal'
+    confirm.click()
+    expect(page.get_by_text('合成的管家回覆。', exact=True)).to_be_visible()
+    assert len(network_requests(state, 'POST')) == 2 and len(sent_messages(state)) == 1
+
+
 def test_hidden_scan_response_cannot_share_into_another_view(chat_network):
     page, state = chat_network
     panel = open_network(page)

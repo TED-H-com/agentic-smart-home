@@ -8,6 +8,13 @@ from pathlib import Path
 from agentic_bridge.app import Options as BridgeOptions
 from agentic_controller.app import create_app
 from agentic_controller.bridge import BridgeRequest
+from agentic_controller.device_setup import (
+    DeviceSetupApprove,
+    DeviceSetupCreate,
+    DeviceSetupList,
+    DeviceSetupReconcile,
+    DeviceSetupView,
+)
 from agentic_controller.ha_lan import HomeLanStatus
 from agentic_controller.host import HostAction
 from agentic_controller.models import (
@@ -106,6 +113,11 @@ def main():
                        "discovery-setup-reference-v1": DiscoverySetupReference.model_json_schema(),
                        "discovery-setup-list-v1": DiscoverySetupList.model_json_schema(),
                        "discovery-setup-view-v1": DiscoverySetupView.model_json_schema(),
+                       "device-setup-create-v1": DeviceSetupCreate.model_json_schema(),
+                       "device-setup-approve-v1": DeviceSetupApprove.model_json_schema(),
+                       "device-setup-reconcile-v1": DeviceSetupReconcile.model_json_schema(),
+                       "device-setup-list-v1": DeviceSetupList.model_json_schema(),
+                       "device-setup-view-v1": DeviceSetupView.model_json_schema(),
                        "ingress-bridge-request-v1": BridgeRequest.model_json_schema(),
                        "ingress-bridge-options-v1": BridgeOptions.model_json_schema(),
                        "runner-bootstrap-job-v1": BootstrapJob.model_json_schema(),
