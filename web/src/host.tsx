@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {api,haPath,session} from './api';
+import {api,haPath,requestKey,session} from './api';
 import {names,plainError} from './labels';
 import {MaintenanceSettings} from './maintenance';
 import {Confirm,Notice,timestamp} from './ui';
@@ -24,7 +24,7 @@ export function HostPanel({onConnected,onAgent,appStatus}:{onConnected:()=>void;
   const [status,setStatus]=useState<any>(null),[token,setToken]=useState(''),[busy,setBusy]=useState('');
   const [error,setError]=useState<Fault|null>(null),[connectionError,setConnectionError]=useState<Fault|null>(null),[notice,setNotice]=useState('');
   // An answer-read failure clears itself once the next read of that answer succeeds.
-  const answerFault=useRef(false);
+  const answerFault=useRef(false),cowPauseKey=useRef<string|null>(null);
   const [restore,setRestore]=useState(''),[diagnosis,setDiagnosis]=useState<any>(null),[editToken,setEditToken]=useState(false);
   const [question,setQuestion]=useState(''),[provider,setProvider]=useState('codex'),[providerChosen,setProviderChosen]=useState(false),[answer,setAnswer]=useState<any>(null),[confirmShutdown,setConfirmShutdown]=useState(false);
   const reload=useCallback(async()=>{try{const result=await api('host/status');setStatus(result);setConnectionError(null)}catch(e){setConnectionError(plainError(e))}},[]);
@@ -34,10 +34,11 @@ export function HostPanel({onConnected,onAgent,appStatus}:{onConnected:()=>void;
   const providers=appStatus?.runner?.providers||[];
   useEffect(()=>{if(!appStatus||providerChosen||!providers.length)return;const first=providers.find((p:any)=>p.status==='connected');if(first)setProvider(first.provider);setProviderChosen(true)},[appStatus,providerChosen,providers.length]);
   const providerReady=providers.some((p:any)=>p.provider===provider&&p.status==='connected');
-  async function action(action:string,snapshot?:string){setBusy(action);setError(null);setNotice('');try{await api('host/actions',{action,snapshot:snapshot||null});setNotice('操作已交給主機處理，請保持主機電源。');setRestore('');await reload()}catch(e){setError(plainError(e))}finally{setBusy('')}}
+  async function action(action:string,snapshot?:string,key?:string){setBusy(action);setError(null);setNotice('');try{await api('host/actions',{action,snapshot:snapshot||null},false,key);if(key===cowPauseKey.current)cowPauseKey.current=null;setNotice('操作已交給主機處理，請保持主機電源。');setRestore('');await reload()}catch(e){setError(plainError(e))}finally{setBusy('')}}
   async function connect(e:React.FormEvent){e.preventDefault();setBusy('connect');setError(null);try{await api('host/connect',{token:token.trim()});setToken('');await session();await onConnected();await reload();setEditToken(false);setNotice('家庭已連接。')}catch(e){setError(plainError(e))}finally{setBusy('')}}
   const running=status?.jobs?.some((j:any)=>j.state==='running');
   const unavailable=!status||!!connectionError;
+  const cowBlocked=['critical','invalid','unavailable'].includes(status?.root_cow?.state);
   const haConnected=appStatus?.ha?.status==='connected';
   const runnerUnavailable=appStatus?.runner?.status==='unavailable';
   const vmLabels:Record<string,string>={'running':'運作中','shut off':'已關機','not_created':'尚未建立'};
@@ -49,7 +50,7 @@ export function HostPanel({onConnected,onAgent,appStatus}:{onConnected:()=>void;
     {error&&<Notice error reason={error.code}><p>這項操作沒有完成。</p><p>{error.text}</p><button className="text-button" onClick={()=>setError(null)}>關閉提示</button></Notice>}
     {notice&&<div className="notice" role="status">{notice}</div>}
     <section className="host-overview" aria-label="主機概況"><h2>{status?.profile?.label||'正在讀取主機…'}</h2><dl aria-live="polite"><div><dt>家庭連線</dt><dd>{!appStatus?'讀取中':haConnected?'已連接':status?.ha_connected?'等待回應':'尚未連接'}</dd></div><div><dt>可用空間</dt><dd>{typeof status?.storage_free_bytes==='number'?`${(status.storage_free_bytes/1024**3).toFixed(1)} GB`:'尚無資料'}</dd></div></dl></section>
-    {status?.root_cow?.message&&<Notice error={["critical","blocked","full"].includes(status.root_cow.state)}>{status.root_cow.message}</Notice>}
+    {status?.root_cow?.message&&<Notice error={["critical","invalid","unavailable"].includes(status.root_cow.state)}><p>{status.root_cow.message}</p>{status.root_cow.state==='critical'&&status.vm==='running'&&<><p>暫停後家庭自動化也會停止；其他系統寫入仍可能用盡還原點空間。</p><button className="secondary" disabled={!!busy||running||unavailable} onClick={()=>{cowPauseKey.current??=requestKey();void action('shutdown',undefined,cowPauseKey.current)}}>暫停 HA 以保護還原點</button></>}</Notice>}
     <section className="settings-section vm-card" aria-label="家庭系統"><div className="section-heading"><h2>家庭系統</h2><span className={`status ${status?.vm==='running'?'s-connected':''}`}>{vmText}</span></div>
       <div className="row-actions vm-actions">{status?.vm!=='running'&&<button disabled={!!busy||running||unavailable} onClick={()=>action(status?.provisioned?'start':'provision')}>{status?.provisioned?'啟動':'建立'}</button>}{status?.vm==='running'&&haConnected&&<a className="button" href={haPath()} target="_blank" rel="noreferrer">開啟家庭 ↗</a>}{status?.vm==='running'&&!confirmShutdown&&<button type="button" className="secondary" disabled={!!busy||running||unavailable} onClick={()=>setConfirmShutdown(true)}>正常關機</button>}<button className="text-button" disabled={!!busy||unavailable} onClick={async()=>{setBusy('diagnose');setError(null);try{setDiagnosis(await api('host/diagnosis'))}catch(e){setError(plainError(e))}finally{setBusy('')}}}>{busy==='diagnose'?'檢查中…':'檢查連線'}</button></div>
       {status?.vm==='running'&&confirmShutdown&&<Confirm sentence="關閉家庭系統？家中自動化會暫停。" confirmLabel="確認關機" busy={busy==='shutdown'} onConfirm={()=>{void action('shutdown').finally(()=>setConfirmShutdown(false))}} onCancel={()=>setConfirmShutdown(false)}/>}
@@ -63,7 +64,7 @@ export function HostPanel({onConnected,onAgent,appStatus}:{onConnected:()=>void;
       {answer?.state==='planning'&&<div className="notice" role="status">正在讀取主機狀況…<button className="text-button" type="button" onClick={()=>api(`host/tasks/${answer.id}/cancel`,{}).catch(e=>setError(plainError(e)))}>取消查詢</button></div>}
       {answer?.answer&&<div className="notice agent-answer" role="status"><p>{answer.answer.message}</p>{answer.answer.suggested_action!=='none'&&<button className="secondary" disabled={!!busy||running||unavailable} onClick={()=>action(answer.answer.suggested_action)}>執行建議：{actionLabels[answer.answer.suggested_action]}</button>}</div>}{answer?.message&&<p role="alert">{answer.message}</p>}{answer?.state==='cancelled'&&<p role="status">查詢已取消，可以重新描述。</p>}
     </div></section>
-    <details className="host-fold"><summary>快照 · {status?.snapshots?.length?`${status.snapshots.length} 份`:'尚無'}</summary><div className="maintenance-content"><p>建立快照會關閉家庭系統，期間家庭自動化會暫停。</p><button className="secondary" disabled={!!busy||running||unavailable||!status?.provisioned} onClick={()=>action('snapshot')}>建立快照</button>
+    <details className="host-fold"><summary>快照 · {status?.snapshots?.length?`${status.snapshots.length} 份`:'尚無'}</summary><div className="maintenance-content"><p>建立快照會關閉家庭系統，期間家庭自動化會暫停。</p><button className="secondary" disabled={!!busy||running||unavailable||cowBlocked||!status?.provisioned} onClick={()=>action('snapshot')}>建立快照</button>
       {status?.snapshots?.length?<><p className="helper-text">還原會取代目前的家庭系統資料，請先正常關機。智能管家的紀錄不在快照內。</p>{status.snapshots.map((s:any)=><div className="service-row snapshot-row" key={s.id} title={s.id}><div className="section-heading"><code>{timestamp(typeof s.created_at==='number'?new Date(s.created_at*1000).toISOString():s.created_at)}</code><button className="secondary" disabled={!!busy||running||unavailable||status.vm!=='shut off'} onClick={()=>setRestore(s.id)}>選擇還原</button></div>{restore===s.id&&<div className="notice"><p>還原會取代目前的家庭系統資料。</p><div className="row-actions"><button className="danger" disabled={!!busy} onClick={()=>action('restore',s.id)}>還原這份快照</button><button className="secondary" type="button" onClick={()=>setRestore('')}>取消</button></div></div>}</div>)}</>:<p className="subtle">{status?'完成家庭設定後，可建立第一份快照。':'正在讀取快照…'}</p>}
     </div></details>
     <MaintenanceSettings version={appStatus?.version}/>

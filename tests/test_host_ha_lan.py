@@ -846,3 +846,14 @@ def test_concurrent_observation_posts_are_serialized_independently_of_lifecycle_
         assert list(executor.map(lan.observe, [body] * 12)) == [{"accepted": True}] * 12
     lan.refresh_observation()
     assert lan.status()["ha_lan_ip"] == "192.0.2.99"
+
+
+
+def test_cow_critical_or_invalid_never_blocks_home_restart(lab, monkeypatch):
+    lan, vm, _, _ = lab
+    manager = lan.manager
+
+    lan.configure(None)
+    monkeypatch.setattr(manager.root_cow, "require_capacity", lambda required: (_ for _ in ()).throw(HostError("snapshot exhausted")))
+    monkeypatch.setattr(manager, "require_compatibility", lambda action: None)
+    assert manager.start()["vm"] == "running"

@@ -1,6 +1,5 @@
 import json
 import sys
-from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -55,7 +54,6 @@ def guard(tmp_path):
         manager.shutdowns += 1
 
     manager.run, manager.shutdown = execute, shutdown
-    manager.locked = nullcontext
     return RootCow(manager)
 
 
@@ -82,7 +80,7 @@ def test_enrollment_survives_name_change_and_refuses_replaced_root(guard):
     guard.reconcile()
     guard.manager.rows[0]["lv_uuid"] = "replacement-uuid"
     guard.manager.calls.clear()
-    assert guard.status()["state"] == "unavailable"
+    assert guard.status(refresh=True)["state"] == "unavailable"
     with pytest.raises(HostError, match="原有還原點已保留"):
         guard.require_capacity(GIB)
     assert not any(call[0] == "lvextend" for call in guard.manager.calls)
@@ -139,8 +137,13 @@ def test_command_success_without_capacity_readback_is_not_success(guard):
     assert guard.status()["last_action"] is None
 
 
-def test_monitor_cleanly_stops_ha_when_no_space_and_does_not_delete_snapshot(guard):
-    guard.manager.rows[1].update(data_percent="85", vg_free="0")
+@pytest.mark.parametrize("percent,invalid,fail_extend", [(85, False, False), (85, False, True),
+                                                       (100, True, False)])
+def test_monitor_never_shuts_down_household_for_critical_or_invalid_snapshot(guard, percent, invalid, fail_extend):
+    guard.manager.rows[1].update(data_percent=str(percent), vg_free="0" if not fail_extend else str(30 * GIB))
+    if invalid:
+        guard.manager.rows[1]["lv_attr"] = "swi-I-s---"
+    guard.manager.fail_extend = fail_extend
 
     class Stop:
         count = 0
@@ -149,31 +152,19 @@ def test_monitor_cleanly_stops_ha_when_no_space_and_does_not_delete_snapshot(gua
             return self.count >= 2
 
         def wait(self, seconds):
-            assert seconds == 5
+            assert seconds == 60
             self.count += 1
 
     guard.monitor(Stop())
-    assert guard.manager.shutdowns == 1
-    assert "HA 已正常關閉" in guard.status()["last_action"]
+    result = guard.status()
+    assert guard.manager.shutdowns == 0
+    assert result["state"] == ("invalid" if invalid else "critical")
+    assert "家庭繼續運作" in result["message"]
     assert len(guard.manager.rows) == 2
-    assert all(call[0] in {"findmnt", "lvs"} for call in guard.manager.calls)
-
-
-def test_failed_extension_still_attempts_graceful_protection(guard):
-    guard.manager.rows[1]["data_percent"] = "85"
-    guard.manager.fail_extend = True
-
-    class Stop:
-        done = False
-
-        def is_set(self):
-            return self.done
-
-        def wait(self, seconds):
-            self.done = True
-
-    guard.monitor(Stop())
-    assert guard.manager.shutdowns == 1
+    assert all(call[0] in {"findmnt", "lvs", "lvextend"} for call in guard.manager.calls)
+    with pytest.raises(HostError, match="已停止新增備份"):
+        guard.require_capacity(GIB)
+    assert guard.manager.shutdowns == 0
 
 
 def test_missing_observation_is_honest_and_never_leaks_diagnostic_output(guard):
@@ -184,25 +175,31 @@ def test_missing_observation_is_honest_and_never_leaks_diagnostic_output(guard):
         guard.require_capacity(0)
 
 
-def test_monitor_defers_shutdown_during_lifecycle_transaction(guard):
+def test_status_polls_lvm_at_most_once_per_minute_but_preflight_bypasses_cache(guard, monkeypatch):
+    now = [100.0]
+    monkeypatch.setattr("agentic_host.cow.time.monotonic", lambda: now[0])
+    assert guard.status()["state"] == "warning"
+    count = len(guard.manager.calls)
     guard.manager.rows[1].update(data_percent="85", vg_free="0")
+    now[0] += 59
+    assert guard.status()["state"] == "warning"
+    assert len(guard.manager.calls) == count
+    now[0] += 1
+    assert guard.status()["state"] == "critical"
+    guard.manager.rows[1].update(data_percent="100", lv_attr="swi-I-s---")
+    with pytest.raises(HostError):
+        guard.require_capacity(GIB)
+    assert guard.status()["state"] == "invalid"
+    assert guard.manager.shutdowns == 0
 
-    def locked():
-        raise HostError("Another host operation is running")
 
-    class Stop:
-        done = False
-
-        def is_set(self):
-            return self.done
-
-        def wait(self, seconds):
-            self.done = True
-
-    guard.manager.locked = locked
-    guard.monitor(Stop())
-    assert guard.manager.shutdowns == 0 and not guard.quiesced
-    assert "尚未完成" in guard.status()["last_action"]
+def test_post_copy_refresh_publishes_new_capacity_without_shutdown(guard):
+    guard.manager.rows[1].update(data_percent="40", vg_free="0")
+    assert guard.status()["state"] == "healthy"
+    guard.manager.rows[1]["data_percent"] = "85"
+    assert guard.after_copy()["state"] == "critical"
+    assert guard.status()["state"] == "critical"
+    assert guard.manager.shutdowns == 0
 
 
 def test_non_lvm_mount_needs_no_snapshot_capacity(guard):

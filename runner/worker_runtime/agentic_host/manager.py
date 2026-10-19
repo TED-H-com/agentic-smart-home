@@ -363,7 +363,8 @@ class Manager:
         network = parse_xml(self.virsh("net-dumpxml", NETWORK).stdout)
         validate_network(network, self.state()["owner"], {bool(lan)})
         self.require_compatibility("start")
-        self.root_cow.require_capacity(0)
+        # Capacity protection fences large copies, never household availability.
+        # In particular a completed backup must still be able to restart HA.
         state = self.virsh("domstate", NAME).stdout.strip()
         if state == "shut off":
             HALan(self).begin_attempt(allow_configuration=False)
@@ -468,10 +469,14 @@ class Manager:
         if action not in {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes", "configure_lan"}:
             raise HostError("Unknown lifecycle operation")
         with self.locked():
-            if action == "configure_lan":
-                from .ha_lan import HALan
-                return HALan(self).connect(**kwargs)
-            if action == "bootstrap_hermes":
-                from .bootstrap import InitialSetup
-                return InitialSetup(self).install()
-            return self.restore(snapshot) if action == "restore" else getattr(self, action)()
+            try:
+                if action == "configure_lan":
+                    from .ha_lan import HALan
+                    return HALan(self).connect(**kwargs)
+                if action == "bootstrap_hermes":
+                    from .bootstrap import InitialSetup
+                    return InitialSetup(self).install()
+                return self.restore(snapshot) if action == "restore" else getattr(self, action)()
+            finally:
+                if action in {"snapshot", "restore", "provision", "configure_lan"}:
+                    self.root_cow.after_copy()
