@@ -6,6 +6,7 @@ Requires=libvirtd.service
 
 [Service]
 Environment=PYTHONPATH=/opt/agentic-home/host
+Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=/usr/bin/python3 -m agentic_host.daemon
 Restart=on-failure
 RuntimeDirectory=agentic-home

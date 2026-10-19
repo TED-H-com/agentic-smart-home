@@ -39,6 +39,8 @@ from .hermes import routes as hermes_routes
 from .home_worker_maintenance import HomeWorkerFault, HomeWorkerMaintenance
 from .host import HostSession, external_ha
 from .host import routes as host_routes
+from .host_updates import health_descriptor as host_update_health
+from .host_updates import routes as host_update_routes
 from .household import Household
 from .mcp import create_mcp
 from .models import (
@@ -220,6 +222,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         ha_oauth_routes(app, host_session, ha, store)
         from .home_entry import routes as home_entry_routes
         home_entry_routes(app, store, ha)
+    host_update_routes(app, store, host_auth=host_session, host_mode=host_mode)
 
     def csrf(principal, expires, session_id=None):
         payload = f"host:{principal}:{session_id}:{expires}" if session_id else f"{principal}:{expires}"
@@ -230,7 +233,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         try:
             peer = request.client.host if request.client else ""
             if request.url.path == "/health" and peer in {"127.0.0.1", "::1", ingress_ip}:
-                return JSONResponse({"status": "failed" if store.failed else "ok", "version": VERSION},
+                return JSONResponse({"status": "failed" if store.failed else "ok", "version": VERSION,
+                                     "host_update": host_update_health()},
                                     status_code=503 if store.failed else 200)
             identity = bridge.identity(request) if bridge else None
             if identity:
@@ -255,7 +259,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                         return JSONResponse({"detail": "請先登入 Linux 主機管理介面"}, status_code=401)
             elif not identity and peer != ingress_ip:
                 return JSONResponse({"detail": "請經由 Home Assistant Ingress 開啟"}, status_code=403)
-            if store.setting("updater_gate") and request.url.path == "/api/host/authorized":
+            if (store.setting("updater_gate") or store.setting("host_bundle_update_gate")) and request.url.path == "/api/host/authorized":
                 # This OAuth GET exchanges and persists credentials. Treat it
                 # as a mutation while keeping its one-use code out of the URL.
                 return RedirectResponse("/#onboarding", status_code=303,
@@ -263,13 +267,18 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
             if (store.setting("updater_gate") and request.url.path.startswith("/api/") and
                 request.method not in {"GET", "HEAD"} and request.url.path not in {
                     "/api/host/login", "/api/host/desktop-login", "/api/host/logout"} and
-                not request.url.path.startswith("/api/updates/")):
+                not request.url.path.startswith(("/api/updates/", "/api/host-updates/"))):
                 return JSONResponse({"detail": "update_in_progress"}, status_code=423)
+            if (store.setting("host_bundle_update_gate") and request.url.path.startswith("/api/") and
+                    request.method not in {"GET", "HEAD"} and request.url.path not in {
+                        "/api/host/login", "/api/host/desktop-login", "/api/host/logout"} and
+                    not request.url.path.startswith("/api/host-updates/")):
+                return JSONResponse({"detail": "主機更新結果尚未確認，請先查看主機更新或完成復原。"}, status_code=423)
             if int(request.headers.get("content-length", "0")) > 131072:
                 return JSONResponse({"detail": "請求太大"}, status_code=413)
             if request.url.path.startswith("/api/") and request.url.path not in {"/api/host/login", "/api/host/desktop-login"}:
                 local = bool(identity) or host_mode and (request.method in {"GET", "HEAD"} or request.url.path.startswith(
-                    ("/api/host/", "/api/providers/", "/api/gateway/", "/api/notifications/", "/api/runtimes/", "/api/hermes/", "/api/bootstrap/", "/api/worker/", "/api/workers/", "/api/network/", "/api/updates/")) or request.url.path in {"/api/pause", "/api/retention", "/api/backups/export"})
+                    ("/api/host/", "/api/providers/", "/api/gateway/", "/api/notifications/", "/api/runtimes/", "/api/hermes/", "/api/bootstrap/", "/api/worker/", "/api/workers/", "/api/network/", "/api/updates/", "/api/host-updates/")) or request.url.path in {"/api/pause", "/api/retention", "/api/backups/export"})
                 user_id = identity.owner if identity else ((store.setting("owner") or "host-owner") if host_mode else request.headers.get("x-remote-user-id", ""))
                 if not user_id or (store.setting("owner") and store.setting("owner") != user_id):
                     return JSONResponse({"detail": "只有綁定的 HA owner 可以操作"}, status_code=403)

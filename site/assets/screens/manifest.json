@@ -1,7 +1,7 @@
 {
-  "source_commit": "b902c4582ad618d28627c5064bade71f34f95d97",
-  "source_tree": "dc15b22d53bbd2d466e8661b6f1e5b3ee8b05d65",
-  "frontend_source_tree": "d30ed76ed65f040f9fb856205bbbead5f49b7d62",
+  "source_commit": "d2fc3cb4a7595be283f923ec5b38fba8bd385d84",
+  "source_tree": "3e3add244ce07074331e557a0a9ff03301556a4e",
+  "frontend_source_tree": "747bbed9f588fd37fa416f46c94795f174a3bb3b",
   "source_files": [
     {
       "file": "scripts/site_screenshots.py",
@@ -37,7 +37,7 @@
     },
     {
       "file": "web/demo/fake-api.ts",
-      "sha256": "6d5565e02638418c46fcfd6b9004e007cf6f071093df507fca45ddc76fe667e1"
+      "sha256": "d5ab60d77384003e9b3cddcaee38f056ced52ae625910944b70377c8e1acd0b3"
     },
     {
       "file": "web/demo/ha-lan.ts",
@@ -127,7 +127,7 @@
     },
     {
       "file": "discovery.png",
-      "sha256": "2811130fb4c9984f3460e31a5e6645a8bbb5c01f9621c29cef3edaa180d0ef5c",
+      "sha256": "4dde769309b2bf9b480ab62a39d371f632783d085705c1ff40255bb216b12698",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -135,7 +135,7 @@
       "device_scale_factor": 1,
       "route": "#/agentic-home",
       "surface": "product-in-ha-simulation",
-      "bytes": 112721
+      "bytes": 112727
     },
     {
       "file": "gateway.png",
@@ -187,7 +187,7 @@
     },
     {
       "file": "host.png",
-      "sha256": "e4811137ef52cb09a05213c58e665c5edaf25cfa09915ad19b4d985c3eb5f1d7",
+      "sha256": "9850125afdaa791970d3a77e44f35b3bb9d46769c6dd1d9ddf93ed2f236e2095",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -195,11 +195,11 @@
       "device_scale_factor": 1,
       "route": "#host",
       "surface": "product",
-      "bytes": 68169
+      "bytes": 68168
     },
     {
       "file": "bridge.png",
-      "sha256": "463a8b6651ef5accd35ef1f55b32eaa72d49782233b59d1f30a1f68ba14ce2cd",
+      "sha256": "c7265a9bfbd1f6356f40aebfbb60fb3f54788151740baa2645d2666079af3799",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -207,7 +207,7 @@
       "device_scale_factor": 1,
       "route": "#/agentic-home",
       "surface": "product-in-ha-simulation",
-      "bytes": 65170
+      "bytes": 65173
     },
     {
       "file": "phone.png",

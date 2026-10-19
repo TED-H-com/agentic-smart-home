@@ -1,0 +1,60 @@
+{
+  "source_commit": "5025fcf440cfe9ca3982bcecabab487d5f6518ae",
+  "captured_at": "2026-10-19T11:01:38.514554+00:00",
+  "synthetic_data": true,
+  "acceptance": "protocol fixture only; physical household, signing pipeline and nested HAOS not_run",
+  "source_files": [
+    {
+      "file": "web/src/host-updates.tsx",
+      "sha256": "8f6e4eb00a1ebce02e742c87bc3138788783e5087a2823f715f67f331af1cc25"
+    },
+    {
+      "file": "web/src/maintenance.tsx",
+      "sha256": "7e31bc165398c437af6a45000cf9c9750ed903dfe90a2507553eed9dc785afa6"
+    },
+    {
+      "file": "controller/agentic_controller/host_updates.py",
+      "sha256": "4263ae527d2cf767f5c35021a2a5aa37b7a8df82f08dc65d9aba9009afe89009"
+    },
+    {
+      "file": "controller/agentic_controller/app.py",
+      "sha256": "e6fdab3c0fe642b8a000c4d54397f3899eb0b9ba6f88149b62711208e7b48cdb"
+    },
+    {
+      "file": "tests/test_host_updates_ui.py",
+      "sha256": "4e6081f798f907b2973bcce1349806435a8843c7e4507e39b71e9bef0fcbaa11"
+    },
+    {
+      "file": "tests/test_host_updates_transport.py",
+      "sha256": "06d3653f8a2b5ca63cc8cc88a91a2a50eb9bccc4b2d9a4394a28cd17ffa362c5"
+    }
+  ],
+  "files": [
+    {
+      "file": "review-fixture-1440.png",
+      "sha256": "a51ea19864dbda6cd53eb52fa496a105be6f487c90670a0b58cb12f21e812097"
+    },
+    {
+      "file": "review-fixture-390.png",
+      "sha256": "f4faa5244ea978ac590cb32b6e5723c7434f2b8927130a0bff47de5fbde12ed4"
+    },
+    {
+      "file": "review-fixture-768.png",
+      "sha256": "7bf267502bd14a78610e00459347f7ef61dc9f074a9801f3167428609ccaf2b7"
+    },
+    {
+      "file": "unconfirmed-offer-1440.png",
+      "sha256": "53895665352f6404904cbda4d7c5ac35753006852c6026d2fae67b31eedf7277"
+    },
+    {
+      "file": "unconfirmed-offer-390.png",
+      "sha256": "ada118cf791dbd36c3ff8a1e488546ff48781a3976d742d38504d3e0988b2bc4"
+    },
+    {
+      "file": "unconfirmed-offer-768.png",
+      "sha256": "6963a3ae0dc8df870005e5d8c5518485b490608a4096620a9698079898f996e3"
+    }
+  ],
+  "source_worktree_dirty": true,
+  "source_note": "Captured after integrating main appliance fixes and the controlled OS-policy adapter; exact source_files hashes identify this pending merge. Physical household and production signing acceptance remain not_run."
+}

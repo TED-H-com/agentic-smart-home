@@ -2,7 +2,7 @@
 
 以下是 0.11.0 工程預覽候選的安裝流程；發布後從 [v0.11.0 發布頁](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.11.0) 取得下載工具與媒體。精確來源、同版媒體與公開 App 頻道的驗證結果見 [驗證紀錄](docs/VERIFICATION.md)；候選尚未完成交付時，不能以舊版 ISO 代替。0.10.0 的公開媒體與歷史驗證仍保留。
 
-官方更新來源的正式公鑰與 fingerprint 已由 Ted 於 2026-10-19 核准並釘選，私鑰由發行端保存在 repo 之外。尚未發布以此金鑰簽署的 Controller image 或 Host bundle；既有安裝仍需經身份驗證的 Host 遷移及產品內的明確信任步驟，不能重跑 installer 代替遷移。公鑰、完整 fingerprint 與批准流程見 [更新說明](docs/UPDATES.md#官方更新來源與-owner-批准)。
+官方更新來源的正式公鑰與 fingerprint 已由 Ted 於 2026-10-19 核准並釘選，私鑰由發行端保存在 repo 之外。尚未發布以此金鑰簽署的 Controller image、Host bundle、bootstrap 套件或產品媒體。既有 0.11.0 家庭主機需經獨立身份驗證的圖形 bootstrap 配合 **AH-UPDATE** USB，由本人明確批准一次信任與遷移，不能重跑 installer；操作見 [主機更新](docs/HOST_UPDATES.md#existing-0110-household-first-time-bootstrap)。新安裝只有從經獨立身份驗證、帶有效官方 pin 的媒體，才安裝啟用中的不可變 Host 更新執行器；有效且明確設定 `pin: null`、`image_repository: null` 的工程 fixture 則延後安裝啟用中的執行器。公鑰、完整 fingerprint 與批准流程見 [更新說明](docs/UPDATES.md#官方更新來源與-owner-批准)。
 
 ## 需要
 

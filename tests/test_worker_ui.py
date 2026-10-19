@@ -33,7 +33,11 @@ def ui_page():
 
 
 def common(path):
-    return {'updates/publisher': {'contract': 1, 'state': 'unavailable', 'code': 'official_publisher_pin_not_shipped',
+    return {'host-updates': {'contract': 1, 'scope': 'host_bundle_same_schema', 'available': False,
+             'compatibility': None, 'code': 'host_update_bootstrap_required',
+             'message': '主機需要先經你核准一次更新啟用；不需重裝。', 'records': [],
+             'check': {'state': 'unavailable', 'message': ''}},
+             'updates/publisher': {'contract': 1, 'state': 'unavailable', 'code': 'official_publisher_pin_not_shipped',
              'message': '需取得含官方更新來源憑證的受信任主機版本。', 'publisher': None, 'repository': None,
              'channel': None, 'image_repository': None, 'key_sha256': None, 'review_digest': None,
              'scope': 'controller_only_same_schema', 'authority': 'signed_controller_images_only'},

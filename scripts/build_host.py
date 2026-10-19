@@ -114,7 +114,7 @@ def bundle(destination):
     stage.mkdir(parents=True)
     for directory in ("host", "controller", "runner", "hermes", "bridge", "custom_components", "contracts", "docs", "scripts"):
         shutil.copytree(ROOT / directory, stage / directory, ignore=bundle_ignored)
-    for name in ("README.md", "INSTALL.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md", "providers.lock.json", "upstream.lock.json", "channels.lock.json"):
+    for name in ("README.md", "INSTALL.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md", "providers.lock.json", "upstream.lock.json", "channels.lock.json", "pyproject.toml"):
         shutil.copyfile(ROOT / name, stage / name)
     assets = stage / "assets"
     assets.mkdir()
