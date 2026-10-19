@@ -259,7 +259,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                         return JSONResponse({"detail": "請先登入 Linux 主機管理介面"}, status_code=401)
             elif not identity and peer != ingress_ip:
                 return JSONResponse({"detail": "請經由 Home Assistant Ingress 開啟"}, status_code=403)
-            if store.setting("updater_gate") and request.url.path == "/api/host/authorized":
+            if (store.setting("updater_gate") or store.setting("host_bundle_update_gate")) and request.url.path == "/api/host/authorized":
                 # This OAuth GET exchanges and persists credentials. Treat it
                 # as a mutation while keeping its one-use code out of the URL.
                 return RedirectResponse("/#onboarding", status_code=303,
@@ -269,6 +269,11 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                     "/api/host/login", "/api/host/desktop-login", "/api/host/logout"} and
                 not request.url.path.startswith(("/api/updates/", "/api/host-updates/"))):
                 return JSONResponse({"detail": "update_in_progress"}, status_code=423)
+            if (store.setting("host_bundle_update_gate") and request.url.path.startswith("/api/") and
+                    request.method not in {"GET", "HEAD"} and request.url.path not in {
+                        "/api/host/login", "/api/host/desktop-login", "/api/host/logout"} and
+                    not request.url.path.startswith("/api/host-updates/")):
+                return JSONResponse({"detail": "主機更新結果尚未確認，請先查看主機更新或完成復原。"}, status_code=423)
             if int(request.headers.get("content-length", "0")) > 131072:
                 return JSONResponse({"detail": "請求太大"}, status_code=413)
             if request.url.path.startswith("/api/") and request.url.path not in {"/api/host/login", "/api/host/desktop-login"}:

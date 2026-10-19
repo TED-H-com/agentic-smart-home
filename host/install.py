@@ -191,6 +191,9 @@ def install(profile, bases):
     run("systemctl", "daemon-reload")
     run("systemctl", "enable", "--now", "agentic-home-host", "agentic-home-proxy")
     run("systemctl", "enable", "agentic-home-update-recover")
+    # The fixed immutable-engine unit skips safely until a real pin installs
+    # its code. It remains available when the product tree is rolled back.
+    run("systemctl", "enable", "--now", "agentic-home-update-api")
     run("systemctl", "enable", "agentic-home")
     pair_runner()
     # Firstboot starts the outer services; restart also covers a repeated install. The durable

@@ -122,10 +122,8 @@ def serve(path="/run/agentic-home/host.sock"):
     previews = Previews(manager, bundles=coding.root / "web-previews")
     updater = Updater(manager)
     host_updates = HostBundle(manager)
-    try:
-        host_updates.recover_preparations()
-    except HostError:
-        pass  # unresolved approved work remains fenced; rescue GET stays available
+    # The independent immutable update service owns preparation recovery. A
+    # broker restart during its live download must not mark that work failed.
     mutation_lock = threading.RLock()
     try:
         viewer = preview_server(previews)
@@ -136,6 +134,8 @@ def serve(path="/run/agentic-home/host.sock"):
         print("Preview listener unavailable; local rescue broker remains active", file=sys.stderr, flush=True)
 
     def service(method, path, body=None):
+        if method == "POST" and (path == "/host-updates" or path.startswith("/host-updates/")):
+            return 409, {"detail": "host_update_fixed_transport_required"}
         for prefix, handler in (("/coding", coding), ("/network", network), ("/discovery", discovery),
                                 ("/previews", previews), ("/updates", updater), ("/host-updates", host_updates)):
             if path == prefix or path.startswith(prefix + "/"):

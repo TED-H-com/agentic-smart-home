@@ -10,7 +10,7 @@ from test_worker_ui import common, ui_page  # noqa: F401
 
 
 def mount(page, origin):
-    state = {'value': status(), 'offline': False, 'lose_apply': False}
+    state = {'value': status(), 'offline': False, 'lose_apply': False, 'cancelled': True}
     posts, errors = [], []
     def route(route):
         request = route.request
@@ -35,6 +35,14 @@ def mount(page, origin):
                     route.abort()
                     return
                 value = state['value']['records'][0]
+            elif path.endswith('/cancel-offer'):
+                assert body == {}
+                if state['cancelled']:
+                    state['value']['records'][0].update(state='failed', approval_id=None, approval_expires_at=None)
+                else:
+                    state['value']['records'][0].update(state='queued', message='正在建立還原點。')
+                state['value']['dispatch'] = None
+                value = {'cancelled': state['cancelled'], 'record': state['value']['records'][0]}
             elif path.endswith('/rollback-offer'):
                 assert body == {'candidate_digest': CANDIDATE}
                 state['value']['records'][0].update(rollback_approval_id='z' * 43, rollback_expires_at=time.time() + 300)
@@ -172,3 +180,33 @@ def test_malformed_advanced_envelope_never_echoes_file_contents(ui_page):  # noq
     expect(page.get_by_role('alert')).to_contain_text('無法讀取主機更新說明檔')
     assert 'private-fixture-should-not-display' not in page.locator('body').inner_text()
     assert not posts and not errors
+
+
+@pytest.mark.parametrize('accepted', [False, True])
+@pytest.mark.parametrize('width', [390, 768, 1440])
+def test_owner_can_resolve_expired_unconfirmed_dispatch_without_cli_or_new_approval(ui_page, accepted, width):  # noqa: F811
+    page, origin = ui_page
+    page.set_viewport_size({'width': width, 'height': 1100})
+    state, posts, errors = mount(page, origin)
+    state['value']['records'] = [record()]
+    state['value']['records'][0]['approval_expires_at'] = time.time() - 1
+    state['value']['dispatch'] = {'candidate_digest': CANDIDATE, 'operation': 'apply', 'message': '還在核對這次更新是否已開始。'}
+    state['cancelled'] = not accepted
+    page.clock.run_for(3500)
+    expect(page.get_by_role('button', name='確認更新主機至 0.12.0', exact=True)).to_have_count(0)
+    expect(page.get_by_role('button', name='檢查主機更新', exact=True)).to_be_disabled()
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
+    if not accepted:
+        output = Path(__file__).parents[1] / 'evidence/ui/host-bundle-updates'
+        output.mkdir(parents=True, exist_ok=True)
+        page.screenshot(path=str(output / f'unconfirmed-offer-{width}.png'), full_page=True)
+    page.get_by_role('button', name='確認未開始並重新檢查', exact=True).click()
+    assert posts[0] == ('host-updates/cancel-offer', {})
+    if accepted:
+        expect(page.get_by_text('準備更新', exact=True)).to_be_visible()
+        assert posts == [('host-updates/cancel-offer', {})]
+    else:
+        expect(page.get_by_text('已確認這次更新未開始，可重新檢查官方版本。', exact=True)).to_be_visible()
+        expect(page.get_by_text('正在檢查官方版本，準備完成後會請你確認。')).to_be_visible()
+        assert posts == [('host-updates/cancel-offer', {}), ('host-updates/check', {})]
+    assert not [item for item in posts if item[0] == 'host-updates/apply'] and not errors

@@ -1,0 +1,20 @@
+[Unit]
+Description=Agentic Home stable owner Host update service
+After=docker.service libvirtd.service
+ConditionPathExists=/usr/lib/agentic-home-update/current/agentic_host/update_service.py
+
+[Service]
+Type=simple
+Environment=PYTHONPATH=/usr/lib/agentic-home-update/current
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -m agentic_host.update_service
+Restart=on-failure
+RuntimeDirectory=agentic-home
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+UMask=0077
+ProtectHome=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

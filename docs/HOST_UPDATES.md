@@ -56,10 +56,15 @@ persistent operation record, not treated as permission to install twice.
 4. Persist switch intent and atomically replace the active
    `/opt/agentic-home` symlink. The executor lives outside this tree, so restarting
    the broker does not kill recovery or change its imported code.
-5. Run the fixed idempotent reconcile hook, restart product services and probe
+5. Keep the fixed UID1000-only update API running from the immutable engine on
+   `/run/agentic-home/host-updates.sock`, separately from the selected Host broker.
+   It accepts only the bounded Host-update routes, with the same owner Controller
+   checks, process locks and one-use approvals. Legacy rollback therefore cannot
+   remove the maintenance page's update/status path. Run the fixed idempotent
+   reconcile hook, restart product services and probe
    the actual Unix broker, its explicit contracts, Controller health and current
    database integrity/schema. A candidate cannot change the recovery executor,
-   its units, publisher pin or the first-boot installer.
+   its API/recovery units, publisher pin or the first-boot installer.
 6. On failure, restore the prior bundle and product-managed file preimages,
    restart and probe again. Boot recovery compensates an interrupted approved
    switch; it never turns a merely staged candidate into a new installation.
@@ -73,6 +78,23 @@ arbitrary paths. Network configuration requiring activation is reported as
 requiring a restart rather than applying a live network change behind the
 owner's back. G15/G16 implementations can ship their reviewed declarative files
 through this hook; this PR does not replace those concurrent fixes.
+
+The Controller durably fences ordinary product mutations before dispatching an
+approved Host operation, including Controller-image updates. It retains that
+fence across a lost reply until typed terminal readback or explicit retirement
+of the exact unused offer. The owner can choose **確認未開始並重新檢查** for an
+uncertain, expired offer: the fixed engine retires that exact capability under
+its process lock before confirming cancellation. An already accepted operation
+is read back instead; it is never cancelled or installed again by that action.
+The healthy update path still requires one approval.
+
+A retained legacy broker keeps its original code. The new Controller gate and
+immutable engine process/lifecycle locks protect the product workflow; they do
+not retrofit interception into a separate privileged caller using the old
+broker directly. Concurrent direct legacy administrative operations are outside
+this migration's concurrency guarantee. A lifecycle operation winning the lock
+before any update effect causes a clear failed attempt and a fresh review,
+rather than a permanently queued installation.
 
 If #119's `root_cow` interface is present, capacity checks use it. The standalone
 fallback validates exact LV/VG identity, checks existing snapshot headroom and
@@ -95,6 +117,12 @@ An installed 0.11.0 Host has no root bundle endpoint or immutable executor.
 Updating its Controller cannot install either one. Rerunning `install.py --apply`
 over the household, granting a worker root shell, or downloading and running an
 unsigned script is **not** the migration.
+
+The fixed API service is installed and started as part of the authenticated
+bootstrap before either candidate is activated. It remains available when the
+selected broker is the original 0.11.0 version. Controller transport falls back
+to the old broker only if the fixed socket cannot be connected before a request
+is sent; lost replies, timeouts and HTTP errors never cause a POST retry.
 
 A maintainer must first produce authenticated bootstrap media using Ted's
 approved public pin and externally signed Controller/Host envelopes. The small

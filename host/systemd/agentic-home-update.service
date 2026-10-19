@@ -9,7 +9,7 @@ Type=oneshot
 Environment=PYTHONPATH=/usr/lib/agentic-home-update/current
 Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=/usr/bin/python3 -m agentic_host.host_update --execute
-TimeoutStartSec=900
+TimeoutStartSec=3600
 UMask=0077
 ProtectHome=true
 NoNewPrivileges=true

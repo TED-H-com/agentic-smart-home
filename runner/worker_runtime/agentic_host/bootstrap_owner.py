@@ -50,6 +50,7 @@ MAX_CACHE = 16 * 1024**3
 MISSING_PIN = "安裝包未附正式官方驗證金鑰，無法進行更新；請取得受信任的正式安裝包。"
 RECOVERED = "已恢復先前運行的管理與家庭服務；先前主機更新結果尚未確認，不會重送更新。請聯絡支援核對。"
 RECOVERY_NAME = "agentic-home-update-bootstrap-recover.service"
+ENGINE_UNITS = ("agentic-home-update.service", "agentic-home-update-recover.service", "agentic-home-update-api.service")
 RECOVERY_UNIT = ("[Unit]\nDescription=Recover approved Agentic Home bootstrap guest availability\n"
                  "After=libvirtd.service agentic-home-host.service\nWants=libvirtd.service\n\n[Service]\n"
                  "Type=oneshot\nExecStart=/usr/bin/agentic-home-update-bootstrap --recover-availability\n"
@@ -153,7 +154,7 @@ class BootstrapOwner:
             raise HostError("更新復原安裝包無法安全核對，尚未變更主機。")
         runtime = trusted(self.manager.root / "runtime.env")
         units = {}
-        for name in ("agentic-home-update.service", "agentic-home-update-recover.service"):
+        for name in ENGINE_UNITS:
             source = trusted(payload.source / "host/systemd" / name)
             target = Path("/etc/systemd/system") / name
             secure(target, optional=True)
@@ -465,6 +466,10 @@ class BootstrapOwner:
                     self.manager.run("systemctl", "enable", "agentic-home-update-recover.service", timeout=30)
                 self._resume_broker(value)
                 stopped = False
+                # This endpoint belongs to the immutable engine so a future
+                # rollback to the preserved 0.11 tree retains Host update UI.
+                self.manager.run("systemctl", "enable", "--now", "agentic-home-update-api.service", timeout=90)
+                self.manager.run("systemctl", "is-active", "--quiet", "agentic-home-update-api.service", timeout=15)
                 if value["summary"]["controller_required"]:
                     value["phase"] = "controller_updating"
                     self._save(value)

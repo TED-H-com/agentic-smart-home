@@ -453,7 +453,7 @@ def test_preparation_holds_manager_lifecycle_lock_during_capacity_and_copy(lab):
     assert not held
 
 
-def test_broker_startup_marks_interrupted_preparations_retryable_without_install(lab):
+def test_stable_service_startup_marks_interrupted_preparations_retryable_without_install(lab):
     record = staged(lab)
     stored = lab.records()[record["candidate_digest"]]
     stored["state"] = "staging"
@@ -464,6 +464,222 @@ def test_broker_startup_marks_interrupted_preparations_retryable_without_install
     assert lab.status()["check"]["state"] == "failed"
     assert lab.current() == lab._test.previous
     assert lab.stage({"manifest": stored["manifest"], "signature": stored["signature"]}, background=False)["state"] == "staged"
+
+
+@pytest.mark.parametrize("recovery_only,state,phase", [(False, "queued", "approved"), (True, "queued", "approved"),
+                                                      (False, "activating", "creating_restore_point")])
+def test_executor_lifecycle_lock_conflict_only_consumes_attempt_before_live_effects(lab, monkeypatch, recovery_only, state, phase):
+    from contextlib import contextmanager
+
+    from agentic_host.manager import HostError
+    record = approved(lab)
+    stored = lab.records()[record["candidate_digest"]]
+    stored.update(state=state, phase=phase, recovery_only=recovery_only)
+    lab.save(stored)
+    @contextmanager
+    def busy():
+        raise HostError("Another host operation is running")
+        yield
+    lab.manager.locked = busy
+    monkeypatch.setattr(lab, "_stop_controller", lambda record: pytest.fail("must not stop services"))
+    if state == "queued" and not recovery_only:
+        result = lab.execute()
+        assert result["state"] == "failed" and result["error_code"] == "host_update_host_busy"
+    else:
+        with pytest.raises(HostError):
+            lab.execute(recover=True)
+        assert lab.records()[record["candidate_digest"]]["state"] == state
+    assert lab.current() == lab._test.previous
+
+
+def cancellation(record, operation="apply"):
+    field = "approval_id" if operation == "apply" else "rollback_approval_id"
+    return {"candidate_digest": record["candidate_digest"], "operation": operation,
+            "approval_digest": hashlib.sha256(record[field].encode()).hexdigest()}
+
+
+def test_cancel_apply_offer_is_durable_idempotent_and_rejects_delayed_acceptance(lab):
+    record = staged(lab)
+    body = cancellation(record)
+    status, result = lab.handle("POST", "/host-updates/cancel-offer", body)
+    assert status == 200 and result["cancelled"] is True
+    assert result["record"]["state"] == "failed"
+    assert lab.cancel_offer(body)["cancelled"] is True
+    with pytest.raises(HostUpdateError, match="approval_invalid"):
+        lab._approval({"candidate_digest": record["candidate_digest"], "approval_id": record["approval_id"]})
+    assert lab.current() == lab._test.previous and not lab._test.calls
+    saved = lab.records()[record["candidate_digest"]]
+    fresh = lab.stage({"manifest": saved["manifest"], "signature": saved["signature"]}, background=False)
+    assert fresh["state"] == "staged" and fresh["approval_id"] != record["approval_id"]
+
+
+def test_old_cancellation_proof_preserves_fresh_offer(lab):
+    first = staged(lab)
+    stored = lab.records()[first["candidate_digest"]]
+    fresh = lab.stage({"manifest": stored["manifest"], "signature": stored["signature"]}, background=False)
+    assert fresh["approval_id"] != first["approval_id"]
+    assert lab.cancel_offer(cancellation(first))["cancelled"] is True
+    assert lab.records()[first["candidate_digest"]]["approval_id"] == fresh["approval_id"]
+    assert lab._approval({"candidate_digest": fresh["candidate_digest"], "approval_id": fresh["approval_id"]})["state"] == "queued"
+
+
+@pytest.mark.parametrize("operation", ["apply", "rollback"])
+def test_cancellation_never_undoes_accepted_operation(lab, monkeypatch, operation):
+    execution_fixture(lab, monkeypatch)
+    record = staged(lab)
+    if operation == "rollback":
+        lab._approval({"candidate_digest": record["candidate_digest"], "approval_id": record["approval_id"]})
+        assert lab.execute()["state"] == "deployed"
+        record = lab.rollback_offer({"candidate_digest": record["candidate_digest"]})
+    proof = cancellation(record, operation)
+    token = "approval_id" if operation == "apply" else "rollback_approval_id"
+    lab._approval({"candidate_digest": record["candidate_digest"], "approval_id": record[token]}, rollback=operation == "rollback")
+    before = lab.records()
+    result = lab.cancel_offer(proof)
+    assert result["cancelled"] is False and result["record"]["state"] == "queued"
+    assert lab.records() == before
+
+
+def test_cancel_rollback_offer_keeps_deployed_tree_and_rejects_delayed_rollback(lab, monkeypatch):
+    execution_fixture(lab, monkeypatch)
+    record = approved(lab)
+    assert lab.execute()["state"] == "deployed"
+    offer = lab.rollback_offer({"candidate_digest": record["candidate_digest"]})
+    proof = cancellation(offer, "rollback")
+    result = lab.cancel_offer(proof)
+    assert result["cancelled"] is True and result["record"]["state"] == "deployed"
+    assert lab.cancel_offer(proof)["cancelled"] is True
+    with pytest.raises(HostUpdateError, match="approval_invalid"):
+        lab._approval({"candidate_digest": record["candidate_digest"], "approval_id": offer["rollback_approval_id"]}, rollback=True)
+    assert lab.current() == lab.bundles / record["candidate_digest"]
+
+
+def test_matching_uncertain_recovery_offer_cancellation_fails_closed(lab):
+    record = staged(lab)
+    stored = lab.records()[record["candidate_digest"]]
+    stored.update(state="needs_reconcile", rollback_approval_id="uncertain-token")
+    lab.save(stored)
+    with pytest.raises(HostUpdateError, match="cancellation_uncertain"):
+        lab.cancel_offer(cancellation(stored, "rollback"))
+    assert lab.records()[record["candidate_digest"]] == stored
+
+
+@pytest.mark.parametrize("state", ["staging", "queued", "activating", "rolling_back", "needs_reconcile"])
+def test_mismatched_cancellation_proof_never_clears_busy_or_uncertain_attempt(lab, state):
+    record = staged(lab)
+    stored = lab.records()[record["candidate_digest"]]
+    stored["state"] = state
+    lab.save(stored)
+    body = {**cancellation(record), "approval_digest": "f" * 64}
+    with pytest.raises(HostUpdateError, match="cancellation_uncertain"):
+        lab.cancel_offer(body)
+    assert lab.records()[record["candidate_digest"]] == stored
+
+
+def test_offer_cancellation_cannot_clear_fence_for_another_active_proposal(lab):
+    record = staged(lab)
+    other = {**lab.records()[record["candidate_digest"]], "candidate_digest": "e" * 64, "state": "activating"}
+    lab.save(other)
+    with pytest.raises(HostUpdateError, match="cancellation_uncertain"):
+        lab.cancel_offer(cancellation(record))
+    assert lab.records()[record["candidate_digest"]]["state"] == "staged"
+
+
+def set_dispatch_gate(engine, record, **changes):
+    saved = engine.records()[record["candidate_digest"]]
+    gate = {"candidate_digest": saved["candidate_digest"], "operation": saved.get("consumed_action", saved["operation"]),
+            "approval_digest": saved["consumed_token_sha256"], "authority": {"owner": "fixture"}, **changes}
+    database = engine.manager.root.parent / "controller/controller.sqlite3"
+    with sqlite3.connect(database) as connection:
+        connection.execute("INSERT OR REPLACE INTO settings VALUES ('host_bundle_update_gate',?)", (json.dumps(gate),))
+    return database, gate
+
+
+@pytest.mark.parametrize("change", [{}, {"candidate_digest": "f" * 64}, {"operation": "rollback"},
+                                    {"approval_digest": "f" * 64}])
+def test_terminal_dispatch_gate_cleanup_requires_exact_proof_and_preserves_other_settings(lab, change):
+    record = approved(lab)
+    database, gate = set_dispatch_gate(lab, record, **change)
+    saved = lab.records()[record["candidate_digest"]]
+    saved.update(state="failed", error_code="host_update_preflight_failed")
+    lab.save(saved)
+    assert lab._clear_dispatch_gate(saved) is (not change)
+    with sqlite3.connect(database) as connection:
+        values = dict(connection.execute("SELECT key,value FROM settings"))
+        assert values["household_saved"] == "current"
+        assert json.loads(values["host_bundle_update_gate"]) == (gate if change else None)
+        if not change:
+            assert values["paused"] == "true"
+
+
+def test_dispatch_cleanup_never_clears_before_terminal_save_or_when_schema_unsupported(lab):
+    record = approved(lab)
+    database, gate = set_dispatch_gate(lab, record)
+    saved = lab.records()[record["candidate_digest"]]
+    assert lab._clear_dispatch_gate(saved) is False
+    saved.update(state="failed", error_code="host_update_preflight_failed")
+    assert lab._clear_dispatch_gate(saved) is False  # Still queued on disk.
+    lab.save(saved)
+    with sqlite3.connect(database) as connection:
+        connection.execute("PRAGMA user_version=4")
+    assert lab._clear_dispatch_gate(saved) is False
+    with sqlite3.connect(database) as connection:
+        assert json.loads(connection.execute("SELECT value FROM settings WHERE key='host_bundle_update_gate'").fetchone()[0]) == gate
+
+
+def test_unknown_failed_phase_does_not_clear_dispatch_gate(lab):
+    record = approved(lab)
+    database, gate = set_dispatch_gate(lab, record)
+    saved = lab.records()[record["candidate_digest"]]
+    saved.update(state="failed", phase="unknown", error_code="host_update_preflight_failed")
+    lab.save(saved)
+    assert lab._clear_dispatch_gate(saved) is False
+    with sqlite3.connect(database) as connection:
+        assert json.loads(connection.execute("SELECT value FROM settings WHERE key='host_bundle_update_gate'").fetchone()[0]) == gate
+
+
+@pytest.mark.parametrize("outcome", ["success", "fallback", "preflight", "before_start", "manager_busy"])
+def test_executor_terminal_outcomes_clear_dispatch_gate_without_browser(lab, monkeypatch, outcome):
+    from contextlib import contextmanager
+
+    from agentic_host.manager import HostError
+    execution_fixture(lab, monkeypatch)
+    record = approved(lab)
+    database, _ = set_dispatch_gate(lab, record)
+    if outcome == "fallback":
+        monkeypatch.setattr(lab, "_create_restore_point", lambda record: (_ for _ in ()).throw(HostError("fixture_failure")))
+    elif outcome == "preflight":
+        monkeypatch.setattr(lab, "require_no_controller_update", lambda: (_ for _ in ()).throw(HostError("fixture_busy")))
+    elif outcome == "manager_busy":
+        @contextmanager
+        def busy():
+            raise HostError("fixture_busy")
+            yield
+        lab.manager.locked = busy
+    result = lab.execute(recover=outcome == "before_start")
+    assert result["state"] in {"deployed", "rolled_back", "failed"}
+    with sqlite3.connect(database) as connection:
+        values = dict(connection.execute("SELECT key,value FROM settings"))
+        assert json.loads(values["host_bundle_update_gate"]) is None and values["paused"] == "true"
+
+
+def test_bad_controller_gate_cleanup_cannot_rollback_healthy_install(lab, monkeypatch):
+    execution_fixture(lab, monkeypatch)
+    record = approved(lab)
+    database, _ = set_dispatch_gate(lab, record)
+    with sqlite3.connect(database) as connection:
+        connection.execute("UPDATE settings SET value='invalid-json' WHERE key='host_bundle_update_gate'")
+    assert lab.execute()["state"] == "deployed"
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("SELECT value FROM settings WHERE key='host_bundle_update_gate'").fetchone()[0] == "invalid-json"
+
+
+@pytest.mark.parametrize("change", [{"operation": []}, {"operation": "delete"}, {"approval_digest": "bad"},
+                                    {"candidate_digest": "bad"}, {"extra": "forbidden"}])
+def test_cancellation_request_is_strict(lab, change):
+    body = {"candidate_digest": "a" * 64, "operation": "apply", "approval_digest": "b" * 64, **change}
+    with pytest.raises(HostUpdateError, match="request_invalid"):
+        lab.cancel_offer(body)
 
 
 @pytest.mark.parametrize("phase", ["ha_shutdown_requested", "ha_snapshot_requested", "ha_snapshot_complete"])

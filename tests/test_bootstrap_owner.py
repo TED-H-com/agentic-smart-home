@@ -48,7 +48,7 @@ def owner(tmp_path, monkeypatch):
     for name in ("__init__.py", "bootstrap_owner.py", "bootstrap_media.py", "host_update.py", "host_restore.py", "host_reconcile.py", "update_bootstrap.py"):
         (source / "agentic_host" / name).write_text("# public synthetic fixture\n")
     (source / "systemd").mkdir()
-    for name in ("agentic-home-update.service", "agentic-home-update-recover.service"):
+    for name in module.ENGINE_UNITS:
         (source / "systemd" / name).write_text("[Service]\nType=oneshot\n")
     # Ephemeral test key only; no private material is written or published.
     private = Ed25519PrivateKey.generate()
@@ -150,7 +150,7 @@ def test_review_is_exact_expiring_and_contains_no_private_key_or_capability(owne
     assert "PRIVATE KEY" not in json.dumps(result) and not owner.trust.exists()
 
 
-@pytest.mark.parametrize("fault", ["expired", "deadline", "boot", "used", "wrong_digest", "tree", "trust", "candidate", "cache"])
+@pytest.mark.parametrize("fault", ["expired", "deadline", "boot", "used", "wrong_digest", "tree", "trust", "candidate", "cache", "api_unit"])
 def test_approval_rechecks_expiry_session_boot_and_every_reviewed_revision(owner, monkeypatch, fault):
     current = summary(owner)
     monkeypatch.setattr(owner, "_summary", lambda: copy.deepcopy(current))
@@ -167,6 +167,8 @@ def test_approval_rechecks_expiry_session_boot_and_every_reviewed_revision(owner
         value["state"] = "applying"
     elif fault == "wrong_digest":
         approval = "0" * 64
+    elif fault == "api_unit":
+        current["units"]["agentic-home-update-api.service"] = {"shipped": "c" * 64, "installed": None}
     else:
         key = {"tree": "current_tree", "trust": "trust", "candidate": "host_candidate", "cache": "controller_cache_sha256"}[fault]
         current[key] = "changed"
@@ -213,6 +215,9 @@ def test_apply_orders_capacity_restore_trust_engine_controller_and_host_without_
             state["broker"] = False
         if args[:2] == ("systemctl", "start"):
             state["broker"] = True
+        if args == ("systemctl", "enable", "--now", "agentic-home-update-api.service"):
+            assert state["broker"] and not state["locked"]
+            events.append(("update_api",))
         return original_run(*args, **kwargs)
 
     owner.manager.run = broker_run
@@ -268,7 +273,7 @@ def test_apply_orders_capacity_restore_trust_engine_controller_and_host_without_
     review = owner.review()
     assert owner.apply(review["review_digest"])["state"] == "complete"
     names = [item[0] for item in events]
-    assert names == ["capacity", "pause", "restore", "trust", "engine", "layout", "controller", "host_stage", "host_approved", "host_execute"]
+    assert names == ["capacity", "pause", "restore", "trust", "engine", "layout", "update_api", "controller", "host_stage", "host_approved", "host_execute"]
     assert events[0][1] == payload.cache_size * 5 + payload.archive_size + 256 * 1024**2
     assert len([item for item in events if item[0] == "restore"]) == 1
     assert ("systemctl", "start", "agentic-home-host.service") in owner.fixture.calls
@@ -355,6 +360,8 @@ def test_unsigned_builder_stages_only_public_fixed_inputs_and_gui_with_isolated_
     assert (stage / "DEBIAN/preinst").read_text() == module.PREINST
     assert "--apply" not in module.POSTINST and "--review" not in module.POSTINST
     assert (stage / "etc/systemd/system" / module.RECOVERY_NAME).read_text() == module.RECOVERY_UNIT
+    for name in module.ENGINE_UNITS:
+        assert (stage / "usr/share/agentic-home-update-bootstrap/product/host/systemd" / name).is_file()
     assert (stage / "usr/share/applications/agentic-home-update-bootstrap.desktop").is_file()
     assert not (stage / "usr/share/agentic-home-update-bootstrap/host-bundle.tar").exists()
     assert not (stage / "usr/share/agentic-home-update-bootstrap/controller-images.tar").exists()

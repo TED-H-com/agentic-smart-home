@@ -22,7 +22,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path, PurePosixPath
 
 from .manager import HostError, Manager, atomic, sync_path
@@ -641,6 +641,42 @@ class HostBundle:
             self.save(record)
             return self.public(record)
 
+    def cancel_offer(self, body):
+        """Retire an exact unaccepted offer; never undo an accepted operation."""
+        if (not isinstance(body, dict) or set(body) != {"candidate_digest", "operation", "approval_digest"}
+                or not isinstance(body["candidate_digest"], str) or not DIGEST.fullmatch(body["candidate_digest"])
+                or not isinstance(body["operation"], str) or body["operation"] not in {"apply", "rollback"}
+                or not isinstance(body["approval_digest"], str) or not DIGEST.fullmatch(body["approval_digest"])):
+            raise HostUpdateError("host_update_request_invalid")
+        operation, proof = body["operation"], body["approval_digest"]
+        with self.locked():
+            records = self.records()
+            record = records.get(body["candidate_digest"])
+            if record is None:
+                raise HostUpdateError("host_update_not_found")
+            if (record.get("consumed_token_sha256") == proof
+                    and record.get("consumed_action", record.get("operation")) == operation):
+                return {"cancelled": False, "record": self.public(record)}
+            if (record["state"] not in {"staged", "deployed", "failed", "rolled_back"}
+                    or any(row["state"] in BUSY | {"staging"} for row in records.values())):
+                raise HostUpdateError("host_update_offer_cancellation_uncertain")
+            token, expiry = ("approval_id", "approval_expires_at") if operation == "apply" else ("rollback_approval_id", "rollback_expires_at")
+            offered = record.get(token)
+            if not isinstance(offered, str) or not secrets.compare_digest(hashlib.sha256(offered.encode()).hexdigest(), proof):
+                # This old proof cannot pass _approval under the same flock.
+                # In particular, do not retire a newer owner's fresh offer.
+                return {"cancelled": True, "record": self.public(record)}
+            allowed = {"staged", "failed", "rolled_back"} if operation == "apply" else {"deployed", "failed", "rolled_back"}
+            if record["state"] not in allowed:
+                raise HostUpdateError("host_update_offer_cancellation_uncertain")
+            record.pop(token, None)
+            record.pop(expiry, None)
+            if operation == "apply" and record["state"] == "staged":
+                record.update(state="failed", error_code="host_update_offer_cancelled",
+                              message="已取消這次更新確認，主機尚未變更；需要時可重新檢查。")
+            self.save(record)  # Durable retirement precedes the true response.
+            return {"cancelled": True, "record": self.public(record)}
+
     def _launch(self):
         self.run("systemctl", "start", "--no-block", "agentic-home-update.service", timeout=15)
 
@@ -809,10 +845,65 @@ print(json.dumps(result))'''
         from .host_reconcile import HostReconcile
         return HostReconcile(self.manager, product=target)
 
+    def _clear_dispatch_gate(self, record):
+        """Best-effort exact terminal receipt, independent of an open browser."""
+        try:
+            if record.get("state") not in {"deployed", "rolled_back", "failed"}:
+                return False
+            if record["state"] == "failed":
+                if (record.get("phase") != "approved" or record.get("error_code") not in {
+                        "host_update_host_busy", "host_update_preflight_failed", "host_update_executor_interrupted_before_start"}):
+                    return False
+            elif record.get("phase") != "complete":
+                return False
+            candidate = record["candidate_digest"]
+            operation = record.get("consumed_action", record.get("operation"))
+            proof = record.get("consumed_token_sha256")
+            if operation not in {"apply", "rollback"} or not isinstance(proof, str) or not DIGEST.fullmatch(proof):
+                return False
+            saved = self.records().get(candidate)
+            if (not saved or saved.get("state") != record["state"] or saved.get("consumed_token_sha256") != proof
+                    or saved.get("consumed_action", saved.get("operation")) != operation):
+                return False  # The terminal Host receipt must already be durable.
+            database = self.manager.root.parent / "controller/controller.sqlite3"
+            with sqlite3.connect(database.as_uri() + "?mode=rw", uri=True, timeout=1) as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                if connection.execute("PRAGMA user_version").fetchone()[0] != 3:
+                    return False
+                row = connection.execute("SELECT value FROM settings WHERE key='host_bundle_update_gate'").fetchone()
+                gate = json.loads(row[0]) if row and len(row[0]) <= 131072 else None
+                if (not isinstance(gate, dict) or gate.get("candidate_digest") != candidate
+                        or gate.get("operation") != operation or gate.get("approval_digest") != proof):
+                    return False
+                connection.execute("UPDATE settings SET value='null' WHERE key='host_bundle_update_gate'")
+                connection.execute("INSERT OR REPLACE INTO settings VALUES ('paused','true')")
+                connection.commit()
+                return True
+        except Exception:
+            # Controller status readback remains a recovery path. A cleanup
+            # failure must never undo healthy code or clear an uncertain gate.
+            return False
+
     def execute(self, *, recover=False):
         if os.geteuid() != 0:
             raise HostUpdateError("host_update_local_root_required")
-        with self.locked(), self.manager.locked():
+        with self.locked(), ExitStack() as locks:
+            try:
+                locks.enter_context(self.manager.locked())
+            except HostError:
+                # A competing lifecycle job won after approval. No Live effect
+                # started: consume this attempt rather than leave a forever
+                # queued install or automatically retry a stale owner review.
+                waiting = [row for row in self.records().values() if row["state"] in BUSY]
+                if (len(waiting) == 1 and waiting[0]["state"] == "queued"
+                        and waiting[0].get("phase") == "approved" and not waiting[0].get("recovery_only")):
+                    record = waiting[0]
+                    record.update(state="failed", error_code="host_update_host_busy",
+                                  message="主機正在進行其他維護，更新尚未開始；完成後請重新檢查並核准。")
+                    self.save(record)
+                    self._clear_dispatch_gate(record)
+                    return self.public(record)
+                raise  # Uncertain prior effects stay fenced for recovery.
             pending = [record for record in self.records().values() if record["state"] in BUSY]
             if not pending:
                 return None
@@ -830,6 +921,7 @@ print(json.dumps(result))'''
                     record.update(state="failed", error_code="host_update_executor_interrupted_before_start",
                                   message="安裝尚未開始便中斷，主機維持原狀；請重新檢查後核准。")
                     self.save(record)
+                    self._clear_dispatch_gate(record)
                     return self.public(record)
                 return self._fallback(record)
             if record["state"] != "queued" or record.get("phase") != "approved":
@@ -885,10 +977,12 @@ print(json.dumps(result))'''
                 if operation == "apply" and record.get("reboot_required"):
                     record["message"] += " 部分主機設定將在重新開機後生效。"
                 self.save(record)
+                self._clear_dispatch_gate(record)
             except Exception:
                 if record.get("phase") == "approved":
                     record.update(state="failed", error_code="host_update_preflight_failed", message="安裝前檢查未通過，主機尚未變更。")
                     self.save(record)
+                    self._clear_dispatch_gate(record)
                 else:
                     return self._fallback(record)
             return self.public(record)
@@ -918,6 +1012,7 @@ print(json.dumps(result))'''
             record.update(state="needs_reconcile", error_code="host_update_recovery_unconfirmed",
                           message="更新未完成，自動回復尚未確認；已保留還原點與管理入口，請重試復原或聯絡支援。")
         self.save(record)
+        self._clear_dispatch_gate(record)
         return self.public(record)
 
     def handle(self, method, path, body=None):
@@ -938,6 +1033,8 @@ print(json.dumps(result))'''
                 return 200, self.rollback_offer(body)
             if path == "/host-updates/rollback":
                 return 202, self._approval(body, rollback=True)
+            if path == "/host-updates/cancel-offer":
+                return 200, self.cancel_offer(body)
         raise HostUpdateError("host_update_request_invalid")
 
 

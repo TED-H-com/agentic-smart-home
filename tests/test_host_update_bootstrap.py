@@ -162,6 +162,26 @@ def test_pristine_null_pin_defers_engine_until_real_authenticated_media(layout, 
     assert bootstrap.installed_engine_identity(engine=engine) == {"state": "active", "digest": installed}
 
 
+def test_installer_enables_independent_api_with_null_pin_condition():
+    import ast
+
+    root = Path(__file__).parents[1]
+    tree = ast.parse((root / "host/install.py").read_text())
+    install = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "install")
+    calls = [node for node in ast.walk(install) if isinstance(node, ast.Call)
+             and isinstance(node.func, ast.Name) and node.func.id == "run"]
+    api = [node for node in calls if [arg.value if isinstance(arg, ast.Constant) else None for arg in node.args]
+           == ["systemctl", "enable", "--now", "agentic-home-update-api"]]
+    assert len(api) == 1
+    pristine = next(node for node in ast.walk(install) if isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name) and node.func.id == "pristine")
+    assert pristine.lineno < api[0].lineno
+    unit = (root / "host/systemd/agentic-home-update-api.service").read_text()
+    assert "ConditionPathExists=/usr/lib/agentic-home-update/current/agentic_host/update_service.py" in unit
+    assert "PYTHONPATH=/usr/lib/agentic-home-update/current" in unit
+    assert "/opt/agentic-home" not in unit
+
+
 def test_legacy_null_engine_migrates_only_with_exact_owner_reviewed_digest(layout, tmp_path):
     manager, _ = layout
     engine = tmp_path / "engine"

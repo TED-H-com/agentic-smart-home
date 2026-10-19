@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "host"))
 from agentic_host.bootstrap_media import DIRECTORY, LABEL, PREINST, SMALL_LIMIT  # noqa: E402
-from agentic_host.bootstrap_owner import POSTINST, RECOVERY_NAME, RECOVERY_UNIT, file_digest  # noqa: E402
+from agentic_host.bootstrap_owner import ENGINE_UNITS, POSTINST, RECOVERY_NAME, RECOVERY_UNIT, file_digest  # noqa: E402
 from agentic_host.host_update import IMAGE_REPOSITORY, PUBLISHER, REPOSITORY, canonical, validate_manifest  # noqa: E402
 from agentic_host.publisher import public_key  # noqa: E402
 from agentic_host.updater import validate_manifest as controller_manifest  # noqa: E402
@@ -95,7 +95,7 @@ def build(product, host_manifest, host_bundle, controller_update, controller_ima
     shutil.copyfile(descriptor, payload / "product/host/official-update-channel.json")
     units = payload / "product/host/systemd"
     units.mkdir()
-    for name in ("agentic-home-update.service", "agentic-home-update-recover.service"):
+    for name in ENGINE_UNITS:
         source = product / "host/systemd" / name
         if source.is_symlink() or not source.is_file():
             raise ValueError("Fixed update/recovery services are required")

@@ -63,7 +63,7 @@ async def login(client):
 async def test_check_stages_without_approval_then_exact_owner_apply_is_single_effect(store, ha, tmp_path, monkeypatch):
     calls = []
     current = status()
-    async def broker(method, path, body=None, *, store):
+    async def broker(method, path, body=None, *, store, commit_guard=None):
         calls.append((method, path, body))
         if method == 'GET':
             return copy.deepcopy(current)
@@ -89,15 +89,15 @@ async def test_check_stages_without_approval_then_exact_owner_apply_is_single_ef
         assert TOKEN not in str(store.setting('host_bundle_owner_offers'))
         body = {'candidate_digest': CANDIDATE, 'approval_id': TOKEN}
         assert (await client.post('/api/host-updates/apply', json=body)).status_code == 202
-        assert (await client.post('/api/host-updates/apply', json=body)).status_code == 409
-        assert len([item for item in calls if item[1].endswith('/apply')]) == 1
+        assert (await client.post('/api/host-updates/apply', json=body)).status_code == 202
+        assert len([item for item in calls if item[1].endswith('/apply')]) == 2  # Explicit owner retry; Root is idempotent.
 
 
 @pytest.mark.parametrize('fault', ['epoch', 'owner', 'session', 'expired', 'token', 'candidate', 'incompatible'])
 async def test_apply_fences_scope_expiry_wrong_candidate_and_protocol_changes(store, ha, tmp_path, monkeypatch, fault):
     current = status([record()])
     calls = []
-    async def broker(method, path, body=None, *, store):
+    async def broker(method, path, body=None, *, store, commit_guard=None):
         calls.append(method)
         assert method == 'GET', 'rejected approval cannot invoke Host mutation'
         return copy.deepcopy(current)
@@ -143,7 +143,7 @@ async def test_manual_rollback_is_separately_approved_and_remains_available_afte
     current = status([record('deployed')])
     current['available'] = False
     calls = []
-    async def broker(method, path, body=None, *, store):
+    async def broker(method, path, body=None, *, store, commit_guard=None):
         calls.append(path)
         if method == 'GET':
             return copy.deepcopy(current)
@@ -277,3 +277,170 @@ def test_health_descriptor_is_loaded_code_capability_and_cannot_be_changed_by_it
     assert value == COMPATIBILITY
     value['host_protocol'] = 999
     assert health_descriptor() == COMPATIBILITY
+
+
+def pending_gate(client, *, operation='apply', created_at=None):
+    import hashlib
+    return {'candidate_digest': CANDIDATE, 'operation': operation,
+            'approval_digest': hashlib.sha256(TOKEN.encode()).hexdigest(),
+            'before_state': 'staged' if operation == 'apply' else 'deployed',
+            'created_at': time.time() if created_at is None else created_at,
+            'authority': {'owner': None, 'epoch': None, 'session': digest(client.cookies.get('agentic_host'))}}
+
+
+@pytest.mark.parametrize('rejection,retained', [(409, False), (403, False), (503, True)])
+async def test_gate_is_durable_before_root_and_only_definite_rejection_reopens_writes(store, ha, tmp_path, monkeypatch, rejection, retained):
+    import json
+    import sqlite3
+    current = status([record()])
+    calls = []
+    async def broker(method, path, body=None, *, store, commit_guard=None):
+        if method == 'GET':
+            return copy.deepcopy(current)
+        calls.append(path)
+        with sqlite3.connect(store.path) as disk:
+            gate = json.loads(disk.execute("SELECT value FROM settings WHERE key='host_bundle_update_gate'").fetchone()[0])
+        assert gate['candidate_digest'] == CANDIDATE and TOKEN not in str(gate)
+        raise HTTPException(rejection, 'fixture_root_rejection')
+    async with client_fixture(store, ha, tmp_path, monkeypatch, broker) as client:
+        await login(client)
+        await client.get('/api/host-updates')
+        result = await client.post('/api/host-updates/apply', json={'candidate_digest': CANDIDATE, 'approval_id': TOKEN})
+        assert result.status_code == rejection
+        assert bool(store.setting('host_bundle_update_gate')) is retained
+        ordinary = await client.post('/api/host/actions', json={'action': 'invalid'})
+        controller = await client.post('/api/updates/stage', json={})
+        assert ordinary.status_code == controller.status_code == (423 if retained else 422)
+        assert calls == ['/host-updates/apply']
+
+
+async def test_unconfirmed_gate_blocks_different_proposals_but_allows_explicit_exact_owner_retry(store, ha, tmp_path, monkeypatch):
+    current = status([record()])
+    calls = []
+    async def broker(method, path, body=None, *, store, commit_guard=None):
+        if method == 'GET':
+            return copy.deepcopy(current)
+        calls.append(path)
+        raise HTTPException(409, 'host_update_approval_invalid')
+    async with client_fixture(store, ha, tmp_path, monkeypatch, broker) as client:
+        await login(client)
+        await client.get('/api/host-updates')
+        store.set_setting('host_bundle_update_gate', pending_gate(client))
+        for body in ({'candidate_digest': 'c' * 64, 'approval_id': TOKEN}, {'candidate_digest': CANDIDATE, 'approval_id': 'z' * 43}):
+            assert (await client.post('/api/host-updates/apply', json=body)).status_code == 423
+        assert (await client.post('/api/host-updates/check', json={})).status_code == 423
+        assert calls == []
+        # Expired local offer does not prohibit resolving the exact durable
+        # dispatch: Root rejects an unconsumed expired token under its lock.
+        store.set_setting('host_bundle_owner_offers', {})
+        response = await client.post('/api/host-updates/apply', json={'candidate_digest': CANDIDATE, 'approval_id': TOKEN})
+        assert response.status_code == 409 and calls == ['/host-updates/apply']
+        assert store.setting('host_bundle_update_gate') is None
+
+
+@pytest.mark.parametrize('state,fresh,clear', [('staged', True, False), ('queued', True, False),
+    ('needs_reconcile', True, False), ('deployed', False, False), ('deployed', True, True), ('rolled_back', True, True), ('failed', True, True)])
+async def test_only_matching_fresh_terminal_readback_clears_gate(store, ha, tmp_path, monkeypatch, state, fresh, clear):
+    current = status([record(state)])
+    async def broker(*args, **kwargs):
+        return copy.deepcopy(current)
+    async with client_fixture(store, ha, tmp_path, monkeypatch, broker) as client:
+        await login(client)
+        now = time.time()
+        store.set_setting('host_bundle_update_gate', pending_gate(client, created_at=now))
+        current['records'][0]['updated_at'] = now + 1 if fresh else now - 1
+        response = await client.get('/api/host-updates')
+        assert response.status_code == 200 and (store.setting('host_bundle_update_gate') is None) is clear
+        if clear:
+            assert store.setting('paused') is True
+        elif state == 'staged':
+            assert response.json()['dispatch']['candidate_digest'] == CANDIDATE
+            assert 'approval_digest' not in str(response.json()['dispatch'])
+
+
+@pytest.mark.parametrize('cancelled,state,clear', [(True, 'failed', True), (False, 'queued', False),
+    (False, 'deployed', True), (False, 'needs_reconcile', False), (True, 'queued', False)])
+async def test_owner_cas_cancel_resolves_only_proven_inactive_or_exact_terminal_dispatch(store, ha, tmp_path, monkeypatch, cancelled, state, clear):
+    current = status([record('staged')])
+    cas_calls = []
+    async def broker(method, path, body=None, *, store, commit_guard=None):
+        if method == 'GET':
+            return copy.deepcopy(current)
+        assert path == '/host-updates/cancel-offer'
+        cas_calls.append(body)
+        assert set(body) == {'candidate_digest', 'operation', 'approval_digest'} and TOKEN not in str(body)
+        receipt = record(state)
+        receipt['updated_at'] = time.time() - 3600  # Exact CAS proof survives a clock step.
+        return {'cancelled': cancelled, 'record': receipt}
+    async with client_fixture(store, ha, tmp_path, monkeypatch, broker) as client:
+        await login(client)
+        gate = pending_gate(client)
+        store.set_setting('host_bundle_update_gate', gate)
+        response = await client.post('/api/host-updates/cancel-offer', json={})
+        assert response.status_code == 200
+        assert (store.setting('host_bundle_update_gate') is None) is clear
+        assert cas_calls == [{key: gate[key] for key in ('candidate_digest', 'operation', 'approval_digest')}]
+        if clear:
+            assert store.setting('paused') is True
+
+
+async def test_needs_reconcile_retains_gate_but_can_get_fresh_owner_rollback_recovery_offer(store, ha, tmp_path, monkeypatch):
+    current = status([record('needs_reconcile')])
+    calls = []
+    async def broker(method, path, body=None, *, store, commit_guard=None):
+        if method == 'GET':
+            return copy.deepcopy(current)
+        calls.append(path)
+        if path.endswith('/rollback-offer'):
+            current['records'][0].update(rollback_approval_id='z' * 43, rollback_expires_at=time.time() + 300)
+        elif path.endswith('/rollback'):
+            current['records'][0]['state'] = 'queued'
+        return copy.deepcopy(current['records'][0])
+    async with client_fixture(store, ha, tmp_path, monkeypatch, broker) as client:
+        await login(client)
+        store.set_setting('host_bundle_update_gate', pending_gate(client))
+        response = await client.post('/api/host-updates/rollback-offer', json={'candidate_digest': CANDIDATE})
+        assert response.status_code == 200
+        response = await client.post('/api/host-updates/rollback', json={'candidate_digest': CANDIDATE, 'approval_id': 'z' * 43})
+        assert response.status_code == 202 and store.setting('host_bundle_update_gate')['operation'] == 'rollback'
+        assert calls == ['/host-updates/rollback-offer', '/host-updates/rollback']
+
+
+async def test_cancel_body_cannot_replace_durable_proof_and_logout_still_revokes_with_gate(store, ha, tmp_path, monkeypatch):
+    async def broker(*args, **kwargs):
+        raise AssertionError('untrusted proof must not reach Root')
+    async with client_fixture(store, ha, tmp_path, monkeypatch, broker) as client:
+        await login(client)
+        store.set_setting('host_bundle_update_gate', pending_gate(client))
+        result = await client.post('/api/host-updates/cancel-offer', json={'approval_digest': 'c' * 64})
+        assert result.status_code == 422
+        assert (await client.post('/api/host/logout')).status_code == 200
+        assert (await client.get('/api/host-updates')).status_code == 401
+        assert store.setting('host_bundle_update_gate')
+
+
+async def test_rollback_gate_does_not_clear_on_preexisting_deployed_state(store, ha, tmp_path, monkeypatch):
+    current = status([record('deployed')])
+    async def broker(*args, **kwargs):
+        return copy.deepcopy(current)
+    async with client_fixture(store, ha, tmp_path, monkeypatch, broker) as client:
+        await login(client)
+        gate = pending_gate(client, operation='rollback')
+        current['records'][0]['updated_at'] = gate['created_at'] + 1
+        store.set_setting('host_bundle_update_gate', gate)
+        assert (await client.get('/api/host-updates')).status_code == 200
+        assert store.setting('host_bundle_update_gate')
+
+
+async def test_revocation_after_root_admission_keeps_gate_until_readback(store, ha, tmp_path, monkeypatch):
+    current = status([record()])
+    async def broker(method, path, body=None, *, store, commit_guard=None):
+        if method == 'GET':
+            return copy.deepcopy(current)
+        store.set_setting('hermes_web_epoch', 'revoked-after-admission')
+        return record('queued')
+    async with client_fixture(store, ha, tmp_path, monkeypatch, broker) as client:
+        await login(client)
+        await client.get('/api/host-updates')
+        result = await client.post('/api/host-updates/apply', json={'candidate_digest': CANDIDATE, 'approval_id': TOKEN})
+        assert result.status_code == 403 and store.setting('host_bundle_update_gate')

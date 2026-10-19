@@ -1876,6 +1876,24 @@
         "title": "HostBundleApply",
         "type": "object"
       },
+      "HostBundleCancelResult": {
+        "additionalProperties": false,
+        "properties": {
+          "cancelled": {
+            "title": "Cancelled",
+            "type": "boolean"
+          },
+          "record": {
+            "$ref": "#/components/schemas/HostBundleRecord"
+          }
+        },
+        "required": [
+          "cancelled",
+          "record"
+        ],
+        "title": "HostBundleCancelResult",
+        "type": "object"
+      },
       "HostBundleCheck": {
         "properties": {
           "candidate_digest": {
@@ -1971,6 +1989,36 @@
           "reconcile"
         ],
         "title": "HostBundleCompatibility",
+        "type": "object"
+      },
+      "HostBundleDispatch": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Candidate Digest",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 256,
+            "title": "Message",
+            "type": "string"
+          },
+          "operation": {
+            "enum": [
+              "apply",
+              "rollback"
+            ],
+            "title": "Operation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_digest",
+          "operation",
+          "message"
+        ],
+        "title": "HostBundleDispatch",
         "type": "object"
       },
       "HostBundleManifest": {
@@ -2281,6 +2329,16 @@
               }
             ],
             "title": "Current Source Commit"
+          },
+          "dispatch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HostBundleDispatch"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "message": {
             "maxLength": 256,
@@ -5695,6 +5753,44 @@
           }
         },
         "summary": "Apply"
+      }
+    },
+    "/api/host-updates/cancel-offer": {
+      "post": {
+        "operationId": "cancel_offer_api_host_updates_cancel_offer_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostBundleCancelResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Offer"
       }
     },
     "/api/host-updates/check": {
