@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-19T18:40:50.311308+00:00",
+  "classification": "isolated_synthetic_lab_exact_version_contract_qualification",
+  "result": "passed",
+  "test_source_commit": "85e1878f104d48effec4a84dfd260b0679b29119",
+  "backend_allowlist_commit": "e4f92fb6648c759766bdfeefa4eb9e927e345228",
+  "executed_head": "d12a8efebe1a71d2996f4257b9c0420d7cb3ca6c",
+  "command": "pytest-disktmp uv run --no-sync pytest -q tests/test_device_setup_real_ha.py tests/test_device_setup_core_versions.py --real-ha --junitxml=<task-local-dir>/matrix-1.junit.xml",
+  "evidence_export": "AGENTIC_IPP_EVIDENCE_DIR pointed to an isolated task-local disk directory outside pytest retention; actual per-run receipts are embedded unchanged below.",
+  "pytest": {
+    "tests": 13,
+    "passed": 13,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "duration_seconds": 37.124,
+    "reported_summary": "13 passed in 37.12s",
+    "started_at": "2026-10-19T14:39:23.695233-04:00",
+    "junit_sha256": "319f1429c9cb6b6b40be5defdbb888fcc83d67172d79c02eaec95ae750b63cc9"
+  },
+  "qualified_core_versions": [
+    "2026.10.1",
+    "2026.10.2"
+  ],
+  "matrix": [
+    {
+      "pytest_result": "passed",
+      "pytest_duration_seconds": 18.433,
+      "receipt_filename": "core-2026.10.1-22cf5c718c5b40f59b839c34d725f59f.json",
+      "receipt_sha256": "572d35980ec88cd83ac98d378b43d4df8317f6141af5b8e7d2d6f2ea7e857b53",
+      "receipt": {
+        "expected_core": "2026.10.1",
+        "image": "ghcr.io/home-assistant/home-assistant:2026.10.1",
+        "image_id": "sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0",
+        "repo_digests": [
+          "ghcr.io/home-assistant/home-assistant@sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0"
+        ],
+        "run_id": "22cf5c718c5b40f59b839c34d725f59f",
+        "started_at": "2026-10-19T18:39:24.639716+00:00",
+        "core": "2026.10.1",
+        "flow": "ipp/zeroconf_confirm",
+        "state": "configured",
+        "assertions_completed_at": "2026-10-19T18:39:42.216455+00:00",
+        "result": "all_runtime_assertions_passed",
+        "source_sha256": {
+          "tests/test_device_setup_real_ha.py": "4ce42ad362fc1ae972ece939e5e60683f7d816d9630b8cb6f60afcd23c22f1ff",
+          "tests/fixtures/agentic_ipp_fixture/__init__.py": "702e4d03d5b4025273756317375b433fbf150c7ef5c0bd9da9123a724d46d9e9",
+          "tests/fixtures/agentic_ipp_fixture/manifest.json": "b3047c61a82c09ff32baacbd2e2e97ff359c2dfe1af52087fb2514757a39d720",
+          "controller/agentic_controller/device_setup.py": "3e3078d377125df106d834fa5294bcdf9549df01b805e77458e96311bbb66783"
+        },
+        "device_count": 1,
+        "entity_count": 2,
+        "available_entity_count": 1,
+        "confirmation_posts": 1,
+        "fixture_backups": 1,
+        "ipp_attribute_requests": 3,
+        "rejected_printer_operations": 0,
+        "physical_verification": "not_performed",
+        "service_recreated_without_effect_replay": true,
+        "real": [
+          "Core owner check",
+          "native flow progress/GET/POST result",
+          "aioipp HTTP and binary decoding",
+          "native IPP coordinator",
+          "exact device/entity/state readback",
+          "persisted approval idempotency"
+        ],
+        "fixtures": [
+          "synthetic ZeroconfServiceInfo",
+          "loopback IPP printer",
+          "Supervisor backup response",
+          "outer HTTP session transport"
+        ],
+        "not_tested": [
+          "physical printer",
+          "LAN multicast discovery",
+          "Supervisor backup",
+          "HAOS",
+          "live household",
+          "full Core/process restart",
+          "real Core lost-response recovery",
+          "unlisted Core versions"
+        ]
+      }
+    },
+    {
+      "pytest_result": "passed",
+      "pytest_duration_seconds": 17.691,
+      "receipt_filename": "core-2026.10.2-43e42f2f334c4dfdb79239166b56ecc1.json",
+      "receipt_sha256": "d0bf8ce43eafce167878df474a642cf9d57bf860c0a11d2e06a3e2af5e7e2da9",
+      "receipt": {
+        "expected_core": "2026.10.2",
+        "image": "ghcr.io/home-assistant/home-assistant:2026.10.2",
+        "image_id": "sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4",
+        "repo_digests": [
+          "ghcr.io/home-assistant/home-assistant@sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4"
+        ],
+        "run_id": "43e42f2f334c4dfdb79239166b56ecc1",
+        "started_at": "2026-10-19T18:39:42.971597+00:00",
+        "core": "2026.10.2",
+        "flow": "ipp/zeroconf_confirm",
+        "state": "configured",
+        "assertions_completed_at": "2026-10-19T18:39:59.675374+00:00",
+        "result": "all_runtime_assertions_passed",
+        "source_sha256": {
+          "tests/test_device_setup_real_ha.py": "4ce42ad362fc1ae972ece939e5e60683f7d816d9630b8cb6f60afcd23c22f1ff",
+          "tests/fixtures/agentic_ipp_fixture/__init__.py": "702e4d03d5b4025273756317375b433fbf150c7ef5c0bd9da9123a724d46d9e9",
+          "tests/fixtures/agentic_ipp_fixture/manifest.json": "b3047c61a82c09ff32baacbd2e2e97ff359c2dfe1af52087fb2514757a39d720",
+          "controller/agentic_controller/device_setup.py": "3e3078d377125df106d834fa5294bcdf9549df01b805e77458e96311bbb66783"
+        },
+        "device_count": 1,
+        "entity_count": 2,
+        "available_entity_count": 1,
+        "confirmation_posts": 1,
+        "fixture_backups": 1,
+        "ipp_attribute_requests": 3,
+        "rejected_printer_operations": 0,
+        "physical_verification": "not_performed",
+        "service_recreated_without_effect_replay": true,
+        "real": [
+          "Core owner check",
+          "native flow progress/GET/POST result",
+          "aioipp HTTP and binary decoding",
+          "native IPP coordinator",
+          "exact device/entity/state readback",
+          "persisted approval idempotency"
+        ],
+        "fixtures": [
+          "synthetic ZeroconfServiceInfo",
+          "loopback IPP printer",
+          "Supervisor backup response",
+          "outer HTTP session transport"
+        ],
+        "not_tested": [
+          "physical printer",
+          "LAN multicast discovery",
+          "Supervisor backup",
+          "HAOS",
+          "live household",
+          "full Core/process restart",
+          "real Core lost-response recovery",
+          "unlisted Core versions"
+        ]
+      }
+    }
+  ],
+  "negative_version_fixtures": {
+    "result": "passed",
+    "count": 11,
+    "cases": [
+      "test_unqualified_core_version_rejects_proposal_before_any_effect[2026.10.0]",
+      "test_unqualified_core_version_rejects_proposal_before_any_effect[2026.10.3]",
+      "test_unqualified_core_version_rejects_proposal_before_any_effect[2026.11.0]",
+      "test_unqualified_core_version_rejects_proposal_before_any_effect[2026.10.2b0]",
+      "test_unqualified_core_version_rejects_proposal_before_any_effect[2026.10.2.dev0]",
+      "test_unqualified_core_version_rejects_proposal_before_any_effect[2026.10.2+custom]",
+      "test_unqualified_core_version_rejects_proposal_before_any_effect[2026.10.2 ]",
+      "test_unqualified_core_version_rejects_proposal_before_any_effect[2026.10]",
+      "test_unqualified_core_version_rejects_proposal_before_any_effect[]",
+      "test_unqualified_core_version_rejects_proposal_before_any_effect[None]",
+      "test_unqualified_core_version_rejects_proposal_before_any_effect[2026102]"
+    ],
+    "observed_behavior": "Each supplied unqualified or malformed version produced HTTP 409 device_setup_core_unsupported before backup, confirmation POST, background execution, or persisted setup creation.",
+    "fixture_boundary": "Version strings and HA responses are fixtures; these are fail-closed policy tests, not runtime tests of the rejected Core releases."
+  },
+  "cleanup": {
+    "all_test_containers_absent": true,
+    "configuration_storage": "isolated_disk_backed_pytest_directory"
+  },
+  "limits": [
+    "Only the existing empty-schema IPP zeroconf_confirm flow is qualified for these exact Core versions.",
+    "IPP data and ZeroconfServiceInfo are synthetic; the shipped Core flow, aioipp HTTP/binary decoding, coordinator and registries are real and unmodified.",
+    "Supervisor backup and outer HTTP session transport are explicit fixtures.",
+    "Service recreation verifies persisted approval idempotency; full Core/process restart and real lost-response recovery were not exercised.",
+    "No physical printer, live household, LAN multicast, HAOS deployment or backup restore was accessed or qualified.",
+    "No older qualification result was reused for either version. Unknown versions remain unsupported."
+  ]
+}
