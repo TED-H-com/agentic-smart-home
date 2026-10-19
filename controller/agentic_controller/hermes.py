@@ -166,6 +166,17 @@ class Coordinator:
                 await asyncio.gather(*(stop(run) for run in pending))
 
     async def run(self, item):
+        if item.get("device_setup_id") is not None:
+            capabilities = await self.client.call("GET", "/v1/capabilities")
+            if not self.scope_valid(item):
+                raise HermesError("scope_mismatch")
+            tools = capabilities.get("tools")
+            if not isinstance(tools, list) or "home.device_setup_status" not in tools:
+                # An existing household may upgrade Controller before Hermes.
+                # Do not dispatch a model that cannot read the selected result,
+                # ask for another login, or silently switch the installed image.
+                return {"state": "awaiting_user", "error_code": "device_setup_status_unavailable",
+                    "answer": "目前的智能管家版本尚未支援這項解讀；請先從「設備接入進度」查看結果。"}
         case_key = digest([item["scope"], item["thread_id"]])
         case = self.store.get("hermes_case", case_key)
         if not case:

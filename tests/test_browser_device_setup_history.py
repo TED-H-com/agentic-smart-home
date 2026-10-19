@@ -132,6 +132,23 @@ def test_share_pins_exact_operation_keeps_draft_and_retries_same_message(setup_h
     assert posts[0][0]['device_setup_id'] == 'b' * 32
     assert 'discover_devices' not in posts[0][0] and 'discover_environment' not in posts[0][0]
     expect(page.get_by_label('對話訊息', exact=True)).to_have_value('尚未送出的草稿')
+
+
+def test_older_assistant_reply_keeps_saved_progress_and_composer_available(setup_history):
+    page, state = setup_history
+    state['response'] = {'state': 'awaiting_user', 'error_code': 'device_setup_status_unavailable',
+                         'answer': '目前的智能管家版本尚未支援這項解讀；請先從「設備接入進度」查看結果。'}
+    page.goto(state['url'] + '#gateway')
+    page.get_by_label('對話訊息', exact=True).fill('保留這份草稿')
+    entry(page).click()
+    panel = select(page)
+    panel.get_by_role('button', name='請管家解讀結果', exact=True).click()
+    expect(page.get_by_text(state['response']['answer'], exact=True)).to_be_visible()
+    expect(entry(page)).to_be_enabled()
+    expect(page.get_by_label('對話訊息', exact=True)).to_have_value('保留這份草稿')
+    expect(panel.get_by_role('button', name='重新讀取', exact=True)).to_be_enabled()
+    expect(page.get_by_role('button', name='送出訊息', exact=True)).to_be_enabled()
+    assert not setup_posts(state)
     page.get_by_role('button', name='送出訊息', exact=True).click()
     expect(page.get_by_label('對話訊息', exact=True)).to_have_value('')
     assert 'device_setup_id' not in sent_messages(state)[-1]

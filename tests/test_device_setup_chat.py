@@ -43,6 +43,8 @@ async def setup_chat(store, tmp_path, monkeypatch):
     original_call, original_ws, original_request = bridge.call, ha.ws, ha.request
 
     async def call(method, path, body=None, key=None):
+        if path == "/v1/capabilities":
+            return {"state": "ready", "tools": list(RUNTIME_TOOLS)}
         if path.endswith("/runs"):
             async with mcp_client(app, body["mcp_token"]) as mcp:
                 response = await rpc(mcp)
@@ -365,3 +367,48 @@ async def test_expired_context_label_is_not_reshared_and_setup_journal_is_unchan
     result = (await share(setup_chat))["device_setup_status"]
     assert result["title"] == "IPP 印表機接入" and result["current_state"] == "present"
     assert store.get(KIND, selected) == record
+
+
+@pytest.mark.parametrize("tools", [None, [], "home.device_setup_status", {"home.device_setup_status": True}])
+async def test_older_runtime_keeps_history_and_normal_chat_available_without_model_dispatch(setup_chat, tools):
+    app, client, ha, store, results, selected, calls = setup_chat
+    runtime = app.state.coordinator.client
+    original, requests = runtime.call, []
+
+    async def old_runtime(method, path, body=None, key=None):
+        requests.append((method, path))
+        if path == "/v1/capabilities":
+            return {"state": "ready", "tools": tools}
+        return await original(method, path, body, key)
+
+    runtime.call = old_runtime
+    before = store.get(KIND, selected)
+    item = await share(setup_chat, "older-runtime")
+    assert item["state"] == "awaiting_user" and item["error_code"] == "device_setup_status_unavailable"
+    assert "設備接入進度" in item["answer"] and "登入" not in item["answer"]
+    assert requests == [("GET", "/v1/capabilities")] and not results and not calls
+    assert not store.list("hermes_run") and not store.list("mcp_grant")
+    assert (await share(setup_chat, "older-runtime"))["id"] == item["id"]
+    assert requests == [("GET", "/v1/capabilities")]
+    assert (await client.get("/api/device-setups/" + selected)).status_code == 200
+    follow = await send(app, client, "先聊別的", "ordinary-follow", reply_to=item["id"])
+    assert store.conversation(id=follow.json()["id"])["state"] == "succeeded"
+    assert len([path for _, path in requests if path.endswith("/runs")]) == 1
+    assert store.get(KIND, selected) == before and not ha.posts and not ha.backups
+
+
+async def test_scope_changed_during_runtime_capability_check_never_starts_a_session(setup_chat):
+    app, client, _, store, _, selected, calls = setup_chat
+    requests = []
+
+    async def changed_runtime(method, path, body=None, key=None):
+        requests.append((method, path))
+        store.set_setting("hermes_web_epoch", "changed")
+        return {"state": "ready", "tools": list(RUNTIME_TOOLS)}
+
+    app.state.coordinator.client.call = changed_runtime
+    response = await send(app, client, "解讀結果", "changed-capability", device_setup_id=selected)
+    item = store.conversation(id=response.json()["id"])
+    assert item["state"] == "failed" and item["error_code"] == "scope_mismatch"
+    assert requests == [("GET", "/v1/capabilities")] and not calls
+    assert not store.list("hermes_case") and not store.list("hermes_run") and not store.list("mcp_grant")
