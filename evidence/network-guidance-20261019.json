@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "classification": "unreleased_development_protocol_and_browser_fixtures",
+  "code_commit": "df15d8f0bbda635dd9bf48a8484a77b20179940e",
+  "source_sha256": {
+    "host/agentic_host/discovery.py": "888836e62d5d8e5419a5a4944cd87776942b17d4d00bad676505808df67d78d1",
+    "controller/agentic_controller/network_inventory.py": "1eb2fd89be9074f91931c0055e297e2af1af39cec1d04f43b012544141d5fce4",
+    "controller/agentic_controller/discovery_chat.py": "2393e189caff5bb5352f264a01ca356d108e716c8208a67c06099e1d24a8d986",
+    "web/src/conversation-discovery.tsx": "0ee43c869d1b0a9e59ec738b5ed87c738869a2abe824edafb66d7f0ba32e0253",
+    "web/src/network-inventory.tsx": "2fea0b2ae65cdd0baa0a28befc4c8f6d4efc41bee4ba0a9fd35c896c05ef87b8",
+    "web/src/gateway.tsx": "48167c374558a38c173acd207b9c5562d0af87545f97da19e12f97132acff59d",
+    "web/src/device-setup.tsx": "2912630e903d23f5ef3b9ab6607968cb7dc983d329298cadabc95b096c0a407a",
+    "tests/test_host_discovery.py": "e8e53fd8cb584d2d810a66e89e8a2300062a21d25eb66e7990c6052bbf27067e",
+    "tests/test_network_inventory.py": "4401f8d3b329d89e178842fb12316fa245d2702930256bc14790e0158488b9a0",
+    "tests/test_discovery_chat.py": "5bfbfbe18d275bf3eab7c1e700a9ef7f5d679cf8b9a729bd7c6b07d8a491d97f",
+    "tests/test_network_candidate_guidance_ui.py": "8b6762eae0372c30039e0efeb14974baf9103b540d0c76525d14bbb636687469",
+    "controller/static/index.html": "a690cba4d4c0c5ec21b8f9f4be11d2ba30159cc248f64b50099df93bf29c2ff8",
+    "bridge/static/index.html": "a690cba4d4c0c5ec21b8f9f4be11d2ba30159cc248f64b50099df93bf29c2ff8",
+    "runner/worker_runtime/manifest.json": "ae0867362bb67eeed12b32a49fdf925c72574e7f0588232758314025743cec15"
+  },
+  "scope": "Bounded common-device service collection, fixed vendor classification, safe inventory recommendations and source-specific chat guidance",
+  "changes": [
+    "Query fixed IPP/IPPS and commissionable Matter service types within existing scan bounds.",
+    "Bind only a canonical Synology vendor classification to the exact raw DNS label tuple in the same packet; discard raw TXT fields, duplicate and malformed claims.",
+    "Preserve type-specific reviewed next steps in current-message chat sharing.",
+    "Keep network clues separate from native HA setup candidates, including identical display names; only an exact supported HA flow can create a setup proposal."
+  ],
+  "checks": {
+    "ruff": "passed",
+    "typescript_vite": "passed",
+    "contracts": 52,
+    "web_toolchain": "passed",
+    "package_structure": "passed",
+    "ui_source_and_capture_hashes": "passed",
+    "independent_review": "Raw DNS label-alias issue reproduced, fixed, regression-tested and reviewed again."
+  },
+  "ui_manifest": "ui/network-guidance-20261019/manifest.json",
+  "limitations": [
+    "No live household network scan or physical printer/NAS/Matter pairing was performed.",
+    "No real cloud account, model, HAOS backup/restore, installed login-loop, public USB or ISO acceptance was performed in this slice.",
+    "No Dell deployment, release publication, remote PR merge or household configuration change was performed.",
+    "New multicast queries and vendor projection require the new Host collector; updating Controller alone does not extend an installed old collector.",
+    "Synology classification requires matching PTR and TXT within the same packet; separate packets or missing TXT remain unidentified.",
+    "The IPv4-only collector does not establish Matter/Thread IPv6 connectivity.",
+    "Network observations and CUPS queues are not counts of distinct physical devices, setup authority or physical-function verification."
+  ],
+  "official_sources": [
+    "https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/ipp/manifest.json",
+    "https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/synology_dsm/manifest.json",
+    "https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/synology_dsm/config_flow.py",
+    "https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/matter/manifest.json",
+    "https://github.com/project-chip/connectedhomeip/blob/master/docs/tips_and_troubleshooting/discovery_from_a_host_computer.md",
+    "https://openprinting.github.io/cups/doc/sharing.html"
+  ],
+  "recorded_at": "2026-10-19T20:31:08.804731+00:00",
+  "runs": {
+    "backend": {
+      "passed": 300,
+      "tests": 300,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 37.112,
+      "started_at": "2026-10-19T16:24:08.845647-04:00",
+      "junit_sha256": "5686f29df23dba2a7e4b8a83175ad70208cfe47e29cc871b55e2a0673ea46b34",
+      "test_modules": [
+        "tests.test_device_setup",
+        "tests.test_discovery_chat",
+        "tests.test_discovery_setup",
+        "tests.test_host_discovery",
+        "tests.test_network_inventory",
+        "tests.test_network_inventory_ready"
+      ],
+      "scope_note": "300 integrated cases after raw DNS identity correction, before final plain-language next-step text. Overlaps the later guidance run; counts must not be added.",
+      "earlier_source_sha256": {
+        "controller/agentic_controller/network_inventory.py": "c301a7313589ab61431150ca01c57cc76dd4bcfa94775ea278d401e7d5edb5e8",
+        "tests/test_network_inventory.py": "2927677fcbd835cc50360c19396b1f896bba4e9199e6aed32f6eb31f1af8ff1f"
+      }
+    },
+    "guidance": {
+      "passed": 146,
+      "tests": 146,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 51.296,
+      "started_at": "2026-10-19T16:25:23.274039-04:00",
+      "junit_sha256": "d3a8b95804ac24eb8a38cd8595ff86b21a9fb90fd1eff32849f830b02b70132e",
+      "test_modules": [
+        "tests.test_discovery_chat",
+        "tests.test_network_inventory"
+      ],
+      "scope_note": "146 affected inventory/chat cases after final next-step wording; tested file contents match the final source hashes. Overlaps backend."
+    },
+    "browser": {
+      "passed": 83,
+      "tests": 83,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 234.627,
+      "started_at": "2026-10-19T16:26:32.220174-04:00",
+      "junit_sha256": "805fb27fa7bc1e76e2bb138c39b773a2ac681fe042da94b01dec4c32ee175c7e",
+      "test_modules": [
+        "tests.test_browser_device_setup_history",
+        "tests.test_conversation_discovery_ui",
+        "tests.test_conversation_network_ui",
+        "tests.test_network_candidate_guidance_ui",
+        "tests.test_network_inventory_ui"
+      ],
+      "scope_note": "83 final compiled product cases covering source-specific guidance, conversation discovery, explicit network collection, inventory and device setup history. APIs/households/model replies are fixtures."
+    }
+  },
+  "earlier_ui_fixture_run": {
+    "passed": 22,
+    "tests": 26,
+    "failures": 4,
+    "errors": 0,
+    "skipped": 0,
+    "duration_seconds": 69.904,
+    "started_at": "2026-10-19T16:22:22.445861-04:00",
+    "junit_sha256": "54bebe60b1ffe53efb57f80aa689fba654e25bdb3907472bea0fba544e02b84d",
+    "test_modules": [
+      "tests.test_conversation_discovery_ui",
+      "tests.test_network_candidate_guidance_ui"
+    ],
+    "scope_note": "Four new persisted-chat cases initially seeded a legacy browser storage key. Fixture was corrected to the owner-scoped key; final integrated browser run passes. No authorization check was weakened."
+  },
+  "counting_note": "Runs overlap; do not sum them as distinct tests."
+}
