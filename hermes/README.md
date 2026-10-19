@@ -153,9 +153,15 @@ optional Codex app-server runtime with its separate native tool authority.
 
 Allowed tools are exactly `host.status`, `worker.capabilities`, `worker.submit`,
 `worker.status`, `worker.cancel`, `worker.result`, `case.evidence.read`,
-`home.observe`, `home.propose`, and `home.proposal_status`. Household observations
+`home.observe`, `home.propose`, `home.proposal_status`, and `home.discover`. Household state observations
 are policy filtered; proposals reuse the Controller compiler and exact Owner
 approval flow. These tools cannot approve, apply, or call general HA services.
+`home.discover` returns a sharing action card until the current Owner message
+explicitly opts in. It then shares at most eight fresh HA discovery candidates
+and source coverage, independently of device control permissions. It never
+reads saved LAN inventory, scans networks, configures integrations, or grants
+device authority. Consent is not a tool argument and is not inherited by a
+follow-up message. Pairing remains the existing Owner/native HA setup flow.
 Discovery is filtered, `enabled_toolsets` is only `mcp-agentic`, the upstream
 tool-search wrapper is disabled, and dispatch has an additional exact allowlist.
 Built-in terminal, filesystem, browser, coding, delegate, memory, skills,

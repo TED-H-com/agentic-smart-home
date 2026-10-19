@@ -1,5 +1,17 @@
 # Agentic Smart Home 驗證
 
+## 2026-10-19 主線家庭接入修正
+
+本輪新增可撤銷的 [Host 登入 session](HOST_SESSIONS.md)、[明確分享的對話探索](DEVICE_DISCOVERY.md#對話中的唯讀探索)，並修正已連接家庭卻反覆回到初始化，以及 App 商店仍回舊版時停止重試的問題。商店刷新最多三次，Owner 可明確開啟新預算；原先已送出的安裝、啟動與更新仍先讀回，不能藉此重送。
+
+整合後端回歸為 735 passed、6 skipped：涵蓋 Host／OAuth／Bridge／磁碟持久化、探索／Hermes／Gateway／家庭政策與兩種 App 維護。六項跳過案例需要真 Core 或容器映像，由精確來源 CI 另外驗證。整合瀏覽器回歸為 93 passed，涵蓋初始化、聊天、側欄、家庭現場與探索追蹤；[三種尺寸的合成畫面](../evidence/household-onboarding/summary.json) 不代表真實家庭。TypeScript/Vite、Ruff、46 份契約、工具鏈、封裝檢查與來源打包均通過。完整 CI 以本輪 PR 的實際執行紀錄為準；這些計數不是實體家庭或新媒體驗收。
+
+首次 [PR CI](https://github.com/TED-H-com/agentic-smart-home/actions/runs/39222452046) 為 3,628 passed、12 skipped、2 failed：兩個桌面登入 fixture 缺少正式安裝器先建立的私有 access key，新 session 綁定因此拒絕登入。已補齊 fixture 的安裝前提，原來的單次使用、Origin、重放與 session 斷言保持不變；未放寬產品驗證。隨後本機初始化／session 41 項及桌面交接 3 項通過，後者包含獨立真 Controller 容器、網路停用與結束清理。這些範圍與前述測試重疊，不相加為獨立案例；首次 CI 仍保留為失敗，後續精確來源 CI 另記於 PR。
+
+補齊 fixture 後，來源 `18a9c8f` 的[完整 PR CI](https://github.com/TED-H-com/agentic-smart-home/actions/runs/39226109075) 通過：**3,630 passed、12 skipped、3 warnings**。隨後整合主線 `b8af0d6` 的官方更新來源授權功能，重新產生共用契約、介面與 Runner 封裝；本機整合回歸為後端 **283 passed、4 skipped**、瀏覽器 **35 passed**。這些案例與先前範圍重疊；合併後來源的完整 CI 另記於 PR，不沿用整合前的成功結論。
+
+既有 stateless cookie 升級後須重新登入；成功登出才保證重啟後仍已撤銷。磁碟寫入失敗的登出回傳錯誤，安全降版限制見 session 文件。對話探索只讀取 HA 候選，不發送 LAN 掃描；帳號登入、配對與設備控制授權尚未合併成全程聊天操作。0.11.0 的下載分片與完整媒體驗收另由 [#118](https://github.com/TED-H-com/agentic-smart-home/issues/118) 追蹤。
+
 ## 0.11.0 筆電候選
 
 候選整合 HA 原生文字通知與 issue／PR 中的恢復、商店重試、Host 證明及診斷缺口。目前仍在實作與驗證，尚未完成新的 ISO／公開 App／匿名下載驗收。下方 0.10.0 與通知 adapter 的既有證據不代替本版完整驗收；新候選的來源、媒體雜湊與各階段結果會另外記錄。

@@ -22,7 +22,9 @@
 
 ## 固定工具與 worker 的實際狀態
 
-Hermes 可見工具固定為 `host.status`、`worker.capabilities`、`worker.submit`、`worker.status`、`worker.cancel`、`worker.result`、`case.evidence.read`、`home.observe`、`home.propose`、`home.proposal_status`。MCP 每次呼叫驗證短期 case/run capability；server 決定身份、資料 scope 與工具限制。沒有任意 shell、filesystem、browser、原生 delegate、HA API、Live approve/apply 或模型自簽批准。
+Hermes 可見工具固定為 `host.status`、`worker.capabilities`、`worker.submit`、`worker.status`、`worker.cancel`、`worker.result`、`case.evidence.read`、`home.observe`、`home.propose`、`home.proposal_status`、`home.discover`。MCP 每次呼叫驗證短期 case/run capability；server 決定身份、資料 scope 與工具限制。沒有任意 shell、filesystem、browser、原生 delegate、HA API、Live approve/apply 或模型自簽批准。
+
+`home.discover` 回傳對話內的探索操作卡；Owner 明確分享這則訊息的探索後，才讀取最多八個 HA 候選及來源狀態。沒有設備控制授權仍可探索，但這不增加任何設備權限。工具不讀取已儲存的 LAN 盤點、不啟動掃描，也不建立整合。設定沿用既有候選追蹤與原生配對；詳見 [設備探索](DEVICE_DISCOVERY.md)。
 
 本版 `host.status` 提供去密且標註觀測位置的固定主機證據，不能由 libvirt／host 狀態推論 Core、App 或設備正常。`case.evidence.read` 只接受同一 case 的 evidence IDs，不能指定任意路徑／URL。
 

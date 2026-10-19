@@ -223,6 +223,8 @@ class Coordinator:
             if error:
                 response.update(error_code=error, reason=error)
             linked = self.store.get("conversation", item["id"]) or {}
+            if linked.get("discovery"):
+                response["discovery"] = linked["discovery"]
             if linked.get("task_id"):
                 response["task_id"] = linked["task_id"]
                 task = self.store.get("task", linked["task_id"]) or {}

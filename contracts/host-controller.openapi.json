@@ -465,6 +465,11 @@
             "title": "Coordinator",
             "type": "string"
           },
+          "discover_devices": {
+            "default": false,
+            "title": "Discover Devices",
+            "type": "boolean"
+          },
           "message": {
             "maxLength": 5000,
             "minLength": 1,

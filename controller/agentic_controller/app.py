@@ -27,6 +27,7 @@ from .bootstrap import routes as bootstrap_routes
 from .bridge import IngressBridge
 from .bridge_maintenance import BridgeFault, BridgeMaintenance
 from .discovery import routes as discovery_routes
+from .discovery_chat import DiscoveryChat
 from .discovery_setup import routes as discovery_setup_routes
 from .engine import Engine, Rejected
 from .gateway import Gateway
@@ -143,7 +144,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     engine = Engine(store, ha)
     secret = store.setting("csrf_secret") or secrets.token_hex(32)
     store.set_setting("csrf_secret", secret)
-    host_session = HostSession(root, secret) if host_mode else None
+    host_session = HostSession(root, secret, store) if host_mode else None
     controller_id = store.setting("controller_id") or uuid.uuid4().hex
     store.set_setting("controller_id", controller_id)
     running, owners = {}, {}
@@ -223,8 +224,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         from .home_entry import routes as home_entry_routes
         home_entry_routes(app, store, ha)
 
-    def csrf(principal, expires):
-        payload = f"{principal}:{expires}"
+    def csrf(principal, expires, session_id=None):
+        payload = f"host:{principal}:{session_id}:{expires}" if session_id else f"{principal}:{expires}"
         return f"{expires}." + hmac.new(bytes.fromhex(secret), payload.encode(), hashlib.sha256).hexdigest()
 
     @app.middleware("http")
@@ -242,12 +243,13 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                 if request.headers.get("host") not in {"localhost:8099", "127.0.0.1:8099"}:
                     return JSONResponse({"detail": "請使用 localhost:8099 或 SSH tunnel 開啟"}, status_code=403)
                 if request.url.path == "/api/deployment":
-                    return JSONResponse({"mode": "host", "authenticated": host_session.verify(request)})
+                    return JSONResponse({"mode": "host", "authenticated": bool(await host_session.authenticate(request))})
                 if request.url.path.startswith("/api/"):
                     if request.method not in {"GET", "HEAD"} and request.headers.get("origin") not in {
                         "http://localhost:8099", "http://127.0.0.1:8099"}:
                         return JSONResponse({"detail": "頁面來源不符"}, status_code=403)
-                    if request.url.path not in {"/api/host/login", "/api/host/desktop-login"} and not host_session.verify(request):
+                    request.state.host_session_id = await host_session.authenticate(request)
+                    if request.url.path not in {"/api/host/login", "/api/host/desktop-login"} and not request.state.host_session_id:
                         if request.method == "GET" and request.url.path == "/api/host/authorized":
                             # Expired/logged-out callbacks still leave a clean URL;
                             # this grants no session and never reaches token exchange.
@@ -290,7 +292,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                     origin = request.headers.get("origin", "")
                     origin_parts = urlsplit(origin)
                     if (not time.time() < expires <= time.time() + 3700 or
-                        not hmac.compare_digest(token, csrf(user_id, expires)) or
+                        not hmac.compare_digest(token, csrf(user_id, expires, getattr(request.state, "host_session_id", None))) or
                         origin_parts.scheme not in {"http", "https"} or
                         origin_parts.netloc != request.headers.get("host") or
                         request.headers.get("sec-fetch-site") == "cross-site"):
@@ -337,7 +339,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         identity = getattr(request.state, "bridge_identity", None)
         expires = int(time.time()) + 3600
         return {"principal": principal,
-                "csrf": bridge.csrf(principal, identity.pairing_id, expires) if identity else csrf(principal, expires),
+                "csrf": bridge.csrf(principal, identity.pairing_id, expires) if identity else csrf(
+                    principal, expires, getattr(request.state, "host_session_id", None)),
                 "version": VERSION, "mode": "bridge" if identity else "host" if host_mode else "ingress",
                 "storage_scope": digest(["browser", principal, store.setting("hermes_auth_epoch"),
                     store.setting("hermes_web_epoch"), identity.pairing_id if identity else None]),
@@ -674,6 +677,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         gateway = Gateway(store, {"host": runner, "haos": inner_runner}, engine, plan, running, coordinator)
         coordinator.scope_valid = gateway.scope_valid
         coordinator.household = Household(store, engine, coordinator)
+        coordinator.discovery = DiscoveryChat(app, store, ha, coordinator)
         coordinator.worker_manager.runners = {"host": runner, "haos": inner_runner}
         hermes_routes(app, coordinator, store)
         worker_routes(app, coordinator.worker_manager)

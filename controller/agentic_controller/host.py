@@ -5,6 +5,8 @@ import hashlib
 import hmac
 import json
 import os
+import re
+import secrets
 import stat
 import time
 import uuid
@@ -63,29 +65,95 @@ class HostAnswer(Strict):
 
 
 class HostSession:
-    def __init__(self, root, secret):
+    lifetime = 43200
+
+    def __init__(self, root, secret, store):
         self.root, self.secret, self.attempts = Path(root), secret.encode(), []
+        self.store = store
 
     def sign(self, text):
         return hmac.new(self.secret, text.encode(), hashlib.sha256).hexdigest()
 
-    def verify(self, request):
-        cookie = request.cookies.get("agentic_host", "")
+    def binding(self, *, expected_key=None):
+        """Observe key replacement before accepting a session or issuing one.
+
+        Only a keyed fingerprint is persisted. Once a replacement is observed,
+        restoring an older key cannot resurrect its deleted sessions.
+        """
         try:
-            expires, signature = cookie.split(".")
-            return time.time() < int(expires) <= time.time() + 43260 and hmac.compare_digest(signature, self.sign(expires))
+            key = (self.root / "access-key").read_text().strip()
+        except (OSError, UnicodeError):
+            return None
+        if not key:
+            return None
+        if expected_key is not None and not hmac.compare_digest(expected_key.encode(), key.encode()):
+            raise HTTPException(403, "主機登入金鑰不正確")
+        fingerprint = self.sign("host-access-key:" + key)
+        previous = self.store.setting("host_session_access_key")
+        if fingerprint != previous:
+            if self.store.failed:
+                return None
+            from .models import canonical
+            settings = {"host_session_access_key": fingerprint}
+            if previous is not None:
+                # Pending Web work must also lose its old authority. First
+                # enrollment must not disturb an existing HA bridge proof.
+                settings["hermes_web_epoch"] = uuid.uuid4().hex
+            with self.store.transaction() as tx:
+                tx.execute("DELETE FROM records WHERE kind='host_session'")
+                tx.executemany("INSERT OR REPLACE INTO settings VALUES (?,?)",
+                               [(name, canonical(value)) for name, value in settings.items()])
+        return fingerprint
+
+    def scope(self, request):
+        cookie = request.cookies.get("agentic_host", "")
+        # Stateless pre-fix cookies deliberately require a fresh login. They
+        # cannot be upgraded safely because previously copied cookies survive.
+        if not re.fullmatch(r"[0-9]{1,12}\.[A-Za-z0-9_-]{43}\.[a-f0-9]{64}", cookie):
+            return None
+        try:
+            expires, nonce, signature = cookie.split(".")
+            now = time.time()
+            if (not now < int(expires) <= now + self.lifetime + 60 or
+                    not hmac.compare_digest(signature, self.sign("host-session:v1:" + expires + "." + nonce))):
+                return None
+            binding = self.binding()
+            identifier = hashlib.sha256(cookie.encode()).hexdigest()
+            record = self.store.get("host_session", identifier)
+            if (binding and record and record.get("version") == 1 and record.get("expires") == int(expires)
+                    and record.get("access_key") == binding):
+                return identifier
         except (ValueError, TypeError):
-            return False
+            pass
+        return None
+
+    def verify(self, request):
+        return self.scope(request) is not None
+
+    async def authenticate(self, request):
+        previous = self.store.setting("host_session_access_key")
+        identifier = self.scope(request)
+        if previous != self.store.setting("host_session_access_key"):
+            # Key replacement can first be observed by a GET. Commit its
+            # revocations even though the normal response barrier only waits
+            # for mutations. A changed binding always removed the session.
+            try:
+                await durable(self.store)
+            except RuntimeError:
+                raise HTTPException(503, "主機登入狀態無法保存，請稍後再試") from None
+        return identifier
+
+    def revoke(self, request):
+        identifier = hashlib.sha256(request.cookies.get("agentic_host", "").encode()).hexdigest()
+        with self.store.transaction() as tx:
+            tx.execute("DELETE FROM records WHERE kind='host_session' AND id=?", (identifier,))
 
     def login(self, key):
         self.attempts = [t for t in self.attempts if t > time.time() - 60]
         if len(self.attempts) >= 8:
             raise HTTPException(429, "請稍後再試")
         self.attempts.append(time.time())
-        expected = (self.root / "access-key").read_text().strip()
-        if not hmac.compare_digest(key, expected):
-            raise HTTPException(403, "主機登入金鑰不正確")
-        return self.cookie()
+        return self.cookie(key=key)
 
     def desktop_login(self, ticket):
         # The installer-owned fixed directory is the only ticket source. Truncate
@@ -109,13 +177,24 @@ class HostSession:
                 os.fsync(stream.fileno())
         except (OSError, ValueError, TypeError, AttributeError):
             raise HTTPException(403, "桌面登入已失效，請重新從桌面開啟管理頁面") from None
-        return self.cookie()
+        # The file operation runs off the event loop. Session persistence must
+        # be done by its single Controller owner after returning to the loop.
 
-    def cookie(self):
-        expires = str(int(time.time()) + 43200)
+    def cookie(self, *, key=None):
+        binding = self.binding(expected_key=key)
+        if not binding:
+            raise HTTPException(503, "主機登入暫時無法使用，請稍後再試")
+        now = time.time()
+        expires = str(int(now) + self.lifetime)
+        value = expires + "." + secrets.token_urlsafe(32)
+        value += "." + self.sign("host-session:v1:" + value)
+        with self.store.transaction() as tx:
+            tx.execute("DELETE FROM records WHERE kind='host_session' AND json_extract(body,'$.expires')<=?", (now,))
+        self.store.put("host_session", {"id": hashlib.sha256(value.encode()).hexdigest(), "version": 1,
+            "expires": int(expires), "access_key": binding})
         response = JSONResponse({"authenticated": True})
-        response.set_cookie("agentic_host", expires + "." + self.sign(expires), httponly=True,
-                            samesite="strict", max_age=43200, path="/")
+        response.set_cookie("agentic_host", value, httponly=True,
+                            samesite="strict", max_age=self.lifetime, path="/")
         return response
 
 
@@ -286,22 +365,31 @@ def routes(app, auth, ha, store, runner, controller_id):
 
     @app.post("/api/host/login")
     async def login(body: Unlock):
-        return auth.login(body.key)
+        response = auth.login(body.key)
+        await durable(store)
+        return response
 
     @app.post("/api/host/desktop-login")
     async def desktop_login(body: DesktopLogin):
         await durable(store)
-        return await file_io(auth.desktop_login, body.ticket)
+        await file_io(auth.desktop_login, body.ticket)
+        response = auth.cookie()
+        await durable(store)
+        return response
 
     @app.post("/api/host/logout")
-    async def logout():
+    async def logout(request: Request):
+        auth.revoke(request)
         # Web authority is independent of configured external bot audiences.
         store.set_setting("hermes_web_epoch", uuid.uuid4().hex)
+        # Commit revocation before recovery can wait/fail, and before reporting
+        # success; a Controller restart must never revive a logged-out cookie.
+        await durable(store)
         coordinator = getattr(app.state, "coordinator", None)
         if coordinator:
             await coordinator.recover(source="web")
         response = JSONResponse({"authenticated": False})
-        response.delete_cookie("agentic_host", path="/")
+        response.delete_cookie("agentic_host", path="/", httponly=True, samesite="strict")
         return response
 
     @app.get("/api/host/status")

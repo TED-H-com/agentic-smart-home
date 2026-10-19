@@ -6,6 +6,7 @@ import {ChannelSettings} from './channels';
 import {NotificationsPanel} from './notifications';
 import {names,type Runtime} from './labels';
 import {DiscoveryContext} from './discovery-context';
+import {ConversationDiscovery,DiscoverDevicesAction,discoveryRequest} from './conversation-discovery';
 
 const conversationKey='agentic-auth-conversations';
 const continuable=new Set(['queued','planning','awaiting_user','awaiting_approval','succeeded']);
@@ -56,18 +57,20 @@ export function GatewayPanel({visible=true,bridge=false,hostMode=false,conversat
   function refill(message:any){const text=typeof message.message==='string'?message.message:'';startNew();setDraft(text);restoreFocus.current=true}
   function replyAction(message:any){if(message.state==='needs_reconcile'||message.error_code==='stop_unconfirmed'||message.reason==='stop_unconfirmed')return null;if(message.state==='interrupted')return <div className="row-actions"><Button type="button" onClick={()=>refill(message)}>重新送出</Button></div>;const code=message.error_code||message.reason;if(code==='needs_reauth')return bridge?<p>{message.coordinator==='hermes'?'請到主機重新登入智能管家。':'請到主機重新登入 AI 帳號。'}</p>:<div className="row-actions"><a className="button" href="#agents">{message.coordinator==='hermes'?'重新登入智能管家':'重新登入 AI 帳號'}</a></div>;if(typeof code==='string'&&retryable.has(code))return <div className="row-actions"><Button type="button" onClick={()=>refill(message)}>重試</Button></div>;return null}
   function continueFrom(message:any){setViewedId(null);setHistory(false);setRuntime(message.runtime);setProvider(message.provider);setCoordinator(message.coordinator||'direct');setReplies(previous=>({...previous,[`${message.coordinator==='hermes'?'hermes-':''}${message.runtime}-${message.provider}`]:message.id}));setError('');document.getElementById('gateway-message')?.focus()}
-  async function submit(e:React.FormEvent){
-    e.preventDefault();if(busy||!loaded||!draft.trim()||(replyId&&!active))return;
+  async function sendMessage(message:string,discoverDevices=false,clearDraft=true){
+    if(busy||!loaded||!message.trim()||(replyId&&!active)||viewedId)return;
     pin.current=true;setBusy(true);setError('');
-    let body={message:draft,runtime:coordinator==='hermes'?'host':runtime,provider:coordinator==='hermes'?'codex':provider,reply_to:active?.id||null,...(coordinator==='hermes'?{coordinator}: {})};
+    let body={message,runtime:coordinator==='hermes'?'host':runtime,provider:coordinator==='hermes'?'codex':provider,reply_to:active?.id||null,...(coordinator==='hermes'?{coordinator,...(discoverDevices?{discover_devices:true}:{})}: {})};
     const previous=pending.current?JSON.parse(pending.current.body):null;
     // A lost reply must retry the original parent and key even after polling sees its result.
-    if(previous&&pending.current?.thread===(active?.thread_id||null)&&previous.message===body.message&&previous.runtime===body.runtime&&previous.provider===body.provider&&previous.coordinator===body.coordinator)body=previous;
+    if(previous&&pending.current?.thread===(active?.thread_id||null)&&previous.message===body.message&&previous.runtime===body.runtime&&previous.provider===body.provider&&previous.coordinator===body.coordinator&&previous.discover_devices===body.discover_devices)body=previous;
     const serialized=JSON.stringify(body);
     if(pending.current?.body!==serialized)pending.current={body:serialized,key:requestKey(),thread:active?.thread_id||null};
-    try{const result=await api('gateway/messages',body,false,pending.current!.key);setReplies(previous=>({...previous,[scope]:result.id}));setMessages(previous=>[result,...previous.filter(m=>m.id!==result.id)]);restoreFocus.current=true;setDraft('');setViewedId(null);pending.current=null;await refresh()}
+    try{const result=await api('gateway/messages',body,false,pending.current!.key);setReplies(previous=>({...previous,[scope]:result.id}));setMessages(previous=>[result,...previous.filter(m=>m.id!==result.id)]);restoreFocus.current=true;if(clearDraft)setDraft('');setViewedId(null);pending.current=null;await refresh()}
     catch(e){setError((e as Error).message)}finally{setBusy(false)}
   }
+  function submit(e:React.FormEvent){e.preventDefault();void sendMessage(draft)}
+  function discover(message=discoveryRequest){if(!visible||coordinator!=='hermes'||history||settings)return;void sendMessage(message,true,false)}
   function onComposerKey(e:React.KeyboardEvent<HTMLTextAreaElement>){
     const native=e.nativeEvent;
     if(native.isComposing||native.keyCode===229)return;
@@ -83,7 +86,7 @@ export function GatewayPanel({visible=true,bridge=false,hostMode=false,conversat
   const threadKey=`${scope}:${viewedId||replyId||''}`;
   const seenThread=useRef(threadKey);
   if(seenThread.current!==threadKey){seenThread.current=threadKey;pin.current=true}
-  const tail=conversation.map(m=>`${m.id}:${m.state}:${m.answer||''}`).join('|');
+  const tail=conversation.map(m=>`${m.id}:${m.state}:${m.answer||''}:${m.discovery?.content_digest||m.discovery?.state||''}`).join('|');
   const inlineTyping=!!conversation.length&&!conversation[conversation.length-1].answer&&['queued','planning'].includes(conversation[conversation.length-1].state);
   function onThreadScroll(){const el=thread.current;if(!el)return;const near=el.scrollHeight-el.scrollTop-el.clientHeight<=48;pin.current=near;setAway(!near&&el.scrollHeight>el.clientHeight+8)}
   function jumpToLatest(){const el=thread.current;if(!el)return;pin.current=true;setAway(false);el.scrollTo({top:el.scrollHeight,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})}
@@ -105,7 +108,7 @@ export function GatewayPanel({visible=true,bridge=false,hostMode=false,conversat
         const typing=!m.answer&&['queued','planning'].includes(m.state);
         const place=m.coordinator==='direct'?`${names[m.runtime]||m.runtime} · ${names[m.provider]||m.provider}`:undefined;
         const caseHere=m.coordinator==='hermes'&&m.case_id&&!conversation.slice(index+1).some(next=>next.case_id===m.case_id);
-        return <article key={m.id} className="inbox-message assistant-message chat-turn"><div className="assistant-question"><h3>{m.message}</h3></div><p className="chat-meta">{m.source!=='web'&&<span>{names[m.source]||m.source}</span>}<time dateTime={m.created_at}>{timestamp(m.created_at)}</time></p><div className="chat-reply"><span className="assistant-speaker" title={place}>{name}</span>{typing?<div className="assistant-answer chat-typing" role="status" aria-label="智能管家正在回覆"><span className="sr-only">智能管家正在回覆</span><span className="chat-dots" aria-hidden="true"><i/><i/><i/></span></div>:<div className="assistant-answer">{m.answer&&<p>{m.answer}</p>}{replyAction(m)}{m.state!=='succeeded'&&!m.task_id&&<Status value={m.state}/>}<div className="row-actions">{m.task_id&&<a className="button secondary" href={`#home/${m.task_id}`}>查看提案 →</a>}{m.delivery==='unconfirmed'&&<small>可能還沒送到聊天室。</small>}</div>{m.context_truncated&&<p className="helper-text">較早的前文已省略；重要條件請再補充。</p>}</div>}{caseHere&&<CaseWork id={m.case_id} bridge={bridge} storageScope={conversationSession?.storage_scope}/>}</div></article>
+        return <article key={m.id} className="inbox-message assistant-message chat-turn"><div className="assistant-question"><h3>{m.message}</h3></div><p className="chat-meta">{m.source!=='web'&&<span>{names[m.source]||m.source}</span>}<time dateTime={m.created_at}>{timestamp(m.created_at)}</time></p><div className="chat-reply"><span className="assistant-speaker" title={place}>{name}</span>{typing?<div className="assistant-answer chat-typing" role="status" aria-label="智能管家正在回覆"><span className="sr-only">智能管家正在回覆</span><span className="chat-dots" aria-hidden="true"><i/><i/><i/></span></div>:<div className="assistant-answer">{m.answer&&<p>{m.answer}</p>}{m.coordinator==='hermes'&&m.discovery&&<ConversationDiscovery value={m.discovery} disabled={busy||!visible||!!viewedId||history||settings||coordinator!=='hermes'||active?.id!==m.id} onDiscover={()=>discover(m.discovery.state==='consent_required'?m.message:discoveryRequest)} onSelect={candidate=>discover(`請帶我設定「${candidate.title&&candidate.title!==candidate.integration_domain?candidate.title:candidate.integration_name}」，先說明需要我做的下一步。`)}/>}{replyAction(m)}{m.state!=='succeeded'&&!m.task_id&&<Status value={m.state}/>}<div className="row-actions">{m.task_id&&<a className="button secondary" href={`#home/${m.task_id}`}>查看提案 →</a>}{m.delivery==='unconfirmed'&&<small>可能還沒送到聊天室。</small>}</div>{m.context_truncated&&<p className="helper-text">較早的前文已省略；重要條件請再補充。</p>}</div>}{caseHere&&<CaseWork id={m.case_id} bridge={bridge} storageScope={conversationSession?.storage_scope}/>}</div></article>
       })}{busy&&!inlineTyping&&<div className="chat-reply chat-pending"><span className="assistant-speaker" title={coordinator==='direct'?`${names[runtime]||runtime} · ${names[provider]||provider}`:undefined}>{coordinator==='hermes'?'智能管家':'開發助手'}</span><div className="assistant-answer chat-typing" role="status" aria-label="智能管家正在回覆"><span className="sr-only">智能管家正在回覆</span><span className="chat-dots" aria-hidden="true"><i/><i/><i/></span></div></div>}</div>}</>}
     </section>
     <div className="chat-dock">
@@ -113,7 +116,7 @@ export function GatewayPanel({visible=true,bridge=false,hostMode=false,conversat
       {viewedId||(loaded&&ended)?<div className="assistant-readonly"><p>{viewedId&&selected?.source!=='web'?'請回原來的聊天室繼續。':'這段對話已結束。'}</p><Button onClick={startNew}>開始新對話</Button></div>:<form className="assistant-composer" onSubmit={submit}>
         {replyId&&loaded&&!active&&latest?.state!=='needs_reconcile'&&!(latest&&ownAction(latest))&&<Notice>這段對話暫時無法接續，請等候完成或開始新對話。</Notice>}
         <div className="chat-compose"><label className="sr-only" htmlFor="gateway-message">對話訊息</label><textarea id="gateway-message" ref={box} disabled={busy} maxLength={5000} rows={1} value={draft} onChange={e=>{setDraft(e.target.value);fitComposer(e.target)}} onKeyDown={onComposerKey} placeholder={active?'繼續說…':'輸入訊息…'}/><Button type="submit" className="chat-send" aria-label="送出訊息" disabled={busy||!loaded||!draft.trim()||!!(replyId&&!active)}>{busy?'送出中…':<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h12M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}</Button></div>
-        {visible&&loaded&&coordinator==='hermes'&&!history&&!settings&&<DiscoveryContext key={`${storage}:${scope}:${active?.thread_id||replyId||'new'}:${discoveryEpoch}`} draft={draft} disabled={busy||!!(replyId&&!active)} onInsert={(value,expectedDraft)=>{if(currentDraft.current!==expectedDraft||busy||!visible||coordinator!=='hermes')return false;setDraft(value);restoreFocus.current=true;return true}}/>}
+        {visible&&loaded&&coordinator==='hermes'&&!history&&!settings&&<>{active?.discovery?.state!=='consent_required'&&<DiscoverDevicesAction disabled={busy||!!(replyId&&!active)} onDiscover={()=>discover()}/>}<DiscoveryContext key={`${storage}:${scope}:${active?.thread_id||replyId||'new'}:${discoveryEpoch}`} draft={draft} disabled={busy||!!(replyId&&!active)} onInsert={(value,expectedDraft)=>{if(currentDraft.current!==expectedDraft||busy||!visible||coordinator!=='hermes')return false;setDraft(value);restoreFocus.current=true;return true}}/></>}
       </form>}
     </div>
   </div>
