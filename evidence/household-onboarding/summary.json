@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-10-19T09:29:40.027130+00:00",
+  "source_commit": "cdfbb00343be3e86d4c51708f8b72b125ecd8a0a",
+  "application_version": "0.11.0",
+  "scope": "Local isolated Controller/HA/Supervisor protocol fixtures and real Chromium against synthetic household data; not a release-media or physical-device acceptance.",
+  "backend": {
+    "passed": 735,
+    "skipped": 6,
+    "failed": 0,
+    "errors": 0,
+    "junit": "integrated-backend.xml",
+    "skips": "One real Core OAuth case, one packaged desktop login case, four container compatibility cases; deferred to exact-source CI."
+  },
+  "browser": {
+    "passed": 93,
+    "skipped": 0,
+    "failed": 0,
+    "errors": 0,
+    "junit": "integrated-ui.xml",
+    "widths": [
+      1440,
+      768,
+      390
+    ]
+  },
+  "screenshots": {
+    "data": "synthetic",
+    "real_home_assistant_frontend": false,
+    "rerun": "One already-covered browser case rerun to retain screenshots; not added to the independent test count."
+  },
+  "checks": [
+    "TypeScript and Vite build",
+    "Ruff",
+    "46 generated contracts",
+    "locked web toolchain",
+    "package validation",
+    "source package"
+  ],
+  "not_run": [
+    "Physical household or device pairing",
+    "real model/cloud-account execution",
+    "Grok CLI execution",
+    "new ISO/USB/HAOS full acceptance",
+    "deployment or upgrade acceptance"
+  ],
+  "limitations": [
+    "Native HA login/pairing is still required; no complete chat-only setup.",
+    "Discovery reads HA candidates only with current-message opt-in; no LAN scan.",
+    "Successful logout is durably revoked; failed disk commits do not claim successful logout.",
+    "Old stateless cookies require login after upgrade; older binaries do not enforce the new revocation contract."
+  ],
+  "files": {
+    "conversation-discovery-1440.png": "4ae0896dc83a8b30ca10141fcb64942410d7dc2c52bd8d8ea09183e704f79d1d",
+    "conversation-discovery-390.png": "45215e4d198de93ea9adaf818538c211099a8472615457465d80acd68779775c",
+    "conversation-discovery-768.png": "9e410c5bad2d94225a4285cfe08384b0abb7f389f38374fe65b5f77b1dfc6d3b",
+    "desktop-container-regression.xml": "0084eb2a97f7584db531ac6130a3044724a2f58f8a987edceba8c36265d6e736",
+    "desktop-fixture-regression.xml": "7ed3ececa72bc5c66ab95816fe3963765fe64e7dc049d627dfb0ba5abfa89655",
+    "integrated-backend.xml": "09b17f902e8d425e17b712709441e8ad5d777af870e8ececa561b323d7d6dbce",
+    "integrated-ui.xml": "d41baaf3e7d30a262b8d6217eb305571542b735c27410448de8a23076e918250",
+    "main-merge-backend.xml": "fbbe02221dca458f3da8b38fe613e4b3cca25e97ddb15486e25fbb1021915dc4",
+    "main-merge-ui.xml": "b0f6026607c968c78b0776344da1bb2e0004911fee3d1438561f67c7aa4f30f3"
+  },
+  "ci_attempts": [
+    {
+      "source": "72c0f5193aaf97dcd4af787068b430bcb0e8f3a8",
+      "run": 39222452046,
+      "status": "failed",
+      "passed": 3628,
+      "skipped": 12,
+      "failed": 2,
+      "cause": "Desktop login fixtures omitted the private access key created by host/install.py; updated fixtures preserve all rejection/replay assertions."
+    },
+    {
+      "source": "18a9c8fef87f4e67e9cbb8b42127edd1a89f3660",
+      "run": 39226109075,
+      "status": "passed",
+      "passed": 3630,
+      "skipped": 12,
+      "failed": 0,
+      "warnings": 3,
+      "seconds": 1519.69
+    }
+  ],
+  "followup": {
+    "source": "06e61e3aec2a23f8c3bf172a834ebe8838a97592",
+    "bootstrap_and_sessions": {
+      "passed": 41,
+      "junit": "desktop-fixture-regression.xml"
+    },
+    "desktop_handoff": {
+      "passed": 3,
+      "junit": "desktop-container-regression.xml",
+      "container": "actual freshly built Controller; network=none; removed in finally",
+      "image_id": "sha256:18239602c54ca43f22bc0b38bab24615bf0ae19bdb214c4c0573d9f3882e79d7"
+    },
+    "overlap": "These runs overlap earlier tests; do not add them to an independent total."
+  },
+  "main_integration": {
+    "parents": [
+      "18a9c8fef87f4e67e9cbb8b42127edd1a89f3660",
+      "b8af0d65cc02a94a7986ffd6bf72bf92b5bc0d25"
+    ],
+    "scope": "Merge trusted official publisher source approval from PR121; regenerate shared contracts, UI and runner package.",
+    "backend": {
+      "passed": 283,
+      "skipped": 4,
+      "failed": 0,
+      "junit": "main-merge-backend.xml"
+    },
+    "browser": {
+      "passed": 35,
+      "skipped": 0,
+      "failed": 0,
+      "junit": "main-merge-ui.xml"
+    },
+    "overlap": "Targeted integration cases overlap earlier suites; counts are not added together. Full merged-source CI is recorded on PR120."
+  }
+}

@@ -78,10 +78,10 @@ def version_order(left, right):
     return "same"
 
 
-def version_gate(latest, pinned, *, reloaded):
+def version_gate(latest, pinned, *, refresh_exhausted):
     """Decide whether a store ``version_latest`` may be installed or updated to.
 
-    A lower catalog is reloaded once successfully. A higher catalog is never installed.
+    An older catalog has a bounded refresh budget. A higher catalog is never installed.
     """
     order = version_order(latest, pinned)
     if order == "invalid":
@@ -90,16 +90,23 @@ def version_gate(latest, pinned, *, reloaded):
         return None
     if order == "newer":
         return "ahead"
-    return "unpublished" if reloaded else "reload"
+    return "unpublished" if refresh_exhausted else "reload"
 
 
-def store_reload_succeeded(record, release):
+def store_reload_exhausted(record, release):
+    """A successful refresh may still be stale; only the persisted budget fences it."""
     attempt = record.get("release_store_reload")
-    # Old records cannot distinguish success from a lost reply. Keep their fence
-    # for the recorded release; a new pinned release gets its own bounded budget.
-    return bool(record.get("release_store_reloaded")) and (
-        record.get("release") == asdict(release) if attempt is None else
-        isinstance(attempt, dict) and attempt.get("release") == asdict(release))
+    if attempt is None:
+        # Legacy success records have no attempt count. Preserve their fence until
+        # the Owner explicitly requests another check or the pinned release changes.
+        return bool(record.get("release_store_reloaded")) and record.get("release") == asdict(release)
+    if not isinstance(attempt, dict):
+        return True
+    if attempt.get("release") != asdict(release):
+        return False
+    count, retry_at = attempt.get("attempts"), attempt.get("retry_at")
+    return (type(count) is not int or not 0 <= count < STORE_RELOAD_ATTEMPTS
+            or type(retry_at) not in (int, float) or not math.isfinite(retry_at))
 
 
 async def reload_store(manager, record, token):
@@ -107,7 +114,7 @@ async def reload_store(manager, record, token):
 
     Persist the attempt and backoff before sending, including an uncertain POST.
     Every caller reads the catalog first, so a lost reply which published the pin
-    needs no repeat. A successful refresh of a still-old catalog is not retried.
+    needs no repeat. A successful refresh of a still-old catalog uses the same finite retry budget.
     """
     attempt = record.get("release_store_reload")
     release = asdict(manager.release)
@@ -365,6 +372,11 @@ class BridgeMaintenance:
                 raise BridgeFault("bridge_release_ahead", "waiting")
             if drift == "invalid":
                 raise BridgeFault("bridge_release_unparsable", "needs_reconcile")
+            if record.get("code") == "bridge_release_not_published" and not record.get("operation"):
+                # This Owner action grants a new catalog-only budget. Preserve the
+                # stage and all effect/repair fences; no App action is replayed.
+                self.save(record, release_store_reloaded=False, release_store_reload={
+                    "release": asdict(self.release), "attempts": 0, "retry_at": 0})
             self.save(record, state="pending", code=None)
             return self.status()
 
@@ -830,7 +842,7 @@ class BridgeMaintenance:
     async def lockstep(self, record, token, info):
         """Install or update only when ``version_latest`` is exactly this release."""
         latest = info.get("version_latest") if isinstance(info, dict) else None
-        decision = version_gate(latest, self.release.version, reloaded=store_reload_succeeded(record, self.release))
+        decision = version_gate(latest, self.release.version, refresh_exhausted=store_reload_exhausted(record, self.release))
         if decision is None:
             if record.get("release_store_reloaded") or record.get("release_store_reload"):
                 self.save(record, release_store_reloaded=False, release_store_reload=None)

@@ -80,10 +80,11 @@ def test_packaged_controller_accepts_real_host_ticket_once(request):
         pytest.skip("Use --containers for the real host writer to Controller handoff")
     name = "agentic-desktop-handoff-" + uuid.uuid4().hex[:12]
     host = Path(__file__).resolve().parents[1] / "host"
+    image = os.environ.get("AGENTIC_TEST_CONTROLLER_IMAGE", "agentic-home-controller:0.11.0")
     try:
         subprocess.run(["docker", "run", "-d", "--name", name, "--network", "none", "--memory", "256m",
                         "--pids-limit", "64", "-e", "AGENTIC_HOST_MODE=1", "-v", str(host) + ":/host:ro",
-                        "agentic-home-controller:0.11.0"], check=True, capture_output=True)
+                        image], check=True, capture_output=True)
         for _ in range(40):
             result = subprocess.run(["docker", "exec", name, "python", "-c",
                 "import urllib.request; urllib.request.urlopen('http://localhost:8099/health',timeout=1)"],
@@ -93,10 +94,14 @@ def test_packaged_controller_accepts_real_host_ticket_once(request):
             time.sleep(0.1)
         assert result.returncode == 0
         script = '''
-import http.cookiejar,json,os,sys,urllib.error,urllib.request
+import http.cookiejar,json,os,secrets,sys,urllib.error,urllib.request
 sys.path.insert(0,'/host')
 from agentic_host.desktop import issue_ticket
 assert os.geteuid()==1000
+# Mirror the installer's private access-key enrollment before desktop use.
+fd=os.open('/data/access-key', os.O_WRONLY|os.O_CREAT|os.O_EXCL, 0o600)
+with os.fdopen(fd,'w') as key_file:
+    key_file.write(secrets.token_urlsafe(32))
 ticket=issue_ticket('/data')
 assert ticket
 base='http://localhost:8099'

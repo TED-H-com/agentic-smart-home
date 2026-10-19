@@ -32,7 +32,7 @@ from .bridge_maintenance import (
     maintenance_update,
     release_drift,
     reload_store,
-    store_reload_succeeded,
+    store_reload_exhausted,
     version_gate,
     version_order,
 )
@@ -251,6 +251,13 @@ class HomeWorkerMaintenance:
                 raise HomeWorkerFault("home_worker_release_ahead", "waiting")
             if drift == "invalid":
                 raise HomeWorkerFault("home_worker_release_unparsable", "needs_reconcile")
+            if (record.get("enabled") and record.get("code") == "home_worker_release_not_published"
+                    and not record.get("operation")):
+                # Explicitly retry the catalog, without resetting setup or replaying
+                # an install/start/update. The normal tick rechecks all authority.
+                self.save(record, state="running", code=None, release_store_reloaded=False,
+                          release_store_reload={"release": asdict(self.release), "attempts": 0, "retry_at": 0})
+                return self.status()
             if drift == "update" and (record.get("operation") or {}).get("kind") == "update":
                 # Observe the update already sent. Do not post it again.
                 self.save(record, enabled=True, state="running", code=None)
@@ -838,7 +845,7 @@ class HomeWorkerMaintenance:
     async def lockstep(self, record, token, info):
         """Install or update only when ``version_latest`` is exactly this release."""
         latest = info.get("version_latest") if isinstance(info, dict) else None
-        decision = version_gate(latest, self.release.version, reloaded=store_reload_succeeded(record, self.release))
+        decision = version_gate(latest, self.release.version, refresh_exhausted=store_reload_exhausted(record, self.release))
         if decision is None:
             if record.get("release_store_reloaded") or record.get("release_store_reload"):
                 self.save(record, release_store_reloaded=False, release_store_reload=None)
