@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-10-19T08:22:28.328756+00:00",
+  "source_commit": "cdfbb00343be3e86d4c51708f8b72b125ecd8a0a",
+  "application_version": "0.11.0",
+  "scope": "Local isolated Controller/HA/Supervisor protocol fixtures and real Chromium against synthetic household data; not a release-media or physical-device acceptance.",
+  "backend": {
+    "passed": 735,
+    "skipped": 6,
+    "failed": 0,
+    "errors": 0,
+    "junit": "integrated-backend.xml",
+    "skips": "One real Core OAuth case, one packaged desktop login case, four container compatibility cases; deferred to exact-source CI."
+  },
+  "browser": {
+    "passed": 93,
+    "skipped": 0,
+    "failed": 0,
+    "errors": 0,
+    "junit": "integrated-ui.xml",
+    "widths": [
+      1440,
+      768,
+      390
+    ]
+  },
+  "screenshots": {
+    "data": "synthetic",
+    "real_home_assistant_frontend": false,
+    "rerun": "One already-covered browser case rerun to retain screenshots; not added to the independent test count."
+  },
+  "checks": [
+    "TypeScript and Vite build",
+    "Ruff",
+    "46 generated contracts",
+    "locked web toolchain",
+    "package validation",
+    "source package"
+  ],
+  "not_run": [
+    "Physical household or device pairing",
+    "real model/cloud-account execution",
+    "Grok CLI execution",
+    "new ISO/USB/HAOS full acceptance",
+    "deployment or upgrade acceptance"
+  ],
+  "limitations": [
+    "Native HA login/pairing is still required; no complete chat-only setup.",
+    "Discovery reads HA candidates only with current-message opt-in; no LAN scan.",
+    "Successful logout is durably revoked; failed disk commits do not claim successful logout.",
+    "Old stateless cookies require login after upgrade; older binaries do not enforce the new revocation contract."
+  ],
+  "files": {
+    "conversation-discovery-1440.png": "4ae0896dc83a8b30ca10141fcb64942410d7dc2c52bd8d8ea09183e704f79d1d",
+    "conversation-discovery-390.png": "45215e4d198de93ea9adaf818538c211099a8472615457465d80acd68779775c",
+    "conversation-discovery-768.png": "9e410c5bad2d94225a4285cfe08384b0abb7f389f38374fe65b5f77b1dfc6d3b",
+    "integrated-backend.xml": "09b17f902e8d425e17b712709441e8ad5d777af870e8ececa561b323d7d6dbce",
+    "integrated-ui.xml": "d41baaf3e7d30a262b8d6217eb305571542b735c27410448de8a23076e918250"
+  }
+}
