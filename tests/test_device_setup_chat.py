@@ -365,7 +365,7 @@ async def test_expired_context_label_is_not_reshared_and_setup_journal_is_unchan
     record["created_at"] = (datetime.now(UTC) - timedelta(days=30)).isoformat()
     store.put(KIND, record)
     result = (await share(setup_chat))["device_setup_status"]
-    assert result["title"] == "IPP 印表機接入" and result["current_state"] == "present"
+    assert result["title"] == "設備接入" and result["current_state"] == "present"
     assert store.get(KIND, selected) == record
 
 

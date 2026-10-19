@@ -46,6 +46,7 @@ INTEGRATION_NAMES = {
 }
 SETUP_STEP = "先確認是你要加入的設備，再選擇「協助設定」；可在「接入進度」繼續登入與配對。"
 IPP_SETUP_STEP = "選擇「協助設定」查看這台印表機的接入提案；你確認後，系統會先保存家庭設定備份，再接入並讀回結果。"
+SHELLY_SETUP_STEP = "選擇「協助設定」核對型號；目前聊天接入支援無密碼的 Shelly 1，確認後先備份家庭設定，再接入並讀回結果。"
 LIMITATIONS = [
     "這次只讀取家庭系統已發現的項目；沒有掃描整個區域網路，也沒有分享已儲存的網路盤點。",
     "探索結果不是設備控制授權；設定、帳號登入與實體配對仍需由你確認。",
@@ -85,6 +86,9 @@ def shared_label(value, *, secrets=()):
     value = re.sub(r"(?i)\b(?:bearer\s+.+|(?:password|passwd|secret|token|authorization|api[_-]?key|access[_-]?token|refresh[_-]?token)\s*[=:]\s*.+)",
                    "[已隱藏憑證]", value)
     value = re.sub(r"(?i)(?<![0-9a-f])(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}(?![0-9a-f])", "[已隱藏位址]", value)
+    # Native Shelly names often embed the compact MAC suffix. Treat this
+    # bounded hardware-identifier shape like the colon-separated spelling.
+    value = re.sub(r"(?i)(?<![0-9a-f])[0-9a-f]{12}(?![0-9a-f])", "[已隱藏位址]", value)
 
     def hide_address(match):
         try:
@@ -270,9 +274,14 @@ class DiscoveryChat:
             name = INTEGRATION_NAMES.get(candidate.integration_domain, "待確認的設備或服務")
             title = name if candidate.title == candidate.integration_domain else shared_label(
                 candidate.title, secrets=authority.connection) or name
+            next_step = SETUP_STEP
+            if candidate.source_id == "ha_discovery" and candidate.discovery_method == "zeroconf":
+                if candidate.integration_domain == "ipp":
+                    next_step = IPP_SETUP_STEP
+                elif candidate.integration_domain == "shelly" and candidate.confirmation_step == "confirm_discovery":
+                    next_step = SHELLY_SETUP_STEP
             candidates.append(DiscoveryChatCandidate(**{**candidate.model_dump(), "title": title},
-                integration_name=name, next_step=IPP_SETUP_STEP if candidate.integration_domain == "ipp"
-                and candidate.source_id == "ha_discovery" and candidate.discovery_method == "zeroconf" else SETUP_STEP))
+                integration_name=name, next_step=next_step))
         candidates = interleave(candidates, inventory_candidates)
         available = source.state in {"ok", "partial"}
         if environment is not None:

@@ -76,6 +76,9 @@ class DiscoveryCandidate(Strict):
     integration_domain: str
     title: str
     discovery_method: str
+    # A bounded routing hint from HA's pending flow, never proof that a setup
+    # proposal is supported or approved. The write adapter rechecks the form.
+    confirmation_step: Literal["zeroconf_confirm", "confirm_discovery"] | None = None
     source_id: Literal["ha_discovery", "network_inventory"] = "ha_discovery"
     native_path: Literal["/config/integrations"] = "/config/integrations"
 

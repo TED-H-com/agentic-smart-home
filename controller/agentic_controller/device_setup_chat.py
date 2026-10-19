@@ -82,7 +82,7 @@ class DeviceSetupChat:
         if entry_source is not None and entry_source.state in {"ok", "partial"}:
             if view.integration is not None:
                 current = "present"
-                entry = view.integration.model_copy(update={"title": safe(view.integration.title) or "IPP 印表機"})
+                entry = view.integration.model_copy(update={"title": safe(view.integration.title) or "設備整合"})
             elif entry_source.state == "ok" and not entry_source.truncated:
                 current = "not_seen"
         devices = [DeviceSetupChatDevice(name=safe(device.name) or "未命名設備",
@@ -107,7 +107,7 @@ class DeviceSetupChat:
             for name, source in sources.items()]
         return ConversationDeviceSetup(state="unavailable" if current == "unknown" else "ready",
             setup_id=record.id, setup_state=record.state, setup_updated_at=record.updated_at,
-            title=title or "IPP 印表機接入", current_state=current, integration=entry, devices=devices,
+            title=title or "設備接入", current_state=current, integration=entry, devices=devices,
             device_count=counts[0], entity_count=counts[1], available_entity_count=counts[2],
             sources=public_sources, truncated=view.devices_truncated or len(view.devices) > 16
                 or any(source.truncated for source in sources.values()),

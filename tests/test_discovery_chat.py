@@ -122,6 +122,36 @@ async def test_sharing_is_current_message_only_and_idempotency_binds_choice(disc
     assert len(ha.calls) == reads and len(tool_results) == 2
 
 
+@pytest.mark.parametrize("step", ["confirm_discovery", "credentials", "bluetooth_confirm", None])
+async def test_shelly_guidance_requires_native_confirmation_and_does_not_approve(discovery_chat, step):
+    app, client, ha, store, _ = discovery_chat
+    flow = ha.results["config_entries/flow/progress"][0]
+    flow.update(handler="shelly", step_id=step)
+    flow["context"]["title_placeholders"]["name"] = "shelly1-AABBCCDDEEFF"
+    response = await send(app, client, "探索家庭設備", "shelly-guidance", discover_devices=True)
+    item = store.conversation(id=response.json()["id"])
+    candidate = item["discovery"]["candidates"][0]
+    expected = "confirm_discovery" if step == "confirm_discovery" else None
+    assert candidate["confirmation_step"] == expected
+    assert candidate["title"] == "shelly1-[已隱藏位址]"
+    assert "AABBCCDDEEFF" not in json.dumps(item["discovery"])
+    assert candidate["next_step"] == (chat_module.SHELLY_SETUP_STEP if expected else chat_module.SETUP_STEP)
+    assert "Shelly 1" in chat_module.SHELLY_SETUP_STEP and "核對型號" in chat_module.SHELLY_SETUP_STEP
+    assert len(ha.calls) == 6 and not store.list("device_setup_v1") and not store.list("approval")
+    assert store.setting("policy") == {"entities": []}
+
+
+@pytest.mark.parametrize("label,expected", [
+    ("shelly1-aabbccddeeff", "shelly1-[已隱藏位址]"),
+    ("Device 001122334455", "Device [已隱藏位址]"),
+    ("Device aa:bb:cc:dd:ee:ff", "Device [已隱藏位址]"),
+    ("Shelly 1", "Shelly 1"),
+    ("Model 1234567890", "Model 1234567890"),
+])
+def test_shared_labels_hide_compact_hardware_identifiers(label, expected):
+    assert chat_module.shared_label(label) == expected
+
+
 async def test_shared_candidate_continues_owner_tracking_with_fresh_identity_check(discovery_chat):
     app, client, ha, store, _ = discovery_chat
     response = await send(app, client, "請探索家庭設備", "setup-handoff", discover_devices=True)

@@ -341,6 +341,21 @@
       "DiscoveryCandidate": {
         "additionalProperties": false,
         "properties": {
+          "confirmation_step": {
+            "anyOf": [
+              {
+                "enum": [
+                  "zeroconf_confirm",
+                  "confirm_discovery"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmation Step"
+          },
           "discovery_method": {
             "title": "Discovery Method",
             "type": "string"

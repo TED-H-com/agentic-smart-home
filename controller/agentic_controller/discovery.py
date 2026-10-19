@@ -84,8 +84,11 @@ def project(source, row):
         placeholders = context.get("title_placeholders") or {}
         if not isinstance(placeholders, dict):
             raise ValueError("invalid_placeholders")
+        step = {"ipp": "zeroconf_confirm", "shelly": "confirm_discovery"}.get(integration)
+        confirmation_step = (step if context["source"] == "zeroconf" and row.get("step_id") == step else None)
         return DiscoveryCandidate(id=identifier(row.get("flow_id")), integration_domain=integration,
-            title=label(placeholders.get("name"), integration), discovery_method=context["source"]).model_dump()
+            title=label(placeholders.get("name"), integration), discovery_method=context["source"],
+            confirmation_step=confirmation_step).model_dump()
     if source == "ha_devices":
         device = identifier(row.get("id"))
         if row.get("config_entry_id") is not None:
