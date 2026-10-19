@@ -1,7 +1,7 @@
 {
-  "source_commit": "02ab744c8015cf38881e7127f62bb88164175a7b",
-  "source_tree": "0dc5990392dad663451b100eb0fecb5b1fcf9e0f",
-  "frontend_source_tree": "ad661f33608407f284f22f2fb677ee4e3467c374",
+  "source_commit": "84966a4c58ecbdd73f541bf1d48bbbe8d3315650",
+  "source_tree": "0324bc34461374443f6ed51347d0854171151c90",
+  "frontend_source_tree": "ff605030eb2b3e88c91a589317d53ec7d18a81a0",
   "source_files": [
     {
       "file": "scripts/site_screenshots.py",
@@ -37,7 +37,7 @@
     },
     {
       "file": "web/demo/fake-api.ts",
-      "sha256": "a04a656b4c8a4cb2a5e43552454e1aab245d625c476331399804a7d6ecfd8667"
+      "sha256": "d5ab60d77384003e9b3cddcaee38f056ced52ae625910944b70377c8e1acd0b3"
     },
     {
       "file": "web/demo/ha-lan.ts",
@@ -127,7 +127,7 @@
     },
     {
       "file": "discovery.png",
-      "sha256": "a903211eb3bfc704ab6fb1b8f9f1b167c25b46332842d06af9e6d5aa7cf74a48",
+      "sha256": "4dde769309b2bf9b480ab62a39d371f632783d085705c1ff40255bb216b12698",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -135,11 +135,11 @@
       "device_scale_factor": 1,
       "route": "#/agentic-home",
       "surface": "product-in-ha-simulation",
-      "bytes": 112910
+      "bytes": 112727
     },
     {
       "file": "gateway.png",
-      "sha256": "314cd4896b7f9105c96d7166c6260292ba8aa01348de10576e36be980b1cd723",
+      "sha256": "093bca80074c965bc947550995b4b76e0de8a04975f44998fcedc6fd1b6f8105",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -147,11 +147,11 @@
       "device_scale_factor": 1,
       "route": "#gateway",
       "surface": "product",
-      "bytes": 63321
+      "bytes": 62305
     },
     {
       "file": "proposal.png",
-      "sha256": "9c228b25523276e7a65bfea021ed16decea81ae9b0fcc023b4ae17af21783077",
+      "sha256": "a38fe9bd62bf2340cb81ad0734863a45b89106a89528cfb497bb5d9d18a27230",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -159,11 +159,11 @@
       "device_scale_factor": 1,
       "route": "#/agentic-home/home/demo-proposal",
       "surface": "product-in-ha-simulation",
-      "bytes": 91049
+      "bytes": 90824
     },
     {
       "file": "inventory.png",
-      "sha256": "d4547bffd0dd02c000967d998956096acc888b91aa50b0f75e0ccd042f120212",
+      "sha256": "f2899f141d7cd5f9c908a51ec3d5c9c84b35fae49514a4d878809de422923540",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -171,11 +171,11 @@
       "device_scale_factor": 1,
       "route": "#inventory",
       "surface": "product",
-      "bytes": 96298
+      "bytes": 95789
     },
     {
       "file": "workers.png",
-      "sha256": "9634840b529855086dba07cf6e5de51024b6e3e4717a0c55a1c5cd6377522179",
+      "sha256": "36c024520e981e65caa43e352a1abfe3adfd5d0ebdc13711cbe8fdd76e303397",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -183,11 +183,11 @@
       "device_scale_factor": 1,
       "route": "#workers",
       "surface": "product",
-      "bytes": 128517
+      "bytes": 127834
     },
     {
       "file": "host.png",
-      "sha256": "8f205c8de21698e9c2b492a5bf62e44090395919bdede3f750f290917194b850",
+      "sha256": "9850125afdaa791970d3a77e44f35b3bb9d46769c6dd1d9ddf93ed2f236e2095",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -195,11 +195,11 @@
       "device_scale_factor": 1,
       "route": "#host",
       "surface": "product",
-      "bytes": 68807
+      "bytes": 68168
     },
     {
       "file": "bridge.png",
-      "sha256": "cf7e600c1c1fdd14a37aa7f8de54d730e14e33b06cdf410c7bad2f6aab49f559",
+      "sha256": "c7265a9bfbd1f6356f40aebfbb60fb3f54788151740baa2645d2666079af3799",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -207,7 +207,7 @@
       "device_scale_factor": 1,
       "route": "#/agentic-home",
       "surface": "product-in-ha-simulation",
-      "bytes": 65754
+      "bytes": 65173
     },
     {
       "file": "phone.png",
@@ -231,5 +231,11 @@
       "device_scale_factor": 1,
       "bytes": 67260
     }
-  ]
+  ],
+  "source_worktree_dirty": true,
+  "merge_source_parents": [
+    "84966a4c58ecbdd73f541bf1d48bbbe8d3315650",
+    "b8af0d65cc02a94a7986ffd6bf72bf92b5bc0d25"
+  ],
+  "source_note": "Captured from the resolved merge working tree; source_files records exact source bytes."
 }

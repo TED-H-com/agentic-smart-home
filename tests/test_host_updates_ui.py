@@ -47,6 +47,13 @@ def mount(page, origin):
                 raise AssertionError(path)
         elif path == 'updates':
             value = {'trusted_publisher_configured': True, 'records': []}
+        elif path == 'updates/publisher':
+            value = {'contract': 1, 'state': 'trusted', 'code': 'official_publisher_trusted',
+                     'message': '已信任官方更新來源。', 'publisher': 'ted-h-com-agentic-smart-home',
+                     'repository': 'TED-H-com/agentic-smart-home', 'channel': 'stable',
+                     'image_repository': 'ghcr.io/ted-h-com/agentic-smart-home-controller',
+                     'key_sha256': 'f' * 64, 'review_digest': 'e' * 64,
+                     'scope': 'controller_only_same_schema', 'authority': 'signed_controller_images_only'}
         else:
             value = common(path)
             if value is None:

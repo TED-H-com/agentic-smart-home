@@ -106,3 +106,26 @@ def test_bootstrap_rejects_unowned_active_link(layout, tmp_path):
     manager.product.symlink_to(tmp_path / "other-product")
     with pytest.raises(HostError, match="unowned"):
         bootstrap.version_layout(manager, bundles=bundles)
+
+
+def test_publisher_reads_only_the_fixed_owned_version_link(layout, monkeypatch):
+    from agentic_host.publisher import official_channel
+
+    manager, bundles = layout
+    metadata = {"format": 1, "publisher": "ted-h-com-agentic-smart-home",
+                "repository": "TED-H-com/agentic-smart-home", "channel": "stable", "image_repository": None, "pin": None}
+    (manager.product / "host").mkdir()
+    (manager.product / "host/official-update-channel.json").write_text(json.dumps(metadata))
+    monkeypatch.setattr(bootstrap, "ACTIVE", manager.product)
+    monkeypatch.setattr(bootstrap, "BUNDLES", bundles)
+    baseline = bootstrap.version_layout(manager, bundles=bundles)
+    assert bootstrap.active_product(manager.product) == baseline
+    assert official_channel(manager.product) == metadata
+    other = manager.product.with_name("unowned-link")
+    other.symlink_to(baseline)
+    with pytest.raises(HostError, match="unowned"):
+        official_channel(other)
+    manager.product.unlink()
+    manager.product.symlink_to(baseline / "host")
+    with pytest.raises(HostError, match="unowned"):
+        official_channel(manager.product)

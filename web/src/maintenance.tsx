@@ -23,6 +23,59 @@ function NetworkSettings({onRemote}:{onRemote?:(remote:string)=>void}){
   </div>
 }
 
+type Publisher={contract:1;state:'unavailable'|'approval_required'|'trusted'|'conflict';message:string;code?:string;publisher:string|null;repository:string|null;channel:string|null;image_repository:string|null;key_sha256:string|null;review_digest:string|null;scope:'controller_only_same_schema';authority:'signed_controller_images_only'};
+type PublisherOffer=Publisher&{approval:string;expires_at:number};
+function checkedPublisher(value:Publisher){
+  if(value?.contract!==1||!['unavailable','approval_required','trusted','conflict'].includes(value.state)||value.scope!=='controller_only_same_schema'||value.authority!=='signed_controller_images_only')throw new Error('無法核對官方更新來源，請稍後重新讀取。');
+  if(['approval_required','trusted'].includes(value.state)&&(value.repository!=='TED-H-com/agentic-smart-home'||value.publisher!=='ted-h-com-agentic-smart-home'||value.channel!=='stable'||value.image_repository!=='ghcr.io/ted-h-com/agentic-smart-home-controller'||!value.key_sha256?.match(/^[a-f0-9]{64}$/)||!value.review_digest?.match(/^[a-f0-9]{64}$/)))throw new Error('無法核對官方更新來源，請稍後重新讀取。');
+  return value;
+}
+
+function TrustedPublisher({onTrusted}:{onTrusted:()=>Promise<void>}){
+  const [value,setValue]=useState<Publisher|null>(null),[review,setReview]=useState<PublisherOffer|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[readError,setReadError]=useState(false),[expired,setExpired]=useState(false);
+  const serial=useRef(0),alive=useRef(false),onTrustedRef=useRef(onTrusted);onTrustedRef.current=onTrusted;
+  async function refresh(){
+    const request=++serial.current;
+    try{
+      const next=checkedPublisher(await api('updates/publisher'));
+      if(!alive.current||request!==serial.current)return;
+      setValue(next);setReadError(false);
+      setReview(current=>current&&(next.state!=='approval_required'||next.review_digest!==current.review_digest)?null:current);
+    }catch{if(alive.current&&request===serial.current){setReadError(true);setReview(null)}}
+  }
+  useEffect(()=>{alive.current=true;let timer:ReturnType<typeof setTimeout>;async function poll(){await refresh();if(alive.current)timer=setTimeout(poll,4000)}void poll();return()=>{alive.current=false;++serial.current;clearTimeout(timer)}},[]);
+  useEffect(()=>{if(!review)return;const timer=setTimeout(()=>setExpired(true),Math.max(0,review.expires_at*1000-Date.now()));return()=>clearTimeout(timer)},[review]);
+  async function offer(){
+    ++serial.current;setBusy(true);setError('');setExpired(false);
+    try{
+      const next=await api('updates/publisher/offer',{});
+      checkedPublisher(next);
+      if(next.state!=='approval_required'||typeof next.approval!=='string'||!next.approval.match(/^[A-Za-z0-9_-]{32,100}$/)||!Number.isFinite(next.expires_at)||next.expires_at*1000<=Date.now())throw new Error('更新來源確認已過期，請重新查看。');
+      if(alive.current){setValue(next);setReview(next);setReadError(false)}
+    }catch(e){if(alive.current){setError(errorText(e));await refresh()}}
+    finally{if(alive.current)setBusy(false)}
+  }
+  async function confirm(){
+    if(!review)return;
+    ++serial.current;setBusy(true);setError('');
+    try{
+      if(review.expires_at*1000<=Date.now())throw new Error('更新來源確認已過期，請重新查看。');
+      const next=checkedPublisher(await api('updates/publisher/approve',{review_digest:review.review_digest,approval:review.approval}));
+      if(next.state!=='trusted')throw new Error('更新來源尚未確認，請重新讀取。');
+      if(alive.current){setValue(next);setReview(null);await onTrustedRef.current()}
+    }catch(e){if(alive.current){setError(errorText(e));setReview(null);await refresh();await onTrustedRef.current().catch(()=>{})}}
+    finally{if(alive.current)setBusy(false)}
+  }
+  return <section aria-label="官方更新來源"><h3>官方更新來源</h3>
+    {readError?<Notice error>暫時無法核對官方更新來源，恢復連線後會自動重試。</Notice>:!value?<p role="status">正在核對更新來源…</p>:<>
+      <p>{value.state==='trusted'?'已信任官方簽署的管理服務更新。':value.code==='official_publisher_pin_not_shipped'?'需取得含官方更新來源憑證的受信任主機版本。':value.message}</p>
+      {value.key_sha256&&<dl className="worker-evidence"><dt>官方專案</dt><dd>{value.repository}</dd><dt>發布通道</dt><dd>{value.channel==='stable'?'穩定版':value.channel}</dd><dt>簽署金鑰 SHA-256 指紋</dt><dd><code>{value.key_sha256}</code></dd></dl>}
+      {value.state==='approval_required'&&!review&&<Button disabled={busy} onClick={()=>void offer()}>設定官方更新來源</Button>}
+      {review&&<div className="notice" role="region" aria-label="確認官方更新來源"><p>信任上方指紋對應的官方簽署金鑰？這只允許檢查管理服務更新，每個版本仍需你確認安裝。</p><p className="helper-text">更新範圍為管理服務；主機系統與家庭系統維持各自更新流程。</p>{expired?<><p>確認已過期，請重新查看來源。</p><Button disabled={busy} onClick={()=>{setReview(null);void offer()}}>重新查看來源</Button></>:<div className="row-actions"><Button disabled={busy} onClick={()=>void confirm()}>信任此官方更新來源</Button><Button secondary disabled={busy} onClick={()=>setReview(null)}>暫不設定</Button></div>}</div>}
+    </>}{error&&<Notice error>{error}</Notice>}
+  </section>
+}
+
 function UpdateSettings(){
   const [value,setValue]=useState<Releases|null>(null),[payload,setPayload]=useState(''),[fileName,setFileName]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[readError,setReadError]=useState(''),[selected,setSelected]=useState<string|null>(null);
   const pending=useRef<{signature:string;key:string}|null>(null),fileRef=useRef<HTMLInputElement>(null);
@@ -36,10 +89,10 @@ function UpdateSettings(){
   const sourceBlocked=release?.state==='failed'&&!!release.error_code?.startsWith('update_source_');
   async function offerRollback(){if(!release)return;setBusy(true);setError('');try{const next=await api('updates/rollback-offer',{candidate_digest:release.candidate_digest});setReview({digest:next.candidate_digest,action:'rollback',approval:next.rollback_approval_id,expires:next.rollback_expires_at});await reload()}catch(e){setError(errorText(e))}finally{setBusy(false)}}
   async function confirm(){if(!review)return;setBusy(true);setError('');try{if(review.expires*1000<=Date.now())throw new Error('確認已過期，請重新檢查版本。');await api(`updates/${review.action}`,{candidate_digest:review.digest,approval_id:review.approval});setReview(null);await reload()}catch(e){setError(errorText(e));await reload().catch(()=>{})}finally{setBusy(false)}}
-  return <div className="maintenance-content"><h3>管家介面更新</h3><p>先檢查簽署的版本說明，確認後才更新。</p>{error?<Notice error>{error}</Notice>:readError&&<Notice error>{readError}</Notice>}{value&&!value.trusted_publisher_configured?<Notice>尚未設定更新來源，目前無法檢查更新。</Notice>:<form onSubmit={stage}><div className="row-actions"><Button secondary type="button" onClick={()=>fileRef.current?.click()}>選擇更新說明檔</Button>{fileName&&<span>{fileName}</span>}</div><input ref={fileRef} className="sr-only" type="file" accept="application/json,.json" aria-label="更新說明檔" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{if(file.size>65536)throw new Error('更新說明檔過大。');setPayload(await file.text());setFileName(file.name);setError('')}catch(error){setFileName('');setError(errorText(error))}}}/><details><summary>或貼上更新說明</summary><label>簽署的更新說明檔<textarea rows={4} value={payload} maxLength={65536} onChange={e=>setPayload(e.target.value)} placeholder="貼上更新說明" required/></label></details><Button secondary type="submit" disabled={busy||!value||!payload.trim()}>檢查候選版本</Button></form>}{deployed&&<details><summary>技術資料</summary><p>目前程式版本 <code title={value?.deployed_source_commit||undefined}>{deployed}</code></p></details>}
+  return <div className="maintenance-content"><h3>管家介面更新</h3><p>先檢查簽署的版本說明，確認後才更新。</p><TrustedPublisher onTrusted={reload}/>{error?<Notice error>{error}</Notice>:readError&&<Notice error>{readError}</Notice>}{value&&!value.trusted_publisher_configured?<Notice>尚未設定更新來源，目前無法檢查更新。</Notice>:<form onSubmit={stage}><div className="row-actions"><Button secondary type="button" onClick={()=>fileRef.current?.click()}>選擇更新說明檔</Button>{fileName&&<span>{fileName}</span>}</div><input ref={fileRef} className="sr-only" type="file" accept="application/json,.json" aria-label="更新說明檔" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{if(file.size>65536)throw new Error('更新說明檔過大。');setPayload(await file.text());setFileName(file.name);setError('')}catch(error){setFileName('');setError(errorText(error))}}}/><details><summary>或貼上更新說明</summary><label>簽署的更新說明檔<textarea rows={4} value={payload} maxLength={65536} onChange={e=>setPayload(e.target.value)} placeholder="貼上更新說明" required/></label></details><Button secondary type="submit" disabled={busy||!value||!payload.trim()}>檢查候選版本</Button></form>}{deployed&&<details><summary>技術資料</summary><p>目前程式版本 <code title={value?.deployed_source_commit||undefined}>{deployed}</code></p></details>}
     {release&&<section className="update-review" aria-label="更新候選版本"><div className="section-heading"><h3>版本 {release.manifest.version}</h3><Status value={release.state}/></div>{sync&&<p className="helper-text">{sync}</p>}{value!.records.length>1&&<label>更新紀錄<select value={release.candidate_digest} onChange={e=>{setSelected(e.target.value);setReview(null)}}>{value!.records.map(item=><option key={item.candidate_digest} value={item.candidate_digest}>{item.manifest.version}</option>)}</select></label>}{release.error_code&&<Notice error reason={release.error_code}>{sourceBlocked?'開發助手的程式碼無法跟著這個版本同步，所以沒有更新。':'這次更新沒有完成。'}</Notice>}<details><summary>技術資料</summary><dl className="worker-evidence"><dt>候選版本指紋</dt><dd><code>{release.candidate_digest}</code></dd><dt>原始碼版本</dt><dd><code>{release.manifest.source_commit}</code></dd>{release.error_code&&<><dt>原因代碼</dt><dd><code>{release.error_code}</code></dd></>}</dl><ul>{release.manifest.tests.map(test=><li key={test.name}>{test.name} · {test.result}</li>)}</ul></details>
       {!review&&<div className="row-actions">{release.state==='staged'&&release.approval_id&&<Button disabled={busy} onClick={()=>setReview({digest:release.candidate_digest,action:'apply',approval:release.approval_id!,expires:release.approval_expires_at||0})}>檢查並確認更新</Button>}{release.state==='deployed'&&<Button secondary disabled={busy} onClick={offerRollback}>退回前一版本</Button>}</div>}
-      {review&&review.digest===release.candidate_digest&&<div className="notice" role="region" aria-label="確認版本操作"><h4>{review.action==='apply'?`更新至 ${release.manifest.version}？`:'退回更新前的版本？'}</h4><p>服務會短暫重新啟動，新的 AI 工作會暫停。</p><div className="row-actions"><Button disabled={busy} onClick={confirm}>{review.action==='apply'?'確認更新這個版本':'確認退版'}</Button><Button secondary disabled={busy} onClick={()=>setReview(null)}>暫不操作</Button></div></div>}
+      {review&&review.digest===release.candidate_digest&&<div className="notice" role="region" aria-label="確認版本操作"><h4>{review.action==='apply'?`更新至 ${release.manifest.version}？`:'退回更新前的版本？'}</h4><p>這次只更新管理服務，服務會短暫重新啟動，新的 AI 工作會暫停。</p><p className="helper-text">主機系統與家庭系統維持各自更新流程；退版會保留目前的家庭操作紀錄。</p><div className="row-actions"><Button disabled={busy} onClick={confirm}>{review.action==='apply'?'確認更新這個版本':'確認退版'}</Button><Button secondary disabled={busy} onClick={()=>setReview(null)}>暫不操作</Button></div></div>}
     </section>}
   </div>
 }

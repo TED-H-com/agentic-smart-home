@@ -26,7 +26,7 @@ from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
 from .manager import HostError, Manager, atomic, sync_path
-from .publisher import public_key
+from .publisher import public_key, validate_official_channel
 from .updater import clear_gate, offline_check
 
 PUBLISHER = "ted-h-com-agentic-smart-home"
@@ -51,9 +51,10 @@ STATES = BUSY | {"staging", "staged", "deployed", "rolled_back", "failed"}
 REQUIRED = {"host/agentic_host/__init__.py", "host/agentic_host/daemon.py", "host/agentic_host/host_reconcile.py",
             "host/compose.yaml", "host/host-update-contract.json", "images.lock.json", "pyproject.toml", "providers.lock.json"}
 LOCKS = ("images.lock.json", "providers.lock.json", "host/bases.lock.json", "host/network.lock.json")
-TOPS = {"host", "controller", "runner", "hermes", "bridge", "custom_components", "web", "contracts", "scripts"}
+TOPS = {"host", "controller", "runner", "hermes", "bridge", "custom_components", "web", "contracts", "scripts", "docs"}
 TOP_FILES = {"pyproject.toml", "uv.lock", "providers.lock.json", "images.lock.json", "BUNDLE.sha256.json",
-             "AGENTS.md", "DESIGN.md", "README.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md"}
+             "AGENTS.md", "DESIGN.md", "README.md", "INSTALL.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md",
+             "upstream.lock.json", "channels.lock.json"}
 
 
 class HostUpdateError(HostError):
@@ -210,20 +211,14 @@ class HostBundle:
         atomic(self.path, records)
 
     def authority_pin(self):
-        value = read_json(self.authority, 16384)
-        fields = {"format", "publisher", "repository", "channel", "image_repository", "pin"}
-        if (not isinstance(value, dict) or set(value) != fields or type(value["format"]) is not int or value["format"] != 1
-                or value["publisher"] != PUBLISHER or value["repository"] != REPOSITORY or value["channel"] != "stable"):
-            raise HostUpdateError("host_update_official_pin_invalid")
+        try:
+            value = validate_official_channel(read_json(self.authority, 16384))
+        except HostError:
+            raise HostUpdateError("host_update_official_pin_invalid") from None
         pin = value["pin"]
         if pin is None:
             raise HostUpdateError("host_update_official_pin_missing")
-        if (not isinstance(pin, dict) or set(pin) != {"public_key_pem", "key_sha256"}
-                or value["image_repository"] != IMAGE_REPOSITORY):
-            raise HostUpdateError("host_update_official_pin_invalid")
         pem, fingerprint = public_key(pin["public_key_pem"])
-        if pin["key_sha256"] != fingerprint:
-            raise HostUpdateError("host_update_official_pin_invalid")
         trust = read_json(self.trust)
         if (not isinstance(trust, dict) or set(trust) != {"format", "publishers"} or type(trust["format"]) is not int
                 or trust["format"] != 1 or not isinstance(trust["publishers"], dict)):
@@ -688,6 +683,15 @@ class HostBundle:
                                  "--candidate", candidate], cwd="/", env=environment, capture_output=True, timeout=120)
         if result.returncode:
             raise HostUpdateError("host_update_reconcile_failed")
+        if len(result.stdout) > 16384:
+            raise HostUpdateError("host_update_reconcile_receipt_invalid")
+        try:
+            receipt = json.loads(result.stdout)
+        except (ValueError, TypeError):
+            raise HostUpdateError("host_update_reconcile_receipt_invalid") from None
+        if not isinstance(receipt, dict):
+            raise HostUpdateError("host_update_reconcile_receipt_invalid")
+        return receipt
 
     def _start_services(self, record):
         self.run("systemctl", "daemon-reload", timeout=30)
@@ -868,7 +872,9 @@ print(json.dumps(result))'''
                 record["phase"] = "reconciling"
                 self.save(record)
                 if operation == "apply":
-                    self._hook("apply", record["candidate_digest"])
+                    receipt = self._hook("apply", record["candidate_digest"])
+                    record["reboot_required"] = isinstance(receipt, dict) and receipt.get("reboot_required") is True
+                    self.save(record)
                 self._start_services(record)
                 if operation == "apply":
                     self._hook("health", record["candidate_digest"])
@@ -876,6 +882,8 @@ print(json.dumps(result))'''
                 clear_gate(self.manager.root.parent / "controller/controller.sqlite3", record["candidate_digest"])
                 record.update(state="rolled_back" if operation == "rollback" else "deployed", phase="complete",
                               message="已回復先前的主機程式，家庭資料保留；AI 維持暫停，請確認後再恢復。" if operation == "rollback" else "主機更新完成，家庭資料與 Home Assistant 保留；AI 維持暫停，請確認後再恢復。", error_code=None)
+                if operation == "apply" and record.get("reboot_required"):
+                    record["message"] += " 部分主機設定將在重新開機後生效。"
                 self.save(record)
             except Exception:
                 if record.get("phase") == "approved":

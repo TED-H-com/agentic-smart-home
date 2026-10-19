@@ -8,15 +8,14 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 import tarfile
 import time
 from pathlib import Path
 
-REQUIRED = {"host/agentic_host/__init__.py", "host/agentic_host/daemon.py",
-            "host/agentic_host/host_reconcile.py", "host/host-update-contract.json",
-            "host/compose.yaml", "images.lock.json", "pyproject.toml", "providers.lock.json"}
-CONTRACT = {"contract": 1, "host_protocol": 1, "controller_protocol": 1,
-            "controller_schema": 3, "reconcile": 1, "executor": 1}
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "host"))
+from agentic_host.host_update import CONTRACT, REQUIRED, TOP_FILES, TOPS  # noqa: E402
+
 MAX_BYTES = 128 * 1024**2
 
 
@@ -40,9 +39,8 @@ def build(product, destination, *, version, source_commit, tests, now=None):
     files = {}
     # These are public product inputs, never a home directory, secret store,
     # generated image payload or arbitrary checkout including its Git history.
-    directories = {"host", "controller", "runner", "hermes", "bridge", "custom_components", "contracts", "docs", "scripts"}
-    top_files = {"README.md", "INSTALL.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md", "providers.lock.json",
-                 "upstream.lock.json", "channels.lock.json", "pyproject.toml", "images.lock.json"}
+    directories = TOPS
+    top_files = TOP_FILES - {"BUNDLE.sha256.json"}
     skip = {"__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", ".upstream-cache", "test-results"}
     for path in sorted(product.rglob("*")):
         relative = path.relative_to(product)

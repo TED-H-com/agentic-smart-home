@@ -3594,6 +3594,303 @@
         "title": "TaskInput",
         "type": "object"
       },
+      "TrustedPublisherApproval": {
+        "additionalProperties": false,
+        "properties": {
+          "approval": {
+            "pattern": "^[A-Za-z0-9_-]{32,100}$",
+            "title": "Approval",
+            "type": "string"
+          },
+          "review_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Review Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "review_digest",
+          "approval"
+        ],
+        "title": "TrustedPublisherApproval",
+        "type": "object"
+      },
+      "TrustedPublisherOffer": {
+        "additionalProperties": false,
+        "properties": {
+          "approval": {
+            "pattern": "^[A-Za-z0-9_-]{32,100}$",
+            "title": "Approval",
+            "type": "string"
+          },
+          "authority": {
+            "const": "signed_controller_images_only",
+            "title": "Authority",
+            "type": "string"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "const": "stable",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "code": {
+            "pattern": "^[a-z][a-z0-9_]{0,95}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "contract": {
+            "const": 1,
+            "title": "Contract",
+            "type": "integer"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "image_repository": {
+            "anyOf": [
+              {
+                "const": "ghcr.io/ted-h-com/agentic-smart-home-controller",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Repository"
+          },
+          "key_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Sha256"
+          },
+          "message": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "const": "ted-h-com-agentic-smart-home",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher"
+          },
+          "repository": {
+            "anyOf": [
+              {
+                "const": "TED-H-com/agentic-smart-home",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repository"
+          },
+          "review_digest": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Digest"
+          },
+          "scope": {
+            "const": "controller_only_same_schema",
+            "title": "Scope",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "unavailable",
+              "approval_required",
+              "trusted",
+              "conflict"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contract",
+          "state",
+          "message",
+          "code",
+          "publisher",
+          "repository",
+          "channel",
+          "image_repository",
+          "key_sha256",
+          "review_digest",
+          "scope",
+          "authority",
+          "approval",
+          "expires_at"
+        ],
+        "title": "TrustedPublisherOffer",
+        "type": "object"
+      },
+      "TrustedPublisherStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "const": "signed_controller_images_only",
+            "title": "Authority",
+            "type": "string"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "const": "stable",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "code": {
+            "pattern": "^[a-z][a-z0-9_]{0,95}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "contract": {
+            "const": 1,
+            "title": "Contract",
+            "type": "integer"
+          },
+          "image_repository": {
+            "anyOf": [
+              {
+                "const": "ghcr.io/ted-h-com/agentic-smart-home-controller",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Repository"
+          },
+          "key_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Sha256"
+          },
+          "message": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "const": "ted-h-com-agentic-smart-home",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher"
+          },
+          "repository": {
+            "anyOf": [
+              {
+                "const": "TED-H-com/agentic-smart-home",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repository"
+          },
+          "review_digest": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Digest"
+          },
+          "scope": {
+            "const": "controller_only_same_schema",
+            "title": "Scope",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "unavailable",
+              "approval_required",
+              "trusted",
+              "conflict"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contract",
+          "state",
+          "message",
+          "code",
+          "publisher",
+          "repository",
+          "channel",
+          "image_repository",
+          "key_sha256",
+          "review_digest",
+          "scope",
+          "authority"
+        ],
+        "title": "TrustedPublisherStatus",
+        "type": "object"
+      },
       "Unlock": {
         "additionalProperties": false,
         "properties": {
@@ -7519,6 +7816,100 @@
           }
         },
         "summary": "Apply"
+      }
+    },
+    "/api/updates/publisher": {
+      "get": {
+        "operationId": "trusted_publisher_api_updates_publisher_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustedPublisherStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Trusted Publisher"
+      }
+    },
+    "/api/updates/publisher/approve": {
+      "post": {
+        "operationId": "publisher_approve_api_updates_publisher_approve_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustedPublisherApproval"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustedPublisherStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publisher Approve"
+      }
+    },
+    "/api/updates/publisher/offer": {
+      "post": {
+        "operationId": "publisher_offer_api_updates_publisher_offer_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustedPublisherOffer"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publisher Offer"
       }
     },
     "/api/updates/rollback": {

@@ -30,7 +30,7 @@ from .host_update import (
     secure,
 )
 from .manager import HostError, Manager, atomic
-from .publisher import TRUST, enroll, inspect, public_key
+from .publisher import TRUST, enroll, inspect, public_key, store_digest
 from .update_bootstrap import install_engine, tree_identity, trusted, version_layout
 from .updater import Updater, offline_check
 
@@ -349,7 +349,8 @@ class BootstrapOwner:
                         raise HostError("更新來源設定已變更，已停止更新。")
                     if PUBLISHER not in trust["publishers"]:
                         pin_review = inspect(PUBLISHER, IMAGE_REPOSITORY, payload.pem)
-                        enroll(PUBLISHER, IMAGE_REPOSITORY, payload.pem, pin_review["review_digest"], path=self.trust)
+                        enroll(PUBLISHER, IMAGE_REPOSITORY, payload.pem, pin_review["review_digest"], path=self.trust,
+                               expected_store_digest=store_digest(trust))
                     install_engine(payload.source)
                     version_layout(self.manager)
                     for name in value["summary"]["units"]:

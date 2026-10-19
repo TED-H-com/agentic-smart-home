@@ -514,3 +514,14 @@ def test_complete_backup_does_not_reverse_a_later_owner_rescue_shutdown(lab, mon
     execution_fixture(lab, monkeypatch)
     lab.manager.start = lambda: pytest.fail("a completed backup does not authorize reversing a later owner stop")
     assert lab.execute(recover=True)["state"] == "rolled_back"
+
+
+def test_deferred_os_configuration_is_reported_as_requiring_reboot(lab, monkeypatch):
+    approved(lab)
+    execution_fixture(lab, monkeypatch)
+    monkeypatch.setattr(lab, "_hook", lambda action, candidate, **kwargs:
+                        {"state": "applied", "reboot_required": True} if action == "apply" else {})
+    result = lab.execute()
+    assert result["state"] == "deployed"
+    assert "部分主機設定將在重新開機後生效" in result["message"]
+    assert lab.records()[result["candidate_digest"]]["reboot_required"] is True

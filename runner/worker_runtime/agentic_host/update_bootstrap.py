@@ -15,6 +15,7 @@ from .manager import HostError, atomic
 
 ENGINE = Path("/usr/lib/agentic-home-update")
 BUNDLES = Path("/opt/agentic-home-bundles")
+ACTIVE = Path("/opt/agentic-home")
 
 
 def trusted(path, *, directory=False):
@@ -39,6 +40,20 @@ def tree_identity(source):
     manifest = {name: hashlib.sha256(trusted(path).read_bytes()).hexdigest() for name, path in files.items()}
     digest = hashlib.sha256(json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     return digest, files, manifest
+
+
+def active_product(product):
+    """Resolve only the fixed updater-owned active link, never arbitrary links."""
+    product = Path(product)
+    if product != ACTIVE or not product.is_symlink() or product.lstat().st_uid != 0:
+        raise HostError("host_bootstrap_active_unowned")
+    trusted(product.parent, directory=True)
+    trusted(BUNDLES, directory=True)
+    target = product.readlink()
+    import re
+    if target.parent != BUNDLES or not re.fullmatch(r"[a-f0-9]{64}|bootstrap-[a-f0-9]{32}", target.name):
+        raise HostError("host_bootstrap_active_unowned")
+    return trusted(target, directory=True)
 
 
 def sync_directory(path):

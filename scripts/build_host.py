@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "host"))
 from agentic_host.artifacts import fetch, sha256  # noqa: E402
 from agentic_host.manager import validate_profile  # noqa: E402
+from agentic_host.publisher import validate_official_channel  # noqa: E402
 
 VERSION = "0.11.0"
 SKIP = {"__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", "test-results"}
@@ -93,7 +94,16 @@ def bundle_ignored(directory, names):
     return shutil.ignore_patterns(*SKIP, "*.pyc", "*.tsbuildinfo", "agentic-home.bundle")(directory, names)
 
 
+def validate_shipped_publisher(root=ROOT):
+    """Fail the build on a missing/mismatched media pin; never obtain one online."""
+    path = Path(root) / "host/official-update-channel.json"
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 16384:
+        raise ValueError("Official update channel metadata must be a bounded regular file")
+    return validate_official_channel(json.loads(path.read_text()))
+
+
 def bundle(destination):
+    validate_shipped_publisher(ROOT)
     from package import package_bridge, package_notifications, package_runner
     package_runner()
     package_notifications()
