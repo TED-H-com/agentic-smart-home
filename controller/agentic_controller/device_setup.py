@@ -1,4 +1,4 @@
-"""Owner-approved, bounded IPP discovery confirmation against Core 2026.10.1.
+"""Owner-approved, bounded IPP discovery confirmation against tested Core patches.
 
 The private frontend flow API is intentionally isolated here. Only an existing
 zeroconf_confirm step with an empty schema is supported; no arbitrary fields,
@@ -39,7 +39,7 @@ from .models import (
 from .response_durability import RESPONSE_GUARD
 
 KIND = "device_setup_v1"
-SUPPORTED_CORE = "2026.10.1"
+SUPPORTED_CORE = frozenset({"2026.10.1", "2026.10.2"})
 Hash = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 State = Literal["proposed", "preparing", "applying", "configured", "needs_reconcile", "blocked"]
 PRE_CONFIRMATION_PHASES = {"approved", "backup_prepared", "backup_completed"}
@@ -300,7 +300,8 @@ class DeviceSetups:
 
     async def current_flow(self, authority, candidate_id):
         config = await self.read(authority, "rest", "/config")
-        if not isinstance(config, dict) or config.get("version") != SUPPORTED_CORE:
+        if (not isinstance(config, dict) or not isinstance(config.get("version"), str)
+                or config["version"] not in SUPPORTED_CORE):
             raise HTTPException(409, "device_setup_core_unsupported")
         flows = await self.read(authority, "ws", "config_entries/flow/progress")
         if not isinstance(flows, list) or len(flows) > 256:
