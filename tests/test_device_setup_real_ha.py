@@ -1,7 +1,7 @@
-"""Real Core 2026.10.1 IPP flow/registry ABI; synthetic printer and backup.
+"""Exact Core 2026.10.1 / 2026.10.2 IPP ABI matrix; synthetic printer and backup.
 
-Run with pytest-disktmp and --real-ha. This test uses the locally available
-pinned Core image and never contacts an existing HA or physical device. The
+Run with pytest-disktmp and --real-ha. This test uses locally available pinned
+Core images and never contacts an existing HA or physical device. The
 test-only integration injects a ZeroconfServiceInfo through native flow init and
 serves binary IPP on container loopback. HA's IPP flow, aioipp parser, coordinator,
 config-entry API and registry are real and unpatched. Supervisor backup remains
@@ -11,8 +11,13 @@ Reviewed upstream: https://github.com/home-assistant/core/tree/2026.10.1/
 homeassistant/components/ipp and components/config/config_entries.py;
 helpers/service_info/zeroconf.py. The runtime test, not those references alone,
 establishes compatibility with the local image.
+
+Set AGENTIC_IPP_EVIDENCE_DIR to an isolated directory below ~/agent-work/tmp to
+preserve sanitized per-version results outside pytest's successful-temp cleanup.
+Unlisted versions receive no qualification from this matrix.
 """
 import asyncio
+import hashlib
 import json
 import os
 import secrets
@@ -30,7 +35,7 @@ from agentic_controller.models import utcnow
 from agentic_controller.store import Store
 from starlette.requests import Request
 
-IMAGE = "ghcr.io/home-assistant/home-assistant:2026.10.1"
+CORE_VERSIONS = ("2026.10.1", "2026.10.2")
 IDENTITY = "11111111-2222-4333-8444-555555555555"
 COUNTER = "/states/sensor.agentic_ipp_fixture_requests"
 
@@ -39,13 +44,15 @@ def docker(*args):
     return subprocess.run(["docker", *args], check=True, capture_output=True, text=True).stdout.strip()
 
 
-@pytest.fixture
+@pytest.fixture(params=CORE_VERSIONS, ids=lambda version: "core-" + version)
 def ipp_core_container(tmp_path, request):
     if not request.config.getoption("--real-ha"):
         pytest.skip("Use --real-ha for the isolated real Core IPP contract test")
     assert tmp_path.resolve().is_relative_to((Path.home() / "agent-work/tmp/pytest").resolve())
     # Deliberately no pull: test the pinned image explicitly provisioned locally.
-    image = json.loads(docker("image", "inspect", IMAGE))[0]
+    version = request.param
+    image_ref = "ghcr.io/home-assistant/home-assistant:" + version
+    image = json.loads(docker("image", "inspect", image_ref))[0]
     config = tmp_path / "ha-config"
     config.mkdir()
     shutil.copytree(Path(__file__).parent / "fixtures/agentic_ipp_fixture",
@@ -67,17 +74,43 @@ config:
 onboarding:
 agentic_ipp_fixture:
 """)
-    name = "agentic-ipp-contract-" + uuid.uuid4().hex[:12]
+    run_id = uuid.uuid4().hex
+    name = "agentic-ipp-contract-" + run_id[:12]
     try:
         docker("run", "-d", "--name", name, "--memory", "1536m", "--cpus", "2",
-               "-p", "127.0.0.1::8123", "-v", f"{config}:/config", IMAGE)
-        port = json.loads(docker("inspect", name))[0]["NetworkSettings"]["Ports"]["8123/tcp"][0]["HostPort"]
-        yield f"http://127.0.0.1:{port}", {"image": IMAGE, "image_id": image["Id"],
-                                          "repo_digests": image.get("RepoDigests", [])}
+               "-p", "127.0.0.1::8123", "-v", f"{config}:/config", image["Id"])
+        container = json.loads(docker("inspect", name))[0]
+        assert container["Image"] == image["Id"]
+        port = container["NetworkSettings"]["Ports"]["8123/tcp"][0]["HostPort"]
+        yield f"http://127.0.0.1:{port}", {"expected_core": version, "image": image_ref,
+            "image_id": container["Image"], "repo_digests": image.get("RepoDigests", []),
+            "run_id": run_id, "started_at": utcnow()}
     finally:
         subprocess.run(["docker", "exec", name, "chown", "-R", f"{os.getuid()}:{os.getgid()}", "/config"],
                        capture_output=True)
         subprocess.run(["docker", "rm", "-fv", name], capture_output=True)
+
+
+def preserve_evidence(tmp_path, report):
+    """Export only reviewed synthetic observations, never responses or auth."""
+    encoded = json.dumps(report, indent=2) + "\n"
+    (tmp_path / "real-ipp-contract-evidence.json").write_text(encoded)
+    if configured := os.environ.get("AGENTIC_IPP_EVIDENCE_DIR"):
+        destination = Path(configured).expanduser().resolve()
+        assert destination.is_relative_to((Path.home() / "agent-work/tmp").resolve()), (
+            "IPP evidence export must remain in isolated task disk storage")
+        destination.mkdir(parents=True, exist_ok=True)
+        target = destination / f"core-{report['core']}-{report['run_id']}.json"
+        # A new per-run receipt never overwrites earlier qualification evidence.
+        with target.open("x", encoding="utf-8") as output:
+            output.write(encoded)
+
+
+def evidence_source_hashes():
+    root = Path(__file__).parents[1]
+    sources = ("tests/test_device_setup_real_ha.py", "tests/fixtures/agentic_ipp_fixture/__init__.py",
+               "tests/fixtures/agentic_ipp_fixture/manifest.json", "controller/agentic_controller/device_setup.py")
+    return {source: hashlib.sha256((root / source).read_bytes()).hexdigest() for source in sources}
 
 
 async def owner_token(base):
@@ -147,7 +180,8 @@ async def test_real_core_ipp_confirmation_and_exact_registry_readback(ipp_core_c
 
     await ha.start()
     try:
-        assert (await ha.request("GET", "/config"))["version"] == "2026.10.1"
+        core_version = (await ha.request("GET", "/config"))["version"]
+        assert core_version == provenance["expected_core"]
         owner = (await ha.ws("auth/current_user"))["id"]
         assert await ha.owner(owner)
         store.set_setting("owner", owner)
@@ -238,17 +272,26 @@ async def test_real_core_ipp_confirmation_and_exact_registry_readback(ipp_core_c
         assert (tmp_path / "snapshots" / (proposal.id + ".sqlite3")).is_file()
         persisted = json.dumps(store.get(KIND, proposal.id)) + recovered.model_dump_json()
         assert token not in persisted and IDENTITY not in persisted and base not in persisted
-        # Task-local evidence only: never write test artifacts into the repo.
-        (tmp_path / "real-ipp-contract-evidence.json").write_text(json.dumps({
-            **provenance, "core": "2026.10.1", "flow": "ipp/zeroconf_confirm", "state": recovered.state,
+        # Preserve the actual run separately for every image, before successful
+        # pytest temp cleanup; no previous qualification is reused here.
+        preserve_evidence(tmp_path, {
+            **provenance, "core": core_version, "flow": "ipp/zeroconf_confirm", "state": recovered.state,
+            "assertions_completed_at": utcnow(), "result": "all_runtime_assertions_passed",
+            "source_sha256": evidence_source_hashes(),
             "device_count": recovered.device_count, "entity_count": recovered.entity_count,
             "available_entity_count": recovered.available_entity_count,
+            "confirmation_posts": len(ha.confirmations), "fixture_backups": len(ha.backups),
+            "ipp_attribute_requests": int(counter["state"]),
+            "rejected_printer_operations": counter["attributes"]["rejected_operations"],
+            "physical_verification": recovered.physical_verification,
+            "service_recreated_without_effect_replay": True,
             "real": ["Core owner check", "native flow progress/GET/POST result", "aioipp HTTP and binary decoding",
                      "native IPP coordinator", "exact device/entity/state readback", "persisted approval idempotency"],
             "fixtures": ["synthetic ZeroconfServiceInfo", "loopback IPP printer", "Supervisor backup response",
                          "outer HTTP session transport"],
-            "not_tested": ["physical printer", "LAN multicast discovery", "Supervisor backup", "HAOS", "live household"]
-        }, indent=2) + "\n")
+            "not_tested": ["physical printer", "LAN multicast discovery", "Supervisor backup", "HAOS", "live household",
+                           "full Core/process restart", "real Core lost-response recovery", "unlisted Core versions"]
+        })
     finally:
         for task in tasks:
             if not task.done():
