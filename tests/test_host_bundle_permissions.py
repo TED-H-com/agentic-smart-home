@@ -46,6 +46,7 @@ def test_bundle_public_modes_ignore_build_umask_without_chmod_cache(tmp_path, mo
         (source / name).write_text("{}\n")
     (source / "host/bases.lock.json").write_text(json.dumps({"haos": {"filename": "haos.xz"}}))
     (source / "host/network.lock.json").write_text(json.dumps({"tailscale": {"filename": "tailscale.tgz"}}))
+    (source / "host/official-update-channel.json").write_bytes((ROOT / "host/official-update-channel.json").read_bytes())
     cache = source / "build/cache"
     cache.mkdir(parents=True)
     for name in ("haos.xz", "tailscale.tgz"):
@@ -101,3 +102,30 @@ def test_public_bundle_refuses_links_and_special_entries(member_type):
     member.type = member_type
     with pytest.raises(ValueError, match="regular files and directories"):
         build_module().public_bundle_member(member)
+
+
+
+def test_media_build_validates_official_pin_before_any_artifact_fetch(tmp_path, monkeypatch):
+    build = build_module()
+    from agentic_host.manager import HostError
+    (tmp_path / "host").mkdir()
+    descriptor = tmp_path / "host/official-update-channel.json"
+    monkeypatch.setattr(build, "ROOT", tmp_path)
+    monkeypatch.setattr(build, "fetch", lambda *args: pytest.fail("must validate before fetching"))
+    with pytest.raises(ValueError, match="metadata"):
+        build.bundle(tmp_path / "never.tar")
+    value = json.loads((ROOT / "host/official-update-channel.json").read_text())
+    value["repository"] = "someone-else/fake"
+    descriptor.write_text(json.dumps(value))
+    with pytest.raises(HostError, match="official_publisher_metadata_invalid"):
+        build.bundle(tmp_path / "never.tar")
+    descriptor.unlink()
+    descriptor.symlink_to(ROOT / "host/official-update-channel.json")
+    with pytest.raises(ValueError, match="metadata"):
+        build.bundle(tmp_path / "never.tar")
+
+
+def test_unconfigured_official_media_does_not_invent_a_publisher():
+    value = build_module().validate_shipped_publisher(ROOT)
+    assert value["pin"] is None and value["image_repository"] is None
+    assert value["repository"] == "TED-H-com/agentic-smart-home"

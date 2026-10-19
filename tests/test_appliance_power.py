@@ -145,7 +145,12 @@ def test_installer_pins_network_before_desktop_packages(tmp_path, monkeypatch):
             raise DesktopReached
     monkeypatch.setattr(installer, "preflight", lambda *args: None)
     monkeypatch.setattr(installer, "verify_bundle", lambda *args: None)
-    monkeypatch.setattr(installer, "TARGET", installer.ROOT)
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / "BUNDLE.sha256.json").write_text(json.dumps({"host/official-update-channel.json": "fixture"}))
+    monkeypatch.setattr(installer, "ROOT", bundle)
+    monkeypatch.setattr(installer, "TARGET", bundle)
+    monkeypatch.setattr(installer, "install_official_default", lambda *args, **kwargs: None)
     monkeypatch.setattr(installer, "STATE", tmp_path)
     monkeypatch.setattr(installer, "atomic", lambda *args: None)
     monkeypatch.setattr(installer, "run", run)

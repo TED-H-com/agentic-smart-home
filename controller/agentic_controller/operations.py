@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 
 import aiohttp
 from fastapi import HTTPException, Request
-from pydantic import Field, StrictFloat, StrictInt, ValidationError
+from pydantic import Field, StrictFloat, StrictInt, ValidationError, field_validator, model_validator
 
 from .durability import client_session, durable
 from .ha_lan import HomeLanStatus, HostLanStatus, observe_home_lan
@@ -64,12 +64,65 @@ class UpdateApply(UpdateOffer):
     approval_id: Annotated[str, Field(pattern=r'^[A-Za-z0-9_-]{32,100}$')]
 
 
+class TrustedPublisherStatus(Strict):
+    contract: Literal[1]
+    state: Literal['unavailable', 'approval_required', 'trusted', 'conflict']
+    message: Annotated[str, Field(min_length=1, max_length=256)]
+    code: Annotated[str, Field(pattern=r'^[a-z][a-z0-9_]{0,95}$')]
+    publisher: Literal['ted-h-com-agentic-smart-home'] | None
+    repository: Literal['TED-H-com/agentic-smart-home'] | None
+    channel: Literal['stable'] | None
+    image_repository: Literal['ghcr.io/ted-h-com/agentic-smart-home-controller'] | None
+    key_sha256: HexDigest | None
+    review_digest: HexDigest | None
+    scope: Literal['controller_only_same_schema']
+    authority: Literal['signed_controller_images_only']
+
+    @field_validator('contract', mode='before')
+    @classmethod
+    def exact_contract(cls, value):
+        if type(value) is not int or value != 1:
+            raise ValueError('publisher_contract_invalid')
+        return value
+
+    @model_validator(mode='after')
+    def pin_required_for_trust(self):
+        if self.state in {'approval_required', 'trusted'} and any(value is None for value in (
+                self.publisher, self.repository, self.channel, self.image_repository, self.key_sha256, self.review_digest)):
+            raise ValueError('publisher_pin_required')
+        return self
+
+
+class TrustedPublisherOffer(TrustedPublisherStatus):
+    approval: Annotated[str, Field(pattern=r'^[A-Za-z0-9_-]{32,100}$')]
+    expires_at: StrictInt | StrictFloat
+
+
+class TrustedPublisherApproval(Strict):
+    review_digest: HexDigest
+    approval: Annotated[str, Field(pattern=r'^[A-Za-z0-9_-]{32,100}$')]
+
+
+def publisher_status(raw):
+    try:
+        return TrustedPublisherStatus.model_validate(raw).model_dump(mode='json')
+    except ValidationError:
+        raise HTTPException(503, '無法核對官方更新來源，請使用含官方更新來源憑證的受信任主機版本。') from None
+
+
+def unsupported_publisher_status():
+    return TrustedPublisherStatus(contract=1, state='unavailable',
+        code='official_publisher_host_unsupported', message='這台主機版本尚不支援設定官方更新來源，需取得含官方更新來源憑證的受信任主機版本。',
+        publisher=None, repository=None, channel=None, image_repository=None, key_sha256=None, review_digest=None,
+        scope='controller_only_same_schema', authority='signed_controller_images_only').model_dump(mode='json')
+
+
 async def broker_call(method, path, body=None, *, store):
     """Only trusted route code supplies a method/path; no configurable network target."""
-    allowed = (method == 'GET' and (path in {'/network', '/network/ha-lan', '/updates'} or
+    allowed = (method == 'GET' and (path in {'/network', '/network/ha-lan', '/updates', '/updates/publisher'} or
         re.fullmatch(r'/updates/[a-f0-9]{64}|/previews/[a-f0-9]{32}', path))) or (
         method == 'POST' and (re.fullmatch(r'/previews/[a-f0-9]{32}/revoke', path) or path in {'/network/preferences', '/network/login', '/network/revoke', '/previews',
-                                     '/updates/stage', '/updates/apply', '/updates/rollback-offer', '/updates/rollback'}))
+                                     '/updates/publisher/offer', '/updates/publisher/approve', '/updates/stage', '/updates/apply', '/updates/rollback-offer', '/updates/rollback'}))
     if not allowed:
         raise HTTPException(422, 'invalid_host_operation')
     try:
@@ -92,9 +145,9 @@ async def broker_call(method, path, body=None, *, store):
 
 
 class Operations:
-    def __init__(self, store, workers, *, host_mode=False):
+    def __init__(self, store, workers, *, host_mode=False, host_auth=None):
         self.store, self.workers, self.preview_lock = store, workers, asyncio.Lock()
-        self.host_mode = host_mode
+        self.host_mode, self.host_auth = host_mode, host_auth
 
     def owner_scope(self, request):
         return {**self.workers.authority(request=request), 'policy': None}
@@ -104,6 +157,55 @@ class Operations:
             authority['web_epoch'] != self.store.setting('hermes_web_epoch') or
             (authority.get('bridge_pairing_id') and not getattr(self.workers, 'bridge_valid', lambda _: False)(authority))):
             raise HTTPException(403, 'owner_authority_revoked')
+
+    def publisher_owner(self, request):
+        if not self.host_mode or getattr(request.state, 'bridge_identity', None):
+            raise HTTPException(403, '請從主機管理頁確認官方更新來源。')
+        authority = self.owner_scope(request)
+        self.publisher_guard(request, authority)
+        return authority
+
+    def publisher_guard(self, request, authority):
+        self.guard(authority)
+        if self.host_auth is None or not self.host_auth.verify(request):
+            raise HTTPException(403, '主機登入已變更，請重新登入並查看更新來源。')
+
+    async def publisher_offer(self, request):
+        authority = self.publisher_owner(request)
+        await durable(self.store)
+        self.publisher_guard(request, authority)
+        raw = await broker_call('POST', '/updates/publisher/offer', {}, store=self.store)
+        self.publisher_guard(request, authority)
+        try:
+            offer = TrustedPublisherOffer.model_validate(raw)
+        except ValidationError:
+            raise HTTPException(503, '無法核對官方更新來源，請稍後重新讀取。') from None
+        now = time.time()
+        if offer.state != 'approval_required' or not now < offer.expires_at <= now + 305:
+            raise HTTPException(409, '更新來源確認已過期，請重新查看。')
+        self.store.set_setting('trusted_publisher_offer', {
+            'approval_digest': digest(offer.approval), 'review_digest': offer.review_digest,
+            'expires_at': offer.expires_at, 'authority': authority,
+            'session_digest': digest(request.cookies.get('agentic_host', ''))})
+        await durable(self.store)
+        self.publisher_guard(request, authority)
+        return offer.model_dump(mode='json')
+
+    async def publisher_approve(self, body, request):
+        authority = self.publisher_owner(request)
+        record = self.store.setting('trusted_publisher_offer')
+        if (not record or record['approval_digest'] != digest(body.approval)
+                or record['review_digest'] != body.review_digest or record['expires_at'] <= time.time()
+                or record['session_digest'] != digest(request.cookies.get('agentic_host', ''))):
+            raise HTTPException(409, '更新來源確認已過期，請重新查看。')
+        self.publisher_guard(request, record['authority'])
+        await durable(self.store)
+        self.publisher_guard(request, authority)
+        self.publisher_guard(request, record['authority'])
+        result = publisher_status(await broker_call('POST', '/updates/publisher/approve', body.model_dump(), store=self.store))
+        self.store.set_setting('trusted_publisher_offer', None)
+        await durable(self.store)
+        return result
 
     async def preview(self, identifier, body, request):
         async with self.preview_lock:
@@ -178,8 +280,8 @@ class Operations:
         return await broker_call('GET', '/previews/' + identifier, store=self.store)
 
 
-def routes(app, store, workers, *, host_mode=False):
-    operations = Operations(store, workers, host_mode=host_mode)
+def routes(app, store, workers, *, host_mode=False, host_auth=None):
+    operations = Operations(store, workers, host_mode=host_mode, host_auth=host_auth)
 
     @app.get('/api/network')
     async def network():
@@ -212,6 +314,23 @@ def routes(app, store, workers, *, host_mode=False):
     @app.get('/api/updates')
     async def updates():
         return await broker_call('GET', '/updates', store=store)
+
+    @app.get('/api/updates/publisher', response_model=TrustedPublisherStatus)
+    async def trusted_publisher():
+        try:
+            return publisher_status(await broker_call('GET', '/updates/publisher', store=store))
+        except HTTPException as error:
+            if error.status_code in {404, 405}:
+                return unsupported_publisher_status()
+            raise
+
+    @app.post('/api/updates/publisher/offer', response_model=TrustedPublisherOffer)
+    async def publisher_offer(body: WorkerAction, request: Request):
+        return await operations.publisher_offer(request)
+
+    @app.post('/api/updates/publisher/approve', response_model=TrustedPublisherStatus)
+    async def publisher_approve(body: TrustedPublisherApproval, request: Request):
+        return await operations.publisher_approve(body, request)
 
     @app.post('/api/updates/stage', status_code=202)
     async def stage(body: UpdateStage):

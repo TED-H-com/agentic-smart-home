@@ -455,6 +455,12 @@ def test_update_source_commit_and_sync_are_plain_and_short():
         elif path == 'host/status':
             result = {'vm': 'running', 'provisioned': True, 'jobs': [], 'snapshots': [],
                       'profile': {'label': '家庭筆電', 'memory_mib': 4096, 'vcpus': 2}}
+        elif path == 'updates/publisher':
+            result = {'contract': 1, 'state': 'unavailable', 'code': 'official_publisher_pin_not_shipped',
+                      'message': '需取得含官方更新來源憑證的受信任主機版本。',
+                      'publisher': None, 'repository': None, 'channel': None, 'image_repository': None,
+                      'key_sha256': None, 'review_digest': None,
+                      'scope': 'controller_only_same_schema', 'authority': 'signed_controller_images_only'}
         elif path == 'updates':
             result = payload()
         else:
@@ -575,6 +581,12 @@ def test_update_record_error_is_a_sentence_and_the_code_stays_folded():
         elif path == 'host/status':
             result = {'vm': 'running', 'provisioned': True, 'jobs': [], 'snapshots': [],
                       'profile': {'label': '家庭筆電', 'memory_mib': 4096, 'vcpus': 2}}
+        elif path == 'updates/publisher':
+            result = {'contract': 1, 'state': 'unavailable', 'code': 'official_publisher_pin_not_shipped',
+                      'message': '需取得含官方更新來源憑證的受信任主機版本。',
+                      'publisher': None, 'repository': None, 'channel': None, 'image_repository': None,
+                      'key_sha256': None, 'review_digest': None,
+                      'scope': 'controller_only_same_schema', 'authority': 'signed_controller_images_only'}
         elif path == 'updates':
             result = {'trusted_publisher_configured': True, 'records': [record]}
         else:

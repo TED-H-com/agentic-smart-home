@@ -1,0 +1,14 @@
+{
+  "kind": "protocol_fixture",
+  "source": "tests/test_trusted_publisher_ui.py",
+  "viewports": [
+    390,
+    768,
+    1440
+  ],
+  "claim": "Owner reviews an exact fictional official publisher pin before trusting it",
+  "limits": [
+    "No real publisher trust or release; fingerprint is a fixture",
+    "No device or household access"
+  ]
+}
