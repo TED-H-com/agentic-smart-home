@@ -121,6 +121,15 @@ def _nm_identifiers(root):
     return identities
 
 
+def _identity_for_device(name, settings, identities):
+    interface = settings.get("set-name", name)
+    if interface in identities:
+        return identities[interface]
+    match = settings.get("match", {})
+    mac = match.get("macaddress", "").lower() if isinstance(match, dict) else ""
+    return identities.get("mac:" + mac)
+
+
 def network_overlay(config, renderer, identities=None):
     """Only overlay policy keys, leaving addresses, Wi-Fi secrets and routes intact."""
     if renderer not in {"networkd", "NetworkManager"}:
@@ -145,10 +154,11 @@ def network_overlay(config, renderer, identities=None):
                 device["dhcp-identifier"] = identity
             elif renderer == "NetworkManager" and settings.get("dhcp4"):
                 passthrough = settings.get("networkmanager", {}).get("passthrough", {})
-                interface = settings.get("set-name", name)
                 # Preserve explicitly configured arbitrary client IDs. Netplan NM's
                 # original default is MAC; pin it rather than inheriting new defaults.
-                identity = passthrough.get("ipv4.dhcp-client-id", identities.get(interface, "mac"))
+                identity = _identity_for_device(name, settings, identities)
+                if identity is None:
+                    identity = passthrough.get("ipv4.dhcp-client-id", "mac")
                 device.setdefault("networkmanager", {}).setdefault("passthrough", {})["ipv4.dhcp-client-id"] = identity
             result.setdefault(section, {})[name] = device
     return {"network": result}
@@ -173,6 +183,42 @@ def _safe_run(runner, *args):
         return runner(*args, check=False, timeout=10)
     except (OSError, HostError, subprocess.SubprocessError):
         return None
+
+
+def _nm_query(runner, field, *args):
+    # Terse nmcli normally escapes colons, which would change DHCP ID bytes.
+    return _safe_run(runner, "nmcli", "--escape", "no", "-g", field, *args)
+
+
+def _active_nm_identities(interfaces, runner):
+    active, warnings = {}, []
+    for interface in interfaces:
+        name = interface["name"]
+        connection = _nm_query(runner, "GENERAL.CON-UUID", "device", "show", name)
+        if connection is None or connection.returncode:
+            warnings.append("dhcp_identity_observation_unavailable:" + name)
+            continue
+        uuid = connection.stdout.strip()
+        if uuid in {"", "--"}:
+            continue  # Disconnected/unmanaged NIC has no active DHCP identity.
+        if not re.fullmatch(r"[0-9a-fA-F-]{36}", uuid):
+            warnings.append("dhcp_identity_observation_unavailable:" + name)
+            continue
+        client = _nm_query(runner, "ipv4.dhcp-client-id", "connection", "show", uuid)
+        if client is None or client.returncode:
+            warnings.append("dhcp_identity_observation_unavailable:" + name)
+            continue
+        identity = client.stdout.strip()
+        needs_pin = not identity
+        if needs_pin:
+            lease = _nm_query(runner, "DHCP4.OPTION", "device", "show", name)
+            if lease is None or lease.returncode:
+                warnings.append("dhcp_identity_observation_unavailable:" + name)
+                continue
+            option = re.search(r"(?m)^dhcp_client_identifier\s*=\s*([^\n]+)$", lease.stdout)
+            identity = option.group(1).strip() if option else "mac"
+        active[name] = {"uuid": uuid, "identity": identity, "needs_pin": needs_pin}
+    return active, warnings
 
 
 def reconcile_network(root=Path("/"), runner=run, runtime=True):
@@ -202,7 +248,19 @@ def reconcile_network(root=Path("/"), runner=run, runtime=True):
         if len(renderers) > 1:
             raise HostError("Mixed network renderers need explicit migration review")
         renderer = next(iter(renderers), "networkd")
+    interfaces = physical_ethernet(root)
+    active_nm, identity_warnings = ({}, [])
+    if renderer == "NetworkManager" and runtime:
+        # Capture the live identity before generation can replace NM keyfiles.
+        active_nm, identity_warnings = _active_nm_identities(interfaces, runner)
+        if identity_warnings:
+            return {"renderer": renderer, "changed": False, "reboot_required": False,
+                    "interfaces": [], "warnings": identity_warnings, "verified": False}
     identities = _nm_identifiers(root)
+    live_identities = {name: value["identity"] for name, value in active_nm.items()}
+    live_identities.update({"mac:" + interface["mac"]: active_nm[interface["name"]]["identity"]
+                            for interface in interfaces if interface["name"] in active_nm})
+    identities.update(live_identities)
     overlay = network_overlay(config, renderer, identities)
     # Reuse pinned identities on restart even if NM-generated files disappear.
     if previous.get("overlay"):
@@ -214,7 +272,8 @@ def reconcile_network(root=Path("/"), runner=run, runtime=True):
                         if "dhcp-identifier" in settings:
                             device["dhcp-identifier"] = settings["dhcp-identifier"]
                         client_id = settings.get("networkmanager", {}).get("passthrough", {}).get("ipv4.dhcp-client-id")
-                        if client_id is not None:
+                        live_id = _identity_for_device(name, config.get(section, {}).get(name, {}), live_identities)
+                        if client_id is not None and live_id is None:
                             device.setdefault("networkmanager", {}).setdefault("passthrough", {})["ipv4.dhcp-client-id"] = client_id
     policy = {"version": 1, "renderer": renderer, "overlay": overlay}
     managed_paths = [root / "etc/netplan" / OVERLAY,
@@ -265,12 +324,14 @@ def reconcile_network(root=Path("/"), runner=run, runtime=True):
         report["reboot_required"] = False
         report["warnings"].append("network_config_verification_failed")
         return report
-    for interface in physical_ethernet(root):
+    for interface in interfaces:
         name = interface["name"]
         before = _safe_run(runner, "ethtool", name)
         details = before.stdout if before is not None and before.returncode == 0 else ""
         supports = re.search(r"Supports Wake-on:\s*(\S+)", details)
         enabled = re.search(r"(?m)^\s*Wake-on:\s*(\S+)", details)
+        if before is None or before.returncode or not supports or not enabled:
+            report["warnings"].append("wol_observation_unavailable:" + name)
         capable = bool(supports and "g" in supports.group(1))
         active = bool(enabled and "g" in enabled.group(1))
         if capable and not active:
@@ -278,33 +339,25 @@ def reconcile_network(root=Path("/"), runner=run, runtime=True):
             after = _safe_run(runner, "ethtool", name)
             enabled = re.search(r"(?m)^\s*Wake-on:\s*(\S+)", after.stdout if after is not None else "")
             active = bool(after is not None and after.returncode == 0 and enabled and "g" in enabled.group(1))
-        if renderer == "NetworkManager":
-            connection = _safe_run(runner, "nmcli", "-g", "GENERAL.CON-UUID", "device", "show", name)
-            uuid = connection.stdout.strip() if connection is not None and connection.returncode == 0 else ""
-            if re.fullmatch(r"[0-9a-fA-F-]{36}", uuid):
-                client = _safe_run(runner, "nmcli", "-g", "ipv4.dhcp-client-id", "connection", "show", uuid)
-                client_id = client.stdout.strip() if client is not None and client.returncode == 0 else ""
-                if not client_id:
-                    lease = _safe_run(runner, "nmcli", "-g", "DHCP4.OPTION", "device", "show", name)
-                    option = re.search(r"(?m)^dhcp_client_identifier\s*=\s*([^\n]+)$",
-                                       lease.stdout if lease is not None and lease.returncode == 0 else "")
-                    client_id = option.group(1).strip() if option else "mac"
+        if name in active_nm:
+            current = active_nm[name]
+            uuid, client_id = current["uuid"], current["identity"]
+            if current["needs_pin"]:
+                saved = _safe_run(runner, "nmcli", "connection", "modify", "uuid", uuid,
+                                  "ipv4.dhcp-client-id", client_id)
+                readback = _nm_query(runner, "ipv4.dhcp-client-id", "connection", "show", uuid)
+                if (saved is None or saved.returncode or readback is None or readback.returncode or
+                        readback.stdout.strip() != client_id):
+                    report["warnings"].append("dhcp_identity_persistence_failed:" + name)
+            if capable:
+                setting = _nm_query(runner, "802-3-ethernet.wake-on-lan", "connection", "show", uuid)
+                if setting is None or setting.returncode or setting.stdout.strip() not in {"64", "magic", "64 (magic)"}:
                     saved = _safe_run(runner, "nmcli", "connection", "modify", "uuid", uuid,
-                                      "ipv4.dhcp-client-id", client_id)
-                    readback = _safe_run(runner, "nmcli", "-g", "ipv4.dhcp-client-id", "connection", "show", uuid)
+                                      "802-3-ethernet.wake-on-lan", "magic")
+                    readback = _nm_query(runner, "802-3-ethernet.wake-on-lan", "connection", "show", uuid)
                     if (saved is None or saved.returncode or readback is None or readback.returncode or
-                            readback.stdout.strip() != client_id):
-                        report["warnings"].append("dhcp_identity_persistence_failed:" + name)
-                if capable:
-                    setting = _safe_run(runner, "nmcli", "-g", "802-3-ethernet.wake-on-lan", "connection", "show", uuid)
-                    if setting is None or setting.returncode or setting.stdout.strip() not in {"64", "magic", "64 (magic)"}:
-                        saved = _safe_run(runner, "nmcli", "connection", "modify", "uuid", uuid,
-                                          "802-3-ethernet.wake-on-lan", "magic")
-                        readback = _safe_run(runner, "nmcli", "-g", "802-3-ethernet.wake-on-lan",
-                                             "connection", "show", uuid)
-                        if (saved is None or saved.returncode or readback is None or readback.returncode or
-                                readback.stdout.strip() not in {"64", "magic", "64 (magic)"}):
-                            report["warnings"].append("wol_connection_persistence_failed:" + name)
+                            readback.stdout.strip() not in {"64", "magic", "64 (magic)"}):
+                        report["warnings"].append("wol_connection_persistence_failed:" + name)
         interface.update(wol_supported=capable, wol_enabled=active)
         report["interfaces"].append(interface)
         if not active:
@@ -313,6 +366,7 @@ def reconcile_network(root=Path("/"), runner=run, runtime=True):
         report["warnings"].append("no_physical_ethernet_for_wol_verification")
     # Unsupported hardware is a truthful warning, not an installation failure.
     report["verified"] = not any(warning.startswith(("wol_readback_failed:",
+                                                     "wol_observation_unavailable:",
                                                      "wol_connection_persistence_failed:",
                                                      "dhcp_identity_persistence_failed:"))
                                  for warning in report["warnings"])

@@ -86,7 +86,14 @@ def reconcile_power(profile, root=Path("/"), runner=run, runtime=True):
     # daemon-reload does not reload logind.conf. HUP leaves the login session intact.
     if changed or not all(before["checks"][name] for name in LID_PROPERTIES):
         runner("systemctl", "kill", "-s", "HUP", "systemd-logind", timeout=10)
-    if desktop_changed:
+    compiled = root / "etc/dconf/db/local"
+    sources = (root / "etc/dconf/db/local.d/60-agentic-home",
+               root / "etc/dconf/db/local.d/locks/60-agentic-home")
+    needs_compile = profile.get("desktop") and (desktop_changed or not compiled.is_file() or
+                    any(path.stat().st_mtime_ns > compiled.stat().st_mtime_ns for path in sources))
+    # Retry compilation after an interrupted/failed update even when source files
+    # already match; otherwise a subsequent start could falsely declare convergence.
+    if needs_compile:
         runner("dconf", "update", timeout=15)
     report = verify_power(runner)
     for _ in range(4):
@@ -94,4 +101,4 @@ def reconcile_power(profile, root=Path("/"), runner=run, runtime=True):
             break
         time.sleep(0.1)
         report = verify_power(runner)
-    return {"applicable": True, "changed": changed or bool(missing), **report}
+    return {"applicable": True, "changed": changed or bool(missing) or bool(needs_compile), **report}

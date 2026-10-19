@@ -3,9 +3,9 @@
   "source_hashes": {
     "host/agentic_host/__init__.py": "431d15ea9e67cb35ea167c01beb956b20cb6c4bd0d4b54b4c45fb34f44dcc27c",
     "host/agentic_host/appliance.py": "aa791571bb63cd07c2039c878593e6709b0318926348963787b45e71b6c2a279",
-    "host/agentic_host/appliance_network.py": "3a737c5e6f0e991f50605824c19f4b9d22ddba6c7a446a13773bec440ccd4fac",
-    "host/agentic_host/appliance_power.py": "1cec2f94bd1e43b40ee598d8e31ea20d99698afb70f88500493e5062e05ad54c",
-    "host/agentic_host/appliance_status.py": "4563e451ae0126ced99a39e7b4904571f0cfb21de139e92b1be02d4d46731709",
+    "host/agentic_host/appliance_network.py": "0d0ef01731b9248cfc54d94746e07970be3bbff5cd11abefeaa8f88f614f957c",
+    "host/agentic_host/appliance_power.py": "f2a66e6985d2a70e61b6b0a581ee91a712aa5021ce13ac1ae07161055989f2d0",
+    "host/agentic_host/appliance_status.py": "701886e22a1b0caf3ea80ebfd6f351d1284550f6bc553912a34323ded72bc27b",
     "host/agentic_host/artifacts.py": "62ed70cc0cce036d13e70a7620abf25161340663aeb6eb8b666e7f6f80e58514",
     "host/agentic_host/bootstrap.py": "997280e33d104ba2768e1258b7f17dc6c8e402f0280e2a994cd3e9ec5085895b",
     "host/agentic_host/cli.py": "9cc528315fe2c058b21ebb5321abdba8620edc348d3735865a872a99defc2e1e",

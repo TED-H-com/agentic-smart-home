@@ -58,6 +58,9 @@ class Runner:
     def __call__(self, *args, **kwargs):
         assert kwargs == {"check": False, "timeout": 10}
         self.calls.append(args)
+        if args[0] == "nmcli" and "-g" in args:
+            assert args[1:3] == ("--escape", "no")
+            args = (args[0], *args[3:])
         code, output = 0, ""
         if args[:2] == ("netplan", "generate"):
             code = int(self.generate_fails)
@@ -81,6 +84,19 @@ class Runner:
         else:
             pytest.fail(f"Unexpected OS command: {args}")
         return SimpleNamespace(returncode=code, stdout=output)
+
+
+def test_missing_ethtool_observation_cannot_be_verified_as_unsupported(tmp_path):
+    networkd(tmp_path)
+    ethernet(tmp_path)
+    runner = Runner()
+    def unavailable(*args, **kwargs):
+        if args[0] == "ethtool":
+            return SimpleNamespace(returncode=1, stdout="")
+        return runner(*args, **kwargs)
+    report = reconcile_network(tmp_path, runner=unavailable)
+    assert not report["verified"]
+    assert "wol_observation_unavailable:enp1s0" in report["warnings"]
 
 
 def test_networkd_dhcp_duid_pinned_before_desktop_changes_default(tmp_path):
@@ -118,6 +134,7 @@ def test_existing_nm_pins_client_identity_and_sets_magic_without_reconnect(tmp_p
     keyfile = write(tmp_path, "run/NetworkManager/system-connections/netplan-enp1s0.nmconnection",
                     "[connection]\ninterface-name=enp1s0\n[ipv4]\ndhcp-client-id=01:00:11:22:33:44:55\n")
     runner = Runner()
+    runner.client_id = "01:00:11:22:33:44:55"
     report = reconcile_network(tmp_path, runner=runner)
     assert report["renderer"] == "NetworkManager"
     assert report["verified"]
@@ -299,3 +316,67 @@ def test_nm_ethernet_explicit_magic_passthrough_even_without_dhcp(dhcp4):
     assert setting["wakeonlan"] is True
     assert setting["networkmanager"]["passthrough"]["ethernet.wake-on-lan"] == "64"
     assert ("ipv4.dhcp-client-id" in setting["networkmanager"]["passthrough"]) == dhcp4
+
+
+@pytest.mark.parametrize("configured_id", ["custom-client-id", ""])
+def test_active_nm_identity_precedes_generation_and_stale_policy(tmp_path, configured_id):
+    networkd(tmp_path)
+    ethernet(tmp_path)
+    write(tmp_path, "usr/lib/netplan/00-network-manager-all.yaml", "network:\n  renderer: NetworkManager\n")
+    # Simulate an earlier policy and stale saved keyfile choosing MAC.
+    reconcile_network(tmp_path, runtime=False)
+    write(tmp_path, "run/NetworkManager/system-connections/stale.nmconnection",
+          "[connection]\ninterface-name=enp1s0\n[ipv4]\ndhcp-client-id=stale-id\n")
+    runner = Runner()
+    runner.client_id = configured_id
+    expected = configured_id or "01:00:11:22:33:44:55"
+    result = reconcile_network(tmp_path, runner=runner)
+    assert result["verified"]
+    overlay = yaml.safe_load((tmp_path / "etc/netplan" / OVERLAY).read_text())
+    policy = json.loads((tmp_path / POLICY).read_text())
+    assert overlay["network"]["ethernets"]["enp1s0"]["networkmanager"]["passthrough"]["ipv4.dhcp-client-id"] == expected
+    assert policy["overlay"] == overlay
+    generate_index = next(index for index, call in enumerate(runner.calls) if call[:2] == ("netplan", "generate"))
+    assert any("ipv4.dhcp-client-id" in call for call in runner.calls[:generate_index])
+    if not configured_id:
+        assert any("DHCP4.OPTION" in call for call in runner.calls[:generate_index])
+    assert runner.client_id == expected
+
+
+@pytest.mark.parametrize("field", ["GENERAL.CON-UUID", "ipv4.dhcp-client-id", "DHCP4.OPTION"])
+def test_unknown_active_nm_identity_fails_before_policy_mutation(tmp_path, field):
+    networkd(tmp_path)
+    ethernet(tmp_path)
+    write(tmp_path, "usr/lib/netplan/00-network-manager-all.yaml", "network:\n  renderer: NetworkManager\n")
+    runner = Runner()
+    runner.client_id = ""
+    def unavailable(*args, **kwargs):
+        if field in args:
+            return SimpleNamespace(returncode=1, stdout="")
+        return runner(*args, **kwargs)
+    result = reconcile_network(tmp_path, runner=unavailable)
+    assert not result["verified"]
+    assert result["warnings"] == ["dhcp_identity_observation_unavailable:enp1s0"]
+    assert not (tmp_path / "etc/netplan" / OVERLAY).exists()
+    assert not (tmp_path / POLICY).exists()
+    assert not any(call[:2] == ("netplan", "generate") for call in runner.calls)
+
+
+def test_nm_opaque_netplan_id_matches_active_interface_by_mac(tmp_path):
+    ethernet(tmp_path)
+    write(tmp_path, "etc/netplan/50-network.yaml", """network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    wired-network:
+      match: {macaddress: '00:11:22:33:44:55'}
+      dhcp4: true
+""")
+    runner = Runner()
+    runner.client_id = "01:aa:bb:cc:dd:ee:ff"
+    result = reconcile_network(tmp_path, runner=runner)
+    assert result["verified"]
+    overlay = yaml.safe_load((tmp_path / "etc/netplan" / OVERLAY).read_text())
+    passthrough = overlay["network"]["ethernets"]["wired-network"]["networkmanager"]["passthrough"]
+    assert passthrough["ipv4.dhcp-client-id"] == runner.client_id
+    assert "\\" not in passthrough["ipv4.dhcp-client-id"]

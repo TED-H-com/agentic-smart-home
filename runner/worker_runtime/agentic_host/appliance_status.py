@@ -1,12 +1,16 @@
 """Bounded host observations; no network or power configuration effects."""
 import fcntl
+import hashlib
 import ipaddress
 import json
 import os
+import platform
 import re
 import tempfile
 import time
 from pathlib import Path
+
+from . import VERSION
 
 MDNS_HOSTNAME = "castle-agentic-home.local"
 ROUTER_HINT = "在路由器的「DHCP 位址保留」中，選這台主機並保留目前位址。"
@@ -94,7 +98,8 @@ def observe_network(root, run, *, sysfs=Path("/sys/class/net")):
     try:
         root.mkdir(parents=True, exist_ok=True)
         with (root / "appliance-network-observation.lock").open("a") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
+            # Another slow status observer must not hold up the rescue request.
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             current = _network(run, sysfs)
             if current is None:
                 return value
@@ -112,6 +117,8 @@ def observe_network(root, run, *, sysfs=Path("/sys/class/net")):
             if record != previous:
                 _save(path, record)
             value.update(state="observed", **record, address_changed=bool(record["previous_address"]))
+    except BlockingIOError:
+        value["observation_pending"] = True
     except OSError:
         value["persistence_unavailable"] = True
         # Do not show a cached IP as a current measurement when persistence fails.
@@ -161,6 +168,12 @@ def appliance_status(root, profile, run):
                    "checks": result["checks"]}
         except Exception:
             pass
-    return {"network": observe_network(root, run), "lid": lid,
-            "suspend": _suspend(run), "observed_at": time.time(),
-            "source": "installed Host broker; live system utilities", "target": "outer Linux host"}
+    value = {"network": observe_network(root, run), "lid": lid,
+             "suspend": _suspend(run), "observed_at": time.time(), "contract": 1,
+             "source": "installed Host broker; live system utilities", "target": "outer Linux host",
+             "source_location": "/etc/agentic-home/profile.json; system bus; sysfs; system journal",
+             "method": "bounded read-only OS utility queries",
+             "versions": {"product": VERSION, "kernel": platform.release()},
+             "limitations": "OS observations do not prove physical lid, router lease or wake behavior."}
+    value["digest"] = hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    return value

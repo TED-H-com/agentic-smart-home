@@ -44,6 +44,8 @@ def main():
     assert Path("/etc/dconf/db/local").is_file()
     results["dconf"] = "compiled_defaults_and_locks"
     results["scope"] = "isolated_ubuntu_utilities_no_physical_hardware"
+    results["versions"] = subprocess.check_output(
+        ["dpkg-query", "-W", "netplan.io", "systemd", "network-manager", "dconf-cli"], text=True).strip()
     print(json.dumps(results))
 
 

@@ -16,8 +16,9 @@ PROFILE = {"appliance_lid": True, "desktop": True}
 
 
 class System:
-    def __init__(self, broken=False):
+    def __init__(self, broken=False, root=None):
         self.calls, self.masked, self.loaded, self.broken = [], set(), False, broken
+        self.root = root
 
     def __call__(self, *args, **kwargs):
         self.calls.append(args)
@@ -29,11 +30,13 @@ class System:
             self.masked.update(args[2:])
         if args == ("systemctl", "kill", "-s", "HUP", "systemd-logind") and not self.broken:
             self.loaded = True
+        if args == ("dconf", "update") and self.root:
+            (self.root / "etc/dconf/db/local").write_text("compiled fixture")
         return SimpleNamespace(returncode=0, stdout="")
 
 
 def test_power_reconcile_live_verification_and_idempotence(tmp_path):
-    system = System()
+    system = System(root=tmp_path)
     result = reconcile_power(PROFILE, tmp_path, system)
     assert result["verified"] and result["changed"]
     assert set(result["checks"]) == set(LID_PROPERTIES + SLEEP_TARGETS)
@@ -73,6 +76,24 @@ def test_power_failed_reload_does_not_claim_verification(tmp_path, monkeypatch):
     result = reconcile_power(PROFILE, tmp_path, System(broken=True))
     assert not result["verified"]
     assert not result["checks"]["HandleLidSwitch"]
+
+
+def test_dconf_compilation_failure_retries_after_sources_already_written(tmp_path):
+    system = System(root=tmp_path)
+    def interrupted(*args, **kwargs):
+        if args == ("dconf", "update"):
+            raise HostError("compilation interrupted")
+        return system(*args, **kwargs)
+    with pytest.raises(HostError, match="compilation interrupted"):
+        reconcile_power(PROFILE, tmp_path, interrupted)
+    assert (tmp_path / "etc/dconf/db/local.d/60-agentic-home").is_file()
+    assert not (tmp_path / "etc/dconf/db/local").exists()
+    system.calls.clear()
+    assert reconcile_power(PROFILE, tmp_path, system)["verified"]
+    assert ("dconf", "update") in system.calls
+    system.calls.clear()
+    assert not reconcile_power(PROFILE, tmp_path, system)["changed"]
+    assert ("dconf", "update") not in system.calls
 
 
 @pytest.mark.parametrize("failed", ["network", "power", None])

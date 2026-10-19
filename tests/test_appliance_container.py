@@ -23,6 +23,6 @@ def test_real_ubuntu_appliance_generators(request, tmp_path):
         assert result.returncode == 0, result.stdout + result.stderr
         report = json.loads(result.stdout.strip().splitlines()[-1])
         assert report["dconf"] == "compiled_defaults_and_locks"
-        assert set(report) == {"networkd", "NetworkManager", "dconf", "scope"}
+        assert set(report) == {"networkd", "NetworkManager", "dconf", "scope", "versions"}
     finally:
         subprocess.run(["docker", "rm", "-fv", name], capture_output=True, timeout=30)

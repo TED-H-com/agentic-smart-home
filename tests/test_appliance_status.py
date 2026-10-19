@@ -1,4 +1,5 @@
 """OS utility fixtures; no live host or LAN effects."""
+import fcntl
 import json
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -50,7 +51,11 @@ def test_address_changes_persist_without_poll_write_races(tmp_path):
     commands.address = "192.168.1.112"
     with ThreadPoolExecutor(max_workers=4) as pool:
         values = list(pool.map(lambda _: observe_network(state, commands, sysfs=sysfs), range(12)))
-    assert all(value["address_changed"] and value["previous_address"] == "192.168.1.113" for value in values)
+    observed = [value for value in values if value["state"] == "observed"]
+    assert observed and all(value["address_changed"] and value["previous_address"] == "192.168.1.113"
+                            for value in observed)
+    assert all(value["address"] is None and value["observation_pending"]
+               for value in values if value["state"] != "observed")
     path = state / "appliance-network-observation.json"
     before = path.stat().st_mtime_ns
     assert observe_network(state, commands, sysfs=sysfs)["address_changed"]
@@ -60,6 +65,20 @@ def test_address_changes_persist_without_poll_write_races(tmp_path):
     missing = observe_network(state, commands, sysfs=sysfs)
     assert missing["state"] == "unavailable" and missing["address"] is None
     assert json.loads(path.read_text())["address"] == "192.168.1.112"
+
+
+def test_contended_observation_does_not_wait_or_publish_stale_address(tmp_path):
+    commands = Commands()
+    sysfs = physical(tmp_path)
+    state = tmp_path / "state"
+    observe_network(state, commands, sysfs=sysfs)
+    commands.calls.clear()
+    with (state / "appliance-network-observation.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        value = observe_network(state, commands, sysfs=sysfs)
+    assert value["state"] == "unavailable" and value["address"] is None
+    assert value["observation_pending"]
+    assert commands.calls == [("hostnamectl", "--static")]
 
 
 def test_only_physical_default_route_is_reported_and_hostname_is_observed(tmp_path):
