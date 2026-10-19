@@ -1,7 +1,7 @@
-"""Owner-approved, bounded IPP discovery confirmation against tested Core patches.
+"""Owner-approved native empty confirmations against tested Core patches.
 
 The private frontend flow API is intentionally isolated here. Only an existing
-zeroconf_confirm step with an empty schema is supported; no arbitrary fields,
+allowlisted step with an empty schema is supported; no arbitrary fields,
 URLs, credentials, new flows, model approvals, or device-control grants exist.
 Upstream references: Core tag 2026.10.1 components/ipp/config_flow.py,
 components/ipp/entity.py, components/config/config_entries.py and
@@ -19,8 +19,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import HTTPException, Request
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, model_validator
 
+from .device_setup_adapters import ADAPTERS
 from .discovery import DiscoveryAuthority, identifier, project, snapshot
 from .ha import HAError
 from .models import (
@@ -51,7 +52,7 @@ class SendGuardRejected(HTTPException):
 
 class DeviceSetupCreate(Strict):
     candidate_id: DiscoveryIdentifier
-    integration_domain: Literal["ipp"] = "ipp"
+    integration_domain: Literal["ipp", "shelly"] = "ipp"
 
 
 class DeviceSetupApprove(Strict):
@@ -98,7 +99,9 @@ class DeviceSetupList(Strict):
 
 
 class SetupRecord(Strict):
-    version: Literal[1] = 1
+    # Read legacy IPP v1; all newly written records use v2. Old binaries cannot
+    # parse v2 and their existing for_write fence blocks new effects.
+    version: Literal[1, 2] = 1
     id: PreviewId
     binding: Hash
     # Access to history survives credential replacement for the same freshly
@@ -123,10 +126,19 @@ class SetupRecord(Strict):
     entry_id: DiscoveryIdentifier | None = None
     phase: str = "proposal"
 
+    @model_validator(mode="after")
+    def qualified_adapter(self):
+        adapter = ADAPTERS.get(self.candidate.integration_domain)
+        if adapter is None or (self.version == 1 and adapter.domain != "ipp"):
+            raise ValueError("device_setup_record_adapter_mismatch")
+        step = getattr(self.candidate, "confirmation_step", None)
+        if step is not None and step != adapter.step:
+            raise ValueError("device_setup_record_adapter_mismatch")
+        return self
+
 
 MESSAGES = {
-    "proposed": "確認後會先備份 Home Assistant 設定，再接入這台 IPP 印表機；不會列印或授予 AI 控制權限。",
-    "preparing": "正在建立並核對 Home Assistant 設定備份；完成後才會接入印表機。",
+    "preparing": "正在建立並核對 Home Assistant 設定備份；完成後才會接入設備。",
     "applying": "接入請求已準備送出，正在核對 Home Assistant 的結果。",
     "configured": "已核對這份接入請求對應的 HA 整合。下方顯示最新設備狀態；尚未驗證實體功能。",
     "needs_reconcile": "上次操作結果尚未確認；只會重新讀取結果，不會重送接入請求。",
@@ -232,7 +244,7 @@ class DeviceSetups:
         return record
 
     def save(self, record, **updates):
-        value = record.model_copy(update={"revision": record.revision + 1, "updated_at": utcnow(), **updates})
+        value = record.model_copy(update={"version": 2, "revision": record.revision + 1, "updated_at": utcnow(), **updates})
         # Validation catches unknown or oversized upstream identifiers before persistence.
         value = SetupRecord.model_validate(value.model_dump())
         self.store.put(KIND, value.model_dump())
@@ -262,12 +274,12 @@ class DeviceSetups:
         if pending:
             days = min(days, pending["context_days"])
         cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
-        redacted = "IPP 印表機（名稱已依保存設定移除）"
         for raw in self.store.list(KIND, 100000):
             try:
                 record = SetupRecord.model_validate(raw)
             except ValidationError:
                 continue
+            redacted = ADAPTERS[record.candidate.integration_domain].label + "（名稱已依保存設定移除）"
             if record.created_at < cutoff and record.candidate.title != redacted:
                 self.save(record, candidate=record.candidate.model_copy(update={"title": redacted}))
 
@@ -283,6 +295,9 @@ class DeviceSetups:
         return (scope, key, payload), row[1] if row else None
 
     def commit_receipt(self, record, receipt):
+        # A storage-only migration never changes approval identity or resends
+        # work. It also marks new candidate fields as incompatible with v1.
+        record = SetupRecord.model_validate(record.model_copy(update={"version": 2}).model_dump())
         with self.store.transaction() as tx:
             tx.execute("INSERT INTO records VALUES (?,?,?,?,?) ON CONFLICT(kind,id) DO UPDATE "
                 "SET body=excluded.body,updated=excluded.updated", (KIND, record.id,
@@ -298,7 +313,8 @@ class DeviceSetups:
         self.guard(authority)
         return result
 
-    async def current_flow(self, authority, candidate_id):
+    async def current_flow(self, authority, candidate_id, domain="ipp"):
+        adapter = ADAPTERS[domain]
         config = await self.read(authority, "rest", "/config")
         if (not isinstance(config, dict) or not isinstance(config.get("version"), str)
                 or config["version"] not in SUPPORTED_CORE):
@@ -311,28 +327,33 @@ class DeviceSetups:
             raise HTTPException(409, "device_setup_candidate_changed")
         flow = matches[0]
         context = flow.get("context")
-        if (flow.get("handler") != "ipp" or flow.get("step_id") != "zeroconf_confirm"
+        if (flow.get("handler") != adapter.domain or flow.get("step_id") != adapter.step
                 or not isinstance(context, dict) or context.get("source") != "zeroconf"):
             raise HTTPException(409, "device_setup_flow_unsupported")
-        unique_id = context.get("unique_id")
-        if not isinstance(unique_id, str) or not 1 <= len(unique_id) <= 256:
-            raise HTTPException(409, "device_setup_identity_unavailable")
+        try:
+            identity = adapter.identity(context.get("unique_id"))
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from None
         if len(canonical(flow)) > 32768:
             raise HTTPException(409, "device_setup_flow_contract_changed")
-        # This GET invokes the step with None. The pinned IPP confirmation step
-        # only returns its form; never GET arbitrary handlers or advance steps.
+        # GET invokes the step with None. Only the exact allowlisted native
+        # confirmation may be read; other steps can have effects even on GET.
         form = await self.read(authority, "rest", "/config/config_entries/flow/" + identifier(candidate_id))
         if (not isinstance(form, dict) or form.get("type") != "form" or form.get("flow_id") != candidate_id
-                or form.get("handler") != "ipp" or form.get("step_id") != "zeroconf_confirm"
+                or form.get("handler") != adapter.domain or form.get("step_id") != adapter.step
                 or form.get("data_schema") != [] or form.get("errors") != {} or len(canonical(form)) > 32768):
             raise HTTPException(409, "device_setup_flow_unsupported")
+        try:
+            adapter.validate_model(form)
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from None
         await authority.check_owner()
         self.guard(authority)
         try:
             candidate = DiscoveryCandidate.model_validate(project("ha_discovery", flow))
         except (ValueError, TypeError) as exc:
             raise HTTPException(409, "device_setup_flow_contract_changed") from exc
-        return candidate, self.private_hash(flow), self.private_hash(form), self.private_hash(["ipp", unique_id])
+        return candidate, self.private_hash(flow), self.private_hash(form), self.private_hash(identity)
 
     async def entries(self, authority):
         rows = await self.read(authority, "ws", "config_entries/get")
@@ -347,7 +368,8 @@ class DeviceSetups:
         return rows
 
     async def exact(self, authority, record):
-        _, flow_hash, form_hash, identity_hash = await self.current_flow(authority, record.candidate.id)
+        _, flow_hash, form_hash, identity_hash = await self.current_flow(authority, record.candidate.id,
+                                                                       record.candidate.integration_domain)
         if (flow_hash, form_hash, identity_hash) != (record.flow_digest, record.form_digest, record.identity_digest):
             raise HTTPException(409, "device_setup_candidate_changed")
 
@@ -356,7 +378,9 @@ class DeviceSetups:
             "state", "reason_code", "created_at", "updated_at", "expires_at", "backup_id"}),
             can_approve=record.state == "proposed" and time.time() < record.expires_at
                 and (binding is None or record.binding == binding),
-            can_reconcile=record.state in {"needs_reconcile", "configured"}, message=MESSAGES[record.state])
+            can_reconcile=record.state in {"needs_reconcile", "configured"},
+            message=ADAPTERS[record.candidate.integration_domain].proposal_message if record.state == "proposed"
+                else MESSAGES[record.state])
         if binding is not None and record.binding != binding and record.state == "proposed":
             result.reason_code = "device_setup_credentials_changed"
             result.message = "Home Assistant 登入授權已更新；請重新預覽接入提案，舊批准不會沿用。"
@@ -368,7 +392,8 @@ class DeviceSetups:
         receipt, previous = self.receipt(request, binding, "create", body)
         if previous:
             return self.view(self.record(binding, previous, home_binding), binding)
-        candidate, flow_hash, form_hash, identity_hash = await self.current_flow(authority, body.candidate_id)
+        candidate, flow_hash, form_hash, identity_hash = await self.current_flow(authority, body.candidate_id,
+                                                                               body.integration_domain)
         entries = await self.entries(authority)
         await authority.check_owner()
         self.guard(authority)
@@ -392,7 +417,7 @@ class DeviceSetups:
             return (row.phase == "registration_readback" and row.entry_id is not None
                     and row.entry_id not in current_entries and row.candidate.id != candidate.id)
         # An uncertain earlier attempt must not be bypassed using a new key or
-        # a rediscovered flow ID. IPP's stable private identity binds both.
+        # a rediscovered flow ID. Domain-bound stable private identity binds both.
         existing = next((row for row in records if row.identity_digest == identity_hash and
             row.state != "blocked" and not previously_completed_and_removed(row)
             and (row.state != "proposed" or row.expires_at > time.time())), None)
@@ -410,6 +435,8 @@ class DeviceSetups:
             flow_digest=flow_hash, form_digest=form_hash, identity_digest=identity_hash,
             baseline_entry_ids=sorted(row["entry_id"] for row in entries), created_at=now, updated_at=now,
             expires_at=time.time() + 600)
+        adapter = ADAPTERS[candidate.integration_domain]
+        proposal["version"] = adapter.record_version
         record = SetupRecord(**proposal, proposal_digest=digest(proposal))
         self.commit_receipt(record, receipt)
         return self.view(record, binding)
@@ -461,6 +488,7 @@ class DeviceSetups:
 
     async def _execute(self, authority, record):
         mutated = False
+        adapter = ADAPTERS[record.candidate.integration_domain]
         async with self.writer:
             def local_guard():
                 self.write_guard(authority)
@@ -485,7 +513,7 @@ class DeviceSetups:
                 record = self.save(record, phase="backup_prepared")
                 await self.store.durable()
                 await send_guard()
-                backup = await self.ha.backup("Agentic Home IPP " + record.id[:12], send_guard=send_guard)
+                backup = await self.ha.backup("Agentic Home " + adapter.backup_label + " " + record.id[:12], send_guard=send_guard)
                 # A usable Supervisor partial HA backup has been read back by
                 # HomeAssistant.backup. This is not a host/full-system restore.
                 backup_id = identifier(backup.get("id"))
@@ -506,10 +534,10 @@ class DeviceSetups:
                 result = await self.ha.request("POST", "/config/config_entries/flow/" + record.candidate.id,
                                                {}, send_guard=send_guard)
                 if (not isinstance(result, dict) or result.get("type") != "create_entry"
-                        or result.get("flow_id") != record.candidate.id or result.get("handler") != "ipp"):
+                        or result.get("flow_id") != record.candidate.id or result.get("handler") != adapter.domain):
                     raise ValueError("unconfirmed_response")
                 entry = result.get("result")
-                if (not isinstance(entry, dict) or entry.get("domain") != "ipp"
+                if (not isinstance(entry, dict) or entry.get("domain") != adapter.domain
                         or entry.get("source") != "zeroconf"):
                     raise ValueError("unconfirmed_entry")
                 entry_id = identifier(entry.get("entry_id"))
@@ -541,13 +569,14 @@ class DeviceSetups:
             await self.store.durable()
 
     async def reconcile_record(self, authority, record):
+        adapter = ADAPTERS[record.candidate.integration_domain]
         if record.phase in PRE_CONFIRMATION_PHASES and record.entry_id is None:
             await authority.check_owner()
             self.guard(authority)
             return self.save(record, state="blocked", reason_code="device_setup_interrupted")
         entries = await self.entries(authority)
         selected = next((row for row in entries if row.get("entry_id") == record.entry_id
-                         and row.get("domain") == "ipp" and row.get("source") == "zeroconf"), None) if record.entry_id else None
+                         and row.get("domain") == adapter.domain and row.get("source") == "zeroconf"), None) if record.entry_id else None
         if not record.entry_id and record.phase in {"confirmation_prepared", "confirmation_acknowledged"}:
             devices = await self.read(authority, "ws", "config/device_registry/list")
             if not isinstance(devices, list) or len(devices) > 1000:
@@ -559,13 +588,20 @@ class DeviceSetups:
                 ids = device.get("identifiers", [])
                 if not isinstance(ids, list):
                     raise HTTPException(503, "device_setup_source_incomplete")
-                if any(isinstance(value, list) and len(value) == 2 and value[0] == "ipp"
-                       and self.private_hash(value) == record.identity_digest for value in ids):
+                matches_identity = False
+                for value in ids:
+                    if isinstance(value, list) and len(value) == 2 and value[0] == adapter.domain:
+                        try:
+                            identity = adapter.identity(value[1])
+                        except ValueError:
+                            continue
+                        matches_identity |= self.private_hash(identity) == record.identity_digest
+                if matches_identity:
                     associated = device.get("config_entries")
                     if not isinstance(associated, list):
                         raise HTTPException(503, "device_setup_source_incomplete")
                     matches.update(row["entry_id"] for row in entries if row["entry_id"] in associated
-                        and row["entry_id"] not in record.baseline_entry_ids and row.get("domain") == "ipp"
+                        and row["entry_id"] not in record.baseline_entry_ids and row.get("domain") == adapter.domain
                         and row.get("source") == "zeroconf")
             if len(matches) == 1:
                 selected = next(row for row in entries if row["entry_id"] in matches)
@@ -609,7 +645,7 @@ class DeviceSetups:
                 raise HTTPException(409, "device_setup_revision_changed")
             sources = {item.id: item for item in observed.sources}
             selected = next((item for item in observed.integrations if item.id == record.entry_id
-                             and item.domain == "ipp"), None)
+                             and item.domain == record.candidate.integration_domain), None)
             devices = [item.model_copy(update={"integration_ids": [record.entry_id]}) for item in observed.devices
                        if selected and record.entry_id in item.integration_ids]
             complete = selected is not None and sources["ha_devices"].state == "ok" and not sources["ha_devices"].truncated
