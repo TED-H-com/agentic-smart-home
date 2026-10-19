@@ -132,6 +132,10 @@ def test_share_pins_exact_operation_keeps_draft_and_retries_same_message(setup_h
     assert posts[0][0]['device_setup_id'] == 'b' * 32
     assert 'discover_devices' not in posts[0][0] and 'discover_environment' not in posts[0][0]
     expect(page.get_by_label('對話訊息', exact=True)).to_have_value('尚未送出的草稿')
+    page.get_by_role('button', name='送出訊息', exact=True).click()
+    expect(page.get_by_label('對話訊息', exact=True)).to_have_value('')
+    assert 'device_setup_id' not in sent_messages(state)[-1]
+    assert setup_posts(state) == []
 
 
 def test_older_assistant_reply_keeps_saved_progress_and_composer_available(setup_history):

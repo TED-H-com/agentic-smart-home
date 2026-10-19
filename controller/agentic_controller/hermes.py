@@ -38,6 +38,7 @@ NEXT_STEP = {
     "needs_reauth": "登入已失效，請重新登入原帳號後再送出。",
     "session_busy": "智能管家正在處理另一則訊息，請等它完成後再送出。",
     "session_expired": "這段對話已到期，請開始新對話。",
+    "scope_mismatch": "這段對話的使用權限已變更，請開始新對話。",
     "expired": "這段對話已到期，請開始新對話。",
     "rate_limited": "供應商暫時限制請求，請稍後再送出同一則訊息。",
     "provider_unavailable": "模型服務暫時無法連線，請稍後再試。",
