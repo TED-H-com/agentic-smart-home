@@ -104,11 +104,13 @@ python3 ./download-0.11.0.py --directory ./agentic-home-download
 ## 從另一台電腦使用
 
 ```bash
-ssh -L 8099:127.0.0.1:8099 -L 8123:127.0.0.1:8123 your-user@your-host
+ssh -L 8099:127.0.0.1:8099 -L 8123:127.0.0.1:8123 your-user@castle-agentic-home.local
 sudo agentic-home access-key
 ```
 
 瀏覽器開 `http://localhost:8099`；家庭是 `http://localhost:8123`。這兩個主機入口只聽本機，也可以在 **設定 → 主機維護** 登入 Tailscale 後使用相同 SSH tunnel。若已啟用有線家庭接入且讀回 HAOS 的 LAN 位址，同網段手機可另外開啟 HA 原生 LAN 網址並登入；外層管理中心不會因此公開到 LAN。接法與回復步驟見 [家庭區網接入](docs/HA_LAN.md)。
+
+新安裝的區網名稱是 `castle-agentic-home.local`（mDNS）；既有主機保留原名稱，請看主機維護的「區網名稱」。目前位址、位址變更與合蓋運作檢查也會顯示在主機維護。要固定目前位址，在路由器的「DHCP 位址保留」中選這台主機並保留即可。網路、合蓋設定與既有安裝的正式更新限制見 [主機運作與網路](docs/APPLIANCE_POWER_NETWORK.md)。
 
 ## 已有 Ubuntu 24.04
 

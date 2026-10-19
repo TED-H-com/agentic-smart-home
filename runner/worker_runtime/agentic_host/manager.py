@@ -210,6 +210,7 @@ class Manager:
         return {"controller_update": {"ingress_bridge_contract": INGRESS_BRIDGE_CONTRACT}}
 
     def status(self):
+        from .appliance_status import appliance_status
         from .bootstrap import InitialSetup
 
         state = self.state()
@@ -237,6 +238,7 @@ class Manager:
                 "provisioned": bool(state.get("complete")), "restore_pending": state.get("restore_pending"),
                 "bootstrap": InitialSetup(self).status(), "compatibility": self.compatibility(),
                 "root_cow": self.root_cow.status(),
+                "appliance": appliance_status(self.root, None, self.run),
                 **self.bridge_contract()}
 
     def refresh_forwarding(self):

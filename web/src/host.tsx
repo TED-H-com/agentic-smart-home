@@ -2,6 +2,7 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import {api,haPath,requestKey,session} from './api';
 import {names,plainError} from './labels';
 import {MaintenanceSettings} from './maintenance';
+import {ApplianceStatus} from './appliance';
 import {Confirm,Notice,timestamp} from './ui';
 
 type Fault={text:string;code?:string};
@@ -59,6 +60,7 @@ export function HostPanel({onConnected,onAgent,appStatus}:{onConnected:()=>void;
       {diagnosis&&<div className="notice" role="status"><p>{diagnosis.findings.length?diagnosis.findings.join(' '):'主機與家庭都有回應。'}</p></div>}
       <details><summary>更多</summary><p className="vm-spec">{status?.profile?`${status.profile.memory_mib/1024} GB 記憶體 · ${status.profile.vcpus} vCPU`:'讀取配置中…'}</p><p>設備可依 IP 加入。自動探索需要連通家庭區網，可在「家庭區網接入」選擇有線網路。</p><p className="helper-text">遠端使用請同時轉送 8099 與 8123。</p>{haConnected&&(editToken?tokenForm:<button className="text-button" type="button" onClick={()=>setEditToken(true)}>更新授權</button>)}</details>
     </section>
+    <ApplianceStatus value={status?.appliance} unavailable={unavailable}/>
     {!haConnected&&<section className="settings-section"><h2>連接你的家庭</h2><ol className="connect-steps"><li><a href={haPath()} target="_blank" rel="noreferrer">開啟 Home Assistant</a>，建立家庭帳號。</li><li>到 <a href={haPath('/profile/security')} target="_blank" rel="noreferrer">個人資料 → 安全性</a> 建立權杖。</li><li>貼到下方並連接。</li></ol><p className="helper-text">權杖由主機保存，不傳給 AI。</p>{tokenForm}</section>}
     <section className="settings-section host-agent"><div><h2>問問主機狀況</h2></div><div>{!providerReady||runnerUnavailable?<div className="host-agent-login">{runnerUnavailable?<span>等待 AI 帳號恢復連線…</span>:<><span>尚未登入 AI 帳號。</span><button type="button" className="text-button" onClick={onAgent}>登入 AI 帳號 →</button></>}</div>:<form onSubmit={async e=>{e.preventDefault();setBusy('ask');setError(null);try{const result=await api('host/ask',{message:question,provider});setAnswer(result);sessionStorage.setItem('agentic-host-task',result.id);setQuestion('')}catch(e){setError(plainError(e))}finally{setBusy('')}}}><label>想問什麼？<textarea rows={3} value={question} onChange={e=>setQuestion(e.target.value)} required maxLength={5000} placeholder="例如：家庭為什麼沒有啟動？"/></label><div className="row-actions"><select value={provider} onChange={e=>{setProvider(e.target.value);setProviderChosen(true)}} aria-label="AI 帳號">{providers.filter((p:any)=>p.status==='connected').map((p:any)=><option key={p.provider} value={p.provider}>{names[p.provider]||'AI 帳號'}</option>)}</select><button disabled={!!busy||answer?.state==='planning'||!question.trim()||appStatus?.paused}>{busy==='ask'?'送出中…':'送出'}</button></div></form>}
       {answer?.state==='planning'&&<div className="notice" role="status">正在讀取主機狀況…<button className="text-button" type="button" onClick={()=>api(`host/tasks/${answer.id}/cancel`,{}).catch(e=>setError(plainError(e)))}>取消查詢</button></div>}
