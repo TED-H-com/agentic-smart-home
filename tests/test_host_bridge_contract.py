@@ -84,20 +84,40 @@ async def test_refused_failed_or_malformed_fast_proof_never_uses_legacy_fallback
 async def test_fast_and_legacy_proof_share_the_existing_total_deadline(broker, store, ha, monkeypatch, legacy):
     calls, replies = broker
     entered, release = asyncio.Event(), asyncio.Event()
+    deadlines, budget = [], object()
+    real_timeout = asyncio.timeout
+
+    def controlled_timeout(delay):
+        if delay is not budget:
+            return real_timeout(delay)
+        scope = real_timeout(None)
+        deadlines.append(scope)
+        return scope
+
+    async def absent():
+        assert len(deadlines) == 1
+        return web.json_response({"detail": "Unknown route"}, status=404)
 
     async def blocked():
         entered.set()
+        assert len(deadlines) == 1
+        # Expire the actual shared cancellation scope only once the Unix
+        # request arrived. CI scheduling need not fit two requests in 50 ms.
+        deadlines[0].reschedule(asyncio.get_running_loop().time())
         await release.wait()
         return web.json_response(PROOF)
 
     if legacy:
-        replies["/bridge-contract"] = (404, {"detail": "Unknown route"})
+        replies["/bridge-contract"] = absent
     replies["/status" if legacy else "/bridge-contract"] = blocked
-    monkeypatch.setattr(bridge_module, "HOST_PROOF_TIMEOUT", .05)
+    assert bridge_module.HOST_PROOF_TIMEOUT == 5
+    monkeypatch.setattr(bridge_module, "HOST_PROOF_TIMEOUT", budget)
+    monkeypatch.setattr(asyncio, "timeout", controlled_timeout)
     bridge = create_app(store=store, ha=ha, host_mode=True).state.ingress_bridge
     try:
         with pytest.raises(HTTPException, match="bridge_host_unavailable"):
-            await bridge.require_host()
+            await asyncio.wait_for(bridge.require_host(), timeout=5)
+        assert len(deadlines) == 1 and deadlines[0].expired()
         assert entered.is_set() and not bridge.host_current()
         assert calls == [("GET", "/bridge-contract")] + ([("GET", "/status")] if legacy else [])
     finally:
