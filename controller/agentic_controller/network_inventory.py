@@ -50,7 +50,8 @@ LIMITATIONS = ["觀察列不等於實體設備；不同來源不會依 IP、MAC 
                "只能看到選定網段的回應與鄰居快取；VLAN、休眠、Zigbee、Thread 與雲端設備可能缺席。",
                "盤點與接入建議不授予控制權限，也不代表實體功能已驗證。",
                "觀察超過 24 小時後停止提供接入建議；原始匯入檔案不會保存。"]
-METADATA_KEYS = {"manufacturer", "model", "server", "service_type", "usn"}
+METADATA_KEYS = {"manufacturer", "model", "server", "service_type", "usn", "vendor"}
+RULE_ADAPTER_VERSION = 2
 
 
 class InventoryRecord(Strict):
@@ -208,12 +209,27 @@ def imported_rows(body):
         raise HTTPException(422, "inventory_import_invalid") from None
 
 
+# Fixed recognition reviewed against the pinned Core 2026.10.2 manifests:
+# https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/ipp/manifest.json
+# https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/synology_dsm/manifest.json
+# https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/matter/manifest.json
+# These are service clues, never HA config-flow readiness or physical identity.
+IPP_STEP = "這只是 IPP 網路線索，可能來自 CUPS 列印代理；先在 HA 核對實際印表機。只有 HA 已發現並驗證的確認流程才能在管家中提案接入；不代表已加入或已測試列印。"
+MATTER_STEP = "這只是 Matter 可配對服務線索，不代表已加入 HA。請在 HA 原生 Matter／手機 Companion 流程確認設備並輸入配對碼；若已在其他平台使用，先依該平台開啟分享配對。"
+SYNOLOGY = ("synology", "synology_dsm", "Synology DSM",
+    "這只是 Synology DSM 網路線索；請在 HA 原生 Synology DSM 流程確認 NAS 並登入。帳密與雙重驗證碼只在 HA 輸入，不傳給管家；尚未確認接入或可用。")
+SYNOLOGY_SSDP_TYPE = "urn:schemas-upnp-org:device:Basic:1"
 FINGERPRINTS = (
     ("_hue._tcp", "hue", "Philips Hue", "在 HA 新增 Hue，並依提示按下橋接器上的連線按鈕。"),
     ("_googlecast._tcp", "cast", "Google Cast", "在 HA 新增 Google Cast；這不會匯入整個 Google Home 帳號。"),
     ("_esphomelib._tcp", "esphome", "ESPHome", "在 HA 新增 ESPHome；如要求加密金鑰，請在 HA 本機設定。"),
     ("_hap._tcp", "homekit_controller", "HomeKit Device", "在 HA 新增 HomeKit Device；配對碼與已配對狀態請在 HA 確認。"),
     ("_shelly._tcp", "shelly", "Shelly", "在 HA 新增 Shelly，並確認設備與 HA 的網路可互通。"),
+    ("_ipp._tcp", "ipp", "IPP 列印服務", IPP_STEP),
+    ("_ipps._tcp", "ipp", "IPP 列印服務", IPP_STEP),
+    # _matter._tcp is an operational advertisement. It does not establish a
+    # commissionable device, HA fabric membership, or a pending device flow.
+    ("_matterc._udp", "matter", "Matter 可配對服務", MATTER_STEP),
 )
 
 
@@ -236,6 +252,24 @@ def recommendations(observations, sources):
         confidence, reason = "hint", "匯入清單的服務欄位；尚未驗證設備回應。"
         if fingerprint and row.source_id == "lan_mdns":
             confidence, reason = "service_match", f"mDNS 回應宣告 {matched_service}；仍需由 HA 完成配對與驗證。"
+            if fingerprint[1] == "ipp":
+                reason = f"mDNS 回應宣告 {matched_service} 列印服務；可能是 CUPS 代理，尚未確認印表機身分。"
+            elif fingerprint[1] == "matter":
+                reason = "mDNS 回應宣告 _matterc._udp 可配對服務；不是設備身分、配對成功或已加入 HA 的證明。"
+        if fingerprint is None:
+            if (row.source_id == "lan_mdns" and "_http._tcp" in services and
+                    row.metadata.get("vendor", "").lower() == "synology"):
+                fingerprint, confidence = SYNOLOGY, "service_match"
+                reason = "mDNS 的 _http._tcp 與 vendor 宣告符合 Synology DSM 探索規則；仍需由 HA 驗證 NAS 並登入。"
+            elif (row.source_id in {"lan_ssdp", "router_import"} and SYNOLOGY_SSDP_TYPE in row.services
+                    and row.metadata.get("manufacturer", "").lower() == "synology"):
+                # Current Host does not fetch SSDP LOCATION/XML manufacturer.
+                # Never promote a generic Basic:1 advertisement or SERVER name.
+                fingerprint = SYNOLOGY
+                reason = "清單的 Basic:1 服務與 Synology 廠商欄位符合探索線索；未讀取或驗證 NAS 的原生設備描述。"
+            elif row.source_id == "router_import" and row.metadata.get("manufacturer", "").lower() == "synology":
+                fingerprint = SYNOLOGY
+                reason = "匯入清單的廠商欄位標示 Synology；尚未驗證服務回應或 NAS 身分。"
         if fingerprint is None:
             server = row.metadata.get("server", "").lower()
             hints = " ".join([row.name or "", row.metadata.get("manufacturer", ""), row.metadata.get("model", "")]).lower()
@@ -326,7 +360,7 @@ class NetworkInventory:
             recommendation_expiry = expires + [
                 (datetime.fromisoformat(row.source_updated_at) + timedelta(hours=24)).isoformat()
                 for row in rows if row.id in suggested_ids and row.source_updated_at]
-            payload = {"rule_adapter_version": 1, "sources": [source.model_dump() for source in projected_sources],
+            payload = {"rule_adapter_version": RULE_ADAPTER_VERSION, "sources": [source.model_dump() for source in projected_sources],
                        "observations": [row.model_dump() for row in rows],
                        "recommendations": [item.model_dump() for item in suggested]}
             return InventorySnapshot(revision=record.revision if record else 0,
@@ -444,6 +478,13 @@ class NetworkInventory:
                         if row.source_updated_at:
                             row.source_updated_at = timestamp(row.source_updated_at)
                         row.metadata = {key: value for key, value in row.metadata.items() if key in METADATA_KEYS}
+                        # Host projects a fixed vendor classification, never
+                        # arbitrary TXT fields/suffixes or credentials.
+                        if "vendor" in row.metadata:
+                            if row.source_id == "lan_mdns" and row.metadata["vendor"].lower() == "synology":
+                                row.metadata["vendor"] = "synology"
+                            else:
+                                row.metadata.pop("vendor")
                     for source in result.sources:
                         rows = [row for row in result.observations if row.source_id == source.id]
                         if len(rows) > 256 or (source.state == "unavailable" and rows):

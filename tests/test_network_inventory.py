@@ -274,7 +274,8 @@ async def test_inventory_host_faults_do_not_replace_existing_import(inventory_sy
 @pytest.mark.parametrize("service,name,domain", [("_hue._tcp", "Lamp", "hue"), ("_googlecast._tcp", "TV", "cast"),
     ("_esphomelib._tcp", "Board", "esphome"), ("_hap._tcp", "Switch", "homekit_controller"),
     ("_hap._udp", "Thread Border Router", "homekit_controller"), ("_shelly._tcp", "Relay", "shelly"),
-    ("_http._tcp", "shelly-plug", "shelly")])
+    ("_http._tcp", "shelly-plug", "shelly"), ("_ipp._tcp", "Office queue", "ipp"),
+    ("_ipps._tcp", "Secure queue", "ipp"), ("_matterc._udp", "Pairing service", "matter")])
 async def test_inventory_reviewed_mdns_fingerprints_use_actual_service_without_identity_claim(inventory_system, monkeypatch, service, name, domain):
     async def broker(*args, **kwargs):
         result = collection()
@@ -286,6 +287,142 @@ async def test_inventory_reviewed_mdns_fingerprints_use_actual_service_without_i
     assert recommendation["integration_domain"] == domain and recommendation["confidence"] == "service_match"
     assert service in recommendation["reason"]
     assert recommendation["documentation_url"] == f"https://www.home-assistant.io/integrations/{domain}/"
+
+
+@pytest.mark.parametrize("service,domain", [("_IPP._TCP.LOCAL.", "ipp"), ("_ipps._tcp.local.", "ipp"),
+    ("_matterc._udp.local.", "matter")])
+async def test_inventory_import_service_declarations_remain_hints(inventory_system, service, domain):
+    content = json.dumps([{"name": "Imported service", "services": [service]}])
+    assert (await post(inventory_system, body={"format": "json", "label": "Router", "content": content})).status_code == 200
+    result = await view(inventory_system)
+    suggestion = result["recommendations"][0]
+    assert suggestion["integration_domain"] == domain and suggestion["confidence"] == "hint"
+    assert "尚未驗證設備回應" in suggestion["reason"]
+    assert result["observations"][0]["reachability"] == "unknown"
+
+
+@pytest.mark.parametrize("service,metadata,source,expected", [
+    ("_http._tcp.local.", {"vendor": "synology"}, "lan_mdns", "service_match"),
+    ("_http._tcp.local.", {"vendor": "SYNOLOGY"}, "lan_mdns", "service_match"),
+    ("urn:schemas-upnp-org:device:Basic:1", {"manufacturer": "Synology"}, "lan_ssdp", "hint"),
+    ("_http._tcp.local.", {}, "lan_mdns", None),
+    ("_http._tcp.local.", {"manufacturer": "Synology"}, "lan_mdns", None),
+    ("_smb._tcp.local.", {"vendor": "synology"}, "lan_mdns", None),
+    ("urn:schemas-upnp-org:device:Basic:1", {"server": "Synology NAS"}, "lan_ssdp", None),
+    ("urn:schemas-upnp-org:device:Basic:1", {"manufacturer": "Other"}, "lan_ssdp", None),
+    ("urn:schemas-upnp-org:device:Basic:2", {"manufacturer": "Synology"}, "lan_ssdp", None),
+    ("urn:schemas-synology-com:device:NAS:1", {"manufacturer": "Synology"}, "lan_ssdp", None),
+])
+async def test_inventory_synology_requires_exact_reviewed_predicates(inventory_system, monkeypatch,
+        service, metadata, source, expected):
+    async def broker(*args, **kwargs):
+        result = collection()
+        result["observations"][1].update(source_id=source, services=[service], name="Synology NAS", metadata=metadata)
+        return result
+    monkeypatch.setattr(network_inventory, "broker_call", broker)
+    assert (await post(inventory_system, "scan", {"scope_id": "fixture_lan"}, "scan")).status_code == 200
+    result = await view(inventory_system)
+    if expected is None:
+        assert result["recommendations"] == []
+    else:
+        suggestion = result["recommendations"][0]
+        assert suggestion["integration_domain"] == "synology_dsm" and suggestion["confidence"] == expected
+        assert "HA 原生" in suggestion["next_step"] and "不傳給管家" in suggestion["next_step"]
+        assert "尚未確認接入" in suggestion["next_step"]
+    if source == "lan_mdns" and "vendor" in metadata:
+        row = next(row for row in result["observations"] if row["source_id"] == "lan_mdns")
+        assert row["metadata"].get("vendor") == "synology"
+
+
+@pytest.mark.parametrize("metadata", [{"vendor": "synology token=private-secret"}, {"vendor": "other"},
+    {"vendor": "synology", "password": "private-secret", "txt": "private-secret", "mac_address": "aa:bb:cc:dd:ee:ff"}])
+async def test_inventory_persists_only_fixed_vendor_marker_not_raw_txt(inventory_system, monkeypatch, metadata):
+    async def broker(*args, **kwargs):
+        result = collection()
+        result["observations"][1].update(services=["_http._tcp.local."], name="NAS", metadata=metadata)
+        return result
+    monkeypatch.setattr(network_inventory, "broker_call", broker)
+    await post(inventory_system, "scan", {"scope_id": "fixture_lan"}, "scan")
+    result = await view(inventory_system)
+    raw = canonical(result) + canonical(inventory_system[3].list(KIND))
+    assert "private-secret" not in raw and "aa:bb:cc:dd:ee:ff" not in raw
+    projected = next(row["metadata"] for row in result["observations"] if row["source_id"] == "lan_mdns")
+    assert projected == ({"vendor": "synology"} if metadata["vendor"] == "synology" else {})
+    assert bool(result["recommendations"]) == (metadata["vendor"] == "synology")
+
+
+async def test_inventory_imported_synology_manufacturer_is_only_unverified_hint(inventory_system):
+    content = json.dumps([{"name": "NAS", "manufacturer": "Synology", "password": "private-password"},
+        {"name": "Synology NAS"}, {"name": "Other", "manufacturer": "Synology-compatible"}])
+    await post(inventory_system, body={"format": "json", "label": "Router", "content": content})
+    result = await view(inventory_system)
+    assert len(result["observations"]) == 3 and len(result["recommendations"]) == 1
+    recommendation = result["recommendations"][0]
+    assert recommendation["integration_domain"] == "synology_dsm" and recommendation["confidence"] == "hint"
+    assert "廠商欄位標示 Synology" in recommendation["reason"]
+    assert "private-password" not in canonical(result)
+
+
+@pytest.mark.parametrize("name,services", [("Matter device", ["_matter._tcp.local."]),
+    ("Matter controller", ["_matterd._udp.local."]), ("Matter printer", ["_matterc._tcp.local."]),
+    ("Thread Border Router", ["_meshcop._udp.local."]), ("Home Connect dishwasher", []),
+    ("Bosch washing machine", ["_http._tcp.local."]), ("Synology DSM", ["_http._tcp.local."]),
+    ("Office IPP printer", ["_printer._tcp.local."])])
+async def test_inventory_does_not_guess_new_device_types_from_names_or_nearby_services(inventory_system, name, services):
+    await post(inventory_system, body={"format": "json", "label": "Router", "content":
+        json.dumps([{"name": name, "services": services}])})
+    result = await view(inventory_system)
+    assert len(result["observations"]) == 1 and result["recommendations"] == []
+
+
+async def test_inventory_printer_proxy_and_matter_hints_never_merge_or_grant_setup_authority(inventory_system, monkeypatch):
+    _, client, ha, store, calls = inventory_system
+    ha.results["/config"]["version"] = "2026.10.2"
+    async def broker(*args, **kwargs):
+        calls.append((args, kwargs))
+        result = collection()
+        original = result["observations"][1]
+        result["observations"] = [{**original, "id": f"service_{index}", "name": "Same shared endpoint",
+                                  "services": [service], "metadata": {}}
+            for index, service in enumerate(("_ipp._tcp.local.", "_ipps._tcp.local.", "_matterc._udp.local."))]
+        return result
+    monkeypatch.setattr(network_inventory, "broker_call", broker)
+    before = store.setting("policy")
+    await post(inventory_system, "scan", {"scope_id": "fixture_lan"}, "scan")
+    result = await view(inventory_system)
+    assert len(result["observations"]) == len(result["recommendations"]) == 3
+    assert len({row["address"] for row in result["observations"]}) == 1
+    assert len({row["id"] for row in result["recommendations"]}) == 3
+    for row in result["recommendations"]:
+        if row["integration_domain"] == "ipp":
+            assert "CUPS" in row["next_step"] and "只有 HA 已發現並驗證" in row["next_step"]
+            assert "尚未確認印表機身分" in row["reason"]
+            response = await client.post("/api/device-setups", json={"candidate_id": row["id"]},
+                                         headers={"Idempotency-Key": row["id"]})
+            assert response.status_code == 409  # A LAN clue is not a native HA discovered flow.
+            assert response.json()["detail"] == "device_setup_candidate_changed"
+        else:
+            assert "不代表已加入 HA" in row["next_step"] and "配對碼" in row["next_step"]
+    assert len(calls) == 1 and store.setting("policy") == before
+    assert not any(store.list(kind) for kind in ("device_setup_v1", "proposal", "approval", "conversation"))
+    assert set(ha.calls) <= {"/config", "config_entries/flow/progress", "config_entries/get"}
+
+
+async def test_inventory_new_rules_expire_and_version_digest_without_rewriting_records(inventory_system):
+    content = json.dumps([{"name": "Printer", "services": ["_ipp._tcp"]},
+        {"name": "NAS", "manufacturer": "Synology"}, {"name": "Pairing", "services": ["_matterc._udp"]}])
+    await post(inventory_system, body={"format": "json", "label": "Router", "content": content})
+    before = inventory_system[3].list(KIND)[0]
+    result = await view(inventory_system)
+    assert len(result["recommendations"]) == 3 and before["version"] == 1
+    assert result["content_digest"] == digest({"rule_adapter_version": 2,
+        **{key: result[key] for key in ("sources", "observations", "recommendations")}})
+    assert inventory_system[3].list(KIND)[0] == before
+    old = (datetime.now(UTC) - timedelta(hours=25)).isoformat()
+    for row in before["observations"]:
+        row["source_updated_at"] = old
+    inventory_system[3].put(KIND, before)
+    assert (await view(inventory_system))["recommendations"] == []
 
 
 async def test_inventory_account_hint_unknown_devices_and_old_source_timestamp(inventory_system):
