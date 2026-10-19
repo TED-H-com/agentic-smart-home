@@ -674,7 +674,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         coordinator.worker_manager.runners = {"host": runner, "haos": inner_runner}
         hermes_routes(app, coordinator, store)
         worker_routes(app, coordinator.worker_manager)
-        app.state.operations = operation_routes(app, store, coordinator.worker_manager, host_mode=host_mode)
+        app.state.operations = operation_routes(app, store, coordinator.worker_manager, host_mode=host_mode, host_auth=host_session)
         gateway_routes(app, gateway, store, gateway.runners, controller_id)
         notifications = NotificationManager(store, ha, gateway, controller_id)
         notification_routes(app, notifications)

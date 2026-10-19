@@ -33,7 +33,11 @@ def ui_page():
 
 
 def common(path):
-    return {'deployment': {'mode': 'host', 'authenticated': True},
+    return {'updates/publisher': {'contract': 1, 'state': 'unavailable', 'code': 'official_publisher_pin_not_shipped',
+             'message': '需取得含官方更新來源憑證的受信任主機版本。', 'publisher': None, 'repository': None,
+             'channel': None, 'image_repository': None, 'key_sha256': None, 'review_digest': None,
+             'scope': 'controller_only_same_schema', 'authority': 'signed_controller_images_only'},
+            'deployment': {'mode': 'host', 'authenticated': True},
             'session': {'principal': 'host-owner', 'csrf': 'fixture-csrf'},
             'status': {'ha': {'status': 'connected', 'location_name': '家庭測試環境'}, 'runner': {'protocol': 1, 'providers': []}, 'version': 'fixture', 'paused': False},
             'tasks': {'tasks': []},
