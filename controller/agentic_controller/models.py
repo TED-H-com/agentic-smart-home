@@ -85,29 +85,6 @@ class DiscoveryChatCandidate(DiscoveryCandidate):
     next_step: Annotated[str, Field(max_length=160)]
 
 
-class ConversationDiscovery(Strict):
-    """Bounded observations shared for one explicitly requested chat turn."""
-    contract_version: Literal[1] = 1
-    state: Literal["consent_required", "ready", "unavailable"]
-    observed_at: str | None = None
-    candidates: Annotated[list[DiscoveryChatCandidate], Field(max_length=8)] = []
-    sources: Annotated[list[DiscoverySource], Field(max_length=7)] = []
-    candidate_count: Annotated[int, Field(ge=0)] | None = None
-    truncated: bool = False
-    native_path: Literal["/config/integrations"] = "/config/integrations"
-    limitations: Annotated[list[Annotated[str, Field(max_length=160)]], Field(max_length=16)] = []
-    content_digest: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None = None
-
-    @model_validator(mode="after")
-    def no_observations_without_consent(self):
-        if self.state == "consent_required" and (
-            self.observed_at is not None or self.candidates or self.sources
-            or self.candidate_count is not None or self.content_digest is not None or self.truncated
-        ):
-            raise ValueError("尚未同意探索時不能包含家庭觀測")
-        return self
-
-
 class DiscoveryDevice(Strict):
     id: str
     name: str
@@ -254,6 +231,69 @@ class InventorySnapshot(Strict):
     content_digest: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 
 
+class DiscoveryChatObservation(Strict):
+    """Names and source coverage shared with the assistant, never addresses or raw metadata."""
+    id: InventoryId
+    source_id: Literal["lan_neighbors", "lan_mdns", "lan_ssdp", "router_import"]
+    name: InventoryText | None = None
+    services: Annotated[list[InventoryText], Field(max_length=16)] = []
+    observed_at: InventoryText
+    source_updated_at: InventoryText | None = None
+    reachability: Literal["unknown", "responded"] = "unknown"
+    manufacturer: InventoryText | None = None
+    model: InventoryText | None = None
+
+
+class DiscoveryChatNetwork(Strict):
+    state: Literal["unavailable", "not_configured", "needs_home_setup", "waiting_for_address",
+                   "adapter_selection_required", "callback_address_required", "ready"]
+    mode: Literal["nat", "wired", "unknown"] = "unknown"
+    observed_at: str | None = None
+    reason_code: InventoryText | None = None
+    next_step: InventoryText
+
+
+class DiscoveryChatEnvironment(Strict):
+    devices: Annotated[list[DiscoveryDevice], Field(max_length=16)] = []
+    integrations: Annotated[list[DiscoveryIntegration], Field(max_length=16)] = []
+    inventory_observations: Annotated[list[DiscoveryChatObservation], Field(max_length=16)] = []
+    inventory_sources: Annotated[list[InventorySource], Field(max_length=4)] = []
+    device_count: Annotated[int, Field(ge=0)] | None = None
+    integration_count: Annotated[int, Field(ge=0)] | None = None
+    inventory_observation_count: Annotated[int, Field(ge=0)] | None = None
+    inventory_revision: Annotated[int, Field(ge=0)] | None = None
+    inventory_expires_at: str | None = None
+    truncated: bool = False
+    network: DiscoveryChatNetwork | None = None
+
+
+class ConversationDiscovery(Strict):
+    """Bounded observations shared for one explicitly requested chat turn."""
+    contract_version: Literal[1] = 1
+    state: Literal["consent_required", "ready", "unavailable"]
+    share_scope: Literal["ha_candidates", "environment"] = "ha_candidates"
+    observed_at: str | None = None
+    candidates: Annotated[list[DiscoveryChatCandidate], Field(max_length=8)] = []
+    sources: Annotated[list[DiscoverySource], Field(max_length=7)] = []
+    candidate_count: Annotated[int, Field(ge=0)] | None = None
+    truncated: bool = False
+    environment: DiscoveryChatEnvironment | None = None
+    native_path: Literal["/config/integrations"] = "/config/integrations"
+    limitations: Annotated[list[Annotated[str, Field(max_length=160)]], Field(max_length=16)] = []
+    content_digest: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None = None
+
+    @model_validator(mode="after")
+    def no_observations_without_consent(self):
+        if self.state == "consent_required" and (
+            self.observed_at is not None or self.candidates or self.sources or self.environment is not None
+            or self.candidate_count is not None or self.content_digest is not None or self.truncated
+        ):
+            raise ValueError("尚未同意探索時不能包含家庭觀測")
+        if self.share_scope != "environment" and self.environment is not None:
+            raise ValueError("分享環境資料需要明確同意")
+        return self
+
+
 class DiscoverySetupSelect(Strict):
     expected_revision: DiscoveryRevision
     entry_id: DiscoveryIdentifier
@@ -364,6 +404,7 @@ class ChatInput(Strict):
     reply_to: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None = None
     new_conversation: bool = False
     discover_devices: bool = False
+    discover_environment: bool = False
 
     @model_validator(mode="after")
     def one_conversation(self):
