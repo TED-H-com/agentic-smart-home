@@ -1,0 +1,292 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-19T18:59:11.197887+00:00",
+  "classification": "unreleased_development_and_isolated_fixture_qualification",
+  "code_commit": "71f7fff58b8931297c9e320c5c02cdeadf639d80",
+  "base_integration": "f8e69cccaa93d396c4667535c8a2a07dab5c95df",
+  "scope": "Persistent exact device setup history, explicit current-message assistant readback, installed-runtime compatibility, and exact Core .1/.2 support",
+  "source_sha256": {
+    "controller/agentic_controller/app.py": "c74f188fc3e0eae87ff0ea1af7ef3b6edeb9c81cd7e0e364d274332cc300cbdc",
+    "controller/agentic_controller/device_setup.py": "7f36933267dcbc5df7c483d83286468dfefd2667979ff9a1a16b75a1667a3d3b",
+    "controller/agentic_controller/device_setup_chat.py": "f90bd30fec996c8fba1376ffffb63bc5db23a15b536e81512b52fdd5863226ad",
+    "controller/agentic_controller/models.py": "e4b0a03bf45fa7d6c7d30049a73c50ef6b0473fcd193cfb2326f8d9883f38bb2",
+    "controller/agentic_controller/gateway.py": "a2f8c74cc0e2d730465ee9d6db9848039a8a8ee9a247388df5f2b6e9212eea81",
+    "controller/agentic_controller/hermes.py": "899e866cd7b41cbe223e25e7ac13925c3a1d4305b3322b9c12fa8f31424ed426",
+    "controller/agentic_controller/mcp.py": "999451d749830cc11f16c1e9fd13479dbe8a705731d06d828cbebc06af3fa59e",
+    "hermes/agentic_hermes/child.py": "749908beadb52e287c5f1e8bf53348790269581c9d3a2d554b1480cf6391435e",
+    "hermes/agentic_hermes/models.py": "ac2b58847f5bb470a525a1631e7eca407e2458a356df2919a071990f19fe691b",
+    "tests/test_device_setup_chat.py": "675d80751aa43f6a694b8015285c1dac40720b3f3ccd2b1e48842a3878fdf02f",
+    "tests/test_browser_device_setup_history.py": "de261d8d3958ffbc45b6ad3b0ac840294d128e1f19e84f43729d8c48d81a25c0"
+  },
+  "runs": {
+    "backend": {
+      "result": "passed",
+      "passed": 597,
+      "skipped": 6,
+      "failed": 0,
+      "duration_seconds": 101.183,
+      "started_at": "2026-10-19T14:49:04.822566-04:00",
+      "test_modules": [
+        "tests.test_bootstrap",
+        "tests.test_bootstrap_owner",
+        "tests.test_bridge_controller",
+        "tests.test_butler_bootstrap",
+        "tests.test_device_setup",
+        "tests.test_device_setup_chat",
+        "tests.test_device_setup_core_versions",
+        "tests.test_device_setup_routes",
+        "tests.test_device_setup_transport",
+        "tests.test_discovery_chat",
+        "tests.test_gateway",
+        "tests.test_ha_client_errors",
+        "tests.test_hermes_controller",
+        "tests.test_hermes_runtime",
+        "tests.test_host_sessions",
+        "tests.test_review_bootstrap",
+        "tests.test_store_durability"
+      ],
+      "skipped_cases": [
+        "tests.test_hermes_runtime::test_real_pinned_hermes_uses_only_controller_mcp[mcp_roundtrip]",
+        "tests.test_hermes_runtime::test_real_pinned_hermes_uses_only_controller_mcp[provider_401]",
+        "tests.test_hermes_runtime::test_real_pinned_hermes_uses_only_controller_mcp[actual_controller_mcp]",
+        "tests.test_hermes_runtime::test_real_pinned_hermes_uses_only_controller_mcp[native_codex_oauth]",
+        "tests.test_hermes_runtime::test_packaged_runtime_starts_nonroot_without_cloud_credentials",
+        "tests.test_hermes_runtime::test_offline_candidate_gate_and_real_upstream_device_flow"
+      ],
+      "junit_sha256": "5ae9da9e243c78ef25dd8d5524e88e8717cd229a0897ca26d30389bac27b76bb",
+      "source_commit": "0b92132466a6c14dc56ab4447a1052cd304411c9",
+      "scope_note": "Integrated backend regression before the subsequent installed-runtime capability check; affected paths were retested below."
+    },
+    "runtime_compatibility": {
+      "result": "passed",
+      "passed": 107,
+      "skipped": 0,
+      "failed": 0,
+      "duration_seconds": 23.015,
+      "started_at": "2026-10-19T14:53:00.220665-04:00",
+      "test_modules": [
+        "tests.test_device_setup_chat",
+        "tests.test_gateway",
+        "tests.test_hermes_controller"
+      ],
+      "skipped_cases": [],
+      "junit_sha256": "3142c9f60bb974b32e5a3c3a04e9c27da48367d5e7faa26c0423f8276a0da7ca",
+      "source_commit": "cdbf37c5eedccb7c3e25d4ac9c939c356c9b8758",
+      "scope_note": "Selected setup sharing, Hermes coordinator and Gateway after the capability guard; overlaps the broad backend run and adds five cases."
+    },
+    "final_scope_check": {
+      "result": "passed",
+      "passed": 5,
+      "skipped": 0,
+      "failed": 0,
+      "duration_seconds": 2.159,
+      "started_at": "2026-10-19T14:57:47.340822-04:00",
+      "test_modules": [
+        "tests.test_device_setup_chat"
+      ],
+      "skipped_cases": [],
+      "junit_sha256": "91fbb85fed0d6a5f552592ac5cbf45cb2d6a26117fbf1e5aef2bb61921e86145",
+      "source_commit": "71f7fff58b8931297c9e320c5c02cdeadf639d80",
+      "scope_note": "Five existing cases after clarifying the scope-mismatch message; 48 other cases deselected."
+    },
+    "browser": {
+      "result": "passed",
+      "passed": 40,
+      "skipped": 0,
+      "failed": 0,
+      "duration_seconds": 108.878,
+      "started_at": "2026-10-19T14:55:49.944505-04:00",
+      "test_modules": [
+        "tests.test_browser_device_setup_history",
+        "tests.test_conversation_discovery_ui",
+        "tests.test_conversation_network_ui"
+      ],
+      "skipped_cases": [],
+      "junit_sha256": "40d7a8819c5a17f63beedde90680b60982644ab5cb6c3602109fd466fcae180a",
+      "source_commit": "71f7fff58b8931297c9e320c5c02cdeadf639d80",
+      "scope_note": "Final compiled frontend: 13 saved-history cases plus 27 existing discovery/network cases. Frontend matches the screenshot source hashes. Browser files were unchanged during execution; the final scope message is outside the fixture-rendered UI path."
+    },
+    "real_core": {
+      "result": "passed",
+      "passed": 13,
+      "skipped": 0,
+      "failed": 0,
+      "duration_seconds": 28.429,
+      "started_at": "2026-10-19T14:53:41.949348-04:00",
+      "test_modules": [
+        "tests.test_device_setup_core_versions",
+        "tests.test_device_setup_real_ha"
+      ],
+      "skipped_cases": [],
+      "junit_sha256": "52b3b83c8b698d90e9619efb001ff2dc96d9e01e2a552d2be9de204698a89810",
+      "source_commit": "cdbf37c5eedccb7c3e25d4ac9c939c356c9b8758",
+      "scope_note": "Two real Core image cases and eleven fixture version-fence cases; after the shared selected-entry readback refactor. Version-fence cases also occur in backend regression."
+    },
+    "hermes_runtime": {
+      "result": "passed",
+      "passed": 4,
+      "skipped": 0,
+      "failed": 0,
+      "duration_seconds": 73.61,
+      "started_at": "2026-10-19T14:54:18.300169-04:00",
+      "test_modules": [
+        "tests.test_hermes_runtime"
+      ],
+      "skipped_cases": [],
+      "junit_sha256": "0dfdf0d6d50e8a40dba154f86e4e0aa70a3be4e79fc6f1616e0a1fe031b9f968",
+      "source_commit": "cdbf37c5eedccb7c3e25d4ac9c939c356c9b8758",
+      "scope_note": "Four pinned Hermes and official MCP client cases, using read-only source mounts for the updated adapter. Model/OAuth/host broker are fixtures. The actual Controller catalog includes the new tool; roundtrip calls host.status. Selected setup behavior is separately exercised by Gateway/MCP fixtures. These four cases were skipped in the broad backend invocation."
+    }
+  },
+  "counting": "Run scopes overlap; do not sum the phase counts as unique cases. No full CI claim.",
+  "actual_core_receipts": [
+    {
+      "filename": "core-2026.10.1-5f7d64f1b22247f0a3e923b22a2c7f7a.json",
+      "sha256": "851f5aa942eacbfa9d68f4da85e95ccef130f0ea2e4818876d28ab5721e4cd77",
+      "receipt": {
+        "expected_core": "2026.10.1",
+        "image": "ghcr.io/home-assistant/home-assistant:2026.10.1",
+        "image_id": "sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0",
+        "repo_digests": [
+          "ghcr.io/home-assistant/home-assistant@sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0"
+        ],
+        "run_id": "5f7d64f1b22247f0a3e923b22a2c7f7a",
+        "started_at": "2026-10-19T18:53:42.605415+00:00",
+        "core": "2026.10.1",
+        "flow": "ipp/zeroconf_confirm",
+        "state": "configured",
+        "assertions_completed_at": "2026-10-19T18:53:55.941353+00:00",
+        "result": "all_runtime_assertions_passed",
+        "source_sha256": {
+          "tests/test_device_setup_real_ha.py": "4ce42ad362fc1ae972ece939e5e60683f7d816d9630b8cb6f60afcd23c22f1ff",
+          "tests/fixtures/agentic_ipp_fixture/__init__.py": "702e4d03d5b4025273756317375b433fbf150c7ef5c0bd9da9123a724d46d9e9",
+          "tests/fixtures/agentic_ipp_fixture/manifest.json": "b3047c61a82c09ff32baacbd2e2e97ff359c2dfe1af52087fb2514757a39d720",
+          "controller/agentic_controller/device_setup.py": "7f36933267dcbc5df7c483d83286468dfefd2667979ff9a1a16b75a1667a3d3b"
+        },
+        "device_count": 1,
+        "entity_count": 2,
+        "available_entity_count": 1,
+        "confirmation_posts": 1,
+        "fixture_backups": 1,
+        "ipp_attribute_requests": 3,
+        "rejected_printer_operations": 0,
+        "physical_verification": "not_performed",
+        "service_recreated_without_effect_replay": true,
+        "real": [
+          "Core owner check",
+          "native flow progress/GET/POST result",
+          "aioipp HTTP and binary decoding",
+          "native IPP coordinator",
+          "exact device/entity/state readback",
+          "persisted approval idempotency"
+        ],
+        "fixtures": [
+          "synthetic ZeroconfServiceInfo",
+          "loopback IPP printer",
+          "Supervisor backup response",
+          "outer HTTP session transport"
+        ],
+        "not_tested": [
+          "physical printer",
+          "LAN multicast discovery",
+          "Supervisor backup",
+          "HAOS",
+          "live household",
+          "full Core/process restart",
+          "real Core lost-response recovery",
+          "unlisted Core versions"
+        ]
+      }
+    },
+    {
+      "filename": "core-2026.10.2-743a28132b414bb6a74dba350e388942.json",
+      "sha256": "2b84d3888996e029ca5f2df9044a0b9a611ab15f532d876d94e26f6028b8b726",
+      "receipt": {
+        "expected_core": "2026.10.2",
+        "image": "ghcr.io/home-assistant/home-assistant:2026.10.2",
+        "image_id": "sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4",
+        "repo_digests": [
+          "ghcr.io/home-assistant/home-assistant@sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4"
+        ],
+        "run_id": "743a28132b414bb6a74dba350e388942",
+        "started_at": "2026-10-19T18:53:56.693762+00:00",
+        "core": "2026.10.2",
+        "flow": "ipp/zeroconf_confirm",
+        "state": "configured",
+        "assertions_completed_at": "2026-10-19T18:54:09.779044+00:00",
+        "result": "all_runtime_assertions_passed",
+        "source_sha256": {
+          "tests/test_device_setup_real_ha.py": "4ce42ad362fc1ae972ece939e5e60683f7d816d9630b8cb6f60afcd23c22f1ff",
+          "tests/fixtures/agentic_ipp_fixture/__init__.py": "702e4d03d5b4025273756317375b433fbf150c7ef5c0bd9da9123a724d46d9e9",
+          "tests/fixtures/agentic_ipp_fixture/manifest.json": "b3047c61a82c09ff32baacbd2e2e97ff359c2dfe1af52087fb2514757a39d720",
+          "controller/agentic_controller/device_setup.py": "7f36933267dcbc5df7c483d83286468dfefd2667979ff9a1a16b75a1667a3d3b"
+        },
+        "device_count": 1,
+        "entity_count": 2,
+        "available_entity_count": 1,
+        "confirmation_posts": 1,
+        "fixture_backups": 1,
+        "ipp_attribute_requests": 3,
+        "rejected_printer_operations": 0,
+        "physical_verification": "not_performed",
+        "service_recreated_without_effect_replay": true,
+        "real": [
+          "Core owner check",
+          "native flow progress/GET/POST result",
+          "aioipp HTTP and binary decoding",
+          "native IPP coordinator",
+          "exact device/entity/state readback",
+          "persisted approval idempotency"
+        ],
+        "fixtures": [
+          "synthetic ZeroconfServiceInfo",
+          "loopback IPP printer",
+          "Supervisor backup response",
+          "outer HTTP session transport"
+        ],
+        "not_tested": [
+          "physical printer",
+          "LAN multicast discovery",
+          "Supervisor backup",
+          "HAOS",
+          "live household",
+          "full Core/process restart",
+          "real Core lost-response recovery",
+          "unlisted Core versions"
+        ]
+      }
+    }
+  ],
+  "earlier_core_matrix": "device-setup-real-core-matrix-20261019.json",
+  "hermes_image": {
+    "tag": "agentic-home-hermes:0.11.1",
+    "id_before_and_after": "sha256:a76de0875c8ddc24d36762554d0c3651ff86c1abb903a2ec9a079e593f133212",
+    "updated_adapter": "AGENTIC_HERMES_TEST_SOURCE=1 read-only bind mounts; not a newly packaged-image acceptance claim"
+  },
+  "browser_screenshots": "ui/device-setup-history-20261019/manifest.json",
+  "checks": {
+    "typescript_vite": "passed",
+    "ruff": "passed",
+    "contracts": 52,
+    "web_toolchain": "passed",
+    "validate_kit": "passed",
+    "screenshot_and_frontend_hashes": "matched"
+  },
+  "cleanup": {
+    "core_and_hermes_test_containers_absent": true,
+    "pytest_storage": "unique disk directories below ~/agent-work/tmp/pytest",
+    "raw_receipts": "separate task-local disk directory outside pytest successful-temp retention; sanitized Core receipts embedded unchanged"
+  },
+  "not_run": [
+    "Physical Dell login recovery or candidate deployment",
+    "Physical printer, real household devices or LAN multicast acceptance",
+    "Real Supervisor/HAOS backup and restore",
+    "Real cloud model/account acceptance",
+    "New packaged Hermes image qualification",
+    "Public USB interaction or new ISO qualification",
+    "Full CI and new release/public-download delivery",
+    "Unlisted Core versions",
+    "Grok CLI execution or version probes"
+  ],
+  "effects": "Development code and isolated tests only; no household scan, settings change, installed-image switch or release."
+}
