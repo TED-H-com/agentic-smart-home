@@ -107,6 +107,47 @@ class DiscoveryIntegration(Strict):
     source_id: Literal["ha_integrations"] = "ha_integrations"
 
 
+class DeviceSetupChatDevice(Strict):
+    """Only devices linked to the selected entry, without unrelated topology."""
+    name: Annotated[str, Field(max_length=160)]
+    manufacturer: Annotated[str, Field(max_length=160)] | None = None
+    model: Annotated[str, Field(max_length=160)] | None = None
+    disabled: bool
+    entity_count: Annotated[int, Field(ge=0)] | None = None
+    available_entity_count: Annotated[int, Field(ge=0)] | None = None
+
+
+class ConversationDeviceSetup(Strict):
+    """One current-message setup selection; history is not current HA health."""
+    contract_version: Literal[1] = 1
+    state: Literal["consent_required", "ready", "unavailable"]
+    setup_id: PreviewId | None = None
+    setup_state: Literal["proposed", "preparing", "applying", "configured", "needs_reconcile", "blocked"] | None = None
+    setup_updated_at: str | None = None
+    title: Annotated[str, Field(max_length=160)] | None = None
+    current_state: Literal["not_recorded", "present", "not_seen", "unknown"] = "unknown"
+    integration: DiscoveryIntegration | None = None
+    devices: Annotated[list[DeviceSetupChatDevice], Field(max_length=16)] = []
+    device_count: Annotated[int, Field(ge=0)] | None = None
+    entity_count: Annotated[int, Field(ge=0)] | None = None
+    available_entity_count: Annotated[int, Field(ge=0)] | None = None
+    sources: Annotated[list[DiscoverySource], Field(max_length=4)] = []
+    truncated: bool = False
+    observed_at: str | None = None
+    reason_code: Annotated[str, Field(max_length=160)] | None = None
+    physical_verification: Literal["not_performed"] = "not_performed"
+    limitations: Annotated[list[Annotated[str, Field(max_length=160)]], Field(max_length=8)] = []
+    content_digest: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None = None
+
+    @model_validator(mode="after")
+    def one_explicit_selection(self):
+        if self.state == "consent_required" and any((self.setup_id, self.setup_state, self.setup_updated_at,
+                self.title, self.integration, self.devices, self.sources, self.observed_at, self.content_digest,
+                self.device_count is not None, self.entity_count is not None, self.available_entity_count is not None)):
+            raise ValueError("未分享接入項目時不能包含家庭觀測")
+        return self
+
+
 class DiscoverySnapshot(Strict):
     """Owner-visible observations, separate from entity permissions and physical verification."""
     contract_version: Literal[1] = 1
@@ -405,6 +446,7 @@ class ChatInput(Strict):
     new_conversation: bool = False
     discover_devices: bool = False
     discover_environment: bool = False
+    device_setup_id: PreviewId | None = None
 
     @model_validator(mode="after")
     def one_conversation(self):

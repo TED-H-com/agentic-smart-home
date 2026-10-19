@@ -191,6 +191,10 @@ class Coordinator:
             try:
                 jobs = self.worker_manager.case_jobs(case["case_id"])
                 message = item["message"]
+                if item.get("device_setup_id") is not None:
+                    message += ("\n\nController current-message sharing: the Owner selected exactly one device setup. "
+                        "Call home.device_setup_status with no arguments to read its current status. "
+                        "This is read-only sharing, not setup approval or permission to repeat a write.")
                 if jobs:
                     message += "\n\nController same-case work handles (status only; inspect worker.result for evidence; this is not approval):\n" + canonical(jobs)
                 result = await self.client.call("POST", f'/v1/sessions/{case["session_id"]}/runs', {
@@ -225,6 +229,8 @@ class Coordinator:
             linked = self.store.get("conversation", item["id"]) or {}
             if linked.get("discovery"):
                 response["discovery"] = linked["discovery"]
+            if linked.get("device_setup_status"):
+                response["device_setup_status"] = linked["device_setup_status"]
             if linked.get("task_id"):
                 response["task_id"] = linked["task_id"]
                 task = self.store.get("task", linked["task_id"]) or {}

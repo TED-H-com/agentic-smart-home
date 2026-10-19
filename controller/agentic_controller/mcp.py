@@ -15,6 +15,7 @@ from .work import EvidenceQuery, NoArguments, WorkerQuery, WorkerSubmit
 from .workers import WorkerError
 
 TOOLS = {
+    "home.device_setup_status": (NoArguments, "Read only the exact setup explicitly shared by the current Web Owner message. Historical setup progress is separate from fresh HA registration, device/entity availability and physical verification. Cannot choose IDs, approve, retry, reconcile, configure or control devices."),
     "home.discover": (NoArguments, "Read the current Owner-approved discovery scope even with no entity control permissions. Environment sharing includes HA devices/integrations, saved LAN observations and fixed network diagnostics. Without current-message consent returns a sharing card; never scans, configures or grants access."),
     "home.observe": (HomeObserve, "Read fresh policy-authorized HA states; API state is not physical verification."),
     "home.propose": (HomePropose, "Validate a precise household proposal for Owner review. This never approves or deploys."),
@@ -103,7 +104,13 @@ def create_mcp(coordinator):
                     raise ValueError("tool_budget_exhausted")
                 store.put("mcp_grant", {**grant, "calls": count + 1})
                 arguments = TOOLS[name][0].model_validate(params.get("arguments", {}))
-                if name == "home.discover":
+                if name == "home.device_setup_status":
+                    setup_status = getattr(coordinator, "device_setup_status", None)
+                    if not setup_status:
+                        raise ValueError("device_setup_status_unavailable")
+                    value = await setup_status.read(auth[7:], request)
+                    coordinator.authorize(auth[7:])
+                elif name == "home.discover":
                     discovery = getattr(coordinator, "discovery", None)
                     if not discovery:
                         raise ValueError("discovery_unavailable")

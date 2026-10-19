@@ -144,7 +144,7 @@ async def test_default_false_retains_legacy_request_digest(discovery_chat):
     response = await send(app, client, "ordinary question", "legacy-key")
     item = store.conversation(id=response.json()["id"])
     legacy = ChatInput(message="ordinary question", coordinator="hermes").model_dump(
-        exclude={"reply_to", "new_conversation", "discover_devices", "discover_environment"})
+        exclude={"reply_to", "new_conversation", "discover_devices", "discover_environment", "device_setup_id"})
     assert item["request_digest"] == digest(legacy)
     assert (await send(app, client, "ordinary question", "legacy-key", discover_devices=False)).status_code == 202
 

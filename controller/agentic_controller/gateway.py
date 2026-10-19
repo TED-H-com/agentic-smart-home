@@ -625,6 +625,8 @@ class Gateway:
         self._start_task(item, config)
 
     def submit(self, body, source, chat, sender, event, config=None, *, bridge_pairing_id=None):
+        if body.device_setup_id is not None and (source != "web" or body.coordinator != "hermes"):
+            raise HTTPException(422, "device_setup_sharing_requires_web_hermes")
         if body.coordinator == "hermes":
             body = body.model_copy(update={"runtime": "host", "provider": "codex"})
         if not body.message.strip():
@@ -632,6 +634,8 @@ class Gateway:
         id = digest([source, chat, event] if source == "web" else [source, chat, sender, event, config])
         # Preserve old Web idempotency keys; resolve the automatic parent only after deduplication.
         request_body = body.model_dump(exclude={"reply_to", "new_conversation", "coordinator"})
+        if request_body.get("device_setup_id") is None:
+            request_body.pop("device_setup_id", None)  # Preserve pre-feature idempotency receipts.
         for sharing_field in ("discover_devices", "discover_environment"):
             if not request_body.get(sharing_field):
                 # Default-false sharing preserves receipts made before each scope existed.

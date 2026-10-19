@@ -582,6 +582,24 @@ class DeviceSetups:
         authority, binding = await self.authorize(request)
         home_binding = self.home_binding(authority)
         record = self.record(binding, identifier, home_binding)
+        result = await self.readback(authority, record)
+        async def guard():
+            await authority.check_owner()
+            if self.record(binding, identifier, home_binding).revision != record.revision:
+                raise HTTPException(409, "device_setup_revision_changed")
+        request.scope[RESPONSE_GUARD] = guard
+        return result
+
+    async def readback(self, authority, record):
+        """Fresh selected-entry observations; caller supplies captured authority.
+
+        This helper performs no adoption, pruning, reconciliation or HA writes.
+        Both HTTP and current-message chat use the same exact association rules.
+        """
+        binding, home_binding = self.binding(authority), self.home_binding(authority)
+        identifier = record.id
+        if self.record(binding, identifier, home_binding).revision != record.revision:
+            raise HTTPException(409, "device_setup_revision_changed")
         result = self.view(record, binding)
         if record.entry_id:
             observed = await snapshot(self.ha)
@@ -594,9 +612,9 @@ class DeviceSetups:
                              and item.domain == "ipp"), None)
             devices = [item.model_copy(update={"integration_ids": [record.entry_id]}) for item in observed.devices
                        if selected and record.entry_id in item.integration_ids]
-            complete = selected is not None and sources["ha_devices"].state == "ok"
-            entities = complete and sources["ha_entities"].state == "ok"
-            states = entities and sources["ha_states"].state == "ok"
+            complete = selected is not None and sources["ha_devices"].state == "ok" and not sources["ha_devices"].truncated
+            entities = complete and sources["ha_entities"].state == "ok" and not sources["ha_entities"].truncated
+            states = entities and sources["ha_states"].state == "ok" and not sources["ha_states"].truncated
             # A physical device can belong to several integrations. Its other
             # entities are not evidence for the config entry we just created.
             counts, available = await self.entry_entities(authority, record.entry_id) if selected else (None, None)
@@ -613,11 +631,10 @@ class DeviceSetups:
                 sources=observed.sources, observed_at=observed.observed_at))
             if not selected:
                 result.message = ("先前的接入結果已保存，但這次未看到對應整合；請核對 HA 是否移除或無法讀取。")
-        async def guard():
-            await authority.check_owner()
-            if self.record(binding, identifier, home_binding).revision != record.revision:
-                raise HTTPException(409, "device_setup_revision_changed")
-        request.scope[RESPONSE_GUARD] = guard
+        await authority.check_owner()
+        self.guard(authority)
+        if self.record(binding, identifier, home_binding).revision != record.revision:
+            raise HTTPException(409, "device_setup_revision_changed")
         return result
 
     async def entry_entities(self, authority, entry_id):
