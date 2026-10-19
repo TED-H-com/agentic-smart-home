@@ -209,7 +209,7 @@ def test_home_runtime_tab_leads_to_workers_and_folds_stable_manual_pair():
             expect(panel.get_by_role("button", name="開始登入")).to_have_count(0)
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
 
-            # Paired but not answering, for example while the host restarts: wait, do not ask to enable or pair again.
+            # Paired but not answering: keep waiting, with repair available only after explicit expansion.
             runtimes.update(host={"status": "unavailable", "providers": []}, haos={"status": "unavailable", "providers": []})
             page.reload()
             panel = page.get_by_role("region", name="開發助手帳號", exact=True)
@@ -217,13 +217,21 @@ def test_home_runtime_tab_leads_to_workers_and_folds_stable_manual_pair():
             for name in ("主機", "家庭現場"):
                 tabs.get_by_role("button", name=name).click()
                 expect(panel.get_by_text("暫時連不上，會自動重試。", exact=True)).to_be_visible()
-                expect(panel.locator(".section-heading").get_by_text("無法連線", exact=True)).to_be_visible()
+                expect(panel.locator(".section-heading").get_by_text("等待連線…", exact=True)).to_be_visible()
                 expect(tabs.get_by_text("無法連線", exact=True)).to_have_count(2)
-                for text in ("先連接這台主機上的開發助手。", "在開發助手選「家庭現場」並啟用，主機會自動安裝和配對。", "手動安裝與配對"):
-                    expect(panel.get_by_text(text, exact=True)).to_have_count(0)
+                reconnect = panel.locator("summary").filter(has_text="重新連接")
+                expect(reconnect).to_be_visible()
                 expect(panel.get_by_role("button", name="連接主機", exact=True)).to_have_count(0)
                 expect(panel.get_by_role("button", name="開始登入")).to_have_count(0)
-                expect(panel.get_by_role("link", name="前往開發助手", exact=True)).to_have_count(1 if name == "家庭現場" else 0)
+                repair = panel.get_by_role("button", name="重新配對主機", exact=True) if name == "主機" else panel.get_by_role("link", name="前往開發助手", exact=True)
+                expect(repair).to_be_hidden()
+                reconnect.click()
+                expect(repair).to_be_visible()
+                if name == "家庭現場":
+                    expect(panel.locator("summary").filter(has_text="手動安裝與配對")).to_be_visible()
+                    expect(panel.get_by_label("配對資料", exact=True)).to_be_hidden()
+                assert calls == [("runtimes/haos/pair", payload)]
+                reconnect.click()
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
             assert calls == [("runtimes/haos/pair", payload)]
             browser.close()

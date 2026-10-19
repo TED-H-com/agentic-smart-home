@@ -20,6 +20,7 @@ from pathlib import Path
 
 FIXTURE = Path('/data/home-worker-fixture')
 FIXTURE_KEY = 'fixture-home-role-key-not-a-cloud-account'
+DIAGNOSTIC_CLIENT_SECONDS = 15
 CANARY = 'fixture-home-private-parent-not-a-real-token'
 MODES = frozenset({'source', 'cancel', 'restart', 'crash'})
 SHA256 = re.compile(r'^[a-f0-9]{64}$')
@@ -335,14 +336,24 @@ async def diagnostic_request(reader, writer):
         await writer.wait_closed()
 
 
-def diagnostic_client(identifier):
+def diagnostic_client(identifier, *, clock=time.monotonic):
     assert re.fullmatch(r'[a-f0-9]{32}', identifier), 'invalid_fixture_job_id'
+    deadline = clock() + DIAGNOSTIC_CLIENT_SECONDS
+
+    def remaining():
+        value = deadline - clock()
+        if value <= 0:
+            raise TimeoutError('diagnostic_read_deadline')
+        return value
+
     with socket.socket(socket.AF_UNIX) as client:
-        client.settimeout(3)
+        client.settimeout(remaining())
         client.connect(str(FIXTURE / 'diagnostic.sock'))
+        client.settimeout(remaining())
         client.sendall(('job-proof ' + identifier + '\n').encode())
         chunks = bytearray()
         while len(chunks) <= 65536:
+            client.settimeout(remaining())
             piece = client.recv(min(4096, 65537 - len(chunks)))
             if not piece:
                 break

@@ -110,6 +110,21 @@ def test_status_bridge_update_contract_comes_from_fixed_updater_not_state(tmp_pa
     assert manager.state()["controller_update"]["ingress_bridge_contract"] == 999
 
 
+def test_fast_bridge_contract_performs_no_status_or_external_observation(tmp_path, monkeypatch):
+    import agentic_host.updater as updater
+    from agentic_host.bootstrap import InitialSetup
+
+    manager = Manager(tmp_path)
+    def forbidden(*args, **kwargs):
+        pytest.fail("Bridge proof must not read VM, disk, persisted state or HA readiness")
+    for method in ("state", "status", "virsh", "compatibility"):
+        monkeypatch.setattr(manager, method, forbidden)
+    monkeypatch.setattr(InitialSetup, "status", forbidden)
+    assert manager.bridge_contract() == {"controller_update": {"ingress_bridge_contract": 1}}
+    monkeypatch.setattr(updater, "INGRESS_BRIDGE_CONTRACT", 2)
+    assert manager.bridge_contract() == {"controller_update": {"ingress_bridge_contract": 2}}
+
+
 def test_forwarding_recovery_never_modifies_an_external_network(tmp_path):
     calls = []
     owned = False

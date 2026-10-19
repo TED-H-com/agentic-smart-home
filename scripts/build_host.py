@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "host"))
 from agentic_host.artifacts import fetch, sha256  # noqa: E402
 from agentic_host.manager import validate_profile  # noqa: E402
 
-VERSION = "0.10.0"
+VERSION = "0.11.0"
 SKIP = {"__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", "test-results"}
 
 
@@ -85,6 +85,14 @@ def public_bundle_member(member):
     return member
 
 
+def bundle_ignored(directory, names):
+    # Ship the empty Docker build-context input, not downloaded source archives
+    # or interrupted cache contents. The image already holds the verified source.
+    if Path(directory).name == ".upstream-cache":
+        return set(names) - {".gitignore"}
+    return shutil.ignore_patterns(*SKIP, "*.pyc", "*.tsbuildinfo", "agentic-home.bundle")(directory, names)
+
+
 def bundle(destination):
     from package import package_bridge, package_notifications, package_runner
     package_runner()
@@ -95,8 +103,7 @@ def bundle(destination):
         shutil.rmtree(stage)
     stage.mkdir(parents=True)
     for directory in ("host", "controller", "runner", "hermes", "bridge", "custom_components", "contracts", "docs", "scripts"):
-        shutil.copytree(ROOT / directory, stage / directory,
-                        ignore=shutil.ignore_patterns(*SKIP, "*.pyc", "*.tsbuildinfo", "agentic-home.bundle"))
+        shutil.copytree(ROOT / directory, stage / directory, ignore=bundle_ignored)
     for name in ("README.md", "INSTALL.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md", "providers.lock.json", "upstream.lock.json", "channels.lock.json"):
         shutil.copyfile(ROOT / name, stage / name)
     assets = stage / "assets"

@@ -39,7 +39,7 @@ from pydantic import Field, ValidationError, field_validator
 from . import VERSION
 from .durability import client_session, durable, file_io
 from .ha import HAError
-from .host import host_call
+from .host import host_bridge_contract
 from .models import Strict
 from .response_durability import RESPONSE_GUARD, ResponseDurabilityMiddleware
 
@@ -109,7 +109,7 @@ class IngressBridge:
         self.issuer = object()
         self.on_revoke = lambda: None
         self.owner_valid_until = 0.0
-        self.host_status = host_status or partial(host_call, store=store)
+        self.host_status = host_status or partial(host_bridge_contract, store=store)
         self.host_valid_until, self.host_scope = 0.0, None
         self.host_lock = asyncio.Lock()
         self.pairing_lock = asyncio.Lock()

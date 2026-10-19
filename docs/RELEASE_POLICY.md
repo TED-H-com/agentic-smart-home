@@ -1,5 +1,7 @@
 # 自家發行與 Home Assistant 更新邊界
 
+0.11.0 筆電候選仍採同版主機媒體與公開 App 交付。新的 Host 提供輕量側欄能力證明；Controller 僅在該固定 Unix 端點明確回覆 404 時相容舊 Host 的 `/status`，整段共用原本的證明期限。格式不符、認證失敗或逾時不走替代證明。這項相容讀取不代表 Controller-only updater 能升級 Host、Runner、Hermes 或網路實作；既有資料主機仍不可直接重跑 installer。
+
 2026-10-12 Owner 最新方向：**Home Assistant 自行透過官方流程更新；外層負責自家產品與智能管家 App 的相容及修復。** 這取代先前要求把 HAOS／Core 一起納入產品釘版的政策。0.6.1 媒體與歷史驗證不因文件修改而改變；目前更新器範圍仍見 [Updates](UPDATES.md)。
 
 ## 使用者日常

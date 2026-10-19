@@ -44,20 +44,22 @@ class C(http.client.HTTPConnection):
  def connect(self):
   self.sock=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM);self.sock.connect('/run/agentic-home/host.sock')
 result={}
-for path in ['/network','/coding/capabilities','/status','/jobs/fixture-job','/jobs/missing-id','/jobs/../invalid']:
+for path in ['/network','/coding/capabilities','/status','/bridge-contract','/jobs/fixture-job','/jobs/missing-id','/jobs/../invalid']:
  try:
   c=C('localhost');c.request('GET',path);r=c.getresponse();result[path]=r.status;body=json.loads(r.read());c.close()
   if path=='/jobs/fixture-job' and r.status==200:result['receipt']={key:body[key] for key in ['id','request','state']}
+  if path=='/bridge-contract' and r.status==200:result['contract']=body
  except PermissionError:result[path]='filesystem_denied'
 print(json.dumps(result))
 """
         def probe(uid):
             output = subprocess.run(["docker", "exec", "--user", f"{uid}:{uid}", name, "python", "-c", script], check=True, capture_output=True, text=True)
             return json.loads(output.stdout)
-        paths = ["/network", "/coding/capabilities", "/status", "/jobs/fixture-job", "/jobs/missing-id", "/jobs/../invalid"]
+        paths = ["/network", "/coding/capabilities", "/status", "/bridge-contract", "/jobs/fixture-job", "/jobs/missing-id", "/jobs/../invalid"]
         assert probe(0) == {path: 200 if path == "/coding/capabilities" else 403 for path in paths}
         owner = probe(1000)
-        assert owner == {"/network": 200, "/coding/capabilities": 403, "/status": 503,
+        assert owner == {"/network": 200, "/coding/capabilities": 403, "/status": 503, "/bridge-contract": 200,
+                         "contract": {"controller_update": {"ingress_bridge_contract": 1}},
                          "/jobs/fixture-job": 200, "/jobs/missing-id": 404, "/jobs/../invalid": 409,
                          "receipt": {"id": "fixture-job", "request": {"id": "fixture-job", "action": "snapshot", "snapshot": None},
                                      "state": "needs_reconcile"}}

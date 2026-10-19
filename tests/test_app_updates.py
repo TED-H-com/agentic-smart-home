@@ -1,4 +1,5 @@
 """Offline Supervisor fixtures for App updates. Not a real HAOS update or #stable slug."""
+import asyncio
 import copy
 import json
 import traceback
@@ -13,11 +14,14 @@ from agentic_controller.bridge_maintenance import (
     JOB_TIMEOUT,
     OPERATION_TIMEOUT,
     STARTUP_GRACE,
+    STORE_RELOAD_ATTEMPTS,
+    STORE_RELOAD_BACKOFF,
     BridgeFault,
     BridgeMaintenance,
     BridgeRelease,
     version_order,
 )
+from agentic_controller.ha import HAError
 from agentic_controller.home_worker_maintenance import (
     OPERATION_TIMEOUT as HOME_OPERATION_TIMEOUT,
 )
@@ -190,6 +194,148 @@ async def test_store_still_older_after_one_reload_waits(manager):
     await bumped.tick()
     assert len(manager.ha.writes("/reload")) == 1
     assert bumped.record()["code"] == "bridge_release_not_published"
+
+
+@pytest.fixture(params=["bridge", "home"])
+async def reload_update(request):
+    manager = request.getfixturevalue("manager" if request.param == "bridge" else "home")
+    await (healthy(manager) if request.param == "bridge" else login_ready(manager))
+    restart = bump if request.param == "bridge" else bump_home
+    manager = restart(manager)
+    await manager.tick()
+    return manager, restart
+
+
+def reload_posts(manager):
+    return [call for call in manager.ha.calls if call[:2] == ("POST", "/store/reload")]
+
+
+@pytest.mark.parametrize("failure", ["error", "cancelled"])
+async def test_failed_store_reload_retries_after_persisted_backoff_and_restart(reload_update, failure):
+    manager, restart = reload_update
+
+    async def before(method, path):
+        if (method, path) == ("POST", "/store/reload"):
+            attempt = manager.record()["release_store_reload"]
+            assert attempt["attempts"] == 1 and attempt["retry_at"] == manager.clock() + STORE_RELOAD_BACKOFF
+            assert manager.record()["release_store_reloaded"] is False
+            if failure == "cancelled":
+                raise asyncio.CancelledError
+            raise HAError("fixture transient reload failure")
+
+    manager.ha.before = before
+    if failure == "cancelled":
+        with pytest.raises(asyncio.CancelledError):
+            await manager.update()
+    else:
+        await manager.update()
+    manager = restart(manager)
+    manager.ha.before = None
+    manager.ha.reload_version = "0.9.1"
+    await manager.tick()
+    assert len(reload_posts(manager)) == 1
+    manager.clock.now += STORE_RELOAD_BACKOFF
+    status = await manager.tick()
+    assert len(reload_posts(manager)) == 2
+    assert status["state"] == "update_available"
+    assert manager.record()["release_store_reload"] is None
+    # A catalog retry never replays the Owner's App update.
+    assert not [call for call in manager.ha.calls if call[0] == "POST" and call[1].endswith("/update")]
+
+
+@pytest.mark.parametrize("failure", ["fail", "lose"])
+async def test_store_reload_failure_and_lost_reply_have_finite_restart_safe_budget(reload_update, failure):
+    manager, restart = reload_update
+    setattr(manager.ha, failure, ("POST", "/store/reload"))
+    await manager.update()
+    for attempt in range(1, STORE_RELOAD_ATTEMPTS):
+        manager = restart(manager)
+        await manager.tick()
+        assert len(reload_posts(manager)) == attempt
+        manager.clock.now += STORE_RELOAD_BACKOFF * 2 ** (attempt - 1)
+        await manager.tick()
+        assert len(reload_posts(manager)) == attempt + 1
+    for _ in range(4):
+        manager.clock.now += 86400
+        manager = restart(manager)
+        status = await manager.tick()
+    assert len(reload_posts(manager)) == STORE_RELOAD_ATTEMPTS
+    assert status["state"] == "waiting" and status["code"].endswith("_release_not_published")
+    assert manager.record()["release_store_reloaded"] is False
+
+
+async def test_lost_store_reload_reply_observes_published_pin_without_another_post(reload_update):
+    manager, restart = reload_update
+    manager.ha.reload_version = "0.9.1"
+    manager.ha.lose = ("POST", "/store/reload")
+    await manager.update()
+    manager = restart(manager)
+    status = await manager.tick()
+    assert status["state"] == "update_available" and len(reload_posts(manager)) == 1
+    assert manager.record()["release_store_reload"] is None
+
+
+async def test_successful_reload_with_lost_readback_does_not_repeat(reload_update):
+    manager, restart = reload_update
+
+    async def before(method, path):
+        if method == "GET" and path.startswith("/store/addons/") and reload_posts(manager):
+            raise HAError("fixture readback lost")
+
+    manager.ha.before = before
+    await manager.update()
+    assert manager.record()["release_store_reloaded"] is True
+    manager.ha.before = None
+    manager.clock.now += 86400
+    manager = restart(manager)
+    await manager.tick()
+    assert len(reload_posts(manager)) == 1
+
+
+async def test_reload_retry_rechecks_current_owner(reload_update):
+    manager, _ = reload_update
+    manager.ha.fail = ("POST", "/store/reload")
+    await manager.update()
+    manager.ha.fail = None
+    manager.clock.now += STORE_RELOAD_BACKOFF
+    manager.store.set_setting("owner", "replaced-owner")
+    await manager.tick()
+    assert len(reload_posts(manager)) == 1
+
+
+async def test_legacy_reload_flag_is_preserved_for_same_pin_but_new_release_gets_bounded_budget(reload_update):
+    manager, restart = reload_update
+    record = manager.record()
+    manager.save(record, release_store_reloaded=True)
+    # Legacy record was pinned to 0.9.0; 0.9.1 gets one successful refresh.
+    with pytest.raises((BridgeFault, HomeWorkerFault), match="release_not_published"):
+        await manager.update()
+    assert len(reload_posts(manager)) == 1
+    manager = restart(manager)
+    manager.clock.now += 86400
+    await manager.tick()
+    assert len(reload_posts(manager)) == 1
+
+
+async def test_same_release_legacy_reload_flag_is_not_replayed(reload_update):
+    manager, restart = reload_update
+    manager = restart(manager, version="0.9.0")
+    record = manager.record()
+    manager.save(record, release_store_reloaded=True)
+    with pytest.raises((BridgeFault, HomeWorkerFault), match="release_not_published"):
+        await manager.lockstep(record, manager.ha.token, {"version_latest": "0.8.0"})
+    assert not reload_posts(manager)
+
+
+@pytest.mark.parametrize("corrupt", [True, {"attempts": True}, {"attempts": -1}])
+async def test_corrupt_store_reload_budget_cannot_be_reset_to_unlimited_posts(reload_update, corrupt):
+    manager, _ = reload_update
+    if isinstance(corrupt, dict):
+        corrupt = {**corrupt, "release": asdict_release("0.9.1", manager.release.app), "retry_at": 0}
+    manager.save(manager.record(), release_store_reload=corrupt)
+    with pytest.raises((BridgeFault, HomeWorkerFault), match="release_not_published"):
+        await manager.update()
+    assert not reload_posts(manager)
 
 
 async def test_newer_catalog_is_not_installed(manager):

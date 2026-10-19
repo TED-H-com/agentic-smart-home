@@ -153,6 +153,67 @@ def test_broker_umask_still_allows_renderer_to_read_nested_assets(tmp_path, monk
     assert record["state"] == "ready"
 
 
+@pytest.mark.parametrize("render_fails", [False, True])
+@pytest.mark.parametrize("cleanup_fails", [False, True])
+def test_renderer_slot_stays_reserved_until_cleanup(tmp_path, monkeypatch, render_fails, cleanup_fails):
+    work = tmp_path / "volume"
+    work.mkdir()
+    cleaning, release = threading.Event(), threading.Event()
+
+    class Volume:
+        def __init__(self, *args):
+            pass
+
+        def create(self):
+            return work
+
+        def close(self):
+            cleaning.set()
+            assert release.wait(60), "test cleanup release was not signalled"
+            if cleanup_fails:
+                raise HostError("volume_cleanup_unconfirmed")
+
+    def execute(*args, **kwargs):
+        if render_fails:
+            raise HostError("renderer_failed")
+        for width, height in WIDTHS.items():
+            (work / "work" / f"{width}.png").write_bytes(
+                b"\x89PNG\r\n\x1a\n" + b"\0\0\0\rIHDR" + struct.pack(">II", width, height) + bytes(9))
+
+    service = Previews(SimpleNamespace(root=tmp_path, run=execute), volume=Volume)
+    service.fenced = lambda _: None
+    service.image = lambda: "sha256:" + "1" * 64
+    monkeypatch.setattr("agentic_host.preview.ready", lambda *args: None)
+    monkeypatch.setattr("agentic_host.preview.os.chown", lambda *args: None)
+    record = {**{k: v for k, v in artifact().items() if k != "files"},
+              "state": "queued", "image_id": service.image(), "expires_at": time.time() + 30}
+    service.records[record["id"]] = record
+    worker = threading.Thread(target=service.render, args=(record, validate(artifact())))
+    worker.start()
+    try:
+        assert cleaning.wait(60), "renderer did not reach cleanup"
+        assert service.submit(artifact())["state"] == "running"
+        assert json.loads(service.path.read_text())[record["id"]]["state"] == "running"
+        with pytest.raises(HostError, match="preview_busy_or_unfenced"):
+            service.submit({**artifact(), "id": "second-preview"})
+        with pytest.raises(HostError, match="preview_render_in_progress"):
+            service.revoke(record["id"])
+    finally:
+        release.set()
+        worker.join(60)
+    assert not worker.is_alive()
+    expected = "stop_unconfirmed" if cleanup_fails else "failed" if render_fails else "ready"
+    assert record["state"] == expected
+    assert json.loads(service.path.read_text())[record["id"]]["state"] == expected
+    if cleanup_fails:
+        with pytest.raises(HostError, match="preview_busy_or_unfenced"):
+            service.submit({**artifact(), "id": "second-preview"})
+    else:
+        # A completed cleanup releases the slot; don't launch a second renderer.
+        monkeypatch.setattr("agentic_host.preview.threading.Thread.start", lambda self: None)
+        assert service.submit({**artifact(), "id": "second-preview"})["state"] == "queued"
+
+
 def test_actual_offline_preview_renderer(tmp_path, request):
     if not request.config.getoption("--containers"):
         pytest.skip("requires packaged offline preview image")

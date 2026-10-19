@@ -35,6 +35,12 @@ def test_bundle_public_modes_ignore_build_umask_without_chmod_cache(tmp_path, mo
     executable = source / "scripts/launch"
     executable.write_text("#!/bin/sh\nexit 0\n")
     executable.chmod(0o2775)
+    upstream = source / "hermes/.upstream-cache"
+    upstream.mkdir()
+    (upstream / ".gitignore").write_text("*\n!.gitignore\n")
+    (upstream / "archive.tar.gz").write_bytes(b"unnecessary downloaded payload")
+    (upstream / "partial").mkdir()
+    (upstream / "partial/.gitignore").write_bytes(b"not a build input")
     for name in ("README.md", "INSTALL.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md", "providers.lock.json",
                  "upstream.lock.json", "channels.lock.json"):
         (source / name).write_text("{}\n")
@@ -82,6 +88,8 @@ def test_bundle_public_modes_ignore_build_umask_without_chmod_cache(tmp_path, mo
             else:
                 assert member.mode == 0o644
         manifest = json.load(product.extractfile("agentic-home/BUNDLE.sha256.json"))
+        assert {name for name in manifest if ".upstream-cache" in name} == {
+            "hermes/.upstream-cache/.gitignore"}
         for relative, digest in manifest.items():
             assert hashlib.sha256(product.extractfile("agentic-home/" + relative).read()).hexdigest() == digest
 

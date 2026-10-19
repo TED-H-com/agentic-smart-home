@@ -3,7 +3,8 @@
 Supervisor is the installation authority. Its documented store API has no atomic
 commit/digest install or compare-and-swap options endpoint: the product release
 branch is trusted, and its exact source/version/security contract is read back.
-Unknown effects are observed, never blindly replayed. GET/status does no I/O.
+Unknown App effects are observed, never blindly replayed. Store metadata refresh
+alone has a persisted retry budget. GET/status does no I/O.
 
 From this release the trusted repository is ``#stable``. A same-channel older
 install stays running until the Owner updates it to this Controller's version.
@@ -26,6 +27,7 @@ persist ``STOP_CONFIRM_SECONDS``; heartbeat repair waits for a fresh in-memory s
 from __future__ import annotations
 
 import asyncio
+import math
 import re
 import time
 import uuid
@@ -53,6 +55,8 @@ HELD = {"disabled", "user_disabled", "user_removed", "user_modified"}
 # One channel for every release. `stable` is moved to the release commit at publish time.
 STABLE_REPOSITORY = "https://github.com/TED-H-com/agentic-smart-home#stable"
 UPDATE_BODY = {"backup": False, "background": True}
+STORE_RELOAD_ATTEMPTS = 3
+STORE_RELOAD_BACKOFF = 30
 
 
 def parse_version(value):
@@ -77,7 +81,7 @@ def version_order(left, right):
 def version_gate(latest, pinned, *, reloaded):
     """Decide whether a store ``version_latest`` may be installed or updated to.
 
-    A lower catalog is reloaded once. A higher catalog is never installed.
+    A lower catalog is reloaded once successfully. A higher catalog is never installed.
     """
     order = version_order(latest, pinned)
     if order == "invalid":
@@ -87,6 +91,41 @@ def version_gate(latest, pinned, *, reloaded):
     if order == "newer":
         return "ahead"
     return "unpublished" if reloaded else "reload"
+
+
+def store_reload_succeeded(record, release):
+    attempt = record.get("release_store_reload")
+    # Old records cannot distinguish success from a lost reply. Keep their fence
+    # for the recorded release; a new pinned release gets its own bounded budget.
+    return bool(record.get("release_store_reloaded")) and (
+        record.get("release") == asdict(release) if attempt is None else
+        isinstance(attempt, dict) and attempt.get("release") == asdict(release))
+
+
+async def reload_store(manager, record, token):
+    """Bounded refresh only; never retry install/update/start or reset on restart.
+
+    Persist the attempt and backoff before sending, including an uncertain POST.
+    Every caller reads the catalog first, so a lost reply which published the pin
+    needs no repeat. A successful refresh of a still-old catalog is not retried.
+    """
+    attempt = record.get("release_store_reload")
+    release = asdict(manager.release)
+    if attempt is None or isinstance(attempt, dict) and attempt.get("release") != release:
+        attempt = {"release": release, "attempts": 0, "retry_at": 0}
+    if not isinstance(attempt, dict):
+        return False
+    count, retry_at = attempt.get("attempts"), attempt.get("retry_at")
+    if (type(count) is not int or not 0 <= count < STORE_RELOAD_ATTEMPTS
+            or type(retry_at) not in (int, float) or not math.isfinite(retry_at)
+            or manager.clock() < retry_at):
+        return False
+    manager.save(record, release_store_reloaded=False, release_store_reload={
+        "release": release, "attempts": count + 1,
+        "retry_at": manager.clock() + STORE_RELOAD_BACKOFF * 2 ** count})
+    await manager.request(record, token, "POST", "/store/reload")
+    manager.save(record, release_store_reloaded=True)
+    return True
 
 
 def release_drift(stored, release):
@@ -791,17 +830,16 @@ class BridgeMaintenance:
     async def lockstep(self, record, token, info):
         """Install or update only when ``version_latest`` is exactly this release."""
         latest = info.get("version_latest") if isinstance(info, dict) else None
-        decision = version_gate(latest, self.release.version, reloaded=bool(record.get("release_store_reloaded")))
+        decision = version_gate(latest, self.release.version, reloaded=store_reload_succeeded(record, self.release))
         if decision is None:
-            if record.get("release_store_reloaded"):
-                self.save(record, release_store_reloaded=False)
+            if record.get("release_store_reloaded") or record.get("release_store_reload"):
+                self.save(record, release_store_reloaded=False, release_store_reload=None)
             return info
         if decision == "reload":
-            # Persist before the POST so a lost response cannot reload the store twice.
-            self.save(record, release_store_reloaded=True)
-            await self.request(record, token, "POST", "/store/reload")
-            info = await self.request(record, token, "GET", f"/store/addons/{record['slug']}/info")
-            return await self.lockstep(record, token, info)
+            if await reload_store(self, record, token):
+                info = await self.request(record, token, "GET", f"/store/addons/{record['slug']}/info")
+                return await self.lockstep(record, token, info)
+            decision = "unpublished"
         if decision == "ahead":
             self.save(record, state="waiting", code="bridge_release_ahead")
             raise BridgeFault("bridge_release_ahead", "waiting")
@@ -929,7 +967,8 @@ class BridgeMaintenance:
         if operation:
             await self.finish_foreign_operation(record, token)
             return
-        if record.get("slug") and record.get("code") in {"bridge_release_not_published", "bridge_release_ahead"}:
+        if record.get("slug") and (record.get("code") in {"bridge_release_not_published", "bridge_release_ahead"}
+                                   or record.get("release_store_reload")):
             info = await self.request(record, token, "GET", f"/store/addons/{record['slug']}/info")
             await self.lockstep(record, token, info)
         if not record.get("slug"):

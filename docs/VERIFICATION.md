@@ -1,5 +1,11 @@
 # Agentic Smart Home 驗證
 
+## 0.11.0 筆電候選
+
+候選整合 HA 原生文字通知與 issue／PR 中的恢復、商店重試、Host 證明及診斷缺口。目前仍在實作與驗證，尚未完成新的 ISO／公開 App／匿名下載驗收。下方 0.10.0 與通知 adapter 的既有證據不代替本版完整驗收；新候選的來源、媒體雜湊與各階段結果會另外記錄。
+
+實體筆電、真模型／通訊帳號、單一燈具、兩次連續真工作及 72 小時運作保留為 `not_run`。本輪不執行 Grok CLI；不變更已發布 0.10.0 的來源或媒體。
+
 ## 主線：HA 原生文字通知 adapter 0.1.0
 
 [通知驗證摘要](../evidence/ha-notifications/summary.json) 與 [安裝說明](HA_NOTIFICATIONS.md) 對應新的 Controller＋原生 HA 整合，**不屬於已發布的 0.10.0 ISO／TAR**。收件人別名、通道／登入／提交狀態、磁碟佇列及單次認領沿用現有 Gateway，不新增 provider 或帳號登入。

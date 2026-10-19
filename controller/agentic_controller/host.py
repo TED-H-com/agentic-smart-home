@@ -120,11 +120,26 @@ class HostSession:
 
 
 async def host_call(method="GET", body=None, *, store):
+    return await _host_call(method, "/status" if method == "GET" else "/actions", body, store=store)
+
+
+async def host_bridge_contract(*, store):
+    """Fresh installed-updater proof from the fixed broker, without VM/HA status I/O."""
+    try:
+        return await _host_call("GET", "/bridge-contract", store=store)
+    except HTTPException as exc:
+        if exc.status_code != 404:
+            raise
+    # The previous broker proved the same updater contract in /status. Only an
+    # absent route selects it; IngressBridge bounds both reads together to 5 s.
+    return await _host_call("GET", "/status", store=store)
+
+
+async def _host_call(method, path, body=None, *, store):
     connector = aiohttp.UnixConnector(path="/run/agentic-home/host.sock")
     try:
         async with client_session(store, connector=connector, timeout=aiohttp.ClientTimeout(total=30)) as session:
-            async with session.request(method, "http://localhost/" + ("status" if method == "GET" else "actions"),
-                                       json=body) as response:
+            async with session.request(method, "http://localhost" + path, json=body, allow_redirects=False) as response:
                 result = await response.json()
                 if response.status >= 300:
                     raise HTTPException(response.status, result.get("detail", "主機服務操作失敗"))

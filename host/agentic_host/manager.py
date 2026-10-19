@@ -192,9 +192,14 @@ class Manager:
         validate_domain(xml, HALan(self).choices())
         return xml
 
+    @staticmethod
+    def bridge_contract():
+        """Installed updater capability only: no persisted state or external observation."""
+        from .updater import INGRESS_BRIDGE_CONTRACT
+        return {"controller_update": {"ingress_bridge_contract": INGRESS_BRIDGE_CONTRACT}}
+
     def status(self):
         from .bootstrap import InitialSetup
-        from .updater import INGRESS_BRIDGE_CONTRACT
 
         state = self.state()
         try:
@@ -214,7 +219,7 @@ class Manager:
                 "storage_free_bytes": shutil.disk_usage(self.root).free,
                 "provisioned": bool(state.get("complete")), "restore_pending": state.get("restore_pending"),
                 "bootstrap": InitialSetup(self).status(), "compatibility": self.compatibility(),
-                "controller_update": {"ingress_bridge_contract": INGRESS_BRIDGE_CONTRACT}}
+                **self.bridge_contract()}
 
     def refresh_forwarding(self):
         """Restore scoped forwarding after Linux/Docker restarts, only for our network."""

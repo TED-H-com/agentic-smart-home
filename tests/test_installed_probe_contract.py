@@ -686,6 +686,32 @@ def test_timeout_diagnostics_keep_partial_operation_id_and_failed_probe(tmp_path
     assert "private" not in json.dumps(result)
 
 
+@pytest.mark.parametrize("code", ["host_job_submit_unconfirmed", "host_job_observation_unavailable",
+                                  "host_job_response_invalid", "host_job_not_found", "host_job_read_refused"])
+def test_install_failure_retains_exact_safe_cli_uncertainty_code(tmp_path, code):
+    from test_linux_install import record_install_failure
+
+    identifier = "c" * 32
+    stderr = ("private SSH warning\n"
+        f"Job {identifier}: completion is unconfirmed ({code}). No operation was resubmitted. "
+        f"Inspect with 'agentic-home job --id {identifier}' or resume with 'agentic-home wait --id {identifier}'.\n")
+    error = subprocess.CalledProcessError(2, ["ssh", "private-host", "agentic-home shutdown"],
+                                         output=f"Operation {identifier}\n", stderr=stderr)
+    result = record_install_failure(error, "wired_lan_remove_and_restore_nat", tmp_path / "failure.json", None)
+    assert result["cli_job_error"] == {"id": identifier, "error_code": code}
+    assert result["lifecycle_action"] == "shutdown" and result["lifecycle_receipt"]["id"] == identifier
+    assert "private" not in json.dumps(result)
+
+
+def test_install_failure_does_not_export_unknown_cli_error_or_mismatched_handle(tmp_path):
+    from test_linux_install import record_install_failure
+
+    error = subprocess.CalledProcessError(2, ["ssh", "agentic-home shutdown"],
+                                         output="Operation " + "a" * 32 + "\n", stderr="private unknown error")
+    result = record_install_failure(error, "wired_lan_remove_and_restore_nat", tmp_path / "failure.json", None)
+    assert result["cli_job_error"] is None and "private" not in json.dumps(result)
+
+
 @pytest.mark.parametrize("arguments", ["--interface-id " + "b" * 64, "--disable-lan"])
 def test_lan_command_failure_retains_action_and_identity_conflict_without_private_values(tmp_path, arguments):
     from test_linux_install import record_install_failure
@@ -1122,7 +1148,7 @@ def test_actual_installer_failure_still_cleans_up_when_diagnostics_break(tmp_pat
     for name in ("dist", "scripts", "evidence", "build", "tests"):
         (tmp_path / name).mkdir()
     (tmp_path / "tests/ha_lan_peer.py").write_text("raise AssertionError('fixture peer must not execute')\n")
-    (tmp_path / "dist/agentic-home-0.10.0-laptop-amd64.iso").write_bytes(b"fixture")
+    (tmp_path / "dist/agentic-home-0.11.0-laptop-amd64.iso").write_bytes(b"fixture")
     (tmp_path / "scripts/build_host.py").write_text(
         "def autoinstall(profile): return {'autoinstall': {'late-commands': [], 'interactive-sections': [], "
         "'early-commands': [['/usr/bin/python3', '/cdrom/agentic-home/live-preflight.py', "
