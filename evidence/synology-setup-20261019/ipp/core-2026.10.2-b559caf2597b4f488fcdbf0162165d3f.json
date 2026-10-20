@@ -1,0 +1,54 @@
+{
+  "expected_core": "2026.10.2",
+  "image": "ghcr.io/home-assistant/home-assistant:2026.10.2",
+  "image_id": "sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4",
+  "repo_digests": [
+    "ghcr.io/home-assistant/home-assistant@sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4"
+  ],
+  "run_id": "b559caf2597b4f488fcdbf0162165d3f",
+  "started_at": "2026-10-20T05:48:18.267035+00:00",
+  "core": "2026.10.2",
+  "flow": "ipp/zeroconf_confirm",
+  "state": "configured",
+  "assertions_completed_at": "2026-10-20T05:48:33.759179+00:00",
+  "result": "all_runtime_assertions_passed",
+  "source_sha256": {
+    "tests/test_device_setup_real_ha.py": "4ce42ad362fc1ae972ece939e5e60683f7d816d9630b8cb6f60afcd23c22f1ff",
+    "tests/fixtures/agentic_ipp_fixture/__init__.py": "702e4d03d5b4025273756317375b433fbf150c7ef5c0bd9da9123a724d46d9e9",
+    "tests/fixtures/agentic_ipp_fixture/manifest.json": "b3047c61a82c09ff32baacbd2e2e97ff359c2dfe1af52087fb2514757a39d720",
+    "controller/agentic_controller/device_setup.py": "054b92270cb26f3d59481166ea51b7389d45a5b134d7246d51e168d9e8018f79"
+  },
+  "device_count": 1,
+  "entity_count": 2,
+  "available_entity_count": 1,
+  "confirmation_posts": 1,
+  "fixture_backups": 1,
+  "ipp_attribute_requests": 3,
+  "rejected_printer_operations": 0,
+  "physical_verification": "not_performed",
+  "service_recreated_without_effect_replay": true,
+  "real": [
+    "Core owner check",
+    "native flow progress/GET/POST result",
+    "aioipp HTTP and binary decoding",
+    "native IPP coordinator",
+    "exact device/entity/state readback",
+    "persisted approval idempotency"
+  ],
+  "fixtures": [
+    "synthetic ZeroconfServiceInfo",
+    "loopback IPP printer",
+    "Supervisor backup response",
+    "outer HTTP session transport"
+  ],
+  "not_tested": [
+    "physical printer",
+    "LAN multicast discovery",
+    "Supervisor backup",
+    "HAOS",
+    "live household",
+    "full Core/process restart",
+    "real Core lost-response recovery",
+    "unlisted Core versions"
+  ]
+}

@@ -1,0 +1,138 @@
+{
+  "expected_core": "2026.10.2",
+  "image": "ghcr.io/home-assistant/home-assistant:2026.10.2",
+  "image_id": "sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4",
+  "repo_digests": [
+    "ghcr.io/home-assistant/home-assistant@sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4"
+  ],
+  "run_id": "ab811f0e9115480d9b059f5b66a0b4ce",
+  "started_at": "2026-10-20T05:45:57.541881+00:00",
+  "core": "2026.10.2",
+  "mode": "native",
+  "variant": "2sa-shares",
+  "result": "all_runtime_assertions_passed",
+  "finished_at": "2026-10-20T05:46:29.210189+00:00",
+  "operations": {
+    "SYNO.API.Auth login invalid_credentials": 1,
+    "SYNO.API.Auth login ok_device_token": 2,
+    "SYNO.API.Auth login ok_device_token_otp_ignored": 1,
+    "SYNO.API.Auth login ok_otp_device_token_issued": 1,
+    "SYNO.API.Auth login otp_failed": 1,
+    "SYNO.API.Auth login otp_required": 1,
+    "SYNO.API.Info query ok": 4,
+    "SYNO.Core.ExternalDevice.Storage.USB list ok": 2,
+    "SYNO.Core.Hardware.FanSpeed get ok": 7,
+    "SYNO.Core.SecurityScan.Status system_get ok": 5,
+    "SYNO.Core.System info ok": 5,
+    "SYNO.Core.System.Utilization get ok": 7,
+    "SYNO.Core.Upgrade.Server check ok": 7,
+    "SYNO.DSM.Info getinfo ok": 10,
+    "SYNO.DSM.Network list ok": 4,
+    "SYNO.FileStation.List list ok": 3,
+    "SYNO.FileStation.List list_share ok": 4,
+    "SYNO.Storage.CGI.Storage load_info ok": 7,
+    "fixture boot ok": 2,
+    "fixture discover ssdp_injected": 1
+  },
+  "after_create_entry_operations": {
+    "SYNO.API.Auth login ok_device_token": 1,
+    "SYNO.API.Info query ok": 1,
+    "SYNO.Core.ExternalDevice.Storage.USB list ok": 1,
+    "SYNO.Core.Hardware.FanSpeed get ok": 5,
+    "SYNO.Core.SecurityScan.Status system_get ok": 4,
+    "SYNO.Core.System info ok": 4,
+    "SYNO.Core.System.Utilization get ok": 4,
+    "SYNO.Core.Upgrade.Server check ok": 5,
+    "SYNO.DSM.Info getinfo ok": 6,
+    "SYNO.DSM.Network list ok": 1,
+    "SYNO.FileStation.List list ok": 3,
+    "SYNO.FileStation.List list_share ok": 1,
+    "SYNO.Storage.CGI.Storage load_info ok": 4,
+    "fixture boot ok": 1
+  },
+  "config_flow_operations": {
+    "SYNO.API.Auth login invalid_credentials": 1,
+    "SYNO.API.Auth login ok_device_token_otp_ignored": 1,
+    "SYNO.API.Auth login ok_otp_device_token_issued": 1,
+    "SYNO.API.Auth login otp_failed": 1,
+    "SYNO.API.Auth login otp_required": 1,
+    "SYNO.API.Info query ok": 2,
+    "SYNO.Core.System.Utilization get ok": 2,
+    "SYNO.DSM.Info getinfo ok": 1,
+    "SYNO.DSM.Network list ok": 2,
+    "SYNO.FileStation.List list_share ok": 2,
+    "SYNO.Storage.CGI.Storage load_info ok": 2,
+    "fixture boot ok": 1,
+    "fixture discover ssdp_injected": 1
+  },
+  "entry_setup_operations": {
+    "SYNO.API.Auth login ok_device_token": 1,
+    "SYNO.API.Info query ok": 1,
+    "SYNO.Core.ExternalDevice.Storage.USB list ok": 1,
+    "SYNO.Core.Hardware.FanSpeed get ok": 2,
+    "SYNO.Core.SecurityScan.Status system_get ok": 1,
+    "SYNO.Core.System info ok": 1,
+    "SYNO.Core.System.Utilization get ok": 1,
+    "SYNO.Core.Upgrade.Server check ok": 2,
+    "SYNO.DSM.Info getinfo ok": 3,
+    "SYNO.DSM.Network list ok": 1,
+    "SYNO.FileStation.List list_share ok": 1,
+    "SYNO.Storage.CGI.Storage load_info ok": 1
+  },
+  "after_setup_polling_operations": {
+    "SYNO.Core.Hardware.FanSpeed get ok": 1,
+    "SYNO.Core.SecurityScan.Status system_get ok": 1,
+    "SYNO.Core.System info ok": 1,
+    "SYNO.Core.System.Utilization get ok": 1,
+    "SYNO.Core.Upgrade.Server check ok": 1,
+    "SYNO.DSM.Info getinfo ok": 1,
+    "SYNO.FileStation.List list ok": 1,
+    "SYNO.Storage.CGI.Storage load_info ok": 1
+  },
+  "polling_method": "two explicit native central coordinator refreshes; backup agent list reads",
+  "rejected_operations": 0,
+  "flow_posts": 5,
+  "full_core_restart": true,
+  "device_connections": [
+    [
+      "mac",
+      "00:11:32:aa:bb:cc"
+    ]
+  ],
+  "device_count": 3,
+  "entity_count": 34,
+  "available_entity_count": 23,
+  "backup_agent_count": 1,
+  "real": [
+    "pinned Core",
+    "native SSDP flow",
+    "unmodified py-synologydsm-api 2.10.3",
+    "native coordinator/platforms",
+    "native backup agent list",
+    "registry/state readback",
+    "Core restart"
+  ],
+  "fixtures": [
+    "synthetic SSDP injection",
+    "hand-authored HTTPS loopback DSM",
+    "trusted-device semantics"
+  ],
+  "source_sha256": {
+    "tests/test_device_setup_synology_real_ha.py": "1937a1ed40efff3f56c62d28273b662db705f41f3d87f0e4442fd92d8c822f50",
+    "tests/fixtures/agentic_synology_fixture/README.md": "df42faa3f1f5596bc56919b654f01f2f49ca111e7f81c4ac4914027d1854722b",
+    "tests/fixtures/agentic_synology_fixture/__init__.py": "8703cb5f0e31cc9d9a43865793c6b2c1894344b254a92a4d65e5dead43070abb",
+    "tests/fixtures/agentic_synology_fixture/manifest.json": "f8a721fc13d0a8e204e1b989621339f3e34ff908afaf9d9d74c069ba51f27bf6",
+    "tests/fixtures/agentic_synology_fixture/services.yaml": "57a00c415e1a421ddfaf8779193cd8a54e64bfcc873e1b56cc53abaee2c6d043"
+  },
+  "not_tested": [
+    "physical NAS",
+    "real DSM firmware",
+    "LAN SSDP multicast",
+    "Supervisor backup",
+    "HAOS",
+    "live household",
+    "DSM-side trusted-device state",
+    "backup upload",
+    "product DeviceSetups service"
+  ]
+}

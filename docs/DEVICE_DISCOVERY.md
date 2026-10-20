@@ -36,7 +36,7 @@
 
 接著聊天、重新整理或側欄暫時斷線不會丟失已受理的進度；舊卡片可以讀取結果，但不能作為新的接入批准。側欄背景工作會持續核對原 Owner 與配對，撤銷則停止對應工作。相同 Owner／家庭連線更換登入憑證後，仍可讀回及核對舊結果；尚未執行的提案必須重新檢查並批准，不沿用舊憑證的執行授權。
 
-入口為 `/api/device-setups`、`/{id}`、`/{id}/approve` 與 `/{id}/reconcile`。寫入需要既有 Owner／CSRF（或已驗證 Ingress）和 Idempotency-Key。私有 `device_setup_v1` 紀錄在 schema 3 中可由舊版忽略；舊版不能續跑這些工作。內容依保存期限移除設備名稱，保留有界的操作身分與不確定結果防重播紀錄。備份範圍是 HA 設定，不是整台主機回復。
+入口為 `/api/device-setups`、`/{id}`、`/{id}/approve`、`/{id}/input`（Synology 多步輸入）與 `/{id}/reconcile`。寫入需要既有 Owner／CSRF（或已驗證 Ingress）和 Idempotency-Key。私有 `device_setup_v1` 紀錄在 schema 3 中可由舊版忽略；舊版不能續跑這些工作。內容依保存期限移除設備名稱，保留有界的操作身分與不確定結果防重播紀錄。備份範圍是 HA 設定，不是整台主機回復。
 
 Adapter 依固定上游來源核對：[IPP config flow](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/ipp/config_flow.py)、[flow HTTP adapter](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/helpers/data_entry_flow.py)、[IPP device identity](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/ipp/coordinator.py)。這些私人前端 API 的相容性限制只停用相關接入能力。
 
@@ -50,9 +50,21 @@ Adapter 依固定上游來源核對：[IPP config flow](https://github.com/home-
 
 遺失確認回應時，恢復只讀取新整合及原生設備登錄：必須有相同 Shelly MAC 識別及精確整合成員關係，不能憑名稱、IP、候選消失或另一個 domain 的同值識別碼判定完成。既有 IPP 紀錄繼續可讀；新寫入的私有接入紀錄版本為 2，舊 v1 IPP 紀錄在該筆紀錄下一次寫入時轉為 v2，保存原提案摘要與工作身分。舊 binary 對未知紀錄停止新接入寫入，不能宣稱可以無條件降版後繼續操作。
 
-候選的可選 `confirmation_step` 只由唯讀探索投影兩個已知確認步驟，用於介面導向，不是批准或可執行能力證明；執行前仍重新核對精確 Core、型號、表單、Owner 與原提案。分享給管家的設備名稱會遮去連續十二位十六進位的 MAC 名稱後綴，和原有含分隔符的位址一致。
+候選的可選 `confirmation_step` 只由唯讀探索投影三個已知步驟（IPP、Shelly 的確認步驟與 Synology 的 `link` 登入步驟），用於介面導向，不是批准或可執行能力證明；執行前仍重新核對精確 Core、型號、表單、Owner 與原提案。分享給管家的設備名稱會遮去連續十二位十六進位的 MAC 名稱後綴，和原有含分隔符的位址一致。
 
-上游邊界見固定版本 [Shelly 設定流程](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/shelly/config_flow.py)、[設備登錄與初始化](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/shelly/coordinator.py) 及 [aioshelly 13.34.1](https://github.com/home-assistant-libs/aioshelly/tree/13.34.1)。Synology 的帳密、雙重驗證、原生備份共用資料夾選擇及登入後身分變換需要獨立多步 adapter；不能把它當作空表單接入，或在不確定結果下重送帳密。
+上游邊界見固定版本 [Shelly 設定流程](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/shelly/config_flow.py)、[設備登錄與初始化](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/shelly/coordinator.py) 及 [aioshelly 13.34.1](https://github.com/home-assistant-libs/aioshelly/tree/13.34.1)。Synology NAS 改用下方獨立的多步 adapter，不當作空表單接入。
+
+### 聊天內輸入帳號接入 Synology NAS
+
+第三條接入路徑支援 Core `2026.10.1`／`2026.10.2` 已發現的 Synology NAS（`synology_dsm`，SSDP 或 zeroconf 來源、原生 `link` 步驟、12 位序號身分）。流程沿用提案、本人確認、備份與精確讀回，再加上多步輸入：接入卡顯示說明與「NAS 帳號／NAS 密碼」欄位，按「登入並接入」即為批准；Controller 先完成家庭設定備份，再送出原生登入步驟。帳號開啟兩步驟驗證時，接著輸入驗證器 App 顯示的驗證碼；最後從 NAS 回報的共用資料夾選擇家庭備份位置，資料夾內路徑沿用原生預設值。多步輸入使用 `/api/device-setups/{id}/input`。
+
+帳號、密碼與驗證碼只在接入卡輸入，經單次 Owner 請求交給 Controller 轉送原生流程；不寫入 Controller 資料庫、接入紀錄、請求收據、快照或證據，送出後立即清空欄位，遺失回應時不保留重送內容。管家只看得到目前步驟，不能代為輸入或送出，也不因此取得 AI 控制權限。NAS 在通過兩步驟驗證後會記住這台家庭系統；登入資料由 HA 原生整合依其既有方式保存。
+
+後續每一步送出前先持久化並重新檢查 Owner、AI 暫停、主機更新，以及家庭設定沒有出現其他新的 NAS 連線；未通過時顯示「這一步沒有送出」，須先重新讀取。送出後回應遺失或結果不明時只讀回：原流程仍停在同一步就重新開放輸入；流程已結束時，以 NAS 網卡 MAC 比對新整合的原生設備登錄，無法確認則維持待確認，不重送帳密或驗證碼。DSM 登入後會以實際回應的 NAS 序號建立整合，所以即使收到原生建立結果，也必須在設備登錄看到探索時的 NAS 網卡 MAC 屬於這筆新整合，才顯示接入完成；同一位址換成另一台 NAS 時維持待確認。每步輸入 30 分鐘內有效，逾時後重新讀取即可繼續；一次接入最多送出 8 步，達到上限即停止，可重新準備新的接入（需要再次確認與備份）。
+
+NAS 若早已接入，原生流程會以新輸入的帳號更新原連線（`reconfigure_successful`）；聊天如實說明「已用你輸入的帳號更新原有連線」，不宣稱建立新整合，也不推測是哪一筆。原生流程在重新登入出錯時會回到含預設值的完整設定表單，聊天不讀取也不保存該表單，改由固定的原生家庭設定入口完成。
+
+登入沿用原生預設：HTTPS、預設連接埠 5001、不驗證 NAS 自簽憑證，以及原生預設備份路徑；聊天不支援自訂連接埠。多網卡或同網段多台 NAS 的實機情境，以及真實 DSM 韌體的受信任裝置與過期驗證碼行為尚未驗證。新寫入的 Synology 接入紀錄為版本 3；IPP／Shelly 維持版本 2，保存欄位與前一版相同。舊 binary 遇到未知紀錄停止新接入寫入。上游邊界見固定版本 [Synology 設定流程](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/synology_dsm/config_flow.py)。
 
 ### 換對話後續接與解讀結果
 
@@ -160,7 +172,7 @@ HA 側欄僅新增精確的 `GET /api/discovery`，必須通過既有 Ingress �
 
 ## 可接續的接入追蹤（D3b 工程切片）
 
-設備頁與管家「分享探索結果」內提供折疊的「接入進度」。展開後才讀取保存的追蹤；Owner 對當前候選按「追蹤接入」，Controller 重新核對候選後保存名稱、整合類型、觀測時間與當時已知的同類型整合 ID。使用者經固定 `/config/integrations` 入口完成 HA 原生登入／配對，再回來讀取結果。這個追蹤區不啟動、提交或刪除 HA 設定流程；目前支援的聊天內接入另見上方 IPP 與 Shelly 1 流程。
+設備頁與管家「分享探索結果」內提供折疊的「接入進度」。展開後才讀取保存的追蹤；Owner 對當前候選按「追蹤接入」，Controller 重新核對候選後保存名稱、整合類型、觀測時間與當時已知的同類型整合 ID。使用者經固定 `/config/integrations` 入口完成 HA 原生登入／配對，再回來讀取結果。這個追蹤區不啟動、提交或刪除 HA 設定流程；目前支援的聊天內接入另見上方 IPP、Shelly 1 與 Synology NAS 流程。
 
 回來後由 Owner 明確選定一個同類型的整合實例，即使只有一項也不預選。名稱相同時顯示必要識別碼；追蹤建立後首次看到的實例不等於由這次操作建立。起始來源不完整時，「原本是否存在」保持未知。候選消失只表示本次未見，不顯示設定成功。
 
