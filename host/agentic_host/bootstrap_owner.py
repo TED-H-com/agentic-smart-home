@@ -19,7 +19,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from .bootstrap import write_environment
-from .bootstrap_media import INSERT_USB, PREINST, BootstrapMedia
+from .bootstrap_media import INSERT_USB, PREINST, UNTRUSTED_INBOX, BootstrapMedia
 from .host_restore import HostRestore
 from .host_update import (
     COMPATIBILITY,
@@ -564,7 +564,9 @@ def main():
         result = tool.recover_availability() if args.recover_availability else tool.review() if args.review else tool.apply(args.apply)
         print(json.dumps(result, ensure_ascii=False))
     except HostError as exc:
-        parser.exit(1, (str(exc) if str(exc) in {MISSING_PIN, RECOVERED, INSERT_USB, APPLIANCE_BASELINE} else "無法安全完成主機更新；尚未確認的操作不會重送，原有還原點已保留。請聯絡支援核對。") + "\n")
+        parser.exit(1, (str(exc) if str(exc) in {MISSING_PIN, RECOVERED, INSERT_USB, UNTRUSTED_INBOX,
+                                                APPLIANCE_BASELINE}
+                        else "無法安全完成主機更新；尚未確認的操作不會重送，原有還原點已保留。請聯絡支援核對。") + "\n")
     except (OSError, ValueError, KeyError, TypeError):
         parser.exit(1, "無法安全完成主機更新；尚未確認的操作不會重送，原有還原點已保留。請聯絡支援核對。\n")
 

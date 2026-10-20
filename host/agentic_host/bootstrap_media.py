@@ -16,8 +16,10 @@ from .manager import HostError, sync_path
 
 LABEL = "AH-UPDATE"
 DIRECTORY = "agentic-home-update"
+INBOX = Path("/var/lib/agentic-home/update-inbox")
 FILES = {"host-bundle.tar": MAX_ARCHIVE, "controller-images.tar": 16 * 1024**3}
-INSERT_USB = "請插入官方更新 USB（AH-UPDATE），系統會自動尋找並核對更新檔案。"
+INSERT_USB = "請插入官方更新 USB（AH-UPDATE），或使用支援人員已準備的本機暫存更新。"
+UNTRUSTED_INBOX = "本機暫存更新資料夾或檔案的擁有者／權限不安全，尚未變更主機；請聯絡支援。"
 DEVICE = re.compile(r"/dev/(?:sd[a-z]+[0-9]+|nvme[0-9]+n[0-9]+p[0-9]+|mmcblk[0-9]+p[0-9]+)\Z")
 SMALL_LIMIT = 16 * 1024**2
 PREINST = '''#!/usr/bin/python3 -I
@@ -66,11 +68,41 @@ def validate_manifest(value):
 
 
 class BootstrapMedia:
-    def __init__(self, manager, manifest):
+    def __init__(self, manager, manifest, *, inbox=INBOX):
         self.manager = manager
         self.manifest = validate_manifest(read_json(manifest, 16384))
+        self.inbox = Path(inbox)
+
+    @staticmethod
+    def _trusted_inbox_item(path, *, directory):
+        try:
+            info = path.lstat()
+        except OSError:
+            raise HostError(UNTRUSTED_INBOX) from None
+        wanted = stat.S_ISDIR if directory else stat.S_ISREG
+        if (not wanted(info.st_mode) or info.st_uid != 0 or info.st_gid != 0
+                or info.st_mode & 0o022 or (not directory and info.st_nlink != 1)):
+            raise HostError(UNTRUSTED_INBOX)
+
+    def _locate_inbox(self):
+        try:
+            self.inbox.lstat()
+        except FileNotFoundError:
+            return None
+        except OSError:
+            raise HostError(UNTRUSTED_INBOX) from None
+        for path in (self.inbox, *self.inbox.parents):
+            self._trusted_inbox_item(path, directory=True)
+        payload = self.inbox / DIRECTORY
+        self._trusted_inbox_item(payload, directory=True)
+        for name in FILES:
+            self._trusted_inbox_item(payload / name, directory=False)
+        return self.inbox
 
     def locate(self):
+        inbox = self._locate_inbox()
+        if inbox is not None:
+            return inbox
         raw = self.manager.run("/usr/bin/lsblk", "--json", "--paths", "--output", "NAME,LABEL,TYPE,RM,TRAN", timeout=10).stdout
         if len(raw) > 131072:
             raise HostError(INSERT_USB)
