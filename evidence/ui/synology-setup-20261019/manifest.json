@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "code_commit": "58bb533f44abcf39d1d878d126aa6eaab3202587",
+  "code_commit": "7017c7733f91c8ad3517124a75055552851a4a3b",
   "base_commit": "549b409c402cf695b6486d1de8cf6a60a0d8d6d0",
   "classification": "synthetic_protocol_browser_evidence",
   "target": "Compiled chat device-setup card at #gateway; synthetic synology_dsm discovery and API replies.",
   "method": "Playwright Chromium with page.route protocol fixtures; no real NAS, account, household or HA runtime.",
-  "recorded_at": "2026-10-20T04:10:36.916877+00:00",
+  "recorded_at": "2026-10-20T04:44:14.166264+00:00",
   "versions": {
     "application": "0.11.1",
     "pytest": "9.1.1",
@@ -26,113 +26,129 @@
     ]
   },
   "source_sha256": {
-    "web/src/device-setup.tsx": "ccc32200f786f25f032a7f0a9501641c2d0facc113c5b7def4fd1f25eaf30dd8",
-    "web/src/device-setup.css": "c654791285bb278d3e05f8d3fa3d62f067ad11bb039f4956db9b0779cbf375a2",
+    "web/src/device-setup.tsx": "1abd93e4cd1ccd6e60fb76bbb8a89a6a96edaa6693053268b4bdc2ee9b40dd86",
+    "web/src/device-setup.css": "f3e64d9bd766422d1f1a932f360039cab3828864b70b443c15667a19a0131ccd",
     "web/src/device-setup-history.tsx": "a52ae095b63393e0b85b8d1ecbf915a09226a8e7cf6981e8f488a7793b42dfbe",
-    "web/src/conversation-discovery.tsx": "f9673444cc31072ae0389b2c5b3d2003859f51f11471160ace368b960758b583",
-    "web/src/discovery.tsx": "8111d901d25e67ff6734d333c21eb9457081cbb8054c9fe146734d2d400f0e18",
+    "web/src/conversation-discovery.tsx": "0ee43c869d1b0a9e59ec738b5ed87c738869a2abe824edafb66d7f0ba32e0253",
+    "web/src/discovery.tsx": "a2e17a0df0ebc1cac7120219151389444eec49536ea1a210a88dace4e75e003a",
+    "web/src/discovery-setup.tsx": "c21b51c81834f9ddae655ddd7343408f01865a7423d49c04d133e9c45d4e7731",
+    "web/src/errors.ts": "732d636eb46f4e7e8439bfb23589babccee3d460dd32317650a7efe6dcda4eaf",
+    "web/src/gateway.tsx": "48167c374558a38c173acd207b9c5562d0af87545f97da19e12f97132acff59d",
+    "web/src/style.css": "bc84a7230a06810367b68e02034a7c5561881fbd5eb9ff8acfcfa9621ceb89dc",
     "web/package-lock.json": "1298bfa600704392ed56e288b46dc601724886266c82f350b1793577a6092a40",
-    "tests/test_synology_device_setup_ui.py": "bce29dafd5bfafbe9d394120105a40acd1cd36da7822a8b471c2f1db69f396fc",
-    "controller/static/index.html": "0d3180230b2d1ee275fec6d4dfa86019f9a632354e9d1dbd5f6bfc129babf741",
-    "bridge/static/index.html": "0d3180230b2d1ee275fec6d4dfa86019f9a632354e9d1dbd5f6bfc129babf741",
-    "controller/static/assets/index-ov3Enw8X.js": "d61683c1fdae7825b22a8ad911b4e754b549dce2583dcd78fab5bbeb036df0ee",
-    "controller/static/assets/index-pfqDl4iC.css": "1e76c9f21e2ca41d6c9c7e6be73873512a7c611307ef785674c5110840a3f879",
-    "bridge/static/assets/index-ov3Enw8X.js": "d61683c1fdae7825b22a8ad911b4e754b549dce2583dcd78fab5bbeb036df0ee",
-    "bridge/static/assets/index-pfqDl4iC.css": "1e76c9f21e2ca41d6c9c7e6be73873512a7c611307ef785674c5110840a3f879"
+    "tests/test_synology_device_setup_ui.py": "821fe9881d1dc1e3fe0ce74899a6bc9bfbe41f3419d6a9cbb5b89215ee56c7c8",
+    "tests/test_shelly_device_setup_ui.py": "1bcee6b2db0b13c3f7c694558e520951be4ce8bef7fa20a7b958e1d11277a7d0",
+    "tests/test_conversation_discovery_ui.py": "8df1a58df33afefe6e454f7e80222e60399ada143934dd52c3aa07a1cb472b3d",
+    "tests/test_browser_device_setup_history.py": "de261d8d3958ffbc45b6ad3b0ac840294d128e1f19e84f43729d8c48d81a25c0",
+    "tests/test_discovery_ui.py": "79a8f045d115125f8ba069e3fb3663bb3f8c7c01d89dddee7b1a79e01dab3cc4",
+    "tests/test_discovery_setup_ui.py": "f936744f3a356b3c7fa156048506edc1124c12828ee403f2e2597a04d12b3d75",
+    "tests/test_gateway_ui.py": "6a4f8e69eca065cde8ebdd095795b76b885b57a496a9700a2637c7cdf3c240ef",
+    "controller/static/index.html": "59fba67a3c0017a7dcfc120306f82d7dbce6c1a81c84b5ef5e7d4369366e65df",
+    "controller/static/assets/index-CIxhlcN4.js": "27091f04fab92944805c45a6d51ecaef983b91b96e8739dab1160c10d55531d9",
+    "controller/static/assets/index-DQuIfFL3.css": "51969e71f26793682d0efd8b53b07ca0a73f80c06050176e54461d2b1f3014a2",
+    "bridge/static/index.html": "59fba67a3c0017a7dcfc120306f82d7dbce6c1a81c84b5ef5e7d4369366e65df",
+    "bridge/static/assets/index-CIxhlcN4.js": "27091f04fab92944805c45a6d51ecaef983b91b96e8739dab1160c10d55531d9",
+    "bridge/static/assets/index-DQuIfFL3.css": "51969e71f26793682d0efd8b53b07ca0a73f80c06050176e54461d2b1f3014a2"
   },
   "run": {
-    "tests": 101,
-    "passed": 101,
+    "tests": 165,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "duration_seconds": 197.447,
-    "started_at": "2026-10-20T00:06:48.536159-04:00",
-    "junit_sha256": "f827882ec34485dc2261319e9caed7ef44b5983534cc8f8572f41207cf42dc12",
+    "passed": 165,
+    "duration_seconds": 370.154,
+    "started_at": "2026-10-20T00:36:45.505877-04:00",
+    "junit_sha256": "32e9e961bdc81f65b6d37843bde650454c7bd1383248bd78f0255ea93f5d9272",
     "test_modules": [
       "tests.test_browser_device_setup_history",
       "tests.test_conversation_discovery_ui",
+      "tests.test_discovery_setup_ui",
+      "tests.test_discovery_ui",
+      "tests.test_gateway_ui",
       "tests.test_shelly_device_setup_ui",
       "tests.test_synology_device_setup_ui"
     ],
     "passed_by_module": {
-      "tests.test_synology_device_setup_ui": 51,
-      "tests.test_shelly_device_setup_ui": 16,
+      "tests.test_browser_device_setup_history": 13,
       "tests.test_conversation_discovery_ui": 21,
-      "tests.test_browser_device_setup_history": 13
+      "tests.test_discovery_setup_ui": 30,
+      "tests.test_discovery_ui": 15,
+      "tests.test_gateway_ui": 4,
+      "tests.test_shelly_device_setup_ui": 16,
+      "tests.test_synology_device_setup_ui": 66
     },
-    "command": "SYNOLOGY_UI_EVIDENCE=evidence/ui/synology-setup-20261019 pytest-disktmp uv run pytest -q tests/test_synology_device_setup_ui.py tests/test_shelly_device_setup_ui.py tests/test_conversation_discovery_ui.py tests/test_browser_device_setup_history.py --junitxml=evidence/ui/synology-setup-20261019/junit.xml"
+    "command": "SYNOLOGY_UI_EVIDENCE=evidence/ui/synology-setup-20261019 pytest-disktmp uv run pytest -q tests/test_synology_device_setup_ui.py tests/test_shelly_device_setup_ui.py tests/test_conversation_discovery_ui.py tests/test_browser_device_setup_history.py tests/test_discovery_ui.py tests/test_discovery_setup_ui.py tests/test_gateway_ui.py --junitxml=evidence/ui/synology-setup-20261019/junit.xml -x"
   },
   "images": [
     {
       "file": "synology-2sa-synthetic-1440.png",
-      "sha256": "fe75983d6006e7f5f7e5e029d9f15a7c791ac2510ca3f49785d3593ca09cc5d1",
+      "sha256": "b49fd8435239c4be47b98aa4c96ab8bc2d6f1b3ddd816f144bddcbf437e8b6c4",
       "synthetic": true,
       "shows": "Two-step verification explanation and empty verification code field."
     },
     {
       "file": "synology-2sa-synthetic-390.png",
-      "sha256": "0a93b36b3f8bcb431f3fa0b7f1f3565cb94c553aa0385f39de7e34505ea31925",
+      "sha256": "f391142dd881fb8f6cd0a881977dfdb292ab016085cc0e2bc67201621d670714",
       "synthetic": true,
-      "shows": "Two-step verification explanation and empty verification code field."
+      "shows": "Empty verification code field and submit action; the explanation begins above the thread crop."
     },
     {
       "file": "synology-2sa-synthetic-768.png",
-      "sha256": "05aade93badc75072caae5b0f365734bfc6d4aec5e1af5e1c5fce53aa523c7f4",
+      "sha256": "1a5dafeb92d360bc8106c82db611dacdbc07fa673f6b6999a37e4dd202abb3c3",
       "synthetic": true,
       "shows": "Two-step verification explanation and empty verification code field."
     },
     {
       "file": "synology-backup_share-synthetic-1440.png",
-      "sha256": "7a901d38d7db076e411c522c8ca0662750de92deac556feb0f2fd9dc1137ffd8",
+      "sha256": "a7c3269a086fce9f3b614e5d54b102eed223e427d25be2af5424bcbbbc789294",
       "synthetic": true,
       "shows": "Backup folder radio group with no option selected."
     },
     {
       "file": "synology-backup_share-synthetic-390.png",
-      "sha256": "d658ffe6e17b94df71edcf2767d643323469d53e82cd4b5972d35040f9e7b85e",
+      "sha256": "8ce369fcc9627c88ff3156322714bf1e66ede0860aee7f3c9ee5e529ecca1d85",
       "synthetic": true,
-      "shows": "Backup folder radio group with no option selected."
+      "shows": "Two unselected backup folders and a fully visible wrapped primary action."
     },
     {
       "file": "synology-backup_share-synthetic-768.png",
-      "sha256": "344d3d4760c115460471207baeca9b7f78b595a836fedfb12683386c0cfa0291",
+      "sha256": "324a461acb3192b2acb2247b4892a7f020bc6916fa2cc010ddd40fbd01915316",
       "synthetic": true,
       "shows": "Backup folder radio group with no option selected."
     },
     {
       "file": "synology-error-synthetic-1440.png",
-      "sha256": "ce940df8764257afd5cb7b663c42af4764ea57a38e9a8466a765ad8935163c56",
+      "sha256": "c01f6c62c252867407c2c128ffc872ac03862239f4a9904d81b851dbc09b9672",
       "synthetic": true,
       "shows": "Invalid account/password explanation and empty login retry fields."
     },
     {
       "file": "synology-error-synthetic-390.png",
-      "sha256": "acb95d5a9ec90ed7b740511f985beb353da412e77c55d8bde24fbca07d0b0c4b",
+      "sha256": "e7c644179a292ee55ece2deae801e16c8f2b2566ebe475c59f310501eea1d454",
       "synthetic": true,
-      "shows": "Invalid account/password explanation and empty login retry fields."
+      "shows": "Empty login retry fields and primary action; the invalid-credentials explanation is above the thread crop."
     },
     {
       "file": "synology-error-synthetic-768.png",
-      "sha256": "416d03e8f9d4ac0650db6fa49adfd0da0940afb2c8c09d62f05bb175e3421dac",
+      "sha256": "0c42bda9b7e0c8ae78027aee29384dd389c1aa5ac2e6e359d179fb3b03833c95",
       "synthetic": true,
       "shows": "Invalid account/password explanation and empty login retry fields."
     },
     {
       "file": "synology-proposal-synthetic-1440.png",
-      "sha256": "6730f20f86284edd350aa8f4f392929a1faaa09e1c0051293f62b7ed91493576",
+      "sha256": "b43f3540943043a25d6ed7f086550f0ff715a1f0c9bead85708083e10cc9e014",
       "synthetic": true,
       "shows": "Proposal with empty NAS account/password fields and explicit login approval."
     },
     {
       "file": "synology-proposal-synthetic-390.png",
-      "sha256": "a4e6a610b9f5dc45ff0ebf52bcab5f1c5f08a9d447c76cf1db47de9d239220e5",
+      "sha256": "5b7d4aef86749695cb454e4b13fcf5ecacd0c6f38289a4e311de2362300a3e92",
       "synthetic": true,
-      "shows": "Proposal with empty NAS account/password fields and explicit login approval."
+      "shows": "Empty NAS account/password fields and explicit login action; full proposal is above the thread crop."
     },
     {
       "file": "synology-proposal-synthetic-768.png",
-      "sha256": "bc98b48f45b9b1b8cd086ebe5f83033b98f5f38bfeff7cde45e4758763a8964f",
+      "sha256": "100d838cd3a54e86ac69408dc643b05bd0ea555cd5283c2172e634566d96dae0",
       "synthetic": true,
       "shows": "Proposal with empty NAS account/password fields and explicit login approval."
     }
@@ -142,12 +158,20 @@
     "controller/static/downloads/agentic-runner.zip": "a4f482e7974686550f79df045967c4d37695b5afab8e36a5e083c7541a250875"
   },
   "notes": [
-    "All twelve final captures were opened and visually inspected; their hashes match the inspected files.",
-    "Viewport captures are scrolled to the setup card. Account, password and verification-code fields are empty.",
-    "The card explanation, inputs and primary action remain visible at 390 px; no horizontal overflow. Inputs use 16 px text and action/option targets are at least 44 px.",
-    "Host and sidebar mobile first-open behavior is checked separately by synthetic browser tests.",
-    "The final suite covers exact request bodies, CSRF/idempotency keys, immediate secret clearing, storage/URL/DOM/console/request isolation, lost replies/read failures, expiry/reconcile, history OTP submission and malformed input projections.",
-    "Controller and Bridge HTML/assets are byte-identical. Both download ZIPs are byte-identical to base commit 549b409.",
-    "Real NAS, real accounts, real Home Assistant/HAOS and physical-device acceptance remain not_run."
-  ]
+    "All twelve final PNG contents were opened and visually inspected; their hashes match the inspected files.",
+    "Viewport captures scroll the active form within the conversation thread. Secret fields are empty. At 390 px, headings and some explanations remain above the thread crop and can be read by scrolling the thread.",
+    "All primary actions and input controls are inside the thread visible rectangle, allowing 1 px scroll rounding. Primary action centres and both horizontal edges pass elementFromPoint checks. Narrow folder actions wrap without changing the chat layout.",
+    "Owner actions alone request nearest scrolling when a step/state changes or becomes submittable. Mounts, passive polling, unchanged refreshes and exact-ID history do not request card scrolling.",
+    "The final suite covers all three non-submittable messages, re-arm recovery, six 409 sentences, one POST followed only by readback, cleared OTP, duplicate-message suppression, connected blocked reasons, and shared link/unknown-step discovery parsing.",
+    "layout.json records the guarded disk-temp probe: base 549b409 empty/discovery Host and current NAS Host all have document height 844 at viewport height 844; Host and Bridge retain overflow-y auto and visible credential controls.",
+    "Standalone probes before disk-TMPDIR enforcement are excluded from layout evidence. The committed measurement helper requires a unique disk temp directory under ~/agent-work/tmp/pytest.",
+    "Controller and Bridge HTML/assets are byte-identical. Both download ZIPs are byte-identical to base 549b409. Gateway test outputs outside this evidence directory were restored to their original bytes.",
+    "These are synthetic protocol fixtures. Real backend integration, real NAS/accounts/Home Assistant/HAOS and physical household acceptance remain not_run."
+  ],
+  "layout_measurement": {
+    "file": "layout.json",
+    "sha256": "25f22ebc76a4929306d1a37fa0f3bd9599ccc37e91cc7aebf25d2110475e450e",
+    "probe": "measure-layout.py",
+    "probe_sha256": "e5a22d82f7ecb8beb271cac6277ca67e8dc7519f6042516c620e45b98d6c904d"
+  }
 }

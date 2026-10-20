@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "classification": "synthetic_protocol_browser_evidence",
+  "observed_at": "2026-10-20T04:40:58.816082+00:00",
+  "code_commit": "7017c7733f91c8ad3517124a75055552851a4a3b",
+  "baseline_commit": "549b409c402cf695b6486d1de8cf6a60a0d8d6d0",
+  "source_locations": [
+    "controller/static/",
+    "git show 549b409:controller/static/"
+  ],
+  "source_digests": {
+    "current": "51ba456483821e44e6194f3fd910f4b880b6843ca1169f795a3879267708a93f",
+    "baseline": "d6d34f511fced062357ac4c2952a6399f7d89bd6553b541fdbca285ae2fbe7b2"
+  },
+  "target": "#gateway at 390x844; synthetic NAS proposal after Owner help action and base Host discovery",
+  "method": "Playwright Chromium protocol fixtures; thread/control rectangles and elementFromPoint centres",
+  "versions": {
+    "pytest": "9.1.1",
+    "playwright": "1.63.0"
+  },
+  "baseline": {
+    "empty_host": {
+      "document_height": 844,
+      "viewport_height": 844,
+      "thread": {
+        "x": 16,
+        "y": 297,
+        "width": 358,
+        "height": 190.40625,
+        "top": 297,
+        "right": 374,
+        "bottom": 487.40625,
+        "left": 16
+      },
+      "overflow_y": "auto"
+    },
+    "discovery_host": {
+      "document_height": 844,
+      "viewport_height": 844,
+      "thread": {
+        "x": 16,
+        "y": 297,
+        "width": 358,
+        "height": 190.40625,
+        "top": 297,
+        "right": 374,
+        "bottom": 487.40625,
+        "left": 16
+      },
+      "overflow_y": "auto"
+    }
+  },
+  "current": {
+    "host": {
+      "document_height": 844,
+      "viewport_height": 844,
+      "thread": {
+        "x": 16,
+        "y": 297,
+        "width": 358,
+        "height": 190.40625,
+        "top": 297,
+        "right": 374,
+        "bottom": 487.40625,
+        "left": 16
+      },
+      "overflow_y": "auto",
+      "controls": [
+        {
+          "x": 46,
+          "y": 332.78125,
+          "width": 298,
+          "height": 44
+        },
+        {
+          "x": 46,
+          "y": 395.171875,
+          "width": 298,
+          "height": 44
+        },
+        {
+          "x": 46,
+          "y": 443.171875,
+          "width": 88,
+          "height": 44
+        }
+      ]
+    },
+    "bridge": {
+      "document_height": 844,
+      "viewport_height": 844,
+      "thread": {
+        "x": 16,
+        "y": 153,
+        "width": 358,
+        "height": 389.40625,
+        "top": 153,
+        "right": 374,
+        "bottom": 542.40625,
+        "left": 16
+      },
+      "overflow_y": "auto",
+      "controls": [
+        {
+          "x": 46,
+          "y": 387.78125,
+          "width": 298,
+          "height": 44
+        },
+        {
+          "x": 46,
+          "y": 450.171875,
+          "width": 298,
+          "height": 44
+        },
+        {
+          "x": 46,
+          "y": 498.171875,
+          "width": 88,
+          "height": 44
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "No real NAS, account, Home Assistant or household acceptance.",
+    "Only these synthetic 390x844 surfaces were measured."
+  ],
+  "content_digest": "d1a8505619fbf74c29071fc59215a6fea8a7a691adc64ffb1cbba0e253cc003a"
+}
