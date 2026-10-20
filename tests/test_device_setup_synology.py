@@ -837,12 +837,14 @@ async def test_create_entry_requires_exact_response_identity(synology_service, f
     assert record(synology_service, setup).state == "needs_reconcile"
 
 
-@pytest.mark.parametrize("proof", ["missing", "wrong_mac", "other_entry", "correct"])
+@pytest.mark.parametrize("proof", ["missing", "entry_missing", "wrong_mac", "other_entry", "correct"])
 async def test_acknowledged_entry_requires_its_discovered_mac(synology_service, proof):
     _, ha, _, _ = synology_service
     async def registry_proof():
         if proof == "missing":
             ha.devices = []
+        elif proof == "entry_missing":
+            ha.entries, ha.devices = [], []
         elif proof == "wrong_mac":
             ha.devices[0]["connections"] = [["mac", "11:22:33:44:55:66"]]
         elif proof == "other_entry":

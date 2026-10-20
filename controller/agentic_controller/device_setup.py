@@ -964,7 +964,7 @@ class DeviceSetups:
             project("ha_integrations", selected)
             return self.save(record, entry_id=selected["entry_id"], state="configured", reason_code=None,
                              phase="registration_readback")
-        if adapter.domain == "synology_dsm" and not any(row.get("domain") == adapter.domain
+        if adapter.domain == "synology_dsm" and record.entry_id is None and not any(row.get("domain") == adapter.domain
                 and row["entry_id"] not in record.baseline_entry_ids for row in entries):
             return self.save(record, state="blocked", reason_code="device_setup_flow_gone")
         return self.save(record, state="needs_reconcile", reason_code="device_setup_entry_not_verified")
