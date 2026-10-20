@@ -87,7 +87,7 @@
       "failed_cases": [
         "tests.test_interactive_preview::test_preview_fixtures_parse_and_cover_shell_gets"
       ],
-      "known_preexisting_failure": true
+      "failure_origin": "branch_regression"
     },
     "browser": {
       "tests": 173,
@@ -432,11 +432,42 @@
     "task_containers": "removed; only an unrelated pre-existing container remained"
   },
   "storage_compatibility": "New Synology records are version 3 with six input fields. IPP and Shelly bodies stay version 2 with exactly the 21 keys of the base reader through both persistence paths; development rows that already contain the six fields remain readable. Old binaries refuse unknown records and fence new setup writes; not unrestricted downgrade compatibility.",
-  "known_preexisting_failure": {
+  "branch_regression": {
     "test": "tests/test_interactive_preview.py::test_preview_fixtures_parse_and_cover_shell_gets",
-    "cause": "web/preview/fixtures.json stores discovery digest c52e6dba197f3cbfbbe63764676e73aa069d202cef9ded28f4732370709d7c8b; current and base models both compute 6bd4c5218b2d178de366797ec83b5152e94f3bccc85832e593045d193fd55cf5.",
+    "cause": "web/preview/fixtures.json stores discovery digest c52e6dba197f3cbfbbe63764676e73aa069d202cef9ded28f4732370709d7c8b; current and base models both compute 6bd4c5218b2d178de366797ec83b5152e94f3bccc85832e593045d193fd55cf5. The optional confirmation_step field added to discovery candidates in 0ad1b51 dumps as null for the fixture candidate; the stored fixture and digests were not refreshed.",
+    "introduced_by": "0ad1b51",
     "present_at_base": true,
-    "action": "Not edited or skipped; repair needs a preview fixture and site screenshot refresh outside this round."
+    "passes_on_main": true,
+    "correction": "First recorded as a pre-existing failure. It predates this round's base 549b409 but was introduced earlier on this branch; main passes. Product storage is unaffected because discovery snapshots are recomputed on read, not verified from storage.",
+    "fixed_by": {
+      "ce323f3": "web/preview/fixtures.json: candidate confirmation_step null, ha_discovery source digest 94e1e0f329e15544aff227402272a938cf6a2e5b9eb45354c77582708bbee852 and snapshot digest b1e0534ac684e2161701b82eefe7aaf1e910b9b131d3c0da43294d46503fb4da; no other byte changed",
+      "6411ff3": "site/assets screenshots and manifest regenerated only via scripts/site_screenshots.py"
+    },
+    "fix_verification": [
+      {
+        "command": "pytest -q tests/test_interactive_preview.py tests/test_site.py tests/test_interactive_preview_ui.py tests/test_recovery_followups_ui.py",
+        "passed": 60,
+        "failed": 0,
+        "skipped": 1,
+        "duration_seconds": 169.67,
+        "skipped_reason": "runner image build needs --containers"
+      },
+      {
+        "command": "pytest -q tests/test_native_demo.py tests/test_network_inventory_ui.py",
+        "passed": 63,
+        "failed": 0,
+        "skipped": 0,
+        "duration_seconds": 213.22
+      },
+      {
+        "command": "web: npx tsc -p demo/tsconfig.json && npx vite build --config demo/vite.config.ts",
+        "result": "passed"
+      },
+      {
+        "command": "ruff check, scripts/validate_kit.py, git diff --check",
+        "result": "passed"
+      }
+    ]
   },
   "limitations": [
     "Only Core 2026.10.1 and 2026.10.2 with a discovered synology_dsm SSDP/zeroconf link form of the reviewed exact shape are qualified; other steps, custom ports and forms carrying credential defaults fall back to the native settings entry.",
@@ -457,7 +488,7 @@
     "backup upload",
     "live household",
     "Dell deployment",
-    "CI",
+    "green CI on the follow-up head at the time of writing (see PR #127)",
     "long-running operation"
   ],
   "development_failures": [
@@ -479,5 +510,73 @@
       "cause": "Review fixes would change the tested commit",
       "resolution": "Rerun in full at code_commit"
     }
-  ]
+  ],
+  "ci": {
+    "workflow": ".github/workflows/ci.yml (GitHub-hosted ubuntu-24.04, --real-ha --containers)",
+    "first_runs": [
+      {
+        "run_id": 39387043632,
+        "event": "pull_request",
+        "head": "8acac70",
+        "result": "failed",
+        "passed": 4806,
+        "skipped": 12,
+        "failed": 2,
+        "errors": 12,
+        "pytest_seconds": 1754.72,
+        "job_minutes": 32.6
+      },
+      {
+        "run_id": 39387000290,
+        "event": "push",
+        "head": "8acac70",
+        "result": "failed",
+        "passed": 4806,
+        "skipped": 12,
+        "failed": 2,
+        "errors": 12,
+        "pytest_seconds": 1754.72,
+        "job_minutes": 32.6
+      }
+    ],
+    "causes": [
+      {
+        "tests": "tests/test_device_setup_real_ha.py (2), tests/test_device_setup_shelly_real_ha.py (4), tests/test_device_setup_synology_real_ha.py (6)",
+        "outcome": "12 errors",
+        "cause": "These real-Core tests deliberately never pull; CI did not provision ghcr.io/home-assistant/home-assistant:2026.10.1/2026.10.2 before them.",
+        "fix": "1c6439f: CI pulls both pinned Core images before tests; job timeout 45 -> 60 minutes because the 12 cases now run (about 350 s locally)."
+      },
+      {
+        "tests": "tests/test_interactive_preview.py::test_preview_fixtures_parse_and_cover_shell_gets",
+        "outcome": "failed",
+        "cause": "branch_regression",
+        "fix": "ce323f3, 6411ff3"
+      },
+      {
+        "tests": "tests/test_onboarding_e2e.py::test_composed_onboarding_browser_services_and_native_home",
+        "outcome": "failed",
+        "cause": "The composed E2E still followed the legacy CLI-first order and timed out waiting for the CLI sign-in panel; 1414e77 moved new setups to butler_v1 (prepare home, then assistant login; coding setup deferred). Safe checkpoint: waiting_input at hermes_auth, host actions [provision, bootstrap_hermes], 0 CLI calls, no browser errors.",
+        "fix": "4d2c691: E2E follows butler_v1; asserts deferred coding setup, skipped channel, no CLI requests and no repeated host operations; all other assertions kept.",
+        "local_verification": {
+          "command": "AGENTIC_E2E_IMAGE_TAG=0.11.1-ci1-4d2c691 pytest -q -p no:randomly --containers --real-ha tests/test_onboarding_e2e.py",
+          "passed": 1,
+          "failed": 0,
+          "duration_seconds": 77.92,
+          "core": "2026.10.1",
+          "images": "controller, runner and Hermes built from 4d2c691 under a unique tag, removed after the run; shared 0.11.1 tags untouched",
+          "host_actions": [
+            "provision",
+            "bootstrap_hermes"
+          ],
+          "cli_inference_calls": 0,
+          "hermes_model_calls": 3,
+          "related": {
+            "tests/test_hermes_ci_cache.py": "3 passed",
+            "bootstrap and butler bootstrap backend/UI": "48 passed"
+          }
+        }
+      }
+    ],
+    "follow_up": "Results of the CI run on the follow-up head are recorded on PR #127."
+  }
 }

@@ -46,7 +46,7 @@ uv run pytest -q --basetemp "$agentic_test_tmp"
 | Hermes 私有 runtime | `tests/test_hermes_runtime.py --containers` | service tests＋真 pinned AIAgent／官方 MCP client；模型及 MCP endpoints 為本機 fixture |
 | Web | `tests/test_ui.py tests/test_bootstrap_ui.py tests/test_gateway_ui.py tests/test_hermes_ui.py tests/test_worker_ui.py tests/test_home_worker_ui.py tests/test_bridge_ui.py tests/test_recovery_ui.py tests/test_review_ui.py tests/test_provider_auth_ui.py tests/test_interactive_preview_ui.py` | 真 Chromium、API fixtures，1440／768／390 px |
 | 首次設定／登入 | `tests/test_bootstrap.py tests/test_bootstrap_host.py tests/test_bootstrap_runner.py tests/test_desktop_login.py tests/test_ha_oauth.py --containers --real-ha` | 持久步驟／負向恢復、真封裝CLI本機推論fixture、真Core OAuth；不登入雲端 |
-| 跨服務 onboarding E2E | `tests/test_onboarding_e2e.py --containers --real-ha` | 真 Chromium／Controller／TLS Runner／Codex／Hermes AIAgent／MCP／Core OAuth；模型與 Host 安裝副作用為 fixture，無瀏覽器 API 攔截；精確限制見測試與審查報告 |
+| 跨服務 onboarding E2E | `tests/test_onboarding_e2e.py --containers --real-ha` | 真 Chromium／Controller／TLS Runner／Hermes AIAgent／MCP／Core OAuth；新設定先準備家庭再登入智能管家，開發助手登入延後、不在此流程；模型與 Host 安裝副作用為 fixture，無瀏覽器 API 攔截；`AGENTIC_E2E_IMAGE_TAG` 可改用獨立標籤的映像，預設 `0.11.1`；精確限制見測試與審查報告 |
 | 競爭與恢復回歸 | `tests/test_review_bootstrap.py tests/test_review_runtime.py tests/test_review_ui.py` | 真程序樹取消、配對回覆遺失、授權／pause race、登入表單狀態、Telegram 首次配對；外部帳號端點 fixture |
 | USB 安裝前硬體檢查 | `tests/test_live_preflight.py tests/test_host.py` | x86-64／RAM／KVM 拒絕、固定模組有界載入、fd 清理與 ISO 映射；真 live kernel 另由精確 ISO 測試驗證 |
 | 多來源設備盤點 | `tests/test_host_discovery.py tests/test_network_inventory.py tests/test_network_inventory_ui.py tests/test_network_inventory_real_ha.py --real-ha` | loopback UDP、來源／權限／保存、真 Core registry 與示範接續；非家庭 LAN、雲端帳號或實體設備驗收 |
