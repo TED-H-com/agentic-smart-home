@@ -2,6 +2,16 @@
 .device-setup{flex:1 1 100%;border:1px solid var(--line);border-radius:8px;padding:var(--s3);min-width:0;background:var(--surface)}
 .device-setup h4{font-size:var(--body);margin:0 0 var(--s2)}
 .device-setup p{margin:var(--s2) 0;color:inherit}
+.device-setup-input{display:grid;gap:var(--s2);margin-top:var(--s3);max-width:32rem}
+.device-setup-input label{display:grid;gap:var(--s1);min-width:0}
+.device-setup-input input{min-width:0;width:100%;min-height:44px;font-size:16px}
+.device-setup-input fieldset{min-width:0;border:1px solid var(--line);border-radius:8px;padding:var(--s2)}
+.device-setup-input .device-setup-option{display:flex;flex-direction:row;align-items:center;gap:var(--s2);min-height:44px;overflow-wrap:anywhere}
+.device-setup-option input{width:20px;min-height:20px;flex:none;margin:0}
+.device-setup-input>button{justify-self:start;min-height:44px}
+.assistant-page:has(.assistant-conversation .device-setup-input){height:auto}
+.assistant-conversation:has(.device-setup-input){flex:none;overflow:visible}
+.bridge-shell:has(.assistant-conversation .device-setup-input){overflow:auto}
 .device-setup .button{margin:var(--s2) var(--s2) 0 0}
 .device-setup-readback{border-top:1px solid var(--line);margin-top:var(--s3);padding-top:var(--s2)}
 .conversation-discovery-candidates li{flex-wrap:wrap}
