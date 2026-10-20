@@ -22,6 +22,7 @@ const count=(value:unknown)=>value===null||typeof value==='number'&&Number.isSaf
 const date=(value:unknown)=>typeof value==='string'&&value.length<=40&&Number.isFinite(Date.parse(value));
 const identifier=(value:unknown)=>typeof value==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(value);
 const label=(value:unknown)=>typeof value==='string'&&value.length<=160;
+const shareValue=(value:unknown)=>typeof value==='string'&&/^\/[^\x00-\x1f]{1,255}$/u.exec(value)?.[0]===value;
 const optionalLabel=(value:unknown)=>value===null||label(value);
 const pendingStates=new Set(['preparing','applying']);
 const connectedReasons=new Set(['device_setup_already_configured','device_setup_existing_updated']);
@@ -45,7 +46,7 @@ export function parseDeviceSetup(value:unknown,candidate?:Candidate,expectedId?:
   const input=value.input??null;
   if(value.state==='needs_input'){
     if(value.candidate.integration_domain!=='synology_dsm'||!record(input)||typeof input.step!=='string'||!['link','2sa','backup_share'].includes(input.step)||!(input.error===null||typeof input.error==='string'&&['invalid_auth','cannot_connect','unknown','missing_data','otp_failed'].includes(input.error))||typeof input.can_submit!=='boolean')return invalid();
-    if(!Array.isArray(input.options)||input.options.length>64||!input.options.every(item=>record(item)&&typeof item.value==='string'&&item.value.length<=255&&label(item.label))||new Set(input.options.map(item=>item.value)).size!==input.options.length||input.step!=='backup_share'&&input.options.length>0)return invalid();
+    if(!Array.isArray(input.options)||input.options.length>64||!input.options.every(item=>record(item)&&shareValue(item.value)&&label(item.label))||new Set(input.options.map(item=>item.value)).size!==input.options.length||input.step!=='backup_share'&&input.options.length>0)return invalid();
   }else if(input!==null)return invalid();
   if(candidate&&(value.candidate.integration_domain!==candidate.integration_domain||value.candidate.id!==candidate.id&&(!!expectedId||!aliases.includes(candidate.id))))return invalid();
   if(expectedId&&value.id!==expectedId)return invalid();

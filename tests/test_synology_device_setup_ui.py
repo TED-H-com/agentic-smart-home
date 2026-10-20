@@ -416,6 +416,9 @@ def test_needs_input_does_not_poll(nas_browser):
         {'value': f'/share/{i}', 'label': '資料夾'} for i in range(65)], 'can_submit': True}},
     {'input': {'step': 'backup_share', 'error': None, 'options': [
         {'value': 'x' * 256, 'label': '資料夾'}], 'can_submit': True}},
+    *[{'input': {'step': 'backup_share', 'error': None, 'options': [
+        {'value': value, 'label': '資料夾'}], 'can_submit': True}}
+      for value in ['/' + 'x' * 256, '/bad\x00share', '/bad\x1fshare', '/bad\n', 'relative', '/']],
     {'input': {'step': 'backup_share', 'error': None, 'options': [
         {'value': '/share', 'label': 'x' * 161}], 'can_submit': True}},
     {'input': {'step': 'backup_share', 'error': None, 'options': [
@@ -433,6 +436,21 @@ def test_invalid_input_projection_never_exposes_a_submission(nas_browser, change
     page.get_by_role('button', name='探索家庭設備', exact=True).click()
     expect(page.get_by_text('接入資料尚未確認，請重新讀取。', exact=True)).to_be_visible()
     expect(page.locator('.device-setup-input')).to_have_count(0)
+    assert setup_posts(state) == []
+
+
+@pytest.mark.parametrize('value', ['/' + 'x' * 255, '/' + '😀' * 255])
+def test_longest_backup_share_is_accepted_and_selectable(nas_browser, value):
+    page, state = nas_browser
+    setup = waiting(nas_setup(), 'backup_share')
+    setup['input']['options'] = [{'value': value, 'label': '資料夾'}]
+    state['setups'][IDENTIFIER] = setup
+    panel = open_card(page, state)
+    radio = panel.get_by_role('radio', name='資料夾', exact=True)
+    expect(radio).to_have_value(value)
+    radio.check()
+    expect(radio).to_be_checked()
+    expect(panel.get_by_role('button', name='使用這個資料夾', exact=True)).to_be_enabled()
     assert setup_posts(state) == []
 
 
