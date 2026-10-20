@@ -1114,3 +1114,53 @@ async def test_v3_record_cannot_be_downgraded(synology_service):
     current = service.save(record(synology_service, setup), reason_code="fixture")
     service.commit_receipt(current, ("fixture", "migration", "a" * 64))
     assert SetupRecord.model_validate(store.get(KIND, setup.id)).version == 3
+
+
+V2_RECORD_KEYS = {"version", "id", "binding", "home_binding", "revision", "proposal_digest", "candidate",
+    "candidate_aliases", "flow_digest", "form_digest", "identity_digest", "baseline_entry_ids", "state",
+    "reason_code", "created_at", "updated_at", "expires_at", "approved_at", "backup_id", "entry_id", "phase"}
+SYNOLOGY_RECORD_KEYS = {"input_step", "input_error", "share_options", "backup_path", "post_step", "step_posts"}
+
+
+@pytest.mark.parametrize("domain", ["ipp", "shelly"])
+@pytest.mark.parametrize("persistence", ["save", "commit_receipt"])
+async def test_v2_persistence_keeps_exact_549b409_key_set(synology_service, domain, persistence):
+    service, _, store, _ = synology_service
+    service.ha = IPPHA() if domain == "ipp" else ShellyHA()
+    setup = await service.create(request(), DeviceSetupCreate(candidate_id="pending", integration_domain=domain))
+    current = service.record(store.get(KIND, setup.id)["binding"], setup.id)
+    if persistence == "save":
+        service.save(current, reason_code="fixture")
+    else:
+        service.commit_receipt(current, ("fixture", "v2", "a" * 64))
+    raw = json.loads(store.db.execute("SELECT body FROM records WHERE kind=? AND id=?", (KIND, setup.id)).fetchone()[0])
+    assert raw["version"] == 2 and set(raw) == V2_RECORD_KEYS
+    assert SetupRecord.model_validate(raw).candidate.integration_domain == domain
+
+
+@pytest.mark.parametrize("persistence", ["save", "commit_receipt"])
+async def test_v3_persistence_keeps_synology_fields(synology_service, persistence):
+    service, _, store, _ = synology_service
+    setup = await waiting(synology_service, "backup_share")
+    current = record(synology_service, setup)
+    if persistence == "save":
+        service.save(current, reason_code="fixture")
+    else:
+        service.commit_receipt(current, ("fixture", "v3", "a" * 64))
+    raw = store.get(KIND, setup.id)
+    assert raw["version"] == 3 and set(raw) == V2_RECORD_KEYS | SYNOLOGY_RECORD_KEYS
+    assert raw["input_step"] == "backup_share" and raw["input_error"] is None
+    assert raw["share_options"] == SHARES and raw["backup_path"] == BACKUP_PATH
+    assert raw["post_step"] == "link" and raw["step_posts"] == 1
+
+
+@pytest.mark.parametrize("domain", ["ipp", "shelly"])
+async def test_v2_development_rows_with_synology_extras_remain_readable(synology_service, domain):
+    service, _, store, _ = synology_service
+    service.ha = IPPHA() if domain == "ipp" else ShellyHA()
+    setup = await service.create(request(), DeviceSetupCreate(candidate_id="pending", integration_domain=domain))
+    current = service.record(store.get(KIND, setup.id)["binding"], setup.id)
+    store.put(KIND, current.model_dump())
+    assert set(store.get(KIND, setup.id)) == V2_RECORD_KEYS | SYNOLOGY_RECORD_KEYS
+    assert service.record(current.binding, setup.id) == current
+    assert service.records(current.binding, for_write=True) == [current]

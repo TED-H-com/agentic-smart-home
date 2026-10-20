@@ -210,6 +210,13 @@ class SetupRecord(Strict):
         return self
 
 
+def record_body(record):
+    # Keep v2 bodies readable by the pre-Synology reader with extra="forbid".
+    exclude = {"input_step", "input_error", "share_options", "backup_path", "post_step", "step_posts"}
+    return record.model_dump(exclude=exclude if record.version == 2
+        and ADAPTERS[record.candidate.integration_domain].record_version == 2 else set())
+
+
 MESSAGES = {
     "preparing": "正在建立並核對 Home Assistant 設定備份；完成後才會接入設備。",
     "applying": "接入請求已準備送出，正在核對 Home Assistant 的結果。",
@@ -344,7 +351,7 @@ class DeviceSetups:
         value = SetupRecord.model_validate({**record.model_dump(),
             "version": ADAPTERS[record.candidate.integration_domain].record_version,
             "revision": record.revision + 1, "updated_at": utcnow(), **updates})
-        self.store.put(KIND, value.model_dump())
+        self.store.put(KIND, record_body(value))
         return value
 
     def recover(self):
@@ -407,7 +414,7 @@ class DeviceSetups:
         with self.store.transaction() as tx:
             tx.execute("INSERT INTO records VALUES (?,?,?,?,?) ON CONFLICT(kind,id) DO UPDATE "
                 "SET body=excluded.body,updated=excluded.updated", (KIND, record.id,
-                canonical(record.model_dump()), record.created_at, record.updated_at))
+                canonical(record_body(record)), record.created_at, record.updated_at))
             tx.execute("INSERT INTO requests VALUES (?,?,?,?)", (*receipt, record.id))
 
     async def read(self, authority, method, target):
