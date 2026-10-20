@@ -10,7 +10,8 @@
       "default": "ipp",
       "enum": [
         "ipp",
-        "shelly"
+        "shelly",
+        "synology_dsm"
       ],
       "title": "Integration Domain",
       "type": "string"

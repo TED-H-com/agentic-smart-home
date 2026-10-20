@@ -1,6 +1,46 @@
 {
+  "$defs": {
+    "DeviceSetupCredentials": {
+      "additionalProperties": false,
+      "properties": {
+        "password": {
+          "format": "password",
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Password",
+          "type": "string",
+          "writeOnly": true
+        },
+        "username": {
+          "format": "password",
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Username",
+          "type": "string",
+          "writeOnly": true
+        }
+      },
+      "required": [
+        "username",
+        "password"
+      ],
+      "title": "DeviceSetupCredentials",
+      "type": "object"
+    }
+  },
   "additionalProperties": false,
   "properties": {
+    "credentials": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DeviceSetupCredentials"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "expected_revision": {
       "minimum": 1,
       "title": "Expected Revision",

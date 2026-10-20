@@ -141,6 +141,21 @@ async def test_shelly_guidance_requires_native_confirmation_and_does_not_approve
     assert store.setting("policy") == {"entities": []}
 
 
+@pytest.mark.parametrize("method,step", [("ssdp", "link"), ("zeroconf", "link"), ("ssdp", "2sa"),
+    ("zeroconf", "user")])
+async def test_synology_guidance_uses_only_discovered_link_step(discovery_chat, method, step):
+    _, client, ha, store, _ = discovery_chat
+    flow = ha.results["config_entries/flow/progress"][0]
+    flow.update(handler="synology_dsm", step_id=step)
+    flow["context"].update(source=method, unique_id="001132AABBCC")
+    response = await send(discovery_chat[0], client, "探索家庭設備", "nas-guidance", discover_devices=True)
+    candidate = store.conversation(id=response.json()["id"])["discovery"]["candidates"][0]
+    expected = "選擇「協助設定」，在接入卡輸入 NAS 帳號密碼；帳號密碼不會傳給管家。"
+    assert candidate["confirmation_step"] == ("link" if step == "link" else None)
+    assert candidate["next_step"] == (expected if step == "link" else chat_module.SETUP_STEP)
+    assert not store.list("device_setup_v1") and not store.list("approval")
+
+
 @pytest.mark.parametrize("label,expected", [
     ("shelly1-aabbccddeeff", "shelly1-[已隱藏位址]"),
     ("Device 001122334455", "Device [已隱藏位址]"),

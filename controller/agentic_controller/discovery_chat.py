@@ -280,6 +280,9 @@ class DiscoveryChat:
                     next_step = IPP_SETUP_STEP
                 elif candidate.integration_domain == "shelly" and candidate.confirmation_step == "confirm_discovery":
                     next_step = SHELLY_SETUP_STEP
+            if (candidate.source_id == "ha_discovery" and candidate.integration_domain == "synology_dsm"
+                    and candidate.discovery_method in {"ssdp", "zeroconf"} and candidate.confirmation_step == "link"):
+                next_step = "選擇「協助設定」，在接入卡輸入 NAS 帳號密碼；帳號密碼不會傳給管家。"
             candidates.append(DiscoveryChatCandidate(**{**candidate.model_dump(), "title": title},
                 integration_name=name, next_step=next_step))
         candidates = interleave(candidates, inventory_candidates)

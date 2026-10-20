@@ -78,7 +78,7 @@ class DiscoveryCandidate(Strict):
     discovery_method: str
     # A bounded routing hint from HA's pending flow, never proof that a setup
     # proposal is supported or approved. The write adapter rechecks the form.
-    confirmation_step: Literal["zeroconf_confirm", "confirm_discovery"] | None = None
+    confirmation_step: Literal["zeroconf_confirm", "confirm_discovery", "link"] | None = None
     source_id: Literal["ha_discovery", "network_inventory"] = "ha_discovery"
     native_path: Literal["/config/integrations"] = "/config/integrations"
 
@@ -125,7 +125,8 @@ class ConversationDeviceSetup(Strict):
     contract_version: Literal[1] = 1
     state: Literal["consent_required", "ready", "unavailable"]
     setup_id: PreviewId | None = None
-    setup_state: Literal["proposed", "preparing", "applying", "configured", "needs_reconcile", "blocked"] | None = None
+    setup_state: Literal["proposed", "preparing", "applying", "configured", "needs_reconcile", "needs_input", "blocked"] | None = None
+    input_step: Literal["link", "2sa", "backup_share"] | None = None
     setup_updated_at: str | None = None
     title: Annotated[str, Field(max_length=160)] | None = None
     current_state: Literal["not_recorded", "present", "not_seen", "unknown"] = "unknown"
@@ -144,7 +145,7 @@ class ConversationDeviceSetup(Strict):
 
     @model_validator(mode="after")
     def one_explicit_selection(self):
-        if self.state == "consent_required" and any((self.setup_id, self.setup_state, self.setup_updated_at,
+        if self.state == "consent_required" and any((self.setup_id, self.setup_state, self.input_step, self.setup_updated_at,
                 self.title, self.integration, self.devices, self.sources, self.observed_at, self.content_digest,
                 self.device_count is not None, self.entity_count is not None, self.available_entity_count is not None)):
             raise ValueError("未分享接入項目時不能包含家庭觀測")

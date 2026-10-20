@@ -1,8 +1,8 @@
-"""Owner-approved native empty confirmations against tested Core patches.
+"""Owner-approved bounded native setup against tested Core patches.
 
 The private frontend flow API is intentionally isolated here. Only an existing
-allowlisted step with an empty schema is supported; no arbitrary fields,
-URLs, credentials, new flows, model approvals, or device-control grants exist.
+allowlisted step/schema is supported; no arbitrary fields, URLs, new flows,
+model approvals, or device-control grants exist.
 Upstream references: Core tag 2026.10.1 components/ipp/config_flow.py,
 components/ipp/entity.py, components/config/config_entries.py and
 helpers/data_entry_flow.py. A lost POST is never automatically repeated.
@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import HTTPException, Request
-from pydantic import Field, ValidationError, model_validator
+from pydantic import Field, RootModel, SecretStr, ValidationError, field_validator, model_validator
 
 from .device_setup_adapters import ADAPTERS
 from .discovery import DiscoveryAuthority, identifier, project, snapshot
@@ -42,7 +42,9 @@ from .response_durability import RESPONSE_GUARD
 KIND = "device_setup_v1"
 SUPPORTED_CORE = frozenset({"2026.10.1", "2026.10.2"})
 Hash = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
-State = Literal["proposed", "preparing", "applying", "configured", "needs_reconcile", "blocked"]
+State = Literal["proposed", "preparing", "applying", "configured", "needs_reconcile", "needs_input", "blocked"]
+InputStep = Literal["link", "2sa", "backup_share"]
+InputError = Literal["invalid_auth", "cannot_connect", "unknown", "missing_data", "otp_failed"]
 PRE_CONFIRMATION_PHASES = {"approved", "backup_prepared", "backup_completed"}
 
 
@@ -52,12 +54,75 @@ class SendGuardRejected(HTTPException):
 
 class DeviceSetupCreate(Strict):
     candidate_id: DiscoveryIdentifier
-    integration_domain: Literal["ipp", "shelly"] = "ipp"
+    integration_domain: Literal["ipp", "shelly", "synology_dsm"] = "ipp"
+
+
+class DeviceSetupCredentials(Strict):
+    username: Annotated[SecretStr, Field(min_length=1, max_length=128)]
+    password: Annotated[SecretStr, Field(min_length=1, max_length=256)]
+
+    @field_validator("username", "password", mode="before")
+    @classmethod
+    def bounded_secret(cls, value, info):
+        limit = 128 if info.field_name == "username" else 256
+        if (not isinstance(value, str) or not 1 <= len(value) <= limit
+                or info.field_name == "username" and re.search(r"[\x00-\x1f\x7f-\x9f]", value)):
+            raise HTTPException(409, "device_setup_input_invalid")
+        return value
 
 
 class DeviceSetupApprove(Strict):
     expected_revision: DiscoveryRevision
     proposal_digest: Hash
+    credentials: DeviceSetupCredentials | None = None
+
+
+class DeviceSetupLinkInput(DeviceSetupCredentials):
+    expected_revision: DiscoveryRevision
+    step: Literal["link"]
+
+
+class DeviceSetupOTPInput(Strict):
+    expected_revision: DiscoveryRevision
+    step: Literal["2sa"]
+    otp_code: Annotated[SecretStr, Field(min_length=6, max_length=8, json_schema_extra={"pattern": r"^[0-9]{6,8}$"})]
+
+    @field_validator("otp_code", mode="before")
+    @classmethod
+    def bounded_otp(cls, value):
+        if not isinstance(value, str) or not re.fullmatch(r"[0-9]{6,8}", value):
+            raise HTTPException(409, "device_setup_input_invalid")
+        return value
+
+
+class DeviceSetupShareInput(Strict):
+    expected_revision: DiscoveryRevision
+    step: Literal["backup_share"]
+    backup_share: Annotated[str, Field(pattern=r"^/[^\x00-\x1f]{1,255}$")]
+
+    @field_validator("backup_share", mode="before")
+    @classmethod
+    def bounded_share(cls, value):
+        if not isinstance(value, str) or not re.fullmatch(r"/[^\x00-\x1f]{1,255}", value):
+            raise HTTPException(409, "device_setup_input_invalid")
+        return value
+
+
+class DeviceSetupInput(RootModel[Annotated[
+        DeviceSetupLinkInput | DeviceSetupOTPInput | DeviceSetupShareInput, Field(discriminator="step")]]):
+    pass
+
+
+class DeviceSetupShareOption(Strict):
+    value: Annotated[str, Field(pattern=r"^/[^\x00-\x1f]{1,255}$")]
+    label: Annotated[str, Field(max_length=160)]
+
+
+class DeviceSetupInputView(Strict):
+    step: InputStep
+    error: InputError | None = None
+    options: Annotated[list[DeviceSetupShareOption], Field(max_length=64)] = []
+    can_submit: bool
 
 
 class DeviceSetupReconcile(Strict):
@@ -74,6 +139,7 @@ class DeviceSetupView(Strict):
     state: State
     can_approve: bool
     can_reconcile: bool
+    input: DeviceSetupInputView | None = None
     message: str
     reason_code: str | None = None
     created_at: str
@@ -99,9 +165,8 @@ class DeviceSetupList(Strict):
 
 
 class SetupRecord(Strict):
-    # Read legacy IPP v1; all newly written records use v2. Old binaries cannot
-    # parse v2 and their existing for_write fence blocks new effects.
-    version: Literal[1, 2] = 1
+    # IPP/Shelly keep v2; Synology v3 fences writes by older binaries.
+    version: Literal[1, 2, 3] = 1
     id: PreviewId
     binding: Hash
     # Access to history survives credential replacement for the same freshly
@@ -125,11 +190,19 @@ class SetupRecord(Strict):
     backup_id: DiscoveryIdentifier | None = None
     entry_id: DiscoveryIdentifier | None = None
     phase: str = "proposal"
+    input_step: InputStep | None = None
+    input_error: InputError | None = None
+    share_options: Annotated[list[DeviceSetupShareOption], Field(max_length=64)] = []
+    backup_path: Annotated[str, Field(pattern=r"^[A-Za-z0-9_.-]{1,128}$")] | None = None
+    post_step: InputStep | None = None
+    step_posts: Annotated[int, Field(ge=0, le=8)] = 0
 
     @model_validator(mode="after")
     def qualified_adapter(self):
         adapter = ADAPTERS.get(self.candidate.integration_domain)
-        if adapter is None or (self.version == 1 and adapter.domain != "ipp"):
+        if (adapter is None or (self.version == 1 and adapter.domain != "ipp")
+                or self.version == 3 and adapter.domain != "synology_dsm"
+                or adapter.domain == "synology_dsm" and self.version != 3):
             raise ValueError("device_setup_record_adapter_mismatch")
         step = getattr(self.candidate, "confirmation_step", None)
         if step is not None and step != adapter.step:
@@ -144,6 +217,20 @@ MESSAGES = {
     "needs_reconcile": "上次操作結果尚未確認；只會重新讀取結果，不會重送接入請求。",
     "blocked": "這次接入已停止。請查看原因，修復後重新建立提案。",
 }
+INPUT_MESSAGES = {
+    "link": "請輸入這台 NAS 的帳號與密碼。",
+    "invalid_auth": "帳號或密碼不正確，請再輸入一次。",
+    "cannot_connect": "連不到這台 NAS。請確認 NAS 已開機並接上家裡網路，再試一次。",
+    "unknown": "NAS 回應異常，請稍後再試。",
+    "missing_data": "NAS 尚未回報完整資料，請先完成 NAS 的儲存空間設定再試。",
+    "2sa": "這個帳號開啟了兩步驟驗證。請輸入驗證器 App 目前顯示的驗證碼；通過後 NAS 會記住這台家庭系統。",
+    "otp_failed": "驗證碼不正確或已過期，請輸入新的驗證碼。",
+    "backup_share": "家庭系統可以把備份存到這台 NAS。請選一個共用資料夾。",
+    "device_setup_input_expired": "這一步已逾時，請重新讀取後繼續。",
+    "device_setup_already_configured": "這台 NAS 已經接入家庭系統。",
+    "device_setup_flow_gone": "家庭系統已結束這次接入，請重新探索設備後再試。",
+    "device_setup_input_limit": "嘗試次數過多，這次接入已停止。請稍後重新開始。",
+}
 
 
 class DeviceSetups:
@@ -153,6 +240,7 @@ class DeviceSetups:
         self.spawn = spawn or (lambda _id, coroutine: asyncio.create_task(coroutine))
         self.running = {}
         self.authorities = {}
+        self.started = set()
 
     def bridge_active(self, generation):
         return bool(generation) and any(authority.identity is not None
@@ -169,15 +257,16 @@ class DeviceSetups:
                     and task is not None and not task.done()):
                 if not task.cancelling():
                     task.cancel()
-                pending.append((operation_id, authority, task))
+                pending.append((operation_id, authority, task, operation_id in self.started))
         if pending:
-            await asyncio.gather(*(task for _, _, task in pending), return_exceptions=True)
-            for operation_id, authority, _ in pending:
+            await asyncio.gather(*(task for _, _, task, _ in pending), return_exceptions=True)
+            for operation_id, authority, _, started in pending:
                 # A task cancelled before its coroutine's first instruction
                 # cannot run execute()'s cancellation handler.
                 current = self.record(self.binding(authority), operation_id)
                 if current.state in {"preparing", "applying"}:
-                    state = "blocked" if current.phase in PRE_CONFIRMATION_PHASES else "needs_reconcile"
+                    state = ("needs_input" if not started and current.input_step is not None else
+                        "blocked" if current.phase in PRE_CONFIRMATION_PHASES else "needs_reconcile")
                     self.save(current, state=state, reason_code="device_setup_interrupted")
             await self.store.durable()
 
@@ -244,9 +333,10 @@ class DeviceSetups:
         return record
 
     def save(self, record, **updates):
-        value = record.model_copy(update={"version": 2, "revision": record.revision + 1, "updated_at": utcnow(), **updates})
         # Validation catches unknown or oversized upstream identifiers before persistence.
-        value = SetupRecord.model_validate(value.model_dump())
+        value = SetupRecord.model_validate({**record.model_dump(),
+            "version": ADAPTERS[record.candidate.integration_domain].record_version,
+            "revision": record.revision + 1, "updated_at": utcnow(), **updates})
         self.store.put(KIND, value.model_dump())
         return value
 
@@ -287,7 +377,15 @@ class DeviceSetups:
         key = request.headers.get("idempotency-key", "")
         if not key or len(key) > 200:
             raise HTTPException(400, "device_setup_idempotency_required")
-        scope, payload = f"{KIND}:{binding}:{action}:{identifier}", digest(body.model_dump())
+        value = body.model_dump()
+        if isinstance(body, DeviceSetupApprove):
+            value.pop("credentials")
+            if "credentials" in body.model_fields_set:
+                value["credentials_present"] = body.credentials is not None
+        elif isinstance(body, DeviceSetupInput):
+            value = body.root.model_dump(exclude={"username", "password", "otp_code"})
+            value["credentials_present"] = isinstance(body.root, (DeviceSetupLinkInput, DeviceSetupOTPInput))
+        scope, payload = f"{KIND}:{binding}:{action}:{identifier}", digest(value)
         row = self.store.db.execute("SELECT digest,result FROM requests WHERE scope=? AND key=?",
                                     (scope, key)).fetchone()
         if row and row[0] != payload:
@@ -297,7 +395,8 @@ class DeviceSetups:
     def commit_receipt(self, record, receipt):
         # A storage-only migration never changes approval identity or resends
         # work. It also marks new candidate fields as incompatible with v1.
-        record = SetupRecord.model_validate(record.model_copy(update={"version": 2}).model_dump())
+        record = SetupRecord.model_validate(record.model_copy(update={
+            "version": ADAPTERS[record.candidate.integration_domain].record_version}).model_dump())
         with self.store.transaction() as tx:
             tx.execute("INSERT INTO records VALUES (?,?,?,?,?) ON CONFLICT(kind,id) DO UPDATE "
                 "SET body=excluded.body,updated=excluded.updated", (KIND, record.id,
@@ -328,7 +427,8 @@ class DeviceSetups:
         flow = matches[0]
         context = flow.get("context")
         if (flow.get("handler") != adapter.domain or flow.get("step_id") != adapter.step
-                or not isinstance(context, dict) or context.get("source") != "zeroconf"):
+                or not isinstance(context, dict) or not isinstance(context.get("source"), str)
+                or context.get("source") not in adapter.sources):
             raise HTTPException(409, "device_setup_flow_unsupported")
         try:
             identity = adapter.identity(context.get("unique_id"))
@@ -341,10 +441,10 @@ class DeviceSetups:
         form = await self.read(authority, "rest", "/config/config_entries/flow/" + identifier(candidate_id))
         if (not isinstance(form, dict) or form.get("type") != "form" or form.get("flow_id") != candidate_id
                 or form.get("handler") != adapter.domain or form.get("step_id") != adapter.step
-                or form.get("data_schema") != [] or form.get("errors") != {} or len(canonical(form)) > 32768):
+                or form.get("errors") != {}):
             raise HTTPException(409, "device_setup_flow_unsupported")
         try:
-            adapter.validate_model(form)
+            adapter.validate_form(form)
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from None
         await authority.check_owner()
@@ -353,6 +453,11 @@ class DeviceSetups:
             candidate = DiscoveryCandidate.model_validate(project("ha_discovery", flow))
         except (ValueError, TypeError) as exc:
             raise HTTPException(409, "device_setup_flow_contract_changed") from exc
+        if adapter.domain == "synology_dsm":
+            # Even proposal GETs cross the secret-bearing response boundary.
+            form = adapter.response(form, candidate_id)
+        elif len(canonical(form)) > 32768:
+            raise HTTPException(409, "device_setup_flow_unsupported")
         return candidate, self.private_hash(flow), self.private_hash(form), self.private_hash(identity)
 
     async def entries(self, authority):
@@ -378,9 +483,19 @@ class DeviceSetups:
             "state", "reason_code", "created_at", "updated_at", "expires_at", "backup_id"}),
             can_approve=record.state == "proposed" and time.time() < record.expires_at
                 and (binding is None or record.binding == binding),
-            can_reconcile=record.state in {"needs_reconcile", "configured"},
+            can_reconcile=record.state in {"needs_reconcile", "configured", "needs_input"},
             message=ADAPTERS[record.candidate.integration_domain].proposal_message if record.state == "proposed"
-                else MESSAGES[record.state])
+                else MESSAGES.get(record.state, ""))
+        if record.state == "needs_input":
+            expired = time.time() >= record.expires_at
+            limited = record.step_posts >= 8
+            result.input = DeviceSetupInputView(step=record.input_step, error=record.input_error,
+                options=record.share_options if record.input_step == "backup_share" else [],
+                can_submit=not expired and not limited and (binding is None or record.binding == binding))
+            result.message = INPUT_MESSAGES["device_setup_input_limit" if limited else
+                "device_setup_input_expired" if expired else record.input_error or record.input_step]
+        elif record.state == "blocked" and record.reason_code in INPUT_MESSAGES:
+            result.message = INPUT_MESSAGES[record.reason_code]
         if binding is not None and record.binding != binding and record.state == "proposed":
             result.reason_code = "device_setup_credentials_changed"
             result.message = "Home Assistant 登入授權已更新；請重新預覽接入提案，舊批准不會沿用。"
@@ -448,6 +563,11 @@ class DeviceSetups:
         if previous:
             return self.view(self.record(binding, previous, home_binding), binding)
         record = self.record(binding, identifier, home_binding)
+        if record.candidate.integration_domain == "synology_dsm":
+            if body.credentials is None:
+                raise HTTPException(409, "device_setup_credentials_required")
+        elif "credentials" in body.model_fields_set:
+            raise HTTPException(409, "device_setup_credentials_unexpected")
         if record.binding != binding:
             raise HTTPException(409, "device_setup_credentials_changed")
         if (record.revision != body.expected_revision or record.proposal_digest != body.proposal_digest
@@ -464,19 +584,182 @@ class DeviceSetups:
         except HTTPException:
             self.save(record, state="blocked", reason_code="device_setup_approval_changed")
             raise
-        task = self.spawn("device-setup:" + record.id, self.execute(authority, record))
+        self.start(authority, record, self.execute(authority, record, body.credentials))
+        return self.view(record, binding)
+
+    def start(self, authority, record, coroutine):
+        # Keep authentication metadata, never the HTTP request's cached secret body.
+        authority.request = Request(dict(authority.request.scope))
+        task = self.spawn("device-setup:" + record.id, coroutine)
         self.running[record.id] = task
         self.authorities[record.id] = authority
         def finished(done):
             if self.running.get(record.id) is done:
                 self.running.pop(record.id, None)
                 self.authorities.pop(record.id, None)
+                self.started.discard(record.id)
         task.add_done_callback(finished)
+
+    @staticmethod
+    def secret_payload(body):
+        if isinstance(body, DeviceSetupOTPInput):
+            return {"otp_code": body.otp_code.get_secret_value()}
+        return {"username": body.username.get_secret_value(), "password": body.password.get_secret_value()}
+
+    async def input(self, request, identifier, body):
+        authority, binding = await self.authorize(request)
+        receipt, previous = self.receipt(request, binding, "input", body, identifier)
+        if previous:
+            return self.view(self.record(binding, previous, self.home_binding(authority)), binding)
+        record = self.record(binding, identifier, self.home_binding(authority))
+        step = body.root
+        if record.revision != step.expected_revision:
+            raise HTTPException(409, "device_setup_revision_changed")
+        if (record.candidate.integration_domain != "synology_dsm" or record.state != "needs_input"
+                or record.input_step != step.step or identifier in self.running):
+            raise HTTPException(409, "device_setup_input_unavailable")
+        if time.time() >= record.expires_at:
+            raise HTTPException(409, "device_setup_input_expired")
+        if record.step_posts >= 8:
+            raise HTTPException(409, "device_setup_input_limit")
+        if record.binding != binding:
+            raise HTTPException(409, "device_setup_credentials_changed")
+        if isinstance(step, DeviceSetupShareInput) and step.backup_share not in {row.value for row in record.share_options}:
+            raise HTTPException(409, "device_setup_input_invalid")
+        self.write_guard(authority)
+        record = self.save(record, state="applying", phase="confirmation_prepared", reason_code=None,
+            post_step=step.step, step_posts=record.step_posts + 1)
+        self.commit_receipt(record, receipt)
+        await self.store.durable()
+        self.start(authority, record, self.execute_input(authority, record, step))
         return self.view(record, binding)
 
-    async def execute(self, authority, record):
+    async def synology_progress(self, authority, record):
+        config = await self.read(authority, "rest", "/config")
+        if (not isinstance(config, dict) or not isinstance(config.get("version"), str)
+                or config.get("version") not in SUPPORTED_CORE):
+            raise HTTPException(409, "device_setup_core_unsupported")
+        rows = await self.read(authority, "ws", "config_entries/flow/progress")
+        if not isinstance(rows, list) or len(rows) > 256:
+            raise HTTPException(409, "device_setup_flow_contract_changed")
+        matches = [row for row in rows if isinstance(row, dict) and row.get("flow_id") == record.candidate.id]
+        if not matches:
+            return None
+        if len(matches) != 1:
+            raise HTTPException(409, "device_setup_flow_contract_changed")
+        row = matches[0]
+        context = row.get("context")
+        adapter = ADAPTERS[record.candidate.integration_domain]
+        if (row.get("handler") != adapter.domain or not isinstance(context, dict)
+                or not isinstance(context.get("source"), str)
+                or context.get("source") not in adapter.sources
+                or context.get("source") != record.candidate.discovery_method):
+            raise HTTPException(409, "device_setup_flow_unsupported")
         try:
-            await self._execute(authority, record)
+            identity = adapter.identity(context.get("unique_id"))
+        except ValueError:
+            raise HTTPException(409, "device_setup_candidate_changed") from None
+        if self.private_hash(identity) != record.identity_digest:
+            raise HTTPException(409, "device_setup_candidate_changed")
+        return row.get("step_id")
+
+    async def execute_input(self, authority, record, body):
+        self.started.add(record.id)
+        mutated = False
+        transport_ready = False
+        def local_guard():
+            self.write_guard(authority)
+            current = self.record(record.binding, record.id)
+            if (current.revision != record.revision or current.proposal_digest != record.proposal_digest
+                    or current.state != "applying" or time.time() >= current.expires_at):
+                raise HTTPException(409, "device_setup_approval_changed")
+
+        async def send_guard():
+            try:
+                local_guard()
+                if await self.synology_progress(authority, record) != record.post_step:
+                    raise HTTPException(409, "device_setup_candidate_changed")
+                entries = await self.entries(authority)
+                if any(row.get("domain") == "synology_dsm" and row["entry_id"] not in record.baseline_entry_ids
+                       for row in entries):
+                    raise HTTPException(409, "device_setup_integrations_changed")
+                await authority.check_owner()
+                local_guard()
+            except HTTPException as exc:
+                raise SendGuardRejected(exc.status_code, exc.detail) from None
+        async def transport_guard():
+            nonlocal transport_ready
+            await send_guard()
+            transport_ready = True
+        try:
+            async with self.writer:
+                await send_guard()
+                # The request handler already made confirmation_prepared durable.
+                mutated = True
+                try:
+                    payload = ({"backup_share": body.backup_share, "backup_path": record.backup_path}
+                               if isinstance(body, DeviceSetupShareInput) else self.secret_payload(body))
+                    raw = await self.ha.request("POST", "/config/config_entries/flow/" + record.candidate.id,
+                                                payload, send_guard=transport_guard)
+                finally:
+                    if "payload" in locals():
+                        payload.clear()
+                    body = None
+                result = ADAPTERS["synology_dsm"].response(raw, record.candidate.id)
+                raw = None
+                await self.synology_result(authority, record, result)
+        except asyncio.CancelledError:
+            mutated = transport_ready
+            current = self.record(record.binding, record.id)
+            if current.state == "applying":
+                self.save(current, state="needs_reconcile" if mutated else "needs_input",
+                          reason_code="device_setup_outcome_unknown" if mutated else "device_setup_interrupted")
+            raise
+        except (HTTPException, HAError, ValueError, TypeError, OSError) as exc:
+            if isinstance(exc, SendGuardRejected):
+                mutated = False
+            current = self.record(record.binding, record.id)
+            if current.state == "applying":
+                self.save(current, state="needs_reconcile" if mutated else "needs_input",
+                    reason_code="device_setup_outcome_unknown" if mutated else
+                        exc.detail if isinstance(exc, HTTPException) else "device_setup_preparation_failed")
+        finally:
+            body = None
+        await self.store.durable()
+
+    def needs_input(self, record, result):
+        return self.save(record, state="needs_input", reason_code=None, input_step=result["step_id"],
+            input_error=result.get("error"), share_options=result.get("options", []),
+            backup_path=result.get("backup_path"), expires_at=time.time() + 1800, phase="input_required")
+
+    async def synology_result(self, authority, record, result):
+        if result["type"] == "form":
+            self.needs_input(record, result)
+        elif result["type"] == "abort":
+            self.save(record, state="blocked", reason_code="device_setup_already_configured"
+                      if result["reason"] == "already_configured" else "device_setup_flow_aborted")
+        elif result["type"] == "create_entry":
+            entry = result["result"]
+            if entry["domain"] != "synology_dsm" or entry["source"] != record.candidate.discovery_method:
+                raise ValueError("unconfirmed_entry")
+            entry_id = identifier(entry["entry_id"])
+            if entry_id in record.baseline_entry_ids:
+                raise ValueError("preexisting_entry")
+            record = self.save(record, entry_id=entry_id, phase="confirmation_acknowledged")
+            await self.store.durable()
+            await authority.check_owner()
+            self.guard(authority)
+            await self.reconcile_record(authority, record)
+        else:
+            raise ValueError("unconfirmed_response")
+        await self.store.durable()
+
+    async def execute(self, authority, record, credentials=None):
+        self.started.add(record.id)
+        try:
+            operation = self._execute(authority, record, credentials)
+            credentials = None
+            await operation
         except asyncio.CancelledError:
             # Covers cancellation while waiting for the shared household writer,
             # before _execute enters its effect-aware exception handling.
@@ -485,8 +768,10 @@ class DeviceSetups:
                 self.save(current, state="needs_reconcile" if current.state == "applying" else "blocked",
                           reason_code="device_setup_interrupted")
             raise
+        finally:
+            credentials = None
 
-    async def _execute(self, authority, record):
+    async def _execute(self, authority, record, credentials=None):
         mutated = False
         adapter = ADAPTERS[record.candidate.integration_domain]
         async with self.writer:
@@ -524,21 +809,33 @@ class DeviceSetups:
                 baseline = await self.entries(authority)
                 if sorted(row["entry_id"] for row in baseline) != record.baseline_entry_ids:
                     raise HTTPException(409, "device_setup_integrations_changed")
-                record = self.save(record, state="applying", phase="confirmation_prepared")
+                updates = {"post_step": "link", "step_posts": 1} if adapter.domain == "synology_dsm" else {}
+                record = self.save(record, state="applying", phase="confirmation_prepared", **updates)
                 await self.store.durable()
                 await send_guard()
                 # Intent and backup are durable before the only configuration
                 # write. Mark uncertain before awaiting transport, including
                 # cancellation and failures after HA accepted the body.
                 mutated = True
-                result = await self.ha.request("POST", "/config/config_entries/flow/" + record.candidate.id,
-                                               {}, send_guard=send_guard)
+                try:
+                    payload = self.secret_payload(credentials) if credentials is not None else {}
+                    result = await self.ha.request("POST", "/config/config_entries/flow/" + record.candidate.id,
+                                                   payload, send_guard=send_guard)
+                finally:
+                    if "payload" in locals():
+                        payload.clear()
+                    credentials = None
+                if adapter.domain == "synology_dsm":
+                    result = adapter.response(result, record.candidate.id)
+                    await self.synology_result(authority, record, result)
+                    return
                 if (not isinstance(result, dict) or result.get("type") != "create_entry"
                         or result.get("flow_id") != record.candidate.id or result.get("handler") != adapter.domain):
                     raise ValueError("unconfirmed_response")
                 entry = result.get("result")
                 if (not isinstance(entry, dict) or entry.get("domain") != adapter.domain
-                        or entry.get("source") != "zeroconf"):
+                        or entry.get("source") != record.candidate.discovery_method
+                        or entry.get("source") not in adapter.sources):
                     raise ValueError("unconfirmed_entry")
                 entry_id = identifier(entry.get("entry_id"))
                 if entry_id in record.baseline_entry_ids:
@@ -553,16 +850,21 @@ class DeviceSetups:
                 if record.state != "configured":
                     self.save(record, state="needs_reconcile", reason_code="device_setup_readback_pending")
             except asyncio.CancelledError:
-                self.save(record, state="needs_reconcile" if mutated else "blocked",
-                          reason_code="device_setup_interrupted")
+                current = self.record(record.binding, record.id)
+                if current.state in {"preparing", "applying"}:
+                    self.save(current, state="needs_reconcile" if mutated else "blocked",
+                              reason_code="device_setup_outcome_unknown" if mutated and adapter.domain == "synology_dsm"
+                                  else "device_setup_interrupted")
                 raise
             except (HTTPException, HAError, ValueError, TypeError, OSError) as exc:
                 if isinstance(exc, SendGuardRejected):
                     mutated = False  # Both REST hooks and WS guards run before sending.
                 reason = (exc.detail if isinstance(exc, HTTPException) and isinstance(exc.detail, str)
                           and exc.detail.startswith("device_setup_") else "device_setup_preparation_failed")
-                self.save(record, state="needs_reconcile" if mutated else "blocked",
-                          reason_code="device_setup_outcome_unknown" if mutated else reason)
+                current = self.record(record.binding, record.id)
+                if current.state in {"preparing", "applying"}:
+                    self.save(current, state="needs_reconcile" if mutated else "blocked",
+                              reason_code="device_setup_outcome_unknown" if mutated else reason)
             # Disk failures deliberately propagate: no more effects or response
             # claims are safe after a failed journal. Recovery reads its last
             # durable intent and never resends the confirmation.
@@ -574,10 +876,34 @@ class DeviceSetups:
             await authority.check_owner()
             self.guard(authority)
             return self.save(record, state="blocked", reason_code="device_setup_interrupted")
+        if adapter.domain == "synology_dsm":
+            step = await self.synology_progress(authority, record)
+            if step is not None and record.entry_id is None:
+                if step not in {"link", "2sa", "backup_share"}:
+                    return self.save(record, state="blocked", reason_code="device_setup_flow_unsupported")
+                entries = await self.entries(authority)
+                if any(row.get("domain") == adapter.domain and row["entry_id"] not in record.baseline_entry_ids
+                       for row in entries):
+                    return self.save(record, state="needs_reconcile", reason_code="device_setup_entry_not_verified")
+                result = {"step_id": step}
+                if step != "2sa":
+                    raw = await self.read(authority, "rest", "/config/config_entries/flow/" + record.candidate.id)
+                    try:
+                        result = adapter.response(raw, record.candidate.id)
+                        raw = None
+                        if result["type"] != "form" or result["step_id"] != step:
+                            raise ValueError("unconfirmed_step")
+                    except (ValueError, TypeError):
+                        return self.save(record, state="needs_reconcile", reason_code="device_setup_outcome_unknown")
+                await authority.check_owner()
+                self.guard(authority)
+                return self.needs_input(record, result)
         entries = await self.entries(authority)
         selected = next((row for row in entries if row.get("entry_id") == record.entry_id
-                         and row.get("domain") == adapter.domain and row.get("source") == "zeroconf"), None) if record.entry_id else None
-        if not record.entry_id and record.phase in {"confirmation_prepared", "confirmation_acknowledged"}:
+                         and row.get("domain") == adapter.domain and row.get("source") == record.candidate.discovery_method
+                         and row.get("source") in adapter.sources), None) if record.entry_id else None
+        if not record.entry_id and (record.phase in {"confirmation_prepared", "confirmation_acknowledged"}
+                                    or adapter.domain == "synology_dsm" and record.step_posts):
             devices = await self.read(authority, "ws", "config/device_registry/list")
             if not isinstance(devices, list) or len(devices) > 1000:
                 raise HTTPException(503, "device_setup_source_incomplete")
@@ -585,14 +911,18 @@ class DeviceSetups:
             for device in devices:
                 if not isinstance(device, dict):
                     raise HTTPException(503, "device_setup_source_incomplete")
-                ids = device.get("identifiers", [])
+                ids = device.get("connections" if adapter.domain == "synology_dsm" else "identifiers", [])
                 if not isinstance(ids, list):
                     raise HTTPException(503, "device_setup_source_incomplete")
                 matches_identity = False
                 for value in ids:
-                    if isinstance(value, list) and len(value) == 2 and value[0] == adapter.domain:
+                    if (isinstance(value, list) and len(value) == 2
+                            and value[0] == ("mac" if adapter.domain == "synology_dsm" else adapter.domain)):
                         try:
-                            identity = adapter.identity(value[1])
+                            mac = value[1]
+                            if adapter.domain == "synology_dsm" and isinstance(mac, str):
+                                mac = mac.replace(":", "").replace("-", "").lower()
+                            identity = adapter.identity(mac)
                         except ValueError:
                             continue
                         matches_identity |= self.private_hash(identity) == record.identity_digest
@@ -602,7 +932,7 @@ class DeviceSetups:
                         raise HTTPException(503, "device_setup_source_incomplete")
                     matches.update(row["entry_id"] for row in entries if row["entry_id"] in associated
                         and row["entry_id"] not in record.baseline_entry_ids and row.get("domain") == adapter.domain
-                        and row.get("source") == "zeroconf")
+                        and row.get("source") == record.candidate.discovery_method and row.get("source") in adapter.sources)
             if len(matches) == 1:
                 selected = next(row for row in entries if row["entry_id"] in matches)
         await authority.check_owner()
@@ -612,6 +942,9 @@ class DeviceSetups:
             project("ha_integrations", selected)
             return self.save(record, entry_id=selected["entry_id"], state="configured", reason_code=None,
                              phase="registration_readback")
+        if adapter.domain == "synology_dsm" and not any(row.get("domain") == adapter.domain
+                and row["entry_id"] not in record.baseline_entry_ids for row in entries):
+            return self.save(record, state="blocked", reason_code="device_setup_flow_gone")
         return self.save(record, state="needs_reconcile", reason_code="device_setup_entry_not_verified")
 
     async def detail(self, request, identifier):
@@ -726,7 +1059,7 @@ class DeviceSetups:
             record = self.record(binding, identifier, home_binding)
             if record.revision != body.expected_revision:
                 raise HTTPException(409, "device_setup_revision_changed")
-            if record.state not in {"configured", "needs_reconcile"} or identifier in self.running:
+            if record.state not in {"configured", "needs_reconcile", "needs_input"} or identifier in self.running:
                 raise HTTPException(409, "device_setup_reconcile_unavailable")
             updated = await self.reconcile_record(authority, record)
             self.commit_receipt(updated, receipt)
@@ -756,5 +1089,9 @@ def routes(app, store, ha, host_session=None, *, writer=None, spawn=None):
     @app.post("/api/device-setups/{identifier}/reconcile", response_model=DeviceSetupView)
     async def reconcile(identifier: str, body: DeviceSetupReconcile, request: Request):
         return await service.reconcile(request, identifier, body)
+
+    @app.post("/api/device-setups/{identifier}/input", response_model=DeviceSetupView, status_code=202)
+    async def input(identifier: str, body: DeviceSetupInput, request: Request):
+        return await service.input(request, identifier, body)
 
     return service

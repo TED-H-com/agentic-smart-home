@@ -8,7 +8,8 @@
             {
               "enum": [
                 "zeroconf_confirm",
-                "confirm_discovery"
+                "confirm_discovery",
+                "link"
               ],
               "type": "string"
             },

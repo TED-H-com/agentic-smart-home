@@ -11,6 +11,7 @@ from agentic_controller.bridge import BridgeRequest
 from agentic_controller.device_setup import (
     DeviceSetupApprove,
     DeviceSetupCreate,
+    DeviceSetupInput,
     DeviceSetupList,
     DeviceSetupReconcile,
     DeviceSetupView,
@@ -117,6 +118,7 @@ def main():
                        "discovery-setup-view-v1": DiscoverySetupView.model_json_schema(),
                        "device-setup-create-v1": DeviceSetupCreate.model_json_schema(),
                        "device-setup-approve-v1": DeviceSetupApprove.model_json_schema(),
+                       "device-setup-input-v1": DeviceSetupInput.model_json_schema(),
                        "device-setup-reconcile-v1": DeviceSetupReconcile.model_json_schema(),
                        "device-setup-list-v1": DeviceSetupList.model_json_schema(),
                        "device-setup-view-v1": DeviceSetupView.model_json_schema(),

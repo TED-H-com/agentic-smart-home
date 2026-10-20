@@ -322,6 +322,23 @@
       "default": null,
       "title": "Entity Count"
     },
+    "input_step": {
+      "anyOf": [
+        {
+          "enum": [
+            "link",
+            "2sa",
+            "backup_share"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Input Step"
+    },
     "integration": {
       "anyOf": [
         {
@@ -396,6 +413,7 @@
             "applying",
             "configured",
             "needs_reconcile",
+            "needs_input",
             "blocked"
           ],
           "type": "string"

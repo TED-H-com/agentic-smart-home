@@ -1,5 +1,78 @@
 {
   "$defs": {
+    "DeviceSetupInputView": {
+      "additionalProperties": false,
+      "properties": {
+        "can_submit": {
+          "title": "Can Submit",
+          "type": "boolean"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "enum": [
+                "invalid_auth",
+                "cannot_connect",
+                "unknown",
+                "missing_data",
+                "otp_failed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "options": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DeviceSetupShareOption"
+          },
+          "maxItems": 64,
+          "title": "Options",
+          "type": "array"
+        },
+        "step": {
+          "enum": [
+            "link",
+            "2sa",
+            "backup_share"
+          ],
+          "title": "Step",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step",
+        "can_submit"
+      ],
+      "title": "DeviceSetupInputView",
+      "type": "object"
+    },
+    "DeviceSetupShareOption": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "maxLength": 160,
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "pattern": "^/[^\\x00-\\x1f]{1,255}$",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "label"
+      ],
+      "title": "DeviceSetupShareOption",
+      "type": "object"
+    },
     "DeviceSetupView": {
       "additionalProperties": false,
       "properties": {
@@ -112,6 +185,17 @@
           "title": "Id",
           "type": "string"
         },
+        "input": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DeviceSetupInputView"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "integration": {
           "anyOf": [
             {
@@ -188,6 +272,7 @@
             "applying",
             "configured",
             "needs_reconcile",
+            "needs_input",
             "blocked"
           ],
           "title": "State",
@@ -222,7 +307,8 @@
             {
               "enum": [
                 "zeroconf_confirm",
-                "confirm_discovery"
+                "confirm_discovery",
+                "link"
               ],
               "type": "string"
             },

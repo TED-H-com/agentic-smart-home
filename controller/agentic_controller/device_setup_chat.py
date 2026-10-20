@@ -17,6 +17,7 @@ from .models import ConversationDeviceSetup, DeviceSetupChatDevice, digest
 from .response_durability import RESPONSE_GUARD
 
 LIMITATIONS = [
+    "帳號、密碼與驗證碼只在設定卡輸入，不會分享給管家；管家也不能代為送出。",
     "這次只分享你在本則訊息選擇的一筆接入進度；不分享其他接入項目，也不沿用前文的分享選擇。",
     "setup_state 是已保存的操作紀錄；current_state 與整合、設備及實體數量來自這次讀回，兩者不能互相替代。",
     "最多分享十六筆對應設備；來源不完整時總數保持未知。整合已載入或 API 可用不代表實體功能已驗證。",
@@ -106,7 +107,8 @@ class DeviceSetupChat:
             "content_digest": digest(projected[name]) if source.observed_at else None})
             for name, source in sources.items()]
         return ConversationDeviceSetup(state="unavailable" if current == "unknown" else "ready",
-            setup_id=record.id, setup_state=record.state, setup_updated_at=record.updated_at,
+            setup_id=record.id, setup_state=record.state, input_step=record.input_step if record.state == "needs_input" else None,
+            setup_updated_at=record.updated_at,
             title=title or "設備接入", current_state=current, integration=entry, devices=devices,
             device_count=counts[0], entity_count=counts[1], available_entity_count=counts[2],
             sources=public_sources, truncated=view.devices_truncated or len(view.devices) > 16
@@ -153,14 +155,16 @@ class DeviceSetupChat:
         except (HAError, TimeoutError):
             authority.guard()
             result = ConversationDeviceSetup(state="unavailable", setup_id=selected,
-                setup_state=record.state, setup_updated_at=record.updated_at,
+                setup_state=record.state, input_step=record.input_step if record.state == "needs_input" else None,
+                setup_updated_at=record.updated_at,
                 reason_code="current_readback_unavailable", limitations=LIMITATIONS)
         except HTTPException as exc:
             if exc.status_code != 503:
                 raise
             authority.guard()
             result = ConversationDeviceSetup(state="unavailable", setup_id=selected,
-                setup_state=record.state, setup_updated_at=record.updated_at,
+                setup_state=record.state, input_step=record.input_step if record.state == "needs_input" else None,
+                setup_updated_at=record.updated_at,
                 reason_code="current_readback_unavailable", limitations=LIMITATIONS)
         await authority.check_response()
         authority.guard()

@@ -63,7 +63,7 @@ GET_PATHS = (
 )
 POST_PATHS = (
     r"/api/discovery/setups", rf"/api/discovery/setups/{IDENT}/(select|forget)",
-    r"/api/device-setups", rf"/api/device-setups/{IDENT}/(approve|reconcile)",
+    r"/api/device-setups", rf"/api/device-setups/{IDENT}/(approve|reconcile|input)",
     r"/api/discovery/inventory/(scan|import|clear)",
     r"/api/gateway/messages", rf"/api/tasks/{IDENT}/(reply|cancel)",
     rf"/api/proposals/{IDENT}/(approve|test|reconcile)",
