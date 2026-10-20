@@ -9,6 +9,7 @@ import pytest
 from agentic_controller.device_setup import (
     INPUT_MESSAGES,
     KIND,
+    MESSAGES,
     DeviceSetupApprove,
     DeviceSetupCreate,
     DeviceSetupInput,
@@ -498,20 +499,120 @@ async def test_expiry_rearm_revision_step_and_share_validation(synology_service)
     assert exc.value.detail == "device_setup_input_unavailable" and len(ha.posts) == 1
 
 
-async def test_eight_post_limit_cannot_be_rearmed(synology_service):
-    service, ha, _, _ = synology_service
-    setup = await waiting(synology_service)
+async def exhaust_inputs(fixture, step, error=None):
+    setup = await waiting(fixture, step, error)
+    values = {"link": SECRETS, "2sa": {"otp_code": OTP}, "backup_share": {"backup_share": SHARES[0]["value"]}}[step]
     for _ in range(7):
-        ha.replies = [form("2sa", "otp_failed")]
-        await submit(synology_service, setup, otp_code=OTP)
-        await finish(synology_service)
-    assert len(ha.posts) == record(synology_service, setup).step_posts == 8
-    view = service.view(record(synology_service, setup))
-    assert not view.input.can_submit and view.message == INPUT_MESSAGES["device_setup_input_limit"]
-    assert not (await reconcile(synology_service, setup)).input.can_submit
+        fixture[1].replies = [form(step, error)]
+        await submit(fixture, setup, **values)
+        await finish(fixture)
+    return setup
+
+
+def assert_input_limit(fixture, setup):
+    service = fixture[0]
+    current = record(fixture, setup)
+    assert current.state == "blocked" and current.reason_code == "device_setup_input_limit"
+    assert current.input_step is None and current.input_error is None
+    assert current.share_options == [] and current.backup_path is None
+    assert current.step_posts == 8
+    view = service.view(current)
+    assert view.input is None and not view.can_reconcile and not view.can_approve
+    assert view.message == "嘗試次數過多，這次接入已停止。請稍後重新開始。"
+    return view
+
+
+async def test_eight_link_posts_block_and_allow_fresh_owner_approval(synology_service):
+    service, ha, _, _ = synology_service
+    setup = await exhaust_inputs(synology_service, "link", "invalid_auth")
+    assert_input_limit(synology_service, setup)
+    assert len(ha.posts) == 8 and all(payload == SECRETS for _, payload in ha.posts)
+    assert len(ha.backups) == 1 and ha.flow["step_id"] == "link"
     with pytest.raises(HTTPException) as exc:
-        await submit(synology_service, setup, otp_code=OTP)
-    assert exc.value.detail == "device_setup_input_limit" and len(ha.posts) == 8
+        await submit(synology_service, setup, step="link", **SECRETS)
+    assert exc.value.status_code == 409 and exc.value.detail == "device_setup_input_unavailable"
+    with pytest.raises(HTTPException) as exc:
+        await reconcile(synology_service, setup)
+    assert exc.value.status_code == 409 and exc.value.detail == "device_setup_reconcile_unavailable"
+    assert (await propose(synology_service)).id == setup.id
+    # Native GET link renders a fresh form, without the POST's defaults/errors.
+    ha.form = form()
+    restarted = await propose(synology_service, key="restart")
+    assert restarted.id != setup.id and restarted.state == "proposed" and restarted.can_approve
+    assert record(synology_service, restarted).step_posts == 0
+    with pytest.raises(HTTPException) as exc:
+        await service.approve(request("missing-credentials"), restarted.id, DeviceSetupApprove(
+            expected_revision=restarted.revision, proposal_digest=restarted.proposal_digest))
+    assert exc.value.status_code == 409 and exc.value.detail == "device_setup_credentials_required"
+    assert len(ha.backups) == 1 and len(ha.posts) == 8
+    await approve(synology_service, restarted, key="restart-approve")
+    await finish(synology_service)
+    assert record(synology_service, restarted).state == "configured"
+    assert record(synology_service, restarted).step_posts == 1
+    assert len(ha.backups) == len(set(ha.backups)) == 2
+    assert len(ha.posts) == 9 and ha.posts[-1][1] == SECRETS and ha.events[-2:] == ["backup", "link"]
+    assert_input_limit(synology_service, setup)
+
+
+@pytest.mark.parametrize("step,error", [("2sa", "otp_failed"), ("backup_share", None)])
+async def test_eight_later_posts_block_and_restart_uses_native_fallback(synology_service, step, error):
+    _, ha, _, _ = synology_service
+    setup = await exhaust_inputs(synology_service, step, error)
+    assert_input_limit(synology_service, setup)
+    assert len(ha.posts) == 8 and len(ha.backups) == 1
+    gets = ha.gets.copy()
+    with pytest.raises(HTTPException) as exc:
+        await propose(synology_service, key="restart")
+    assert exc.value.status_code == 409 and exc.value.detail == "device_setup_flow_unsupported"
+    assert ha.gets[len(gets):] == [("/config", step)] and len(ha.posts) == 8
+    assert_input_limit(synology_service, setup)
+
+
+@pytest.mark.parametrize("step,error", [("link", "invalid_auth"), ("2sa", "otp_failed"), ("backup_share", None)])
+async def test_legacy_exhausted_input_reconcile_blocks_without_posting(synology_service, step, error):
+    service, ha, _, _ = synology_service
+    setup = await waiting(synology_service, step, error)
+    current = service.save(record(synology_service, setup), step_posts=8)
+    assert current.state == "needs_input" and not service.view(current).input.can_submit
+    assert service.view(current).message == "嘗試次數過多，這次接入已停止。請稍後重新開始。"
+    gets = ha.gets.copy()
+    view = await reconcile(synology_service, setup)
+    assert view == assert_input_limit(synology_service, setup)
+    assert len(ha.posts) == 1 and len(ha.backups) == 1
+    if step == "2sa":
+        assert ha.gets[len(gets):] == [("/config", "2sa")]
+
+
+@pytest.mark.parametrize("cancel", [False, True])
+async def test_last_unsent_attempt_blocks_and_clears_input(synology_service, cancel):
+    service, ha, store, _ = synology_service
+    setup = await waiting(synology_service, "backup_share")
+    service.save(record(synology_service, setup), step_posts=7)
+    async def stop_before_send():
+        if cancel:
+            raise asyncio.CancelledError
+        store.set_setting("paused", True)
+    ha.post_hook = stop_before_send
+    await submit(synology_service, setup, backup_share=SHARES[0]["value"])
+    if cancel:
+        with pytest.raises(asyncio.CancelledError):
+            await finish(synology_service)
+    else:
+        await finish(synology_service)
+    assert_input_limit(synology_service, setup)
+    assert len(ha.posts) == 1 and len(ha.backups) == 1
+
+
+@pytest.mark.parametrize("domain", ["ipp", "shelly"])
+@pytest.mark.parametrize("reason", ["device_setup_already_configured", "device_setup_flow_gone", "device_setup_existing_updated"])
+async def test_non_synology_blocked_messages_stay_generic(synology_service, domain, reason):
+    service = synology_service[0]
+    service.ha = {"ipp": IPPHA, "shelly": ShellyHA}[domain]()
+    setup = await service.create(request(), DeviceSetupCreate(candidate_id="pending", integration_domain=domain))
+    current = service.save(record(synology_service, setup), state="blocked", reason_code=reason)
+    view = service.view(current)
+    assert reason in INPUT_MESSAGES and view.message == MESSAGES["blocked"]
+    assert view.input is None and not view.can_reconcile and not view.can_approve
 
 
 async def test_same_key_replay_ignores_changed_secrets_without_resending(synology_service):

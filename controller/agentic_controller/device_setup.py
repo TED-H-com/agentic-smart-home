@@ -335,6 +335,11 @@ class DeviceSetups:
         return record
 
     def save(self, record, **updates):
+        # Exhausted input must not retain a form or fence a fresh proposal.
+        if (updates.get("state") == "needs_input" and record.candidate.integration_domain == "synology_dsm"
+                and updates.get("step_posts", record.step_posts) >= 8):
+            updates.update(state="blocked", reason_code="device_setup_input_limit", input_step=None,
+                input_error=None, share_options=[], backup_path=None)
         # Validation catches unknown or oversized upstream identifiers before persistence.
         value = SetupRecord.model_validate({**record.model_dump(),
             "version": ADAPTERS[record.candidate.integration_domain].record_version,
@@ -498,7 +503,8 @@ class DeviceSetups:
             result.message = INPUT_MESSAGES["device_setup_input_limit" if limited else
                 "device_setup_input_expired" if expired else "device_setup_input_unavailable"
                 if record.reason_code is not None else record.input_error or record.input_step]
-        elif record.state == "blocked" and record.reason_code in INPUT_MESSAGES:
+        elif (record.state == "blocked" and record.candidate.integration_domain == "synology_dsm"
+                and record.reason_code in INPUT_MESSAGES):
             result.message = INPUT_MESSAGES[record.reason_code]
         if binding is not None and record.binding != binding and record.state == "proposed":
             result.reason_code = "device_setup_credentials_changed"
