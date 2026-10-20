@@ -1,10 +1,10 @@
 import {Button,Notice,friendlySentence,timestamp} from './ui';
 import {isDiscoveryCandidate,isDiscoveryDevice,isDiscoveryIntegration,isDiscoverySource,type DiscoverySnapshot} from './discovery';
 import {TrackingPanel} from './discovery-setup';
-import {DeviceSetupPanel,isSetupCandidate,supportsChatSetup,type DeviceSetup} from './device-setup';
+import {DeviceSetupPanel,supportsChatSetup} from './device-setup';
 import './conversation-discovery.css';
 
-type Candidate=DeviceSetup['candidate']&{integration_name:string;next_step:string};
+type Candidate=DiscoverySnapshot['candidates'][number]&{integration_name:string;next_step:string};
 type Network={state:string;mode:'nat'|'wired'|'unknown';observed_at:string|null;reason_code:string|null;next_step:string};
 type Observation={id:string;source_id:string;name:string|null;services:string[];observed_at:string;manufacturer:string|null;model:string|null};
 type InventorySource={id:string;state:string;observed_at:string|null;item_count:number|null;truncated:boolean};
@@ -33,7 +33,7 @@ export const discoveryRequest='請找出家庭裡尚未接好的設備，列出�
 /** Unknown or partial observations must never become a successful empty scan. */
 export function parseConversationDiscovery(value:unknown):Discovery|null{
   if(!record(value)||value.contract_version!==1||!['consent_required','ready','unavailable'].includes(String(value.state))||value.native_path!=='/config/integrations'||!date(value.observed_at)||!count(value.candidate_count)||typeof value.truncated!=='boolean'||!(value.content_digest===null||text(value.content_digest)&&/^[a-f0-9]{64}$/.test(value.content_digest)))return null;
-  if(!Array.isArray(value.candidates)||value.candidates.length>8||!value.candidates.every(item=>record(item)&&text(item.integration_name)&&item.integration_name.length>0&&item.integration_name.length<=160&&text(item.next_step)&&item.next_step.length>0&&item.next_step.length<=160&&isSetupCandidate(item))||!unique(value.candidates))return null;
+  if(!Array.isArray(value.candidates)||value.candidates.length>8||!value.candidates.every(item=>record(item)&&text(item.integration_name)&&item.integration_name.length>0&&item.integration_name.length<=160&&text(item.next_step)&&item.next_step.length>0&&item.next_step.length<=160&&isDiscoveryCandidate(item))||!unique(value.candidates))return null;
   if(!Array.isArray(value.sources)||value.sources.length>7||!value.sources.every(item=>isDiscoverySource(item)&&date(item.observed_at))||!unique(value.sources)||!Array.isArray(value.limitations)||value.limitations.length>16||!value.limitations.every(item=>text(item)&&item.length<=160))return null;
   const discovery=value as unknown as Discovery;
   if(discovery.share_scope!==undefined&&!['ha_candidates','environment'].includes(discovery.share_scope))return null;
@@ -75,7 +75,7 @@ export function ConversationDiscovery({value,disabled,visible=true,onDiscover,on
       {data.truncated&&<p className="helper-text">{data.candidate_count===null?'這次先列出部分結果。':`這次先列出 ${data.candidates.length} 項，共找到 ${data.candidate_count} 項待設定結果。`}</p>}
       {data.candidates.some(candidate=>candidate.source_id==='network_inventory')&&<p className="helper-text">不同來源可能來自同一設備，尚未合併身分。</p>}
       <p className="helper-text">接入與控制權限仍需你確認。</p>
-      {data.candidates.some(candidate=>!supportsChatSetup(candidate)&&isDiscoveryCandidate(candidate))&&!disabled&&<TrackingPanel candidates={data.candidates.filter((candidate):candidate is Candidate&DiscoverySnapshot['candidates'][number]=>!supportsChatSetup(candidate)&&isDiscoveryCandidate(candidate))}/>}
+      {data.candidates.some(candidate=>!supportsChatSetup(candidate))&&!disabled&&<TrackingPanel candidates={data.candidates.filter(candidate=>!supportsChatSetup(candidate))}/>}
     </>}
     {data.observed_at&&<p className="helper-text">探索於 <time dateTime={data.observed_at}>{timestamp(data.observed_at)}</time>，是這次對話的觀測結果。</p>}
     {data.sources.length>0&&<details><summary>探索範圍</summary><p>{data.share_scope==='environment'?'已讀取家庭設備及保存的網路探索結果；覆蓋範圍依各來源顯示。':'已讀取家庭提供的探索資料；尚未掃描整個家庭網路。'}</p><ul className="conversation-discovery-sources">{data.sources.map(source=><li key={source.id}><span>{sourceNames[source.id]||'其他來源'}</span><span>{sourceStates[source.state]}{source.truncated?' · 部分清單':''}</span></li>)}{data.environment?.inventory_sources.map(source=><li key={source.id}><span>{source.id==='router_import'?'路由器設備紀錄':'家庭網路探索紀錄'}</span><span>{({ok:'已讀取',partial:'部分資料',unavailable:'暫時無法讀取',not_configured:'尚未取得',expired:'紀錄已過期'} as Record<string,string>)[source.state]}{source.truncated?' · 部分清單':''}</span></li>)}</ul></details>}
