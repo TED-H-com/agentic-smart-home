@@ -352,8 +352,7 @@ def make_service(store, ha, spawn):
 
 
 def make_input(**values):
-    # Delayed lookup keeps native qualification collected on the pre-feature base.
-    return setup_api.DeviceSetupInput(**values)
+    return setup_api.DeviceSetupInput.model_validate(values)
 
 
 async def test_real_service_synology_inputs_recovery_no_secret_persistence(
