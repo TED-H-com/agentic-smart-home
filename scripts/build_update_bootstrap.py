@@ -111,7 +111,9 @@ def build(product, host_manifest, host_bundle, controller_update, controller_ima
     (payload / "media.json").write_text(json.dumps({"format": 1, "label": LABEL, "directory": DIRECTORY, "files": files}, indent=2) + "\n")
     (destination / "media/USB-INSTRUCTIONS.txt").write_text(
         "Use an independently authenticated official USB. Format/label the USB AH-UPDATE, then place the agentic-home-update folder at its root.\n"
-        "Large archives remain on USB; the small authenticated OS package verifies and copies them only after owner approval and capacity checks.\n")
+        "Alternatively, support may stage it locally with: sudo install -d -o root -g root -m 0755 /var/lib/agentic-home/update-inbox/agentic-home-update\n"
+        "Then install both archives with: sudo install -o root -g root -m 0644 agentic-home-update/host-bundle.tar agentic-home-update/controller-images.tar /var/lib/agentic-home/update-inbox/agentic-home-update/\n"
+        "Large archives remain on the USB or in the protected local inbox; the small authenticated OS package verifies and copies them only after owner approval and capacity checks.\n")
     binary = stage / "usr/bin/agentic-home-update-bootstrap"
     binary.parent.mkdir(parents=True)
     binary.write_text("#!/bin/sh\nexec /usr/bin/python3 -I -c 'import runpy,sys;"

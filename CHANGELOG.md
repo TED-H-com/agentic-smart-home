@@ -13,6 +13,7 @@
 
 ## 0.11.1 候選
 
+- 一次性圖形 Host bootstrap 可直接使用支援人員預先放入固定 root-only 本機 inbox 的更新檔；若 inbox 權限或連結不可信即停止，並保留原有 AH-UPDATE USB 流程與完整簽章、雜湊核對。
 - 將 #122 專用主機電源／網路政策（G15／G16）透過 #123 的正式 Host bootstrap 與受批准 Host bundle 更新路徑交付；既有 0.11.0 家庭使用一次經獨立身份驗證的圖形 bootstrap 與 AH-UPDATE USB，不重跑 installer。
 - 沿用 Ted 於 2026-10-19 核准的官方公鑰 pin；私鑰僅留在外部發行端。候選尚未簽署或發布，尚無本版媒體／遷移或實體家庭驗收，結果另見 [驗證紀錄](docs/VERIFICATION.md)。
 

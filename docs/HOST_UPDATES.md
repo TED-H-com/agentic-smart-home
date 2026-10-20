@@ -147,9 +147,13 @@ A maintainer must first produce authenticated bootstrap media using Ted's
 approved public pin and externally signed Controller/Host envelopes. The small
 bootstrap package carries the verifier, pin, signed envelopes and expected
 payload hashes. Large image/archive payloads remain on the official USB volume
-(label `AH-UPDATE`) until the approved capacity checks and restore point are
-complete. The graphical launcher finds that media without terminal or manual
-mount commands, and the root-private copy is rehashed before it is parsed.
+(label `AH-UPDATE`), or in the fixed root-owned local support staging directory
+`/var/lib/agentic-home/update-inbox/agentic-home-update`, until the approved
+capacity checks and restore point are complete. Every local staging parent,
+directory and archive is checked for root ownership, non-writable permissions
+and link safety; an unsafe existing inbox fails closed instead of using USB.
+The graphical launcher finds either source without extra owner steps, and the
+root-private copy is rehashed before it is parsed.
 The fixed root-owned bootstrap metadata binds the removable payloads; trusting
 the removable filesystem's ownership is not a substitute for authentication.
 The graphical launcher reviews its
@@ -195,7 +199,8 @@ For the existing installation's owner, the one-time actions are:
    independently authenticated official USB that Ted has approved. Use the
    graphical package installer and authenticate with the local administrator
    account. Do not use an unsigned download merely because it includes a key.
-2. Insert the prepared official update USB labelled **AH-UPDATE**. Open
+2. Insert the prepared official update USB labelled **AH-UPDATE**, unless support
+   has already prepared the protected local update inbox. Open
    **Agentic Home 主機更新** from the desktop applications menu; the launcher
    locates the files automatically. No terminal, SSH or manual mount is needed.
 3. Review the shown public-key fingerprint, Controller/Host versions and

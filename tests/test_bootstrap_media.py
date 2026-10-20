@@ -52,9 +52,100 @@ def media(tmp_path, monkeypatch):
         return SimpleNamespace(stdout="", returncode=0)
 
     manager.run = run
-    instance = BootstrapMedia(manager, path)
-    instance.fixture = SimpleNamespace(root=root, tmp=tmp_path, path=path)
+    inbox = tmp_path / "inbox"
+    ownership = {}
+    real_lstat = Path.lstat
+
+    def root_lstat(item):
+        info = real_lstat(item)
+        owner = ownership.get(Path(item), (0, 0))
+        mode = info.st_mode
+        if not Path(item).is_relative_to(tmp_path):
+            mode &= ~0o022
+        return SimpleNamespace(st_mode=mode, st_uid=owner[0], st_gid=owner[1],
+                               st_nlink=info.st_nlink, st_size=info.st_size)
+
+    monkeypatch.setattr(Path, "lstat", root_lstat)
+    instance = BootstrapMedia(manager, path, inbox=inbox)
+    instance.fixture = SimpleNamespace(root=root, tmp=tmp_path, path=path, inbox=inbox, ownership=ownership)
     return instance
+
+
+def stage_inbox(media):
+    payload = media.fixture.inbox / DIRECTORY
+    payload.mkdir(parents=True)
+    for name in FILES:
+        (payload / name).write_bytes((media.fixture.root / DIRECTORY / name).read_bytes())
+        (payload / name).chmod(0o644)
+    media.fixture.inbox.chmod(0o755)
+    payload.chmod(0o755)
+    return payload
+
+
+def test_valid_inbox_is_used_without_looking_for_usb(media):
+    stage_inbox(media)
+    assert media.locate() == media.fixture.inbox
+    assert media.inspect()["label"] == LABEL
+    assert media.manager.calls == []
+
+
+def test_usb_is_used_when_inbox_is_absent(media):
+    assert media.locate() == Path("/media/owner/AH-UPDATE")
+    assert media.manager.calls[0][0] == "/usr/bin/lsblk"
+
+
+@pytest.mark.parametrize("fault", ["inbox_symlink", "parent_symlink", "file_symlink", "non_root",
+                                   "non_root_group", "group_writable_dir", "world_writable_dir",
+                                   "group_writable_file", "world_writable_file", "hardlink"])
+def test_untrusted_existing_inbox_fails_closed_without_usb_fallback(media, fault):
+    payload = stage_inbox(media)
+    archive = payload / "host-bundle.tar"
+    if fault == "inbox_symlink":
+        real = media.fixture.inbox.with_name("real-inbox")
+        media.fixture.inbox.rename(real)
+        media.fixture.inbox.symlink_to(real, target_is_directory=True)
+    elif fault == "parent_symlink":
+        parent = media.fixture.inbox.parent
+        moved = parent / "moved-inbox"
+        media.fixture.inbox.rename(moved)
+        linked = parent / "linked-parent"
+        linked.symlink_to(parent, target_is_directory=True)
+        media.inbox = linked / moved.name
+    elif fault == "file_symlink":
+        archive.unlink()
+        archive.symlink_to(payload / "controller-images.tar")
+    elif fault == "non_root":
+        media.fixture.ownership[archive] = (1000, 0)
+    elif fault == "non_root_group":
+        media.fixture.ownership[archive] = (0, 1000)
+    elif fault == "group_writable_dir":
+        payload.chmod(0o775)
+    elif fault == "world_writable_dir":
+        payload.chmod(0o757)
+    elif fault == "group_writable_file":
+        archive.chmod(0o664)
+    elif fault == "world_writable_file":
+        archive.chmod(0o646)
+    else:
+        os.link(archive, media.fixture.tmp / "second-link")
+    with pytest.raises(HostError, match="本機暫存更新"):
+        media.locate()
+    assert media.manager.calls == []
+
+
+@pytest.mark.parametrize("fault", ["size", "sha"])
+def test_inbox_uses_installed_manifest_size_and_sha256(media, fault):
+    payload = stage_inbox(media)
+    archive = payload / "host-bundle.tar"
+    if fault == "size":
+        archive.write_bytes(archive.read_bytes() + b"x")
+        message = "類型或大小不符"
+    else:
+        archive.write_bytes(b"x" * archive.stat().st_size)
+        message = "未通過可信清單核對"
+    with pytest.raises(HostError, match=message):
+        media.inspect()
+    assert media.manager.calls == []
 
 
 def test_exact_single_removable_label_is_auto_located_without_owner_paths(media):
@@ -135,3 +226,4 @@ def test_small_package_preinst_contains_only_fixed_readonly_capacity_observation
     assert 'required = 80 * 1024**2' in module.PREINST
     assert all(command not in module.PREINST for command in ("lvextend", "lvcreate", "shutdown", "unlink", "docker", "mount("))
     assert INSERT_USB.startswith("請插入官方更新 USB")
+    assert "本機暫存更新" in INSERT_USB
