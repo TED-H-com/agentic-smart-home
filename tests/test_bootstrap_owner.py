@@ -138,7 +138,7 @@ def summary(owner):
             "controller_required": True, "controller_cache_sha256": module.file_digest(owner.payload / "controller-images.tar"),
             "current_path": str(owner.manager.product), "current_controller_image": "sha256:" + "d" * 64,
             "current_runtime_sha256": module.file_digest(owner.manager.root / "runtime.env"),
-            "installed_engine": {"state": "absent", "digest": None}, "units": {}}
+            "installed_engine": {"state": "absent", "digest": None}, "engine": "f" * 64, "units": {}}
 
 
 def test_review_is_exact_expiring_and_contains_no_private_key_or_capability(owner, monkeypatch):
@@ -186,10 +186,13 @@ def test_lost_or_interrupted_bootstrap_cannot_be_reoffered_or_repeated(owner, mo
         owner.review()
 
 
-@pytest.mark.parametrize("engine_state", ["absent", "inactive"])
+@pytest.mark.parametrize("engine_state", ["absent", "inactive", "active"])
 def test_apply_orders_capacity_restore_trust_engine_controller_and_host_without_duplicate_snapshot(owner, monkeypatch, engine_state):
     reviewed = summary(owner)
-    reviewed["installed_engine"] = {"state": engine_state, "digest": "e" * 64 if engine_state == "inactive" else None}
+    reviewed["installed_engine"] = {"state": engine_state, "digest": "e" * 64 if engine_state != "absent" else None}
+    if engine_state == "active":
+        reviewed["engine_replaces_attempt"] = "e" * 64
+        monkeypatch.setattr(module, "trusted", lambda path, **kwargs: Path(path))
     monkeypatch.setattr(module, "installed_engine_identity", lambda: reviewed["installed_engine"])
     monkeypatch.setattr(owner, "_summary", lambda: copy.deepcopy(reviewed))
     payload = owner._payload()
@@ -215,7 +218,8 @@ def test_apply_orders_capacity_restore_trust_engine_controller_and_host_without_
             state["broker"] = False
         if args[:2] == ("systemctl", "start"):
             state["broker"] = True
-        if args == ("systemctl", "enable", "--now", "agentic-home-update-api.service"):
+        if args == (("systemctl", "restart", "agentic-home-update-api.service") if engine_state == "active" else
+                    ("systemctl", "enable", "--now", "agentic-home-update-api.service")):
             assert state["broker"] and not state["locked"]
             events.append(("update_api",))
         return original_run(*args, **kwargs)
@@ -262,7 +266,8 @@ def test_apply_orders_capacity_restore_trust_engine_controller_and_host_without_
         assert state["locked"]
         events.append((event,))
     def install(*args, **kwargs):
-        assert kwargs == ({"expected_inactive_engine_digest": "e" * 64} if engine_state == "inactive" else {})
+        assert kwargs == ({"expected_attempt_engine_digest": "e" * 64} if engine_state == "active" else
+                          {"expected_inactive_engine_digest": "e" * 64} if engine_state == "inactive" else {})
         convert("engine")
     monkeypatch.setattr(module, "install_engine", install)
     monkeypatch.setattr(module, "version_layout", lambda *args: convert("layout"))
@@ -614,3 +619,281 @@ def test_unsafe_appliance_baseline_is_rejected_in_review_before_stopping_or_rest
     with pytest.raises(HostError, match="目前主機版本尚未支援安全還原"):
         owner.review()
     assert not owner.path.exists() and not owner.trust.exists() and not owner.fixture.calls
+
+
+@pytest.fixture
+def rollback_owner(owner, monkeypatch):
+    import sqlite3
+
+    reviewed = summary(owner)
+    reviewed['current_installed_version'] = '0.11.0'
+    reviewed['units'] = {name: {'shipped': 'a' * 64, 'installed': None} for name in module.ENGINE_UNITS}
+    (owner.manager.root.parent / 'installed.json').write_text(json.dumps({'version': '0.11.0'}))
+    updates = owner.manager.root / 'updates'
+    updates.mkdir()
+    record = {'state': 'rolled_back', 'current_database_preserved': True}
+    (updates / 'records.json').write_text(json.dumps({reviewed['controller_candidate']: record}))
+    data = owner.manager.root.parent / 'controller'
+    data.mkdir()
+    with sqlite3.connect(data / 'controller.sqlite3') as db:
+        db.execute('CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)')
+    monkeypatch.setattr(owner, '_controller_view', lambda: SimpleNamespace(
+        image=lambda: reviewed['current_controller_image'], health=lambda: {'version': '0.11.0'}, data=data))
+    monkeypatch.setattr(owner, '_baseline_current', lambda _: None)
+    monkeypatch.setattr(owner, '_summary', lambda: reviewed)
+    value = {'state': 'needs_reconcile', 'phase': 'controller_updating', 'summary': reviewed,
+             'boot_id': Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
+             'availability': {key: {'state': 'running_verified'} for key in ('broker', 'controller')},
+             'restore_attempt': {'restore_point': {'phase': 'complete'}}}
+    owner.path.write_text(json.dumps(value))
+    return owner
+
+
+def test_reconcile_archives_preserves_restore_and_offers_fresh_approval(rollback_owner):
+    owner = rollback_owner
+    original = json.loads(owner.path.read_text())
+    assert owner.reconcile()['state'] == 'reconciled'
+    value = json.loads(owner.path.read_text())
+    assert value['history'] == [original]
+    assert value['restore_attempt'] == original['restore_attempt']
+    assert value['reconciliation']['gate_absent'] is True
+    assert owner.reconcile()['state'] == 'reconciled'
+    review = owner.review()
+    assert review['review_digest']
+    assert json.loads(owner.path.read_text())['history'] == [original]
+    assert all(call[:2] != ('systemctl', 'start') for call in owner.fixture.calls)
+
+
+@pytest.mark.parametrize('fault', ['phase', 'boot', 'state', 'record', 'database_preserved', 'active',
+                                    'image', 'health', 'installed', 'tree', 'availability', 'broker', 'restore', 'gate'])
+def test_reconcile_refuses_without_mutating_owner_or_records(rollback_owner, monkeypatch, fault):
+    import sqlite3
+
+    owner = rollback_owner
+    value = json.loads(owner.path.read_text())
+    path = owner.manager.root / 'updates/records.json'
+    records = json.loads(path.read_text())
+    record = records[value['summary']['controller_candidate']]
+    if fault in {'phase', 'boot', 'state'}:
+        value[{'phase': 'phase', 'boot': 'boot_id', 'state': 'state'}[fault]] = 'different'
+    elif fault == 'record':
+        record['state'] = 'deployed'
+    elif fault == 'database_preserved':
+        record['current_database_preserved'] = False
+    elif fault == 'active':
+        records['other'] = {'state': 'needs_reconcile'}
+    elif fault in {'image', 'health'}:
+        service = owner._controller_view()
+        if fault == 'image':
+            service.image = lambda: 'different'
+        else:
+            service.health = lambda: {'version': 'different'}
+        monkeypatch.setattr(owner, '_controller_view', lambda: service)
+    elif fault == 'installed':
+        (owner.manager.root.parent / 'installed.json').write_text('{"version":"0.12.0"}')
+    elif fault == 'tree':
+        monkeypatch.setattr(owner, '_baseline_current', lambda _: (_ for _ in ()).throw(HostError('changed')))
+    elif fault == 'availability':
+        value['availability']['controller']['state'] = 'start_requested'
+    elif fault == 'broker':
+        monkeypatch.setattr(owner.manager, 'run', lambda *a, **kw: (_ for _ in ()).throw(HostError('inactive')))
+    elif fault == 'restore':
+        value['restore_attempt']['restore_point']['phase'] = 'ha_snapshot_complete'
+    elif fault == 'gate':
+        with sqlite3.connect(owner._controller_view().data / 'controller.sqlite3') as db:
+            db.execute("INSERT INTO settings VALUES ('updater_gate', 'true')")
+    owner.path.write_text(json.dumps(value))
+    path.write_text(json.dumps(records))
+    before = owner.path.read_bytes(), path.read_bytes()
+    with pytest.raises(HostError, match='請聯絡支援'):
+        owner.reconcile()
+    assert before == (owner.path.read_bytes(), path.read_bytes())
+
+
+def test_gui_review_directs_supported_incident_to_support_reconcile(rollback_owner):
+    with pytest.raises(HostError, match='--reconcile'):
+        rollback_owner.review()
+
+
+@pytest.mark.parametrize('state,switched,allowed', [('failed', False, True), ('failed', True, False),
+                                                 ('failed', None, False), ('rolled_back', True, True)])
+def test_reconcile_requires_proof_failed_candidate_never_switched(rollback_owner, state, switched, allowed):
+    owner = rollback_owner
+    path = owner.manager.root / 'updates/records.json'
+    records = json.loads(path.read_text())
+    record = next(iter(records.values()))
+    record.update(state=state, switched=switched)
+    path.write_text(json.dumps(records))
+    if allowed:
+        assert owner.reconcile()['state'] == 'reconciled'
+    else:
+        with pytest.raises(HostError):
+            owner.reconcile()
+
+
+def test_reconcile_legacy_incident_uses_version_literal_from_original_product(rollback_owner):
+    owner = rollback_owner
+    value = json.loads(owner.path.read_text())
+    del value['summary']['current_installed_version']
+    owner.path.write_text(json.dumps(value))
+    source = owner.manager.product / 'host/agentic_host/__init__.py'
+    source.parent.mkdir(parents=True)
+    source.write_text('VERSION = "0.11.0"\nraise RuntimeError("must never execute")\n')
+    assert owner.reconcile()['state'] == 'reconciled'
+
+
+@pytest.mark.parametrize('original', ['running', 'shut off'])
+def test_controller_retry_replaces_terminal_record_and_requires_running_ha_baseline(owner, monkeypatch, original):
+    manifest = owner.fixture.controller['manifest']
+    candidate = digest(manifest)
+    seen = {}
+
+    class Service:
+        def __init__(self, manager):
+            self.records = {candidate: {'state': 'rolled_back'}}
+
+        def verify(self, *args):
+            pass
+
+        def update(self, record):
+            seen.update(record)
+
+        def prepare(self, record):
+            record.update(state='staged', approval_id='approved')
+
+        def apply(self, body):
+            self.records[candidate]['state'] = 'deployed'
+
+    monkeypatch.setattr(module, 'Updater', Service)
+    monkeypatch.setattr(module, 'HostBundle', lambda _: SimpleNamespace(controller_probe=lambda: {
+        'status': 'ok', 'host_update': COMPATIBILITY}))
+    owner.path.write_text(json.dumps({'restore_attempt': {'restore_point': {'ha_original_state': original}}}))
+    payload = SimpleNamespace(controller=owner.fixture.controller, cache=owner.payload / 'controller-images.tar')
+    owner._controller(payload)
+    assert seen['ha_baseline_running_required'] == (original == 'running')
+
+
+@pytest.mark.parametrize("identity,prior,allowed,recorded", [
+    ({"state": "active", "digest": "f" * 64}, "absent", True, True),
+    ({"state": "active", "digest": "b" * 64}, "absent", False, False),
+    ({"state": "active", "digest": "f" * 64}, "inactive", False, False),
+    ({"state": "absent", "digest": None}, "absent", True, False),
+])
+def test_reconcile_verifies_attempt_engine_or_unchanged_engine(rollback_owner, monkeypatch, identity, prior, allowed, recorded):
+    owner = rollback_owner
+    value = json.loads(owner.path.read_text())
+    value["summary"]["installed_engine"]["state"] = prior
+    owner.path.write_text(json.dumps(value))
+    monkeypatch.setattr(module, "installed_engine_identity", lambda: identity)
+    before = owner.path.read_bytes()
+    if not allowed:
+        with pytest.raises(HostError):
+            owner.reconcile()
+        assert owner.path.read_bytes() == before
+        return
+    owner.reconcile()
+    evidence = json.loads(owner.path.read_text())["reconciliation"]
+    assert ("attempt_engine" in evidence) == recorded
+    assert set(evidence["units"]) == set(module.ENGINE_UNITS)
+
+
+@pytest.mark.parametrize("modified", [False, True])
+def test_reconcile_checks_attempt_unit_bytes(rollback_owner, monkeypatch, tmp_path, modified):
+    owner = rollback_owner
+    units = tmp_path / "systemd"
+    units.mkdir()
+    name = module.ENGINE_UNITS[0]
+    target = units / name
+    target.write_text("attempt unit")
+    value = json.loads(owner.path.read_text())
+    value["summary"]["units"][name]["shipped"] = module.file_digest(target)
+    owner.path.write_text(json.dumps(value))
+    if modified:
+        target.write_text("unknown modification")
+    monkeypatch.setattr(module, "Path", lambda path: units if str(path) == "/etc/systemd/system" else Path(path))
+    before = owner.path.read_bytes()
+    if modified:
+        with pytest.raises(HostError):
+            owner.reconcile()
+        assert owner.path.read_bytes() == before
+    else:
+        owner.reconcile()
+        assert json.loads(owner.path.read_text())["reconciliation"]["units"][name]["installed"] == module.file_digest(target)
+
+
+@pytest.fixture
+def migration_review_owner(owner, monkeypatch, tmp_path):
+    units = tmp_path / "migration-systemd"
+    units.mkdir()
+    paths = {
+        "/etc/systemd/system": units,
+        "/var/lib/dpkg/info/agentic-home-update-bootstrap.postinst": tmp_path / "postinst",
+        "/var/lib/dpkg/info/agentic-home-update-bootstrap.preinst": tmp_path / "preinst",
+    }
+    (units / module.RECOVERY_NAME).write_text(module.RECOVERY_UNIT)
+    paths["/var/lib/dpkg/info/agentic-home-update-bootstrap.postinst"].write_text(module.POSTINST)
+    paths["/var/lib/dpkg/info/agentic-home-update-bootstrap.preinst"].write_text(module.PREINST)
+    monkeypatch.setattr(module, "Path", lambda path: paths.get(str(path), Path(path)))
+    monkeypatch.setattr(module, "trusted", lambda path, **kwargs: Path(path))
+    monkeypatch.setattr(module, "tree_identity", lambda _: ("c" * 64, {}, {}))
+    monkeypatch.setattr(module, "require_appliance_baseline", lambda _: None)
+    monkeypatch.setattr(module, "HostBundle", lambda _: SimpleNamespace(
+        controller_probe=lambda: {"status": "ok", "host_update": COMPATIBILITY}, _tree_identity=lambda _: "d" * 64))
+    monkeypatch.setattr(owner, "_payload", lambda: SimpleNamespace(
+        source=owner.payload / "product", fingerprint="e" * 64, controller=None,
+        candidate="b" * 64, host={"manifest": {"version": "0.12.0"}}, cache_hash=None))
+    monkeypatch.setattr(owner, "_controller_view", lambda: SimpleNamespace(image=lambda: "baseline"))
+    (owner.manager.root.parent / "installed.json").write_text('{"version":"0.11.0"}')
+    monkeypatch.setattr(module, "installed_engine_identity", lambda: {"state": "active", "digest": "f" * 64})
+    evidence = {"attempt_engine": "f" * 64, "units": {}}
+    for name in module.ENGINE_UNITS:
+        (units / name).write_text("attempt unit")
+        evidence["units"][name] = {"shipped": module.file_digest(units / name)}
+    owner.path.write_text(json.dumps({"state": "reconciled", "reconciliation": evidence}))
+    return owner, units
+
+
+@pytest.mark.parametrize("fault", [None, "unknown_engine", "not_reconciled", "unit"])
+def test_review_only_replaces_reconciled_attempt_engine_and_units(migration_review_owner, monkeypatch, fault):
+    owner, units = migration_review_owner
+    if fault == "unknown_engine":
+        monkeypatch.setattr(module, "installed_engine_identity", lambda: {"state": "active", "digest": "a" * 64})
+    elif fault == "not_reconciled":
+        value = json.loads(owner.path.read_text())
+        value["state"] = "failed"
+        owner.path.write_text(json.dumps(value))
+    elif fault == "unit":
+        (units / module.ENGINE_UNITS[0]).write_text("owner modification")
+    if fault:
+        with pytest.raises(HostError):
+            owner.review()
+    else:
+        review = owner.review()
+        assert review["engine_replaces_attempt"] == "f" * 64
+        assert owner._summary() == json.loads(owner.path.read_text())["summary"]
+
+
+@pytest.mark.parametrize("fault", [None, "unknown_sha", "missing_record", "no_engine_approval"])
+def test_apply_unit_replacement_requires_recorded_attempt_sha(migration_review_owner, fault):
+    owner, units = migration_review_owner
+    payload = owner._payload()
+    reviewed = owner._summary()
+    first = units / module.ENGINE_UNITS[0]
+    if fault == "unknown_sha":
+        first.write_text("unknown unit")
+    elif fault == "missing_record":
+        reviewed["attempt_reconciliation"]["units"] = {}
+    elif fault == "no_engine_approval":
+        del reviewed["engine_replaces_attempt"]
+    original = first.read_bytes()
+    if fault:
+        with pytest.raises(HostError):
+            owner._install_engine_units(payload, reviewed)
+        assert first.read_bytes() == original
+    else:
+        old_inode = first.stat().st_ino
+        owner._install_engine_units(payload, reviewed)
+        for name in module.ENGINE_UNITS:
+            assert (units / name).read_bytes() == (payload.source / "host/systemd" / name).read_bytes()
+        assert first.stat().st_ino != old_inode
+        assert not list(units.glob(".*"))

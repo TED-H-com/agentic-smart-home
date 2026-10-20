@@ -993,3 +993,102 @@ def test_interrupted_source_move_is_not_reported_as_moved(updater, tmp_path):
     restarted = Updater(service.manager)
     recovered = restarted.records[record["candidate_digest"]]
     assert recovered["state"] == "needs_reconcile" and recovered["source_sync"] == "needs_reconcile"
+
+
+@pytest.mark.parametrize("change,accepted", [
+    ({}, True),
+    ({"ha_version": "2099.1.1"}, False),
+    ({"ha": "disabled"}, False),
+    ({"runner": "unavailable"}, False),
+    ({"paused": False}, False),
+    ({"version": "wrong"}, False),
+])
+def test_smoke_allows_only_compatible_ha_recovery(updater, change, accepted):
+    service, record = updater
+    current = prepare_deployment(service, record)
+    old, health = current[0], service.health
+    def recovering():
+        value = health()
+        if current[0] == old:
+            value.update(ha="unavailable", ha_version=None)
+        else:
+            value.update(change)
+        return value
+    service.health = recovering
+    service.deploy(record)
+    assert record["baseline"]["ha"] == "unavailable"
+    assert record["state"] == ("deployed" if accepted else "rolled_back")
+    if not accepted:
+        assert record["error_code"] == "update_smoke_mismatch"
+        assert record["smoke_observed"] == {"version": record["manifest"]["version"], "ha": "connected", "ha_version": "2026.10.1", "runner": "paired", "paused": True, **change}
+
+
+def test_bootstrap_baseline_waits_before_stopping(updater, monkeypatch):
+    service, record = updater
+    prepare_deployment(service, record)
+    record["ha_baseline_running_required"] = True
+    health, stop = service.health, service.stop
+    attempts = []
+    def recovering():
+        value = health()
+        attempts.append(True)
+        if len(attempts) < 3:
+            value.update(ha="unavailable", ha_version=None)
+        return value
+    service.health = recovering
+    def stopped():
+        assert len(attempts) >= 3
+        stop()
+    service.stop = stopped
+    monkeypatch.setattr("agentic_host.updater.time.sleep", lambda seconds: None)
+    service.deploy(record)
+    assert record["state"] == "deployed"
+    assert record["baseline"]["ha"] == "connected"
+
+
+def test_bootstrap_unsettled_baseline_never_stops_or_switches(updater, monkeypatch):
+    service, record = updater
+    current = prepare_deployment(service, record)
+    old, health = current[0], service.health
+    record["ha_baseline_running_required"] = True
+    service.health = lambda: {**health(), "ha": "unavailable", "ha_version": None}
+    service.stop = lambda: pytest.fail("must not stop before settled baseline")
+    clock = iter((0, 0, 180))
+    monkeypatch.setattr("agentic_host.updater.time.monotonic", lambda: next(clock))
+    monkeypatch.setattr("agentic_host.updater.time.sleep", lambda seconds: None)
+    service.deploy(record)
+    assert record["state"] == "failed"
+    assert record["error_code"] == "update_ha_baseline_unsettled"
+    assert record["switched"] is False
+    assert current[0] == old
+    assert "previous_image" not in record
+
+
+@pytest.mark.parametrize("state", ["rolled_back", "failed"])
+def test_terminal_failed_candidate_can_be_freshly_staged(updater, monkeypatch, state):
+    service, record = updater
+    record.update(state=state, smoke_observed={"ha": "unavailable"}, switched=True)
+    monkeypatch.setattr("agentic_host.updater.threading.Thread", lambda **kwargs: SimpleNamespace(start=lambda: None))
+    result = service.stage({"manifest": record["manifest"], "signature": record["signature"]})
+    assert result["state"] == "staging"
+    assert service.records[record["candidate_digest"]] is not record
+    assert "smoke_observed" not in result and "switched" not in result
+
+
+def test_ha_recovery_does_not_relax_final_smoke(updater):
+    service, record = updater
+    current = prepare_deployment(service, record)
+    old, health = current[0], service.health
+    calls = []
+    def changing():
+        value = health()
+        calls.append(current[0])
+        if current[0] == old:
+            value.update(ha="unavailable", ha_version=None)
+        elif calls.count(current[0]) > 1:
+            value.update(ha="unavailable", ha_version=None)
+        return value
+    service.health = changing
+    service.deploy(record)
+    assert record["state"] == "rolled_back"
+    assert record["error_code"] == "update_final_smoke_mismatch"

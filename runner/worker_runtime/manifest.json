@@ -10,7 +10,7 @@
     "host/agentic_host/artifacts.py": "62ed70cc0cce036d13e70a7620abf25161340663aeb6eb8b666e7f6f80e58514",
     "host/agentic_host/bootstrap.py": "997280e33d104ba2768e1258b7f17dc6c8e402f0280e2a994cd3e9ec5085895b",
     "host/agentic_host/bootstrap_media.py": "53162565a94924f6756534f95facf6590e66b0755c53dbf0478813632b739b9e",
-    "host/agentic_host/bootstrap_owner.py": "dc74d40d27fdc945f3225cf46f8b1f832011c9b51b647c97a3b34fe4447d20a7",
+    "host/agentic_host/bootstrap_owner.py": "2ac68f181b44a19af9e57bb9f3304bfa09b9a08b7a2ff59e3ef1030f15efea51",
     "host/agentic_host/cli.py": "9cc528315fe2c058b21ebb5321abdba8620edc348d3735865a872a99defc2e1e",
     "host/agentic_host/coding_program.py": "7de5ac99870b0bf34aa7c1f973135f9f8e081afd0733c39e01240fe8f57e1f80",
     "host/agentic_host/coding_relay.py": "599d37506b66245209cff638e3b7223305cf5fd6df733d9ba222f57166321f93",
@@ -34,9 +34,9 @@
     "host/agentic_host/resources.py": "e75637f41d19c9613b05c1bcef947b664a3e7789c7bad85b2645e5912619e42d",
     "host/agentic_host/source.py": "4977754d2a7067ff2b37d3dd3907fccedf14a0a1e6975f24f6aa942565a390cf",
     "host/agentic_host/support.py": "d292fff3a7fd7d5ecc64c942e359866738f8152527739d5a466660a6dfc14376",
-    "host/agentic_host/update_bootstrap.py": "c12f0767558e9ab9e63108fb7faff64ae10edb0cf6ecbbddce8a0ffff3db0aee",
+    "host/agentic_host/update_bootstrap.py": "d4af1eb9fef05a685c71726d4b4b71d9cac376c2c96447e4fac618056e6c8998",
     "host/agentic_host/update_probe.py": "868d5260adfeae4e43bbbdf06b5db8f5624187396db08bef76781062b4ccfa70",
     "host/agentic_host/update_service.py": "a4f6d1886db9bd7631ec71dee0a5b4178fbac58e7b35f455bbbfd7c1e9a7abef",
-    "host/agentic_host/updater.py": "b276cf6cf0ba0b79fac601a976371cf0d84f95428032de648a7020cf1d9213f8"
+    "host/agentic_host/updater.py": "0001cd788848c7bb7267258176e78eaa0e66f06d426f9b1f135d4d81495bd751"
   }
 }

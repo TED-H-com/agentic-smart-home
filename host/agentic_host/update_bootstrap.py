@@ -115,8 +115,8 @@ def installed_engine_identity(*, engine=ENGINE):
     return {"state": "inactive" if descriptor["pin"] is None else "active", "digest": observed}
 
 
-def install_engine(source, *, engine=ENGINE, expected_inactive_engine_digest=None):
-    """Install immutable modules; only reviewed inactive-pin migration may relink."""
+def install_engine(source, *, engine=ENGINE, expected_inactive_engine_digest=None, expected_attempt_engine_digest=None):
+    """Install immutable modules; relink only an exact reviewed prior engine."""
     if os.geteuid() != 0:
         raise HostError("host_bootstrap_local_root_required")
     source, engine = Path(source), Path(engine)
@@ -126,10 +126,13 @@ def install_engine(source, *, engine=ENGINE, expected_inactive_engine_digest=Non
     previous = installed_engine_identity(engine=engine)
     migration = previous["digest"] not in {None, digest}
     if migration:
-        if (previous["state"] != "inactive" or descriptor["pin"] is None
-                or expected_inactive_engine_digest != previous["digest"]):
+        if (descriptor["pin"] is None or not (
+                (previous["state"] == "inactive" and expected_inactive_engine_digest == previous["digest"]) or
+                (previous["state"] == "active" and expected_attempt_engine_digest == previous["digest"]))):
             raise HostError("host_bootstrap_executor_already_installed")
     elif expected_inactive_engine_digest is not None and expected_inactive_engine_digest != previous["digest"]:
+        raise HostError("host_bootstrap_executor_revision_changed")
+    if expected_attempt_engine_digest is not None and (previous["state"] != "active" or previous["digest"] != expected_attempt_engine_digest or descriptor["pin"] is None):
         raise HostError("host_bootstrap_executor_revision_changed")
     engine.mkdir(parents=True, mode=0o755, exist_ok=True)
     trusted(engine, directory=True)
