@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "code_commit": "58bb533f44abcf39d1d878d126aa6eaab3202587",
+  "base_commit": "549b409c402cf695b6486d1de8cf6a60a0d8d6d0",
+  "classification": "synthetic_protocol_browser_evidence",
+  "target": "Compiled chat device-setup card at #gateway; synthetic synology_dsm discovery and API replies.",
+  "method": "Playwright Chromium with page.route protocol fixtures; no real NAS, account, household or HA runtime.",
+  "recorded_at": "2026-10-20T04:10:36.916877+00:00",
+  "versions": {
+    "application": "0.11.1",
+    "pytest": "9.1.1",
+    "playwright": "1.63.0"
+  },
+  "viewports": {
+    "1440": [
+      1440,
+      900
+    ],
+    "768": [
+      768,
+      844
+    ],
+    "390": [
+      390,
+      844
+    ]
+  },
+  "source_sha256": {
+    "web/src/device-setup.tsx": "ccc32200f786f25f032a7f0a9501641c2d0facc113c5b7def4fd1f25eaf30dd8",
+    "web/src/device-setup.css": "c654791285bb278d3e05f8d3fa3d62f067ad11bb039f4956db9b0779cbf375a2",
+    "web/src/device-setup-history.tsx": "a52ae095b63393e0b85b8d1ecbf915a09226a8e7cf6981e8f488a7793b42dfbe",
+    "web/src/conversation-discovery.tsx": "f9673444cc31072ae0389b2c5b3d2003859f51f11471160ace368b960758b583",
+    "web/src/discovery.tsx": "8111d901d25e67ff6734d333c21eb9457081cbb8054c9fe146734d2d400f0e18",
+    "web/package-lock.json": "1298bfa600704392ed56e288b46dc601724886266c82f350b1793577a6092a40",
+    "tests/test_synology_device_setup_ui.py": "bce29dafd5bfafbe9d394120105a40acd1cd36da7822a8b471c2f1db69f396fc",
+    "controller/static/index.html": "0d3180230b2d1ee275fec6d4dfa86019f9a632354e9d1dbd5f6bfc129babf741",
+    "bridge/static/index.html": "0d3180230b2d1ee275fec6d4dfa86019f9a632354e9d1dbd5f6bfc129babf741",
+    "controller/static/assets/index-ov3Enw8X.js": "d61683c1fdae7825b22a8ad911b4e754b549dce2583dcd78fab5bbeb036df0ee",
+    "controller/static/assets/index-pfqDl4iC.css": "1e76c9f21e2ca41d6c9c7e6be73873512a7c611307ef785674c5110840a3f879",
+    "bridge/static/assets/index-ov3Enw8X.js": "d61683c1fdae7825b22a8ad911b4e754b549dce2583dcd78fab5bbeb036df0ee",
+    "bridge/static/assets/index-pfqDl4iC.css": "1e76c9f21e2ca41d6c9c7e6be73873512a7c611307ef785674c5110840a3f879"
+  },
+  "run": {
+    "tests": 101,
+    "passed": 101,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "duration_seconds": 197.447,
+    "started_at": "2026-10-20T00:06:48.536159-04:00",
+    "junit_sha256": "f827882ec34485dc2261319e9caed7ef44b5983534cc8f8572f41207cf42dc12",
+    "test_modules": [
+      "tests.test_browser_device_setup_history",
+      "tests.test_conversation_discovery_ui",
+      "tests.test_shelly_device_setup_ui",
+      "tests.test_synology_device_setup_ui"
+    ],
+    "passed_by_module": {
+      "tests.test_synology_device_setup_ui": 51,
+      "tests.test_shelly_device_setup_ui": 16,
+      "tests.test_conversation_discovery_ui": 21,
+      "tests.test_browser_device_setup_history": 13
+    },
+    "command": "SYNOLOGY_UI_EVIDENCE=evidence/ui/synology-setup-20261019 pytest-disktmp uv run pytest -q tests/test_synology_device_setup_ui.py tests/test_shelly_device_setup_ui.py tests/test_conversation_discovery_ui.py tests/test_browser_device_setup_history.py --junitxml=evidence/ui/synology-setup-20261019/junit.xml"
+  },
+  "images": [
+    {
+      "file": "synology-2sa-synthetic-1440.png",
+      "sha256": "fe75983d6006e7f5f7e5e029d9f15a7c791ac2510ca3f49785d3593ca09cc5d1",
+      "synthetic": true,
+      "shows": "Two-step verification explanation and empty verification code field."
+    },
+    {
+      "file": "synology-2sa-synthetic-390.png",
+      "sha256": "0a93b36b3f8bcb431f3fa0b7f1f3565cb94c553aa0385f39de7e34505ea31925",
+      "synthetic": true,
+      "shows": "Two-step verification explanation and empty verification code field."
+    },
+    {
+      "file": "synology-2sa-synthetic-768.png",
+      "sha256": "05aade93badc75072caae5b0f365734bfc6d4aec5e1af5e1c5fce53aa523c7f4",
+      "synthetic": true,
+      "shows": "Two-step verification explanation and empty verification code field."
+    },
+    {
+      "file": "synology-backup_share-synthetic-1440.png",
+      "sha256": "7a901d38d7db076e411c522c8ca0662750de92deac556feb0f2fd9dc1137ffd8",
+      "synthetic": true,
+      "shows": "Backup folder radio group with no option selected."
+    },
+    {
+      "file": "synology-backup_share-synthetic-390.png",
+      "sha256": "d658ffe6e17b94df71edcf2767d643323469d53e82cd4b5972d35040f9e7b85e",
+      "synthetic": true,
+      "shows": "Backup folder radio group with no option selected."
+    },
+    {
+      "file": "synology-backup_share-synthetic-768.png",
+      "sha256": "344d3d4760c115460471207baeca9b7f78b595a836fedfb12683386c0cfa0291",
+      "synthetic": true,
+      "shows": "Backup folder radio group with no option selected."
+    },
+    {
+      "file": "synology-error-synthetic-1440.png",
+      "sha256": "ce940df8764257afd5cb7b663c42af4764ea57a38e9a8466a765ad8935163c56",
+      "synthetic": true,
+      "shows": "Invalid account/password explanation and empty login retry fields."
+    },
+    {
+      "file": "synology-error-synthetic-390.png",
+      "sha256": "acb95d5a9ec90ed7b740511f985beb353da412e77c55d8bde24fbca07d0b0c4b",
+      "synthetic": true,
+      "shows": "Invalid account/password explanation and empty login retry fields."
+    },
+    {
+      "file": "synology-error-synthetic-768.png",
+      "sha256": "416d03e8f9d4ac0650db6fa49adfd0da0940afb2c8c09d62f05bb175e3421dac",
+      "synthetic": true,
+      "shows": "Invalid account/password explanation and empty login retry fields."
+    },
+    {
+      "file": "synology-proposal-synthetic-1440.png",
+      "sha256": "6730f20f86284edd350aa8f4f392929a1faaa09e1c0051293f62b7ed91493576",
+      "synthetic": true,
+      "shows": "Proposal with empty NAS account/password fields and explicit login approval."
+    },
+    {
+      "file": "synology-proposal-synthetic-390.png",
+      "sha256": "a4e6a610b9f5dc45ff0ebf52bcab5f1c5f08a9d447c76cf1db47de9d239220e5",
+      "synthetic": true,
+      "shows": "Proposal with empty NAS account/password fields and explicit login approval."
+    },
+    {
+      "file": "synology-proposal-synthetic-768.png",
+      "sha256": "bc98b48f45b9b1b8cd086ebe5f83033b98f5f38bfeff7cde45e4758763a8964f",
+      "synthetic": true,
+      "shows": "Proposal with empty NAS account/password fields and explicit login approval."
+    }
+  ],
+  "downloads_sha256": {
+    "controller/static/downloads/agentic-home-notifications.zip": "1fbce90f4f52b6a9c869db78a40e565a2b24207f85a1fedf801f0e8ba008059b",
+    "controller/static/downloads/agentic-runner.zip": "a4f482e7974686550f79df045967c4d37695b5afab8e36a5e083c7541a250875"
+  },
+  "notes": [
+    "All twelve final captures were opened and visually inspected; their hashes match the inspected files.",
+    "Viewport captures are scrolled to the setup card. Account, password and verification-code fields are empty.",
+    "The card explanation, inputs and primary action remain visible at 390 px; no horizontal overflow. Inputs use 16 px text and action/option targets are at least 44 px.",
+    "Host and sidebar mobile first-open behavior is checked separately by synthetic browser tests.",
+    "The final suite covers exact request bodies, CSRF/idempotency keys, immediate secret clearing, storage/URL/DOM/console/request isolation, lost replies/read failures, expiry/reconcile, history OTP submission and malformed input projections.",
+    "Controller and Bridge HTML/assets are byte-identical. Both download ZIPs are byte-identical to base commit 549b409.",
+    "Real NAS, real accounts, real Home Assistant/HAOS and physical-device acceptance remain not_run."
+  ]
+}
