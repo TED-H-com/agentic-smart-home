@@ -1,0 +1,6 @@
+discover:
+  name: 注入合成 NAS 探索結果
+  description: 在隔離容器內以合成資料啟動原生探索流程。
+inspect_entry:
+  name: 讀取合成 NAS 狀態
+  description: 重新讀取原生狀態及備份清單，不建立或上傳備份。
