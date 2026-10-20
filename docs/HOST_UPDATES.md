@@ -169,6 +169,36 @@ old product directory into a retained baseline using an atomic directory/link
 exchange, installs a compatible signed Controller when needed and applies the
 exact signed Host bundle. It preserves household data and the prior tree.
 
+After a restore-point snapshot of a previously running HA VM, bootstrap waits
+for HA to settle before recording the Controller smoke baseline. The wait is
+bounded; a timeout stops the update before the Controller is stopped or switched.
+Smoke comparison permits only HA improving from `unavailable` to `connected`;
+the connected HA Core version must still appear in the candidate's compatibility
+list. Paused, Runner and Controller version checks remain strict, as does the
+final health comparison. Smoke mismatches retain the baseline and observed
+health in the update record for diagnosis.
+
+If bootstrap stops in `needs_reconcile` at `controller_updating`, the graphical
+launcher directs support to run the fixed, root-only bootstrap `--reconcile`
+option. It never clears this state automatically. Reconciliation accepts only a
+verified Controller rollback (or a failure before switching), with the original
+image, installed version, Host tree and database preserved, no maintenance gate
+or unfinished update, running verified services and a complete restore point.
+It refuses unsupported phases or inconsistent boot/state evidence. Successful
+reconciliation archives bounded history and records verification evidence; it
+keeps the snapshots and enables a fresh review and owner approval. A retry preserves the enrolled publisher and normally requires identical engine
+and unit files. One narrow exception allows replacing an active engine installed
+by this exact failed attempt: the attempt reviewed an absent engine, its shipped
+engine digest matches the active tree, and all three installed engine units are
+absent or match the attempt's shipped SHA-256 values. Reconciliation records
+that engine digest and the unit observations. A fresh owner review binds these
+records to the replacement payload. Apply rechecks the exact active digest,
+requires a pinned replacement descriptor, retains the old engine tree, and
+atomically replaces only units matching the recorded attempt hashes. It reloads
+systemd and restarts the already-running update API after relinking. Unknown
+engines or modified units still refuse. The retry creates a new restore point
+with capacity checks accounting for the retained one.
+
 The bootstrap OS package declares `python3-yaml`, `ethtool`, `netplan.io` and
 `dconf-cli` prerequisites for the fixed appliance adapter. Their installation by
 the trusted OS package channel happens outside Host bundle rollback. The package's

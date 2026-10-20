@@ -9,8 +9,10 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
+import sqlite3
 import subprocess
 import tempfile
 import time
@@ -51,6 +53,8 @@ MAX_CACHE = 16 * 1024**3
 MISSING_PIN = "安裝包未附正式官方驗證金鑰，無法進行更新；請取得受信任的正式安裝包。"
 APPLIANCE_BASELINE = "目前主機版本尚未支援安全還原這些設定；請使用相容的受信任更新啟用媒體。"
 RECOVERED = "已恢復先前運行的管理與家庭服務；先前主機更新結果尚未確認，不會重送更新。請聯絡支援核對。"
+RECONCILE_REQUIRED = "先前主機更新結果尚未確認，不會重送；請由支援人員執行 agentic-home-update-bootstrap --reconcile 核對後，再重新查看。"
+RECONCILE_REFUSED = "無法確認已安全回復原版本，未變更更新紀錄；請聯絡支援。"
 RECOVERY_NAME = "agentic-home-update-bootstrap-recover.service"
 ENGINE_UNITS = ("agentic-home-update.service", "agentic-home-update-recover.service", "agentic-home-update-api.service")
 RECOVERY_UNIT = ("[Unit]\nDescription=Recover approved Agentic Home bootstrap guest availability\n"
@@ -130,6 +134,17 @@ class BootstrapOwner:
                                archive_size=media.manifest["files"]["host-bundle.tar"]["size"],
                                cache_size=media.manifest["files"]["controller-images.tar"]["size"])
 
+    def _attempt_reconciliation(self):
+        if not self.path.exists():
+            return {}
+        value = read_json(self.path)
+        if value.get("state") == "reconciled":
+            return value.get("reconciliation", {})
+        if value.get("state") == "offered":
+            # Evidence remains bound to the exact owner-reviewed summary.
+            return value.get("summary", {}).get("attempt_reconciliation", {})
+        return {}
+
     def _summary(self):
         payload = self._payload()
         trust_identity, trust = self._trust()
@@ -151,6 +166,12 @@ class BootstrapOwner:
         if needs_controller and payload.controller is None:
             raise HostError("此主機需要一併更新管理服務，但安裝包未附相容的官方版本；尚未變更主機。")
         engine, _, _ = tree_identity(payload.source)
+        installed_engine = installed_engine_identity()
+        reconciliation = self._attempt_reconciliation()
+        replaces = (installed_engine["state"] == "active" and
+                    reconciliation.get("attempt_engine") == installed_engine["digest"])
+        if installed_engine["state"] == "active" and installed_engine["digest"] != engine and not replaces:
+            raise HostError("目前主機更新器與安裝包不同，尚未變更主機；請聯絡支援。")
         recovery = Path("/etc/systemd/system") / RECOVERY_NAME
         postinst = Path("/var/lib/dpkg/info/agentic-home-update-bootstrap.postinst")
         preinst = Path("/var/lib/dpkg/info/agentic-home-update-bootstrap.preinst")
@@ -165,7 +186,7 @@ class BootstrapOwner:
             target = Path("/etc/systemd/system") / name
             secure(target, optional=True)
             units[name] = {"shipped": file_digest(source), "installed": file_digest(target) if target.exists() else None}
-            if units[name]["installed"] not in {None, units[name]["shipped"]}:
+            if units[name]["installed"] not in {None, units[name]["shipped"], reconciliation.get("units", {}).get(name, {}).get("shipped") if replaces else None}:
                 raise HostError("更新復原服務已被修改，尚未變更主機。")
         return {"format": 1, "publisher": PUBLISHER, "key_sha256": payload.fingerprint,
                 "host_candidate": payload.candidate, "host_version": payload.host["manifest"]["version"],
@@ -175,11 +196,13 @@ class BootstrapOwner:
                 "trust": trust_identity, "current_tree": view._tree_identity(current), "current_path": str(current),
                 "current_controller_image": self._controller_view().image(),
                 "current_runtime_sha256": file_digest(runtime),
+                "current_installed_version": read_json(self.manager.root.parent / "installed.json")["version"],
                 "availability_recovery": {"unit_sha256": file_digest(recovery), "postinst_sha256": file_digest(postinst),
                                           "preinst_sha256": file_digest(preinst),
                                           "scope": "only restore approved interrupted baseline service availability; never repeat backup or update"},
                 "media_manifest_sha256": file_digest(self.payload / "media.json"),
-                "installed_engine": installed_engine_identity(), "engine": engine, "units": units,
+                "installed_engine": installed_engine, "engine": engine, "units": units,
+                **({"engine_replaces_attempt": installed_engine["digest"], "attempt_reconciliation": reconciliation} if replaces else {}),
                 "scope": "pause household AI, exact official key enrollment, restore points, fixed Host updater and Host bundle; same-schema Controller prerequisite if listed"}
 
     @contextmanager
@@ -199,12 +222,83 @@ class BootstrapOwner:
             if self.path.exists():
                 existing = read_json(self.path)
                 if existing.get("state") in {"applying", "needs_reconcile"}:
+                    if existing.get("state") == "needs_reconcile" and existing.get("phase") == "controller_updating":
+                        raise HostError(RECONCILE_REQUIRED)
                     if self._recover_availability(existing)["state"] == "availability_restored":
                         raise HostError(RECOVERED)
                     raise HostError("先前主機更新已開始或結果尚未確認，不會重送；請查看管理頁或聯絡支援。")
                 if existing.get("state") == "complete":
                     raise HostError("先前主機更新已完成，不會重送；請查看管理頁。")
             return self._review()
+
+    def reconcile(self):
+        """Verify the fixed rollback without changing services or household data."""
+        with self.locked(), self.manager.locked():
+            try:
+                value = read_json(self.path)
+                if value.get("boot_id") != Path("/proc/sys/kernel/random/boot_id").read_text().strip():
+                    raise HostError(RECONCILE_REFUSED)
+                if value.get("state") == "reconciled":
+                    return {"state": "reconciled"}
+                if value.get("state") != "needs_reconcile" or value.get("phase") != "controller_updating":
+                    raise HostError(RECONCILE_REFUSED)
+                summary = value["summary"]
+                installed_engine = installed_engine_identity()
+                attempt_engine = (installed_engine["state"] == "active" and
+                                  installed_engine["digest"] == summary["engine"] and
+                                  summary["installed_engine"]["state"] == "absent")
+                if not attempt_engine and installed_engine != summary["installed_engine"]:
+                    raise HostError(RECONCILE_REFUSED)
+                units = {}
+                for name in ENGINE_UNITS:
+                    target = Path("/etc/systemd/system") / name
+                    secure(target, optional=True)
+                    installed_sha = file_digest(target) if target.exists() else None
+                    shipped = summary["units"][name]["shipped"]
+                    if installed_sha not in {None, shipped}:
+                        raise HostError(RECONCILE_REFUSED)
+                    units[name] = {"installed": installed_sha, "shipped": shipped}
+                self._updates_idle()
+                records = read_json(self.manager.root / "updates/records.json", 4 * 1024**2)
+                record = records[summary["controller_candidate"]]
+                if ((record.get("state") != "rolled_back" and not
+                        (record.get("state") == "failed" and record.get("switched") is False)) or
+                        record.get("current_database_preserved") is not True):
+                    raise HostError(RECONCILE_REFUSED)
+                service = self._controller_view()
+                image, health = service.image(), service.health()
+                installed = read_json(self.manager.root.parent / "installed.json")
+                version = summary.get("current_installed_version")
+                if version is None:
+                    # Legacy incident journals lack this field. Read the version
+                    # literal from the verified original tree, never execute it.
+                    source = (self.manager.product / "host/agentic_host/__init__.py").read_text()
+                    match = re.search(r'^VERSION = "([0-9]+\.[0-9]+\.[0-9]+)"$', source, re.M)
+                    version = match.group(1) if match else None
+                if (not version or image != summary["current_controller_image"] or
+                        health.get("status", "ok") != "ok" or health.get("version") != version or installed.get("version") != version):
+                    raise HostError(RECONCILE_REFUSED)
+                self._baseline_current(value)
+                with sqlite3.connect((service.data / "controller.sqlite3").as_uri() + "?mode=ro", uri=True) as db:
+                    if db.execute("SELECT value FROM settings WHERE key='updater_gate'").fetchone() is not None:
+                        raise HostError(RECONCILE_REFUSED)
+                availability = value.get("availability", {})
+                if (not {"broker", "controller"} <= availability.keys() or
+                        any(not isinstance(item, dict) or item.get("state") != "running_verified" for item in availability.values())):
+                    raise HostError(RECONCILE_REFUSED)
+                self.manager.run("systemctl", "is-active", "--quiet", "agentic-home-host.service", timeout=15)
+                if value["restore_attempt"]["restore_point"]["phase"] != "complete":
+                    raise HostError(RECONCILE_REFUSED)
+                evidence = {"units": units, **({"attempt_engine": installed_engine["digest"]} if attempt_engine else {}),
+                            "verified_at": time.time(), "image": image, "version": version,
+                            "tree": summary["current_tree"], "gate_absent": True,
+                            "broker_active": True, "restore_point_complete": True}
+            except (HostError, OSError, ValueError, KeyError, TypeError, sqlite3.Error):
+                raise HostError(RECONCILE_REFUSED) from None
+            history = value.get("history", [])[-3:] + [{key: item for key, item in value.items() if key != "history"}]
+            value.update(state="reconciled", reconciliation=evidence, history=history)
+            self._save(value)
+            return {"state": "reconciled", "message": "已完成核對，還原點已保留；請重新查看並核准更新。"}
 
     def _recover_availability(self, value):
         if value.get("state") not in {"applying", "needs_reconcile"}:
@@ -242,8 +336,9 @@ class BootstrapOwner:
 
     def _review(self):
         summary = self._summary()
+        history = read_json(self.path).get("history", [])[-4:] if self.path.exists() else []
         value = {"summary": summary, "expires_at": time.time() + SECONDS, "nonce": secrets.token_hex(32), "state": "offered",
-                 "boot_id": Path("/proc/sys/kernel/random/boot_id").read_text().strip(), "deadline": time.monotonic() + SECONDS}
+                 "history": history, "boot_id": Path("/proc/sys/kernel/random/boot_id").read_text().strip(), "deadline": time.monotonic() + SECONDS}
         value["review_digest"] = digest(value)
         secure(self.path, optional=True)
         secure(self.path.with_name(self.path.name + ".new"), optional=True)
@@ -379,7 +474,13 @@ class BootstrapOwner:
         candidate = digest(manifest)
         if any(item["state"] in {"staging", "deploying", "rolling_back", "needs_reconcile"} for item in service.records.values()):
             raise HostError("管理服務有尚未完成的更新作業，已停止主機更新。")
-        record = {"candidate_digest": candidate, **envelope, "state": "staging", "created_at": time.time()}
+        record = {"candidate_digest": candidate, **envelope, "state": "staging", "created_at": time.time(),
+                  "switched": False, "current_database_preserved": True}
+        old = service.records.get(candidate)
+        if old and old.get("state") not in {"rolled_back", "failed"}:
+            raise HostError("管理服務已有此版本的更新紀錄，請聯絡支援。")
+        journal = read_json(self.path) if self.path.exists() else {}
+        record["ha_baseline_running_required"] = journal.get("restore_attempt", {}).get("restore_point", {}).get("ha_original_state") == "running"
         service.records[candidate] = record
         service.update(record)
         service.prepare(record)
@@ -396,6 +497,32 @@ class BootstrapOwner:
         health = HostBundle(self.manager).controller_probe()
         if not isinstance(health, dict) or health.get("status") != "ok" or not exact_protocol(health.get("host_update"), COMPATIBILITY):
             raise HostError("管理服務尚未具備安全主機更新能力，已停止主機更新。")
+
+    def _install_engine_units(self, payload, summary):
+        for name in summary["units"]:
+            source = payload.source / "host/systemd" / name
+            target = Path("/etc/systemd/system") / name
+            secure(target, optional=True)
+            if target.exists() and file_digest(target) != file_digest(source):
+                recorded = summary.get("attempt_reconciliation", {}).get("units", {}).get(name, {})
+                if not summary.get("engine_replaces_attempt") or file_digest(target) != recorded.get("shipped"):
+                    raise HostError("更新復原服務已被修改，已停止更新。")
+                with tempfile.NamedTemporaryFile(dir=target.parent, prefix="." + name, delete=False) as output:
+                    replacement = Path(output.name)
+                    try:
+                        output.write(source.read_bytes())
+                        output.flush()
+                        os.fsync(output.fileno())
+                        replacement.chmod(0o644)
+                        os.replace(replacement, target)
+                    finally:
+                        replacement.unlink(missing_ok=True)
+            if not target.exists():
+                with target.open("xb") as output:
+                    output.write(source.read_bytes())
+                    output.flush()
+                    os.fsync(output.fileno())
+                target.chmod(0o644)
 
     def apply(self, approval):
         if not isinstance(approval, str) or len(approval) != 64 or any(char not in "0123456789abcdef" for char in approval):
@@ -454,27 +581,24 @@ class BootstrapOwner:
                     reviewed_engine = value["summary"]["installed_engine"]
                     if installed_engine_identity() != reviewed_engine:
                         raise HostError("主機更新器已變更，尚未替換；請聯絡支援。")
-                    if reviewed_engine["state"] == "inactive":
+                    if value["summary"].get("engine_replaces_attempt"):
+                        install_engine(payload.source, expected_attempt_engine_digest=value["summary"]["engine_replaces_attempt"])
+                    elif reviewed_engine["state"] == "inactive":
                         install_engine(payload.source, expected_inactive_engine_digest=reviewed_engine["digest"])
                     else:
                         install_engine(payload.source)
                     version_layout(self.manager)
-                    for name in value["summary"]["units"]:
-                        source = payload.source / "host/systemd" / name
-                        target = Path("/etc/systemd/system") / name
-                        if not target.exists():
-                            with target.open("xb") as output:
-                                output.write(source.read_bytes())
-                                output.flush()
-                                os.fsync(output.fileno())
-                            target.chmod(0o644)
+                    self._install_engine_units(payload, value["summary"])
                     self.manager.run("systemctl", "daemon-reload", timeout=30)
                     self.manager.run("systemctl", "enable", "agentic-home-update-recover.service", timeout=30)
                 self._resume_broker(value)
                 stopped = False
                 # This endpoint belongs to the immutable engine so a future
                 # rollback to the preserved 0.11 tree retains Host update UI.
-                self.manager.run("systemctl", "enable", "--now", "agentic-home-update-api.service", timeout=90)
+                if value["summary"].get("engine_replaces_attempt"):
+                    self.manager.run("systemctl", "restart", "agentic-home-update-api.service", timeout=90)
+                else:
+                    self.manager.run("systemctl", "enable", "--now", "agentic-home-update-api.service", timeout=90)
                 self.manager.run("systemctl", "is-active", "--quiet", "agentic-home-update-api.service", timeout=15)
                 if value["summary"]["controller_required"]:
                     value["phase"] = "controller_updating"
@@ -554,6 +678,7 @@ def main():
     choices.add_argument("--review", action="store_true")
     choices.add_argument("--apply")
     choices.add_argument("--recover-availability", action="store_true")
+    choices.add_argument("--reconcile", action="store_true")
     args = parser.parse_args()
     if args.gui:
         return gui()
@@ -561,10 +686,10 @@ def main():
         parser.error("需要由主機的安全授權視窗確認管理員身分。")
     try:
         tool = BootstrapOwner(Manager())
-        result = tool.recover_availability() if args.recover_availability else tool.review() if args.review else tool.apply(args.apply)
+        result = tool.reconcile() if args.reconcile else tool.recover_availability() if args.recover_availability else tool.review() if args.review else tool.apply(args.apply)
         print(json.dumps(result, ensure_ascii=False))
     except HostError as exc:
-        parser.exit(1, (str(exc) if str(exc) in {MISSING_PIN, RECOVERED, INSERT_USB, UNTRUSTED_INBOX,
+        parser.exit(1, (str(exc) if str(exc) in {MISSING_PIN, RECOVERED, INSERT_USB, UNTRUSTED_INBOX, RECONCILE_REQUIRED, RECONCILE_REFUSED,
                                                 APPLIANCE_BASELINE}
                         else "無法安全完成主機更新；尚未確認的操作不會重送，原有還原點已保留。請聯絡支援核對。") + "\n")
     except (OSError, ValueError, KeyError, TypeError):

@@ -301,3 +301,21 @@ def test_null_engine_migration_rechecks_revision_after_copy(layout, tmp_path, mo
     with pytest.raises(HostError, match="revision_changed"):
         bootstrap.install_engine(replacement, engine=engine, expected_inactive_engine_digest=old)
     assert (engine / "current").readlink() == Path(old)
+
+
+def test_exact_failed_attempt_engine_can_be_relinked_and_old_tree_is_retained(layout, tmp_path):
+    manager, _ = layout
+    engine = tmp_path / "engine"
+    first = bootstrap.install_engine(engine_source(manager.product, pem=key()), engine=engine)
+    replacement = engine_source(tmp_path / "new-media", pem=key())
+    for approval in (None, "0" * 64):
+        with pytest.raises(HostError, match="already_installed"):
+            bootstrap.install_engine(replacement, engine=engine, expected_attempt_engine_digest=approval)
+        assert (engine / "current").readlink() == Path(first)
+    null = engine_source(tmp_path / "null-media", pem=None)
+    with pytest.raises(HostError):
+        bootstrap.install_engine(null, engine=engine, expected_attempt_engine_digest=first)
+    second = bootstrap.install_engine(replacement, engine=engine, expected_attempt_engine_digest=first)
+    assert second != first
+    assert (engine / "current").readlink() == Path(second)
+    assert (engine / first / "official-update-channel.json").is_file()
