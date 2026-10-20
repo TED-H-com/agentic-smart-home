@@ -1,0 +1,37 @@
+.device-setup-action{flex:none}
+.device-setup{flex:1 1 100%;border:1px solid var(--line);border-radius:8px;padding:var(--s3);min-width:0;background:var(--surface)}
+.device-setup h4{font-size:var(--body);margin:0 0 var(--s2)}
+.device-setup p{margin:var(--s2) 0;color:inherit}
+.device-setup-input{display:grid;gap:var(--s1);margin-top:var(--s2);max-width:32rem}
+.device-setup-input label{display:grid;gap:0;min-width:0;line-height:1.2}
+.device-setup-input input{margin:0;min-width:0;width:100%;min-height:44px;font-size:16px}
+.device-setup-input fieldset{min-width:0;border:1px solid var(--line);border-radius:8px;padding:var(--s2)}
+.device-setup-input .device-setup-option{display:flex;flex-direction:row;align-items:center;gap:var(--s2);min-height:44px;overflow-wrap:anywhere}
+.device-setup-option input{width:20px;min-height:20px;flex:none;margin:0}
+.device-setup .device-setup-input>button{justify-self:start;min-height:44px;margin:0}
+.device-setup .button{margin:var(--s2) var(--s2) 0 0}
+@media(max-width:520px){.device-setup .device-setup-input>button{max-width:96px;padding:4px 8px;line-height:1.2;white-space:normal}}
+.device-setup-readback{border-top:1px solid var(--line);margin-top:var(--s3);padding-top:var(--s2)}
+.conversation-discovery-candidates li{flex-wrap:wrap}
+.conversation-environment{margin-bottom:var(--s3)}
+.conversation-environment details{margin:var(--s2) 0}
+.conversation-environment ul{padding-left:var(--s4);margin:var(--s2) 0}
+.conversation-extra-actions{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--s2);margin-top:var(--s2)}
+.conversation-extra-actions>.discovery-context-trigger{margin-top:0}
+.conversation-network-discovery{display:contents}
+.conversation-network-panel{order:1;flex-basis:100%;min-width:0;padding:var(--s3);border:1px solid var(--line);border-radius:8px;max-height:55vh;overflow:auto;overflow-wrap:anywhere}
+.conversation-network-panel h3{font-size:var(--body);margin:0 0 var(--s2)}
+.conversation-network-panel p{margin:var(--s2) 0}
+.conversation-network-panel label{display:grid;gap:var(--s2)}
+.conversation-network-panel select{width:100%;min-width:0;font-size:16px;min-height:44px}
+.conversation-network-panel .button{margin:var(--s2) var(--s2) 0 0;white-space:normal}
+.device-setup-history{display:contents}
+.device-setup-history-panel{order:1;flex-basis:100%;min-width:0;border:1px solid var(--line);border-radius:8px;padding:var(--s3);max-height:55vh;overflow:auto;overflow-wrap:anywhere}
+.device-setup-history-heading{display:flex;align-items:center;justify-content:space-between;gap:var(--s2)}
+.device-setup-history-heading h3{font-size:var(--body);margin:0}
+.device-setup-history-panel .button{white-space:normal;min-height:44px}
+.device-setup-history-list{list-style:none;padding:0;margin:var(--s2) 0;display:grid;gap:var(--s2)}
+.device-setup-history-list .button{width:100%;display:grid;gap:var(--s1);text-align:left;justify-items:start}
+.device-setup-history-list span,.device-setup-history-list small{font-weight:normal;color:var(--muted)}
+.device-setup-history-panel>.device-setup{margin-top:var(--s3)}
+.device-setup-share{border-top:1px solid var(--line);margin-top:var(--s3);padding-top:var(--s2)}

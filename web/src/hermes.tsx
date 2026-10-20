@@ -40,13 +40,13 @@ export function HermesPanel({guided=false}:{guided?:boolean}){
   const signedIn=data?.runtime?.state==='configured'||data?.runtime?.state==='ready',showForm=!signedIn||replacing;
   const signedLabel=data?.runtime?.provider==='openai-codex'?'ChatGPT 訂閱':'OpenRouter';
   return <section className="runtime-panel hermes-panel" aria-label="智能管家登入"><div className="section-heading"><h2>智能管家登入</h2><span className="subtle" role="status">{data?.runtime?.execution_state==='stop_unconfirmed'?'工作尚未確認停止':readError||authError?'等待恢復連線…':data?labels[data.runtime?.state]||'暫時無法使用':'讀取狀態…'}</span></div>
-    <p>{guided?'請再完成官方授權；不會沿用 AI 帳號的登入。':'登入後可查詢主機，其餘可以稍後再設。'}</p>
+    <p>{guided?'完成官方授權後，智能管家會驗證連線並協助你設定家庭。':'登入後可查詢主機，其餘可以稍後再設。'}</p>
     {error&&<Notice error reason={error.code}>{error.text}</Notice>}{readError&&<Notice error reason={readError.code}>{readError.text}</Notice>}{authError&&!pollDown&&<Notice error reason={authError.code}>{authError.text}</Notice>}{notice&&<Notice>{notice}</Notice>}
     {recovery&&<div className="recovery-line" role="status" data-reason={failure}><p>{recovery.text}</p><Button type="button" disabled={busy} onClick={recover}>{recovery.action}</Button></div>}
     {showForm&&replacing&&!authenticating&&!recovery&&<p className="helper-text">更換後會先登出目前的帳號。</p>}
     {showForm&&<div hidden={restoring||authenticating||!!recovery} className="hermes-login-form"><div className="radio-cards" role="radiogroup" aria-label="登入方式">{[['openai-codex','ChatGPT 訂閱'],['openrouter','OpenRouter 金鑰']].map(([id,label])=><label key={id} className={`radio-card ${method===id?'chosen':''}`}><input type="radio" name="hermes-method" value={id} checked={method===id} disabled={busy||authenticating} onChange={()=>pick(id)}/><strong>{label}</strong></label>)}</div>
     {method==='openrouter'?<form onSubmit={save}><div className="channel-fields"><label>模型<input required maxLength={200} value={model} onChange={e=>{typed.current=true;setModel(e.target.value)}} placeholder="供應商／模型 ID"/></label><label>金鑰<input required type="password" autoComplete="off" maxLength={4096} value={key} onChange={e=>setKey(e.target.value)}/></label></div>
-      <p className="helper-text">{guided?'登入與 AI 帳號分開；系統會呼叫模型一次來驗證連線，供應商可能計費。':'儲存金鑰不會呼叫模型；提出問題時，供應商可能計費。'}</p>
+      <p className="helper-text">{guided?'系統會呼叫模型一次來驗證連線，供應商可能計費。':'儲存金鑰不會呼叫模型；提出問題時，供應商可能計費。'}</p>
       <Button type="submit" disabled={busy||!model.trim()||!key.trim()}>{busy?'儲存中…':'儲存登入'}</Button>
     </form>:<form onSubmit={deviceLogin}><details className="model-options" open={!guided||!model.trim()}><summary>進階：模型</summary><label>模型 ID<input required maxLength={200} value={model} disabled={authenticating} onChange={e=>{typed.current=true;setModel(e.target.value)}} placeholder="使用此帳號可存取的模型"/></label></details><p className="helper-text">{guided?'授權後只保存這裡的憑證，接著驗證一次連線。':'實際回覆成功後才會顯示已完成驗證。'}</p><Button type="submit" disabled={busy||authenticating||!model.trim()}>{busy?'取得授權中…':terminal?'重新開始':'開始登入'}</Button></form>}</div>}
     {!showForm&&!authenticating&&!recovery&&<p className="setup-facts"><span>{readError?'登入狀態待確認':`已登入 · ${signedLabel}`}</span></p>}

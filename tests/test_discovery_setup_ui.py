@@ -590,3 +590,30 @@ def test_tracking_responsive_controls_and_keyboard_keep_the_owner_in_context(set
             expect(page.get_by_role('button', name='分享探索結果', exact=True)).to_be_focused()
             expect(page.get_by_label('對話訊息', exact=True)).to_be_in_viewport()
         assert tracking_requests(state, 'POST') == []
+
+
+@pytest.mark.parametrize('step', ['link', 'unknown_step'])
+def test_tracking_parses_synology_link_record_next_to_other_candidates(setup_browser, step):
+    page, state = setup_browser
+    candidate = {**state['snapshot']['candidates'][0], 'id': 'synthetic-nas',
+                 'title': '合成 NAS', 'integration_domain': 'synology_dsm',
+                 'discovery_method': 'ssdp', 'confirmation_step': 'link'}
+    state['snapshot']['candidates'].append(candidate)
+    record = setup_record()
+    record['candidate'] = {**candidate, 'confirmation_step': step}
+    state['add_record'](record)
+    value = setup_view(record)
+    for option in value['options']:
+        option['integration']['domain'] = 'synology_dsm'
+    state['views'][SETUP_ID] = value
+    container = open_tracking(page, state)
+    expect(container.get_by_role('button', name=f'追蹤接入 {CANDIDATE}', exact=True)).to_be_visible()
+    expect(container.get_by_role('button', name='追蹤接入 合成 NAS', exact=True)).to_be_visible()
+    if step == 'link':
+        result = open_saved(container, '合成 NAS')
+        expect(result.get_by_text('合成 NAS', exact=True)).to_be_visible()
+        expect(container.get_by_role('alert')).to_have_count(0)
+    else:
+        expect(container.get_by_role('alert')).to_contain_text('格式')
+        expect(container.get_by_role('button', name='查看接入 合成 NAS', exact=True)).to_have_count(0)
+    assert tracking_requests(state, 'POST') == []

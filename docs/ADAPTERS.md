@@ -22,7 +22,7 @@ Home Assistant 是家庭日常介面；智能管家提供研究、對話、提�
 
 多來源盤點的 Controller adapter 為 `network_inventory.py`，Host adapter 為 `agentic_host/discovery.py`，契約各為 v1。`GET /api/discovery/inventory` 讀保存結果，`GET .../scopes` 讀主機當前範圍；`POST .../scan|import|clear` 是經 Owner 明確操作的收集／本地資料管理，使用去重鍵和回應落盤後身份檢查。Ingress 僅精確允許這五個路徑，不開放任意 Host namespace。模型沒有新工具或任意網段參數。
 
-Host 僅接受固定 Unix `GET /discovery/scopes` 與 `POST /discovery/scan`，UID 邊界沿用 daemon。實體 IPv4 介面重新確認後，使用固定 `ip -j` 讀取鄰居與介面，以及 [RFC 6762 mDNS](https://www.rfc-editor.org/rfc/rfc6762.html)／[UPnP SSDP](https://upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v2.0.pdf) 的有界查詢。版本 1 不解析 TXT、不下載服務 URL、不做連接埠掃描，也不推斷虛擬網路拓撲。mDNS 位址是回應者，服務代理可能代答。
+Host 僅接受固定 Unix `GET /discovery/scopes` 與 `POST /discovery/scan`，UID 邊界沿用 daemon。實體 IPv4 介面重新確認後，使用固定 `ip -j` 讀取鄰居與介面，以及 [RFC 6762 mDNS](https://www.rfc-editor.org/rfc/rfc6762.html)／[UPnP SSDP](https://upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v2.0.pdf) 的有界查詢。契約版本 1 不下載服務 URL、不做連接埠掃描，也不推斷虛擬網路拓撲。目前僅從同封包、精確 HTTP PTR 實例的唯一 TXT 廠商宣告投影固定 `vendor=synology` 分類，不保存原始 TXT 值或其他欄位；畸形或重複宣告不分類。mDNS 位址是回應者，服務代理可能代答。固定服務查詢、辨識規則摘要版本 2 及舊 Host 限制見 [設備探索](DEVICE_DISCOVERY.md#常見網路服務帶入聊天)。
 
 辨識依據固定於 Core 2026.10.1 的官方 manifests：[Hue](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/hue/manifest.json)、[Cast](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/cast/manifest.json)、[ESPHome](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/esphome/manifest.json)、[HomeKit Device](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/homekit_controller/manifest.json)、[Shelly](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/shelly/manifest.json)。規則只產生建議；服務宣告仍可能偽造，名稱／廠商／匯入服務欄位只作 hint。[Tuya 官方設定](https://www.home-assistant.io/integrations/tuya/) 的帳號、User Code 與 QR 由 HA 原生流程處理，盤點不索取憑證或宣稱讀到完整 Google Home／Alexa 帳號。
 
@@ -54,6 +54,12 @@ Web 新增 `mode=bridge`，先確認橋接與 Owner，再掛載聊天；不顯�
 ## 候選與發行
 
 0.11.1 候選保留 Core **2026.10.1**，並將 **2026.10.2** 納入精確的自動化寫入相容範圍。[隔離真 Core 矩陣](../evidence/core-patch-matrix.json) 的八項實測涵蓋兩版的提案／批准／寫入與事件重連、Owner OAuth、原生通知及唯讀盤點；[Core .2 官方來源](../evidence/core-2026.10.2-source.json) 另記 tag、不可變 commit 與受測 image digest。Supervisor 備份回應仍是 fixture；HAOS／Supervisor 真備份、實體家庭及 72 小時驗收仍為 `not_run`。這項結果不授權更新家庭的 HA，也不變更 `upstream.lock.json` 的既有參考基準或其他依賴。
+
+尚未發行的聊天接入 adapter 另外以 [IPP 原生設定矩陣](../evidence/device-setup-real-core-matrix-20261019.json) 核對這兩個精確版本的 `zeroconf_confirm` 空表單、設備身分與讀回。它不從自動化 adapter 的成功推定配對相容；未知 patch／預覽版不接受新的接入。真 Core 的 flow、aioipp 與登錄資料路徑保留，探索事件、印表機及 Supervisor 備份使用明示 fixture。聊天的 `home.device_setup_status` 只讀 Owner 當前訊息選定的工作，不能取得原生寫入或重送權限。
+
+Shelly 接入使用獨立的固定 adapter：同兩個 Core patch、已存在的 `zeroconf`／`confirm_discovery` 空表單，以及原生回報型號恰為 `Shelly 1`。穩定身分以種類與正規化 MAC 綁定，不沿用 IPP 身分或名稱比對。這個回報欄位不是實體世代鑑定，原生初始化可能調整連線設定，須在批准前說明；原生 Gen1 協定測試也不代表所有 Shelly 或真實繼電器已驗證。支援範圍與 v1→v2 私有紀錄遷移、降版寫入停止規則見 [設備接入](DEVICE_DISCOVERY.md#聊天內確認接入-shelly-1)。
+
+Synology NAS 接入使用獨立的多步 adapter：同兩個 Core patch、SSDP／zeroconf 發現的 `link` 表單與 12 位序號身分。登入、兩步驟驗證與備份資料夾三種步驟回應都須符合已審閱的精確形狀；其他步驟、自訂欄位或含帳密預設值的表單改由原生設定入口處理。完成判定以 NAS 網卡 MAC 比對原生設備登錄，帳密不進入接入紀錄或請求收據。範圍見 [設備接入](DEVICE_DISCOVERY.md#聊天內輸入帳號接入-synology-nas)。
 
 ### HA 原生通知 adapter（主線開發中）
 

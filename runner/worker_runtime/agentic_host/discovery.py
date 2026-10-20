@@ -20,8 +20,14 @@ from pathlib import Path
 
 from .manager import HostError
 
+# Fixed discovery types from the corresponding Core 2026.10.2 manifests.
+# Read PTR instances and only a Synology vendor classification from matching TXT.
+# Never retain raw TXT values, credentials or fetch device descriptions.
 SERVICES = ("_hue._tcp.local.", "_googlecast._tcp.local.", "_esphomelib._tcp.local.",
-            "_hap._tcp.local.", "_hap._udp.local.", "_shelly._tcp.local.", "_matter._tcp.local.", "_http._tcp.local.")
+            "_hap._tcp.local.", "_hap._udp.local.", "_shelly._tcp.local.", "_matter._tcp.local.",
+            "_matterc._udp.local.", "_ipp._tcp.local.", "_ipps._tcp.local.", "_http._tcp.local.")
+_SERVICE_LABELS = {tuple(label.encode("ascii") for label in service.rstrip(".").split(".")): service
+                   for service in SERVICES}
 MAX_ROWS = 256
 MAX_PACKET = 8192
 MAX_PACKETS = 512
@@ -98,7 +104,7 @@ def _ip_json(arguments, timeout):
         process.stdout.close()
 
 
-def _name(packet, start):
+def _dns_labels(packet, start):
     """Read a DNS name with bounded labels, compression depth and cycle checks."""
     labels, visited, position, resume, length = [], set(), start, None, 0
     while True:
@@ -120,14 +126,23 @@ def _name(packet, start):
             raise ValueError("dns_label_invalid")
         position += 1
         if not size:
-            return ".".join(labels) + ".", resume if resume is not None else position
+            return tuple(labels), resume if resume is not None else position
         if position + size > len(packet):
             raise ValueError("dns_label_truncated")
         length += size + 1
         if length > 254:
             raise ValueError("dns_name_too_long")
-        labels.append(packet[position:position + size].decode("utf-8", errors="replace"))
+        labels.append(packet[position:position + size])
         position += size
+
+
+def _display_name(labels):
+    return ".".join(label.decode("utf-8", errors="replace") for label in labels) + "."
+
+
+def _name(packet, start):
+    labels, position = _dns_labels(packet, start)
+    return _display_name(labels), position
 
 
 def mdns_query(service):
@@ -139,7 +154,24 @@ def mdns_query(service):
     return struct.pack("!6H", 0, 0, 1, 0, 0, 0) + encoded + struct.pack("!HH", 12, 0x8001)
 
 
-def parse_mdns(packet):
+def _synology_vendor(data):
+    """Classify one bounded TXT record; never return its raw field values."""
+    position, vendors = 0, []
+    while position < len(data):
+        size = data[position]
+        position += 1
+        if position + size > len(data):
+            return False
+        field = data[position:position + size]
+        position += size
+        key, separator, value = field.partition(b"=")
+        if key.lower() == b"vendor":
+            vendors.append(bool(separator) and value.lower().startswith(b"synology"))
+    # Duplicate keys are ambiguous, even when both make the same claim.
+    return vendors == [True]
+
+
+def _mdns_observations(packet):
     if not 12 <= len(packet) <= MAX_PACKET:
         raise ValueError("dns_packet_size")
     _, flags, questions, answers, authorities, additional = struct.unpack_from("!6H", packet)
@@ -147,14 +179,15 @@ def parse_mdns(packet):
         raise ValueError("dns_response_invalid")
     if questions > 64 or answers + authorities + additional > 512:
         raise ValueError("dns_record_limit")
-    position, found = 12, set()
+    position, found, vendors = 12, {}, {}
     for _ in range(questions):
         _, position = _name(packet, position)
         position += 4
         if position > len(packet):
             raise ValueError("dns_question_truncated")
     for _ in range(answers + authorities + additional):
-        owner, position = _name(packet, position)
+        owner_labels, position = _dns_labels(packet, position)
+        owner_key = tuple(label.lower() for label in owner_labels)
         if position + 10 > len(packet):
             raise ValueError("dns_record_truncated")
         kind, cls, ttl, size = struct.unpack_from("!HHIH", packet, position)
@@ -162,18 +195,29 @@ def parse_mdns(packet):
         end = position + size
         if end > len(packet):
             raise ValueError("dns_data_truncated")
-        owner = owner.lower()
-        if kind == 12 and cls & 0x7FFF == 1 and ttl and owner in SERVICES:
-            target, consumed = _name(packet, position)
+        owner = _SERVICE_LABELS.get(owner_key)
+        if kind == 12 and cls & 0x7FFF == 1 and ttl and owner is not None:
+            target, consumed = _dns_labels(packet, position)
             if consumed != end:
                 raise ValueError("dns_ptr_size")
-            suffix = "." + owner
-            if target.lower().endswith(suffix):
-                display = _text(target[:-len(suffix)])
+            target_key = tuple(label.lower() for label in target)
+            if len(target) > len(owner_key) and target_key[-len(owner_key):] == owner_key:
+                display = _text(_display_name(target[:-len(owner_key)])[:-1])
                 if display:
-                    found.add((owner, display))
+                    found[(owner, target_key)] = display
+        if kind == 16 and cls & 0x7FFF == 1 and ttl and owner_key[-3:] == (b"_http", b"_tcp", b"local"):
+            # A claim applies only to a PTR instance in this same packet. Do not
+            # join devices by responder IP or a similar display name. Multiple
+            # TXT records for an instance are ambiguous and provide no claim.
+            vendors[owner_key] = _synology_vendor(packet[position:end]) if owner_key not in vendors else False
         position = end
-    return sorted(found)
+    return [(service, name, {"vendor": "synology"} if service == "_http._tcp.local."
+             and vendors.get(target) else {}) for (service, target), name in sorted(found.items())]
+
+
+def parse_mdns(packet):
+    """Compatibility view of the fixed service types and instance labels."""
+    return [(service, name) for service, name, _ in _mdns_observations(packet)]
 
 
 def parse_ssdp(packet):
@@ -348,6 +392,7 @@ class Discovery:
                                      ["bounded_advertisement_window", "unverified_protocol_hints", "no_description_or_txt_fetch"])
                    for kind in ("mdns", "ssdp")}
         sources["mdns"]["limitations"].append("mdns_address_is_responder_not_verified_device")
+        sources["mdns"]["limitations"].append("txt_only_matching_synology_vendor_classification")
         rows = {kind: {} for kind in sources}
         sockets, packets, received = [], 0, 0
         try:
@@ -390,8 +435,8 @@ class Discovery:
                         try:
                             if kind == "mdns":
                                 additions = [_observation("lan_mdns", scope, stamp, sender[0], name=name,
-                                                          services=[service], metadata={"service_type": service})
-                                             for service, name in parse_mdns(packet)]
+                                                          services=[service], metadata={"service_type": service, **metadata})
+                                             for service, name, metadata in _mdns_observations(packet)]
                             else:
                                 service, metadata = parse_ssdp(packet)
                                 additions = [_observation("lan_ssdp", scope, stamp, sender[0], services=[service], metadata=metadata)]

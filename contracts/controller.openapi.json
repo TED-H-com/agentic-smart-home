@@ -51,9 +51,555 @@
         "title": "ControlInput",
         "type": "object"
       },
+      "DeviceSetupApprove": {
+        "additionalProperties": false,
+        "properties": {
+          "credentials": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeviceSetupCredentials"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "proposal_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Proposal Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "proposal_digest"
+        ],
+        "title": "DeviceSetupApprove",
+        "type": "object"
+      },
+      "DeviceSetupCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,128}$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "integration_domain": {
+            "default": "ipp",
+            "enum": [
+              "ipp",
+              "shelly",
+              "synology_dsm"
+            ],
+            "title": "Integration Domain",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_id"
+        ],
+        "title": "DeviceSetupCreate",
+        "type": "object"
+      },
+      "DeviceSetupCredentials": {
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "format": "password",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string",
+            "writeOnly": true
+          },
+          "username": {
+            "format": "password",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "DeviceSetupCredentials",
+        "type": "object"
+      },
+      "DeviceSetupInput": {
+        "discriminator": {
+          "mapping": {
+            "2sa": "#/components/schemas/DeviceSetupOTPInput",
+            "backup_share": "#/components/schemas/DeviceSetupShareInput",
+            "link": "#/components/schemas/DeviceSetupLinkInput"
+          },
+          "propertyName": "step"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/DeviceSetupLinkInput"
+          },
+          {
+            "$ref": "#/components/schemas/DeviceSetupOTPInput"
+          },
+          {
+            "$ref": "#/components/schemas/DeviceSetupShareInput"
+          }
+        ],
+        "title": "DeviceSetupInput"
+      },
+      "DeviceSetupInputView": {
+        "additionalProperties": false,
+        "properties": {
+          "can_submit": {
+            "title": "Can Submit",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "enum": [
+                  "invalid_auth",
+                  "cannot_connect",
+                  "unknown",
+                  "missing_data",
+                  "otp_failed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "options": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DeviceSetupShareOption"
+            },
+            "maxItems": 64,
+            "title": "Options",
+            "type": "array"
+          },
+          "step": {
+            "enum": [
+              "link",
+              "2sa",
+              "backup_share"
+            ],
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "can_submit"
+        ],
+        "title": "DeviceSetupInputView",
+        "type": "object"
+      },
+      "DeviceSetupLinkInput": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "password": {
+            "format": "password",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string",
+            "writeOnly": true
+          },
+          "step": {
+            "const": "link",
+            "title": "Step",
+            "type": "string"
+          },
+          "username": {
+            "format": "password",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "username",
+          "password",
+          "expected_revision",
+          "step"
+        ],
+        "title": "DeviceSetupLinkInput",
+        "type": "object"
+      },
+      "DeviceSetupList": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "setups": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceSetupView"
+            },
+            "title": "Setups",
+            "type": "array"
+          }
+        },
+        "required": [
+          "setups"
+        ],
+        "title": "DeviceSetupList",
+        "type": "object"
+      },
+      "DeviceSetupOTPInput": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "otp_code": {
+            "format": "password",
+            "maxLength": 8,
+            "minLength": 6,
+            "pattern": "^[0-9]{6,8}$",
+            "title": "Otp Code",
+            "type": "string",
+            "writeOnly": true
+          },
+          "step": {
+            "const": "2sa",
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "step",
+          "otp_code"
+        ],
+        "title": "DeviceSetupOTPInput",
+        "type": "object"
+      },
+      "DeviceSetupReconcile": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "DeviceSetupReconcile",
+        "type": "object"
+      },
+      "DeviceSetupShareInput": {
+        "additionalProperties": false,
+        "properties": {
+          "backup_share": {
+            "pattern": "^/[^\\x00-\\x1f]{1,255}$",
+            "title": "Backup Share",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 1.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "step": {
+            "const": "backup_share",
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "step",
+          "backup_share"
+        ],
+        "title": "DeviceSetupShareInput",
+        "type": "object"
+      },
+      "DeviceSetupShareOption": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "maxLength": 160,
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "pattern": "^/[^\\x00-\\x1f]{1,255}$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "DeviceSetupShareOption",
+        "type": "object"
+      },
+      "DeviceSetupView": {
+        "additionalProperties": false,
+        "properties": {
+          "available_entity_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Entity Count"
+          },
+          "backup_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{1,128}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backup Id"
+          },
+          "backup_scope": {
+            "const": "home_assistant_configuration",
+            "default": "home_assistant_configuration",
+            "title": "Backup Scope",
+            "type": "string"
+          },
+          "can_approve": {
+            "title": "Can Approve",
+            "type": "boolean"
+          },
+          "can_reconcile": {
+            "title": "Can Reconcile",
+            "type": "boolean"
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/DiscoveryCandidate"
+          },
+          "candidate_aliases": {
+            "default": [],
+            "items": {
+              "pattern": "^[A-Za-z0-9_-]{1,128}$",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Candidate Aliases",
+            "type": "array"
+          },
+          "contract_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "device_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Count"
+          },
+          "devices": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DiscoveryDevice"
+            },
+            "maxItems": 100,
+            "title": "Devices",
+            "type": "array"
+          },
+          "devices_truncated": {
+            "default": false,
+            "title": "Devices Truncated",
+            "type": "boolean"
+          },
+          "entity_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Count"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "number"
+          },
+          "id": {
+            "pattern": "^[a-f0-9]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "input": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeviceSetupInputView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "integration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiscoveryIntegration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "native_path": {
+            "const": "/config/integrations",
+            "default": "/config/integrations",
+            "title": "Native Path",
+            "type": "string"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "physical_verification": {
+            "const": "not_performed",
+            "default": "not_performed",
+            "title": "Physical Verification",
+            "type": "string"
+          },
+          "proposal_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Proposal Digest",
+            "type": "string"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DiscoverySource"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "proposed",
+              "preparing",
+              "applying",
+              "configured",
+              "needs_reconcile",
+              "needs_input",
+              "blocked"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "proposal_digest",
+          "candidate",
+          "state",
+          "can_approve",
+          "can_reconcile",
+          "message",
+          "created_at",
+          "updated_at",
+          "expires_at"
+        ],
+        "title": "DeviceSetupView",
+        "type": "object"
+      },
       "DiscoveryCandidate": {
         "additionalProperties": false,
         "properties": {
+          "confirmation_step": {
+            "anyOf": [
+              {
+                "enum": [
+                  "zeroconf_confirm",
+                  "confirm_discovery",
+                  "link"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmation Step"
+          },
           "discovery_method": {
             "title": "Discovery Method",
             "type": "string"
@@ -2413,6 +2959,246 @@
           }
         },
         "summary": "Deployment"
+      }
+    },
+    "/api/device-setups": {
+      "get": {
+        "operationId": "listing_api_device_setups_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceSetupList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Listing"
+      },
+      "post": {
+        "operationId": "create_api_device_setups_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceSetupCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceSetupView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create"
+      }
+    },
+    "/api/device-setups/{identifier}": {
+      "get": {
+        "operationId": "detail_api_device_setups__identifier__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceSetupView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Detail"
+      }
+    },
+    "/api/device-setups/{identifier}/approve": {
+      "post": {
+        "operationId": "approve_api_device_setups__identifier__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceSetupApprove"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceSetupView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve"
+      }
+    },
+    "/api/device-setups/{identifier}/input": {
+      "post": {
+        "operationId": "input_api_device_setups__identifier__input_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceSetupInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceSetupView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Input"
+      }
+    },
+    "/api/device-setups/{identifier}/reconcile": {
+      "post": {
+        "operationId": "reconcile_api_device_setups__identifier__reconcile_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "title": "Identifier",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceSetupReconcile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceSetupView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reconcile"
       }
     },
     "/api/discovery": {

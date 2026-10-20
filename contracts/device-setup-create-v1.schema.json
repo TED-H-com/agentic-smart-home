@@ -1,0 +1,25 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "candidate_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,128}$",
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "integration_domain": {
+      "default": "ipp",
+      "enum": [
+        "ipp",
+        "shelly",
+        "synology_dsm"
+      ],
+      "title": "Integration Domain",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidate_id"
+  ],
+  "title": "DeviceSetupCreate",
+  "type": "object"
+}

@@ -92,6 +92,27 @@ async def test_native_discovery_sources_are_candidates(method):
     assert (await discovery.snapshot(ha)).candidates[0].discovery_method == method
 
 
+@pytest.mark.parametrize("integration,method,step,expected", [
+    ("shelly", "zeroconf", "confirm_discovery", "confirm_discovery"),
+    ("ipp", "zeroconf", "zeroconf_confirm", "zeroconf_confirm"),
+    ("shelly", "zeroconf", "credentials", None),
+    ("shelly", "bluetooth", "confirm_discovery", None),
+    ("shelly", "zeroconf", "zeroconf_confirm", None),
+    ("hue", "zeroconf", "confirm_discovery", None),
+    ("shelly", "zeroconf", {"private": "untrusted"}, None),
+    ("shelly", "zeroconf", None, None),
+])
+async def test_only_reviewed_native_confirmation_steps_are_projected(integration, method, step, expected):
+    ha = DiscoveryHA()
+    flow = ha.results["config_entries/flow/progress"][0]
+    flow.update(handler=integration, step_id=step)
+    flow["context"]["source"] = method
+    result = await discovery.snapshot(ha)
+    assert result.candidates[0].confirmation_step == expected
+    assert source(result, "ha_discovery").state == "ok"
+    assert len(ha.calls) == 6  # Projection never fetches or submits a form.
+
+
 @pytest.mark.parametrize("method", ["reauth", "user", "reconfigure", "ignore", "import", "system"])
 async def test_other_flows_are_not_new_device_candidates(method):
     ha = DiscoveryHA()

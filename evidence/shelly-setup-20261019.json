@@ -1,0 +1,263 @@
+{
+  "schema_version": 1,
+  "classification": "unreleased_development_real_core_with_synthetic_devices_and_browser_fixtures",
+  "code_commit": "a7f89a4117e1b8cb23c37814ee3683dffd313bb7",
+  "recorded_at": "2026-10-19T21:29:06.610063+00:00",
+  "source_sha256": {
+    "controller/agentic_controller/device_setup.py": "bbc41c2b46a6990e753a6b5aca76c2876aa68b9bff360b58ed8a5f21da5a675f",
+    "controller/agentic_controller/device_setup_adapters.py": "21eea322c7c16a820c5cd6fd85e398fab29412214dfd831ac26631cf3ccbb29b",
+    "controller/agentic_controller/models.py": "965ae69eca089767d2910c3900e19718da78d5c938c53a6f3e655b056e0939ec",
+    "controller/agentic_controller/discovery.py": "b721ad7b21bf71e9768a662e16a48facacc980bc69250dc8285c983490bd3170",
+    "controller/agentic_controller/discovery_chat.py": "a57eb2fdf2ced3aac2dde1d7b7a1de2311faf2bec9a87d32a7456ccaf3d65885",
+    "controller/agentic_controller/device_setup_chat.py": "39520ee9a8565d6adce2f7089dc1b12019cfd743ec126b1eba0107fd4344d285",
+    "tests/test_device_setup_shelly.py": "7acfda0146e4b37180b079cfca0cc8e5fd0c92155ca0ec6dddf8ca0d5394ccbe",
+    "tests/test_device_setup_chat.py": "49a2438b8c213c12a8ad441747de1a130a2a080bd38d52b39247874b3be05e2c",
+    "tests/test_device_setup_shelly_real_ha.py": "af9e27c0c96d098a6aac136b5a25bce6d5b049d81ddffc464019dac1f0848d22",
+    "tests/fixtures/agentic_shelly_fixture/__init__.py": "b6414b2aefab492434f8fb074a13f4442fd83b833f0ec043e44a84e3a56e9ee6",
+    "contracts/device-setup-create-v1.schema.json": "76380cb73efe6c53240b13f16e929c9707bd8cc6a9459e3fe3b839ff8a2f9e9f",
+    "web/src/device-setup.tsx": "f257298f90322773b215e5de69295dc523dafaa52a3cbb3c09572380dac42aed",
+    "web/src/device-setup-history.tsx": "a52ae095b63393e0b85b8d1ecbf915a09226a8e7cf6981e8f488a7793b42dfbe",
+    "web/src/discovery.tsx": "8111d901d25e67ff6734d333c21eb9457081cbb8054c9fe146734d2d400f0e18",
+    "tests/test_shelly_device_setup_ui.py": "1bcee6b2db0b13c3f7c694558e520951be4ce8bef7fa20a7b958e1d11277a7d0",
+    "controller/static/index.html": "584b9c5c1461095c1b4056ce3a1167ceb9de3672f55e8ccb78f4f7c25d9ed7cd",
+    "controller/static/assets/index-B_ff2UKm.js": "4b19d269c672bc5baf96b21229fa4b6375224db4a2dd085361128c8babd491f6",
+    "bridge/static/index.html": "584b9c5c1461095c1b4056ce3a1167ceb9de3672f55e8ccb78f4f7c25d9ed7cd",
+    "bridge/static/assets/index-B_ff2UKm.js": "4b19d269c672bc5baf96b21229fa4b6375224db4a2dd085361128c8babd491f6"
+  },
+  "scope": "Owner-approved exact native reported-Shelly-1 confirmation, durable progress, domain-bound identity and selected assistant readback",
+  "runs": {
+    "backend": {
+      "tests": 482,
+      "passed": 482,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 75.288,
+      "started_at": "2026-10-19T17:23:18.916177-04:00",
+      "junit_sha256": "0fefc4205577ab366d2893839fbb70fa02fd297c16e4a1d26f9f7591533a9079",
+      "test_modules": [
+        "tests.test_device_setup",
+        "tests.test_device_setup_chat",
+        "tests.test_device_setup_core_versions",
+        "tests.test_device_setup_routes",
+        "tests.test_device_setup_shelly",
+        "tests.test_device_setup_transport",
+        "tests.test_discovery",
+        "tests.test_discovery_chat",
+        "tests.test_discovery_setup",
+        "tests.test_network_inventory",
+        "tests.test_store_durability"
+      ]
+    },
+    "browser_initial": {
+      "tests": 50,
+      "passed": 50,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 96.074,
+      "started_at": "2026-10-19T17:22:25.950020-04:00",
+      "junit_sha256": "235159d71e0b53205944f8c8f8ef72039ac19ae318a1634a97785a57937ab42b",
+      "test_modules": [
+        "tests.test_browser_device_setup_history",
+        "tests.test_conversation_discovery_ui",
+        "tests.test_shelly_device_setup_ui"
+      ]
+    },
+    "browser_final_production_copy": {
+      "tests": 16,
+      "passed": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 33.699,
+      "started_at": "2026-10-19T17:27:10.166400-04:00",
+      "junit_sha256": "e83549a7b4d9a0f2f80c29df513f58c2904783d95d17f827d5a8de13d924c4d9",
+      "test_modules": [
+        "tests.test_shelly_device_setup_ui"
+      ]
+    },
+    "ipp_real_core_regression": {
+      "tests": 2,
+      "passed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 27.104,
+      "started_at": "2026-10-19T17:26:27.076997-04:00",
+      "junit_sha256": "e1e3080feeb2b305a7dfd2254b86e62b3e19103e135cc18edbc683bd12defe25",
+      "test_modules": [
+        "tests.test_device_setup_real_ha"
+      ]
+    },
+    "shelly_native_matrix": {
+      "result": "2 passed",
+      "duration_seconds": 50.58
+    },
+    "shelly_service_matrix": {
+      "result": "2 passed, 2 deselected",
+      "duration_seconds": 50.1
+    }
+  },
+  "overlap_note": "The final 16 browser cases overlap the initial 50; do not sum them. Native Shelly tests precede and are separate from product-service qualification. Earlier focused backend runs overlap the 482 final cases.",
+  "shelly_qualification": "shelly-setup-20261019/qualification-summary.json",
+  "ipp_receipts": [
+    {
+      "file": "shelly-setup-20261019/ipp/core-2026.10.1-e2560c8d051843c19bd2b4ee29666da1.json",
+      "sha256": "55358c38e0a8788f9d466ed52c087642daf4e6a0ccf6ed280cf103a38a75cf91",
+      "receipt": {
+        "expected_core": "2026.10.1",
+        "image": "ghcr.io/home-assistant/home-assistant:2026.10.1",
+        "image_id": "sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0",
+        "repo_digests": [
+          "ghcr.io/home-assistant/home-assistant@sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0"
+        ],
+        "run_id": "e2560c8d051843c19bd2b4ee29666da1",
+        "started_at": "2026-10-19T21:26:27.639021+00:00",
+        "core": "2026.10.1",
+        "flow": "ipp/zeroconf_confirm",
+        "state": "configured",
+        "assertions_completed_at": "2026-10-19T21:26:40.777433+00:00",
+        "result": "all_runtime_assertions_passed",
+        "source_sha256": {
+          "tests/test_device_setup_real_ha.py": "4ce42ad362fc1ae972ece939e5e60683f7d816d9630b8cb6f60afcd23c22f1ff",
+          "tests/fixtures/agentic_ipp_fixture/__init__.py": "702e4d03d5b4025273756317375b433fbf150c7ef5c0bd9da9123a724d46d9e9",
+          "tests/fixtures/agentic_ipp_fixture/manifest.json": "b3047c61a82c09ff32baacbd2e2e97ff359c2dfe1af52087fb2514757a39d720",
+          "controller/agentic_controller/device_setup.py": "bbc41c2b46a6990e753a6b5aca76c2876aa68b9bff360b58ed8a5f21da5a675f"
+        },
+        "device_count": 1,
+        "entity_count": 2,
+        "available_entity_count": 1,
+        "confirmation_posts": 1,
+        "fixture_backups": 1,
+        "ipp_attribute_requests": 3,
+        "rejected_printer_operations": 0,
+        "physical_verification": "not_performed",
+        "service_recreated_without_effect_replay": true,
+        "real": [
+          "Core owner check",
+          "native flow progress/GET/POST result",
+          "aioipp HTTP and binary decoding",
+          "native IPP coordinator",
+          "exact device/entity/state readback",
+          "persisted approval idempotency"
+        ],
+        "fixtures": [
+          "synthetic ZeroconfServiceInfo",
+          "loopback IPP printer",
+          "Supervisor backup response",
+          "outer HTTP session transport"
+        ],
+        "not_tested": [
+          "physical printer",
+          "LAN multicast discovery",
+          "Supervisor backup",
+          "HAOS",
+          "live household",
+          "full Core/process restart",
+          "real Core lost-response recovery",
+          "unlisted Core versions"
+        ]
+      }
+    },
+    {
+      "file": "shelly-setup-20261019/ipp/core-2026.10.2-1328e4c9729948ef806be4db634a2970.json",
+      "sha256": "39c359c4078f100f896efc3c1eb59ed2e99dc5c7a3dfd4078d072ca73ac78446",
+      "receipt": {
+        "expected_core": "2026.10.2",
+        "image": "ghcr.io/home-assistant/home-assistant:2026.10.2",
+        "image_id": "sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4",
+        "repo_digests": [
+          "ghcr.io/home-assistant/home-assistant@sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4"
+        ],
+        "run_id": "1328e4c9729948ef806be4db634a2970",
+        "started_at": "2026-10-19T21:26:41.526401+00:00",
+        "core": "2026.10.2",
+        "flow": "ipp/zeroconf_confirm",
+        "state": "configured",
+        "assertions_completed_at": "2026-10-19T21:26:53.804698+00:00",
+        "result": "all_runtime_assertions_passed",
+        "source_sha256": {
+          "tests/test_device_setup_real_ha.py": "4ce42ad362fc1ae972ece939e5e60683f7d816d9630b8cb6f60afcd23c22f1ff",
+          "tests/fixtures/agentic_ipp_fixture/__init__.py": "702e4d03d5b4025273756317375b433fbf150c7ef5c0bd9da9123a724d46d9e9",
+          "tests/fixtures/agentic_ipp_fixture/manifest.json": "b3047c61a82c09ff32baacbd2e2e97ff359c2dfe1af52087fb2514757a39d720",
+          "controller/agentic_controller/device_setup.py": "bbc41c2b46a6990e753a6b5aca76c2876aa68b9bff360b58ed8a5f21da5a675f"
+        },
+        "device_count": 1,
+        "entity_count": 2,
+        "available_entity_count": 1,
+        "confirmation_posts": 1,
+        "fixture_backups": 1,
+        "ipp_attribute_requests": 3,
+        "rejected_printer_operations": 0,
+        "physical_verification": "not_performed",
+        "service_recreated_without_effect_replay": true,
+        "real": [
+          "Core owner check",
+          "native flow progress/GET/POST result",
+          "aioipp HTTP and binary decoding",
+          "native IPP coordinator",
+          "exact device/entity/state readback",
+          "persisted approval idempotency"
+        ],
+        "fixtures": [
+          "synthetic ZeroconfServiceInfo",
+          "loopback IPP printer",
+          "Supervisor backup response",
+          "outer HTTP session transport"
+        ],
+        "not_tested": [
+          "physical printer",
+          "LAN multicast discovery",
+          "Supervisor backup",
+          "HAOS",
+          "live household",
+          "full Core/process restart",
+          "real Core lost-response recovery",
+          "unlisted Core versions"
+        ]
+      }
+    }
+  ],
+  "ui_manifest": "ui/shelly-setup-20261019/manifest.json",
+  "checks": {
+    "ruff": "passed",
+    "typescript_vite": "passed",
+    "contracts": 52,
+    "web_toolchain": "passed",
+    "package_structure": "passed",
+    "independent_review": "No blockers in domain binding, lost-response recovery, native fallback, reported-model scope or v2 migration.",
+    "final_service_and_ipp_source_hashes": "matched",
+    "ui_capture_hashes": "matched",
+    "task_containers": "removed"
+  },
+  "storage_compatibility": "Read legacy v1 IPP; all record writes use v2 and preserve existing proposal digests. Old binaries refuse unknown records and fence new setup writes; not unrestricted downgrade compatibility.",
+  "limitations": [
+    "Only Core 2026.10.1 and 2026.10.2 with an existing Shelly zeroconf/confirm_discovery empty form and exact native reported model Shelly 1 are qualified.",
+    "Reported-model text is not physical-generation attestation. Native formatter can produce Shelly 1 for inconsistent RPC reports; no RPC/Bluetooth flow qualification is claimed.",
+    "Synthetic Gen1 SHSW-1 HTTP/CoIoT responder, synthetic discovery injection and Supervisor backup response; unmodified native Core/aioshelly/coordinator/registry paths are real.",
+    "No physical Shelly/relay actuation, real household scan, HAOS backup/restore, cloud account/model, Dell deployment, public USB/ISO journey or installed login-loop acceptance.",
+    "No remote PR merge, new release, household configuration change or Grok CLI execution.",
+    "Approval covers native connection configuration and HA configuration backup only; no AI control permission is granted."
+  ],
+  "initial_harness_failures": [
+    {
+      "phase": "native initial .1",
+      "duration_seconds": 11.55,
+      "cause": "Test HomeAssistant transport was not bound to required Controller Store",
+      "fix": "Bind isolated Store before starting transport; no product change"
+    },
+    {
+      "phase": "native .1 restart",
+      "duration_seconds": 78.99,
+      "cause": "Docker ephemeral published port changed on restart",
+      "fix": "Preserve explicit loopback port; no product change"
+    },
+    {
+      "phase": "service initial .1",
+      "duration_seconds": 14.24,
+      "cause": "Test took entry baseline before native discovery loaded HA dependencies",
+      "fix": "Capture product proposal baseline after native discovery completes; no product change"
+    }
+  ]
+}

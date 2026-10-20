@@ -1,0 +1,53 @@
+{
+  "date": "2026-10-19",
+  "kind": "compiled_product_browser_protocol_fixture",
+  "limitations": [
+    "All household/device/network/account responses are synthetic.",
+    "Screenshots do not establish real login, LAN coverage, printer behavior, or HAOS backup/restore.",
+    "Bootstrap images precede the final chat-only layout adjustment; bootstrap source was unchanged."
+  ],
+  "reviewed": [
+    "printer-confirmation-390.png",
+    "printer-confirmation-1440.png",
+    "chat-network-390.png",
+    "butler-start-1440.png"
+  ],
+  "files": [
+    {
+      "file": "butler-start-1440.png",
+      "sha256": "6728dd9d8b70ce1ec544f18ecff004d4cd802090ce5133643cb160fcdecc7f1a"
+    },
+    {
+      "file": "butler-start-390.png",
+      "sha256": "94bc75775200e92ef58857afa7eed0248d7821e08bc5ee3db08541458d1fceb4"
+    },
+    {
+      "file": "butler-start-768.png",
+      "sha256": "eee9323b8cafa5e775a3affffad33f1a9e1273c60666aa1c44cf41bcbce441f1"
+    },
+    {
+      "file": "chat-network-1440.png",
+      "sha256": "4fb84f3d9e71f2a0e05ab36258093265618494035ef770060388bd2e25b22eb0"
+    },
+    {
+      "file": "chat-network-390.png",
+      "sha256": "cc72ea01a2f2e1bb33965f5e1f1005357befa82f26782be4552f1b2f45200bdd"
+    },
+    {
+      "file": "chat-network-768.png",
+      "sha256": "07857a433cbf9120e5879696317e9bbdd60e917da93a237ebbf9c33afc41e86a"
+    },
+    {
+      "file": "printer-confirmation-1440.png",
+      "sha256": "f0c914b77719809214c61c6df786e7af38c9b68fbb3e972caf7bbf9e4cc59d12"
+    },
+    {
+      "file": "printer-confirmation-390.png",
+      "sha256": "2ee93eee4d178978f9051baef75acb7b78a9f356202d1b0c1a819a4271a53513"
+    },
+    {
+      "file": "printer-confirmation-768.png",
+      "sha256": "1332aa8adcb090816eab8aa2559371489a8f203624fb463ee3e3065ac1d1fe23"
+    }
+  ]
+}

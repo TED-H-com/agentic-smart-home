@@ -76,6 +76,9 @@ class DiscoveryCandidate(Strict):
     integration_domain: str
     title: str
     discovery_method: str
+    # A bounded routing hint from HA's pending flow, never proof that a setup
+    # proposal is supported or approved. The write adapter rechecks the form.
+    confirmation_step: Literal["zeroconf_confirm", "confirm_discovery", "link"] | None = None
     source_id: Literal["ha_discovery", "network_inventory"] = "ha_discovery"
     native_path: Literal["/config/integrations"] = "/config/integrations"
 
@@ -83,29 +86,6 @@ class DiscoveryCandidate(Strict):
 class DiscoveryChatCandidate(DiscoveryCandidate):
     integration_name: Annotated[str, Field(max_length=160)]
     next_step: Annotated[str, Field(max_length=160)]
-
-
-class ConversationDiscovery(Strict):
-    """Bounded observations shared for one explicitly requested chat turn."""
-    contract_version: Literal[1] = 1
-    state: Literal["consent_required", "ready", "unavailable"]
-    observed_at: str | None = None
-    candidates: Annotated[list[DiscoveryChatCandidate], Field(max_length=8)] = []
-    sources: Annotated[list[DiscoverySource], Field(max_length=7)] = []
-    candidate_count: Annotated[int, Field(ge=0)] | None = None
-    truncated: bool = False
-    native_path: Literal["/config/integrations"] = "/config/integrations"
-    limitations: Annotated[list[Annotated[str, Field(max_length=160)]], Field(max_length=16)] = []
-    content_digest: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None = None
-
-    @model_validator(mode="after")
-    def no_observations_without_consent(self):
-        if self.state == "consent_required" and (
-            self.observed_at is not None or self.candidates or self.sources
-            or self.candidate_count is not None or self.content_digest is not None or self.truncated
-        ):
-            raise ValueError("尚未同意探索時不能包含家庭觀測")
-        return self
 
 
 class DiscoveryDevice(Strict):
@@ -128,6 +108,48 @@ class DiscoveryIntegration(Strict):
     title: str
     state: Literal["loaded", "not_loaded", "retry", "error", "disabled", "ignored", "unknown"]
     source_id: Literal["ha_integrations"] = "ha_integrations"
+
+
+class DeviceSetupChatDevice(Strict):
+    """Only devices linked to the selected entry, without unrelated topology."""
+    name: Annotated[str, Field(max_length=160)]
+    manufacturer: Annotated[str, Field(max_length=160)] | None = None
+    model: Annotated[str, Field(max_length=160)] | None = None
+    disabled: bool
+    entity_count: Annotated[int, Field(ge=0)] | None = None
+    available_entity_count: Annotated[int, Field(ge=0)] | None = None
+
+
+class ConversationDeviceSetup(Strict):
+    """One current-message setup selection; history is not current HA health."""
+    contract_version: Literal[1] = 1
+    state: Literal["consent_required", "ready", "unavailable"]
+    setup_id: PreviewId | None = None
+    setup_state: Literal["proposed", "preparing", "applying", "configured", "needs_reconcile", "needs_input", "blocked"] | None = None
+    input_step: Literal["link", "2sa", "backup_share"] | None = None
+    setup_updated_at: str | None = None
+    title: Annotated[str, Field(max_length=160)] | None = None
+    current_state: Literal["not_recorded", "present", "not_seen", "unknown"] = "unknown"
+    integration: DiscoveryIntegration | None = None
+    devices: Annotated[list[DeviceSetupChatDevice], Field(max_length=16)] = []
+    device_count: Annotated[int, Field(ge=0)] | None = None
+    entity_count: Annotated[int, Field(ge=0)] | None = None
+    available_entity_count: Annotated[int, Field(ge=0)] | None = None
+    sources: Annotated[list[DiscoverySource], Field(max_length=4)] = []
+    truncated: bool = False
+    observed_at: str | None = None
+    reason_code: Annotated[str, Field(max_length=160)] | None = None
+    physical_verification: Literal["not_performed"] = "not_performed"
+    limitations: Annotated[list[Annotated[str, Field(max_length=160)]], Field(max_length=8)] = []
+    content_digest: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None = None
+
+    @model_validator(mode="after")
+    def one_explicit_selection(self):
+        if self.state == "consent_required" and any((self.setup_id, self.setup_state, self.input_step, self.setup_updated_at,
+                self.title, self.integration, self.devices, self.sources, self.observed_at, self.content_digest,
+                self.device_count is not None, self.entity_count is not None, self.available_entity_count is not None)):
+            raise ValueError("未分享接入項目時不能包含家庭觀測")
+        return self
 
 
 class DiscoverySnapshot(Strict):
@@ -254,6 +276,69 @@ class InventorySnapshot(Strict):
     content_digest: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 
 
+class DiscoveryChatObservation(Strict):
+    """Names and source coverage shared with the assistant, never addresses or raw metadata."""
+    id: InventoryId
+    source_id: Literal["lan_neighbors", "lan_mdns", "lan_ssdp", "router_import"]
+    name: InventoryText | None = None
+    services: Annotated[list[InventoryText], Field(max_length=16)] = []
+    observed_at: InventoryText
+    source_updated_at: InventoryText | None = None
+    reachability: Literal["unknown", "responded"] = "unknown"
+    manufacturer: InventoryText | None = None
+    model: InventoryText | None = None
+
+
+class DiscoveryChatNetwork(Strict):
+    state: Literal["unavailable", "not_configured", "needs_home_setup", "waiting_for_address",
+                   "adapter_selection_required", "callback_address_required", "ready"]
+    mode: Literal["nat", "wired", "unknown"] = "unknown"
+    observed_at: str | None = None
+    reason_code: InventoryText | None = None
+    next_step: InventoryText
+
+
+class DiscoveryChatEnvironment(Strict):
+    devices: Annotated[list[DiscoveryDevice], Field(max_length=16)] = []
+    integrations: Annotated[list[DiscoveryIntegration], Field(max_length=16)] = []
+    inventory_observations: Annotated[list[DiscoveryChatObservation], Field(max_length=16)] = []
+    inventory_sources: Annotated[list[InventorySource], Field(max_length=4)] = []
+    device_count: Annotated[int, Field(ge=0)] | None = None
+    integration_count: Annotated[int, Field(ge=0)] | None = None
+    inventory_observation_count: Annotated[int, Field(ge=0)] | None = None
+    inventory_revision: Annotated[int, Field(ge=0)] | None = None
+    inventory_expires_at: str | None = None
+    truncated: bool = False
+    network: DiscoveryChatNetwork | None = None
+
+
+class ConversationDiscovery(Strict):
+    """Bounded observations shared for one explicitly requested chat turn."""
+    contract_version: Literal[1] = 1
+    state: Literal["consent_required", "ready", "unavailable"]
+    share_scope: Literal["ha_candidates", "environment"] = "ha_candidates"
+    observed_at: str | None = None
+    candidates: Annotated[list[DiscoveryChatCandidate], Field(max_length=8)] = []
+    sources: Annotated[list[DiscoverySource], Field(max_length=7)] = []
+    candidate_count: Annotated[int, Field(ge=0)] | None = None
+    truncated: bool = False
+    environment: DiscoveryChatEnvironment | None = None
+    native_path: Literal["/config/integrations"] = "/config/integrations"
+    limitations: Annotated[list[Annotated[str, Field(max_length=160)]], Field(max_length=16)] = []
+    content_digest: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None = None
+
+    @model_validator(mode="after")
+    def no_observations_without_consent(self):
+        if self.state == "consent_required" and (
+            self.observed_at is not None or self.candidates or self.sources or self.environment is not None
+            or self.candidate_count is not None or self.content_digest is not None or self.truncated
+        ):
+            raise ValueError("尚未同意探索時不能包含家庭觀測")
+        if self.share_scope != "environment" and self.environment is not None:
+            raise ValueError("分享環境資料需要明確同意")
+        return self
+
+
 class DiscoverySetupSelect(Strict):
     expected_revision: DiscoveryRevision
     entry_id: DiscoveryIdentifier
@@ -364,6 +449,8 @@ class ChatInput(Strict):
     reply_to: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None = None
     new_conversation: bool = False
     discover_devices: bool = False
+    discover_environment: bool = False
+    device_setup_id: PreviewId | None = None
 
     @model_validator(mode="after")
     def one_conversation(self):

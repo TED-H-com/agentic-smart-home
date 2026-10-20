@@ -63,16 +63,18 @@ class HomeAssistant:
         if self.session:
             await self.session.close()
 
-    async def request(self, method, path, data=None, *, supervisor=False, missing_ok=False, timeout=None):
+    async def request(self, method, path, data=None, *, supervisor=False, missing_ok=False, timeout=None,
+                      send_guard=None):
         if timeout is None:
             timeout = HA_CLIENT_TIMEOUT
         if supervisor and self.external:
             # Core's authenticated owner WebSocket forwards to Supervisor. No Supervisor token leaves HAOS.
             return await self.ws("supervisor/api", endpoint=path, method=method.lower(), data=data or {},
-                                 timeout=timeout, _receive_timeout=timeout + 10)
+                                 timeout=timeout, _receive_timeout=timeout + 10, _send_guard=send_guard)
         try:
             async with self.session.request(method, (self.supervisor if supervisor else self.base) + path,
                                             json=data, allow_redirects=False,
+                                            trace_request_ctx={"send_guard": send_guard},
                                             timeout=aiohttp.ClientTimeout(total=timeout)) as response:
                 if missing_ok and response.status == 404:
                     return None
@@ -109,12 +111,14 @@ class HomeAssistant:
             raise
         return ws
 
-    async def ws(self, command, *, _receive_timeout=20, **kwargs):
+    async def ws(self, command, *, _receive_timeout=20, _send_guard=None, **kwargs):
         try:
             ws = await self.ws_connect()
             async with ws:
                 if not read_only_ws(command, kwargs):
                     await durable(self.store)
+                if _send_guard:
+                    await _send_guard()
                 await ws.send_json({"id": 1, "type": command, **kwargs})
                 result = await ws.receive_json(timeout=_receive_timeout)
                 if result.get("id") != 1 or result.get("success") is not True:
@@ -229,7 +233,7 @@ class HomeAssistant:
                 conflicts.append(state["entity_id"])
         return conflicts
 
-    async def backup(self, name):
+    async def backup(self, name, *, send_guard=None):
         # Core answers its API while it is still starting; a Supervisor backup of it then fails.
         core = await self.request("GET", "/config")
         if core.get("state", "RUNNING") != "RUNNING":
@@ -240,7 +244,8 @@ class HomeAssistant:
                 raise HAError("Supervisor 尚未就緒；等待 HAOS 啟動完成後再部署")
         data = await self.request("POST", "/backups/new/partial",
                                   {"name": name, "homeassistant": True, "addons": [],
-                                   "folders": [], "background": False}, supervisor=True, timeout=600)
+                                   "folders": [], "background": False}, supervisor=True, timeout=600,
+                                  send_guard=send_guard)
         slug = data.get("slug")
         if not slug:
             raise HAError("Supervisor 尚未完成備份")

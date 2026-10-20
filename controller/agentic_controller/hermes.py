@@ -38,6 +38,7 @@ NEXT_STEP = {
     "needs_reauth": "登入已失效，請重新登入原帳號後再送出。",
     "session_busy": "智能管家正在處理另一則訊息，請等它完成後再送出。",
     "session_expired": "這段對話已到期，請開始新對話。",
+    "scope_mismatch": "這段對話的使用權限已變更，請開始新對話。",
     "expired": "這段對話已到期，請開始新對話。",
     "rate_limited": "供應商暫時限制請求，請稍後再送出同一則訊息。",
     "provider_unavailable": "模型服務暫時無法連線，請稍後再試。",
@@ -166,6 +167,17 @@ class Coordinator:
                 await asyncio.gather(*(stop(run) for run in pending))
 
     async def run(self, item):
+        if item.get("device_setup_id") is not None:
+            capabilities = await self.client.call("GET", "/v1/capabilities")
+            if not self.scope_valid(item):
+                raise HermesError("scope_mismatch")
+            tools = capabilities.get("tools")
+            if not isinstance(tools, list) or "home.device_setup_status" not in tools:
+                # An existing household may upgrade Controller before Hermes.
+                # Do not dispatch a model that cannot read the selected result,
+                # ask for another login, or silently switch the installed image.
+                return {"state": "awaiting_user", "error_code": "device_setup_status_unavailable",
+                    "answer": "目前的智能管家版本尚未支援這項解讀；請先從「設備接入進度」查看結果。"}
         case_key = digest([item["scope"], item["thread_id"]])
         case = self.store.get("hermes_case", case_key)
         if not case:
@@ -191,6 +203,10 @@ class Coordinator:
             try:
                 jobs = self.worker_manager.case_jobs(case["case_id"])
                 message = item["message"]
+                if item.get("device_setup_id") is not None:
+                    message += ("\n\nController current-message sharing: the Owner selected exactly one device setup. "
+                        "Call home.device_setup_status with no arguments to read its current status. "
+                        "This is read-only sharing, not setup approval or permission to repeat a write.")
                 if jobs:
                     message += "\n\nController same-case work handles (status only; inspect worker.result for evidence; this is not approval):\n" + canonical(jobs)
                 result = await self.client.call("POST", f'/v1/sessions/{case["session_id"]}/runs', {
@@ -225,6 +241,8 @@ class Coordinator:
             linked = self.store.get("conversation", item["id"]) or {}
             if linked.get("discovery"):
                 response["discovery"] = linked["discovery"]
+            if linked.get("device_setup_status"):
+                response["device_setup_status"] = linked["device_setup_status"]
             if linked.get("task_id"):
                 response["task_id"] = linked["task_id"]
                 task = self.store.get("task", linked["task_id"]) or {}

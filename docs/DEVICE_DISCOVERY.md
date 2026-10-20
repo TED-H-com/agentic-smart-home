@@ -16,13 +16,65 @@
 
 ### 對話中的唯讀探索
 
-管家可透過 `home.discover` 協助「找看看有哪些設備還沒接好」。尚未分享這次探索時，工具只回傳「探索家庭設備」操作卡，不讀取家庭資料。Owner 按下按鈕後，這一則訊息的 `discover_devices: true` 才允許重新讀取 HA 探索來源，分享最多八個候選名稱、種類、設定建議與來源狀態。此選擇不沿用到下一則訊息，模型也不能透過工具參數自行同意。
+管家可透過 `home.discover` 協助「找看看有哪些設備還沒接好」。尚未分享這次探索時，工具只回傳「探索家庭設備」操作卡，不讀取家庭資料。舊 API 的 `discover_devices: true` 仍只分享最多八個 HA 探索候選。新介面明示分享環境後，同一則訊息額外帶 `discover_environment: true`：分享 HA 已登錄設備、已設定服務、保存的區網觀測與當前家庭連線診斷；設備／服務／網路觀測各最多十六項，混合候選最多八項。位址、MAC、原始匯入內容與可辨識的憑證不進這份模型投影。此選擇不沿用到下一則訊息，模型不能透過工具參數自行同意。
 
 探索不要求先授予任何設備控制權限，因此空的家庭授權清單不會阻止找設備。結果與部分、失敗或截短的來源一同呈現在對話；未取得完整來源時，候選總數維持未知。空結果不能解讀為家裡沒有設備。IPP、Synology DSM、Matter、Home Connect 等顯示易懂的種類名稱，但不根據種類推測特定品牌、型號或實體功能。
 
-這個工具只使用既有唯讀 HA adapter，不發送 LAN 掃描、不讀取已儲存的網路盤點，也不分享設定密碼欄位、完整設備登錄或 entity state。網路盤點仍沿用選取與預覽的分享操作。Controller 在讀取前後及 MCP 回應落盤等待後重新檢查原本的對話範圍、HA 連線和即時 Owner。
+這個工具使用既有唯讀 adapter，不自行發送 LAN 掃描，也不分享設定密碼欄位或 entity state。Owner 可在聊天中另外按「探索更多設備」，選定家庭網路並確認；只有此操作呼叫既有有界收集器，完成後再分享結果。Controller 在讀取前後及 MCP 回應落盤等待後重新檢查原本的對話範圍、HA 連線、即時 Owner，以及已分享盤點的版本與有效期限。
 
-選取候選後可以繼續對話，或使用同一個「接入進度」保存並核對設定。建立追蹤時仍重新讀取候選身分；登入與配對仍在 HA 原生流程完成，不能宣稱已具備完整的聊天內自動接入。探索及追蹤不增加家庭讀取／控制授權，不建立 HA config flow，不新增整合或操作設備。分享過的快照是普通對話內容，沿用原有身份與保存期限；下一則訊息未同意新的探索，不會撤回已分享的內容。
+唯讀探索本身不增加家庭讀取／控制授權，也不建立 HA config flow。分享過的快照是普通對話內容，沿用原有身份與保存期限；下一則訊息未同意新的探索，不會撤回已分享的內容。保存的區網觀測依原始來源時間判斷過期，讀取不更新觀測時鐘；無 HA 候選但有區網紀錄時，管家仍能提出具體線索，不能將其說成已接入設備。
+
+### 聊天內確認接入 IPP 印表機
+
+目前可直接執行的第一條接入路徑是 Core `2026.10.1`／`2026.10.2` 已發現的 IPP `zeroconf_confirm` 空表單。版本使用精確白名單；其他 patch／預覽版仍需另外驗證。這是窄範圍的原生設定 adapter；不接受任意網址、表單欄位、帳密或模型提供的核准，也不擴大到未知版本／品牌的配對。
+
+1. Owner 在當前對話選擇具體印表機。Controller 重新核對 HA Owner、連線、原始探索身分及確認表單，保存有期限的提案。
+2. 聊天顯示設備、操作與備份範圍；Owner 按「確認接入」後，綁定提案摘要與版本。API 先保存工作再回傳，畫面讀取同一份進度。
+3. 固定服務建立並讀回 Supervisor 的 Home Assistant 設定備份，保存 Controller 快照，再確認原探索及既有設定沒有改變，才提交該空表單。模型不持有管理憑證。
+4. 讀回精確建立的整合及關聯設備／功能狀態。「設定已保存」不代表實體功能已驗證；不送出列印作業，也不自動授予 AI 控制權限。
+5. 登出、暫停、更新或來源改變會在送出邊界阻止新操作。可能已送出但回應遺失的情況，只核對原生設備身分與新整合，不重播接入請求。尚未送出的準備失敗可以重新提案。
+
+接著聊天、重新整理或側欄暫時斷線不會丟失已受理的進度；舊卡片可以讀取結果，但不能作為新的接入批准。側欄背景工作會持續核對原 Owner 與配對，撤銷則停止對應工作。相同 Owner／家庭連線更換登入憑證後，仍可讀回及核對舊結果；尚未執行的提案必須重新檢查並批准，不沿用舊憑證的執行授權。
+
+入口為 `/api/device-setups`、`/{id}`、`/{id}/approve`、`/{id}/input`（Synology 多步輸入）與 `/{id}/reconcile`。寫入需要既有 Owner／CSRF（或已驗證 Ingress）和 Idempotency-Key。私有 `device_setup_v1` 紀錄在 schema 3 中可由舊版忽略；舊版不能續跑這些工作。內容依保存期限移除設備名稱，保留有界的操作身分與不確定結果防重播紀錄。備份範圍是 HA 設定，不是整台主機回復。
+
+Adapter 依固定上游來源核對：[IPP config flow](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/ipp/config_flow.py)、[flow HTTP adapter](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/helpers/data_entry_flow.py)、[IPP device identity](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/ipp/coordinator.py)。這些私人前端 API 的相容性限制只停用相關接入能力。
+
+其他候選仍提供來源與下一步、原生配對或既有接入追蹤；目前不宣稱所有品牌均可在聊天內接入。合成設備、HTTP／WebSocket 協定測試與瀏覽器測試不代表實機驗收；真實印表機、HAOS 備份還原及現場使用仍需各自驗證。
+
+### 聊天內確認接入 Shelly 1
+
+第二條接入路徑沿用上述提案、本人確認、備份、持久化工作與精確讀回，限於 Core `2026.10.1`／`2026.10.2` 已存在的 Shelly `zeroconf` → `confirm_discovery` 空表單。Controller 必須核對原生表單回報型號恰為 `Shelly 1`，並以正規化的 MAC、整合種類及原流程綁定提案。聊天先「核對型號」，其他型號、需要密碼、藍牙配對或未知步驟改由固定的原生家庭設定入口處理；保存的網路線索不能批准接入。
+
+這是**原生回報型號的限定**，不是實體世代鑑定。已審閱版本的 `SHSW-1` 對應 `Shelly 1`，但上游對未知型號會直接顯示回報字串；因此不能把這個欄位當成不可偽造的 Gen1 證明。批准文案包含原生整合可能設定設備連線、備份只涵蓋 HA 設定；Controller 不發送繼電器切換，也不授予 AI 控制權限。RPC 裝置的原生初始化可能設定 outbound WebSocket 或停止它的藍牙掃描腳本，本輪的 Gen1 協定驗證不能擴張為所有 Shelly 的零設備寫入保證。
+
+遺失確認回應時，恢復只讀取新整合及原生設備登錄：必須有相同 Shelly MAC 識別及精確整合成員關係，不能憑名稱、IP、候選消失或另一個 domain 的同值識別碼判定完成。既有 IPP 紀錄繼續可讀；新寫入的私有接入紀錄版本為 2，舊 v1 IPP 紀錄在該筆紀錄下一次寫入時轉為 v2，保存原提案摘要與工作身分。舊 binary 對未知紀錄停止新接入寫入，不能宣稱可以無條件降版後繼續操作。
+
+候選的可選 `confirmation_step` 只由唯讀探索投影三個已知步驟（IPP、Shelly 的確認步驟與 Synology 的 `link` 登入步驟），用於介面導向，不是批准或可執行能力證明；執行前仍重新核對精確 Core、型號、表單、Owner 與原提案。分享給管家的設備名稱會遮去連續十二位十六進位的 MAC 名稱後綴，和原有含分隔符的位址一致。
+
+上游邊界見固定版本 [Shelly 設定流程](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/shelly/config_flow.py)、[設備登錄與初始化](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/shelly/coordinator.py) 及 [aioshelly 13.34.1](https://github.com/home-assistant-libs/aioshelly/tree/13.34.1)。Synology NAS 改用下方獨立的多步 adapter，不當作空表單接入。
+
+### 聊天內輸入帳號接入 Synology NAS
+
+第三條接入路徑支援 Core `2026.10.1`／`2026.10.2` 已發現的 Synology NAS（`synology_dsm`，SSDP 或 zeroconf 來源、原生 `link` 步驟、12 位序號身分）。流程沿用提案、本人確認、備份與精確讀回，再加上多步輸入：接入卡顯示說明與「NAS 帳號／NAS 密碼」欄位，按「登入並接入」即為批准；Controller 先完成家庭設定備份，再送出原生登入步驟。帳號開啟兩步驟驗證時，接著輸入驗證器 App 顯示的驗證碼；最後從 NAS 回報的共用資料夾選擇家庭備份位置，資料夾內路徑沿用原生預設值。多步輸入使用 `/api/device-setups/{id}/input`。
+
+帳號、密碼與驗證碼只在接入卡輸入，經單次 Owner 請求交給 Controller 轉送原生流程；不寫入 Controller 資料庫、接入紀錄、請求收據、快照或證據，送出後立即清空欄位，遺失回應時不保留重送內容。管家只看得到目前步驟，不能代為輸入或送出，也不因此取得 AI 控制權限。NAS 在通過兩步驟驗證後會記住這台家庭系統；登入資料由 HA 原生整合依其既有方式保存。
+
+後續每一步送出前先持久化並重新檢查 Owner、AI 暫停、主機更新，以及家庭設定沒有出現其他新的 NAS 連線；未通過時顯示「這一步沒有送出」，須先重新讀取。送出後回應遺失或結果不明時只讀回：原流程仍停在同一步就重新開放輸入；流程已結束時，以 NAS 網卡 MAC 比對新整合的原生設備登錄，無法確認則維持待確認，不重送帳密或驗證碼。DSM 登入後會以實際回應的 NAS 序號建立整合，所以即使收到原生建立結果，也必須在設備登錄看到探索時的 NAS 網卡 MAC 屬於這筆新整合，才顯示接入完成；同一位址換成另一台 NAS 時維持待確認。每步輸入 30 分鐘內有效，逾時後重新讀取即可繼續；一次接入最多送出 8 步，達到上限即停止，可重新準備新的接入（需要再次確認與備份）。
+
+NAS 若早已接入，原生流程會以新輸入的帳號更新原連線（`reconfigure_successful`）；聊天如實說明「已用你輸入的帳號更新原有連線」，不宣稱建立新整合，也不推測是哪一筆。原生流程在重新登入出錯時會回到含預設值的完整設定表單，聊天不讀取也不保存該表單，改由固定的原生家庭設定入口完成。
+
+登入沿用原生預設：HTTPS、預設連接埠 5001、不驗證 NAS 自簽憑證，以及原生預設備份路徑；聊天不支援自訂連接埠。多網卡或同網段多台 NAS 的實機情境，以及真實 DSM 韌體的受信任裝置與過期驗證碼行為尚未驗證。新寫入的 Synology 接入紀錄為版本 3；IPP／Shelly 維持版本 2，保存欄位與前一版相同。舊 binary 遇到未知紀錄停止新接入寫入。上游邊界見固定版本 [Synology 設定流程](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/synology_dsm/config_flow.py)。
+
+### 換對話後續接與解讀結果
+
+聊天的「設備接入進度」在展開時讀取保存清單。Owner 明確選定一筆後，才讀回該工作的最新狀態；不因開啟、切換對話或重新整理而重送批准。歷史入口可以核對結果不明的原工作，不提供新的接入批准。
+
+「請管家解讀結果」以當前 Web／Hermes 訊息的 `device_setup_id` 分享精確一筆紀錄，保留原草稿。`home.device_setup_status` 不接受模型參數，只能讀取這次訊息選定的工作。它重新確認 Owner、家庭連線、對話／側欄授權及紀錄版本，回傳經去密的摘要與最多十六筆關聯設備；不提供批准、備份識別或任意家庭 API 存取。
+
+已完成的接入是歷史事實，目前整合是否存在、是否載入及功能狀態是否可讀取則來自這次觀測。來源失敗或截短保留未知／範圍限制；不以舊成功紀錄推定目前可用，也不當成實體功能驗證。未在當前訊息選定工作時，工具只說明如何分享，不讀取清單。後續訊息不繼承新的讀取授權；已分享摘要仍依原本的對話保存政策保留。
+
+只更新 Controller 的既有安裝可能仍使用較舊的管家映像。送出這類解讀前，Controller 先確認 runtime 實際宣告 `home.device_setup_status`；沒有這項工具時，不送出模型工作，直接說明版本限制，保留進度查閱與一般對話。此檢查不切換映像、不清除登入，也不要求重新授權。
 
 ## 現行多來源流程
 
@@ -31,14 +83,31 @@
 | 取得方式 | 實際收集內容 | 涵蓋範圍 |
 |---|---|---|
 | 主機鄰居表 | 所選介面的 IPv4／MAC 快取 | 快取不是設備在線證明，不發送網段掃描 |
-| mDNS | 固定服務類型的 PTR 回應和服務名稱 | 有界 multicast 查詢；回應位址可能是服務代理，不是已核對的設備 IP |
+| mDNS | 固定服務類型的 PTR 回應和服務名稱；同封包、同完整 HTTP 服務實例的 Synology 廠商分類 | 有界 multicast 查詢；不保存原始 TXT 欄位，回應位址可能是服務代理，不是已核對的設備 IP |
 | SSDP | M-SEARCH 回應的服務類型與有限宣告欄位 | 不下載 LOCATION、不讀設備管理頁、不抓完整描述或 TXT |
 | 路由器／防火牆匯出 | JSON、CSV、dnsmasq 租約中的選定欄位 | 使用者匯入的清單；沒有登入路由器，也不持有管理憑證 |
 | HA | 探索候選、整合、設備、entities 與 API 狀態 | 繼續使用既有唯讀來源，不因盤點而增加控制權限 |
 
 主機只提供目前啟用、具實體裝置證明的 Ethernet／Wi-Fi IPv4 介面。介面識別碼由主機產生，掃描前重新核對；不接受模型或瀏覽器指定任意 IP／CIDR。每次只保存最近一次選定網路的 LAN 結果，匯入清單另外保存；新掃描取代舊 LAN 結果，新匯入取代舊匯入。虛擬 bridge、VLAN、VPN、IPv6、隔離訪客網路、休眠設備及非 IP 子設備需其他來源補足，空結果不代表全部設備已接通。
 
-辨識規則是有版本、可審查的 adapter，依官方 HA manifest 支援 Hue、Google Cast、ESPHome、HomeKit Device、Shelly 服務線索；匯入名稱／廠商中 Tuya、Smart Life 等線索提供帳號接入指引。Google Cast 不代表 Google Home 的全部帳號設備，品牌名稱與 MAC 不構成已確認型號。未辨識項目仍保留，可選取交給管家協助核對。不同來源不按名稱、IP 或 MAC 自動合併，列表筆數稱「觀測」，不宣稱有同樣數量的實體設備。
+辨識規則是有版本、可審查的 adapter，依官方 HA manifest 支援 Hue、Google Cast、ESPHome、HomeKit Device、Shelly，以及下列 IPP、Synology、Matter 服務線索；匯入名稱／廠商中 Tuya、Smart Life 等線索提供帳號接入指引。Google Cast 不代表 Google Home 的全部帳號設備，品牌名稱與 MAC 不構成已確認型號。未辨識項目仍保留，可選取交給管家協助核對。不同來源不按名稱、IP 或 MAC 自動合併，列表筆數稱「觀測」，不宣稱有同樣數量的實體設備。
+
+### 常見網路服務帶入聊天
+
+固定收集器增加 `_ipp._tcp`、`_ipps._tcp` 與 `_matterc._udp`，沿用原本選定實體 IPv4 網路、明確確認、時間／封包／大小限制與冷卻時間。Controller 的辨識規則摘要版本為 2；保存格式與 API 契約仍為 1，舊觀測依目前規則重新投影，不重跑掃描。新增查詢需要新版 Host 收集器，僅更新 Controller 不會改變已安裝 Host 的查詢範圍。
+
+| 線索 | 可以說明的下一步 | 不能推定的事 |
+|---|---|---|
+| IPP／IPPS 服務 | 核對是印表機本身或共享佇列；HA 已發現的支援候選才提供接入提案 | CUPS 可能代答；不按同名／同位址合併，不代表已裝列印服務或可列印 |
+| HTTP 服務及同實例 `vendor=synology*` | 作為 Synology 儲存服務線索，依原生流程完成帳號設定 | 只保存固定 `synology` 分類；不是已核對型號、設備身分或原生設定已就緒 |
+| Matter `_matterc._udp` | 說明待配對服務的可能性，依手機原生流程及配對碼核對 | 不保證設備尚未加入其他家庭；不分享配對碼，不代表 IPv6／Thread 通路已可用 |
+| Matter `_matter._tcp` | 保留為運作中的服務觀測 | 不因此新增待配對建議或要求重設設備 |
+
+Synology 的通用 HTTP 名稱、SSDP Basic 類型或品牌字樣不足以證明身分。廠商宣告須綁定同封包的精確 PTR／TXT 實例，重複或畸形 TXT 不提供分類；其他 TXT、原始值與後綴不保存。匯入清單的服務／廠商仍只是 `hint`；SSDP 未下載 XML，因此不能取得官方規則所需的廠商證據。Home Connect 不從任意家電名稱猜測，繼續使用 HA 已提供的候選。
+
+聊天逐筆區分 HA 已發現候選與保存的網路線索，保留各類型的下一步。按「請管家核對」仍帶著所選來源與種類，不把同名線索當成同一設備。網路 IPP 線索不能直接批准接入；後端仍要求精確的 HA 原生確認流程。
+
+規則依 Core `2026.10.2` 的 [IPP manifest](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/ipp/manifest.json)、[Synology manifest](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/synology_dsm/manifest.json)、[Synology 設定流程](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/synology_dsm/config_flow.py) 及 [Matter manifest](https://github.com/home-assistant/core/blob/2026.10.2/homeassistant/components/matter/manifest.json) 核對；服務語意另見 [Matter 探索](https://github.com/project-chip/connectedhomeip/blob/master/docs/tips_and_troubleshooting/discovery_from_a_host_computer.md) 與 [CUPS 共享](https://openprinting.github.io/cups/doc/sharing.html)。合成封包／聊天驗證不能代替實際家中探索與配對。
 
 ### 第一次家庭接入
 
@@ -103,7 +172,7 @@ HA 側欄僅新增精確的 `GET /api/discovery`，必須通過既有 Ingress �
 
 ## 可接續的接入追蹤（D3b 工程切片）
 
-設備頁與管家「分享探索結果」內提供折疊的「接入進度」。展開後才讀取保存的追蹤；Owner 對當前候選按「追蹤接入」，Controller 重新核對候選後保存名稱、整合類型、觀測時間與當時已知的同類型整合 ID。使用者經固定 `/config/integrations` 入口完成 HA 原生登入／配對，再回來讀取結果。產品不啟動、提交或刪除 HA 設定流程。
+設備頁與管家「分享探索結果」內提供折疊的「接入進度」。展開後才讀取保存的追蹤；Owner 對當前候選按「追蹤接入」，Controller 重新核對候選後保存名稱、整合類型、觀測時間與當時已知的同類型整合 ID。使用者經固定 `/config/integrations` 入口完成 HA 原生登入／配對，再回來讀取結果。這個追蹤區不啟動、提交或刪除 HA 設定流程；目前支援的聊天內接入另見上方 IPP、Shelly 1 與 Synology NAS 流程。
 
 回來後由 Owner 明確選定一個同類型的整合實例，即使只有一項也不預選。名稱相同時顯示必要識別碼；追蹤建立後首次看到的實例不等於由這次操作建立。起始來源不完整時，「原本是否存在」保持未知。候選消失只表示本次未見，不顯示設定成功。
 

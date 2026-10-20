@@ -8,7 +8,7 @@ Identifier = Annotated[str, Field(pattern=r"^[a-f0-9]{32}$")]
 TOOLS = (
     "host.status", "worker.capabilities", "worker.submit", "worker.status",
     "worker.cancel", "worker.result", "case.evidence.read",
-    "home.observe", "home.propose", "home.proposal_status", "home.discover",
+    "home.observe", "home.propose", "home.proposal_status", "home.discover", "home.device_setup_status",
 )
 
 

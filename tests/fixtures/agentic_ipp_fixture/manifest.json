@@ -1,0 +1,9 @@
+{
+  "domain": "agentic_ipp_fixture",
+  "name": "Synthetic IPP contract test fixture",
+  "version": "1.0.0",
+  "codeowners": [],
+  "dependencies": [],
+  "requirements": [],
+  "iot_class": "local_polling"
+}

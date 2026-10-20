@@ -1,0 +1,121 @@
+{
+  "$defs": {
+    "DeviceSetupLinkInput": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "password": {
+          "format": "password",
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Password",
+          "type": "string",
+          "writeOnly": true
+        },
+        "step": {
+          "const": "link",
+          "title": "Step",
+          "type": "string"
+        },
+        "username": {
+          "format": "password",
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Username",
+          "type": "string",
+          "writeOnly": true
+        }
+      },
+      "required": [
+        "username",
+        "password",
+        "expected_revision",
+        "step"
+      ],
+      "title": "DeviceSetupLinkInput",
+      "type": "object"
+    },
+    "DeviceSetupOTPInput": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "otp_code": {
+          "format": "password",
+          "maxLength": 8,
+          "minLength": 6,
+          "pattern": "^[0-9]{6,8}$",
+          "title": "Otp Code",
+          "type": "string",
+          "writeOnly": true
+        },
+        "step": {
+          "const": "2sa",
+          "title": "Step",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "step",
+        "otp_code"
+      ],
+      "title": "DeviceSetupOTPInput",
+      "type": "object"
+    },
+    "DeviceSetupShareInput": {
+      "additionalProperties": false,
+      "properties": {
+        "backup_share": {
+          "pattern": "^/[^\\x00-\\x1f]{1,255}$",
+          "title": "Backup Share",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "step": {
+          "const": "backup_share",
+          "title": "Step",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "step",
+        "backup_share"
+      ],
+      "title": "DeviceSetupShareInput",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "2sa": "#/$defs/DeviceSetupOTPInput",
+      "backup_share": "#/$defs/DeviceSetupShareInput",
+      "link": "#/$defs/DeviceSetupLinkInput"
+    },
+    "propertyName": "step"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/DeviceSetupLinkInput"
+    },
+    {
+      "$ref": "#/$defs/DeviceSetupOTPInput"
+    },
+    {
+      "$ref": "#/$defs/DeviceSetupShareInput"
+    }
+  ],
+  "title": "DeviceSetupInput"
+}

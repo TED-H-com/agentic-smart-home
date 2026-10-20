@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "classification": "compiled_product_browser_protocol_fixture",
+  "code_commit": "df15d8f0bbda635dd9bf48a8484a77b20179940e",
+  "source_sha256": {
+    "web/src/conversation-discovery.tsx": "0ee43c869d1b0a9e59ec738b5ed87c738869a2abe824edafb66d7f0ba32e0253",
+    "web/src/gateway.tsx": "48167c374558a38c173acd207b9c5562d0af87545f97da19e12f97132acff59d",
+    "web/src/network-inventory.tsx": "2fea0b2ae65cdd0baa0a28befc4c8f6d4efc41bee4ba0a9fd35c896c05ef87b8",
+    "web/src/device-setup.tsx": "2912630e903d23f5ef3b9ab6607968cb7dc983d329298cadabc95b096c0a407a",
+    "tests/test_network_candidate_guidance_ui.py": "8b6762eae0372c30039e0efeb14974baf9103b540d0c76525d14bbb636687469",
+    "controller/static/index.html": "a690cba4d4c0c5ec21b8f9f4be11d2ba30159cc248f64b50099df93bf29c2ff8"
+  },
+  "files": [
+    {
+      "file": "mixed-network-clues-1440.png",
+      "sha256": "965eaffd107f0964fbc590b4a968bd0f6a68f481fc9cfb3b4a6ecd67149022f3",
+      "bytes": 117764
+    },
+    {
+      "file": "mixed-network-clues-390.png",
+      "sha256": "c20736516be95c43bf9cdb2985388ce207d605557c33e6f54b36b64ab9057741",
+      "bytes": 60089
+    },
+    {
+      "file": "mixed-network-clues-768.png",
+      "sha256": "f249c7cd5ac25f44234cba29cb16d9e12b0177ffa5b6769dfc258480e8228e7a",
+      "bytes": 82565
+    },
+    {
+      "file": "mixed-network-clues-ha-390.png",
+      "sha256": "7ef109d80fbe67e17363e278d81864fa6149cf3234160a9eb2d33c5815545677",
+      "bytes": 57832
+    }
+  ],
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "width": 768,
+      "height": 844
+    },
+    {
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "inspection": "Three viewports and separate 390px HA candidate inspected; source labels and distinct actions are visible. The conversation viewport scrolls separately from the preserved composer.",
+  "limitations": [
+    "All household/device/model responses are synthetic protocol fixtures.",
+    "These images do not establish real hardware, account, LAN, deployment or physical function acceptance."
+  ]
+}

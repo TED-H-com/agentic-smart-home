@@ -238,3 +238,22 @@ def test_discovery_bounded_lists_and_ingress_handoff(discovery_browser):
     expect(panel.locator('.discovery-devices li')).to_have_count(42)
     expect(panel.get_by_role('button', name='再顯示 20 台')).to_have_count(0)
     assert not any(method == 'POST' for method, _, _ in state['requests'])
+
+
+@pytest.mark.parametrize('step', ['link', 'unknown_step'])
+def test_synology_link_candidate_uses_shared_discovery_steps(discovery_browser, step):
+    page, state = discovery_browser
+    candidate = {**state['snapshot']['candidates'][0], 'id': 'synthetic-nas',
+                 'title': '合成 NAS', 'integration_domain': 'synology_dsm',
+                 'discovery_method': 'ssdp', 'confirmation_step': step}
+    state['snapshot']['candidates'].append(candidate)
+    page.goto(state['url'])
+    panel = page.get_by_role('region', name='探索設備')
+    if step == 'link':
+        expect(panel.get_by_text('合成 NAS', exact=True)).to_be_visible()
+        expect(panel.get_by_text('待連接的燈光橋接器（介面測試資料）', exact=True)).to_be_visible()
+        expect(panel.get_by_role('alert')).to_have_count(0)
+    else:
+        expect(panel.get_by_role('alert')).to_contain_text('格式已變更')
+        expect(panel.locator('.discovery-candidates')).to_have_count(0)
+    assert not any(method == 'POST' for method, _, _ in state['requests'])

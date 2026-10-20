@@ -3,6 +3,23 @@
     "DiscoveryChatCandidate": {
       "additionalProperties": false,
       "properties": {
+        "confirmation_step": {
+          "anyOf": [
+            {
+              "enum": [
+                "zeroconf_confirm",
+                "confirm_discovery",
+                "link"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confirmation Step"
+        },
         "discovery_method": {
           "title": "Discovery Method",
           "type": "string"
@@ -54,6 +71,451 @@
         "next_step"
       ],
       "title": "DiscoveryChatCandidate",
+      "type": "object"
+    },
+    "DiscoveryChatEnvironment": {
+      "additionalProperties": false,
+      "properties": {
+        "device_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Device Count"
+        },
+        "devices": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DiscoveryDevice"
+          },
+          "maxItems": 16,
+          "title": "Devices",
+          "type": "array"
+        },
+        "integration_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Integration Count"
+        },
+        "integrations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DiscoveryIntegration"
+          },
+          "maxItems": 16,
+          "title": "Integrations",
+          "type": "array"
+        },
+        "inventory_expires_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inventory Expires At"
+        },
+        "inventory_observation_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inventory Observation Count"
+        },
+        "inventory_observations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DiscoveryChatObservation"
+          },
+          "maxItems": 16,
+          "title": "Inventory Observations",
+          "type": "array"
+        },
+        "inventory_revision": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inventory Revision"
+        },
+        "inventory_sources": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/InventorySource"
+          },
+          "maxItems": 4,
+          "title": "Inventory Sources",
+          "type": "array"
+        },
+        "network": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DiscoveryChatNetwork"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        }
+      },
+      "title": "DiscoveryChatEnvironment",
+      "type": "object"
+    },
+    "DiscoveryChatNetwork": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "default": "unknown",
+          "enum": [
+            "nat",
+            "wired",
+            "unknown"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "next_step": {
+          "maxLength": 160,
+          "title": "Next Step",
+          "type": "string"
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed At"
+        },
+        "reason_code": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason Code"
+        },
+        "state": {
+          "enum": [
+            "unavailable",
+            "not_configured",
+            "needs_home_setup",
+            "waiting_for_address",
+            "adapter_selection_required",
+            "callback_address_required",
+            "ready"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "next_step"
+      ],
+      "title": "DiscoveryChatNetwork",
+      "type": "object"
+    },
+    "DiscoveryChatObservation": {
+      "additionalProperties": false,
+      "description": "Names and source coverage shared with the assistant, never addresses or raw metadata.",
+      "properties": {
+        "id": {
+          "pattern": "^[a-zA-Z0-9_-]{1,128}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "manufacturer": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manufacturer"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "observed_at": {
+          "maxLength": 160,
+          "title": "Observed At",
+          "type": "string"
+        },
+        "reachability": {
+          "default": "unknown",
+          "enum": [
+            "unknown",
+            "responded"
+          ],
+          "title": "Reachability",
+          "type": "string"
+        },
+        "services": {
+          "default": [],
+          "items": {
+            "maxLength": 160,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Services",
+          "type": "array"
+        },
+        "source_id": {
+          "enum": [
+            "lan_neighbors",
+            "lan_mdns",
+            "lan_ssdp",
+            "router_import"
+          ],
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_updated_at": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Updated At"
+        }
+      },
+      "required": [
+        "id",
+        "source_id",
+        "observed_at"
+      ],
+      "title": "DiscoveryChatObservation",
+      "type": "object"
+    },
+    "DiscoveryDevice": {
+      "additionalProperties": false,
+      "properties": {
+        "available_entity_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Available Entity Count"
+        },
+        "disabled": {
+          "default": false,
+          "title": "Disabled",
+          "type": "boolean"
+        },
+        "entity_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity Count"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "integration_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Integration Ids",
+          "type": "array"
+        },
+        "manufacturer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manufacturer"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "parent_device_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Device Id"
+        },
+        "source_id": {
+          "const": "ha_devices",
+          "default": "ha_devices",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "via_device_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Via Device Id"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "DiscoveryDevice",
+      "type": "object"
+    },
+    "DiscoveryIntegration": {
+      "additionalProperties": false,
+      "properties": {
+        "domain": {
+          "title": "Domain",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "source_id": {
+          "const": "ha_integrations",
+          "default": "ha_integrations",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "loaded",
+            "not_loaded",
+            "retry",
+            "error",
+            "disabled",
+            "ignored",
+            "unknown"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "domain",
+        "title",
+        "state"
+      ],
+      "title": "DiscoveryIntegration",
       "type": "object"
     },
     "DiscoverySource": {
@@ -178,6 +640,131 @@
       ],
       "title": "DiscoverySource",
       "type": "object"
+    },
+    "InventorySource": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Adapter Version",
+          "type": "integer"
+        },
+        "content_digest": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Digest"
+        },
+        "id": {
+          "enum": [
+            "lan_neighbors",
+            "lan_mdns",
+            "lan_ssdp",
+            "router_import"
+          ],
+          "title": "Id",
+          "type": "string"
+        },
+        "item_count": {
+          "anyOf": [
+            {
+              "maximum": 1024,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Item Count"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "maxLength": 160,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Limitations",
+          "type": "array"
+        },
+        "method": {
+          "enum": [
+            "neighbor_table",
+            "mdns",
+            "ssdp",
+            "json_import",
+            "csv_import",
+            "dnsmasq_import"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed At"
+        },
+        "reason_code": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason Code"
+        },
+        "state": {
+          "enum": [
+            "ok",
+            "partial",
+            "unavailable",
+            "not_configured",
+            "expired"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "target": {
+          "maxLength": 160,
+          "title": "Target",
+          "type": "string"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "state",
+        "method",
+        "target"
+      ],
+      "title": "InventorySource",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -224,6 +811,17 @@
       "title": "Contract Version",
       "type": "integer"
     },
+    "environment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DiscoveryChatEnvironment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "limitations": {
       "default": [],
       "items": {
@@ -251,6 +849,15 @@
       ],
       "default": null,
       "title": "Observed At"
+    },
+    "share_scope": {
+      "default": "ha_candidates",
+      "enum": [
+        "ha_candidates",
+        "environment"
+      ],
+      "title": "Share Scope",
+      "type": "string"
     },
     "sources": {
       "default": [],

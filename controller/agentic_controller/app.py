@@ -26,6 +26,8 @@ from .bootstrap import Bootstrap
 from .bootstrap import routes as bootstrap_routes
 from .bridge import IngressBridge
 from .bridge_maintenance import BridgeFault, BridgeMaintenance
+from .device_setup import routes as device_setup_routes
+from .device_setup_chat import DeviceSetupChat
 from .discovery import routes as discovery_routes
 from .discovery_chat import DiscoveryChat
 from .discovery_setup import routes as discovery_setup_routes
@@ -159,12 +161,15 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     @asynccontextmanager
     async def lifespan(app):
         store.recover()
+        device_setups.recover()
         store.prune()
+        device_setups.prune()
         await ha.start()
         async def maintain():
             while True:
                 await asyncio.sleep(600)
                 store.prune()
+                device_setups.prune()
 
         watchers = [asyncio.create_task(ha.watch()), asyncio.create_task(engine.observe()), asyncio.create_task(maintain())]
         if gateway:
@@ -217,6 +222,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
     discovery_routes(app, store, ha, host_session)
     network_inventory_routes(app, store, ha, host_session)
     discovery_setup_routes(app, store, ha, host_session)
+    device_setups = device_setup_routes(app, store, ha, host_session, writer=engine.writer, spawn=spawn)
     if host_mode:
         host_routes(app, host_session, ha, store, runner, controller_id)
         ha_oauth_routes(app, host_session, ha, store)
@@ -668,9 +674,13 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         if body.context_days > body.audit_days:
             raise Rejected("觀測資料保存天數不能大於任務紀錄")
         if coordinator:
-            return await coordinator.worker_manager.update_retention(body.model_dump())
+            try:
+                return await coordinator.worker_manager.update_retention(body.model_dump())
+            finally:
+                device_setups.prune()
         store.set_setting("retention", body.model_dump())
         store.prune()
+        device_setups.prune()
         return body.model_dump()
 
     @app.get("/api/evidence")
@@ -684,6 +694,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         coordinator.scope_valid = gateway.scope_valid
         coordinator.household = Household(store, engine, coordinator)
         coordinator.discovery = DiscoveryChat(app, store, ha, coordinator)
+        coordinator.device_setup_status = DeviceSetupChat(app, store, ha, coordinator)
         coordinator.worker_manager.runners = {"host": runner, "haos": inner_runner}
         hermes_routes(app, coordinator, store)
         worker_routes(app, coordinator.worker_manager)

@@ -55,6 +55,7 @@ HEADER = Annotated[str, Field(max_length=2048, pattern=r"^[^\r\n]*$")]
 GET_PATHS = (
     r"/api/(deployment|session|gateway/messages|discovery)",
     r"/api/discovery/setups", rf"/api/discovery/setups/{IDENT}",
+    r"/api/device-setups", rf"/api/device-setups/{IDENT}",
     r"/api/discovery/inventory", r"/api/discovery/inventory/scopes",
     rf"/api/hermes/cases/{IDENT}", rf"/api/tasks/{IDENT}",
     rf"/api/worker/jobs/{IDENT}", rf"/api/worker/jobs/{IDENT}/artifacts/{ARTIFACT}",
@@ -62,6 +63,7 @@ GET_PATHS = (
 )
 POST_PATHS = (
     r"/api/discovery/setups", rf"/api/discovery/setups/{IDENT}/(select|forget)",
+    r"/api/device-setups", rf"/api/device-setups/{IDENT}/(approve|reconcile|input)",
     r"/api/discovery/inventory/(scan|import|clear)",
     r"/api/gateway/messages", rf"/api/tasks/{IDENT}/(reply|cancel)",
     rf"/api/proposals/{IDENT}/(approve|test|reconcile)",
@@ -553,6 +555,9 @@ class IngressBridge:
     async def stop_origin(self, generation):
         if not generation:
             return
+        device_setups = getattr(self.app.state, "device_setups", None)
+        if device_setups:
+            await device_setups.stop_bridge(generation)
         messages = [item for item in self.store.list("conversation", 10000) if item.get("bridge_pairing_id") == generation]
         identifiers = {item["id"] for item in messages}
         for grant in self.store.list("mcp_grant", 10000):
@@ -601,6 +606,8 @@ class IngressBridge:
             active = any("chat-" + identifier in self.gateway.running for identifier in identifiers)
             active |= any(item.get("authority", {}).get("message_id") in identifiers and item.get("state") not in
                 {"succeeded", "failed", "cancelled", "expired"} for item in self.store.list("work_job", 10000))
+            device_setups = getattr(self.app.state, "device_setups", None)
+            active |= bool(device_setups and device_setups.bridge_active(generation))
             if not active:
                 continue
             try:

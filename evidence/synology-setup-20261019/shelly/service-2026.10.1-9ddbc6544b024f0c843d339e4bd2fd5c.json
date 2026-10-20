@@ -1,0 +1,70 @@
+{
+  "expected_core": "2026.10.1",
+  "image": "ghcr.io/home-assistant/home-assistant:2026.10.1",
+  "image_id": "sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0",
+  "repo_digests": [
+    "ghcr.io/home-assistant/home-assistant@sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0"
+  ],
+  "run_id": "9ddbc6544b024f0c843d339e4bd2fd5c",
+  "started_at": "2026-10-20T05:49:34.264026+00:00",
+  "core": "2026.10.1",
+  "mode": "service",
+  "model": "SHSW-1",
+  "reported_model": "Shelly 1",
+  "result": "all_runtime_assertions_passed",
+  "finished_at": "2026-10-20T05:50:03.572491+00:00",
+  "operations": {
+    "fixture_boot": 2,
+    "http:/shelly": 4,
+    "coap:/cit/s": 3,
+    "http:/settings": 3,
+    "http:/status": 3,
+    "http:/cit/d": 3
+  },
+  "device_count": 1,
+  "entity_count": 7,
+  "available_entity_count": 1,
+  "confirmation_posts": 1,
+  "fixture_backups": 1,
+  "full_core_restart": true,
+  "controller_store_reopened": true,
+  "approval_replay_caused_no_effects": true,
+  "native_model_text_not_generation_attestation": true,
+  "real": [
+    "Core Owner authorization",
+    "production proposal/approval/send guards/persistence",
+    "native Shelly flow",
+    "unmodified aioshelly HTTP/CoIoT",
+    "native coordinator/relay entity",
+    "exact registry and state readback",
+    "Core restart and idempotent persisted approval"
+  ],
+  "fixtures": [
+    "synthetic Zeroconf injection",
+    "loopback SHSW-1 HTTP and CoIoT responder",
+    "Supervisor backup response",
+    "outer HTTP session transport"
+  ],
+  "not_tested": [
+    "physical Shelly",
+    "physical generation attestation",
+    "RPC/Bluetooth flows",
+    "LAN multicast discovery",
+    "Supervisor backup",
+    "HAOS",
+    "live household",
+    "relay actuation",
+    "real transport response loss",
+    "unlisted Core versions"
+  ],
+  "source_sha256": {
+    "tests/test_device_setup_shelly_real_ha.py": "af9e27c0c96d098a6aac136b5a25bce6d5b049d81ddffc464019dac1f0848d22",
+    "tests/fixtures/agentic_shelly_fixture/__init__.py": "b6414b2aefab492434f8fb074a13f4442fd83b833f0ec043e44a84e3a56e9ee6",
+    "tests/fixtures/agentic_shelly_fixture/manifest.json": "ea0d811aa6ee2d86c23ab7c9dbb99ac96c7c43ce58696028782567692f65893d",
+    "tests/fixtures/agentic_shelly_fixture/services.yaml": "69d0e4b63e62d96badddb9d42e5ea267ec7d9c166cac7a9af4d7498419099d41",
+    "controller/agentic_controller/device_setup.py": "054b92270cb26f3d59481166ea51b7389d45a5b134d7246d51e168d9e8018f79",
+    "controller/agentic_controller/device_setup_adapters.py": "a52f781baa6df8a1ef9010554cbf8bd952f4ef72d791cbd933040c4fadca84c8",
+    "controller/agentic_controller/models.py": "9d371f10934fa885d389ced5f2bb0b09dc3a9c952f20a3db9e112a3e3d215be4",
+    "controller/agentic_controller/discovery.py": "d74a334e99b6244b432777ba9d8f0c10d50305b4422fbfcaac83aabda5584961"
+  }
+}
