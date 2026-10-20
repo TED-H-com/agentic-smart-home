@@ -1,7 +1,7 @@
 {
-  "source_commit": "df63f4f9fccb457fa1c532f071950b55c194d0e8",
-  "source_tree": "a12fc6550c0537332fe0d8433e43c8eb47339894",
-  "frontend_source_tree": "6f1d469e75bc750103a7abebd037a2f598d26604",
+  "source_commit": "ce323f39acd90cb4f1d11ef90f076221d4489e63",
+  "source_tree": "4ec5a521120807223aa15e48c8386c91acba56e0",
+  "frontend_source_tree": "54aeb53eb2b39cd79d0c0fe6a779621abfafd2f4",
   "source_files": [
     {
       "file": "scripts/site_screenshots.py",
@@ -81,7 +81,7 @@
     },
     {
       "file": "web/preview/fixtures.json",
-      "sha256": "792ab1cdffc33728d07597af64cbfbd1193c6971264073101e68eb5480d9bd67"
+      "sha256": "cc02b2d77a27ccaf2c2203fe05583eb555e8d332d40d3ab0e461cee61f170ee8"
     }
   ],
   "fixture_clock": "2026-10-13T09:00:00+08:00",
@@ -127,7 +127,7 @@
     },
     {
       "file": "discovery.png",
-      "sha256": "2811130fb4c9984f3460e31a5e6645a8bbb5c01f9621c29cef3edaa180d0ef5c",
+      "sha256": "aa64b9a77e5e1f3bc1a87c36d76d3319507ea93eb7dcef3469556766c9e954e4",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -135,11 +135,11 @@
       "device_scale_factor": 1,
       "route": "#/agentic-home",
       "surface": "product-in-ha-simulation",
-      "bytes": 112721
+      "bytes": 110423
     },
     {
       "file": "gateway.png",
-      "sha256": "3ab1b89637cb0434a488d014df533bb10ff2f2ecfe6a085b0213db1206c2b7bb",
+      "sha256": "132f3e324c1e8cf5631b70b11cb7fd8c3ece55c890041e4555f3c9a56b505b80",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -147,7 +147,7 @@
       "device_scale_factor": 1,
       "route": "#gateway",
       "surface": "product",
-      "bytes": 72132
+      "bytes": 79538
     },
     {
       "file": "proposal.png",
@@ -199,7 +199,7 @@
     },
     {
       "file": "bridge.png",
-      "sha256": "71ca46af26567dc7d4b09ec9281b8db88ed11a3e37180c5fd22a693eebb3a887",
+      "sha256": "dfedb3614c1ed0374e765679c900fa9744ca148ea41ff4aa1e66a366cbde4838",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -207,7 +207,7 @@
       "device_scale_factor": 1,
       "route": "#/agentic-home",
       "surface": "product-in-ha-simulation",
-      "bytes": 74724
+      "bytes": 82083
     },
     {
       "file": "phone.png",
@@ -223,7 +223,7 @@
     },
     {
       "file": "../og.png",
-      "sha256": "5de3e3850c0199bb1fd86b2247496f04030fe1683a009eb6d96956667d561ff8",
+      "sha256": "da874a70b954abab1ed99fb03bb965f413422d80802e658489deb28208a7f48e",
       "viewport": {
         "width": 1200,
         "height": 630
