@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "code_commit": "7017c7733f91c8ad3517124a75055552851a4a3b",
+  "code_commit": "a7b46a4dfc59f7477b93e8a59dd18984159194b1",
   "base_commit": "549b409c402cf695b6486d1de8cf6a60a0d8d6d0",
   "classification": "synthetic_protocol_browser_evidence",
   "target": "Compiled chat device-setup card at #gateway; synthetic synology_dsm discovery and API replies.",
   "method": "Playwright Chromium with page.route protocol fixtures; no real NAS, account, household or HA runtime.",
-  "recorded_at": "2026-10-20T04:44:14.166264+00:00",
+  "recorded_at": "2026-10-20T05:29:21.532928+00:00",
   "versions": {
     "application": "0.11.1",
     "pytest": "9.1.1",
@@ -26,7 +26,7 @@
     ]
   },
   "source_sha256": {
-    "web/src/device-setup.tsx": "1abd93e4cd1ccd6e60fb76bbb8a89a6a96edaa6693053268b4bdc2ee9b40dd86",
+    "web/src/device-setup.tsx": "d0d82e7472e82c2ff504ac0510fbb3d58977ce6fc6301bade5c019fbb0245761",
     "web/src/device-setup.css": "f3e64d9bd766422d1f1a932f360039cab3828864b70b443c15667a19a0131ccd",
     "web/src/device-setup-history.tsx": "a52ae095b63393e0b85b8d1ecbf915a09226a8e7cf6981e8f488a7793b42dfbe",
     "web/src/conversation-discovery.tsx": "0ee43c869d1b0a9e59ec738b5ed87c738869a2abe824edafb66d7f0ba32e0253",
@@ -36,29 +36,29 @@
     "web/src/gateway.tsx": "48167c374558a38c173acd207b9c5562d0af87545f97da19e12f97132acff59d",
     "web/src/style.css": "bc84a7230a06810367b68e02034a7c5561881fbd5eb9ff8acfcfa9621ceb89dc",
     "web/package-lock.json": "1298bfa600704392ed56e288b46dc601724886266c82f350b1793577a6092a40",
-    "tests/test_synology_device_setup_ui.py": "821fe9881d1dc1e3fe0ce74899a6bc9bfbe41f3419d6a9cbb5b89215ee56c7c8",
+    "tests/test_synology_device_setup_ui.py": "e46db85f9b8c15f171826b305584346c3187595d6587f7404ee9dce5ee1f2adb",
     "tests/test_shelly_device_setup_ui.py": "1bcee6b2db0b13c3f7c694558e520951be4ce8bef7fa20a7b958e1d11277a7d0",
     "tests/test_conversation_discovery_ui.py": "8df1a58df33afefe6e454f7e80222e60399ada143934dd52c3aa07a1cb472b3d",
     "tests/test_browser_device_setup_history.py": "de261d8d3958ffbc45b6ad3b0ac840294d128e1f19e84f43729d8c48d81a25c0",
     "tests/test_discovery_ui.py": "79a8f045d115125f8ba069e3fb3663bb3f8c7c01d89dddee7b1a79e01dab3cc4",
     "tests/test_discovery_setup_ui.py": "f936744f3a356b3c7fa156048506edc1124c12828ee403f2e2597a04d12b3d75",
     "tests/test_gateway_ui.py": "6a4f8e69eca065cde8ebdd095795b76b885b57a496a9700a2637c7cdf3c240ef",
-    "controller/static/index.html": "59fba67a3c0017a7dcfc120306f82d7dbce6c1a81c84b5ef5e7d4369366e65df",
-    "controller/static/assets/index-CIxhlcN4.js": "27091f04fab92944805c45a6d51ecaef983b91b96e8739dab1160c10d55531d9",
+    "controller/static/index.html": "dcb7d63a51bb956c0ba39c6f5ee342d5da03111be52e823bd8589f2ae4d1fead",
     "controller/static/assets/index-DQuIfFL3.css": "51969e71f26793682d0efd8b53b07ca0a73f80c06050176e54461d2b1f3014a2",
-    "bridge/static/index.html": "59fba67a3c0017a7dcfc120306f82d7dbce6c1a81c84b5ef5e7d4369366e65df",
-    "bridge/static/assets/index-CIxhlcN4.js": "27091f04fab92944805c45a6d51ecaef983b91b96e8739dab1160c10d55531d9",
-    "bridge/static/assets/index-DQuIfFL3.css": "51969e71f26793682d0efd8b53b07ca0a73f80c06050176e54461d2b1f3014a2"
+    "bridge/static/index.html": "dcb7d63a51bb956c0ba39c6f5ee342d5da03111be52e823bd8589f2ae4d1fead",
+    "bridge/static/assets/index-DQuIfFL3.css": "51969e71f26793682d0efd8b53b07ca0a73f80c06050176e54461d2b1f3014a2",
+    "controller/static/assets/index-CtKTvHOl.js": "a1f2b6c5cee881f353ca599690475a0f09502cb25740383f15a74e8759bcee94",
+    "bridge/static/assets/index-CtKTvHOl.js": "a1f2b6c5cee881f353ca599690475a0f09502cb25740383f15a74e8759bcee94"
   },
   "run": {
-    "tests": 165,
+    "tests": 173,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "passed": 165,
-    "duration_seconds": 370.154,
-    "started_at": "2026-10-20T00:36:45.505877-04:00",
-    "junit_sha256": "32e9e961bdc81f65b6d37843bde650454c7bd1383248bd78f0255ea93f5d9272",
+    "passed": 173,
+    "duration_seconds": 588.804,
+    "started_at": "2026-10-20T01:19:06.329076-04:00",
+    "junit_sha256": "9fb6d32f3cc49e34576e155136a3c4ff7217dfaa97edaf312a5598645490c1fe",
     "test_modules": [
       "tests.test_browser_device_setup_history",
       "tests.test_conversation_discovery_ui",
@@ -75,20 +75,20 @@
       "tests.test_discovery_ui": 15,
       "tests.test_gateway_ui": 4,
       "tests.test_shelly_device_setup_ui": 16,
-      "tests.test_synology_device_setup_ui": 66
+      "tests.test_synology_device_setup_ui": 74
     },
-    "command": "SYNOLOGY_UI_EVIDENCE=evidence/ui/synology-setup-20261019 pytest-disktmp uv run pytest -q tests/test_synology_device_setup_ui.py tests/test_shelly_device_setup_ui.py tests/test_conversation_discovery_ui.py tests/test_browser_device_setup_history.py tests/test_discovery_ui.py tests/test_discovery_setup_ui.py tests/test_gateway_ui.py --junitxml=evidence/ui/synology-setup-20261019/junit.xml -x"
+    "command": "SYNOLOGY_UI_EVIDENCE=evidence/ui/synology-setup-20261019 pytest-disktmp uv run pytest -q tests/test_synology_device_setup_ui.py tests/test_shelly_device_setup_ui.py tests/test_conversation_discovery_ui.py tests/test_browser_device_setup_history.py tests/test_discovery_ui.py tests/test_discovery_setup_ui.py tests/test_gateway_ui.py --junitxml=evidence/ui/synology-setup-20261019/junit.xml"
   },
   "images": [
     {
       "file": "synology-2sa-synthetic-1440.png",
-      "sha256": "b49fd8435239c4be47b98aa4c96ab8bc2d6f1b3ddd816f144bddcbf437e8b6c4",
+      "sha256": "df998c413c7c34dac829cb54a821c562487cb05b1783f39768b1ff22166c1fa9",
       "synthetic": true,
       "shows": "Two-step verification explanation and empty verification code field."
     },
     {
       "file": "synology-2sa-synthetic-390.png",
-      "sha256": "f391142dd881fb8f6cd0a881977dfdb292ab016085cc0e2bc67201621d670714",
+      "sha256": "0cb27b42b05614c73f303832aa06e44ac4edac22a15dd241acc8bca180a72eb3",
       "synthetic": true,
       "shows": "Empty verification code field and submit action; the explanation begins above the thread crop."
     },
@@ -142,7 +142,7 @@
     },
     {
       "file": "synology-proposal-synthetic-390.png",
-      "sha256": "5b7d4aef86749695cb454e4b13fcf5ecacd0c6f38289a4e311de2362300a3e92",
+      "sha256": "0462a226e635ef28652a599b0d98659ba8eb12ef5d544a91b5e4a096d9da00da",
       "synthetic": true,
       "shows": "Empty NAS account/password fields and explicit login action; full proposal is above the thread crop."
     },
@@ -158,19 +158,20 @@
     "controller/static/downloads/agentic-runner.zip": "a4f482e7974686550f79df045967c4d37695b5afab8e36a5e083c7541a250875"
   },
   "notes": [
-    "All twelve final PNG contents were opened and visually inspected; their hashes match the inspected files.",
-    "Viewport captures scroll the active form within the conversation thread. Secret fields are empty. At 390 px, headings and some explanations remain above the thread crop and can be read by scrolling the thread.",
-    "All primary actions and input controls are inside the thread visible rectangle, allowing 1 px scroll rounding. Primary action centres and both horizontal edges pass elementFromPoint checks. Narrow folder actions wrap without changing the chat layout.",
-    "Owner actions alone request nearest scrolling when a step/state changes or becomes submittable. Mounts, passive polling, unchanged refreshes and exact-ID history do not request card scrolling.",
-    "The final suite covers all three non-submittable messages, re-arm recovery, six 409 sentences, one POST followed only by readback, cleared OTP, duplicate-message suppression, connected blocked reasons, and shared link/unknown-step discovery parsing.",
-    "layout.json records the guarded disk-temp probe: base 549b409 empty/discovery Host and current NAS Host all have document height 844 at viewport height 844; Host and Bridge retain overflow-y auto and visible credential controls.",
-    "Standalone probes before disk-TMPDIR enforcement are excluded from layout evidence. The committed measurement helper requires a unique disk temp directory under ~/agent-work/tmp/pytest.",
-    "Controller and Bridge HTML/assets are byte-identical. Both download ZIPs are byte-identical to base 549b409. Gateway test outputs outside this evidence directory were restored to their original bytes.",
-    "These are synthetic protocol fixtures. Real backend integration, real NAS/accounts/Home Assistant/HAOS and physical household acceptance remain not_run."
+    "All twelve PNGs were recaptured by the completed 173-case retry. Every final image content was opened and visually inspected; secret inputs are empty.",
+    "Viewport captures scroll the active form inside the conversation thread. At 390 px, headings and some explanations remain above the thread crop and can be read by scrolling.",
+    "Primary actions and input controls pass thread-rectangle and elementFromPoint checks with 1 px scroll-rounding tolerance; narrow folder actions retain their wrapped labels.",
+    "The suite accepts and selects slash plus 255 ASCII or supplementary Unicode characters, and rejects 257-character values, controls including a trailing newline, missing slashes and empty paths.",
+    "Existing explicit-action scrolling, non-submittable-step recovery, six 409 sentences, secret clearing, read-only lost-reply recovery and history cases remain covered.",
+    "layout.json was refreshed because the compiled input digest changed. It measured UI commit 784c329; those exact compiled inputs remain unchanged at the final code commit. Host document height is 844, Host thread height is 190.40625 px and Bridge thread height is 389.40625 px; both retain overflow-y auto.",
+    "All browser profiles, pytest temporary data and the layout probe used unique disk directories under ~/agent-work/tmp/pytest.",
+    "Controller and Bridge HTML/assets match byte-for-byte. Both download ZIPs match 549b409 byte-for-byte. Gateway-generated PNGs outside this evidence directory were restored to their original bytes.",
+    "An earlier browser invocation ended with exit 143 before a summary or fresh JUnit; its progress is excluded from these run counts. The completed persistent-terminal retry supplies this JUnit.",
+    "These screenshots use synthetic protocol fixtures. Separate pinned Core service/native runs are recorded under the external fix3/evidence directory; real NAS/accounts/HAOS and physical household acceptance remain not_run."
   ],
   "layout_measurement": {
     "file": "layout.json",
-    "sha256": "25f22ebc76a4929306d1a37fa0f3bd9599ccc37e91cc7aebf25d2110475e450e",
+    "sha256": "190f98284f41f1f36d6a0d4db62c3d54acf1c9f4f169e11db00cd7609026afef",
     "probe": "measure-layout.py",
     "probe_sha256": "e5a22d82f7ecb8beb271cac6277ca67e8dc7519f6042516c620e45b98d6c904d"
   }

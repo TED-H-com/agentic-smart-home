@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
   "classification": "synthetic_protocol_browser_evidence",
-  "observed_at": "2026-10-20T04:40:58.816082+00:00",
-  "code_commit": "7017c7733f91c8ad3517124a75055552851a4a3b",
+  "observed_at": "2026-10-20T05:13:50.856069+00:00",
+  "code_commit": "784c3299be61eab33e4be53b274c2d048546df16",
   "baseline_commit": "549b409c402cf695b6486d1de8cf6a60a0d8d6d0",
   "source_locations": [
     "controller/static/",
     "git show 549b409:controller/static/"
   ],
   "source_digests": {
-    "current": "51ba456483821e44e6194f3fd910f4b880b6843ca1169f795a3879267708a93f",
+    "current": "3998d96711d442bcef7f8ef5b69a4cbf1b21c9e7384ff3711b250854f5566732",
     "baseline": "d6d34f511fced062357ac4c2952a6399f7d89bd6553b541fdbca285ae2fbe7b2"
   },
   "target": "#gateway at 390x844; synthetic NAS proposal after Owner help action and base Host discovery",
@@ -126,5 +126,5 @@
     "No real NAS, account, Home Assistant or household acceptance.",
     "Only these synthetic 390x844 surfaces were measured."
   ],
-  "content_digest": "d1a8505619fbf74c29071fc59215a6fea8a7a691adc64ffb1cbba0e253cc003a"
+  "content_digest": "106af3b02ea9d225e688a8e3208586c55ce652683321265aabd57beffbb0c293"
 }
