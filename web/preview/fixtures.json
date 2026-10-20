@@ -106,7 +106,7 @@
         "item_count": 1,
         "truncated": false,
         "reason_code": null,
-        "content_digest": "a98f66a0e08df0ec73e6abc91d378f16d7daa8741747ab43901594be46d79a5a"
+        "content_digest": "94e1e0f329e15544aff227402272a938cf6a2e5b9eb45354c77582708bbee852"
       },
       {
         "id": "ha_devices",
@@ -227,6 +227,7 @@
         "integration_domain": "demo_bridge",
         "title": "示範待設定橋接器",
         "discovery_method": "zeroconf",
+        "confirmation_step": null,
         "source_id": "ha_discovery",
         "native_path": "/config/integrations"
       }
@@ -296,7 +297,7 @@
       "api_availability_is_not_physical_verification",
       "discovery_does_not_grant_ai_access"
     ],
-    "content_digest": "c52e6dba197f3cbfbbe63764676e73aa069d202cef9ded28f4732370709d7c8b"
+    "content_digest": "b1e0534ac684e2161701b82eefe7aaf1e910b9b131d3c0da43294d46503fb4da"
   },
   "inventory": {
     "entities": [
