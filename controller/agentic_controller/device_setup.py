@@ -227,7 +227,9 @@ INPUT_MESSAGES = {
     "otp_failed": "驗證碼不正確或已過期，請輸入新的驗證碼。",
     "backup_share": "家庭系統可以把備份存到這台 NAS。請選一個共用資料夾。",
     "device_setup_input_expired": "這一步已逾時，請重新讀取後繼續。",
+    "device_setup_input_unavailable": "這一步沒有送出。請重新讀取後再繼續。",
     "device_setup_already_configured": "這台 NAS 已經接入家庭系統。",
+    "device_setup_existing_updated": "這台 NAS 原本已接入家庭系統，已用你輸入的帳號更新原有連線。",
     "device_setup_flow_gone": "家庭系統已結束這次接入，請重新探索設備後再試。",
     "device_setup_input_limit": "嘗試次數過多，這次接入已停止。請稍後重新開始。",
 }
@@ -491,9 +493,11 @@ class DeviceSetups:
             limited = record.step_posts >= 8
             result.input = DeviceSetupInputView(step=record.input_step, error=record.input_error,
                 options=record.share_options if record.input_step == "backup_share" else [],
-                can_submit=not expired and not limited and (binding is None or record.binding == binding))
+                can_submit=record.reason_code is None and not expired and not limited
+                    and (binding is None or record.binding == binding))
             result.message = INPUT_MESSAGES["device_setup_input_limit" if limited else
-                "device_setup_input_expired" if expired else record.input_error or record.input_step]
+                "device_setup_input_expired" if expired else "device_setup_input_unavailable"
+                if record.reason_code is not None else record.input_error or record.input_step]
         elif record.state == "blocked" and record.reason_code in INPUT_MESSAGES:
             result.message = INPUT_MESSAGES[record.reason_code]
         if binding is not None and record.binding != binding and record.state == "proposed":
@@ -616,7 +620,7 @@ class DeviceSetups:
         if record.revision != step.expected_revision:
             raise HTTPException(409, "device_setup_revision_changed")
         if (record.candidate.integration_domain != "synology_dsm" or record.state != "needs_input"
-                or record.input_step != step.step or identifier in self.running):
+                or record.input_step != step.step or record.reason_code is not None or identifier in self.running):
             raise HTTPException(409, "device_setup_input_unavailable")
         if time.time() >= record.expires_at:
             raise HTTPException(409, "device_setup_input_expired")
@@ -736,8 +740,9 @@ class DeviceSetups:
         if result["type"] == "form":
             self.needs_input(record, result)
         elif result["type"] == "abort":
-            self.save(record, state="blocked", reason_code="device_setup_already_configured"
-                      if result["reason"] == "already_configured" else "device_setup_flow_aborted")
+            reason = {"already_configured": "device_setup_already_configured",
+                      "reconfigure_successful": "device_setup_existing_updated"}
+            self.save(record, state="blocked", reason_code=reason.get(result["reason"], "device_setup_flow_aborted"))
         elif result["type"] == "create_entry":
             entry = result["result"]
             if entry["domain"] != "synology_dsm" or entry["source"] != record.candidate.discovery_method:

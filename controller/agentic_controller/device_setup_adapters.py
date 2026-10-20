@@ -77,9 +77,11 @@ class SynologySetup(EmptyConfirmation):
                 raise ValueError("unconfirmed_entry")
             return {**result, "result": {key: entry.get(key) for key in ("entry_id", "domain", "source")}}
         if result["type"] == "abort":
-            return {**result, "reason": "already_configured" if raw.get("reason") in {
+            return {**result, "reason": raw.get("reason") if raw.get("reason") in {
                 "already_configured", "reconfigure_successful"} else "other"}
         step, schema, errors = raw.get("step_id"), raw.get("data_schema"), raw.get("errors")
+        if errors is None and "errors" in raw:
+            errors = {}
         if result["type"] != "form" or not isinstance(schema, list) or not isinstance(errors, dict):
             raise ValueError("unconfirmed_form")
         error, options, path = None, [], None

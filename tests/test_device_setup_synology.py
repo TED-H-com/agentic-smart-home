@@ -29,7 +29,8 @@ from test_device_setup_shelly import ShellyHA
 MAC = "001132AABBCC"
 SECRETS = {"username": "synthetic-nas-owner", "password": "SYNTHETIC-NAS-PASSWORD-123"}
 OTP = "98765432"
-SHARES = [{"value": "/volume1/backups", "label": "家庭備份"}, {"value": "/volume2/shared", "label": "共用"}]
+SHARES = [{"value": "/home-backups", "label": "家庭備份"}, {"value": "/spare", "label": "備用資料夾"}]
+BACKUP_PATH = "ha_backup_synthetic_synology_qualification"
 
 
 def form(step="link", error=None):
@@ -40,19 +41,29 @@ def form(step="link", error=None):
         {"type": "boolean", "name": "ssl", "required": False, "optional": True, "default": True},
         {"type": "boolean", "name": "verify_ssl", "required": False, "optional": True, "default": False},
     ]
-    errors = {}
+    errors, placeholders = {}, {"name": "NAS", "host": "192.0.2.15"}
     if step == "2sa":
         schema = [{"type": "string", "name": "otp_code", "required": True}]
         errors = {"otp_code": error} if error else {}
+        placeholders = None
     elif step == "backup_share":
         schema = [{"name": "backup_share", "required": True, "selector": {"select": {
-            "options": copy.deepcopy(SHARES), "mode": "dropdown", "multiple": False, "custom_value": False}}},
-            {"type": "string", "name": "backup_path", "required": True, "default": "ha_backup_home"}]
-    elif error:
-        errors = {{"invalid_auth": "username", "cannot_connect": "host", "unknown": "base",
-                   "missing_data": "base"}[error]: error}
+            "options": copy.deepcopy(SHARES), "mode": "dropdown", "multiple": False, "custom_value": False,
+            "sort": False}}},
+            {"type": "string", "lengthMin": 1, "name": "backup_path", "required": True, "default": BACKUP_PATH}]
+        errors, placeholders = None, None
+    else:
+        if step == "user":
+            schema.insert(0, {"type": "string", "name": "host", "required": True, "default": "192.0.2.15"})
+            for field in schema:
+                if field["name"] in SECRETS:
+                    field["default"] = SECRETS[field["name"]]
+            placeholders = {}
+        if error:
+            errors = {{"invalid_auth": "username", "cannot_connect": "host", "unknown": "base",
+                       "missing_data": "base"}[error]: error}
     return {"type": "form", "flow_id": "pending", "handler": "synology_dsm", "step_id": step,
-        "data_schema": schema, "errors": errors, "description_placeholders": {"name": "NAS", "host": "192.0.2.15"},
+        "data_schema": schema, "errors": errors, "description_placeholders": placeholders,
         "last_step": None, "preview": None}
 
 
@@ -67,8 +78,13 @@ class SynologyHA(IPPHA):
         self.failure = None
 
     def created(self):
+        # Captures retain the public result key set, with credentials omitted by Core.
         entry = {"entry_id": "newentry", "domain": "synology_dsm", "state": "loaded", "title": "NAS",
-                 "source": self.flow["context"]["source"]}
+            "source": self.flow["context"]["source"], "created_at": 1792440000.0, "modified_at": 1792440000.0,
+            "disabled_by": None, "error_reason_translation_domain": None, "error_reason_translation_key": None,
+            "error_reason_translation_placeholders": None, "num_subentries": 0, "pref_disable_new_entities": False,
+            "pref_disable_polling": False, "reason": None, "supported_subentry_types": {}, "supports_options": True,
+            "supports_reconfigure": False, "supports_remove_device": False, "supports_unload": True}
         self.entries.append(entry)
         self.devices.append({"id": "nas", "name": "NAS", "config_entries": ["newentry"],
             "identifiers": [["synology_dsm", "different-serial"]], "connections": [["mac", "00:11:32:aa:bb:cc"]]})
@@ -99,7 +115,7 @@ class SynologyHA(IPPHA):
         self.events.append(self.flow["step_id"])
         self.flow["context"]["dismiss_protected"] = True
         reply = copy.deepcopy(self.replies.pop(0)) if self.replies else {"type": "create_entry", "flow_id": "pending",
-            "handler": "synology_dsm", "result": self.created(), "data": SECRETS.copy()}
+            "handler": "synology_dsm", "description_placeholders": None, "result": self.created()}
         if reply.get("type") == "form":
             self.flow["step_id"] = reply["step_id"]
             self.form = copy.deepcopy(reply)
@@ -258,7 +274,7 @@ async def test_full_multistep_path_and_secret_free_surfaces(synology_service, ca
     assert (views[-1].device_count, views[-1].entity_count, views[-1].available_entity_count) == (1, 1, 1)
     assert ha.events == ["backup", "link", "2sa", "2sa", "backup_share"]
     assert len(ha.backups) == 1 and ha.backups[0].startswith("Agentic Home Synology NAS ")
-    assert ha.posts[-1][1] == {"backup_share": SHARES[0]["value"], "backup_path": "ha_backup_home"}
+    assert ha.posts[-1][1] == {"backup_share": SHARES[0]["value"], "backup_path": BACKUP_PATH}
     assert record(synology_service, setup).step_posts == 4
     authority, _ = await service.authorize(request())
     chat = DeviceSetupChat(service.app, store, ha, None)
@@ -295,7 +311,7 @@ async def test_login_errors_are_projected_without_echoed_defaults(synology_servi
 
 
 @pytest.mark.parametrize("reason,expected", [("already_configured", "device_setup_already_configured"),
-    ("reconfigure_successful", "device_setup_already_configured"), ("reauth_successful", "device_setup_flow_aborted"),
+    ("reconfigure_successful", "device_setup_existing_updated"), ("reauth_successful", "device_setup_flow_aborted"),
     ("unknown", "device_setup_flow_aborted")])
 async def test_aborts_stop_the_operation(synology_service, reason, expected):
     service, ha, _, _ = synology_service
@@ -305,6 +321,10 @@ async def test_aborts_stop_the_operation(synology_service, reason, expected):
     await finish(synology_service)
     view = await service.detail(request(), setup.id)
     assert view.state == "blocked" and view.reason_code == expected
+    assert view.integration is None and record(synology_service, setup).entry_id is None
+    if reason in {"already_configured", "reconfigure_successful"}:
+        assert view.message == ("這台 NAS 已經接入家庭系統。" if reason == "already_configured" else
+            "這台 NAS 原本已接入家庭系統，已用你輸入的帳號更新原有連線。")
     assert len(ha.posts) == 1
 
 
@@ -354,7 +374,7 @@ async def test_recover_never_resends_at_any_phase(synology_service, phase, state
     ("source", "device_setup_flow_unsupported"), ("entry", "device_setup_integrations_changed"),
     ("core", "device_setup_core_unsupported")])
 async def test_final_transport_guard_restores_unsent_input(synology_service, change, reason):
-    _, ha, store, _ = synology_service
+    service, ha, store, _ = synology_service
     setup = await waiting(synology_service)
     async def change_before_send():
         if change == "owner":
@@ -378,7 +398,72 @@ async def test_final_transport_guard_restores_unsent_input(synology_service, cha
     await finish(synology_service)
     current = record(synology_service, setup)
     assert current.state == "needs_input" and current.input_step == "2sa" and current.reason_code == reason
+    view = service.view(current)
+    assert not view.input.can_submit and view.message == "這一步沒有送出。請重新讀取後再繼續。"
     assert len(ha.posts) == 1
+
+
+async def test_missing_flow_guard_requires_reconcile_without_posting(synology_service):
+    service, ha, _, _ = synology_service
+    setup = await waiting(synology_service)
+    ha.flow = None
+    await submit(synology_service, setup, otp_code=OTP)
+    await finish(synology_service)
+    current = record(synology_service, setup)
+    view = await service.detail(request(), setup.id)
+    assert current.state == "needs_input" and current.reason_code == "device_setup_candidate_changed"
+    assert view.can_reconcile and not view.input.can_submit
+    assert view.message == "這一步沒有送出。請重新讀取後再繼續。"
+    with pytest.raises(HTTPException) as exc:
+        await submit(synology_service, setup, otp_code=OTP)
+    assert exc.value.status_code == 409 and exc.value.detail == "device_setup_input_unavailable"
+    assert record(synology_service, setup) == current
+    view = await reconcile(synology_service, setup)
+    assert view.state == "blocked" and view.reason_code == "device_setup_flow_gone" and view.input is None
+    assert view.message == "家庭系統已結束這次接入，請重新探索設備後再試。"
+    assert len(ha.posts) == 1 and ha.events == ["backup", "link"]
+
+
+@pytest.mark.parametrize("gate", ["pause", "owner"])
+async def test_unsent_gate_rejection_rearms_only_after_read_only_reconcile(synology_service, gate):
+    service, ha, store, _ = synology_service
+    setup = await waiting(synology_service)
+    async def close_gate():
+        if gate == "pause":
+            store.set_setting("paused", True)
+        else:
+            ha.revoked = True
+    ha.post_hook = close_gate
+    await submit(synology_service, setup, otp_code=OTP)
+    await finish(synology_service)
+    assert not service.view(record(synology_service, setup)).input.can_submit
+    store.set_setting("paused", False)
+    ha.revoked, ha.post_hook = False, None
+    with pytest.raises(HTTPException) as exc:
+        await submit(synology_service, setup, otp_code=OTP)
+    assert exc.value.status_code == 409 and exc.value.detail == "device_setup_input_unavailable"
+    gets = ha.gets.copy()
+    view = await reconcile(synology_service, setup)
+    assert view.state == "needs_input" and view.input.can_submit and view.reason_code is None
+    assert ha.gets[len(gets):] == [("/config", "2sa")] and len(ha.posts) == 1
+    await submit(synology_service, setup, otp_code=OTP)
+    await finish(synology_service)
+    assert record(synology_service, setup).state == "configured" and len(ha.posts) == 2
+
+
+@pytest.mark.parametrize("expired,limited,expected", [
+    (False, False, "這一步沒有送出。請重新讀取後再繼續。"),
+    (True, False, "這一步已逾時，請重新讀取後繼續。"),
+    (False, True, "嘗試次數過多，這次接入已停止。請稍後重新開始。"),
+    (True, True, "嘗試次數過多，這次接入已停止。請稍後重新開始。"),
+])
+async def test_unsent_input_message_precedence(synology_service, expired, limited, expected):
+    service = synology_service[0]
+    setup = await waiting(synology_service, "2sa", "otp_failed")
+    current = service.save(record(synology_service, setup), reason_code="device_setup_interrupted",
+        expires_at=time.time() + (-1 if expired else 1800), step_posts=8 if limited else 1)
+    view = service.view(current)
+    assert not view.input.can_submit and view.input.error == "otp_failed" and view.message == expected
 
 
 async def test_unrelated_entry_does_not_block_later_step(synology_service):
@@ -474,6 +559,34 @@ def test_response_projection_keeps_only_bounded_public_fields(step):
     assert all(secret not in json.dumps(result) for secret in SECRETS.values())
 
 
+@pytest.mark.parametrize("errors", [None, {}])
+def test_captured_backup_share_null_errors_and_selector_metadata(errors):
+    raw = form("backup_share")
+    assert raw["description_placeholders"] is None
+    assert raw["data_schema"][0]["selector"]["select"]["sort"] is False
+    assert raw["data_schema"][1]["lengthMin"] == 1
+    raw["errors"] = errors
+    result = ADAPTERS["synology_dsm"].response(raw, "pending")
+    assert result["step_id"] == "backup_share" and result["error"] is None
+    assert result["backup_path"] == BACKUP_PATH and result["options"] == SHARES
+
+
+async def test_backup_share_reconcile_rereads_validated_path_before_post(synology_service):
+    service, ha, _, _ = synology_service
+    setup = await waiting(synology_service, "backup_share")
+    assert record(synology_service, setup).backup_path == BACKUP_PATH
+    service.save(record(synology_service, setup), reason_code="device_setup_interrupted", backup_path="stale_default")
+    ha.form["data_schema"][1]["default"] = "ha_backup_reread"
+    view = await reconcile(synology_service, setup)
+    assert view.input.can_submit and view.reason_code is None
+    assert record(synology_service, setup).backup_path == "ha_backup_reread"
+    assert ha.gets[-1] == ("/config/config_entries/flow/pending", "backup_share")
+    await submit(synology_service, setup, backup_share=SHARES[1]["value"])
+    await finish(synology_service)
+    assert ha.posts[-1][1] == {"backup_share": SHARES[1]["value"], "backup_path": "ha_backup_reread"}
+    assert record(synology_service, setup).state == "configured" and len(ha.backups) == 1
+
+
 async def test_backup_share_can_return_to_2sa(synology_service):
     _, ha, _, _ = synology_service
     setup = await waiting(synology_service, "backup_share")
@@ -481,6 +594,7 @@ async def test_backup_share_can_return_to_2sa(synology_service):
     await submit(synology_service, setup, backup_share=SHARES[0]["value"])
     await finish(synology_service)
     assert record(synology_service, setup).input_step == "2sa"
+    assert record(synology_service, setup).backup_path is None
     await submit(synology_service, setup, otp_code=OTP)
     await finish(synology_service)
     assert record(synology_service, setup).state == "configured" and len(ha.backups) == 1
@@ -534,17 +648,23 @@ async def test_legacy_approve_digest_stays_byte_identical(synology_service):
     assert receipt[2] == digest({"expected_revision": 2, "proposal_digest": "a" * 64})
 
 
-@pytest.mark.parametrize("fault", ["extra", "type", "error", "step", "flow_id", "handler", "share_path",
-    "share_label", "share_count", "backup_path", "multiple", "otp_default"])
+@pytest.mark.parametrize("fault", ["extra", "type", "error", "errors_missing", "errors_false", "errors_list", "errors_string",
+    "step", "flow_id", "handler", "share_path", "share_label", "share_count", "backup_path",
+    "multiple", "custom_value", "mode", "otp_default"])
 async def test_unexpected_response_shapes_stay_uncertain(synology_service, fault):
     _, ha, _, _ = synology_service
-    reply = form("backup_share" if fault.startswith("share_") or fault in {"backup_path", "multiple"} else "2sa")
+    reply = form("backup_share" if fault.startswith("share_") or fault in {
+        "backup_path", "multiple", "custom_value", "mode"} else "2sa")
     if fault == "extra":
         reply["data_schema"].append({"name": "extra", "type": "string", "required": True})
     elif fault == "type":
         reply["data_schema"][0]["type"] = "integer"
     elif fault == "error":
         reply["errors"] = {"base": SECRETS["password"]}
+    elif fault == "errors_missing":
+        reply.pop("errors")
+    elif fault.startswith("errors_"):
+        reply["errors"] = {"errors_false": False, "errors_list": [], "errors_string": ""}[fault]
     elif fault == "step":
         reply["step_id"] = "user"
     elif fault in {"flow_id", "handler"}:
@@ -557,8 +677,8 @@ async def test_unexpected_response_shapes_stay_uncertain(synology_service, fault
         reply["data_schema"][0]["selector"]["select"]["options"] = SHARES * 33
     elif fault == "backup_path":
         reply["data_schema"][1]["default"] = "../../bad"
-    elif fault == "multiple":
-        reply["data_schema"][0]["selector"]["select"]["multiple"] = True
+    elif fault in {"multiple", "custom_value", "mode"}:
+        reply["data_schema"][0]["selector"]["select"][fault] = "list" if fault == "mode" else True
     else:
         reply["data_schema"][0]["default"] = OTP
     ha.replies = [reply]
@@ -566,6 +686,35 @@ async def test_unexpected_response_shapes_stay_uncertain(synology_service, fault
     await approve(synology_service, setup)
     await finish(synology_service)
     assert record(synology_service, setup).state == "needs_reconcile" and len(ha.posts) == 1
+
+
+@pytest.mark.parametrize("step", ["2sa", "backup_share"])
+async def test_unexpected_user_form_never_persists_defaults_or_gets_reconciled(synology_service, step, monkeypatch, caplog):
+    service, ha, store, _ = synology_service
+    original = service.private_hash
+    def only_public_projection(value):
+        assert all(secret not in json.dumps(value) for secret in SECRETS.values())
+        return original(value)
+    monkeypatch.setattr(service, "private_hash", only_public_projection)
+    setup = await waiting(synology_service, step)
+    ha.replies = [form("user", "invalid_auth")]
+    await submit(synology_service, setup, **({"otp_code": OTP} if step == "2sa" else {"backup_share": SHARES[0]["value"]}))
+    await finish(synology_service)
+    view = await service.detail(request(), setup.id)
+    assert view.state == "needs_reconcile" and view.reason_code == "device_setup_outcome_unknown"
+    assert ha.flow["step_id"] == "user"
+    assert next(field for field in ha.form["data_schema"] if field["name"] == "password")["default"] == SECRETS["password"]
+    gets = ha.gets.copy()
+    result = await reconcile(synology_service, setup)
+    assert result.state == "blocked" and result.reason_code == "device_setup_flow_unsupported"
+    assert ha.gets[len(gets):] == [("/config", "user")] and len(ha.posts) == 2
+    await store.durable()
+    raw = view.model_dump_json() + result.model_dump_json() + caplog.text
+    raw += repr(store.db.execute("SELECT * FROM records").fetchall()) + repr(store.db.execute("SELECT * FROM requests").fetchall())
+    files = [store.path, store.path.with_name(store.path.name + "-wal")]
+    files.extend((store.path.parent / "snapshots").glob("*"))
+    for secret in [*SECRETS.values(), OTP]:
+        assert secret not in raw and all(secret.encode() not in path.read_bytes() for path in files if path.exists())
 
 
 @pytest.mark.parametrize("fault", ["source", "domain", "entry_id", "flow_id", "handler"])
@@ -665,6 +814,11 @@ async def test_bridge_stop_before_later_post_restores_input(synology_service, be
         assert service.bridge_active("pairing") and not service.bridge_active("other")
         await service.stop_bridge("pairing")
         assert record(synology_service, setup).state == "needs_input" and len(ha.posts) == 1
+        view = service.view(record(synology_service, setup))
+        assert not view.input.can_submit and view.message == "這一步沒有送出。請重新讀取後再繼續。"
+        with pytest.raises(HTTPException) as exc:
+            await submit(synology_service, setup, otp_code=OTP)
+        assert exc.value.status_code == 409 and exc.value.detail == "device_setup_input_unavailable"
         assert not service.bridge_active("pairing")
     finally:
         service.writer.release()
