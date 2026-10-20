@@ -837,6 +837,75 @@ async def test_create_entry_requires_exact_response_identity(synology_service, f
     assert record(synology_service, setup).state == "needs_reconcile"
 
 
+@pytest.mark.parametrize("proof", ["missing", "wrong_mac", "other_entry", "correct"])
+async def test_acknowledged_entry_requires_its_discovered_mac(synology_service, proof):
+    _, ha, _, _ = synology_service
+    async def registry_proof():
+        if proof == "missing":
+            ha.devices = []
+        elif proof == "wrong_mac":
+            ha.devices[0]["connections"] = [["mac", "11:22:33:44:55:66"]]
+        elif proof == "other_entry":
+            ha.devices[0]["config_entries"] = ["otherentry"]
+    ha.reply_hook = registry_proof
+    setup = await propose(synology_service)
+    await approve(synology_service, setup)
+    await finish(synology_service)
+    current = record(synology_service, setup)
+    assert current.entry_id == "newentry" and len(ha.posts) == 1
+    assert current.state == ("configured" if proof == "correct" else "needs_reconcile")
+    assert current.reason_code == (None if proof == "correct" else "device_setup_entry_not_verified")
+
+
+@pytest.mark.parametrize("restarted", [False, True])
+async def test_acknowledged_entry_reconciles_when_device_appears(synology_service, restarted):
+    service, ha, _, _ = synology_service
+    setup = await propose(synology_service)
+    # Seed the durable acknowledgement at the crash boundary, without replaying a POST.
+    ha.created()
+    device, ha.devices = ha.devices[0], []
+    current = service.save(record(synology_service, setup), state="applying", entry_id="newentry",
+        phase="confirmation_acknowledged", post_step="link", step_posts=1)
+    if restarted:
+        service.recover()
+        assert record(synology_service, setup).state == "needs_reconcile"
+    else:
+        authority, _ = await service.authorize(request())
+        await service.reconcile_record(authority, current)
+    result = await reconcile(synology_service, setup, "missing-device")
+    assert result.state == "needs_reconcile" and result.reason_code == "device_setup_entry_not_verified"
+    assert record(synology_service, setup).entry_id == "newentry"
+    ha.devices = [device]
+    assert (await reconcile(synology_service, setup, "device-appeared")).state == "configured"
+    assert not ha.posts and not ha.backups
+
+
+@pytest.mark.parametrize("fault", ["not_list", "oversized", "not_object", "connections", "associations",
+    "incomplete_tail"])
+async def test_acknowledged_entry_incomplete_registry_preserves_record(synology_service, fault):
+    service, ha, store, _ = synology_service
+    setup = await propose(synology_service)
+    ha.created()
+    service.save(record(synology_service, setup), state="needs_reconcile", entry_id="newentry",
+        phase="confirmation_acknowledged", post_step="link", step_posts=1)
+    before = store.get(KIND, setup.id)
+    if fault == "not_list":
+        ha.devices = None
+    elif fault == "oversized":
+        ha.devices *= 1001
+    elif fault == "not_object":
+        ha.devices = [None]
+    elif fault == "incomplete_tail":
+        ha.devices.append({"connections": None})
+    else:
+        ha.devices[0]["connections" if fault == "connections" else "config_entries"] = None
+    with pytest.raises(HTTPException) as exc:
+        await reconcile(synology_service, setup)
+    assert exc.value.status_code == 503 and exc.value.detail == "device_setup_source_incomplete"
+    assert store.get(KIND, setup.id) == before and before["state"] != "configured"
+    assert not ha.posts and not ha.backups
+
+
 @pytest.mark.parametrize("mac", [MAC, MAC.lower(), "00:11:32:AA:BB:CC", "00-11-32-aa-bb-cc"])
 async def test_gone_flow_reconciles_only_exact_normalized_mac(synology_service, mac):
     _, ha, _, _ = synology_service

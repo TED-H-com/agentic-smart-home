@@ -913,8 +913,11 @@ class DeviceSetups:
         selected = next((row for row in entries if row.get("entry_id") == record.entry_id
                          and row.get("domain") == adapter.domain and row.get("source") == record.candidate.discovery_method
                          and row.get("source") in adapter.sources), None) if record.entry_id else None
-        if not record.entry_id and (record.phase in {"confirmation_prepared", "confirmation_acknowledged"}
-                                    or adapter.domain == "synology_dsm" and record.step_posts):
+        if (adapter.domain == "synology_dsm" or not record.entry_id
+                and record.phase in {"confirmation_prepared", "confirmation_acknowledged"}):
+            # DSM login resolves the serial again; an acknowledged entry alone
+            # does not bind it to the NAS MAC observed during discovery.
+            selected = None
             devices = await self.read(authority, "ws", "config/device_registry/list")
             if not isinstance(devices, list) or len(devices) > 1000:
                 raise HTTPException(503, "device_setup_source_incomplete")
@@ -942,6 +945,7 @@ class DeviceSetups:
                     if not isinstance(associated, list):
                         raise HTTPException(503, "device_setup_source_incomplete")
                     matches.update(row["entry_id"] for row in entries if row["entry_id"] in associated
+                        and (record.entry_id is None or row["entry_id"] == record.entry_id)
                         and row["entry_id"] not in record.baseline_entry_ids and row.get("domain") == adapter.domain
                         and row.get("source") == record.candidate.discovery_method and row.get("source") in adapter.sources)
             if len(matches) == 1:
