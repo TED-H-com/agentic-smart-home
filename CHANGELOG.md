@@ -2,6 +2,10 @@
 
 ## 0.11.1 候選
 
+- bootstrap 核對可識別失敗嘗試自行安裝的精確更新器與服務雜湊；重新審閱批准後有限替換、保留舊更新器目錄並重啟更新 API，拒絕未知或遭修改版本。
+
+- 修正還原點快照後 HA 尚未恢復造成的 Controller smoke 誤判：切換前有限等待 HA 穩定，僅容許 `unavailable` 恢復為相容版本的 `connected`，並保留失敗健康觀測供診斷。
+- 新增支援人員使用的 root-only bootstrap `--reconcile`：僅在 `controller_updating` 已驗證回復原狀時解除待核對狀態，保留還原點與歷史，再由擁有者重新審閱批准；圖形介面提供支援指引，不自動解除。
 - 一次性圖形 Host bootstrap 可直接使用支援人員預先放入固定 root-only 本機 inbox 的更新檔；若 inbox 權限或連結不可信即停止，並保留原有 AH-UPDATE USB 流程與完整簽章、雜湊核對。
 - 將 #122 專用主機電源／網路政策（G15／G16）透過 #123 的正式 Host bootstrap 與受批准 Host bundle 更新路徑交付；既有 0.11.0 家庭使用一次經獨立身份驗證的圖形 bootstrap 與 AH-UPDATE USB，不重跑 installer。
 - 沿用 Ted 於 2026-10-19 核准的官方公鑰 pin；私鑰僅留在外部發行端。候選尚未簽署或發布，尚無本版媒體／遷移或實體家庭驗收，結果另見 [驗證紀錄](docs/VERIFICATION.md)。
