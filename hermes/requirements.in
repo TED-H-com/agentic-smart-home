@@ -1,7 +1,7 @@
 # Upstream core + MCP dependencies at hermes.lock.json commit.
 # Security overrides documented in README.md; no upstream inference code changes.
 openai==2.24.0; python_version >= '3.14'
-certifi==2026.5.20; python_version >= '3.14'
+certifi==2026.10.19; python_version >= '3.14'
 truststore==0.10.4; python_version >= '3.14'
 python-dotenv==1.2.2; python_version >= '3.14'
 fire==0.7.1; python_version >= '3.14'
