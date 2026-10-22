@@ -94,6 +94,7 @@ class HostLanStatus(BaseModel):
     message: Annotated[str, Field(max_length=256)] | None = None
     can_connect: bool = False
     core_configuration_pending: bool = False
+    fallback_complete: bool = False
 
     @field_validator("contract_version", mode="before")
     @classmethod
@@ -112,6 +113,8 @@ class HostLanStatus(BaseModel):
                 raise ValueError("host_nat_state_invalid")
         elif any(value is None for value in selected) or self.state == "disabled":
             raise ValueError("host_wired_state_invalid")
+        if self.fallback_complete and (self.mode != "nat" or self.state != "disabled" or self.vm_state != "running"):
+            raise ValueError("host_fallback_state_invalid")
         if self.guest_mac is not None:
             mac_address(self.guest_mac)
         if (len({item.id for item in self.interfaces}) != len(self.interfaces)

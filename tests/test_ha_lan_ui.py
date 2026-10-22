@@ -73,8 +73,18 @@ def test_explicit_wired_choice_job_readback_and_same_key_after_lost_response(ui_
     state['value'].update(mode='wired', state='configured', selected_interface_id=CHOICE, interface='enp2s0',
                           home={'state': 'needs_home_setup'}, core_configuration_pending=True)
     page.clock.run_for(5500)
-    expect(page.get_by_text('已連接', exact=True)).to_be_visible()
-    expect(page.get_by_text('家庭已取得區網位址；完成家庭授權後會自動核對探索功能。')).to_be_visible()
+    region = page.get_by_role('region', name='家庭區網接入')
+    expect(region.get_by_text('已連接', exact=True)).to_have_count(0)
+    expect(region.get_by_text('家庭已取得區網位址', exact=False)).to_have_count(0)
+    expect(region.get_by_text('已改用有線網路，正在確認家庭區網位址。')).to_be_visible()
+    expect(region.get_by_text('正在確認', exact=True)).to_be_visible()
+    output = Path('evidence/ui/ha-lan')
+    output.mkdir(parents=True, exist_ok=True)
+    page.screenshot(path=str(output / 'waiting-address-fixture.png'), full_page=True)
+    state['value']['ha_lan_ip'] = '192.168.50.20'
+    page.clock.run_for(5500)
+    expect(region.get_by_text('已連接', exact=True)).to_be_visible()
+    expect(region.get_by_text('HA 已連上家庭網路：192.168.50.20')).to_be_visible()
     expect(save).to_be_disabled()
     assert not errors
 
@@ -147,6 +157,7 @@ def test_failed_connection_explains_automatic_nat_fallback(ui_page):  # noqa: F8
     state, posts, errors = mount(page, origin)
     page.get_by_role('button', name='連上家庭網路').click()
     state['job'].update(state='failed', message='ha_lan_connection_failed_nat_restored')
+    state['value'].update(vm_state='running', fallback_complete=True)
     page.clock.run_for(5500)
     expect(page.get_by_role('alert')).to_contain_text('已恢復基本網路')
     expect(page.get_by_role('button', name='連上家庭網路')).to_be_enabled()
@@ -186,3 +197,36 @@ def test_explicit_nic_selection_survives_inventory_changes(ui_page, remaining): 
     save.click()
     assert posts[0][0] == {'action': 'configure_lan', 'interface_id': CHOICE if remaining == 'chosen' else other['id']}
     assert not errors
+
+
+@pytest.mark.parametrize('vm,state_value,signal', [('shut off', 'disabled', False), ('running', 'needs_reconcile', True),
+                                                  ('running', 'disabled', False), ('shut off', 'disabled', True)])
+def test_incomplete_recovery_never_claims_basic_network_restored(ui_page, vm, state_value, signal):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    page.get_by_role('button', name='連上家庭網路').click()
+    state['job'].update(state='failed', message='fixture_start_failed')
+    state['value'].update(vm_state=vm, state=state_value, fallback_complete=signal)
+    page.clock.run_for(5500)
+    region = page.get_by_role('region', name='家庭區網接入')
+    expect(region.get_by_role('alert')).to_contain_text('自動恢復尚未完成；資料已保留，可稍後重試或聯絡支援。')
+    expect(region.get_by_text('已恢復基本網路', exact=False)).to_have_count(0)
+    if vm == 'shut off' and not signal:
+        page.screenshot(path='evidence/ui/ha-lan/recovery-incomplete-fixture.png', full_page=True)
+    assert not errors
+
+
+@pytest.mark.parametrize('home,host_ip,connected', [({'state': 'ready', 'ipv4': []}, None, False),
+    ({'state': 'ready', 'ipv6': ['fd12:3456::20']}, None, True),
+    ({'state': 'unavailable'}, '192.168.50.20', True)])
+def test_connected_chip_requires_observed_address(ui_page, home, host_ip, connected):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    state['value'].update(mode='wired', state='configured', selected_interface_id=CHOICE,
+                          interface='enp2s0', home=home, ha_lan_ip=host_ip)
+    page.clock.run_for(5500)
+    region = page.get_by_role('region', name='家庭區網接入')
+    expect(region.get_by_role('button', name='使用基本網路')).to_be_visible()
+    expect(region.get_by_text('已連接', exact=True)).to_have_count(1 if connected else 0)
+    expect(region.get_by_text('HA 已連上家庭網路：', exact=False)).to_have_count(1 if connected else 0)
+    assert not posts and not errors

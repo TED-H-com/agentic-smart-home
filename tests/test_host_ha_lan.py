@@ -861,7 +861,8 @@ def test_cow_critical_or_invalid_never_blocks_home_restart(lab, monkeypatch):
 
 @pytest.fixture
 def initial_provision(lab, monkeypatch):
-    from agentic_host import ha_lan, manager as manager_module
+    from agentic_host import ha_lan
+    from agentic_host import manager as manager_module
     lan, vm, _, _ = lab
     state = lan.manager.state()
     state['complete'] = False
@@ -940,7 +941,7 @@ def test_first_provision_fallback_recovers_after_interruption(initial_provision,
     # This is the daemon's existing journal-first recovery path after restart.
     if fresh.transaction_path.exists():
         result = fresh.recover()
-    assert result['mode'] == 'nat' and result['fallback'] and 'restore_point' not in result
+    assert result['mode'] == 'nat' and result['fallback'] and result['fallback_complete'] and 'restore_point' not in result
     assert vm.vm == 'running' and not fresh.transaction_path.exists() and not fresh.record().get('pending')
     validate_network(vm.network, OWNER, {False})
     validate_domain(vm.domain, [None])
@@ -981,3 +982,50 @@ def test_initial_fallback_journal_cannot_bypass_normal_restore_point_checks(lab,
     with pytest.raises(HostError, match='自動恢復尚未完成'):
         lan.recover()
     assert len(vm.calls) == before
+
+
+@pytest.mark.parametrize('fault', ['none', 'stopped', 'pending', 'transaction', 'wired'])
+def test_fallback_status_requires_completed_nat_and_running_home(lab, monkeypatch, fault):
+    lan, vm, _, _ = lab
+    completed_snapshot(lan)
+    atomic(lan.transaction_path, {'contract_version': 1, 'owner': OWNER, 'restore_point': RESTORE_POINT, 'state': 'switching'})
+    monkeypatch.setattr(lan.manager, 'shutdown', lambda: setattr(vm, 'vm', 'shut off'))
+    monkeypatch.setattr(lan.manager, 'start', lambda: setattr(vm, 'vm', 'running'))
+    result = lan.recover()
+    assert result.get('fallback_complete') is True
+    if fault == 'stopped':
+        vm.vm = 'shut off'
+    elif fault == 'pending':
+        atomic(lan.path, {**lan.record(), 'pending': {'target': None, 'accepted': [None]}})
+    elif fault == 'transaction':
+        atomic(lan.transaction_path, {'contract_version': 1, 'owner': OWNER, 'restore_point': RESTORE_POINT, 'state': 'switching'})
+    elif fault == 'wired':
+        vm.vm = 'shut off'
+        lan.configure()
+        vm.vm = 'running'
+    result = lan.status()
+    assert result['fallback_complete'] is (fault == 'none')
+    assert ('已自動恢復基本網路' in result['message']) is (fault == 'none')
+
+
+@pytest.mark.parametrize('operation', ['attempt', 'configure'])
+def test_new_lan_operation_clears_old_fallback_metadata(lab, operation):
+    lan, _, _, _ = lab
+    lan.configure()
+    atomic(lan.path, {**lan.record(), 'fallback_complete': True, 'fallback_message': 'stale-fallback'})
+    lan.begin_attempt() if operation == 'attempt' else lan.configure()
+    assert not lan.record().get('fallback_complete') and not lan.record().get('fallback_message')
+    assert 'stale-fallback' not in lan.status()['message']
+
+
+def test_failed_nat_restart_retains_journal_without_completed_fallback(lab, monkeypatch):
+    lan, vm, _, _ = lab
+    completed_snapshot(lan)
+    atomic(lan.transaction_path, {'contract_version': 1, 'owner': OWNER, 'restore_point': RESTORE_POINT, 'state': 'switching'})
+    monkeypatch.setattr(lan.manager, 'shutdown', lambda: setattr(vm, 'vm', 'shut off'))
+    monkeypatch.setattr(lan.manager, 'start', lambda: (_ for _ in ()).throw(HostError('start_failed')))
+    with pytest.raises(HostError, match='自動恢復尚未完成'):
+        lan.recover()
+    assert lan.transaction_path.exists() and lan.status()['mode'] == 'nat'
+    assert lan.status().get('fallback_complete') is False
+    assert '已自動' not in lan.status()['message']

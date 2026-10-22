@@ -778,3 +778,23 @@ async def test_reconnect_after_logout_carries_original_field_baseline(network, s
     assert baseline and baseline['previous_adapters'] == [] and baseline['previous_internal_url'] is None
     await ha_lan.compensate_home_lan(ha, store, {'mode': 'nat'}, guard)
     assert ha.network['configured_adapters'] == [] and ha.internal_url is None
+
+
+@pytest.mark.parametrize('mode,state,vm', [('wired', 'configured', 'running'), ('nat', 'needs_reconcile', 'running'),
+                                         ('nat', 'disabled', 'shut off')])
+def test_host_contract_rejects_inconsistent_completed_fallback(mode, state, vm):
+    raw = host_contract()
+    if mode == 'nat':
+        raw.update(selected_interface_id=None, interface=None, guest_mac=None)
+    raw.update(mode=mode, state=state, vm_state=vm, fallback_complete=True)
+    with pytest.raises(ValidationError, match='host_fallback_state_invalid'):
+        ha_lan.HostLanStatus.model_validate(raw)
+
+
+def test_older_host_cannot_imply_completed_fallback():
+    raw = host_contract()
+    raw.update(mode='nat', state='disabled', selected_interface_id=None, interface=None, guest_mac=None,
+               vm_state='running', message='舊訊息')
+    assert ha_lan.HostLanStatus.model_validate(raw).fallback_complete is False
+    raw['fallback_complete'] = True
+    assert ha_lan.HostLanStatus.model_validate(raw).fallback_complete is True

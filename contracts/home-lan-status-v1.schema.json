@@ -231,6 +231,11 @@
       "title": "Core Configuration Pending",
       "type": "boolean"
     },
+    "fallback_complete": {
+      "default": false,
+      "title": "Fallback Complete",
+      "type": "boolean"
+    },
     "guest_mac": {
       "anyOf": [
         {

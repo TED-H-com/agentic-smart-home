@@ -272,12 +272,15 @@ class HALan:
                 address = record.get("guest_ipv4")
         message = ("HA 已連上家庭網路：" + address if address else
                    "正在確認 Home Assistant 的家庭網路位址" if choice else "Home Assistant 使用基本網路")
-        if record.get("fallback_message"):
+        fallback_complete = bool(record.get("fallback_complete") is True and not choice and state == "disabled"
+                                 and vm_state == "running" and not self.transaction_path.exists())
+        if fallback_complete and record.get("fallback_message"):
             message = record["fallback_message"]
         return {"contract_version": 1, "mode": "wired" if choice else "nat", "state": state,
                 "attempt_id": record.get("attempt_id"), "home": home if verified else None,
                 "core_configuration_pending": bool(choice and record.get("attempt_id") and record.get("allow_core_configuration") and not record.get("home")),
                 "ha_lan_ip": address, "ha_internal_url": home.get("internal_url") if verified else None,
+                "fallback_complete": fallback_complete,
                 "message": message, "can_connect": vm_state in {"running", "shut off", "not_created"} and (not self.transaction_path.exists() or self.recoverable()),
                 "diagnostics": "主機無法直接連線此家庭位址是 macvtap 的正常限制；產品透過保留的管理網路確認 HA。",
                 "reservation": "此 HA 網卡使用固定的裝置識別；可在路由器為它保留目前位址。產品未變更路由器設定。",
@@ -366,7 +369,7 @@ class HALan:
             mac = mac or "02:" + ":".join(value[i:i + 2] for i in range(0, 10, 2))
             record.update(installation_id=installation, guest_mac=mac)
             choice = {**selected, "guest_mac": mac}
-        for key in ("home", "guest_ipv4", "guest_ipv4_observed_at", "host_boot_id", "attempt_id", "attempt_started_at", "allow_core_configuration", "fallback_message"):
+        for key in ("home", "guest_ipv4", "guest_ipv4_observed_at", "host_boot_id", "attempt_id", "attempt_started_at", "allow_core_configuration", "fallback_message", "fallback_complete"):
             record.pop(key, None)
         owner = self.manager.state().get("owner")
         if not owner:
@@ -541,6 +544,8 @@ class HALan:
                       allow_core_configuration=allow_configuration, host_boot_id=host_boot_id())
         record.pop("home", None)
         record.pop("guest_ipv4", None)
+        record.pop("fallback_message", None)
+        record.pop("fallback_complete", None)
         atomic(self.path, record)
         # These files contain only transient network proofs, never restore points.
         for path in (self.manager.root / "ha-lan-observations").glob("*.json"):
@@ -686,6 +691,7 @@ class HALan:
             self.configure(None)
             self.manager.start()
             record = self.record()
+            record["fallback_complete"] = True
             record["fallback_message"] = ("家庭網路尚未準備好，已自動使用基本網路；家庭資料保留，可稍後重試。" if initial else
                                           "家庭網路暫時無法接通，已自動恢復基本網路；家庭資料保留，請確認網路線後重試。")
             atomic(self.path, record)
