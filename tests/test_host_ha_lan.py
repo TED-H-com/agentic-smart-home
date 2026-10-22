@@ -857,3 +857,127 @@ def test_cow_critical_or_invalid_never_blocks_home_restart(lab, monkeypatch):
     monkeypatch.setattr(manager.root_cow, "require_capacity", lambda required: (_ for _ in ()).throw(HostError("snapshot exhausted")))
     monkeypatch.setattr(manager, "require_compatibility", lambda action: None)
     assert manager.start()["vm"] == "running"
+
+
+@pytest.fixture
+def initial_provision(lab, monkeypatch):
+    from agentic_host import ha_lan, manager as manager_module
+    lan, vm, _, _ = lab
+    state = lan.manager.state()
+    state['complete'] = False
+    atomic(lan.manager.state_file, state)
+    lan.configure()
+    manager = lan.manager
+    (manager.product / 'host').mkdir(parents=True)
+    (manager.product / 'host/bases.lock.json').write_text((ROOT / 'host/bases.lock.json').read_text())
+    manager.images.mkdir(parents=True)
+    for name in ('haos.qcow2', 'nvram.fd'):
+        (manager.images / name).write_bytes(b'fixture')
+    read_text = Path.read_text
+    def read(path, *args, **kwargs):
+        if str(path) == '/etc/agentic-home/profile.json':
+            return json.dumps(state['profile'])
+        return read_text(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', read)
+    monkeypatch.setattr(manager_module.os, 'access', lambda *args: True)
+    current = [lan]
+    monkeypatch.setattr(ha_lan, 'HALan', lambda manager: current[0])
+    def prepare(manager):
+        run = manager.run
+        def execute(*args, **kwargs):
+            if args[0] in {'chown', 'chmod'}:
+                return SimpleNamespace(returncode=0, stdout='')
+            return run(*args, **kwargs)
+        monkeypatch.setattr(manager, 'run', execute)
+        monkeypatch.setattr(manager, 'require_compatibility', lambda action: {})
+        monkeypatch.setattr(manager, 'shutdown', lambda: setattr(vm, 'vm', 'shut off'))
+        monkeypatch.setattr(manager, 'status', lambda: {'complete': manager.state()['complete'], 'ha_lan': current[0].status()})
+    prepare(manager)
+    monkeypatch.setattr(lan, 'verify', lambda **kwargs: (_ for _ in ()).throw(HostError('no_initial_address')))
+    def restart():
+        fresh = Manager(manager.root, manager.product, manager.images, vm.run)
+        current[0] = HALan(fresh, read_ip=lan.read_ip, identity=lan.identity)
+        prepare(fresh)
+        return current[0]
+    return lan, vm, restart
+
+
+@pytest.mark.parametrize('stage', ['journal', 'network', 'domain', 'before_start'])
+def test_first_provision_fallback_recovers_after_interruption(initial_provision, monkeypatch, stage):
+    from agentic_host import ha_lan
+    lan, vm, restart = initial_provision
+    class Interrupted(BaseException):
+        pass
+    original_atomic, original_run, original_configure = ha_lan.atomic, lan.manager.run, lan.configure
+    def write(path, value):
+        original_atomic(path, value)
+        if stage == 'journal' and path == lan.transaction_path:
+            raise Interrupted()
+    def run(*args, **kwargs):
+        result = original_run(*args, **kwargs)
+        if (stage == 'network' and 'net-define' in args) or (stage == 'domain' and 'define' in args):
+            raise Interrupted()
+        return result
+    def configure(interface_id):
+        result = original_configure(interface_id)
+        if stage == 'before_start' and interface_id is None:
+            raise Interrupted()
+        return result
+    with monkeypatch.context() as crash:
+        crash.setattr(ha_lan, 'atomic', write)
+        crash.setattr(lan.manager, 'run', run)
+        crash.setattr(lan, 'configure', configure)
+        with pytest.raises(Interrupted):
+            lan.manager.provision()
+    assert lan.transaction_path.exists() and lan.recoverable()
+    transaction = json.loads(lan.transaction_path.read_text())
+    assert transaction['kind'] == 'initial_nat_fallback' and 'restore_point' not in transaction
+    assert not lan.manager.state()['complete']
+    assert '已自動' not in lan.status()['message']
+    if stage == 'journal':
+        assert vm.vm == 'running' and len(vm.domain.findall('devices/interface')) == 2
+    fresh = restart()
+    # This is the daemon's existing journal-first recovery path after restart.
+    if fresh.transaction_path.exists():
+        result = fresh.recover()
+    assert result['mode'] == 'nat' and result['fallback'] and 'restore_point' not in result
+    assert vm.vm == 'running' and not fresh.transaction_path.exists() and not fresh.record().get('pending')
+    validate_network(vm.network, OWNER, {False})
+    validate_domain(vm.domain, [None])
+    result = fresh.manager.provision()
+    assert result['complete'] and result['ha_lan']['mode'] == 'nat'
+    assert not (fresh.manager.root / 'snapshots').exists()
+
+
+@pytest.mark.parametrize('fault', ['foreign', 'no_owner', 'completed', 'unknown_complete', 'restore_pending',
+                                   'restore_point', 'null_restore_point', 'kind', 'state', 'extra'])
+def test_initial_fallback_journal_cannot_bypass_normal_restore_point_checks(lab, fault):
+    lan, vm, _, _ = lab
+    state = {**lan.manager.state(), 'complete': False}
+    transaction = {'contract_version': 1, 'owner': OWNER, 'kind': 'initial_nat_fallback', 'state': 'switching'}
+    if fault == 'foreign':
+        transaction['owner'] = FOREIGN
+    elif fault == 'no_owner':
+        state.pop('owner')
+        transaction['owner'] = None
+    elif fault == 'completed':
+        state['complete'] = True
+    elif fault == 'unknown_complete':
+        state.pop('complete')
+    elif fault == 'restore_pending':
+        state['restore_pending'] = RESTORE_POINT
+    elif fault in {'restore_point', 'null_restore_point'}:
+        transaction['restore_point'] = RESTORE_POINT if fault == 'restore_point' else None
+    elif fault == 'kind':
+        transaction['kind'] = 'unknown'
+    elif fault == 'state':
+        transaction['state'] = 'done'
+    else:
+        transaction['extra'] = True
+    atomic(lan.manager.state_file, state)
+    atomic(lan.transaction_path, transaction)
+    before = len(vm.calls)
+    assert not lan.recoverable()
+    with pytest.raises(HostError, match='自動恢復尚未完成'):
+        lan.recover()
+    assert len(vm.calls) == before

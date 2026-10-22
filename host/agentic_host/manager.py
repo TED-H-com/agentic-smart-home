@@ -258,6 +258,8 @@ class Manager:
     def provision(self):
         from .ha_lan import HALan, validate_network
         lan_manager = HALan(self)
+        if lan_manager.transaction_path.exists():
+            lan_manager.recover()
         lan_manager.default_choice()
         lan = lan_manager.ready()
         profile = json.loads(Path("/etc/agentic-home/profile.json").read_text())
@@ -342,15 +344,7 @@ class Manager:
         except (OSError, ValueError, HostError, subprocess.SubprocessError):
             if not lan:
                 raise
-            try:
-                self.shutdown()
-                lan_manager.configure(None)
-                self.start()
-            except (OSError, ValueError, HostError, subprocess.SubprocessError):
-                raise HostError("家庭網路暫時無法接通，自動恢復尚未完成；已保留管理入口，請稍後重試。") from None
-            record = lan_manager.record()
-            record["fallback_message"] = "家庭網路尚未準備好，已自動使用基本網路完成安裝；家庭資料保留，可稍後重試。"
-            atomic(lan_manager.path, record)
+            lan_manager.provision_fallback()
         state["complete"] = True
         atomic(self.state_file, state)
         return self.status()

@@ -630,9 +630,32 @@ class HALan:
         except (OSError, ValueError, HostError, subprocess.SubprocessError):
             return self.recover()
 
+    def provision_fallback(self):
+        if self.transaction_path.exists():
+            return self.recover()
+        state = self.manager.state()
+        if state.get("complete") is not False:
+            return self.connect(None)
+        if not state.get("owner") or state.get("restore_pending"):
+            raise HostError("ha_lan_initial_fallback_not_authorized")
+        # First provisioning has no completed household or restore point.
+        # Journal before shutdown so the daemon can finish even an inner pending switch.
+        atomic(self.transaction_path, {"contract_version": 1, "owner": state["owner"],
+                                       "kind": "initial_nat_fallback", "state": "switching"})
+        return self.recover()
+
     def recoverable(self):
         try:
             transaction = json.loads(self.transaction_path.read_text())
+            state = self.manager.state()
+            if transaction.get("kind") == "initial_nat_fallback":
+                return (set(transaction) == {"contract_version", "owner", "kind", "state"}
+                        and type(transaction["contract_version"]) is int and transaction["contract_version"] == 1
+                        and transaction["state"] == "switching" and state.get("complete") is False
+                        and not state.get("restore_pending") and isinstance(transaction["owner"], str)
+                        and bool(_UUID.fullmatch(transaction["owner"])) and transaction["owner"] == state.get("owner"))
+            if "kind" in transaction:
+                return False
             identifier = transaction["restore_point"]
             if (transaction.get("contract_version") != 1 or transaction.get("owner") != self.manager.state().get("owner")
                     or not isinstance(identifier, str) or not re.fullmatch(r"[0-9]{8}T[0-9]{6}Z-[a-f0-9]{8}", identifier)):
@@ -650,24 +673,27 @@ class HALan:
     def recover(self):
         """Under the lifecycle lock, finish interrupted switching to known NAT.
 
-        Reuse only the journalled, owned completed restore point. Its data is
-        retained; recovery changes networking only, never restores older HA data.
+        Normal switches require the journalled, owned completed restore point.
+        The distinct first-provision journal is valid only before completion.
+        Recovery changes networking only, never restores older HA data.
         """
         if not self.recoverable():
             raise HostError("自動恢復尚未完成：無法確認原有還原點；已保留資料與管理入口，請聯絡支援。")
         transaction = json.loads(self.transaction_path.read_text())
+        initial = transaction.get("kind") == "initial_nat_fallback"
         try:
             self.manager.shutdown()
             self.configure(None)
             self.manager.start()
             record = self.record()
-            record["fallback_message"] = "家庭網路暫時無法接通，已自動恢復基本網路；家庭資料保留，請確認網路線後重試。"
+            record["fallback_message"] = ("家庭網路尚未準備好，已自動使用基本網路；家庭資料保留，可稍後重試。" if initial else
+                                          "家庭網路暫時無法接通，已自動恢復基本網路；家庭資料保留，請確認網路線後重試。")
             atomic(self.path, record)
             self.transaction_path.unlink()
             sync_path(self.manager.root)
         except (OSError, ValueError, HostError, subprocess.SubprocessError):
-            raise HostError("家庭網路暫時無法接通，自動恢復尚未完成；已保留還原點與管理入口，請稍後重試。") from None
-        return {**self.status(), "fallback": True, "restore_point": transaction["restore_point"]}
+            raise HostError("家庭網路暫時無法接通，自動恢復尚未完成；已保留資料與管理入口，請稍後重試。") from None
+        return {**self.status(), "fallback": True, **({} if initial else {"restore_point": transaction["restore_point"]})}
 
     def default_choice(self):
         # Only pristine installations inherit a default. Existing NAT choices,
