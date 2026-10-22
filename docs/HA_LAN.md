@@ -39,9 +39,9 @@ Controller 經既有受保護 Host action API 提交一個持久工作；回應�
 
 macvtap 不允許所在主機經同一實體介面直接連 guest 的 LAN IP；這是正常限制，不能用 ping 或 `ip neigh` 的缺席判定失敗。產品透過管理通路向 HA 的 Supervisor／Core 核對 enrolled MAC、位址、探索 adapter 與 internal URL；首次建立前可經產品 VM 的固定 guest-agent 命令讀回位址。診斷會說明此限制。[libvirt direct interface](https://libvirt.org/formatdomain.html#direct-attachment-to-physical-interface)、[macvtap 主機限制](https://wiki.libvirt.org/TroubleshootMacvtapHostFail.html)。
 
-回復基準（先前與產品目標介面、網址）綁定 HA Owner 與家庭連線身份。一般登出只撤銷進行中的操作，不刪除基準；重新登入後，新接入操作可接續欄位所有權，或在 Host 回到 NAT 時以當下授權回復仍完全等於產品目標的欄位。使用者後續修改永遠保留；更換 Owner 或家庭連線不會把舊基準套到另一個家庭。既有含登入世代的紀錄沿用基準，世代不作為持久基準身份；每次操作仍擷取並核對當下世代。
+回復基準（先前與產品目標介面、網址）綁定 HA Owner 與家庭連線身份。一般登出只撤銷進行中的操作，不刪除基準；重新登入後，新接入操作可接續欄位所有權，或在 Host 回到 NAT 時以當下授權回復仍完全等於產品目標的欄位。回復在連線與落盤等待之後也重新讀取該欄位；已觀測到的使用者後續修改永遠保留；更換 Owner 或家庭連線不會把舊基準套到另一個家庭。既有含登入世代的紀錄沿用基準，世代不作為持久基準身份；每次操作仍擷取並核對當下世代。
 
-Core 本機網址沿用已驗證的 Host 管理端點之通訊協定與監聽埠；預設 guest 的 80 埠寫成 `http://<家庭位址>`，不使用 Host loopback 的 8123 代理。僅 Host 模式且管理端點位於產品管理網段才可寫入，Supervisor proxy 不適用。IPv6 使用方括號，非預設埠保留。既有有效家庭網址不覆寫；產品寫入後須由 Core `/config` 讀回完全相同的值，才可回報完成。
+Core 本機網址沿用已驗證的 Host 管理端點之通訊協定與監聽埠；預設 guest 的 80 埠寫成 `http://<家庭位址>`，不使用 Host loopback 的 8123 代理。僅 Host 模式且管理端點位於產品管理網段才可寫入，Supervisor proxy 不適用。IPv6 使用方括號，非預設埠保留。既有有效家庭網址不覆寫；產品寫入後須由 Core `/config` 讀回完全相同的值，才可回報完成；回應遺失或讀回不符後的重試，也須重新核對產品仍持有的目標網址。
 
 新的家庭 MAC 由產品安裝身份穩定衍生，使用 locally administered unicast 位址；既有安裝保留已分配 MAC，停用再啟用仍保留，避免破壞 DHCP reservation。產品不登入路由器，不宣稱已替使用者建立 DHCP reservation。
 

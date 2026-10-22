@@ -609,6 +609,9 @@ async def test_product_url_requires_exact_core_config_readback(network, store):
     result = await ha_lan.converge_home_lan(ha, store, attempt(), guard)
     assert result['reason'] == 'core_internal_url_readback_mismatch'
     assert result['state'] == 'unavailable'
+    result = await ha_lan.converge_home_lan(ha, store, attempt(), guard)
+    assert result['reason'] == 'core_internal_url_readback_mismatch'
+    assert result['state'] == 'unavailable'
 
 
 async def test_enabling_adapter_preserves_existing_owner_lan_url(network, store):
@@ -622,10 +625,10 @@ async def test_enabling_adapter_preserves_existing_owner_lan_url(network, store)
     assert ha.internal_url == 'https://192.168.10.20:8443'
 
 
-@pytest.mark.parametrize('operation', ['converge', 'compensate'])
+@pytest.mark.parametrize('operation,fault', [(operation, fault) for operation in ['converge', 'compensate']
+    for fault in ['epoch', 'owner', 'attempt', 'host_mode', 'active_owner', 'connection']] + [('compensate', 'field_edit')])
 @pytest.mark.parametrize('command', ['network/configure', 'config/core/update'])
 @pytest.mark.parametrize('barrier', ['connect', 'durable'])
-@pytest.mark.parametrize('fault', ['epoch', 'owner', 'attempt', 'host_mode', 'active_owner', 'connection'])
 async def test_lan_mutations_recheck_authority_at_transport_send(network, store, monkeypatch, operation, command, barrier, fault):
     from agentic_controller.ha import HomeAssistant
     from aiohttp import web
@@ -711,7 +714,7 @@ async def test_lan_mutations_recheck_authority_at_transport_send(network, store,
             await ha_lan.compensate_home_lan(ha, store, initial, check_host)
         except ha_lan.ObservationInvalid as error:
             return {'reason': str(error)}
-        return {'reason': 'unexpected_success'}
+        return {'reason': 'completed'}
     task = asyncio.create_task(run())
     try:
         await asyncio.wait_for(entered.wait(), 5)
@@ -723,12 +726,22 @@ async def test_lan_mutations_recheck_authority_at_transport_send(network, store,
             current['mode'] = 'nat' if operation == 'converge' else 'wired'
         elif fault == 'active_owner':
             fixture.owner_value['is_active'] = False
+        elif fault == 'field_edit':
+            fixture.network['configured_adapters'] = ['owner-selection']
+            fixture.internal_url = 'https://owner.example.invalid'
         else:
             ha.token = 'changed-fixture'
         release.set()
         result = await asyncio.wait_for(task, 5)
         expected = ('home_lan_attempt_changed' if fault in {'attempt', 'host_mode'} else
                     'home_owner_not_active' if fault == 'active_owner' else 'home_authority_changed')
+        if fault == 'field_edit':
+            assert result['reason'] == 'completed'
+            assert mutations == []
+            assert fixture.network['configured_adapters'] == ['owner-selection']
+            assert fixture.internal_url == 'https://owner.example.invalid'
+            assert store.setting('home_lan_configuration_rollback') is None
+            return
         assert result['reason'] == expected
         assert mutations == []
         assert store.setting('home_lan_configuration_rollback')

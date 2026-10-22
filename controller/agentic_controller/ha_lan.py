@@ -461,10 +461,11 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
                         ha.ws("network", _receive_timeout=OBSERVATION_SECONDS),
                         ha.ws("network/url", _receive_timeout=OBSERVATION_SECONDS))
                     observed = project_network(guest_mac, *results)
-                    if internal is not None:
-                        config = await ha.request("GET", "/config", timeout=OBSERVATION_SECONDS)
-                        if not isinstance(config, dict) or config.get("internal_url") != internal:
-                            raise ObservationInvalid("core_internal_url_readback_mismatch")
+                expected_internal = internal if internal is not None else previous["target_internal_url"] if previous else None
+                if expected_internal is not None and (internal is not None or observed["internal_url"] == expected_internal):
+                    config = await ha.request("GET", "/config", timeout=OBSERVATION_SECONDS)
+                    if not isinstance(config, dict) or config.get("internal_url") != expected_internal:
+                        raise ObservationInvalid("core_internal_url_readback_mismatch")
                 await check_attempt()
                 await check_owner()
             guard()
@@ -524,16 +525,37 @@ async def compensate_home_lan(ha, store, host_status, check_host=None):
             await check_host()
         local_guard()
 
+    class FieldOwnershipChanged(Exception):
+        pass
+
+    async def restore(command, target, **fields):
+        async def send_guard():
+            # Re-read ownership after transport waits; manual edits win.
+            if command == "network/configure":
+                current = await ha.ws("network", _receive_timeout=OBSERVATION_SECONDS)
+                field = "configured_adapters"
+            else:
+                current = await ha.request("GET", "/config", timeout=OBSERVATION_SECONDS)
+                field = "internal_url"
+            await guard()
+            if not isinstance(current, dict) or current.get(field) != target:
+                raise FieldOwnershipChanged()
+            local_guard()
+        try:
+            await guarded_mutation(ha, command, send_guard, **fields)
+        except FieldOwnershipChanged:
+            pass
+
     await guard()
     await ha.ensure_write_compatibility()
     network = await ha.ws("network", _receive_timeout=OBSERVATION_SECONDS)
     config = await ha.request("GET", "/config", timeout=OBSERVATION_SECONDS)
     if record["target_adapters"] is not None and network.get("configured_adapters") == record["target_adapters"]:
         await guard()
-        await guarded_mutation(ha, "network/configure", guard, config={"configured_adapters": record["previous_adapters"]})
+        await restore("network/configure", record["target_adapters"], config={"configured_adapters": record["previous_adapters"]})
     if record["target_internal_url"] is not None and config.get("internal_url") == record["target_internal_url"]:
         await guard()
-        await guarded_mutation(ha, "config/core/update", guard, internal_url=record["previous_internal_url"])
+        await restore("config/core/update", record["target_internal_url"], internal_url=record["previous_internal_url"])
     await guard()
     store.set_setting("home_lan_configuration_rollback", None)
     await durable(store)
