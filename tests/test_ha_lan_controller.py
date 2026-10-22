@@ -460,12 +460,16 @@ async def test_nat_fallback_compensates_exact_settings_and_preserves_intervening
     assert store.setting('home_lan_configuration_rollback') is None
 
 
-async def test_compensation_never_replays_under_changed_home_authority(network, store):
+@pytest.mark.parametrize('changed', ['owner', 'connection'])
+async def test_compensation_never_replays_under_changed_home_authority(network, store, changed):
     ha = ConvergingHA()
     async def guard():
         pass
     await ha_lan.converge_home_lan(ha, store, attempt(), guard)
-    store.set_setting('hermes_web_epoch', 'new-login')
+    if changed == 'owner':
+        store.set_setting('owner', 'another-owner')
+    else:
+        ha.base = 'http://192.168.177.3:80/api'
     ha.mutations.clear()
     await ha_lan.compensate_home_lan(ha, store, {'mode': 'nat'})
     assert ha.mutations == [] and store.setting('home_lan_configuration_rollback') is None
@@ -728,6 +732,9 @@ async def test_lan_mutations_recheck_authority_at_transport_send(network, store,
         assert result['reason'] == expected
         assert mutations == []
         assert store.setting('home_lan_configuration_rollback')
+        if fault == 'epoch':
+            await ha_lan.compensate_home_lan(ha, store, attempt(), check_host)
+            assert store.setting('home_lan_configuration_rollback')
     finally:
         release.set()
         if not task.done():
@@ -735,3 +742,39 @@ async def test_lan_mutations_recheck_authority_at_transport_send(network, store,
         await asyncio.gather(task, return_exceptions=True)
         await ha.close()
         await runner.cleanup()
+
+
+@pytest.mark.parametrize('owner_edit', [False, True])
+async def test_logout_retains_baseline_until_fresh_nat_compensation(network, store, owner_edit):
+    ha = ConvergingHA()
+    async def guard():
+        pass
+    assert (await ha_lan.converge_home_lan(ha, store, attempt(), guard))['state'] == 'ready'
+    baseline = store.setting('home_lan_configuration_rollback')
+    store.set_setting('hermes_web_epoch', 'logged-out')
+    await ha_lan.compensate_home_lan(ha, store, attempt(), guard)
+    assert store.setting('home_lan_configuration_rollback') == baseline
+    store.set_setting('hermes_web_epoch', 'new-login')
+    if owner_edit:
+        ha.network['configured_adapters'] = ['owner-selection']
+        ha.internal_url = 'https://owner.example.invalid'
+    ha.mutations.clear()
+    await ha_lan.compensate_home_lan(ha, store, {'mode': 'nat'}, guard)
+    assert ha.network['configured_adapters'] == (['owner-selection'] if owner_edit else [])
+    assert ha.internal_url == ('https://owner.example.invalid' if owner_edit else None)
+    assert len(ha.mutations) == (0 if owner_edit else 2)
+    assert store.setting('home_lan_configuration_rollback') is None
+
+
+async def test_reconnect_after_logout_carries_original_field_baseline(network, store):
+    ha = ConvergingHA()
+    async def guard():
+        pass
+    await ha_lan.converge_home_lan(ha, store, attempt(), guard)
+    store.set_setting('hermes_web_epoch', 'new-login')
+    reconnect = {**attempt(), 'attempt_id': 'c' * 64}
+    assert (await ha_lan.converge_home_lan(ha, store, reconnect, guard))['state'] == 'ready'
+    baseline = store.setting('home_lan_configuration_rollback')
+    assert baseline and baseline['previous_adapters'] == [] and baseline['previous_internal_url'] is None
+    await ha_lan.compensate_home_lan(ha, store, {'mode': 'nat'}, guard)
+    assert ha.network['configured_adapters'] == [] and ha.internal_url is None

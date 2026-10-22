@@ -421,7 +421,7 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
             if check_attempt:
                 observed, adapters, internal = configuration_plan(guest_mac, *results, listener=core_listener(ha))
                 previous = store.setting("home_lan_configuration_rollback")
-                if previous and (previous["owner"] != owner or previous["epoch"] != epoch or previous["connection"] != digest(connection)):
+                if previous and (previous["owner"] != owner or previous["connection"] != digest(connection)):
                     previous = None
                     store.set_setting("home_lan_configuration_rollback", None)
                 if adapters is not None or internal is not None or (previous and previous.get("attempt_id") != host_status["attempt_id"]):
@@ -440,7 +440,7 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
                     own_url = bool(previous and previous["target_internal_url"] is not None
                                    and previous["target_internal_url"] == previous_internal)
                     store.set_setting("home_lan_configuration_rollback", {
-                        "attempt_id": host_status["attempt_id"], "owner": owner, "epoch": epoch,
+                        "attempt_id": host_status["attempt_id"], "owner": owner,
                         "connection": digest(connection),
                         "previous_adapters": previous["previous_adapters"] if own_adapters else results[1]["configured_adapters"],
                         "previous_internal_url": previous["previous_internal_url"] if own_url else previous_internal,
@@ -486,17 +486,17 @@ def safe_previous_url(raw):
 
 
 async def compensate_home_lan(ha, store, host_status, check_host=None):
-    """Undo only this attempt's exact Core settings after Host falls back to NAT.
+    """Adopt the household baseline under fresh authority after Host uses NAT.
 
-    A user's intervening edit or changed HA authority wins. No whole config,
+    A user's intervening edit or changed HA connection wins. No whole config,
     owner snapshot, or old Controller DB is restored over newer operations.
     """
     record = store.setting("home_lan_configuration_rollback")
     if not record:
         return
     connection = tuple(getattr(ha, key, None) for key in ("token", "base", "websocket", "supervisor", "external"))
-    if (store.setting("owner") != record["owner"] or store.setting("hermes_web_epoch") != record["epoch"]
-            or digest(connection) != record["connection"]):
+    epoch = store.setting("hermes_web_epoch")
+    if store.setting("owner") != record["owner"] or digest(connection) != record["connection"]:
         store.set_setting("home_lan_configuration_rollback", None)
         return
     if host_status.get("mode") == "wired" and host_status.get("attempt_id") == record["attempt_id"]:
@@ -507,7 +507,7 @@ async def compensate_home_lan(ha, store, host_status, check_host=None):
         return
 
     def local_guard():
-        if (store.setting("owner") != record["owner"] or store.setting("hermes_web_epoch") != record["epoch"]
+        if (store.setting("owner") != record["owner"] or store.setting("hermes_web_epoch") != epoch
                 or digest(tuple(getattr(ha, key, None) for key in ("token", "base", "websocket", "supervisor", "external"))) != record["connection"]):
             raise ObservationInvalid("home_authority_changed")
 
