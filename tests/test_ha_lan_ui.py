@@ -216,6 +216,26 @@ def test_incomplete_recovery_never_claims_basic_network_restored(ui_page, vm, st
     assert not errors
 
 
+@pytest.mark.parametrize('host_ip', [None, '192.168.50.20'])
+def test_fenced_initial_attempt_offers_explicit_reauthorization(ui_page, host_ip):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    state['value'].update(mode='wired', state='configured', selected_interface_id=CHOICE, interface='enp2s0',
+                          vm_state='running', can_configure=False, core_configuration_pending=True, ha_lan_ip=host_ip,
+                          home={'state': 'unavailable', 'reason': 'home_lan_reauthorization_required'})
+    page.clock.run_for(5500)
+    region = page.get_by_role('region', name='家庭區網接入')
+    expect(region.get_by_text('家庭網路設定已暫停；請再按一次「連上家庭網路」確認。')).to_be_visible()
+    expect(region.get_by_text('正在確認', exact=True)).to_have_count(0)
+    save = region.get_by_role('button', name='連上家庭網路')
+    expect(save).to_be_enabled()
+    if host_ip:
+        page.screenshot(path='evidence/ui/ha-lan/reauthorization-fixture.png', full_page=True)
+    save.click()
+    assert posts[0][0] == {'action': 'configure_lan', 'interface_id': CHOICE}
+    assert not errors
+
+
 @pytest.mark.parametrize('home,host_ip,connected', [({'state': 'ready', 'ipv4': []}, None, False),
     ({'state': 'ready', 'ipv6': ['fd12:3456::20']}, None, True),
     ({'state': 'unavailable'}, '192.168.50.20', True)])

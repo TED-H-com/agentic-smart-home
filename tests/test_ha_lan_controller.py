@@ -888,6 +888,30 @@ async def test_fenced_attempt_compensates_only_fields_already_written(network, s
     assert store.setting('home_lan_configuration_rollback') is None
 
 
+@pytest.mark.parametrize('command', ['network/configure', 'config/core/update'])
+async def test_convergence_rereads_field_after_remote_authority_checks(network, store, command):
+    ha = ConvergingHA()
+    if command == 'config/core/update':
+        ha.network['configured_adapters'] = ['end1']
+        ha.network['adapters'][0]['enabled'] = True
+    original = ha.ws
+    armed = False
+    async def arm(kind, **kwargs):
+        nonlocal armed
+        if kind == command:
+            armed = True
+        return await original(kind, **kwargs)
+    ha.ws = arm
+    async def check_host():
+        if armed:
+            ha.network['configured_adapters'] = ['owner-selection']
+            ha.internal_url = 'https://owner.example.invalid'
+    result = await ha_lan.converge_home_lan(ha, store, attempt(), check_host)
+    assert result['reason'] == 'home_lan_owner_conflict'
+    assert ha.mutations == []
+    assert store.setting('home_lan_configuration_rollback') is None
+
+
 @pytest.mark.parametrize('mode,state,vm', [('wired', 'configured', 'running'), ('nat', 'needs_reconcile', 'running'),
                                          ('nat', 'disabled', 'shut off')])
 def test_host_contract_rejects_inconsistent_completed_fallback(mode, state, vm):

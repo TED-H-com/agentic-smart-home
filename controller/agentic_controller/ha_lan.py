@@ -485,10 +485,11 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
 
                     async def send_guard(command=command, field=field, expected=expected, baseline=baseline, target_key=target_key):
                         nonlocal sending
+                        await mutation_guard()
                         # Transport waits must not turn a stale plan into ownership.
                         current = (await ha.ws("network", _receive_timeout=OBSERVATION_SECONDS) if command == "network/configure"
                                    else await ha.request("GET", "/config", timeout=OBSERVATION_SECONDS))
-                        await mutation_guard()
+                        guard()
                         if not isinstance(current, dict) or field not in current:
                             raise ObservationInvalid("core_config_contract_invalid")
                         if current[field] != expected:

@@ -3,7 +3,7 @@ import {api,requestKey} from './api';
 import {plainError} from './labels';
 import {Button,Notice,Status,timestamp} from './ui';
 
-type HomeObservation={state:string;ipv4?:string[];ipv6?:string[];interface?:string|null;internal_url?:string|null;observed_at?:string|null};
+type HomeObservation={state:string;reason?:string;ipv4?:string[];ipv6?:string[];interface?:string|null;internal_url?:string|null;observed_at?:string|null};
 type LanState={contract_version:1;mode:'nat'|'wired';state:string;selected_interface_id:string|null;interface:string|null;guest_mac:string|null;interfaces:{id:string;label:string;interface:string;address:string|null;network:string|null}[];vm_state:string;can_configure:boolean;can_connect?:boolean;core_configuration_pending?:boolean;fallback_complete?:boolean;limitations:string[];home?:HomeObservation;ha_lan_ip?:string|null;message?:string|null};
 type Job={id:string;state:string;message?:string};
 const homeCopy:Record<string,string>={
@@ -39,7 +39,7 @@ export function HomeLanSettings(){
   async function save(disable=false){
     if(!disable&&(choiceMissing||((selectionDirty.current||value?.interfaces.length!==1)&&!choiceAvailable)))return;
     setBusy(true);setError(null);
-    const selection=disable?'disabled':!selectionDirty.current&&value?.interfaces.length===1?'auto':choice;
+    const selection=disable?'disabled':!reauthorization&&!selectionDirty.current&&value?.interfaces.length===1?'auto':choice;
     if(pending.current?.choice!==selection)pending.current={choice:selection,key:requestKey()};
     const body=disable?{action:'configure_lan',interface_id:null}:selection==='auto'?{action:'configure_lan'}:{action:'configure_lan',interface_id:choice};
     try{
@@ -52,8 +52,9 @@ export function HomeLanSettings(){
   const choiceAvailable=!!value?.interfaces.some(item=>item.id===choice),choiceMissing=!!choice&&!choiceAvailable;
   const wired=value?.mode==='wired'&&value.state==='configured';
   const home=value?.home,ip=(home?.state==='ready'?home.ipv4?.[0]||home.ipv6?.[0]:null)||value?.ha_lan_ip;
-  const explain=ip?`HA 已連上家庭網路：${ip}`:homeCopy[home?.state||'']||'已改用有線網路，正在確認家庭區網位址。';
-  const connectionComplete=wired&&(home?.state==='ready'||value?.core_configuration_pending===true);
+  const reauthorization=home?.state==='unavailable'&&home.reason==='home_lan_reauthorization_required';
+  const explain=reauthorization?'家庭網路設定已暫停；請再按一次「連上家庭網路」確認。':ip?`HA 已連上家庭網路：${ip}`:homeCopy[home?.state||'']||'已改用有線網路，正在確認家庭區網位址。';
+  const connectionComplete=!reauthorization&&wired&&(home?.state==='ready'||value?.core_configuration_pending===true);
   const fallbackComplete=value?.fallback_complete===true&&value.mode==='nat'&&value.state==='disabled'&&value.vm_state==='running';
   const failed=job&&['failed','needs_reconcile'].includes(job.state);
   return <section className="maintenance-content" aria-label="家庭區網接入" aria-busy={busy}>
@@ -63,7 +64,7 @@ export function HomeLanSettings(){
     {fallbackComplete&&value?.message&&!failed&&<Notice>{value.message}</Notice>}
     {failed&&<Notice error reason={job.message}>{fallbackComplete?'家庭網路未能連上，已恢復基本網路，可稍後重試。':'自動恢復尚未完成；資料已保留，可稍後重試或聯絡支援。'}</Notice>}
     {!value?<p role="status">正在檢查可用的有線網路…</p>:<>
-      <div className="section-heading"><h3>家庭網路</h3><Status value={running?'running':value.state==='needs_reconcile'?'needs_reconcile':wired&&ip?'succeeded':wired?'running':'not_started'} label={running?'正在連接':value.state==='needs_reconcile'?'需要核對':wired&&ip?'已連接':wired?'正在確認':'尚未接入'}/></div>
+      <div className="section-heading"><h3>家庭網路</h3><Status value={running?'running':reauthorization?'blocked':value.state==='needs_reconcile'?'needs_reconcile':wired&&ip?'succeeded':wired?'running':'not_started'} label={running?'正在連接':reauthorization?'已暫停':value.state==='needs_reconcile'?'需要核對':wired&&ip?'已連接':wired?'正在確認':'尚未接入'}/></div>
       {wired&&<p role="status">{explain}</p>}
       {wired&&home?.state==='needs_home_setup'&&ip&&<p className="helper-text">家庭已取得區網位址；完成家庭授權後會自動核對探索功能。</p>}
       {!wired&&<p className="helper-text">連接期間家庭自動化會短暫暫停；未能連上時會自動恢復基本網路。</p>}
