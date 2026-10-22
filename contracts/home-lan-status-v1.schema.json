@@ -331,6 +331,11 @@
       "title": "Mode",
       "type": "string"
     },
+    "recovery_pending": {
+      "default": false,
+      "title": "Recovery Pending",
+      "type": "boolean"
+    },
     "selected_interface_id": {
       "anyOf": [
         {

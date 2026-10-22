@@ -471,6 +471,7 @@ def test_one_action_stops_with_restore_point_then_starts_and_verifies(lab, monke
     assert result["restore_point"] == RESTORE_POINT
     assert result["ha_lan_ip"] == "192.0.2.99"
     assert result["message"] == "HA 已連上家庭網路：192.0.2.99"
+    assert result['recovery_pending'] is False and lan.status()['recovery_pending'] is False
     assert "guest_dhcp_and_discovery_not_yet_verified" not in result["limitations"]
 
 
@@ -509,6 +510,14 @@ def test_failed_restore_point_never_changes_network(lab, monkeypatch):
         lan.connect()
     assert (ET.tostring(vm.network), ET.tostring(vm.domain)) == before
     assert not lan.path.exists()
+
+
+def test_failed_restore_point_has_no_pending_recovery(lab, monkeypatch):
+    lan, _, _, _ = lab
+    monkeypatch.setattr(lan.manager, 'snapshot', lambda **kw: (_ for _ in ()).throw(HostError('backup_failed')))
+    with pytest.raises(HostError, match='建立還原點'):
+        lan.connect()
+    assert lan.status().get('recovery_pending') is False
 
 
 def test_observation_requires_current_attempt_mac_and_ready_proof(lab):
@@ -1089,6 +1098,7 @@ def test_failed_nat_restart_retains_journal_without_completed_fallback(lab, monk
     with pytest.raises(HostError, match='自動恢復尚未完成'):
         lan.recover()
     assert lan.transaction_path.exists() and lan.status()['mode'] == 'nat'
+    assert lan.status().get('recovery_pending') is True
     assert lan.status().get('fallback_complete') is False
     assert '已自動' not in lan.status()['message']
 

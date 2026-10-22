@@ -95,6 +95,7 @@ class HostLanStatus(BaseModel):
     can_connect: bool = False
     core_configuration_pending: bool = False
     fallback_complete: bool = False
+    recovery_pending: bool = False
 
     @field_validator("contract_version", mode="before")
     @classmethod

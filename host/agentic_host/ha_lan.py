@@ -280,7 +280,7 @@ class HALan:
                 "attempt_id": record.get("attempt_id"), "home": home if verified else None,
                 "core_configuration_pending": bool(choice and record.get("attempt_id") and record.get("allow_core_configuration") and not record.get("home")),
                 "ha_lan_ip": address, "ha_internal_url": home.get("internal_url") if verified else None,
-                "fallback_complete": fallback_complete,
+                "fallback_complete": fallback_complete, "recovery_pending": self.transaction_path.exists(),
                 "message": message, "can_connect": vm_state in {"running", "shut off", "not_created"} and (not self.transaction_path.exists() or self.recoverable()),
                 "diagnostics": "主機無法直接連線此家庭位址是 macvtap 的正常限制；產品透過保留的管理網路確認 HA。",
                 "reservation": "此 HA 網卡使用固定的裝置識別；可在路由器為它保留目前位址。產品未變更路由器設定。",
@@ -631,7 +631,7 @@ class HALan:
             result = self.verify() if interface_id is not None else self.status()
             self.transaction_path.unlink()
             sync_path(self.manager.root)
-            return {**result, "restore_point": restore_point}
+            return {**result, "recovery_pending": False, "restore_point": restore_point}
         except (OSError, ValueError, HostError, subprocess.SubprocessError):
             return self.recover()
 

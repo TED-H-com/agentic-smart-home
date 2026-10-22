@@ -206,7 +206,7 @@ def test_incomplete_recovery_never_claims_basic_network_restored(ui_page, vm, st
     state, posts, errors = mount(page, origin)
     page.get_by_role('button', name='連上家庭網路').click()
     state['job'].update(state='failed', message='fixture_start_failed')
-    state['value'].update(vm_state=vm, state=state_value, fallback_complete=signal)
+    state['value'].update(vm_state=vm, state=state_value, fallback_complete=signal, recovery_pending=True)
     page.clock.run_for(5500)
     region = page.get_by_role('region', name='家庭區網接入')
     expect(region.get_by_role('alert')).to_contain_text('自動恢復尚未完成；資料已保留，可稍後重試或聯絡支援。')
@@ -266,4 +266,27 @@ def test_unavailable_saved_nic_requires_new_choice_after_loading(ui_page):  # no
     expect(save).to_be_enabled()
     save.click()
     assert posts[0][0] == {'action': 'configure_lan', 'interface_id': 'b' * 64}
+    assert not errors
+
+
+@pytest.mark.parametrize('job_state,host_state,recovery,message,expected', [
+    ('failed', 'disabled', True, 'fixture_error', '自動恢復尚未完成；資料已保留，可稍後重試或聯絡支援。'),
+    ('needs_reconcile', 'disabled', False, 'fixture_error', '自動恢復尚未完成；資料已保留，可稍後重試或聯絡支援。'),
+    ('failed', 'needs_reconcile', False, 'fixture_error', '自動恢復尚未完成；資料已保留，可稍後重試或聯絡支援。'),
+    *[('failed', 'disabled', False, message, '家庭網路未能連上，網路設定未變更，可稍後重試。') for message in
+      ['ha_lan_select_wired_interface', 'ha_lan_selected_interface_unavailable', 'ha_lan_restore_pending', None]],
+    *[('failed', 'disabled', False, message, message) for message in
+      ['建立還原點時遇到問題，尚未變更網路；請稍後重試。', '無法保存網路變更紀錄，尚未變更網路；已保留還原點，請稍後重試。']],
+])
+def test_failed_connection_reports_observed_recovery_or_unchanged_network(ui_page, job_state, host_state, recovery, message, expected):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    page.get_by_role('button', name='連上家庭網路').click()
+    state['job'].update(state=job_state, message=message)
+    state['value'].update(state=host_state, recovery_pending=recovery)
+    page.clock.run_for(5500)
+    region = page.get_by_role('region', name='家庭區網接入')
+    expect(region.get_by_role('alert')).to_contain_text(expected)
+    if message and message.startswith('建立還原點'):
+        page.screenshot(path='evidence/ui/ha-lan/unchanged-network-fixture.png', full_page=True)
     assert not errors

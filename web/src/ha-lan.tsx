@@ -1,10 +1,10 @@
 import {useEffect,useRef,useState} from 'react';
 import {api,requestKey} from './api';
 import {plainError} from './labels';
-import {Button,Notice,Status,timestamp} from './ui';
+import {Button,Notice,Status,friendlySentence,timestamp} from './ui';
 
 type HomeObservation={state:string;reason?:string;ipv4?:string[];ipv6?:string[];interface?:string|null;internal_url?:string|null;observed_at?:string|null};
-type LanState={contract_version:1;mode:'nat'|'wired';state:string;selected_interface_id:string|null;interface:string|null;guest_mac:string|null;interfaces:{id:string;label:string;interface:string;address:string|null;network:string|null}[];vm_state:string;can_configure:boolean;can_connect?:boolean;core_configuration_pending?:boolean;fallback_complete?:boolean;limitations:string[];home?:HomeObservation;ha_lan_ip?:string|null;message?:string|null};
+type LanState={contract_version:1;mode:'nat'|'wired';state:string;selected_interface_id:string|null;interface:string|null;guest_mac:string|null;interfaces:{id:string;label:string;interface:string;address:string|null;network:string|null}[];vm_state:string;can_configure:boolean;can_connect?:boolean;core_configuration_pending?:boolean;fallback_complete?:boolean;recovery_pending?:boolean;limitations:string[];home?:HomeObservation;ha_lan_ip?:string|null;message?:string|null};
 type Job={id:string;state:string;message?:string};
 const homeCopy:Record<string,string>={
   needs_home_setup:'已改用有線網路，正在確認家庭區網位址。',
@@ -57,12 +57,13 @@ export function HomeLanSettings(){
   const connectionComplete=!reauthorization&&wired&&(home?.state==='ready'||value?.core_configuration_pending===true);
   const fallbackComplete=value?.fallback_complete===true&&value.mode==='nat'&&value.state==='disabled'&&value.vm_state==='running';
   const failed=job&&['failed','needs_reconcile'].includes(job.state);
+  const recoveryPending=value?.recovery_pending===true||value?.state==='needs_reconcile'||job?.state==='needs_reconcile';
   return <section className="maintenance-content" aria-label="家庭區網接入" aria-busy={busy}>
     <p>讓家庭連上家中設備；系統會自動備份、重新啟動並確認位址。</p>
     {readError&&<Notice error><p>暫時無法讀取家庭網路，恢復連線後會自動重試。</p></Notice>}
     {error&&<Notice error reason={error.code}>{error.text}</Notice>}
     {fallbackComplete&&value?.message&&!failed&&<Notice>{value.message}</Notice>}
-    {failed&&<Notice error reason={job.message}>{fallbackComplete?'家庭網路未能連上，已恢復基本網路，可稍後重試。':'自動恢復尚未完成；資料已保留，可稍後重試或聯絡支援。'}</Notice>}
+    {failed&&<Notice error reason={job.message}>{fallbackComplete?'家庭網路未能連上，已恢復基本網路，可稍後重試。':recoveryPending?'自動恢復尚未完成；資料已保留，可稍後重試或聯絡支援。':friendlySentence(job.message,'家庭網路未能連上，網路設定未變更，可稍後重試。')}</Notice>}
     {!value?<p role="status">正在檢查可用的有線網路…</p>:<>
       <div className="section-heading"><h3>家庭網路</h3><Status value={running?'running':reauthorization?'blocked':value.state==='needs_reconcile'?'needs_reconcile':wired&&ip?'succeeded':wired?'running':'not_started'} label={running?'正在連接':reauthorization?'已暫停':value.state==='needs_reconcile'?'需要核對':wired&&ip?'已連接':wired?'正在確認':'尚未接入'}/></div>
       {wired&&<p role="status">{explain}</p>}

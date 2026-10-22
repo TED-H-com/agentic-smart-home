@@ -930,3 +930,10 @@ def test_older_host_cannot_imply_completed_fallback():
     assert ha_lan.HostLanStatus.model_validate(raw).fallback_complete is False
     raw['fallback_complete'] = True
     assert ha_lan.HostLanStatus.model_validate(raw).fallback_complete is True
+
+
+def test_recovery_pending_defaults_false_for_older_hosts():
+    raw = host_contract()
+    assert ha_lan.HostLanStatus.model_validate(raw).recovery_pending is False
+    raw['recovery_pending'] = True
+    assert ha_lan.HostLanStatus.model_validate(raw).recovery_pending is True
