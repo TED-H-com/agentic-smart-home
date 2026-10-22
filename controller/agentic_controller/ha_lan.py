@@ -411,13 +411,17 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
     if not owner:
         return observation("needs_home_setup", "home_owner_not_configured")
 
+    attempt_dirty = False
+
     def fence(*, field=None):
+        nonlocal attempt_dirty
         if check_attempt:
             if field:
                 attempt_record["conflicts"] = sorted(set([*attempt_record["conflicts"], field]))
             else:
                 attempt_record["revoked"] = True
             store.set_setting("home_lan_configuration_attempt", attempt_record)
+            attempt_dirty = True
 
     def guard():
         if (store.setting("owner") != owner or store.setting("hermes_web_epoch") != epoch
@@ -439,30 +443,31 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
         await check_attempt()
         guard()
 
-    async def record_initial_fields(core, config):
-        initial = attempt_record.setdefault("initial_fields", {})
-        invalid = None
-        for field, result, read in (("configured_adapters", core, configured_adapters),
-                                    ("internal_url", config, core_internal_url)):
-            if isinstance(result, BaseException):
-                continue
-            try:
-                value = read(result)
-            except ObservationInvalid as error:
-                invalid = invalid or error
-            else:
-                initial.setdefault(field, digest(value))
-        # Keep successful fields even when a sibling read failed; never retain raw URLs here.
-        store.set_setting("home_lan_configuration_attempt", attempt_record)
-        await durable(store)
-        if invalid:
-            raise invalid
+    async def initial_read(read, field, validate):
+        nonlocal attempt_dirty
+        result = await read
+        if check_attempt:
+            value = validate(result)
+            initial = attempt_record.setdefault("initial_fields", {})
+            if field not in initial:
+                # Record without yielding: a pending sibling must not lose this read.
+                initial[field] = digest(value)
+                store.set_setting("home_lan_configuration_attempt", attempt_record)
+                attempt_dirty = True
+        return result
+
+    async def flush_attempt():
+        nonlocal attempt_dirty
+        if attempt_dirty:
+            await durable(store)
+            attempt_dirty = False
 
     def check_initial_field(field, current, owned):
         if digest(current) != attempt_record["initial_fields"][field] and not owned:
             fence(field=field)
             raise ObservationInvalid("home_lan_owner_conflict")
 
+    failed = False
     try:
         guest_mac = mac_address(host_status.get("guest_mac"))
         async with asyncio.timeout(30 if check_attempt else OBSERVATION_SECONDS):
@@ -475,13 +480,16 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
             await check_owner()
             results = await asyncio.gather(
                 ha.request("GET", "/network/info", supervisor=True, timeout=OBSERVATION_SECONDS),
-                ha.ws("network", _receive_timeout=OBSERVATION_SECONDS),
+                initial_read(ha.ws("network", _receive_timeout=OBSERVATION_SECONDS), "configured_adapters", configured_adapters),
                 ha.ws("network/url", _receive_timeout=OBSERVATION_SECONDS),
-                *([ha.request("GET", "/config", timeout=OBSERVATION_SECONDS)] if check_attempt else []),
+                *([initial_read(ha.request("GET", "/config", timeout=OBSERVATION_SECONDS), "internal_url", core_internal_url)] if check_attempt else []),
                 return_exceptions=True)
             if check_attempt:
                 guard()
-                await record_initial_fields(results[1], results[3])
+                await flush_attempt()
+                for result in (results[1], results[3]):
+                    if isinstance(result, ObservationInvalid):
+                        raise result
             await check_owner()
             for result in results:
                 if isinstance(result, BaseException):
@@ -575,11 +583,34 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
             guard()
             return observed
     except ObservationInvalid as error:
-        if check_attempt:
-            await durable(store)
+        failed = True
         return observation("unavailable", str(error))
     except (HAError, TimeoutError, OSError, ValueError, TypeError, KeyError):
+        failed = True
         return observation("unavailable", "home_network_observation_unavailable")
+    except BaseException:
+        failed = True
+        raise
+    finally:
+        if attempt_dirty:
+            flushing = asyncio.create_task(durable(store))
+            try:
+                # Finish interrupted observations even when the caller was cancelled.
+                await asyncio.shield(flushing)
+            except asyncio.CancelledError:
+                while not flushing.done():
+                    try:
+                        await asyncio.shield(flushing)
+                    except asyncio.CancelledError:
+                        continue
+                    except Exception:
+                        break
+                if not flushing.cancelled():
+                    flushing.exception()
+                raise
+            except Exception:
+                if not failed:
+                    raise
 
 
 def save_rollback(store, record):

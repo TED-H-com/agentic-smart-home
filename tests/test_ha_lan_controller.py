@@ -1406,3 +1406,234 @@ async def test_first_observation_records_valid_sibling_before_contract_failure(n
         assert disk.setting('home_lan_configuration_rollback') is None
     finally:
         disk.close()
+
+
+@pytest.mark.parametrize('interruption', ['timeout', 'cancel'])
+@pytest.mark.parametrize('field', ['configured_adapters', 'internal_url'])
+@pytest.mark.parametrize('restart', [False, True])
+@pytest.mark.parametrize('owner_edit', [False, True])
+async def test_first_observation_survives_partial_gather(network, store, monkeypatch, interruption, field, restart, owner_edit):
+    from agentic_controller.models import digest
+    from agentic_controller.store import Store
+    ha = ConvergingHA()
+    ha.network['adapters'].append({'name': 'end0', 'index': 2, 'enabled': True,
+        'default': True, 'auto': True, 'ipv4': [{'address': '192.168.177.2', 'network_prefix': 24}], 'ipv6': []})
+    if field == 'configured_adapters':
+        ha.internal_url = ha.urls['internal'] = 'http://192.168.10.20'
+    else:
+        ha.network['configured_adapters'] = ['end1']
+        ha.network['adapters'][0]['enabled'] = True
+    initial = {'configured_adapters': digest(ha.network['configured_adapters']), 'internal_url': digest(ha.internal_url)}
+    original_request, original_ws = ha.request, ha.ws
+    seen, cancelled = set(), []
+    all_seen, sibling_waiting, release = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    while_pending = []
+
+    def observe(name):
+        seen.add(name)
+        if seen == {'configured_adapters', 'internal_url'}:
+            all_seen.set()
+
+    async def request(method, path, **kwargs):
+        if path == '/network/info':
+            await all_seen.wait()
+            while_pending.append(store.setting('home_lan_configuration_attempt'))
+            sibling_waiting.set()
+            try:
+                await release.wait()
+            except asyncio.CancelledError:
+                cancelled.append(path)
+                raise
+        result = await original_request(method, path, **kwargs)
+        if path == '/config':
+            observe('internal_url')
+        return result
+
+    async def ws(command, **kwargs):
+        result = await original_ws(command, **kwargs)
+        if command == 'network':
+            observe('configured_adapters')
+        return result
+
+    ha.request, ha.ws = request, ws
+    if interruption == 'timeout':
+        original_timeout = asyncio.timeout
+        monkeypatch.setattr(asyncio, 'timeout', lambda delay: original_timeout(0.05 if delay == 30 else delay))
+    async def check_host():
+        pass
+    task = asyncio.create_task(ha_lan.converge_home_lan(ha, store, attempt(), check_host))
+    fresh = None
+    try:
+        await asyncio.wait_for(sibling_waiting.wait(), 5)
+        if interruption == 'cancel':
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        else:
+            assert (await task)['reason'] == 'home_network_observation_unavailable'
+        assert cancelled == ['/network/info'] and ha.mutations == []
+        record = store.setting('home_lan_configuration_attempt')
+        assert not record['revoked'] and not record['conflicts']
+        assert store.setting('home_lan_configuration_rollback') is None
+        owner_value = ['end0'] if field == 'configured_adapters' else 'https://owner.invalid'
+        if owner_edit:
+            if field == 'configured_adapters':
+                ha.network[field] = owner_value
+            else:
+                ha.internal_url = ha.urls['internal'] = owner_value
+        ha.request, ha.ws = original_request, original_ws
+        fresh = Store(store.path) if restart else None
+        active = fresh or store
+        second = await ha_lan.converge_home_lan(ha, active, attempt(), check_host)
+        if owner_edit:
+            assert ha.mutations == []
+            assert (ha.network[field] if field == 'configured_adapters' else ha.internal_url) == owner_value
+            assert second['reason'] == 'home_lan_owner_conflict'
+            assert active.setting('home_lan_configuration_attempt')['conflicts'] == [field]
+            assert (await ha_lan.converge_home_lan(ha, active, attempt(), check_host))['reason'] == 'home_lan_reauthorization_required'
+            assert ha.mutations == [] and active.setting('home_lan_configuration_rollback') is None
+        else:
+            assert second['state'] == 'ready' and len(ha.mutations) == 1
+            assert not active.setting('home_lan_configuration_attempt')['conflicts']
+        assert record['initial_fields'] == while_pending[0]['initial_fields'] == initial
+        assert 'expected' not in record
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        if fresh:
+            fresh.close()
+
+
+@pytest.mark.parametrize('outcome', ['ready', 'invalid', 'transient'])
+async def test_first_observation_unchanged_poll_does_not_write_baseline(network, store, monkeypatch, outcome):
+    ha = ConvergingHA()
+    async def check_host():
+        pass
+    assert (await ha_lan.converge_home_lan(ha, store, attempt(), check_host))['state'] == 'ready'
+    ha.mutations.clear()
+    original_setting, original_durable, original_owner = store.set_setting, ha_lan.durable, ha.owner
+    writes, flushes = [], []
+    def setting(key, value):
+        writes.append(key)
+        return original_setting(key, value)
+    async def durable(value):
+        flushes.append(True)
+        await original_durable(value)
+    async def owner(value):
+        result = await original_owner(value)
+        if outcome == 'transient' and ha.owner_reads == 2:
+            raise HAError('fixture owner read failed')
+        return result
+    ha.owner_reads = 0
+    ha.owner = owner
+    if outcome == 'invalid':
+        ha.network['configured_adapters'] = [None]
+    monkeypatch.setattr(store, 'set_setting', setting)
+    monkeypatch.setattr(ha_lan, 'durable', durable)
+    result = await ha_lan.converge_home_lan(ha, store, attempt(), check_host)
+    assert result['reason'] == {'ready': 'guest_lan_and_core_configuration_observed', 'invalid': 'core_contract_invalid',
+        'transient': 'home_network_observation_unavailable'}[outcome]
+    assert ha.mutations == [] and writes == [] and flushes == []
+
+
+@pytest.mark.parametrize('outcome', ['timeout', 'cancel', 'authority', 'barrier'])
+async def test_first_observation_flush_failure_preserves_original_outcome(network, store, monkeypatch, outcome):
+    ha = ConvergingHA()
+    original_request, original_durable = ha.request, ha_lan.durable
+    waiting, release = asyncio.Event(), asyncio.Event()
+    flushes = []
+    async def request(method, path, **kwargs):
+        if path == '/network/info':
+            waiting.set()
+            await release.wait()
+            if outcome == 'authority':
+                store.set_setting('hermes_web_epoch', 'changed')
+        return await original_request(method, path, **kwargs)
+    async def durable(value):
+        record = store.setting('home_lan_configuration_attempt')
+        if record and (record.get('initial_fields') or record['revoked']):
+            flushes.append(True)
+            if outcome == 'barrier' and len(flushes) == 1:
+                raise OSError('fixture journal unavailable')
+            raise RuntimeError('fixture journal flush failed')
+        await original_durable(value)
+    ha.request = request
+    monkeypatch.setattr(ha_lan, 'durable', durable)
+    if outcome == 'timeout':
+        original_timeout = asyncio.timeout
+        monkeypatch.setattr(asyncio, 'timeout', lambda delay: original_timeout(0.05 if delay == 30 else delay))
+    async def check_host():
+        pass
+    task = asyncio.create_task(ha_lan.converge_home_lan(ha, store, attempt(), check_host))
+    try:
+        await asyncio.wait_for(waiting.wait(), 5)
+        if outcome == 'cancel':
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        else:
+            if outcome != 'timeout':
+                release.set()
+            result = await task
+            assert result['reason'] == ('home_authority_changed' if outcome == 'authority' else 'home_network_observation_unavailable')
+        assert len(flushes) == (2 if outcome == 'barrier' else 1)
+        assert ha.mutations == [] and store.setting('home_lan_configuration_rollback') is None
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.parametrize('stage', ['partial_gather', 'barrier'])
+async def test_first_observation_cancellation_waits_for_exit_flush(network, store, monkeypatch, stage):
+    from agentic_controller.models import digest
+    from agentic_controller.store import Store
+    ha = ConvergingHA()
+    original_request, original_durable = ha.request, ha_lan.durable
+    waiting, flushing, release = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    flush_tasks = []
+    async def request(method, path, **kwargs):
+        if path == '/network/info' and stage == 'partial_gather':
+            waiting.set()
+            await release.wait()
+        return await original_request(method, path, **kwargs)
+    async def durable(value):
+        if store.setting('home_lan_configuration_attempt', {}).get('initial_fields'):
+            flush_tasks.append(asyncio.current_task())
+            if len(flush_tasks) == 1 and stage == 'barrier':
+                waiting.set()
+            else:
+                flushing.set()
+            await release.wait()
+        await original_durable(value)
+    ha.request = request
+    monkeypatch.setattr(ha_lan, 'durable', durable)
+    async def check_host():
+        pass
+    task = asyncio.create_task(ha_lan.converge_home_lan(ha, store, attempt(), check_host))
+    try:
+        await asyncio.wait_for(waiting.wait(), 5)
+        task.cancel()
+        await asyncio.wait_for(flushing.wait(), 1)
+        assert flush_tasks[-1] is not task
+        task.cancel()
+        await asyncio.sleep(0)
+        assert not task.done()
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        disk = Store(store.path)
+        try:
+            assert disk.setting('home_lan_configuration_attempt')['initial_fields'] == {
+                'configured_adapters': digest([]), 'internal_url': digest(None)}
+        finally:
+            disk.close()
+        assert ha.mutations == [] and store.setting('home_lan_configuration_rollback') is None
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
