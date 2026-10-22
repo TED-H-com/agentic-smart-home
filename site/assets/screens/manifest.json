@@ -1,7 +1,7 @@
 {
-  "source_commit": "cb850339d8a1a664d78ef40338f66b90c359a1da",
-  "source_tree": "c6cc48fc21033dcb190576e41b60c31b0b4cb93f",
-  "frontend_source_tree": "a22fd06cd9189c35fdecea12de5f807a9c8b210b",
+  "source_commit": "c09df68bae5d9d52b6a86f1fdc5610a1593338d3",
+  "source_tree": "b7a0b83854751fd9cdd08be983e736fed6d67f05",
+  "frontend_source_tree": "7356b9474b2127dc2bfb9e878d46c1de9e9161f6",
   "source_files": [
     {
       "file": "scripts/site_screenshots.py",
@@ -199,7 +199,7 @@
     },
     {
       "file": "bridge.png",
-      "sha256": "353b2697709ca72fc65ce624fa7442db33ceefe90810fdce783f2fffe40afc96",
+      "sha256": "dfedb3614c1ed0374e765679c900fa9744ca148ea41ff4aa1e66a366cbde4838",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -207,7 +207,7 @@
       "device_scale_factor": 1,
       "route": "#/agentic-home",
       "surface": "product-in-ha-simulation",
-      "bytes": 82086
+      "bytes": 82083
     },
     {
       "file": "phone.png",
@@ -223,7 +223,7 @@
     },
     {
       "file": "../og.png",
-      "sha256": "da874a70b954abab1ed99fb03bb965f413422d80802e658489deb28208a7f48e",
+      "sha256": "5de3e3850c0199bb1fd86b2247496f04030fe1683a009eb6d96956667d561ff8",
       "viewport": {
         "width": 1200,
         "height": 630
