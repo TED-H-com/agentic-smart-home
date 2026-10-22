@@ -13,7 +13,7 @@ HOST = {"mode": "wired", "state": "configured", "guest_mac": GUEST}
 
 
 class NetworkHA:
-    token, base, websocket, supervisor, external = "fixture-token", "fixture-core", "fixture-ws", "fixture-supervisor", True
+    token, base, websocket, supervisor, external = "fixture-token", "http://192.168.177.2:80/api", "fixture-ws", "fixture-supervisor", True
 
     def __init__(self):
         self.calls = []
@@ -384,9 +384,9 @@ async def test_fixed_attempt_converges_then_reads_back_without_manual_core_setti
     async def guard():
         checks.append(True)
     result = await ha_lan.converge_home_lan(ha, store, attempt(), guard)
-    assert result['state'] == 'ready' and result['internal_url'] == 'http://192.168.10.20:8123'
+    assert result['state'] == 'ready' and result['internal_url'] == 'http://192.168.10.20'
     assert ha.mutations == [('network/configure', {'configured_adapters': ['end1']}),
-                            ('config/core/update', {'internal_url': 'http://192.168.10.20:8123'})]
+                            ('config/core/update', {'internal_url': 'http://192.168.10.20'})]
     assert len(checks) >= 4 and ha.owner_reads >= 6
     record = store.setting('home_lan_configuration_rollback')
     assert record['previous_adapters'] == [] and record['previous_internal_url'] is None
@@ -553,3 +553,64 @@ async def test_reconnect_adopts_owned_fields_without_overwriting_original_baseli
     assert record['previous_internal_url'] is None
     await ha_lan.compensate_home_lan(ha, store, {'mode': 'nat'})
     assert ha.internal_url is None and ha.network['configured_adapters'] == []
+
+
+@pytest.mark.parametrize('base,ipv6,expected', [
+    ('http://192.168.177.2:80/api', False, 'http://192.168.10.20'),
+    ('http://192.168.177.2:8123/api', False, 'http://192.168.10.20:8123'),
+    ('https://192.168.177.2:8443/api', False, 'https://192.168.10.20:8443'),
+    ('https://192.168.177.2:443/api', True, 'https://[fd12:3456::20]'),
+    ('http://192.168.177.2:8123/api', True, 'http://[fd12:3456::20]:8123'),
+])
+async def test_convergence_uses_verified_core_listener(network, store, base, ipv6, expected):
+    ha = ConvergingHA()
+    ha.base = base
+    if ipv6:
+        ha.supervisor_info['interfaces'][0]['ipv4']['address'] = []
+        ha.network['adapters'][0]['ipv4'] = []
+    async def guard():
+        pass
+    result = await ha_lan.converge_home_lan(ha, store, attempt(), guard)
+    assert result['state'] == 'ready' and result['internal_url'] == expected
+    assert ha.internal_url == expected
+
+
+@pytest.mark.parametrize('external,base', [
+    (False, 'http://192.168.177.2:80/api'), (True, 'http://supervisor/core/api'),
+    (True, 'http://192.168.10.20:80/api'), (True, 'fixture-core'),
+    (True, '//192.168.177.2/api'), (True, 'ftp://192.168.177.2/api'),
+    (True, 'http://user:secret@192.168.177.2/api'), (True, 'http://192.168.177.2:0/api'),
+])
+async def test_unverified_core_listener_cannot_mutate(network, store, external, base):
+    ha = ConvergingHA()
+    ha.external, ha.base = external, base
+    async def guard():
+        pass
+    result = await ha_lan.converge_home_lan(ha, store, attempt(), guard)
+    assert result['reason'] == 'core_listener_unverified' and ha.mutations == []
+
+
+async def test_product_url_requires_exact_core_config_readback(network, store):
+    ha = ConvergingHA()
+    original = ha.request
+    async def different_stored_value(method, path, **kwargs):
+        if path == '/config' and ha.mutations:
+            return {'internal_url': 'http://192.168.10.20:9999'}
+        return await original(method, path, **kwargs)
+    ha.request = different_stored_value
+    async def guard():
+        pass
+    result = await ha_lan.converge_home_lan(ha, store, attempt(), guard)
+    assert result['reason'] == 'core_internal_url_readback_mismatch'
+    assert result['state'] == 'unavailable'
+
+
+async def test_enabling_adapter_preserves_existing_owner_lan_url(network, store):
+    ha = ConvergingHA()
+    ha.internal_url = ha.urls['internal'] = 'https://192.168.10.20:8443'
+    async def guard():
+        pass
+    result = await ha_lan.converge_home_lan(ha, store, attempt(), guard)
+    assert result['state'] == 'ready'
+    assert ha.mutations == [('network/configure', {'configured_adapters': ['end1']})]
+    assert ha.internal_url == 'https://192.168.10.20:8443'

@@ -281,7 +281,27 @@ async def observe_home_lan(ha, store, host_status):
     return await _home_lan(ha, store, host_status)
 
 
-def configuration_plan(guest_mac, supervisor, core, urls):
+def core_listener(ha):
+    """Use only the Host's verified IP management endpoint; never a proxy."""
+    raw = getattr(ha, "base", None)
+    try:
+        if (getattr(ha, "external", None) is not True or not isinstance(raw, str)
+                or any(ord(char) <= 32 for char in raw) or "\\" in raw):
+            raise ValueError()
+        parsed = urlsplit(raw)
+        host = ipaddress.ip_address(parsed.hostname)
+        if (parsed.scheme not in {"http", "https"} or parsed.username is not None or parsed.password is not None
+                or parsed.query or parsed.fragment or not any(host in network for network in MANAGEMENT_NETWORKS)):
+            raise ValueError()
+        port = parsed.port if parsed.port is not None else 80 if parsed.scheme == "http" else 443
+        if not 1 <= port <= 65535:
+            raise ValueError()
+        return parsed.scheme, port
+    except (ValueError, TypeError):
+        raise ObservationInvalid("core_listener_unverified") from None
+
+
+def configuration_plan(guest_mac, supervisor, core, urls, *, listener):
     """Only MAC-matched, cross-checked addresses can become Core settings.
 
     Core 2026.10.1 network/configure uses config.configured_adapters;
@@ -306,7 +326,8 @@ def configuration_plan(guest_mac, supervisor, core, urls):
         raise ObservationInvalid("core_supervisor_address_mismatch")
     preferred = sorted(common, key=lambda item: (ipaddress.ip_address(item).version, item))[0]
     authority = "[" + preferred + "]" if ":" in preferred else preferred
-    internal = "http://" + authority + ":8123"
+    scheme, port = listener
+    internal = scheme + "://" + authority + (":" + str(port) if port != (80 if scheme == "http" else 443) else "")
     adapter["enabled"] = True
     verified = project_network(guest_mac, supervisor, projected, {"internal": internal})
     if verified["state"] != "ready":
@@ -317,7 +338,7 @@ def configuration_plan(guest_mac, supervisor, core, urls):
         if not configured:
             configured = [interface_name(item.get("name")) for item in core["adapters"] if item.get("enabled") is True]
         adapters = list(dict.fromkeys([*configured, name]))
-    return observed, adapters, internal if observed["internal_url"] is None else None
+    return observed, adapters, internal if callback_url(urls["internal"], common) is None else None
 
 
 async def converge_home_lan(ha, store, host_status, check_attempt):
@@ -377,7 +398,7 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
                     raise ObservationInvalid("home_network_observation_unavailable")
             observed = project_network(guest_mac, *results)
             if check_attempt:
-                observed, adapters, internal = configuration_plan(guest_mac, *results)
+                observed, adapters, internal = configuration_plan(guest_mac, *results, listener=core_listener(ha))
                 previous = store.setting("home_lan_configuration_rollback")
                 if previous and (previous["owner"] != owner or previous["epoch"] != epoch or previous["connection"] != digest(connection)):
                     previous = None
@@ -418,6 +439,10 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
                         ha.ws("network", _receive_timeout=OBSERVATION_SECONDS),
                         ha.ws("network/url", _receive_timeout=OBSERVATION_SECONDS))
                     observed = project_network(guest_mac, *results)
+                    if internal is not None:
+                        config = await ha.request("GET", "/config", timeout=OBSERVATION_SECONDS)
+                        if not isinstance(config, dict) or config.get("internal_url") != internal:
+                            raise ObservationInvalid("core_internal_url_readback_mismatch")
                 await check_attempt()
                 await check_owner()
             guard()
