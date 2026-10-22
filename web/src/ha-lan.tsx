@@ -37,7 +37,7 @@ export function HomeLanSettings(){
   }
   useEffect(()=>{alive.current=true;let timer:ReturnType<typeof setTimeout>;async function poll(){await refresh();if(alive.current)timer=setTimeout(poll,5000)}void poll();return()=>{alive.current=false;++serial.current;clearTimeout(timer)}},[]);
   async function save(disable=false){
-    if(!disable&&((selectionDirty.current||value?.interfaces.length!==1)&&!value?.interfaces.some(item=>item.id===choice)))return;
+    if(!disable&&(choiceMissing||((selectionDirty.current||value?.interfaces.length!==1)&&!choiceAvailable)))return;
     setBusy(true);setError(null);
     const selection=disable?'disabled':!selectionDirty.current&&value?.interfaces.length===1?'auto':choice;
     if(pending.current?.choice!==selection)pending.current={choice:selection,key:requestKey()};
@@ -74,7 +74,7 @@ export function HomeLanSettings(){
         {value.interfaces.map(item=><option key={item.id} value={item.id}>{item.interface}{item.address?` · ${item.address}`:''}</option>)}
       </select></label>}
       {!value.interfaces.length&&<p className="helper-text">請插上網路線，或接上 USB 有線網路卡。</p>}
-      <Button onClick={()=>void save()} disabled={!!blocked||!!connectionComplete||!value.interfaces.length||((value.interfaces.length>1||selectionDirty.current)&&!choiceAvailable)}>{busy||running?'正在連接…':'連上家庭網路'}</Button>
+      <Button onClick={()=>void save()} disabled={!!blocked||!!connectionComplete||choiceMissing||!value.interfaces.length||((value.interfaces.length>1||selectionDirty.current)&&!choiceAvailable)}>{busy||running?'正在連接…':'連上家庭網路'}</Button>
       {wired&&<Button secondary disabled={!!blocked} onClick={()=>void save(true)}>使用基本網路</Button>}
       {wired&&<div className="service-row">
         {home?.state==='ready'&&<p className="helper-text">可到「裝置與服務」新增設備，再實測控制。</p>}

@@ -230,3 +230,20 @@ def test_connected_chip_requires_observed_address(ui_page, home, host_ip, connec
     expect(region.get_by_text('已連接', exact=True)).to_have_count(1 if connected else 0)
     expect(region.get_by_text('HA 已連上家庭網路：', exact=False)).to_have_count(1 if connected else 0)
     assert not posts and not errors
+
+
+def test_unavailable_saved_nic_requires_new_choice_after_loading(ui_page):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    state['value'].update(mode='wired', state='unavailable', selected_interface_id=CHOICE, interface='enp2s0')
+    state['value']['interfaces'] = [{'id': 'b' * 64, 'label': 'USB', 'interface': 'enx2', 'address': None, 'network': None}]
+    page.clock.run_for(5500)
+    expect(page.get_by_text('原先選擇的網路卡目前無法使用，請重新選擇。')).to_be_visible()
+    save = page.get_by_role('button', name='連上家庭網路')
+    expect(save).to_be_disabled()
+    assert not posts
+    page.get_by_label('接到家庭路由器的網路線').select_option('b' * 64)
+    expect(save).to_be_enabled()
+    save.click()
+    assert posts[0][0] == {'action': 'configure_lan', 'interface_id': 'b' * 64}
+    assert not errors
