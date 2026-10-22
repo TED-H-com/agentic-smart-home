@@ -706,9 +706,12 @@ class HALan:
     def default_choice(self):
         # Only pristine installations inherit a default. Existing NAT choices,
         # existing deployments, and interrupted journals are never overwritten.
-        if self.path.exists() or self.manager.state().get("complete"):
+        if self.path.exists() or self.manager.state_file.exists() or self.transaction_path.exists():
             return False
         try:
+            if (self._xml("dumpxml", NAME, "--inactive", missing=True) is not None
+                    or self._xml("net-dumpxml", NETWORK, missing=True) is not None):
+                return False
             candidates = self.interfaces()
             if len(candidates) == 1 and candidates[0].get("dhcp"):
                 self.configure(candidates[0]["id"])

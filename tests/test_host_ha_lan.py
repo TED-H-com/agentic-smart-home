@@ -554,10 +554,9 @@ def test_verified_status_expires_and_stopped_guest_does_not_claim_online(lab):
 
 
 def test_first_install_defaults_only_single_wired_dhcp_and_never_overwrites_choice(lab):
-    lan, _, _, addresses = lab
-    state = lan.manager.state()
-    state["complete"] = False
-    atomic(lan.manager.state_file, state)
+    lan, vm, _, addresses = lab
+    lan.manager.state_file.unlink()
+    vm.domain = vm.network = None
     assert lan.default_choice() is False
     addresses[0]["addr_info"][0]["dynamic"] = True
     assert lan.default_choice() is True
@@ -565,6 +564,43 @@ def test_first_install_defaults_only_single_wired_dhcp_and_never_overwrites_choi
     lan.configure(None)
     assert lan.default_choice() is False
     assert lan.status()["mode"] == "nat"
+
+
+@pytest.mark.parametrize('existing', ['state', 'network', 'domain', 'journal'])
+def test_default_choice_requires_pristine_install(lab, existing):
+    lan, vm, _, addresses = lab
+    if existing == 'state':
+        atomic(lan.manager.state_file, {**lan.manager.state(), 'complete': False})
+    else:
+        lan.manager.state_file.unlink()
+    if existing != 'network':
+        vm.network = None
+    if existing != 'domain':
+        vm.domain = None
+    if existing == 'journal':
+        atomic(lan.transaction_path, {'interrupted': True})
+    addresses[0]['addr_info'][0]['dynamic'] = True
+    assert lan.default_choice() is False
+    assert not lan.path.exists()
+
+
+@pytest.mark.parametrize('after_save', [False, True])
+def test_pristine_default_save_failure_never_leaves_pending_configuration(lab, monkeypatch, after_save):
+    from agentic_host import ha_lan
+    lan, vm, _, addresses = lab
+    lan.manager.state_file.unlink()
+    vm.domain = vm.network = None
+    addresses[0]['addr_info'][0]['dynamic'] = True
+    original = ha_lan.atomic
+    def fail(path, value):
+        if after_save:
+            original(path, value)
+        raise OSError('choice_save_failed')
+    monkeypatch.setattr(ha_lan, 'atomic', fail)
+    assert lan.default_choice() is False
+    assert not lan.record().get('pending') and not lan.transaction_path.exists()
+    assert bool(lan.ready()) == after_save
+    assert not any('net-define' in call or 'define' in call for call in vm.calls)
 
 
 def test_existing_install_nat_is_not_silently_changed(lab):
@@ -901,6 +937,32 @@ def initial_provision(lab, monkeypatch):
         prepare(fresh)
         return current[0]
     return lan, vm, restart
+
+
+@pytest.mark.parametrize('stage', ['net-define', 'define'])
+def test_resumed_first_provision_never_automatically_replaces_nat(initial_provision, lab, monkeypatch, stage):
+    lan, vm, restart = initial_provision
+    lan.configure(None)
+    lan.path.unlink()
+    lab[3][0]['addr_info'][0]['dynamic'] = True
+    assert lan.manager.state()['complete'] is False
+    before = ET.tostring(vm.network), ET.tostring(vm.domain)
+    class Interrupted(BaseException):
+        pass
+    original = lan.manager.run
+    def interrupted(*args, **kwargs):
+        result = original(*args, **kwargs)
+        if stage in args:
+            raise Interrupted()
+        return result
+    with monkeypatch.context() as crash:
+        crash.setattr(lan.manager, 'run', interrupted)
+        assert lan.manager.provision()['complete'] is True
+    assert (ET.tostring(vm.network), ET.tostring(vm.domain)) == before
+    assert not lan.record().get('pending') and not lan.transaction_path.exists()
+    fresh = restart()
+    assert fresh.manager.provision()['complete'] is True
+    assert fresh.status()['mode'] == 'nat'
 
 
 @pytest.mark.parametrize('stage', ['journal', 'network', 'domain', 'before_start'])
