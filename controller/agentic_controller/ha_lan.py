@@ -321,6 +321,23 @@ def core_listener(ha):
         raise ObservationInvalid("core_listener_unverified") from None
 
 
+def configured_adapters(core):
+    if not isinstance(core, dict):
+        raise ObservationInvalid("network_contract_invalid")
+    configured = core.get("configured_adapters")
+    if (not isinstance(configured, list) or len(configured) > MAX_INTERFACES
+            or any(not isinstance(item, str) for item in configured)
+            or len(set(configured)) != len(configured)):
+        raise ObservationInvalid("core_contract_invalid")
+    return [interface_name(item) for item in configured]
+
+
+def core_internal_url(config):
+    if not isinstance(config, dict) or "internal_url" not in config:
+        raise ObservationInvalid("core_config_contract_invalid")
+    return config["internal_url"]
+
+
 def configuration_plan(guest_mac, supervisor, core, urls, *, listener):
     """Only MAC-matched, cross-checked addresses can become Core settings.
 
@@ -331,12 +348,7 @@ def configuration_plan(guest_mac, supervisor, core, urls, *, listener):
     if observed["state"] not in {"ready", "adapter_selection_required", "callback_address_required"}:
         return observed, None, None
     name = observed["interface"]
-    configured = core.get("configured_adapters")
-    if (not isinstance(configured, list) or len(configured) > MAX_INTERFACES
-            or any(not isinstance(item, str) for item in configured)
-            or len(set(configured)) != len(configured)):
-        raise ObservationInvalid("core_contract_invalid")
-    configured = [interface_name(item) for item in configured]
+    configured = configured_adapters(core)
     # Validate the entire target adapter and match Supervisor/Core addresses even
     # when discovery is currently disabled (the normal observer stops earlier).
     projected = copy.deepcopy(core)
@@ -427,6 +439,30 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
         await check_attempt()
         guard()
 
+    async def record_initial_fields(core, config):
+        initial = attempt_record.setdefault("initial_fields", {})
+        invalid = None
+        for field, result, read in (("configured_adapters", core, configured_adapters),
+                                    ("internal_url", config, core_internal_url)):
+            if isinstance(result, BaseException):
+                continue
+            try:
+                value = read(result)
+            except ObservationInvalid as error:
+                invalid = invalid or error
+            else:
+                initial.setdefault(field, digest(value))
+        # Keep successful fields even when a sibling read failed; never retain raw URLs here.
+        store.set_setting("home_lan_configuration_attempt", attempt_record)
+        await durable(store)
+        if invalid:
+            raise invalid
+
+    def check_initial_field(field, current, owned):
+        if digest(current) != attempt_record["initial_fields"][field] and not owned:
+            fence(field=field)
+            raise ObservationInvalid("home_lan_owner_conflict")
+
     try:
         guest_mac = mac_address(host_status.get("guest_mac"))
         async with asyncio.timeout(30 if check_attempt else OBSERVATION_SECONDS):
@@ -440,45 +476,45 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
             results = await asyncio.gather(
                 ha.request("GET", "/network/info", supervisor=True, timeout=OBSERVATION_SECONDS),
                 ha.ws("network", _receive_timeout=OBSERVATION_SECONDS),
-                ha.ws("network/url", _receive_timeout=OBSERVATION_SECONDS), return_exceptions=True)
+                ha.ws("network/url", _receive_timeout=OBSERVATION_SECONDS),
+                *([ha.request("GET", "/config", timeout=OBSERVATION_SECONDS)] if check_attempt else []),
+                return_exceptions=True)
+            if check_attempt:
+                guard()
+                await record_initial_fields(results[1], results[3])
             await check_owner()
             for result in results:
                 if isinstance(result, BaseException):
                     raise ObservationInvalid("home_network_observation_unavailable")
-            observed = project_network(guest_mac, *results)
+            observed = project_network(guest_mac, *results[:3])
             if check_attempt:
-                observed, adapters, internal = configuration_plan(guest_mac, *results, listener=core_listener(ha))
+                observed, adapters, internal = configuration_plan(guest_mac, *results[:3], listener=core_listener(ha))
                 previous = store.setting("home_lan_configuration_rollback")
                 if previous and (previous["owner"] != owner or previous["connection"] != digest(connection)):
                     previous = None
                     store.set_setting("home_lan_configuration_rollback", None)
+                own_adapters = bool(previous and previous["target_adapters"] is not None
+                                    and previous["target_adapters"] == results[1]["configured_adapters"])
+                own_url = bool(previous and previous["target_internal_url"] is not None
+                               and previous["target_internal_url"] == results[3]["internal_url"])
+                for field, target, current, owned in (
+                        ("configured_adapters", adapters, results[1]["configured_adapters"], own_adapters),
+                        ("internal_url", internal, results[3]["internal_url"], own_url)):
+                    if target is not None:
+                        check_initial_field(field, current, owned)
                 if adapters is not None or internal is not None or (previous and previous.get("attempt_id") != host_status["attempt_id"]):
                     await ha.ensure_write_compatibility()
                     config = await ha.request("GET", "/config", timeout=OBSERVATION_SECONDS)
-                    if not isinstance(config, dict) or "internal_url" not in config:
-                        raise ObservationInvalid("core_config_contract_invalid")
-                    previous_internal = config["internal_url"]
+                    previous_internal = core_internal_url(config)
                     # Carry ownership across successful reconnects. An owner
                     # edit becomes the new baseline for that field; only an
                     # exact product value retains its original baseline.
-                    own_adapters = bool(previous and previous["target_adapters"] is not None
-                                        and previous["target_adapters"] == results[1]["configured_adapters"])
                     own_url = bool(previous and previous["target_internal_url"] is not None
                                    and previous["target_internal_url"] == previous_internal)
-                    # Keep the first plan across failed handshakes without owning unsent effects.
-                    expected = attempt_record.setdefault("expected", {})
-                    planned = [(field, current, owned) for field, target, current, owned in (
-                        ("configured_adapters", adapters, results[1]["configured_adapters"], own_adapters),
-                        ("internal_url", internal, previous_internal, own_url)) if target is not None]
-                    for field, current, owned in planned:
-                        if field in expected and current != expected[field] and not owned:
-                            fence(field=field)
-                            raise ObservationInvalid("home_lan_owner_conflict")
+                    if internal is not None:
+                        check_initial_field("internal_url", previous_internal, own_url)
                     if previous_internal is not None and not safe_previous_url(previous_internal):
                         raise ObservationInvalid("previous_internal_url_invalid")
-                    for field, current, _ in planned:
-                        expected.setdefault(field, copy.deepcopy(current))
-                    store.set_setting("home_lan_configuration_attempt", attempt_record)
                     baseline = {
                         "attempt_id": host_status["attempt_id"], "owner": owner,
                         "connection": digest(connection),

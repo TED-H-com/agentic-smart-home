@@ -944,6 +944,7 @@ def test_recovery_pending_defaults_false_for_older_hosts():
 @pytest.mark.parametrize('fault', ['owner_edit', 'unchanged', 'lost_reply'])
 async def test_same_attempt_retry_after_failed_transport(network, store, command, restart, fault):
     from agentic_controller.ha import HomeAssistant
+    from agentic_controller.models import digest
     from agentic_controller.store import Store
     from aiohttp import web
     fixture = ConvergingHA()
@@ -956,7 +957,7 @@ async def test_same_attempt_retry_after_failed_transport(network, store, command
         fixture.network['adapters'][0]['enabled'] = True
     field = 'configured_adapters' if command == 'network/configure' else 'internal_url'
     target_key = 'target_adapters' if command == 'network/configure' else 'target_internal_url'
-    planned_from = [] if command == 'network/configure' else None
+    initial = {'configured_adapters': digest(fixture.network['configured_adapters']), 'internal_url': digest(fixture.internal_url)}
     owner_value = ['end0'] if command == 'network/configure' else 'https://owner.example.invalid'
     entered, release = asyncio.Event(), asyncio.Event()
     armed, fail_once = False, True
@@ -1058,13 +1059,13 @@ async def test_same_attempt_retry_after_failed_transport(network, store, command
             assert mutations == [] and active.setting('home_lan_configuration_rollback') is None
             assert (await ha_lan.converge_home_lan(ha, active, {**attempt(), 'attempt_id': 'c' * 64}, check_host))['state'] == 'ready'
             assert len(mutations) == 1 and mutations[0]['type'] == command
-            assert active.setting('home_lan_configuration_attempt')['expected'] == {field: owner_value}
+            assert active.setting('home_lan_configuration_attempt')['initial_fields'] == {**initial, field: digest(owner_value)}
         else:
             assert second['state'] == 'ready'
             assert len(mutations) == (0 if fault == 'lost_reply' else 1)
             record = active.setting('home_lan_configuration_attempt')
             assert not record['revoked'] and not record['conflicts']
-        assert recorded['expected'] == {field: planned_from}
+        assert recorded['initial_fields'] == initial
         assert 'token' not in recorded
     finally:
         release.set()
@@ -1078,7 +1079,8 @@ async def test_same_attempt_retry_after_failed_transport(network, store, command
 
 
 @pytest.mark.parametrize('legacy', [False, True])
-async def test_attempt_records_first_plan_for_each_field_on_later_poll(network, store, legacy):
+async def test_attempt_retains_first_observation_for_later_plans_and_legacy_records(network, store, legacy):
+    from agentic_controller.models import digest
     ha = ConvergingHA()
     ha.internal_url = ha.urls['internal'] = 'http://192.168.10.20'
     async def check_host():
@@ -1086,10 +1088,11 @@ async def test_attempt_records_first_plan_for_each_field_on_later_poll(network, 
     assert (await ha_lan.converge_home_lan(ha, store, attempt(), check_host))['state'] == 'ready'
     record = store.setting('home_lan_configuration_attempt')
     if legacy:
-        record.pop('expected', None)
+        record.pop('initial_fields', None)
+        record['expected'] = {'configured_adapters': ['ignored'], 'internal_url': 'https://ignored.invalid'}
         store.set_setting('home_lan_configuration_attempt', record)
     else:
-        assert record['expected'] == {'configured_adapters': []}
+        assert record['initial_fields'] == {'configured_adapters': digest([]), 'internal_url': digest('http://192.168.10.20')}
     ha.supervisor_info['interfaces'][0]['ipv4']['address'] = ['192.168.10.21/24']
     ha.network['adapters'][0]['ipv4'][0]['address'] = '192.168.10.21'
     original = ha.ws
@@ -1099,10 +1102,8 @@ async def test_attempt_records_first_plan_for_each_field_on_later_poll(network, 
         return await original(kind, **kwargs)
     ha.ws = fail
     assert (await ha_lan.converge_home_lan(ha, store, attempt(), check_host))['reason'] == 'home_network_observation_unavailable'
-    expected = {'internal_url': 'http://192.168.10.20'}
-    if not legacy:
-        expected['configured_adapters'] = []
-    assert store.setting('home_lan_configuration_attempt')['expected'] == expected
+    expected = {'internal_url': digest('http://192.168.10.20'), 'configured_adapters': digest(['end1'] if legacy else [])}
+    assert store.setting('home_lan_configuration_attempt')['initial_fields'] == expected
     assert store.setting('home_lan_configuration_rollback')['target_internal_url'] is None
     ha.internal_url = ha.urls['internal'] = 'https://owner.example.invalid'
     ha.ws = original
@@ -1136,6 +1137,7 @@ async def test_same_attempt_accepts_owned_target_when_another_write_is_needed(ne
 
 
 async def test_retry_fences_url_edit_before_other_writes_or_baseline_validation(network, store):
+    from agentic_controller.models import digest
     ha = ConvergingHA()
     original = ha.ws
     async def fail(kind, **kwargs):
@@ -1156,8 +1158,251 @@ async def test_retry_fences_url_edit_before_other_writes_or_baseline_validation(
     assert ha.mutations == [] and ha.internal_url == 'https://owner.example.invalid/home'
     assert store.setting('home_lan_configuration_rollback') == baseline
     record = store.setting('home_lan_configuration_attempt')
-    assert record['expected'] == {'configured_adapters': [], 'internal_url': None}
+    assert record['initial_fields'] == {'configured_adapters': digest([]), 'internal_url': digest(None)}
     assert record['conflicts'] == ['internal_url'] and 'owner.example' not in json.dumps(record)
     ha.internal_url = None
     assert (await ha_lan.converge_home_lan(ha, store, attempt(), check_host))['reason'] == 'home_lan_reauthorization_required'
     assert ha.mutations == []
+
+
+@pytest.mark.parametrize('restart', [False, True])
+@pytest.mark.parametrize('owner_edit', [False, True])
+@pytest.mark.parametrize('stage,field', [
+    (stage, field) for stage in ('owner', 'compatibility', 'config_read', 'sibling_read')
+    for field in ('configured_adapters', 'internal_url')
+] + [('unsafe_url', 'configured_adapters')])
+async def test_first_observation_survives_early_failure(network, store, restart, owner_edit, stage, field):
+    from agentic_controller.ha import HomeAssistant
+    from agentic_controller.models import digest
+    from agentic_controller.store import Store
+    ha = ConvergingHA()
+    ha.network['adapters'].append({'name': 'end0', 'index': 2, 'enabled': True,
+        'default': True, 'auto': True, 'ipv4': [{'address': '192.168.177.2', 'network_prefix': 24}], 'ipv6': []})
+    if field == 'configured_adapters':
+        ha.internal_url = ha.urls['internal'] = 'http://192.168.10.20'
+    else:
+        ha.network['configured_adapters'] = ['end1']
+        ha.network['adapters'][0]['enabled'] = True
+    if stage == 'unsafe_url':
+        ha.internal_url = 'https://owner.invalid/path'
+    initial = {'configured_adapters': digest(ha.network['configured_adapters']), 'internal_url': digest(ha.internal_url)}
+    owner_value = ['end0'] if field == 'configured_adapters' else 'https://owner.invalid'
+    ha.ensure_write_compatibility = HomeAssistant.ensure_write_compatibility.__get__(ha)
+    original_owner, original_request, original_ws = ha.owner, ha.request, ha.ws
+    after_gather, reads, fired = False, 0, False
+    disk_at_wait = []
+    network_read = asyncio.Event()
+
+    def edit():
+        if owner_edit:
+            if field == 'configured_adapters':
+                ha.network[field] = owner_value
+            else:
+                ha.internal_url = ha.urls['internal'] = owner_value
+
+    def fail():
+        nonlocal fired
+        fired = True
+        edit()
+        raise HAError('fixture transient observation failure')
+
+    async def owner(value):
+        nonlocal after_gather
+        if ha.owner_reads == 1:
+            after_gather = True
+            disk = Store(store.path)
+            try:
+                disk_at_wait.append(disk.setting('home_lan_configuration_attempt'))
+            finally:
+                disk.close()
+            if stage == 'owner':
+                fail()
+        return await original_owner(value)
+
+    async def request(method, path, **kwargs):
+        nonlocal reads
+        if path == '/config' and after_gather:
+            reads += 1
+            if (stage == 'compatibility' and reads == 1) or (stage == 'config_read' and reads == 2):
+                fail()
+        return await original_request(method, path, **kwargs)
+
+    async def ws(command, **kwargs):
+        if command == 'network/url' and stage == 'sibling_read':
+            await network_read.wait()
+            await asyncio.sleep(0)
+            fail()
+        result = await original_ws(command, **kwargs)
+        if command == 'network':
+            network_read.set()
+        return result
+
+    ha.owner, ha.request, ha.ws = owner, request, ws
+    async def check_host():
+        pass
+    first = await ha_lan.converge_home_lan(ha, store, attempt(), check_host)
+    assert first['reason'] == ('previous_internal_url_invalid' if stage == 'unsafe_url' else 'home_network_observation_unavailable')
+    assert fired is (stage != 'unsafe_url') and ha.mutations == []
+    record = store.setting('home_lan_configuration_attempt')
+    assert not record['revoked'] and not record['conflicts']
+    assert store.setting('home_lan_configuration_rollback') is None
+    if stage == 'unsafe_url':
+        ha.internal_url = ha.urls['internal']
+        edit()
+    ha.owner, ha.request, ha.ws = original_owner, original_request, original_ws
+    fresh = Store(store.path) if restart else None
+    try:
+        active = fresh or store
+        second = await ha_lan.converge_home_lan(ha, active, attempt(), check_host)
+        if owner_edit:
+            assert ha.mutations == []
+            assert (ha.network[field] if field == 'configured_adapters' else ha.internal_url) == owner_value
+            assert second['reason'] == 'home_lan_owner_conflict'
+            disk = Store(store.path)
+            try:
+                assert disk.setting('home_lan_configuration_attempt')['conflicts'] == [field]
+            finally:
+                disk.close()
+            assert (await ha_lan.converge_home_lan(ha, active, attempt(), check_host))['reason'] == 'home_lan_reauthorization_required'
+            assert ha.mutations == [] and active.setting('home_lan_configuration_rollback') is None
+            assert (await ha_lan.converge_home_lan(ha, active, {**attempt(), 'attempt_id': 'c' * 64}, check_host))['state'] == 'ready'
+            assert len(ha.mutations) == 1
+            assert active.setting('home_lan_configuration_attempt')['initial_fields'][field] == digest(owner_value)
+        else:
+            assert second['state'] == 'ready' and len(ha.mutations) == 1
+            assert not active.setting('home_lan_configuration_attempt')['conflicts']
+        assert record['initial_fields'] == initial and 'expected' not in record
+        assert disk_at_wait[0]['initial_fields'] == initial
+    finally:
+        if fresh:
+            fresh.close()
+
+
+async def test_first_observation_fences_edit_before_explicit_config_read(network, store):
+    from agentic_controller.ha import HomeAssistant
+    from agentic_controller.models import digest
+    from agentic_controller.store import Store
+    ha = ConvergingHA()
+    ha.ensure_write_compatibility = HomeAssistant.ensure_write_compatibility.__get__(ha)
+    original = ha.request
+    after_gather, reads = False, 0
+    def owner(count):
+        nonlocal after_gather
+        if count == 2:
+            after_gather = True
+    ha.on_owner = owner
+    async def request(method, path, **kwargs):
+        nonlocal reads
+        if path == '/config' and after_gather:
+            reads += 1
+            if reads == 2:
+                ha.internal_url = ha.urls['internal'] = 'https://owner.invalid'
+        return await original(method, path, **kwargs)
+    ha.request = request
+    async def check_host():
+        pass
+    result = await ha_lan.converge_home_lan(ha, store, attempt(), check_host)
+    assert ha.mutations == [] and ha.internal_url == 'https://owner.invalid'
+    assert result['reason'] == 'home_lan_owner_conflict'
+    disk = Store(store.path)
+    try:
+        record = disk.setting('home_lan_configuration_attempt')
+        assert record['initial_fields'] == {'configured_adapters': digest([]), 'internal_url': digest(None)}
+        assert record['conflicts'] == ['internal_url']
+        assert disk.setting('home_lan_configuration_rollback') is None
+        assert (await ha_lan.converge_home_lan(ha, disk, attempt(), check_host))['reason'] == 'home_lan_reauthorization_required'
+        assert ha.mutations == []
+    finally:
+        disk.close()
+
+
+@pytest.mark.parametrize('established', [False, True])
+@pytest.mark.parametrize('unsafe', ['https://fixture-user:fixture-secret@owner.invalid',
+    'https://owner.invalid/?fixture-secret=123', 'https://owner.invalid/#fixture-secret',
+    'https://owner.invalid/' + 'x' * 20000, {'secret': 'fixture-secret'}],
+    ids=['credentials', 'query', 'fragment', 'oversize', 'non_string'])
+async def test_first_observation_persists_only_digests_of_unsafe_urls(network, store, established, unsafe):
+    from agentic_controller.models import digest
+    from agentic_controller.store import Store
+    ha = ConvergingHA()
+    if established:
+        original = ha.ws
+        async def fail(command, **kwargs):
+            if command == 'config/core/update':
+                raise HAError('fixture handshake failed')
+            return await original(command, **kwargs)
+        ha.ws = fail
+    async def check_host():
+        pass
+    if established:
+        assert (await ha_lan.converge_home_lan(ha, store, attempt(), check_host))['reason'] == 'home_network_observation_unavailable'
+        ha.ws = original
+    before = store.setting('home_lan_configuration_rollback')
+    ha.internal_url = unsafe
+    ha.urls['internal'] = unsafe if isinstance(unsafe, str) else None
+    ha.mutations.clear()
+    result = await ha_lan.converge_home_lan(ha, store, attempt(), check_host)
+    assert result['reason'] == ('home_lan_owner_conflict' if established else 'previous_internal_url_invalid')
+    assert ha.mutations == []
+    disk = Store(store.path)
+    try:
+        record = disk.setting('home_lan_configuration_attempt')
+        rollback = disk.setting('home_lan_configuration_rollback')
+        assert rollback == before
+        assert record['initial_fields'] == {'configured_adapters': digest([]), 'internal_url': digest(None if established else unsafe)}
+        assert 'expected' not in record
+        serialized = json.dumps([record, rollback])
+        assert 'fixture-secret' not in serialized and 'owner.invalid' not in serialized and len(serialized) < 3000
+    finally:
+        disk.close()
+
+
+@pytest.mark.parametrize('fault,reason,retained', [
+    ('network_failure', 'home_network_observation_unavailable', 'internal_url'),
+    ('config_failure', 'home_network_observation_unavailable', 'configured_adapters'),
+    ('network_shape', 'network_contract_invalid', 'internal_url'),
+    ('adapters_missing', 'core_contract_invalid', 'internal_url'),
+    ('adapters_shape', 'core_contract_invalid', 'internal_url'),
+    ('adapters_name', 'interface_contract_invalid', 'internal_url'),
+    ('config_shape', 'core_config_contract_invalid', 'configured_adapters'),
+    ('config_missing', 'core_config_contract_invalid', 'configured_adapters')])
+async def test_first_observation_records_valid_sibling_before_contract_failure(network, store, fault, reason, retained):
+    from agentic_controller.models import digest
+    from agentic_controller.store import Store
+    ha = ConvergingHA()
+    original_request, original_ws = ha.request, ha.ws
+    async def request(method, path, **kwargs):
+        if path == '/config':
+            if fault == 'config_failure':
+                raise HAError('fixture read failed')
+            if fault == 'config_shape':
+                return []
+            if fault == 'config_missing':
+                return {}
+        return await original_request(method, path, **kwargs)
+    async def ws(command, **kwargs):
+        if command == 'network':
+            if fault == 'network_failure':
+                raise HAError('fixture read failed')
+            if fault == 'network_shape':
+                return []
+            if fault == 'adapters_missing':
+                ha.network.pop('configured_adapters')
+            elif fault == 'adapters_shape':
+                ha.network['configured_adapters'] = [None]
+            elif fault == 'adapters_name':
+                ha.network['configured_adapters'] = ['bad/name']
+        return await original_ws(command, **kwargs)
+    ha.request, ha.ws = request, ws
+    async def check_host():
+        pass
+    result = await ha_lan.converge_home_lan(ha, store, attempt(), check_host)
+    assert result['reason'] == reason and ha.mutations == []
+    disk = Store(store.path)
+    try:
+        record = disk.setting('home_lan_configuration_attempt')
+        assert record['initial_fields'] == {retained: digest([] if retained == 'configured_adapters' else None)}
+        assert not record['revoked'] and not record['conflicts']
+        assert disk.setting('home_lan_configuration_rollback') is None
+    finally:
+        disk.close()
