@@ -383,14 +383,33 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
     if host_status.get("state") != "configured":
         return observation("unavailable", "host_lan_not_configured")
     owner = store.setting("owner")
-    if not owner:
-        return observation("needs_home_setup", "home_owner_not_configured")
     epoch = store.setting("hermes_web_epoch")
     connection = tuple(getattr(ha, key, None) for key in ("token", "base", "websocket", "supervisor", "external"))
+    authority = {"owner": owner, "epoch": epoch, "connection": digest(connection)}
+    attempt_record = store.setting("home_lan_configuration_attempt")
+    pending = host_status.get("core_configuration_pending") is True
+    same_attempt = bool(attempt_record and attempt_record.get("attempt_id") == host_status.get("attempt_id"))
+    if pending and same_attempt and (attempt_record.get("revoked") or attempt_record.get("conflicts")
+            or any(attempt_record.get(key) != value for key, value in authority.items())):
+        if check_attempt:
+            store.set_setting("home_lan_configuration_attempt", {**attempt_record, "revoked": True})
+            await durable(store)
+        return observation("unavailable", "home_lan_reauthorization_required")
+    if not owner:
+        return observation("needs_home_setup", "home_owner_not_configured")
+
+    def fence(*, field=None):
+        if check_attempt:
+            if field:
+                attempt_record["conflicts"] = sorted(set([*attempt_record["conflicts"], field]))
+            else:
+                attempt_record["revoked"] = True
+            store.set_setting("home_lan_configuration_attempt", attempt_record)
 
     def guard():
         if (store.setting("owner") != owner or store.setting("hermes_web_epoch") != epoch
                 or tuple(getattr(ha, key, None) for key in ("token", "base", "websocket", "supervisor", "external")) != connection):
+            fence()
             raise ObservationInvalid("home_authority_changed")
 
     async def check_owner():
@@ -399,6 +418,7 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
         guard()
         if (not isinstance(current, dict) or current.get("id") != owner
                 or current.get("is_owner") is not True or current.get("is_active") is not True):
+            fence()
             raise ObservationInvalid("home_owner_not_active")
 
     async def mutation_guard():
@@ -410,6 +430,10 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
         guest_mac = mac_address(host_status.get("guest_mac"))
         async with asyncio.timeout(30 if check_attempt else OBSERVATION_SECONDS):
             if check_attempt:
+                if not same_attempt:
+                    attempt_record = {"attempt_id": host_status["attempt_id"], **authority, "revoked": False, "conflicts": []}
+                    store.set_setting("home_lan_configuration_attempt", attempt_record)
+                    await durable(store)
                 await check_attempt()
             await check_owner()
             results = await asyncio.gather(
@@ -442,18 +466,48 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
                                         and previous["target_adapters"] == results[1]["configured_adapters"])
                     own_url = bool(previous and previous["target_internal_url"] is not None
                                    and previous["target_internal_url"] == previous_internal)
-                    store.set_setting("home_lan_configuration_rollback", {
+                    baseline = {
                         "attempt_id": host_status["attempt_id"], "owner": owner,
                         "connection": digest(connection),
                         "previous_adapters": previous["previous_adapters"] if own_adapters else results[1]["configured_adapters"],
                         "previous_internal_url": previous["previous_internal_url"] if own_url else previous_internal,
-                        "target_adapters": adapters if adapters is not None else previous["target_adapters"] if own_adapters else None,
-                        "target_internal_url": internal if internal is not None else previous["target_internal_url"] if own_url else None})
+                        "target_adapters": previous["target_adapters"] if own_adapters else None,
+                        "target_internal_url": previous["target_internal_url"] if own_url else None}
+                    save_rollback(store, baseline)
                     await durable(store)
                 for command, fields in ([('network/configure', {'config': {'configured_adapters': adapters}})] if adapters is not None else []) + (
                         [('config/core/update', {'internal_url': internal})] if internal is not None else []):
                     await mutation_guard()
-                    await guarded_mutation(ha, command, mutation_guard, **fields)
+                    field = "configured_adapters" if command == "network/configure" else "internal_url"
+                    target_key = "target_adapters" if command == "network/configure" else "target_internal_url"
+                    expected = copy.deepcopy(results[1][field] if command == "network/configure" else previous_internal)
+                    sending = False
+
+                    async def send_guard(command=command, field=field, expected=expected, baseline=baseline, target_key=target_key):
+                        nonlocal sending
+                        # Transport waits must not turn a stale plan into ownership.
+                        current = (await ha.ws("network", _receive_timeout=OBSERVATION_SECONDS) if command == "network/configure"
+                                   else await ha.request("GET", "/config", timeout=OBSERVATION_SECONDS))
+                        await mutation_guard()
+                        if not isinstance(current, dict) or field not in current:
+                            raise ObservationInvalid("core_config_contract_invalid")
+                        if current[field] != expected:
+                            baseline[target_key] = None
+                            fence(field=field)
+                            raise ObservationInvalid("home_lan_owner_conflict")
+                        sending = True
+
+                    # Journal one possible effect before send; discard only when
+                    # the guard proves no frame was sent. Lost replies stay owned.
+                    save_rollback(store, {**baseline, target_key: adapters if command == "network/configure" else internal})
+                    try:
+                        await durable(store)
+                        await guarded_mutation(ha, command, send_guard, **fields)
+                    finally:
+                        if not sending:
+                            save_rollback(store, baseline)
+                            await durable(store)
+                    baseline = store.setting("home_lan_configuration_rollback")
                     await check_owner()
                 if adapters is not None or internal is not None:
                     results = await asyncio.gather(
@@ -471,9 +525,16 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
             guard()
             return observed
     except ObservationInvalid as error:
+        if check_attempt:
+            await durable(store)
         return observation("unavailable", str(error))
     except (HAError, TimeoutError, OSError, ValueError, TypeError, KeyError):
         return observation("unavailable", "home_network_observation_unavailable")
+
+
+def save_rollback(store, record):
+    owned = record["target_adapters"] is not None or record["target_internal_url"] is not None
+    store.set_setting("home_lan_configuration_rollback", record if owned else None)
 
 
 def safe_previous_url(raw):

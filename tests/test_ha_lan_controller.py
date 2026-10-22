@@ -600,7 +600,7 @@ async def test_product_url_requires_exact_core_config_readback(network, store):
     ha = ConvergingHA()
     original = ha.request
     async def different_stored_value(method, path, **kwargs):
-        if path == '/config' and ha.mutations:
+        if path == '/config' and any(command == 'config/core/update' for command, _ in ha.mutations):
             return {'internal_url': 'http://192.168.10.20:9999'}
         return await original(method, path, **kwargs)
     ha.request = different_stored_value
@@ -626,7 +626,7 @@ async def test_enabling_adapter_preserves_existing_owner_lan_url(network, store)
 
 
 @pytest.mark.parametrize('operation,fault', [(operation, fault) for operation in ['converge', 'compensate']
-    for fault in ['epoch', 'owner', 'attempt', 'host_mode', 'active_owner', 'connection']] + [('compensate', 'field_edit')])
+    for fault in ['epoch', 'owner', 'attempt', 'host_mode', 'active_owner', 'connection', 'field_edit']])
 @pytest.mark.parametrize('command', ['network/configure', 'config/core/update'])
 @pytest.mark.parametrize('barrier', ['connect', 'durable'])
 async def test_lan_mutations_recheck_authority_at_transport_send(network, store, monkeypatch, operation, command, barrier, fault):
@@ -736,18 +736,34 @@ async def test_lan_mutations_recheck_authority_at_transport_send(network, store,
         expected = ('home_lan_attempt_changed' if fault in {'attempt', 'host_mode'} else
                     'home_owner_not_active' if fault == 'active_owner' else 'home_authority_changed')
         if fault == 'field_edit':
-            assert result['reason'] == 'completed'
             assert mutations == []
             assert fixture.network['configured_adapters'] == ['owner-selection']
             assert fixture.internal_url == 'https://owner.example.invalid'
             assert store.setting('home_lan_configuration_rollback') is None
+            assert result['reason'] == ('home_lan_owner_conflict' if operation == 'converge' else 'completed')
+            if operation == 'converge':
+                assert (await run())['reason'] == 'home_lan_reauthorization_required'
+                assert mutations == []
+                assert (await ha_lan.observe_home_lan(ha, store, initial))['reason'] == 'home_lan_reauthorization_required'
+                # Even reverting the value cannot renew the fenced attempt.
+                fixture.network['configured_adapters'] = [] if command == 'network/configure' else ['end1']
+                fixture.internal_url = fixture.urls['internal'] = None
+                assert (await run())['reason'] == 'home_lan_reauthorization_required'
+                initial['attempt_id'] = current['attempt_id'] = 'c' * 64
+                assert (await run())['state'] == 'ready'
+                assert mutations
             return
         assert result['reason'] == expected
         assert mutations == []
-        assert store.setting('home_lan_configuration_rollback')
+        assert bool(store.setting('home_lan_configuration_rollback')) == (operation == 'compensate')
         if fault == 'epoch':
             await ha_lan.compensate_home_lan(ha, store, attempt(), check_host)
-            assert store.setting('home_lan_configuration_rollback')
+            assert bool(store.setting('home_lan_configuration_rollback')) == (operation == 'compensate')
+            if operation == 'converge':
+                assert (await run())['reason'] == 'home_lan_reauthorization_required'
+                assert mutations == []
+                initial['attempt_id'] = current['attempt_id'] = 'c' * 64
+                assert (await run())['state'] == 'ready'
     finally:
         release.set()
         if not task.done():
@@ -791,6 +807,85 @@ async def test_reconnect_after_logout_carries_original_field_baseline(network, s
     assert baseline and baseline['previous_adapters'] == [] and baseline['previous_internal_url'] is None
     await ha_lan.compensate_home_lan(ha, store, {'mode': 'nat'}, guard)
     assert ha.network['configured_adapters'] == [] and ha.internal_url is None
+
+
+@pytest.mark.parametrize('fault', ['epoch', 'owner', 'connection'])
+async def test_attempt_authority_survives_retry_and_store_reopen(network, store, fault):
+    from agentic_controller.store import Store
+    ha = ConvergingHA()
+    original = ha.ws
+    changed = False
+    async def revoke(command, **kwargs):
+        nonlocal changed
+        if command == 'network/configure' and not changed:
+            changed = True
+            if fault == 'connection':
+                ha.token = 'changed-fixture'
+            else:
+                store.set_setting('hermes_web_epoch' if fault == 'epoch' else 'owner', 'changed')
+        return await original(command, **kwargs)
+    ha.ws = revoke
+    async def guard():
+        pass
+    assert (await ha_lan.converge_home_lan(ha, store, attempt(), guard))['reason'] == 'home_authority_changed'
+    assert ha.mutations == []
+    # Maintenance retries the same Host attempt even without another owner action.
+    assert (await ha_lan.converge_home_lan(ha, store, attempt(), guard))['reason'] == 'home_lan_reauthorization_required'
+    assert ha.mutations == []
+    await store.durable()
+    fresh = Store(store.path)
+    try:
+        assert (await ha_lan.converge_home_lan(ha, fresh, attempt(), guard))['reason'] == 'home_lan_reauthorization_required'
+        fresh.set_setting('owner', 'owner')
+        fresh.set_setting('hermes_web_epoch', 'new-login')
+        assert (await ha_lan.converge_home_lan(ha, fresh, {**attempt(), 'attempt_id': 'c' * 64}, guard))['state'] == 'ready'
+    finally:
+        fresh.close()
+
+
+async def test_completed_attempt_ignores_later_logout_but_pending_attempt_is_fenced(network, store):
+    ha = ConvergingHA()
+    async def guard():
+        pass
+    assert (await ha_lan.converge_home_lan(ha, store, attempt(), guard))['state'] == 'ready'
+    store.set_setting('hermes_web_epoch', 'logged-out')
+    ha.mutations.clear()
+    pending = await ha_lan.observe_home_lan(ha, store, attempt())
+    assert pending['reason'] == 'home_lan_reauthorization_required'
+    complete = {**attempt(), 'core_configuration_pending': False}
+    assert (await ha_lan.observe_home_lan(ha, store, complete))['state'] == 'ready'
+    assert (await ha_lan.converge_home_lan(ha, store, complete, guard))['state'] == 'ready'
+    assert ha.mutations == []
+
+
+@pytest.mark.parametrize('fault', ['epoch', 'field_edit'])
+async def test_fenced_attempt_compensates_only_fields_already_written(network, store, fault):
+    ha = ConvergingHA()
+    original = ha.ws
+    async def change(command, **kwargs):
+        if command == 'config/core/update':
+            if fault == 'epoch':
+                store.set_setting('hermes_web_epoch', 'logged-out')
+            else:
+                ha.internal_url = 'https://owner.example.invalid'
+        return await original(command, **kwargs)
+    ha.ws = change
+    async def guard():
+        pass
+    result = await ha_lan.converge_home_lan(ha, store, attempt(), guard)
+    assert result['reason'] == ('home_authority_changed' if fault == 'epoch' else 'home_lan_owner_conflict')
+    assert ha.mutations == [('network/configure', {'configured_adapters': ['end1']})]
+    baseline = store.setting('home_lan_configuration_rollback')
+    assert baseline['target_adapters'] == ['end1'] and baseline['target_internal_url'] is None
+    ha.ws = original
+    ha.mutations.clear()
+    assert (await ha_lan.converge_home_lan(ha, store, attempt(), guard))['reason'] == 'home_lan_reauthorization_required'
+    assert ha.mutations == []
+    store.set_setting('hermes_web_epoch', 'new-login')
+    await ha_lan.compensate_home_lan(ha, store, {'mode': 'nat'}, guard)
+    assert ha.mutations == [('network/configure', {'configured_adapters': []})]
+    assert ha.internal_url == (None if fault == 'epoch' else 'https://owner.example.invalid')
+    assert store.setting('home_lan_configuration_rollback') is None
 
 
 @pytest.mark.parametrize('mode,state,vm', [('wired', 'configured', 'running'), ('nat', 'needs_reconcile', 'running'),
