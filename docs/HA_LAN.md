@@ -39,9 +39,9 @@ Controller 經既有受保護 Host action API 提交一個持久工作；回應�
 
 macvtap 不允許所在主機經同一實體介面直接連 guest 的 LAN IP；這是正常限制，不能用 ping 或 `ip neigh` 的缺席判定失敗。產品透過管理通路向 HA 的 Supervisor／Core 核對 enrolled MAC、位址、探索 adapter 與 internal URL；首次建立前可經產品 VM 的固定 guest-agent 命令讀回位址。診斷會說明此限制。[libvirt direct interface](https://libvirt.org/formatdomain.html#direct-attachment-to-physical-interface)、[macvtap 主機限制](https://wiki.libvirt.org/TroubleshootMacvtapHostFail.html)。
 
-回復基準（先前與產品目標介面、網址）綁定 HA Owner 與家庭連線身份。一般登出撤銷該次尚待 Core 設定的操作及後續重試，不刪除基準；重新登入後，新接入操作可接續欄位所有權，或在 Host 回到 NAT 時以當下授權回復仍完全等於產品目標的欄位。回復在連線與落盤等待之後也重新讀取該欄位；已觀測到的使用者後續修改永遠保留；更換 Owner 或家庭連線不會把舊基準套到另一個家庭。既有含登入世代的紀錄沿用基準，世代不作為持久基準身份。基準只保留已送出或回應不確定的產品欄位；明確未送出的寫入不取得欄位所有權。
+回復基準（先前與產品目標介面、網址）綁定 HA Owner 與家庭連線身份。首次收斂綁定後的一般登出撤銷該次尚待 Core 設定的操作及後續重試，不刪除基準；重新登入後，新接入操作可接續欄位所有權，或在 Host 回到 NAT 時以當下授權回復仍完全等於產品目標的欄位。回復在連線與落盤等待之後也重新讀取該欄位；已觀測到的使用者後續修改永遠保留；更換 Owner 或家庭連線不會把舊基準套到另一個家庭。既有含登入世代的紀錄沿用基準，世代不作為持久基準身份。基準只保留已送出或回應不確定的產品欄位；明確未送出的寫入不取得欄位所有權。
 
-Controller 的 `home_lan_configuration_attempt` 設定獨立保存目前 Host `attempt_id`、Owner、家庭連線摘要、首次收斂的登入世代，以及撤銷／欄位衝突圍欄；不保存管理權杖。只有 Host 仍回報該次 `core_configuration_pending` 時才使用圍欄；已完成操作不因日後登出而變成待授權。新的 Host attempt 取代舊紀錄並重新綁定；既有無此紀錄的 pending attempt 在首次收斂時綁定。`home_lan_configuration_rollback` 仍獨立保存可補償的欄位，不隨登出或新 attempt 清除已持有的基準。
+Controller 的 `home_lan_configuration_attempt` 設定獨立保存目前 Host `attempt_id`、Owner、家庭連線摘要、首次收斂的登入世代、各欄位首次規劃寫入時的 Core 原值（`expected.configured_adapters`／`expected.internal_url`，網址可為 `null`），以及撤銷／欄位衝突圍欄；不保存管理權杖。原值在該次寫入的傳輸等待前落盤；同一 attempt 重試欲寫欄位時，只接受原值或回復紀錄仍持有的產品目標值，其他值回報 `home_lan_owner_conflict` 並保存圍欄，之後須重新授權。尚未規劃的欄位在日後首次規劃時才記錄，既有無 `expected` 的紀錄也在下次規劃時補記；單純連線失敗不撤銷操作。只有 Host 仍回報該次 `core_configuration_pending` 時才使用圍欄；已完成操作不因日後登出而變成待授權。新的 Host attempt 取代舊紀錄並重新綁定，不沿用舊 `expected`；既有無此紀錄的 pending attempt 在首次收斂時綁定。此綁定始於首次收斂：Owner 已接受「連上家庭網路」後、首次收斂前的登出不取消該操作，Host 部分也會繼續，但每次 Core 寫入仍須重新核對當下有效的 Owner。`home_lan_configuration_rollback` 仍獨立保存可補償的欄位，不隨登出或新 attempt 清除已持有的基準。
 
 唯讀觀測遇到圍欄時回報 `unavailable`／`home_lan_reauthorization_required`，不更新紀錄或 HA。介面顯示「家庭網路設定已暫停；請再按一次「連上家庭網路」確認。」並允許以目前網卡重新提交一般接入操作，讓 Host 建立新 attempt。一般接入的驗證期限仍會安全退回 NAT；首次 provisioning 已取得 guest 位址時沒有這個期限，故需保留這個明確重試入口。
 

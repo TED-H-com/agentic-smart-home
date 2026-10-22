@@ -458,8 +458,6 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
                     if not isinstance(config, dict) or "internal_url" not in config:
                         raise ObservationInvalid("core_config_contract_invalid")
                     previous_internal = config["internal_url"]
-                    if previous_internal is not None and not safe_previous_url(previous_internal):
-                        raise ObservationInvalid("previous_internal_url_invalid")
                     # Carry ownership across successful reconnects. An owner
                     # edit becomes the new baseline for that field; only an
                     # exact product value retains its original baseline.
@@ -467,6 +465,20 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
                                         and previous["target_adapters"] == results[1]["configured_adapters"])
                     own_url = bool(previous and previous["target_internal_url"] is not None
                                    and previous["target_internal_url"] == previous_internal)
+                    # Keep the first plan across failed handshakes without owning unsent effects.
+                    expected = attempt_record.setdefault("expected", {})
+                    planned = [(field, current, owned) for field, target, current, owned in (
+                        ("configured_adapters", adapters, results[1]["configured_adapters"], own_adapters),
+                        ("internal_url", internal, previous_internal, own_url)) if target is not None]
+                    for field, current, owned in planned:
+                        if field in expected and current != expected[field] and not owned:
+                            fence(field=field)
+                            raise ObservationInvalid("home_lan_owner_conflict")
+                    if previous_internal is not None and not safe_previous_url(previous_internal):
+                        raise ObservationInvalid("previous_internal_url_invalid")
+                    for field, current, _ in planned:
+                        expected.setdefault(field, copy.deepcopy(current))
+                    store.set_setting("home_lan_configuration_attempt", attempt_record)
                     baseline = {
                         "attempt_id": host_status["attempt_id"], "owner": owner,
                         "connection": digest(connection),
