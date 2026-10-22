@@ -2230,14 +2230,43 @@
       },
       "HomeLanStatus": {
         "properties": {
+          "attempt_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 64,
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Id"
+          },
           "can_configure": {
             "title": "Can Configure",
+            "type": "boolean"
+          },
+          "can_connect": {
+            "default": false,
+            "title": "Can Connect",
             "type": "boolean"
           },
           "contract_version": {
             "const": 1,
             "title": "Contract Version",
             "type": "integer"
+          },
+          "core_configuration_pending": {
+            "default": false,
+            "title": "Core Configuration Pending",
+            "type": "boolean"
+          },
+          "fallback_complete": {
+            "default": false,
+            "title": "Fallback Complete",
+            "type": "boolean"
           },
           "guest_mac": {
             "anyOf": [
@@ -2251,6 +2280,31 @@
               }
             ],
             "title": "Guest Mac"
+          },
+          "ha_internal_url": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Internal Url"
+          },
+          "ha_lan_ip": {
+            "anyOf": [
+              {
+                "maxLength": 45,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Lan Ip"
           },
           "home": {
             "$ref": "#/components/schemas/HomeLanObservation"
@@ -2286,6 +2340,18 @@
             "title": "Limitations",
             "type": "array"
           },
+          "message": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
           "mode": {
             "enum": [
               "nat",
@@ -2293,6 +2359,11 @@
             ],
             "title": "Mode",
             "type": "string"
+          },
+          "recovery_pending": {
+            "default": false,
+            "title": "Recovery Pending",
+            "type": "boolean"
           },
           "selected_interface_id": {
             "anyOf": [

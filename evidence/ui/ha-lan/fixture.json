@@ -1,0 +1,7 @@
+{
+  "kind": "protocol_fixture",
+  "source": "tests/test_ha_lan_ui.py::test_wired_readback_is_distinct_from_device_acceptance",
+  "viewports": [390, 768, 1440],
+  "claim": "One-action LAN product UI with fictional authenticated network readback",
+  "limits": ["No physical LAN, router, multicast, Matter or household-device acceptance", "No Dell or Castle1 access"]
+}

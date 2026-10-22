@@ -3,11 +3,13 @@
 Adapter v1 follows Core 2026.10.1 network/websocket.py and network/models.py,
 and Supervisor 2026.10.0 /network/info (v1). Unknown fields are ignored;
 missing required observations never establish readiness. No discovery or
-network configuration is changed here.
+network configuration is changed by observations. Only the fixed Host-enrolled
+connection attempt may converge Core network configuration.
 """
 from __future__ import annotations
 
 import asyncio
+import copy
 import ipaddress
 import re
 from typing import Annotated, Literal
@@ -15,8 +17,9 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .durability import durable
 from .ha import HAError
-from .models import utcnow
+from .models import digest, utcnow
 
 OBSERVATION_SECONDS = 8
 MAX_INTERFACES = 64
@@ -53,49 +56,6 @@ class HostLanInterface(BaseModel):
         return self
 
 
-class HostLanStatus(BaseModel):
-    model_config = ConfigDict(extra="ignore", strict=True)
-
-    contract_version: Literal[1]
-    mode: Literal["nat", "wired"]
-    state: Literal["disabled", "configured", "unavailable", "needs_reconcile"]
-    selected_interface_id: InterfaceId | None
-    interface: HostInterfaceName | None
-    guest_mac: GuestMac | None
-    interfaces: Annotated[list[HostLanInterface], Field(max_length=32)]
-    vm_state: Literal["running", "blocked", "paused", "in shutdown", "shut off", "crashed", "pmsuspended", "not_created", "unknown"]
-    can_configure: bool
-    limitations: Annotated[list[ReasonCode], Field(max_length=16)]
-
-    @field_validator("contract_version", mode="before")
-    @classmethod
-    def exact_version(cls, value):
-        if type(value) is not int or value != 1:
-            raise ValueError("host_lan_contract_version_invalid")
-        return value
-
-    @model_validator(mode="after")
-    def consistent_state(self):
-        if self.can_configure and self.vm_state not in {"shut off", "not_created"}:
-            raise ValueError("host_vm_configuration_state_invalid")
-        selected = (self.selected_interface_id, self.interface, self.guest_mac)
-        if self.mode == "nat":
-            if any(value is not None for value in selected) or self.state not in {"disabled", "needs_reconcile"}:
-                raise ValueError("host_nat_state_invalid")
-        elif any(value is None for value in selected) or self.state == "disabled":
-            raise ValueError("host_wired_state_invalid")
-        if self.guest_mac is not None:
-            mac_address(self.guest_mac)
-        if (len({item.id for item in self.interfaces}) != len(self.interfaces)
-                or len({item.interface for item in self.interfaces}) != len(self.interfaces)):
-            raise ValueError("host_interface_identity_ambiguous")
-        if self.state == "configured":
-            matches = [item for item in self.interfaces if item.id == self.selected_interface_id]
-            if len(matches) != 1 or matches[0].interface != self.interface:
-                raise ValueError("host_selected_interface_invalid")
-        return self
-
-
 class HomeLanObservation(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
@@ -114,12 +74,84 @@ class HomeLanObservation(BaseModel):
     limits: list[ReasonCode] = Field(default_factory=lambda: list(LIMITS), max_length=16)
 
 
+class HostLanStatus(BaseModel):
+    model_config = ConfigDict(extra="ignore", strict=True)
+
+    contract_version: Literal[1]
+    mode: Literal["nat", "wired"]
+    state: Literal["disabled", "configured", "unavailable", "needs_reconcile"]
+    selected_interface_id: InterfaceId | None
+    interface: HostInterfaceName | None
+    guest_mac: GuestMac | None
+    interfaces: Annotated[list[HostLanInterface], Field(max_length=32)]
+    vm_state: Literal["running", "blocked", "paused", "in shutdown", "shut off", "crashed", "pmsuspended", "not_created", "unknown"]
+    can_configure: bool
+    limitations: Annotated[list[ReasonCode], Field(max_length=16)]
+    attempt_id: InterfaceId | None = None
+    home: HomeLanObservation | None = None
+    ha_lan_ip: AddressText | None = None
+    ha_internal_url: Annotated[str, Field(max_length=512)] | None = None
+    message: Annotated[str, Field(max_length=256)] | None = None
+    can_connect: bool = False
+    core_configuration_pending: bool = False
+    fallback_complete: bool = False
+    recovery_pending: bool = False
+
+    @field_validator("contract_version", mode="before")
+    @classmethod
+    def exact_version(cls, value):
+        if type(value) is not int or value != 1:
+            raise ValueError("host_lan_contract_version_invalid")
+        return value
+
+    @model_validator(mode="after")
+    def consistent_state(self):
+        if self.can_configure and self.vm_state not in {"shut off", "not_created"}:
+            raise ValueError("host_vm_configuration_state_invalid")
+        selected = (self.selected_interface_id, self.interface, self.guest_mac)
+        if self.mode == "nat":
+            if any(value is not None for value in selected) or self.state not in {"disabled", "needs_reconcile"}:
+                raise ValueError("host_nat_state_invalid")
+        elif any(value is None for value in selected) or self.state == "disabled":
+            raise ValueError("host_wired_state_invalid")
+        if self.fallback_complete and (self.mode != "nat" or self.state != "disabled" or self.vm_state != "running"):
+            raise ValueError("host_fallback_state_invalid")
+        if self.guest_mac is not None:
+            mac_address(self.guest_mac)
+        if (len({item.id for item in self.interfaces}) != len(self.interfaces)
+                or len({item.interface for item in self.interfaces}) != len(self.interfaces)):
+            raise ValueError("host_interface_identity_ambiguous")
+        if self.state == "configured":
+            matches = [item for item in self.interfaces if item.id == self.selected_interface_id]
+            if len(matches) != 1 or matches[0].interface != self.interface:
+                raise ValueError("host_selected_interface_invalid")
+        return self
+
+
+
+
 class HomeLanStatus(HostLanStatus):
     home: HomeLanObservation
 
 
 class ObservationInvalid(ValueError):
     """Fixed reason code; raw network responses never escape this adapter."""
+
+
+class SendGuardRejected(HAError):
+    """Keep fixed guard reasons outside the transport's ValueError mapping."""
+
+
+async def guarded_mutation(ha, command, guard, **fields):
+    async def send_guard():
+        try:
+            await guard()
+        except ObservationInvalid as error:
+            raise SendGuardRejected(str(error)) from None
+    try:
+        return await ha.ws(command, _receive_timeout=OBSERVATION_SECONDS, _send_guard=send_guard, **fields)
+    except SendGuardRejected as error:
+        raise ObservationInvalid(str(error)) from None
 
 
 def observation(state, reason, **fields):
@@ -266,6 +298,95 @@ def project_network(guest_mac, supervisor, core, urls):
 
 async def observe_home_lan(ha, store, host_status):
     """Return an owner-checked, bounded observation; never persist or mutate HA."""
+    return await _home_lan(ha, store, host_status)
+
+
+def core_listener(ha):
+    """Use only the Host's verified IP management endpoint; never a proxy."""
+    raw = getattr(ha, "base", None)
+    try:
+        if (getattr(ha, "external", None) is not True or not isinstance(raw, str)
+                or any(ord(char) <= 32 for char in raw) or "\\" in raw):
+            raise ValueError()
+        parsed = urlsplit(raw)
+        host = ipaddress.ip_address(parsed.hostname)
+        if (parsed.scheme not in {"http", "https"} or parsed.username is not None or parsed.password is not None
+                or parsed.query or parsed.fragment or not any(host in network for network in MANAGEMENT_NETWORKS)):
+            raise ValueError()
+        port = parsed.port if parsed.port is not None else 80 if parsed.scheme == "http" else 443
+        if not 1 <= port <= 65535:
+            raise ValueError()
+        return parsed.scheme, port
+    except (ValueError, TypeError):
+        raise ObservationInvalid("core_listener_unverified") from None
+
+
+def configured_adapters(core):
+    if not isinstance(core, dict):
+        raise ObservationInvalid("network_contract_invalid")
+    configured = core.get("configured_adapters")
+    if (not isinstance(configured, list) or len(configured) > MAX_INTERFACES
+            or any(not isinstance(item, str) for item in configured)
+            or len(set(configured)) != len(configured)):
+        raise ObservationInvalid("core_contract_invalid")
+    return [interface_name(item) for item in configured]
+
+
+def core_internal_url(config):
+    if not isinstance(config, dict) or "internal_url" not in config:
+        raise ObservationInvalid("core_config_contract_invalid")
+    return config["internal_url"]
+
+
+def configuration_plan(guest_mac, supervisor, core, urls, *, listener):
+    """Only MAC-matched, cross-checked addresses can become Core settings.
+
+    Core 2026.10.1 network/configure uses config.configured_adapters;
+    config/core/update accepts internal_url. Preserve other selected adapters.
+    """
+    observed = project_network(guest_mac, supervisor, core, urls)
+    if observed["state"] not in {"ready", "adapter_selection_required", "callback_address_required"}:
+        return observed, None, None
+    name = observed["interface"]
+    configured = configured_adapters(core)
+    # Validate the entire target adapter and match Supervisor/Core addresses even
+    # when discovery is currently disabled (the normal observer stops earlier).
+    projected = copy.deepcopy(core)
+    adapter = next(item for item in projected["adapters"] if item.get("name") == name)
+    common = usable(observed["ipv4"] + observed["ipv6"]) & (core_addresses(adapter, 4) | core_addresses(adapter, 6))
+    if not common:
+        raise ObservationInvalid("core_supervisor_address_mismatch")
+    preferred = sorted(common, key=lambda item: (ipaddress.ip_address(item).version, item))[0]
+    authority = "[" + preferred + "]" if ":" in preferred else preferred
+    scheme, port = listener
+    internal = scheme + "://" + authority + (":" + str(port) if port != (80 if scheme == "http" else 443) else "")
+    adapter["enabled"] = True
+    verified = project_network(guest_mac, supervisor, projected, {"internal": internal})
+    if verified["state"] != "ready":
+        raise ObservationInvalid("core_contract_invalid")
+    adapters = None
+    if observed["discovery_enabled"] is not True:
+        # An empty list means automatic selection; retain its enabled adapters.
+        if not configured:
+            configured = [interface_name(item.get("name")) for item in core["adapters"] if item.get("enabled") is True]
+        adapters = list(dict.fromkeys([*configured, name]))
+    return observed, adapters, internal if callback_url(urls["internal"], common) is None else None
+
+
+async def converge_home_lan(ha, store, host_status, check_attempt):
+    """Converge only the current fixed Host attempt, never a browser GET.
+
+    No raw HA response or management credential crosses into Host. The caller
+    must freshly recheck Host's enrolled attempt before every write/readback.
+    """
+    if not re.fullmatch(r"[a-f0-9]{64}", host_status.get("attempt_id") or ""):
+        return observation("unavailable", "home_lan_attempt_required")
+    if host_status.get("core_configuration_pending") is not True:
+        return await observe_home_lan(ha, store, host_status)
+    return await _home_lan(ha, store, host_status, check_attempt=check_attempt)
+
+
+async def _home_lan(ha, store, host_status, *, check_attempt=None):
     if not isinstance(host_status, dict):
         return observation("unavailable", "host_contract_invalid")
     if host_status.get("mode") == "nat" and host_status.get("state") == "disabled":
@@ -275,14 +396,37 @@ async def observe_home_lan(ha, store, host_status):
     if host_status.get("state") != "configured":
         return observation("unavailable", "host_lan_not_configured")
     owner = store.setting("owner")
-    if not owner:
-        return observation("needs_home_setup", "home_owner_not_configured")
     epoch = store.setting("hermes_web_epoch")
     connection = tuple(getattr(ha, key, None) for key in ("token", "base", "websocket", "supervisor", "external"))
+    authority = {"owner": owner, "epoch": epoch, "connection": digest(connection)}
+    attempt_record = store.setting("home_lan_configuration_attempt")
+    pending = host_status.get("core_configuration_pending") is True
+    same_attempt = bool(attempt_record and attempt_record.get("attempt_id") == host_status.get("attempt_id"))
+    if pending and same_attempt and (attempt_record.get("revoked") or attempt_record.get("conflicts")
+            or any(attempt_record.get(key) != value for key, value in authority.items())):
+        if check_attempt:
+            store.set_setting("home_lan_configuration_attempt", {**attempt_record, "revoked": True})
+            await durable(store)
+        return observation("unavailable", "home_lan_reauthorization_required")
+    if not owner:
+        return observation("needs_home_setup", "home_owner_not_configured")
+
+    attempt_dirty = False
+
+    def fence(*, field=None):
+        nonlocal attempt_dirty
+        if check_attempt:
+            if field:
+                attempt_record["conflicts"] = sorted(set([*attempt_record["conflicts"], field]))
+            else:
+                attempt_record["revoked"] = True
+            store.set_setting("home_lan_configuration_attempt", attempt_record)
+            attempt_dirty = True
 
     def guard():
         if (store.setting("owner") != owner or store.setting("hermes_web_epoch") != epoch
                 or tuple(getattr(ha, key, None) for key in ("token", "base", "websocket", "supervisor", "external")) != connection):
+            fence()
             raise ObservationInvalid("home_authority_changed")
 
     async def check_owner():
@@ -291,24 +435,269 @@ async def observe_home_lan(ha, store, host_status):
         guard()
         if (not isinstance(current, dict) or current.get("id") != owner
                 or current.get("is_owner") is not True or current.get("is_active") is not True):
+            fence()
             raise ObservationInvalid("home_owner_not_active")
 
+    async def mutation_guard():
+        await check_owner()
+        await check_attempt()
+        guard()
+
+    async def initial_read(read, field, validate):
+        nonlocal attempt_dirty
+        result = await read
+        if check_attempt:
+            value = validate(result)
+            initial = attempt_record.setdefault("initial_fields", {})
+            if field not in initial:
+                # Record without yielding: a pending sibling must not lose this read.
+                initial[field] = digest(value)
+                store.set_setting("home_lan_configuration_attempt", attempt_record)
+                attempt_dirty = True
+        return result
+
+    async def flush_attempt():
+        nonlocal attempt_dirty
+        if attempt_dirty:
+            await durable(store)
+            attempt_dirty = False
+
+    def check_initial_field(field, current, owned):
+        if digest(current) != attempt_record["initial_fields"][field] and not owned:
+            fence(field=field)
+            raise ObservationInvalid("home_lan_owner_conflict")
+
+    failed = False
     try:
         guest_mac = mac_address(host_status.get("guest_mac"))
-        async with asyncio.timeout(OBSERVATION_SECONDS):
+        async with asyncio.timeout(30 if check_attempt else OBSERVATION_SECONDS):
+            if check_attempt:
+                if not same_attempt:
+                    attempt_record = {"attempt_id": host_status["attempt_id"], **authority, "revoked": False, "conflicts": []}
+                    store.set_setting("home_lan_configuration_attempt", attempt_record)
+                    await durable(store)
+                await check_attempt()
             await check_owner()
             results = await asyncio.gather(
                 ha.request("GET", "/network/info", supervisor=True, timeout=OBSERVATION_SECONDS),
-                ha.ws("network", _receive_timeout=OBSERVATION_SECONDS),
-                ha.ws("network/url", _receive_timeout=OBSERVATION_SECONDS), return_exceptions=True)
+                initial_read(ha.ws("network", _receive_timeout=OBSERVATION_SECONDS), "configured_adapters", configured_adapters),
+                ha.ws("network/url", _receive_timeout=OBSERVATION_SECONDS),
+                *([initial_read(ha.request("GET", "/config", timeout=OBSERVATION_SECONDS), "internal_url", core_internal_url)] if check_attempt else []),
+                return_exceptions=True)
+            if check_attempt:
+                guard()
+                await flush_attempt()
+                for result in (results[1], results[3]):
+                    if isinstance(result, ObservationInvalid):
+                        raise result
             await check_owner()
             for result in results:
                 if isinstance(result, BaseException):
                     raise ObservationInvalid("home_network_observation_unavailable")
-            observed = project_network(guest_mac, *results)
+            observed = project_network(guest_mac, *results[:3])
+            if check_attempt:
+                observed, adapters, internal = configuration_plan(guest_mac, *results[:3], listener=core_listener(ha))
+                previous = store.setting("home_lan_configuration_rollback")
+                if previous and (previous["owner"] != owner or previous["connection"] != digest(connection)):
+                    previous = None
+                    store.set_setting("home_lan_configuration_rollback", None)
+                own_adapters = bool(previous and previous["target_adapters"] is not None
+                                    and previous["target_adapters"] == results[1]["configured_adapters"])
+                own_url = bool(previous and previous["target_internal_url"] is not None
+                               and previous["target_internal_url"] == results[3]["internal_url"])
+                for field, target, current, owned in (
+                        ("configured_adapters", adapters, results[1]["configured_adapters"], own_adapters),
+                        ("internal_url", internal, results[3]["internal_url"], own_url)):
+                    if target is not None:
+                        check_initial_field(field, current, owned)
+                if adapters is not None or internal is not None or (previous and previous.get("attempt_id") != host_status["attempt_id"]):
+                    await ha.ensure_write_compatibility()
+                    config = await ha.request("GET", "/config", timeout=OBSERVATION_SECONDS)
+                    previous_internal = core_internal_url(config)
+                    # Carry ownership across successful reconnects. An owner
+                    # edit becomes the new baseline for that field; only an
+                    # exact product value retains its original baseline.
+                    own_url = bool(previous and previous["target_internal_url"] is not None
+                                   and previous["target_internal_url"] == previous_internal)
+                    if internal is not None:
+                        check_initial_field("internal_url", previous_internal, own_url)
+                    if previous_internal is not None and not safe_previous_url(previous_internal):
+                        raise ObservationInvalid("previous_internal_url_invalid")
+                    baseline = {
+                        "attempt_id": host_status["attempt_id"], "owner": owner,
+                        "connection": digest(connection),
+                        "previous_adapters": previous["previous_adapters"] if own_adapters else results[1]["configured_adapters"],
+                        "previous_internal_url": previous["previous_internal_url"] if own_url else previous_internal,
+                        "target_adapters": previous["target_adapters"] if own_adapters else None,
+                        "target_internal_url": previous["target_internal_url"] if own_url else None}
+                    save_rollback(store, baseline)
+                    await durable(store)
+                for command, fields in ([('network/configure', {'config': {'configured_adapters': adapters}})] if adapters is not None else []) + (
+                        [('config/core/update', {'internal_url': internal})] if internal is not None else []):
+                    await mutation_guard()
+                    field = "configured_adapters" if command == "network/configure" else "internal_url"
+                    target_key = "target_adapters" if command == "network/configure" else "target_internal_url"
+                    expected = copy.deepcopy(results[1][field] if command == "network/configure" else previous_internal)
+                    sending = False
+
+                    async def send_guard(command=command, field=field, expected=expected, baseline=baseline, target_key=target_key):
+                        nonlocal sending
+                        await mutation_guard()
+                        # Transport waits must not turn a stale plan into ownership.
+                        current = (await ha.ws("network", _receive_timeout=OBSERVATION_SECONDS) if command == "network/configure"
+                                   else await ha.request("GET", "/config", timeout=OBSERVATION_SECONDS))
+                        guard()
+                        if not isinstance(current, dict) or field not in current:
+                            raise ObservationInvalid("core_config_contract_invalid")
+                        if current[field] != expected:
+                            baseline[target_key] = None
+                            fence(field=field)
+                            raise ObservationInvalid("home_lan_owner_conflict")
+                        sending = True
+
+                    # Journal one possible effect before send; discard only when
+                    # the guard proves no frame was sent. Lost replies stay owned.
+                    save_rollback(store, {**baseline, target_key: adapters if command == "network/configure" else internal})
+                    try:
+                        await durable(store)
+                        await guarded_mutation(ha, command, send_guard, **fields)
+                    finally:
+                        if not sending:
+                            save_rollback(store, baseline)
+                            await durable(store)
+                    baseline = store.setting("home_lan_configuration_rollback")
+                    await check_owner()
+                if adapters is not None or internal is not None:
+                    results = await asyncio.gather(
+                        ha.request("GET", "/network/info", supervisor=True, timeout=OBSERVATION_SECONDS),
+                        ha.ws("network", _receive_timeout=OBSERVATION_SECONDS),
+                        ha.ws("network/url", _receive_timeout=OBSERVATION_SECONDS))
+                    observed = project_network(guest_mac, *results)
+                expected_internal = internal if internal is not None else previous["target_internal_url"] if previous else None
+                if expected_internal is not None and (internal is not None or observed["internal_url"] == expected_internal):
+                    config = await ha.request("GET", "/config", timeout=OBSERVATION_SECONDS)
+                    if not isinstance(config, dict) or config.get("internal_url") != expected_internal:
+                        raise ObservationInvalid("core_internal_url_readback_mismatch")
+                await check_attempt()
+                await check_owner()
             guard()
             return observed
     except ObservationInvalid as error:
+        failed = True
         return observation("unavailable", str(error))
     except (HAError, TimeoutError, OSError, ValueError, TypeError, KeyError):
+        failed = True
         return observation("unavailable", "home_network_observation_unavailable")
+    except BaseException:
+        failed = True
+        raise
+    finally:
+        if attempt_dirty:
+            flushing = asyncio.create_task(durable(store))
+            try:
+                # Finish interrupted observations even when the caller was cancelled.
+                await asyncio.shield(flushing)
+            except asyncio.CancelledError:
+                while not flushing.done():
+                    try:
+                        await asyncio.shield(flushing)
+                    except asyncio.CancelledError:
+                        continue
+                    except Exception:
+                        break
+                if not flushing.cancelled():
+                    flushing.exception()
+                raise
+            except Exception:
+                if not failed:
+                    raise
+
+
+def save_rollback(store, record):
+    owned = record["target_adapters"] is not None or record["target_internal_url"] is not None
+    store.set_setting("home_lan_configuration_rollback", record if owned else None)
+
+
+def safe_previous_url(raw):
+    """Bound old owner settings before journaling them; never retain credentials."""
+    if not isinstance(raw, str) or len(raw) > 512 or any(ord(char) <= 32 for char in raw) or "\\" in raw:
+        return False
+    try:
+        parsed = urlsplit(raw)
+        return (parsed.scheme in {"http", "https"} and bool(parsed.hostname) and parsed.username is None
+                and parsed.password is None and parsed.path in {"", "/"} and not parsed.query and not parsed.fragment
+                and (parsed.port is None or 1 <= parsed.port <= 65535))
+    except ValueError:
+        return False
+
+
+async def compensate_home_lan(ha, store, host_status, check_host=None):
+    """Adopt the household baseline under fresh authority after Host uses NAT.
+
+    A user's intervening edit or changed HA connection wins. No whole config,
+    owner snapshot, or old Controller DB is restored over newer operations.
+    """
+    record = store.setting("home_lan_configuration_rollback")
+    if not record:
+        return
+    connection = tuple(getattr(ha, key, None) for key in ("token", "base", "websocket", "supervisor", "external"))
+    epoch = store.setting("hermes_web_epoch")
+    if store.setting("owner") != record["owner"] or digest(connection) != record["connection"]:
+        store.set_setting("home_lan_configuration_rollback", None)
+        return
+    if host_status.get("mode") == "wired" and host_status.get("attempt_id") == record["attempt_id"]:
+        return
+    if host_status.get("mode") != "nat":
+        # A subsequent Host-authorized reconnect adopts this field ledger in
+        # converge_home_lan; it must never be compensated over a new live LAN.
+        return
+
+    def local_guard():
+        if (store.setting("owner") != record["owner"] or store.setting("hermes_web_epoch") != epoch
+                or digest(tuple(getattr(ha, key, None) for key in ("token", "base", "websocket", "supervisor", "external"))) != record["connection"]):
+            raise ObservationInvalid("home_authority_changed")
+
+    async def guard():
+        local_guard()
+        owner = await ha.owner(record["owner"])
+        local_guard()
+        if not isinstance(owner, dict) or owner.get("id") != record["owner"] or owner.get("is_owner") is not True or owner.get("is_active") is not True:
+            raise ObservationInvalid("home_owner_not_active")
+        if check_host:
+            await check_host()
+        local_guard()
+
+    class FieldOwnershipChanged(Exception):
+        pass
+
+    async def restore(command, target, **fields):
+        async def send_guard():
+            # Re-read ownership after transport waits; manual edits win.
+            if command == "network/configure":
+                current = await ha.ws("network", _receive_timeout=OBSERVATION_SECONDS)
+                field = "configured_adapters"
+            else:
+                current = await ha.request("GET", "/config", timeout=OBSERVATION_SECONDS)
+                field = "internal_url"
+            await guard()
+            if not isinstance(current, dict) or current.get(field) != target:
+                raise FieldOwnershipChanged()
+            local_guard()
+        try:
+            await guarded_mutation(ha, command, send_guard, **fields)
+        except FieldOwnershipChanged:
+            pass
+
+    await guard()
+    await ha.ensure_write_compatibility()
+    network = await ha.ws("network", _receive_timeout=OBSERVATION_SECONDS)
+    config = await ha.request("GET", "/config", timeout=OBSERVATION_SECONDS)
+    if record["target_adapters"] is not None and network.get("configured_adapters") == record["target_adapters"]:
+        await guard()
+        await restore("network/configure", record["target_adapters"], config={"configured_adapters": record["previous_adapters"]})
+    if record["target_internal_url"] is not None and config.get("internal_url") == record["target_internal_url"]:
+        await guard()
+        await restore("config/core/update", record["target_internal_url"], internal_url=record["previous_internal_url"])
+    await guard()
+    store.set_setting("home_lan_configuration_rollback", None)
+    await durable(store)

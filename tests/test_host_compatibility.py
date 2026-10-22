@@ -106,6 +106,8 @@ def test_mutation_rechecks_changed_dependency_and_never_dispatches_when_blocked(
     ET.SubElement(network, "uuid").text = "7857bb95-bd31-4e64-86f4-c42e509fb235"
     ET.SubElement(network, "mac", {"address": "52:54:00:bb:17:01"})
     def execute(*args, **kwargs):
+        if args[0] == "findmnt":
+            return SimpleNamespace(returncode=0, stdout="overlay")
         if args[-2:] == ("net-dumpxml", NETWORK):
             return SimpleNamespace(returncode=0, stdout=ET.tostring(network, encoding="unicode"))
         if "--readonly" in args:

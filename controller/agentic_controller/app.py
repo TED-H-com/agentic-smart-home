@@ -60,6 +60,7 @@ from .models import (
 from .network_inventory import routes as network_inventory_routes
 from .notifications import NotificationManager
 from .notifications import routes as notification_routes
+from .operations import maintain_home_lan
 from .operations import routes as operation_routes
 from .response_durability import ResponseDurabilityMiddleware
 from .runner import Runner, RunnerError, cancel_and_confirm
@@ -172,6 +173,8 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                 device_setups.prune()
 
         watchers = [asyncio.create_task(ha.watch()), asyncio.create_task(engine.observe()), asyncio.create_task(maintain())]
+        if host_mode:
+            watchers.append(asyncio.create_task(maintain_home_lan(ha, store)))
         if gateway:
             await gateway.start()
         if notifications:

@@ -1,0 +1,13 @@
+{
+  "kind": "protocol_fixture",
+  "source": "tests/test_host_cow_ui.py",
+  "viewports": [
+    390,
+    768,
+    1440
+  ],
+  "claim": "Owner-controlled HA pause; critical capacity does not shut the household down automatically",
+  "limits": [
+    "No real LVM mutation or household/device access"
+  ]
+}

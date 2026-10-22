@@ -9,7 +9,7 @@ export function haLanRequests(data:Row,time:()=>string){
   const failure=(status:number,detail:string):DemoResponse=>({status,body:{detail}});
   function observe(){
     const running=data['host/status'].vm==='running';
-    lan.vm_state=data['host/status'].vm;lan.can_configure=!running;
+    lan.vm_state=data['host/status'].vm;lan.can_configure=!running;lan.can_connect=true;
     data.status.ha.status=running?'connected':'unavailable';
     data['host/diagnosis'].findings=running?[]:['示範家庭系統已關機。'];
     const empty={...ready,interface:null,ipv4:[],ipv6:[],connected:null,discovery_enabled:null,default_adapter:null,internal_url:null};
@@ -21,7 +21,8 @@ export function haLanRequests(data:Row,time:()=>string){
     if(!pending||performance.now()-pending.started<600)return false;
     const job=pending.job,request=job.request;
     if(request.action==='configure_lan'){
-      const selected=lan.interfaces.find((item:Row)=>item.id===request.interface_id);
+      const selected=request.interface_id===null?null:lan.interfaces.find((item:Row)=>item.id===(request.interface_id??lan.interfaces[0]?.id));
+      data['host/status'].vm='running';
       Object.assign(lan,{mode:selected?'wired':'nat',state:selected?'configured':'disabled',
         selected_interface_id:selected?.id||null,interface:selected?.interface||null,guest_mac:selected?guestMac:null});
     }else data['host/status'].vm=request.action==='start'?'running':'shut off';
@@ -36,16 +37,17 @@ export function haLanRequests(data:Row,time:()=>string){
     if(!['configure_lan','shutdown','start'].includes(body.action))return failure(409,'示範中無法進行這個操作。');
     const configure=body.action==='configure_lan',allowed=configure?['action','interface_id']:['action','snapshot'];
     if(Object.keys(body).some(field=>!allowed.includes(field))||(!configure&&body.snapshot!=null))return failure(422,'host_action_invalid');
-    if(configure&&(!Object.hasOwn(body,'interface_id')||body.interface_id!==null&&(typeof body.interface_id!=='string'||! /^[a-f0-9]{64}$/.test(body.interface_id))))return failure(422,'ha_lan_interface_id_invalid');
-    const normalized=configure?{action:body.action,interface_id:body.interface_id}:{action:body.action,snapshot:null};
+    if(configure&&Object.hasOwn(body,'interface_id')&&body.interface_id!==null&&(typeof body.interface_id!=='string'||! /^[a-f0-9]{64}$/.test(body.interface_id)))return failure(422,'ha_lan_interface_id_invalid');
+    const normalized=configure?{action:body.action,...(Object.hasOwn(body,'interface_id')?{interface_id:body.interface_id}:{})}:{action:body.action,snapshot:null};
     const signature=JSON.stringify(normalized),previous=receipts.get(key);
     if(previous)return previous.signature===signature?{status:202,body:previous.job}:failure(409,'host_action_request_conflict');
     if(pending)return failure(409,'host_action_in_progress');
-    if(configure&&!lan.can_configure)return failure(409,'ha_lan_shutdown_required');
-    if(configure&&body.interface_id!==null&&!lan.interfaces.some((item:Row)=>item.id===body.interface_id))return failure(409,'ha_lan_selected_interface_unavailable');
+    if(configure&&!Object.hasOwn(body,'interface_id')&&lan.interfaces.length!==1)return failure(409,'ha_lan_interface_selection_required');
+    if(configure&&Object.hasOwn(body,'interface_id')&&body.interface_id!==null&&!lan.interfaces.some((item:Row)=>item.id===body.interface_id))return failure(409,'ha_lan_selected_interface_unavailable');
     const job={id:key,state:'running',request:{id:key,...normalized},at:Date.now()/1000};
     data['host/status'].jobs.push(job);receipts.set(key,{signature,job});pending={job,started:performance.now()};
     return {status:202,body:job};
   }
+  observe();
   return {request,progress};
 }

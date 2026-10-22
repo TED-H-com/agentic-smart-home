@@ -1,7 +1,7 @@
 {
-  "source_commit": "ce323f39acd90cb4f1d11ef90f076221d4489e63",
-  "source_tree": "4ec5a521120807223aa15e48c8386c91acba56e0",
-  "frontend_source_tree": "54aeb53eb2b39cd79d0c0fe6a779621abfafd2f4",
+  "source_commit": "c09df68bae5d9d52b6a86f1fdc5610a1593338d3",
+  "source_tree": "b7a0b83854751fd9cdd08be983e736fed6d67f05",
+  "frontend_source_tree": "7356b9474b2127dc2bfb9e878d46c1de9e9161f6",
   "source_files": [
     {
       "file": "scripts/site_screenshots.py",
@@ -41,7 +41,7 @@
     },
     {
       "file": "web/demo/ha-lan.ts",
-      "sha256": "06cac5ba173453da9b60a278d8baf9dd51d486ea4cf79fb8a608001a7c83505f"
+      "sha256": "ed4ada349e4552b6b67203d13a8bf2e30b37d95b94db7fcef58a56b190c27cb5"
     },
     {
       "file": "web/demo/home.css",
@@ -127,7 +127,7 @@
     },
     {
       "file": "discovery.png",
-      "sha256": "aa64b9a77e5e1f3bc1a87c36d76d3319507ea93eb7dcef3469556766c9e954e4",
+      "sha256": "59a37801f34805ebc27b08c69ee1e4ddda3f4c7d0da7b5f164517714dd114d8d",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -135,11 +135,11 @@
       "device_scale_factor": 1,
       "route": "#/agentic-home",
       "surface": "product-in-ha-simulation",
-      "bytes": 110423
+      "bytes": 110429
     },
     {
       "file": "gateway.png",
-      "sha256": "132f3e324c1e8cf5631b70b11cb7fd8c3ece55c890041e4555f3c9a56b505b80",
+      "sha256": "68327d109258e989886d301621509472704b2597b83bd9ba7c56b90bea860963",
       "viewport": {
         "width": 1440,
         "height": 900
@@ -147,7 +147,7 @@
       "device_scale_factor": 1,
       "route": "#gateway",
       "surface": "product",
-      "bytes": 79538
+      "bytes": 79540
     },
     {
       "file": "proposal.png",
@@ -223,7 +223,7 @@
     },
     {
       "file": "../og.png",
-      "sha256": "da874a70b954abab1ed99fb03bb965f413422d80802e658489deb28208a7f48e",
+      "sha256": "5de3e3850c0199bb1fd86b2247496f04030fe1683a009eb6d96956667d561ff8",
       "viewport": {
         "width": 1200,
         "height": 630

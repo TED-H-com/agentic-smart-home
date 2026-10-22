@@ -12,7 +12,7 @@ CHOICE = "a" * 64
 
 def mount(page, origin):
     value = {"contract_version": 1, "mode": "nat", "state": "disabled", "selected_interface_id": None,
-             "interface": None, "guest_mac": None, "vm_state": "shut off", "can_configure": True,
+             "interface": None, "guest_mac": None, "vm_state": "shut off", "can_configure": True, "can_connect": True,
              "interfaces": [{"id": CHOICE, "label": "家用網路 enp2s0", "interface": "enp2s0",
                              "address": "192.168.50.10", "network": "192.168.50.0/24"}], "limitations": [],
              "home": {"state": "not_configured"}}
@@ -49,7 +49,7 @@ def mount(page, origin):
     page.clock.install()
     page.goto(origin + '/#host')
     page.locator('summary').filter(has_text='家庭區網接入').click()
-    expect(page.get_by_label('接到家庭路由器的網路線')).to_be_visible()
+    expect(page.get_by_role('button', name='連上家庭網路')).to_be_visible()
     return state, posts, errors
 
 
@@ -57,43 +57,53 @@ def test_explicit_wired_choice_job_readback_and_same_key_after_lost_response(ui_
     page, origin = ui_page
     state, posts, errors = mount(page, origin)
     assert posts == []
-    save = page.get_by_role('button', name='保存家庭接線')
-    expect(save).to_be_disabled()
-    page.get_by_label('接到家庭路由器的網路線').select_option(CHOICE)
+    save = page.get_by_role('button', name='連上家庭網路')
+    expect(save).to_be_enabled()
+    expect(page.get_by_label('接到家庭路由器的網路線')).to_have_count(0)
     state['lose'] = True
     save.click()
     expect(page.get_by_role('alert')).to_be_visible()
     save.click()
-    expect(page.get_by_role('button', name='正在保存…')).to_be_disabled()
+    expect(page.get_by_role('button', name='正在連接…')).to_be_disabled()
     assert len(posts) == 2 and posts[0] == posts[1]
-    assert posts[0][0] == {'action': 'configure_lan', 'interface_id': CHOICE}
+    assert posts[0][0] == {'action': 'configure_lan'}
     assert posts[0][1]
     expect(page.get_by_role('region', name='家庭區網接入')).to_have_attribute('aria-busy', 'false')
     state['job']['state'] = 'succeeded'
     state['value'].update(mode='wired', state='configured', selected_interface_id=CHOICE, interface='enp2s0',
-                          home={'state': 'needs_home_setup'})
+                          home={'state': 'needs_home_setup'}, core_configuration_pending=True)
     page.clock.run_for(5500)
-    expect(page.get_by_text('已設定接線', exact=True)).to_be_visible()
-    expect(page.get_by_text('接線設定已保存；完成家庭帳號與授權後，會檢查實際連線。')).to_be_visible()
+    region = page.get_by_role('region', name='家庭區網接入')
+    expect(region.get_by_text('已連接', exact=True)).to_have_count(0)
+    expect(region.get_by_text('家庭已取得區網位址', exact=False)).to_have_count(0)
+    expect(region.get_by_text('已改用有線網路，正在確認家庭區網位址。')).to_be_visible()
+    expect(region.get_by_text('正在確認', exact=True)).to_be_visible()
+    output = Path('evidence/ui/ha-lan')
+    output.mkdir(parents=True, exist_ok=True)
+    page.screenshot(path=str(output / 'waiting-address-fixture.png'), full_page=True)
+    state['value']['ha_lan_ip'] = '192.168.50.20'
+    page.clock.run_for(5500)
+    expect(region.get_by_text('已連接', exact=True)).to_be_visible()
+    expect(region.get_by_text('HA 已連上家庭網路：192.168.50.20')).to_be_visible()
     expect(save).to_be_disabled()
     assert not errors
 
 
-def test_running_and_unreadable_network_never_offer_mutation(ui_page):  # noqa: F811
+def test_running_guest_uses_one_action_and_unreadable_network_blocks_mutation(ui_page):  # noqa: F811
     page, origin = ui_page
     state, posts, errors = mount(page, origin)
     state['value'].update(vm_state='running', can_configure=False)
     page.clock.run_for(5500)
-    expect(page.get_by_label('接到家庭路由器的網路線')).to_be_disabled()
-    expect(page.get_by_text('更改接線前，請在主機維護將家庭正常關機。期間家庭自動化會暫停。')).to_be_visible()
+    expect(page.get_by_role('button', name='連上家庭網路')).to_be_enabled()
+    expect(page.get_by_text('連接期間家庭自動化會短暫暫停；未能連上時會自動恢復基本網路。')).to_be_visible()
     state['fail'] = True
     page.clock.run_for(5500)
-    expect(page.get_by_role('alert')).to_contain_text('暫時無法讀取接線狀態')
+    expect(page.get_by_role('alert')).to_contain_text('暫時無法讀取家庭網路')
     state['value'].update(vm_state='shut off', can_configure=True)
     state['fail'] = False
     page.clock.run_for(5500)
     expect(page.get_by_role('alert')).to_have_count(0)
-    expect(page.get_by_label('接到家庭路由器的網路線')).to_be_enabled()
+    expect(page.get_by_role('button', name='連上家庭網路')).to_be_enabled()
     assert not posts and not errors
 
 
@@ -109,8 +119,8 @@ def test_wired_readback_is_distinct_from_device_acceptance(ui_page, width):  # n
                               'internal_url': 'http://192.168.50.20:8123',
                               'observed_at': '2026-10-17T00:00:00Z'})
     page.clock.run_for(5500)
-    expect(page.get_by_text('已讀回家庭的區網位址、探索介面與本機網址。')).to_be_visible()
-    expect(page.get_by_text('接著到「裝置與服務」新增設備，並實測控制；這項檢查不代表所有設備已接通。')).to_be_visible()
+    expect(page.get_by_text('HA 已連上家庭網路：192.168.50.20')).to_be_visible()
+    expect(page.get_by_text('可到「裝置與服務」新增設備，再實測控制。')).to_be_visible()
     page.locator('summary').filter(has_text='連線資料').click()
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     output = Path('evidence/ui/ha-lan')
@@ -119,5 +129,164 @@ def test_wired_readback_is_distinct_from_device_acceptance(ui_page, width):  # n
     before = copy.deepcopy(state['value'])
     state['value']['home']['state'] = 'adapter_selection_required'
     page.clock.run_for(5500)
-    expect(page.get_by_role('link', name='開啟家庭網路設定 ↗')).to_have_attribute('href', 'http://127.0.0.1:8123/config/network')
+    expect(page.get_by_text('正在完成家庭設備探索設定。')).to_be_visible()
+    expect(page.get_by_role('link', name='開啟家庭網路設定 ↗')).to_have_count(0)
     assert before['home']['state'] == 'ready' and not posts and not errors
+
+
+def test_multiple_nics_require_choice_and_disable_uses_explicit_null(ui_page):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    state['value']['interfaces'].append({'id': 'b' * 64, 'label': 'USB', 'interface': 'enx2', 'address': None, 'network': None})
+    page.clock.run_for(5500)
+    save = page.get_by_role('button', name='連上家庭網路')
+    expect(save).to_be_disabled()
+    page.get_by_label('接到家庭路由器的網路線').select_option(CHOICE)
+    save.click()
+    assert posts[0][0] == {'action': 'configure_lan', 'interface_id': CHOICE}
+    state['job']['state'] = 'succeeded'
+    state['value'].update(mode='wired', state='configured', selected_interface_id=CHOICE, interface='enp2s0')
+    page.clock.run_for(5500)
+    page.get_by_role('button', name='使用基本網路').click()
+    assert posts[-1][0] == {'action': 'configure_lan', 'interface_id': None}
+    assert not errors
+
+
+def test_failed_connection_explains_automatic_nat_fallback(ui_page):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    page.get_by_role('button', name='連上家庭網路').click()
+    state['job'].update(state='failed', message='ha_lan_connection_failed_nat_restored')
+    state['value'].update(vm_state='running', fallback_complete=True)
+    page.clock.run_for(5500)
+    expect(page.get_by_role('alert')).to_contain_text('已恢復基本網路')
+    expect(page.get_by_role('button', name='連上家庭網路')).to_be_enabled()
+    assert not errors
+
+
+def test_legacy_incomplete_core_settings_offer_one_owner_reconnect(ui_page):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    state['value'].update(mode='wired', state='configured', selected_interface_id=CHOICE, interface='enp2s0',
+                          core_configuration_pending=False, home={'state': 'adapter_selection_required'})
+    page.clock.run_for(5500)
+    expect(page.get_by_role('button', name='連上家庭網路')).to_be_enabled()
+    page.get_by_role('button', name='連上家庭網路').click()
+    assert posts[0][0] == {'action': 'configure_lan'} and not errors
+
+
+@pytest.mark.parametrize('remaining', ['chosen', 'other'])
+def test_explicit_nic_selection_survives_inventory_changes(ui_page, remaining):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    other = {'id': 'b' * 64, 'label': 'USB', 'interface': 'enx2', 'address': None, 'network': None}
+    state['value']['interfaces'].append(other)
+    page.clock.run_for(5500)
+    selector = page.get_by_label('接到家庭路由器的網路線')
+    selector.select_option(CHOICE)
+    state['value']['interfaces'] = [state['value']['interfaces'][0] if remaining == 'chosen' else other]
+    page.clock.run_for(5500)
+    save = page.get_by_role('button', name='連上家庭網路')
+    if remaining == 'other':
+        expect(page.get_by_text('原先選擇的網路卡目前無法使用，請重新選擇。')).to_be_visible()
+        expect(selector).to_be_visible()
+        expect(save).to_be_disabled()
+        assert not posts
+        selector.select_option(other['id'])
+    expect(save).to_be_enabled()
+    save.click()
+    assert posts[0][0] == {'action': 'configure_lan', 'interface_id': CHOICE if remaining == 'chosen' else other['id']}
+    assert not errors
+
+
+@pytest.mark.parametrize('vm,state_value,signal', [('shut off', 'disabled', False), ('running', 'needs_reconcile', True),
+                                                  ('running', 'disabled', False), ('shut off', 'disabled', True)])
+def test_incomplete_recovery_never_claims_basic_network_restored(ui_page, vm, state_value, signal):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    page.get_by_role('button', name='連上家庭網路').click()
+    state['job'].update(state='failed', message='fixture_start_failed')
+    state['value'].update(vm_state=vm, state=state_value, fallback_complete=signal, recovery_pending=True)
+    page.clock.run_for(5500)
+    region = page.get_by_role('region', name='家庭區網接入')
+    expect(region.get_by_role('alert')).to_contain_text('自動恢復尚未完成；資料已保留，可稍後重試或聯絡支援。')
+    expect(region.get_by_text('已恢復基本網路', exact=False)).to_have_count(0)
+    if vm == 'shut off' and not signal:
+        page.screenshot(path='evidence/ui/ha-lan/recovery-incomplete-fixture.png', full_page=True)
+    assert not errors
+
+
+@pytest.mark.parametrize('host_ip', [None, '192.168.50.20'])
+def test_fenced_initial_attempt_offers_explicit_reauthorization(ui_page, host_ip):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    state['value'].update(mode='wired', state='configured', selected_interface_id=CHOICE, interface='enp2s0',
+                          vm_state='running', can_configure=False, core_configuration_pending=True, ha_lan_ip=host_ip,
+                          home={'state': 'unavailable', 'reason': 'home_lan_reauthorization_required'})
+    page.clock.run_for(5500)
+    region = page.get_by_role('region', name='家庭區網接入')
+    expect(region.get_by_text('家庭網路設定已暫停；請再按一次「連上家庭網路」確認。')).to_be_visible()
+    expect(region.get_by_text('正在確認', exact=True)).to_have_count(0)
+    save = region.get_by_role('button', name='連上家庭網路')
+    expect(save).to_be_enabled()
+    if host_ip:
+        page.screenshot(path='evidence/ui/ha-lan/reauthorization-fixture.png', full_page=True)
+    save.click()
+    assert posts[0][0] == {'action': 'configure_lan', 'interface_id': CHOICE}
+    assert not errors
+
+
+@pytest.mark.parametrize('home,host_ip,connected', [({'state': 'ready', 'ipv4': []}, None, False),
+    ({'state': 'ready', 'ipv6': ['fd12:3456::20']}, None, True),
+    ({'state': 'unavailable'}, '192.168.50.20', True)])
+def test_connected_chip_requires_observed_address(ui_page, home, host_ip, connected):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    state['value'].update(mode='wired', state='configured', selected_interface_id=CHOICE,
+                          interface='enp2s0', home=home, ha_lan_ip=host_ip)
+    page.clock.run_for(5500)
+    region = page.get_by_role('region', name='家庭區網接入')
+    expect(region.get_by_role('button', name='使用基本網路')).to_be_visible()
+    expect(region.get_by_text('已連接', exact=True)).to_have_count(1 if connected else 0)
+    expect(region.get_by_text('HA 已連上家庭網路：', exact=False)).to_have_count(1 if connected else 0)
+    assert not posts and not errors
+
+
+def test_unavailable_saved_nic_requires_new_choice_after_loading(ui_page):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    state['value'].update(mode='wired', state='unavailable', selected_interface_id=CHOICE, interface='enp2s0')
+    state['value']['interfaces'] = [{'id': 'b' * 64, 'label': 'USB', 'interface': 'enx2', 'address': None, 'network': None}]
+    page.clock.run_for(5500)
+    expect(page.get_by_text('原先選擇的網路卡目前無法使用，請重新選擇。')).to_be_visible()
+    save = page.get_by_role('button', name='連上家庭網路')
+    expect(save).to_be_disabled()
+    assert not posts
+    page.get_by_label('接到家庭路由器的網路線').select_option('b' * 64)
+    expect(save).to_be_enabled()
+    save.click()
+    assert posts[0][0] == {'action': 'configure_lan', 'interface_id': 'b' * 64}
+    assert not errors
+
+
+@pytest.mark.parametrize('job_state,host_state,recovery,message,expected', [
+    ('failed', 'disabled', True, 'fixture_error', '自動恢復尚未完成；資料已保留，可稍後重試或聯絡支援。'),
+    ('needs_reconcile', 'disabled', False, 'fixture_error', '自動恢復尚未完成；資料已保留，可稍後重試或聯絡支援。'),
+    ('failed', 'needs_reconcile', False, 'fixture_error', '自動恢復尚未完成；資料已保留，可稍後重試或聯絡支援。'),
+    *[('failed', 'disabled', False, message, '家庭網路未能連上，網路設定未變更，可稍後重試。') for message in
+      ['ha_lan_select_wired_interface', 'ha_lan_selected_interface_unavailable', 'ha_lan_restore_pending', None]],
+    *[('failed', 'disabled', False, message, message) for message in
+      ['建立還原點時遇到問題，尚未變更網路；請稍後重試。', '無法保存網路變更紀錄，尚未變更網路；已保留還原點，請稍後重試。']],
+])
+def test_failed_connection_reports_observed_recovery_or_unchanged_network(ui_page, job_state, host_state, recovery, message, expected):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    page.get_by_role('button', name='連上家庭網路').click()
+    state['job'].update(state=job_state, message=message)
+    state['value'].update(state=host_state, recovery_pending=recovery)
+    page.clock.run_for(5500)
+    region = page.get_by_role('region', name='家庭區網接入')
+    expect(region.get_by_role('alert')).to_contain_text(expected)
+    if message and message.startswith('建立還原點'):
+        page.screenshot(path='evidence/ui/ha-lan/unchanged-network-fixture.png', full_page=True)
+    assert not errors
