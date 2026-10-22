@@ -652,6 +652,8 @@ class HALan:
     def recoverable(self):
         try:
             transaction = json.loads(self.transaction_path.read_text())
+            if not isinstance(transaction, dict):
+                return False
             state = self.manager.state()
             if transaction.get("kind") == "initial_nat_fallback":
                 return (set(transaction) == {"contract_version", "owner", "kind", "state"}

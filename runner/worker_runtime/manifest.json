@@ -23,7 +23,7 @@
     "host/agentic_host/desktop.py": "4da4ea5fdb13057356ddf1157ef0c162f74bed473539f49716591c47d96627e4",
     "host/agentic_host/discovery.py": "888836e62d5d8e5419a5a4944cd87776942b17d4d00bad676505808df67d78d1",
     "host/agentic_host/fence.py": "2828f677c5b6ef768726d6a4827ad1bab842367e03c0df526375ec0f1d4d2ce7",
-    "host/agentic_host/ha_lan.py": "9c051e5d96b22abaaf11398136b7f949bf177437b958893196d53abf64104269",
+    "host/agentic_host/ha_lan.py": "673851d24c566b5974ac961d1b1d1aabd7c551863ecdbb83b88d44e6ce945a59",
     "host/agentic_host/host_reconcile.py": "c4f78f93bb0bca1d6cf4654c724b369ba873b8830902f03739a9fb07648fbe0b",
     "host/agentic_host/host_restore.py": "b34cb99ab60394d0a08fb5b05fe4f9a942ed1590e2b94233df15257d02eea17b",
     "host/agentic_host/host_update.py": "820d798582e6e9711cd1dd2c5b8dcf33ddab5e0a21ed2e461ef57759f5937420",

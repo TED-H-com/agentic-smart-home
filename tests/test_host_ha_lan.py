@@ -1029,3 +1029,14 @@ def test_failed_nat_restart_retains_journal_without_completed_fallback(lab, monk
     assert lan.transaction_path.exists() and lan.status()['mode'] == 'nat'
     assert lan.status().get('fallback_complete') is False
     assert '已自動' not in lan.status()['message']
+
+
+@pytest.mark.parametrize('value', [None, [], 'invalid', 1])
+def test_non_object_fallback_journal_fails_closed(lab, value):
+    lan, vm, _, _ = lab
+    atomic(lan.transaction_path, value)
+    before = len(vm.calls)
+    assert lan.recoverable() is False
+    with pytest.raises(HostError, match='自動恢復尚未完成'):
+        lan.recover()
+    assert len(vm.calls) == before
