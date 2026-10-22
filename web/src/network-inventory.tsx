@@ -14,6 +14,9 @@ type Scopes={contract_version:1;scopes:Scope[];limitations:string[]};
 type Mutation={kind:'scan'|'import'|'clear';body:Record<string,string|number>;key:string};
 const sourceNames:Record<SourceId,string>={lan_neighbors:'主機鄰居紀錄',lan_mdns:'區網服務公告',lan_ssdp:'區網設備公告',router_import:'路由器／防火牆清單'};
 const sourceStates:Record<Source['state'],string>={ok:'已讀取',partial:'部分資料',unavailable:'無法讀取',not_configured:'尚未讀取',expired:'已過期'};
+const integrationNames:Record<string,string>={ipp:'網路印表機',synology_dsm:'Synology 網路儲存設備',matter:'Matter 設備',hue:'Philips Hue 燈光',cast:'Google Cast 播放裝置',esphome:'ESPHome 設備',homekit_controller:'HomeKit 設備',shelly:'Shelly 設備',tuya:'Tuya / Smart Life 設備'};
+const integrationName=(domain:string)=>Object.hasOwn(integrationNames,domain)?integrationNames[domain]:'其他家庭整合';
+const recommendationTitle=(item:Recommendation)=>item.title&&item.title!==item.integration_domain?item.title:integrationName(item.integration_domain);
 const methods:Record<SourceId,string[]>={lan_neighbors:['neighbor_table'],lan_mdns:['mdns'],lan_ssdp:['ssdp'],router_import:['json_import','csv_import','dnsmasq_import']};
 const record=(value:unknown):value is Record<string,any>=>!!value&&typeof value==='object'&&!Array.isArray(value);
 const text=(value:unknown,max=160):value is string=>typeof value==='string'&&value.length<=max;
@@ -51,7 +54,7 @@ export function formatInventoryContext(data:InventorySnapshot,selected:readonly 
     const item=data.observations.find(item=>item.id===key);if(!item)return '';
     const suggestions=data.recommendations.filter(rec=>rec.observation_id===key);
     lines.push(`${lines.length+1}. 網路觀測：${quoted(item.name||'未命名端點')}；來源：${sourceNames[item.source_id]}；讀取時間：${quoted(item.observed_at)}；來源原始更新時間：${item.source_updated_at?quoted(item.source_updated_at):'未提供，無法據此推定設備最近上線'}；品牌：${item.metadata.manufacturer?quoted(item.metadata.manufacturer):'尚無資料'}；型號：${item.metadata.model?quoted(item.metadata.model):'尚無資料'}；服務線索：${item.services.length?item.services.map(quoted).join('、'):'尚無資料'}；連線狀態：${item.reachability==='responded'?'觀測當時有回應':'未知'}`);
-    for(const suggestion of suggestions)lines.push(`接入建議：${quoted(suggestion.title)}；整合種類：${quoted(suggestion.integration_domain)}；依據：${quoted(suggestion.reason)}；可信程度：${suggestion.confidence==='service_match'?'服務線索相符，仍待確認':'辨識提示，仍待核對'}；下一步：${quoted(suggestion.next_step)}`);
+    for(const suggestion of suggestions)lines.push(`接入建議：${quoted(recommendationTitle(suggestion))}；整合種類：${quoted(integrationName(suggestion.integration_domain))}；依據：${quoted(suggestion.reason)}；可信程度：${suggestion.confidence==='service_match'?'服務線索相符，仍待確認':'辨識提示，仍待核對'}；下一步：${quoted(suggestion.next_step)}`);
     if(!suggestions.length)lines.push('接入建議：尚未辨識，請協助核對官方整合或所屬品牌帳號。');
     sources.add(item.source_id);
   }
@@ -140,7 +143,7 @@ export function NetworkInventory({onOpenChange,draft,onInsert}:{onOpenChange?:(o
   const locked=!!busy||uncertain,bytes=new TextEncoder().encode(content).length;
   const rows=data?.observations.filter(item=>(!sourceFilter||item.source_id===sourceFilter)&&[item.name,item.address,item.mac,...item.services,...Object.values(item.metadata)].join(' ').toLocaleLowerCase().includes(filter.toLocaleLowerCase()))||[];
   const context=data&&fresh?formatInventoryContext(data,selected):'',preview=context?`${draft||''}${draft?'\n\n':''}${context}`:'';
-  const candidates=data?.recommendations.map(item=>({id:item.id,title:item.title,integration_domain:item.integration_domain,discovery_method:'network_inventory',source_id:'network_inventory' as const,native_path:'/config/integrations' as const}))||[];
+  const candidates=data?.recommendations.map(item=>({id:item.id,title:recommendationTitle(item),integration_domain:item.integration_domain,discovery_method:'network_inventory',source_id:'network_inventory' as const,native_path:'/config/integrations' as const}))||[];
   return <details className="network-inventory" ref={panel} open={open}>
     <summary onClick={event=>{event.preventDefault();toggle(!open)}}>探索更多設備</summary>
     {open&&<div className="network-inventory-content" aria-busy={!!busy}>
@@ -174,7 +177,7 @@ export function NetworkInventory({onOpenChange,draft,onInsert}:{onOpenChange?:(o
           {rows.length?<ul className="network-inventory-rows" aria-label="網路觀測結果">{rows.slice(0,limit).map(item=>{
             const suggestions=fresh?data.recommendations.filter(rec=>rec.observation_id===item.id):[],checked=selected.includes(item.id),source=data.sources.find(source=>source.id===item.source_id)!;
             return <li key={item.id}><div className="network-inventory-row-heading">{onInsert?<label><input type="checkbox" aria-label={`分享網路觀測 ${item.name||'未命名端點'} ${sourceNames[item.source_id]}`} checked={checked} disabled={!fresh||locked||!checked&&selected.length>=8} onChange={()=>setSelected(previous=>checked?previous.filter(id=>id!==item.id):previous.length<8?[...previous,item.id]:previous)}/><strong>{item.name||'未命名端點'}</strong></label>:<strong>{item.name||'未命名端點'}</strong>}<span>{sourceNames[item.source_id]} · {sourceStates[source.state]}</span></div>{item.source_updated_at&&<p className="helper-text">來源原始更新於 {timestamp(item.source_updated_at)}；匯入時間不代表設備最近上線。</p>}<p className="helper-text">{item.reachability==='responded'?'觀測當時有回應':'連線狀態未知'} · {timestamp(item.observed_at)}</p>
-              {suggestions.length?<div className="network-inventory-guidance">{suggestions.map(suggestion=><div key={suggestion.id}><h4>{suggestion.title}</h4><p>{suggestion.confidence==='service_match'?'服務線索相符，仍待確認':'辨識提示，仍待核對'} · {suggestion.reason}</p><p>{suggestion.next_step}</p><div className="network-inventory-links"><a href={suggestion.documentation_url} target="_blank" rel="noreferrer">官方接入說明 ↗</a><a href={haPath(suggestion.native_path)} target={haTarget()} rel="noreferrer">開啟家庭設定 ↗</a></div></div>)}</div>:<p>{!fresh||source.state==='expired'?'盤點建議需重新確認，請重新探索或匯入。':'尚未辨識接入方式；可分享給管家核對品牌或官方整合。'}</p>}
+              {suggestions.length?<div className="network-inventory-guidance">{suggestions.map(suggestion=><div key={suggestion.id}><h4>{recommendationTitle(suggestion)}</h4><p className="helper-text">{integrationName(suggestion.integration_domain)} · 保存的網路線索</p><p>{suggestion.confidence==='service_match'?'服務線索相符，仍待確認':'辨識提示，仍待核對'} · {suggestion.reason}</p><p>{suggestion.next_step}</p><div className="network-inventory-links"><a href={suggestion.documentation_url} target="_blank" rel="noreferrer">官方接入說明 ↗</a><a href={haPath(suggestion.native_path)} target={haTarget()} rel="noreferrer">開啟家庭設定 ↗</a></div></div>)}</div>:<p>{!fresh||source.state==='expired'?'盤點建議需重新確認，請重新探索或匯入。':'尚未辨識接入方式；可分享給管家核對品牌或官方整合。'}</p>}
               <details><summary>技術資料</summary><dl><div><dt>{item.source_id==='lan_mdns'?'回應位址':'網路位址'}</dt><dd><code>{item.address||'尚無資料'}</code></dd></div><div><dt>硬體位址</dt><dd><code>{item.mac||'尚無資料'}</code></dd></div><div><dt>服務線索</dt><dd>{item.services.join('、')||'尚無資料'}</dd></div><div><dt>來源原始更新</dt><dd>{item.source_updated_at?timestamp(item.source_updated_at):'未提供'}</dd></div></dl>{item.source_id==='lan_mdns'&&<p className="helper-text">服務代理可能代答，請核對實際設備位址。</p>}{Object.entries(item.metadata).map(([key,value])=><p key={key}><code>{key}</code>：{value}</p>)}</details>
             </li>;
           })}</ul>:<p className="network-inventory-empty">{filter||sourceFilter?'沒有符合篩選條件的觀測。':'尚無網路觀測；開始探索或匯入一份設備清單。'}</p>}

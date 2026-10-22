@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Agentic Home 主機更新
+Comment=確認官方更新金鑰、建立還原點並更新主機
+Exec=/usr/bin/agentic-home-update-bootstrap --gui
+Icon=system-software-update
+Terminal=false
+Categories=System;Settings;

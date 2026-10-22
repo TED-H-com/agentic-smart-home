@@ -1,0 +1,582 @@
+{
+  "schema_version": 1,
+  "classification": "unreleased_development_real_core_with_synthetic_nas_and_browser_fixtures",
+  "code_commit": "7d8c1beec481b98da208f955ae776ef223e307fb",
+  "base_commit": "549b409c402cf695b6486d1de8cf6a60a0d8d6d0",
+  "recorded_at": "2026-10-20T05:55:33.132112+00:00",
+  "source_sha256": {
+    "controller/agentic_controller/device_setup.py": "054b92270cb26f3d59481166ea51b7389d45a5b134d7246d51e168d9e8018f79",
+    "controller/agentic_controller/device_setup_adapters.py": "a52f781baa6df8a1ef9010554cbf8bd952f4ef72d791cbd933040c4fadca84c8",
+    "controller/agentic_controller/device_setup_chat.py": "5b93911e091660d124c2e6b175f9d54e1c1c20efb1c06e94b084846788ccca8f",
+    "controller/agentic_controller/models.py": "9d371f10934fa885d389ced5f2bb0b09dc3a9c952f20a3db9e112a3e3d215be4",
+    "controller/agentic_controller/discovery.py": "d74a334e99b6244b432777ba9d8f0c10d50305b4422fbfcaac83aabda5584961",
+    "controller/agentic_controller/discovery_chat.py": "809193d27f0b9d0575ae8a47d003d2db333f9cce1247512465ddd1d6464860ab",
+    "controller/agentic_controller/app.py": "c74f188fc3e0eae87ff0ea1af7ef3b6edeb9c81cd7e0e364d274332cc300cbdc",
+    "controller/agentic_controller/bridge.py": "c325195f09df468165918c64a50f645462eab9e74aad431f5ac7fa9c872bef41",
+    "contracts/device-setup-input-v1.schema.json": "d290bdf4b4973d2a512a434096a7d870973558046103a0969ed24f9f96a557fc",
+    "contracts/device-setup-approve-v1.schema.json": "79fc38b3ad5fcc6b9aa9a9b9d46edf2c8527323cb4d32954203dd5abbf9b88e1",
+    "contracts/device-setup-view-v1.schema.json": "87e488c20b44ec864ab18ddef740add4e1f696165dde83d399801b86557e9daf",
+    "tests/test_device_setup_synology.py": "d8d30c69fac084685622b98a644a7395307d3d9efe1a3b44b33d836b72bf978c",
+    "tests/test_device_setup_synology_real_ha.py": "1937a1ed40efff3f56c62d28273b662db705f41f3d87f0e4442fd92d8c822f50",
+    "tests/fixtures/agentic_synology_fixture/__init__.py": "8703cb5f0e31cc9d9a43865793c6b2c1894344b254a92a4d65e5dead43070abb",
+    "tests/fixtures/agentic_synology_fixture/manifest.json": "f8a721fc13d0a8e204e1b989621339f3e34ff908afaf9d9d74c069ba51f27bf6",
+    "tests/fixtures/agentic_synology_fixture/services.yaml": "57a00c415e1a421ddfaf8779193cd8a54e64bfcc873e1b56cc53abaee2c6d043",
+    "web/src/device-setup.tsx": "d0d82e7472e82c2ff504ac0510fbb3d58977ce6fc6301bade5c019fbb0245761",
+    "web/src/device-setup.css": "f3e64d9bd766422d1f1a932f360039cab3828864b70b443c15667a19a0131ccd",
+    "web/src/discovery.tsx": "a2e17a0df0ebc1cac7120219151389444eec49536ea1a210a88dace4e75e003a",
+    "web/src/errors.ts": "732d636eb46f4e7e8439bfb23589babccee3d460dd32317650a7efe6dcda4eaf",
+    "web/src/api.ts": "7e63662a45c67603124ee2cbb405af16f65673ab813c2c9f190ec283b55308da",
+    "tests/test_synology_device_setup_ui.py": "e46db85f9b8c15f171826b305584346c3187595d6587f7404ee9dce5ee1f2adb",
+    "bridge/static/assets/index-CtKTvHOl.js": "a1f2b6c5cee881f353ca599690475a0f09502cb25740383f15a74e8759bcee94",
+    "bridge/static/assets/index-DQuIfFL3.css": "51969e71f26793682d0efd8b53b07ca0a73f80c06050176e54461d2b1f3014a2",
+    "bridge/static/index.html": "dcb7d63a51bb956c0ba39c6f5ee342d5da03111be52e823bd8589f2ae4d1fead",
+    "controller/static/assets/index-CtKTvHOl.js": "a1f2b6c5cee881f353ca599690475a0f09502cb25740383f15a74e8759bcee94",
+    "controller/static/assets/index-DQuIfFL3.css": "51969e71f26793682d0efd8b53b07ca0a73f80c06050176e54461d2b1f3014a2",
+    "controller/static/index.html": "dcb7d63a51bb956c0ba39c6f5ee342d5da03111be52e823bd8589f2ae4d1fead"
+  },
+  "scope": "Owner-approved Synology NAS chat setup: card-only account/password approval with backup before the first native POST, optional two-step code, backup-folder choice, durable per-step guards, read-only recovery and MAC-bound registry readback; IPP and Shelly 1 regressions",
+  "runs": {
+    "backend": {
+      "tests": 664,
+      "passed": 664,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 163.908,
+      "started_at": "2026-10-20T01:32:36.418681-04:00",
+      "junit_sha256": "681d29cac641a2ca76fab05c7cc23686e5d56a90b2a7d06514ad7215674749e4",
+      "test_modules": [
+        "tests.test_device_setup",
+        "tests.test_device_setup_chat",
+        "tests.test_device_setup_core_versions",
+        "tests.test_device_setup_routes",
+        "tests.test_device_setup_shelly",
+        "tests.test_device_setup_synology",
+        "tests.test_device_setup_transport",
+        "tests.test_discovery",
+        "tests.test_discovery_chat",
+        "tests.test_discovery_setup",
+        "tests.test_network_inventory",
+        "tests.test_store_durability"
+      ]
+    },
+    "broader_regression": {
+      "tests": 761,
+      "passed": 749,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 11,
+      "duration_seconds": 94.27,
+      "started_at": "2026-10-20T01:35:23.172807-04:00",
+      "junit_sha256": "2e06d74911cc04a8e28ffa1e6c888ad7c44735b4ccf6a898d3ea892788146f53",
+      "test_modules": [
+        "tests.test_bridge_app",
+        "tests.test_bridge_controller",
+        "tests.test_bridge_maintenance",
+        "tests.test_gateway",
+        "tests.test_hermes_ci_cache",
+        "tests.test_hermes_compatibility",
+        "tests.test_hermes_controller",
+        "tests.test_hermes_probe_diagnostics",
+        "tests.test_hermes_runtime",
+        "tests.test_hermes_source_fetch",
+        "tests.test_host_bridge_contract",
+        "tests.test_installed_probe_contract",
+        "tests.test_interactive_preview"
+      ],
+      "failed_cases": [
+        "tests.test_interactive_preview::test_preview_fixtures_parse_and_cover_shell_gets"
+      ],
+      "failure_origin": "branch_regression"
+    },
+    "browser": {
+      "tests": 173,
+      "passed": 173,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 441.083,
+      "started_at": "2026-10-20T01:37:19.577191-04:00",
+      "junit_sha256": "b99bfeb268d24159b4e5eb548ea867214b1c224599b0c8262f3458ba46a513a3",
+      "test_modules": [
+        "tests.test_browser_device_setup_history",
+        "tests.test_conversation_discovery_ui",
+        "tests.test_discovery_setup_ui",
+        "tests.test_discovery_ui",
+        "tests.test_gateway_ui",
+        "tests.test_shelly_device_setup_ui",
+        "tests.test_synology_device_setup_ui"
+      ]
+    },
+    "synology_real_core": {
+      "tests": 6,
+      "passed": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 198.844,
+      "started_at": "2026-10-20T01:44:42.103723-04:00",
+      "junit_sha256": "91e8baa24e8175ced571ef66e590b13da464dbfc4e733ee6e25b197aee13ae1b",
+      "test_modules": [
+        "tests.test_device_setup_synology_real_ha"
+      ]
+    },
+    "ipp_real_core_regression": {
+      "tests": 2,
+      "passed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 32.516,
+      "started_at": "2026-10-20T01:48:01.904749-04:00",
+      "junit_sha256": "42f02bef589c04638c52e240c1e06137054988bb1ebcdd75cebc3180177d0119",
+      "test_modules": [
+        "tests.test_device_setup_real_ha"
+      ]
+    },
+    "shelly_real_core_regression": {
+      "tests": 4,
+      "passed": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "duration_seconds": 118.545,
+      "started_at": "2026-10-20T01:48:35.585326-04:00",
+      "junit_sha256": "04200b5ac095a60a8936a7338b75a71057606e1332a65d09db873eeed3130235",
+      "test_modules": [
+        "tests.test_device_setup_shelly_real_ha"
+      ]
+    }
+  },
+  "run_order": "One serial script on a clean tree at code_commit: backend, broader, ruff, contracts, web build, packages, validate_kit, browser, then the three real-Core modules one HA container at a time.",
+  "overlap_note": "The six runs above use disjoint test modules and may be added. The UI manifest records a separate earlier 173-case browser run of the same modules at a7b46a4, whose compiled inputs equal code_commit; do not add it. Worker rounds before code_commit are superseded and not counted.",
+  "synology_qualification": "synology-setup-20261019/qualification-summary.json",
+  "synology_receipts": [
+    {
+      "file": "synology-setup-20261019/native/native-2026.10.1-7d4736bee1a24285a77a612549b60d0f.json",
+      "sha256": "96f0d078419883b0c44d4897fbf44e937bdce3ec001efc494425d24da9c3d43f",
+      "summary": {
+        "expected_core": "2026.10.1",
+        "image_id": "sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0",
+        "run_id": "7d4736bee1a24285a77a612549b60d0f",
+        "mode": "native",
+        "variant": "no-2sa-no-shares",
+        "result": "all_runtime_assertions_passed",
+        "flow_posts": 2,
+        "device_count": 3,
+        "entity_count": 34,
+        "available_entity_count": 23,
+        "backup_agent_count": 0,
+        "device_connections": [
+          [
+            "mac",
+            "00:11:32:aa:bb:cc"
+          ]
+        ],
+        "rejected_operations": 0,
+        "full_core_restart": true
+      }
+    },
+    {
+      "file": "synology-setup-20261019/native/native-2026.10.1-fbc8f69e4d5d4beea2d7bfe9bfc70182.json",
+      "sha256": "4a25cf38a9be8ab8e27b84438490f1ee0ff1735914bc6b7b1babf12a4bc6c490",
+      "summary": {
+        "expected_core": "2026.10.1",
+        "image_id": "sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0",
+        "run_id": "fbc8f69e4d5d4beea2d7bfe9bfc70182",
+        "mode": "native",
+        "variant": "2sa-shares",
+        "result": "all_runtime_assertions_passed",
+        "flow_posts": 5,
+        "device_count": 3,
+        "entity_count": 34,
+        "available_entity_count": 23,
+        "backup_agent_count": 1,
+        "device_connections": [
+          [
+            "mac",
+            "00:11:32:aa:bb:cc"
+          ]
+        ],
+        "rejected_operations": 0,
+        "full_core_restart": true
+      }
+    },
+    {
+      "file": "synology-setup-20261019/native/native-2026.10.2-ab811f0e9115480d9b059f5b66a0b4ce.json",
+      "sha256": "4da04c0a336354eb52997b8b5b8ed6b414880a9913270177cd1b51b05cad1226",
+      "summary": {
+        "expected_core": "2026.10.2",
+        "image_id": "sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4",
+        "run_id": "ab811f0e9115480d9b059f5b66a0b4ce",
+        "mode": "native",
+        "variant": "2sa-shares",
+        "result": "all_runtime_assertions_passed",
+        "flow_posts": 5,
+        "device_count": 3,
+        "entity_count": 34,
+        "available_entity_count": 23,
+        "backup_agent_count": 1,
+        "device_connections": [
+          [
+            "mac",
+            "00:11:32:aa:bb:cc"
+          ]
+        ],
+        "rejected_operations": 0,
+        "full_core_restart": true
+      }
+    },
+    {
+      "file": "synology-setup-20261019/native/native-2026.10.2-b2a73c6dcd4c4a4ab9bdc2c9fbeac799.json",
+      "sha256": "51a5b59ee1c8b81f8cbde95ec45d1b13208353a49965ed6dfab6c610d0820530",
+      "summary": {
+        "expected_core": "2026.10.2",
+        "image_id": "sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4",
+        "run_id": "b2a73c6dcd4c4a4ab9bdc2c9fbeac799",
+        "mode": "native",
+        "variant": "no-2sa-no-shares",
+        "result": "all_runtime_assertions_passed",
+        "flow_posts": 2,
+        "device_count": 3,
+        "entity_count": 34,
+        "available_entity_count": 23,
+        "backup_agent_count": 0,
+        "device_connections": [
+          [
+            "mac",
+            "00:11:32:aa:bb:cc"
+          ]
+        ],
+        "rejected_operations": 0,
+        "full_core_restart": true
+      }
+    },
+    {
+      "file": "synology-setup-20261019/service/service-2026.10.1-a465024cea404f71b0560a600b329869.json",
+      "sha256": "5b5243a198acbad3e63a78ae50b99d495968a3f72f5acff9c2e29eeb731f1436",
+      "summary": {
+        "expected_core": "2026.10.1",
+        "image_id": "sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0",
+        "run_id": "a465024cea404f71b0560a600b329869",
+        "mode": "service",
+        "result": "all_runtime_assertions_passed",
+        "flow_posts": 4,
+        "fixture_backups": 1,
+        "backup_precedes_first_post": true,
+        "device_count": 3,
+        "entity_count": 34,
+        "available_entity_count": 23,
+        "rejected_operations": 0,
+        "full_core_restart": true,
+        "controller_store_reopened": true,
+        "approval_replay_caused_no_effects": true,
+        "no_controller_secret_persistence": true
+      }
+    },
+    {
+      "file": "synology-setup-20261019/service/service-2026.10.2-72be8f5740bd406698a4445df8a2d13b.json",
+      "sha256": "11b0b31d47db58f5b01010faef213ff85d32755bcd046d1057145f6ac652a232",
+      "summary": {
+        "expected_core": "2026.10.2",
+        "image_id": "sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4",
+        "run_id": "72be8f5740bd406698a4445df8a2d13b",
+        "mode": "service",
+        "result": "all_runtime_assertions_passed",
+        "flow_posts": 4,
+        "fixture_backups": 1,
+        "backup_precedes_first_post": true,
+        "device_count": 3,
+        "entity_count": 34,
+        "available_entity_count": 23,
+        "rejected_operations": 0,
+        "full_core_restart": true,
+        "controller_store_reopened": true,
+        "approval_replay_caused_no_effects": true,
+        "no_controller_secret_persistence": true
+      }
+    }
+  ],
+  "ipp_receipts": [
+    {
+      "file": "synology-setup-20261019/ipp/core-2026.10.1-db016c5b2b534c7fa6c35db50c2c3222.json",
+      "sha256": "b2d4b81d81b844632d7269389a6a34ac09c7108229a914413a55aef7a4b59f4e",
+      "summary": {
+        "expected_core": "2026.10.1",
+        "image_id": "sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0",
+        "run_id": "db016c5b2b534c7fa6c35db50c2c3222",
+        "flow": "ipp/zeroconf_confirm",
+        "state": "configured",
+        "result": "all_runtime_assertions_passed",
+        "confirmation_posts": 1,
+        "fixture_backups": 1,
+        "device_count": 1,
+        "entity_count": 2,
+        "available_entity_count": 1,
+        "rejected_printer_operations": 0,
+        "service_recreated_without_effect_replay": true
+      }
+    },
+    {
+      "file": "synology-setup-20261019/ipp/core-2026.10.2-b559caf2597b4f488fcdbf0162165d3f.json",
+      "sha256": "0f8957c0634847edaa3874be81b4fa8f03cf6ea1911102d2cc61c1a8152f2f60",
+      "summary": {
+        "expected_core": "2026.10.2",
+        "image_id": "sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4",
+        "run_id": "b559caf2597b4f488fcdbf0162165d3f",
+        "flow": "ipp/zeroconf_confirm",
+        "state": "configured",
+        "result": "all_runtime_assertions_passed",
+        "confirmation_posts": 1,
+        "fixture_backups": 1,
+        "device_count": 1,
+        "entity_count": 2,
+        "available_entity_count": 1,
+        "rejected_printer_operations": 0,
+        "service_recreated_without_effect_replay": true
+      }
+    }
+  ],
+  "shelly_receipts": [
+    {
+      "file": "synology-setup-20261019/shelly/native-2026.10.1-c1218cb1d3ad440bbd4fd0f116e34b04.json",
+      "sha256": "46e1a6498f58a940570a893cfe4574277ffd79fe4d121fb4af7f24e8f6ed9bb1",
+      "summary": {
+        "expected_core": "2026.10.1",
+        "image_id": "sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0",
+        "run_id": "c1218cb1d3ad440bbd4fd0f116e34b04",
+        "mode": "native",
+        "result": "all_runtime_assertions_passed",
+        "confirmation_posts": 1,
+        "device_count": 1,
+        "entity_count": 7,
+        "full_core_restart": true,
+        "switch_state": "off"
+      }
+    },
+    {
+      "file": "synology-setup-20261019/shelly/native-2026.10.2-9d57db640d734c62bcd64e66fdd8f6e6.json",
+      "sha256": "78cea4b16969058d09e0675ff8114f08022a5179c838615603209349c91ce11f",
+      "summary": {
+        "expected_core": "2026.10.2",
+        "image_id": "sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4",
+        "run_id": "9d57db640d734c62bcd64e66fdd8f6e6",
+        "mode": "native",
+        "result": "all_runtime_assertions_passed",
+        "confirmation_posts": 1,
+        "device_count": 1,
+        "entity_count": 7,
+        "full_core_restart": true,
+        "switch_state": "off"
+      }
+    },
+    {
+      "file": "synology-setup-20261019/shelly/service-2026.10.1-9ddbc6544b024f0c843d339e4bd2fd5c.json",
+      "sha256": "a559d9876f4ef2fc0a88058ce2fecb4861d6e5017dd4a063b7123f091072f936",
+      "summary": {
+        "expected_core": "2026.10.1",
+        "image_id": "sha256:130241f28d01fa80dfa3b44f7d89781c188d8642ecab9024f079f19f9f82baa0",
+        "run_id": "9ddbc6544b024f0c843d339e4bd2fd5c",
+        "mode": "service",
+        "result": "all_runtime_assertions_passed",
+        "confirmation_posts": 1,
+        "fixture_backups": 1,
+        "device_count": 1,
+        "entity_count": 7,
+        "available_entity_count": 1,
+        "full_core_restart": true,
+        "controller_store_reopened": true,
+        "approval_replay_caused_no_effects": true
+      }
+    },
+    {
+      "file": "synology-setup-20261019/shelly/service-2026.10.2-67f4afc843eb47609fd487357c34b351.json",
+      "sha256": "b3f135fd0254a9b6a5d861592431c80ad3e21f05fc526c68db620c6eae5933fd",
+      "summary": {
+        "expected_core": "2026.10.2",
+        "image_id": "sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4",
+        "run_id": "67f4afc843eb47609fd487357c34b351",
+        "mode": "service",
+        "result": "all_runtime_assertions_passed",
+        "confirmation_posts": 1,
+        "fixture_backups": 1,
+        "device_count": 1,
+        "entity_count": 7,
+        "available_entity_count": 1,
+        "full_core_restart": true,
+        "controller_store_reopened": true,
+        "approval_replay_caused_no_effects": true
+      }
+    }
+  ],
+  "ui_manifest": "ui/synology-setup-20261019/manifest.json",
+  "checks": {
+    "ruff": "passed",
+    "typescript_vite": "passed",
+    "contracts": 53,
+    "validate_kit": "passed",
+    "build_reproducible": "No tracked change after web build and package regeneration",
+    "static_controller_bridge_identical": true,
+    "download_zips_identical_to_base": true,
+    "receipt_source_hashes": "matched code_commit for all 12 copied receipts",
+    "ui_capture_source_hashes": "matched code_commit",
+    "secret_scan": "Synthetic NAS password, wrong password and two-step code strings absent from all copied receipts, UI evidence and this summary",
+    "independent_review": "Read-only review of 549b409..9683ab5 found one blocker (acknowledged entry skipped NAS MAC proof), one should-fix (IPP/Shelly v2 bodies gained six fields rejected by the base reader) and one minor (UI share-path bound one character short). All three fixed in b7e0961..7d8c1be with unit, browser and real-Core coverage.",
+    "upstream_identity_binding": {
+      "image_id": "sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4",
+      "finding": "IPP and Shelly bind unique_id during discovery before their confirmation step and create the entry without re-resolving identity; only Synology re-resolves identity at login, so only Synology needs the registry MAC proof.",
+      "ipp_config_flow_sha256": "35acc4579135ae87fe8bf02cfb1d37f364b2162a1336c0418d504b29b9384d5e",
+      "shelly_config_flow_sha256": "a97753dbdca82d908adee7815a5f31f9e62d6736e52899f08fb51e4c32581fcf"
+    },
+    "generated_screenshots_outside_scope": "Gateway UI tests rewrote 17 committed PNGs under evidence/ui/native-home, evidence/ui/bridge and evidence/ui/gateway-*; all restored byte-for-byte and not committed.",
+    "task_containers": "removed; only an unrelated pre-existing container remained"
+  },
+  "storage_compatibility": "New Synology records are version 3 with six input fields. IPP and Shelly bodies stay version 2 with exactly the 21 keys of the base reader through both persistence paths; development rows that already contain the six fields remain readable. Old binaries refuse unknown records and fence new setup writes; not unrestricted downgrade compatibility.",
+  "branch_regression": {
+    "test": "tests/test_interactive_preview.py::test_preview_fixtures_parse_and_cover_shell_gets",
+    "cause": "web/preview/fixtures.json stores discovery digest c52e6dba197f3cbfbbe63764676e73aa069d202cef9ded28f4732370709d7c8b; current and base models both compute 6bd4c5218b2d178de366797ec83b5152e94f3bccc85832e593045d193fd55cf5. The optional confirmation_step field added to discovery candidates in 0ad1b51 dumps as null for the fixture candidate; the stored fixture and digests were not refreshed.",
+    "introduced_by": "0ad1b51",
+    "present_at_base": true,
+    "passes_on_main": true,
+    "correction": "First recorded as a pre-existing failure. It predates this round's base 549b409 but was introduced earlier on this branch; main passes. Product storage is unaffected because discovery snapshots are recomputed on read, not verified from storage.",
+    "fixed_by": {
+      "ce323f3": "web/preview/fixtures.json: candidate confirmation_step null, ha_discovery source digest 94e1e0f329e15544aff227402272a938cf6a2e5b9eb45354c77582708bbee852 and snapshot digest b1e0534ac684e2161701b82eefe7aaf1e910b9b131d3c0da43294d46503fb4da; no other byte changed",
+      "6411ff3": "site/assets screenshots and manifest regenerated only via scripts/site_screenshots.py"
+    },
+    "fix_verification": [
+      {
+        "command": "pytest -q tests/test_interactive_preview.py tests/test_site.py tests/test_interactive_preview_ui.py tests/test_recovery_followups_ui.py",
+        "passed": 60,
+        "failed": 0,
+        "skipped": 1,
+        "duration_seconds": 169.67,
+        "skipped_reason": "runner image build needs --containers"
+      },
+      {
+        "command": "pytest -q tests/test_native_demo.py tests/test_network_inventory_ui.py",
+        "passed": 63,
+        "failed": 0,
+        "skipped": 0,
+        "duration_seconds": 213.22
+      },
+      {
+        "command": "web: npx tsc -p demo/tsconfig.json && npx vite build --config demo/vite.config.ts",
+        "result": "passed"
+      },
+      {
+        "command": "ruff check, scripts/validate_kit.py, git diff --check",
+        "result": "passed"
+      }
+    ]
+  },
+  "limitations": [
+    "Only Core 2026.10.1 and 2026.10.2 with a discovered synology_dsm SSDP/zeroconf link form of the reviewed exact shape are qualified; other steps, custom ports and forms carrying credential defaults fall back to the native settings entry.",
+    "The NAS is a hand-authored HTTPS loopback DSM responder; real DSM firmware, account policies, trusted-device and expired-code behaviour are not verified.",
+    "Login uses the native defaults: HTTPS, port 5001 and no verification of the NAS self-signed certificate.",
+    "Supervisor backup is a fixture response; HAOS backup/restore and backup upload to the NAS are not verified.",
+    "Discovery is injected; LAN SSDP multicast, multi-NIC NAS and several NAS on one network are not verified.",
+    "At 390x844 the Host chat thread is about 190 px high, as for earlier setup cards; long NAS steps need scrolling inside the thread.",
+    "Approval covers native connection configuration and HA configuration backup only; no AI control permission is granted. NAS credentials are stored by the native integration in HA, not by the Controller."
+  ],
+  "not_run": [
+    "physical NAS",
+    "real DSM firmware",
+    "real account",
+    "DSM trusted-device state",
+    "LAN SSDP multicast",
+    "Supervisor/HAOS backup",
+    "backup upload",
+    "live household",
+    "Dell deployment",
+    "green CI on the follow-up head at the time of writing (see PR #127)",
+    "long-running operation"
+  ],
+  "development_failures": [
+    {
+      "phase": "core service matrix before backend existed",
+      "result": "0 passed, 2 failed (expected)",
+      "cause": "DeviceSetupCreate rejected synology_dsm before the adapter was merged",
+      "resolution": "Passed after integration; no test weakening"
+    },
+    {
+      "phase": "UI fix 1 and fix 3 browser runs",
+      "result": "exit 143 before summary",
+      "cause": "Interrupted before summary; cause not established",
+      "resolution": "Complete reruns passed 165 and 173 cases; partial output kept outside the repo"
+    },
+    {
+      "phase": "first final verification",
+      "result": "stopped intentionally",
+      "cause": "Review fixes would change the tested commit",
+      "resolution": "Rerun in full at code_commit"
+    }
+  ],
+  "ci": {
+    "workflow": ".github/workflows/ci.yml (GitHub-hosted ubuntu-24.04, --real-ha --containers)",
+    "first_runs": [
+      {
+        "run_id": 39387043632,
+        "event": "pull_request",
+        "head": "8acac70",
+        "result": "failed",
+        "passed": 4806,
+        "skipped": 12,
+        "failed": 2,
+        "errors": 12,
+        "pytest_seconds": 1754.72,
+        "job_minutes": 32.6
+      },
+      {
+        "run_id": 39387000290,
+        "event": "push",
+        "head": "8acac70",
+        "result": "failed",
+        "passed": 4806,
+        "skipped": 12,
+        "failed": 2,
+        "errors": 12,
+        "pytest_seconds": 1754.72,
+        "job_minutes": 32.6
+      }
+    ],
+    "causes": [
+      {
+        "tests": "tests/test_device_setup_real_ha.py (2), tests/test_device_setup_shelly_real_ha.py (4), tests/test_device_setup_synology_real_ha.py (6)",
+        "outcome": "12 errors",
+        "cause": "These real-Core tests deliberately never pull; CI did not provision ghcr.io/home-assistant/home-assistant:2026.10.1/2026.10.2 before them.",
+        "fix": "1c6439f: CI pulls both pinned Core images before tests; job timeout 45 -> 60 minutes because the 12 cases now run (about 350 s locally)."
+      },
+      {
+        "tests": "tests/test_interactive_preview.py::test_preview_fixtures_parse_and_cover_shell_gets",
+        "outcome": "failed",
+        "cause": "branch_regression",
+        "fix": "ce323f3, 6411ff3"
+      },
+      {
+        "tests": "tests/test_onboarding_e2e.py::test_composed_onboarding_browser_services_and_native_home",
+        "outcome": "failed",
+        "cause": "The composed E2E still followed the legacy CLI-first order and timed out waiting for the CLI sign-in panel; 1414e77 moved new setups to butler_v1 (prepare home, then assistant login; coding setup deferred). Safe checkpoint: waiting_input at hermes_auth, host actions [provision, bootstrap_hermes], 0 CLI calls, no browser errors.",
+        "fix": "4d2c691: E2E follows butler_v1; asserts deferred coding setup, skipped channel, no CLI requests and no repeated host operations; all other assertions kept.",
+        "local_verification": {
+          "command": "AGENTIC_E2E_IMAGE_TAG=0.11.1-ci1-4d2c691 pytest -q -p no:randomly --containers --real-ha tests/test_onboarding_e2e.py",
+          "passed": 1,
+          "failed": 0,
+          "duration_seconds": 77.92,
+          "core": "2026.10.1",
+          "images": "controller, runner and Hermes built from 4d2c691 under a unique tag, removed after the run; shared 0.11.1 tags untouched",
+          "host_actions": [
+            "provision",
+            "bootstrap_hermes"
+          ],
+          "cli_inference_calls": 0,
+          "hermes_model_calls": 3,
+          "related": {
+            "tests/test_hermes_ci_cache.py": "3 passed",
+            "bootstrap and butler bootstrap backend/UI": "48 passed"
+          }
+        }
+      }
+    ],
+    "follow_up": "Results of the CI run on the follow-up head are recorded on PR #127."
+  }
+}

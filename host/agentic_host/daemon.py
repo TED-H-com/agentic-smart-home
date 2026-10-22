@@ -13,6 +13,8 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
 from .discovery import Discovery
+from .host_update import CONTRACT as HOST_UPDATE_CONTRACT
+from .host_update import HostBundle
 from .manager import HostError, Manager, atomic
 from .network import Network
 from .preview import Previews, preview_server
@@ -109,20 +111,36 @@ def install_broker_stops(server, coding):
     return previous
 
 
+def appliance_startup(manager):
+    """Observe always; updater-owned OS policy never reapplies outside its ledger."""
+    try:
+        with manager.locked():
+            # The updater captures preimages under this same lifecycle lock.
+            # Re-check the permanent marker only after acquiring that lock.
+            marker = manager.root / "appliance-update-managed.json"
+            try:
+                marker.lstat()
+            except FileNotFoundError:
+                from .appliance import reconcile_appliance
+                reconcile_appliance(manager)
+            except OSError:
+                pass  # Unreadable/uncertain never authorizes writes.
+            # Any inode, even malformed/non-root/a broken symlink, suppresses
+            # writes. Never repair/delete the updater's authority marker.
+    except Exception:
+        print("Appliance settings need attention; rescue remains available", file=sys.stderr, flush=True)
+    try:
+        from .appliance_status import observe_network
+        observe_network(manager.root, manager.run)
+    except Exception:
+        print("Appliance settings need attention; rescue remains available", file=sys.stderr, flush=True)
+
+
 def serve(path="/run/agentic-home/host.sock"):
     os.umask(0o077)
     manager = Manager()
-    from .appliance import reconcile_appliance
-    # Fixed installed Host code only; never execute Controller/coding source as root.
-    # Reconciliation must not hold up the rescue socket if a utility is slow.
-    def appliance_startup():
-        try:
-            reconcile_appliance(manager)
-            from .appliance_status import observe_network
-            observe_network(manager.root, manager.run)
-        except Exception:
-            print("Appliance settings need attention; rescue remains available", file=sys.stderr, flush=True)
-    threading.Thread(target=appliance_startup, name="appliance-startup", daemon=True).start()
+    # Fixed installed Host code only; a slow utility cannot hold up rescue.
+    threading.Thread(target=appliance_startup, args=(manager,), name="appliance-startup", daemon=True).start()
     jobs = Jobs(manager)
     threading.Thread(target=manager.root_cow.monitor, name="root-cow-monitor", daemon=True).start()
     from .coding_service import CodingService
@@ -131,6 +149,10 @@ def serve(path="/run/agentic-home/host.sock"):
     discovery = Discovery(manager)
     previews = Previews(manager, bundles=coding.root / "web-previews")
     updater = Updater(manager)
+    host_updates = HostBundle(manager)
+    # The independent immutable update service owns preparation recovery. A
+    # broker restart during its live download must not mark that work failed.
+    mutation_lock = threading.RLock()
     try:
         viewer = preview_server(previews)
         threading.Thread(target=viewer.serve_forever, daemon=True).start()
@@ -143,8 +165,10 @@ def serve(path="/run/agentic-home/host.sock"):
         if method == "POST" and path == "/network/ha-lan/observation":
             from .ha_lan import HALan
             return 200, HALan(manager).observe(body)
+        if method == "POST" and (path == "/host-updates" or path.startswith("/host-updates/")):
+            return 409, {"detail": "host_update_fixed_transport_required"}
         for prefix, handler in (("/coding", coding), ("/network", network), ("/discovery", discovery),
-                                ("/previews", previews), ("/updates", updater)):
+                                ("/previews", previews), ("/updates", updater), ("/host-updates", host_updates)):
             if path == prefix or path.startswith(prefix + "/"):
                 return handler.handle(method, path, body)
         return None
@@ -195,6 +219,8 @@ def serve(path="/run/agentic-home/host.sock"):
             try:
                 if not self.authorized():
                     return self.respond(403, {"detail": "broker_role_forbidden"})
+                if self.path == "/host-update-contract":
+                    return self.respond(200, dict(HOST_UPDATE_CONTRACT))
                 if self.path == "/bridge-contract":
                     return self.respond(200, manager.bridge_contract())
                 response = service("GET", self.path)
@@ -220,12 +246,17 @@ def serve(path="/run/agentic-home/host.sock"):
                 if not 0 < size <= maximum:
                     return self.respond(400, {"detail": "Invalid request"})
                 body = json.loads(self.rfile.read(size))
-                response = service("POST", self.path, body)
-                if response is not None:
-                    return self.respond(*response)
-                if self.path != "/actions" or size >= 4096:
-                    return self.respond(400, {"detail": "Invalid request"})
-                return self.respond(202, jobs.start(body))
+                # Serialize the durable queue handoff with other Host effects.
+                # Background jobs keep their own process locks; this lock only
+                # closes the guard-to-dispatch race with Controller staging.
+                with mutation_lock:
+                    host_updates.guard(self.path, body)
+                    response = service("POST", self.path, body)
+                    if response is not None:
+                        return self.respond(*response)
+                    if self.path != "/actions" or size >= 4096:
+                        return self.respond(400, {"detail": "Invalid request"})
+                    return self.respond(202, jobs.start(body))
             except (ValueError, HostError, TypeError) as exc:
                 return self.respond(409, {"detail": str(exc)[:500]})
             except Exception:

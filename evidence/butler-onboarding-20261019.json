@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-19",
+  "base": "9b2f8d46ad0ecae6d2fbaec24a578be47529f25c",
+  "branch": "codex/butler-device-onboarding-20261019",
+  "scope": "Unreleased primary-assistant onboarding, consented environment context, and owner-approved native IPP setup",
+  "backend": {
+    "result": "passed",
+    "passed": 476,
+    "duration_seconds": 91.35,
+    "tests": [
+      "tests/test_device_setup.py",
+      "tests/test_device_setup_transport.py",
+      "tests/test_device_setup_routes.py",
+      "tests/test_ha_client_errors.py",
+      "tests/test_store_durability.py",
+      "tests/test_bridge_controller.py",
+      "tests/test_discovery_chat.py",
+      "tests/test_bootstrap.py",
+      "tests/test_butler_bootstrap.py",
+      "tests/test_review_bootstrap.py",
+      "tests/test_bootstrap_owner.py",
+      "tests/test_gateway.py",
+      "tests/test_hermes_controller.py"
+    ]
+  },
+  "browser": {
+    "initial_run": {
+      "passed": 42,
+      "failed": 1,
+      "duration_seconds": 208.78,
+      "failure": "Multi-network select needed an explicit accessible label; corrected without weakening assertion."
+    },
+    "final_chat_run": {
+      "passed": 27,
+      "duration_seconds": 63.61,
+      "tests": [
+        "tests/test_conversation_discovery_ui.py",
+        "tests/test_conversation_network_ui.py"
+      ]
+    },
+    "unchanged_bootstrap_scope": {
+      "passed": 17,
+      "tests": [
+        "tests/test_butler_bootstrap_ui.py",
+        "tests/test_bootstrap_ui.py"
+      ],
+      "note": "Passed in initial run; subsequent UI edits only affect conversation controls."
+    },
+    "unique_passing_cases": 44,
+    "screenshots": "ui/butler-onboarding-20261019/manifest.json"
+  },
+  "real_core": {
+    "result": "passed",
+    "passed": 1,
+    "duration_seconds": 14.01,
+    "evidence": "device-setup-real-core-20261019.json",
+    "scope": "Real unmodified Core IPP API and registry; synthetic printer, injected discovery, backup and outer session transport."
+  },
+  "checks": {
+    "typescript_vite": "passed",
+    "ruff": "passed",
+    "contracts": 51,
+    "web_toolchain": "passed",
+    "validate_kit": "passed"
+  },
+  "not_run": [
+    "Physical printer or real household device acceptance",
+    "Supervisor backup restore for this new flow",
+    "Dell login diagnosis and candidate deployment",
+    "Public USB interaction and new ISO qualification",
+    "Real primary-assistant cloud login",
+    "Full CI for this branch",
+    "Release/public download delivery"
+  ],
+  "effects": "Development code and isolated tests only; no household scan, settings change, deployment, or new release."
+}

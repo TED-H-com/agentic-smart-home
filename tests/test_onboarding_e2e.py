@@ -30,6 +30,7 @@ ROOT = Path(__file__).parents[1]
 BASE = "http://localhost:8099"
 CORE = "http://localhost:8123"
 CORE_IMAGE = "ghcr.io/home-assistant/home-assistant:2026.10.1"
+IMAGE_TAG = os.environ.get("AGENTIC_E2E_IMAGE_TAG", "0.11.1")
 REVISION = json.loads((ROOT / "hermes/hermes.lock.json").read_text())["commit"]
 # Shape only: type, constructor, own keys and a numeric or snake_case code. Never values.
 REJECTION_SHAPE = r"""addEventListener("unhandledrejection", event => {
@@ -324,7 +325,7 @@ for path,uid,gid,mode in items:
  assert (stat.st_uid,stat.st_gid,stat.st_mode&0o777)==(uid,gid,mode)
 """
         await docker("run", "--rm", "--network=none", *mounted, "--entrypoint", "python",
-                     "agentic-home-runner:0.11.0", "-c", preparation, str(os.getuid()))
+                     f"agentic-home-runner:{IMAGE_TAG}", "-c", preparation, str(os.getuid()))
         controller_access = """import asyncio,os,pathlib,aiohttp
 assert (os.getuid(),os.getgid())==(1000,1000)
 assert pathlib.Path('/controller/access-key').read_text().strip()
@@ -343,9 +344,9 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
 """
         await asyncio.gather(
             docker("run", "--rm", "--network=none", "--user", "1000:1000", *mounted,
-                   "--entrypoint", "python", "agentic-home-controller:0.11.0", "-c", controller_access),
+                   "--entrypoint", "python", f"agentic-home-controller:{IMAGE_TAG}", "-c", controller_access),
             docker("run", "--rm", "--network=none", "--user", "10003:10003", "--group-add", "1000", *mounted,
-                   "--entrypoint", "python", "agentic-home-hermes:0.11.0", "-c", hermes_access))
+                   "--entrypoint", "python", f"agentic-home-hermes:{IMAGE_TAG}", "-c", hermes_access))
         runtime_args = ["-v", str(ROOT / "tests/e2e_runtime_fixture.py") + ":/e2e.py:ro", "-e", "E2E_MODEL_URL=" + model_url, "-e", "PYTHONPATH=/app", "--entrypoint", "python"]
         # Docker commands below use fixture-only entrypoints, with source mounted
         # read-only. No test hook or provider URL option is added to product code.
@@ -361,8 +362,8 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
             else:
                 extra += ["--group-add", "1000", "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges", "-v", str(dirs["hermes-link"]) + ":/hermes-link:ro"]
             caps = ["--memory=1536m", "--pids-limit=256"] if role == "runner" else ["--memory=768m", "--pids-limit=64", "--cpus=1"]
-            await docker("run", "-d", "--name", name, "--network=host", *caps, *extra, "agentic-home-" + role + ":0.11.0", "/e2e.py")
-        controller = await launch("controller", "agentic-home-controller:0.11.0", [
+            await docker("run", "-d", "--name", name, "--network=host", *caps, *extra, f"agentic-home-{role}:{IMAGE_TAG}", "/e2e.py")
+        controller = await launch("controller", f"agentic-home-controller:{IMAGE_TAG}", [
             "-e", "AGENTIC_HOST_MODE=1", "-e", "AGENTIC_HERMES_MCP=1", "-e", "AGENTIC_HA_URL=" + CORE,
             "-v", str(dirs["controller"]) + ":/data", "-v", str(dirs["pairing"]) + ":/pairing:ro",
             "-v", str(dirs["hermes-link"]) + ":/hermes-link:ro", "-v", str(dirs["host-socket"]) + ":/run/agentic-home",
@@ -437,33 +438,35 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
             await page.get_by_label("主機登入金鑰", exact=True).fill(key)
             await page.get_by_role("button", name="開啟管理中心").click()
             await page.locator(".onboarding-body").get_by_role("button", name="開始設定", exact=True).click()
-            await page.locator(".bootstrap-auth").wait_for()
-            # Other sign-in methods sit in a fold. A wrapping label includes the nested
-            # select option text, so scope to this selected CLI instead of an exact name.
-            auth = page.locator(".bootstrap-auth")
-            await auth.get_by_text("其他登入方式", exact=True).click()
-            await auth.get_by_label("登入方式").select_option("api_key")
-            await page.get_by_label("API 金鑰", exact=True).fill("e2e-synthetic-cli-key-no-cloud")
-            await page.get_by_role("button", name="開始登入", exact=True).click()
             hermes = page.get_by_role("region", name="智能管家登入")
             await hermes.get_by_role("radio", name="OpenRouter 金鑰", exact=True).check()
-            assert fixtures.calls == ["bootstrap_hermes"] and len(fixtures.cli_requests) == 1
+            assert fixtures.calls == ["provision", "bootstrap_hermes"] and fixtures.cli_requests == []
             await page.reload()
             await hermes.get_by_role("radio", name="OpenRouter 金鑰", exact=True).check()
+            assert fixtures.calls == ["provision", "bootstrap_hermes"] and fixtures.cli_requests == []
+            bootstrap = await page.request.get(BASE + "/api/bootstrap")
+            assert bootstrap.status == 200
+            flow = await bootstrap.json()
+            assert [step["id"] for step in flow["steps"]] == [
+                "network", "runner_pairing", "ha_provision", "hermes_install", "hermes_auth", "ha_native",
+                "cli_auth", "cli_assist", "channel"]
+            steps = {step["id"]: step for step in flow["steps"]}
+            for step, code in (("cli_auth", "coding_setup_deferred"), ("cli_assist", "coding_setup_deferred"),
+                               ("channel", "channel_explicitly_skipped")):
+                assert (steps[step]["state"], steps[step]["code"]) == ("skipped", code)
             await hermes.get_by_role("textbox", name="模型", exact=True).fill("fixture/model")
             await hermes.get_by_role("textbox", name="金鑰", exact=True).fill(
                 "e2e-synthetic-hermes-key-no-cloud")
             await hermes.get_by_role("button", name="儲存登入").click()
-            await page.get_by_role("radio", name="Web 不需帳號", exact=True).click()
             await page.get_by_role("heading", name="設定你的家庭").wait_for()
-            assert fixtures.calls == ["bootstrap_hermes", "provision"]
+            assert fixtures.calls == ["provision", "bootstrap_hermes"] and fixtures.cli_requests == []
             # A real Controller restart resumes the same persisted operation IDs.
             await docker("restart", controller)
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as http:
                 await eventually(lambda: get(BASE + "/health"), lambda r: r[0] == 200)
             await page.reload()
             await page.get_by_role("heading", name="設定你的家庭").wait_for()
-            assert fixtures.calls == ["bootstrap_hermes", "provision"] and len(fixtures.cli_requests) == 1
+            assert fixtures.calls == ["provision", "bootstrap_hermes"] and fixtures.cli_requests == []
             await page.screenshot(path=str(ROOT / "evidence/ui/e2e-native-home.png"), full_page=True)
             # Complete native setup through real Core endpoints in this isolated
             # household; browser login/authorization below is not intercepted.
@@ -490,6 +493,7 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
             authorization = await page.request.get(BASE + "/api/host/authorization")
             assert authorization.status == 200 and (await authorization.json())["state"] == "connected"
             await page.get_by_role("heading", name="設定完成").wait_for()
+            assert fixtures.calls == ["provision", "bootstrap_hermes"] and fixtures.cli_requests == []
             assert "code=" not in page.url and "state=" not in page.url
             await page.screenshot(path=str(ROOT / "evidence/ui/e2e-complete.png"), full_page=True)
             entry = await page.request.get(BASE + "/api/host/home-entry")
@@ -540,6 +544,7 @@ probe=pathlib.Path('/hermes/access-probe');probe.touch();probe.unlink()
             await page.reload()
             await page.get_by_text("E2E 主機證據已取得；此為隔離測試。", exact=True).wait_for()
             assert not errors, errors
+            assert fixtures.cli_requests == []
             storage = await page.evaluate("JSON.stringify({local:{...localStorage},session:{...sessionStorage}})")
             assert all(secret not in storage for secret in (key, password, token, "e2e-synthetic-cli-key-no-cloud", "e2e-synthetic-hermes-key-no-cloud"))
             assert any(any(m["role"] == "tool" for m in body["messages"]) for body in fixtures.hermes_requests)
@@ -646,4 +651,4 @@ print(json.dumps({'evidence':records('case_evidence'),
         await host_server.cleanup()
         await models_server.cleanup()
         await docker("run", "--rm", "-v", str(tmp_path) + ":/lab", "-v", str(dirs["host-socket"]) + ":/host-socket",
-                     "--entrypoint", "chown", "agentic-home-runner:0.11.0", "-R", f"{os.getuid()}:{os.getgid()}", "/lab", "/host-socket")
+                     "--entrypoint", "chown", f"agentic-home-runner:{IMAGE_TAG}", "-R", f"{os.getuid()}:{os.getgid()}", "/lab", "/host-socket")

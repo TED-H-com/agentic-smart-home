@@ -3,6 +3,9 @@
   "publisher": "ted-h-com-agentic-smart-home",
   "repository": "TED-H-com/agentic-smart-home",
   "channel": "stable",
-  "image_repository": null,
-  "pin": null
+  "image_repository": "ghcr.io/ted-h-com/agentic-smart-home-controller",
+  "pin": {
+    "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA1fUHnQTX7LEJxfdrkmuvpdPw7r8uBwozTfqns+na97c=\n-----END PUBLIC KEY-----\n",
+    "key_sha256": "18dd73f8b96d115d076be6b362cd62ed011c4be2b6dfdaf808e9b3e5a6a53d39"
+  }
 }

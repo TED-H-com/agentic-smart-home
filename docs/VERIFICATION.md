@@ -1,5 +1,71 @@
 # Agentic Smart Home 驗證
 
+## 2026-10-20 Synology NAS 聊天接入（未發行）
+
+來源 `7d8c1be` 加入已發現 Synology NAS 的多步聊天接入：接入卡輸入 NAS 帳號與密碼，按「登入並接入」即批准；先備份家庭設定，再依序完成登入、選填的兩步驟驗證碼與備份資料夾選擇，最後以 NAS 網卡 MAC 讀回精確設備。帳密與驗證碼不寫入 Controller，結果不明時只讀回、不重送；每步送出前重新檢查，30 分鐘有效、最多 8 步，已接入的 NAS 如實說明原連線已更新。IPP／Shelly 紀錄維持 v2，欄位與前一版相同。
+
+[本輪證據](../evidence/synology-setup-20261019.json) 為同一提交上的單次序列執行：後端整合回歸 **664 passed**；Bridge／Gateway／Hermes／契約等相鄰回歸 **749 passed、11 skipped、1 failed**，失敗為預覽 fixture 的探索摘要不符：本分支稍早的 `0ad1b51` 為探索候選加入 `confirmation_step` 欄位，但 fixture 未同步（`main` 通過；原先誤記為基底既有問題），本輪當時未修改或跳過，之後由 `ce323f3` 修正 fixture、`6411ff3` 重新產生公開示範截圖；最終編譯介面的 **173 項瀏覽器測試通過**，其中 Synology 74 項。[十二張 390／768／1440 px 合成畫面](../evidence/ui/synology-setup-20261019/manifest.json) 已檢視，密碼欄位皆為空。Ruff、TypeScript/Vite、53 份契約、工具鏈與封裝檢查通過；Controller／側欄資產一致，下載封裝與基底逐位元組相同。
+
+[Synology 真 Core 矩陣](../evidence/synology-setup-20261019/qualification-summary.json) 在 `2026.10.1`／`2026.10.2` **6 passed**：原生協定 4 項（含與不含兩步驟驗證及資料夾，分別 5 與 2 次提交），產品服務 2 項。服務測試先完成備份 fixture 再首次提交，經錯誤驗證碼後重新輸入並選擇資料夾，共 4 次提交；最後一次提交後立即通過 MAC 讀回，得到 3 個設備、34 個功能登錄、23 個可用狀態。完整 Core 重啟與 Controller 資料庫重開後重送原批准不產生新效果，資料庫、快照與收據都找不到測試帳密或驗證碼。共用服務修改後，IPP **2 passed** 與 Shelly **4 passed** 真 Core 回歸收據列於本輪證據。
+
+獨立唯讀複查發現三個問題，均已修正並重測：收到原生建立結果時未比對 NAS 網卡 MAC，現在必須在設備登錄看到相同 MAC 才算完成；IPP／Shelly 紀錄多出前一版無法讀取的六個欄位，現已省略；介面的資料夾路徑上限少一個字元，已與後端一致。上游原始碼核對確認 IPP／Shelly 在探索時已綁定身分，不需相同修正。開發期間兩次瀏覽器執行在摘要前中斷，完整重跑通過；第一次最終驗證因複查修正而主動停止，改在 `7d8c1be` 完整重跑。
+
+NAS 是合成的 HTTPS 回應器，探索為注入，Supervisor 備份是 fixture。實體 NAS、真實 DSM 韌體與受信任裝置、區網 SSDP、HAOS 備份還原、備份上傳與家庭現場均未驗收；390 px 手機畫面的對話區約 190 px，與既有接入卡相同，長步驟需在對話內捲動。本輪未部署 Dell、操作真實家庭或發布新版。
+
+分支推送為草稿 PR #127 後，第一次 GitHub CI（`8acac70`）為 **4806 passed、12 skipped、2 failed、12 errors**。12 個 errors 來自新的真 Core 接入測試：它們刻意不自動下載映像，而 CI 未先準備 `2026.10.1`／`2026.10.2` Core 映像。`1c6439f` 改由 CI 在測試前拉取；這 12 項會實際執行，工作時限由 45 分鐘調為 60 分鐘。2 個 failed 之一是上述預覽 fixture。另一個是跨服務 onboarding E2E，它仍走舊的「先登入 AI 帳號」順序，而本分支 `1414e77` 已改為先準備家庭、再登入智能管家。`4d2c691` 將 E2E 改為新順序，並加驗以下幾點：開發助手登入延後、通訊步驟略過、整個接入沒有 CLI 呼叫、主機操作不重複。以本分支建置的獨立標籤映像在本機重跑 E2E **1 passed**（Core `2026.10.1`，78 秒），共用映像標籤未變動。修正後的 CI 結果記錄於 PR #127。
+
+## 2026-10-19 Shelly 聊天接入（未發行）
+
+來源 `a7f89a4` 加入原生回報型號為 Shelly 1 的受限接入：核對目前確認步驟與型號、本人批准、備份家庭設定、提交一次、讀回精確設備。已保存網路線索、密碼／藍牙步驟及其他型號不能取得此批准；不支援時提供固定家庭設定入口。新寫入接入紀錄使用 v2，保留舊 IPP 的原批准摘要，降版後新寫入會停止，並非任意降版相容。
+
+[本輪證據](../evidence/shelly-setup-20261019.json) 記錄後端整合回歸 **482 passed**；聊天、接入歷史與 Shelly 的 **50 項瀏覽器測試通過**。整合產物改用實際批准文案後，相關 **16 項瀏覽器測試再度通過**，與 50 項重疊，不相加。[六張 390／768／1440 px 合成畫面](../evidence/ui/shelly-setup-20261019/manifest.json) 已檢視，包含實際的連線設定、備份範圍說明與不支援型號入口。來源／圖片雜湊、Ruff、TypeScript/Vite、52 份契約、工具鏈及封裝結構檢查通過；Controller／側欄介面已重建。
+
+[Shelly 真 Core 矩陣](../evidence/shelly-setup-20261019/qualification-summary.json) 分別在 `2026.10.1`／`2026.10.2` 執行原生協定 **2 passed** 與產品服務 **2 passed**。每版以未修改的原生 flow、aioshelly HTTP／CoIoT、coordinator 及登錄建立一個設備、七個功能登錄，讀到一個可用的關閉繼電器狀態；產品服務先完成備份 fixture 再提交一次。完整 Core 重啟與 Controller 資料庫重開後，精確身分保持一致、重送原批准不產生新效果，兩次開機的合成設備請求紀錄沒有切換／設定寫入／重開命令。共用服務修改後，既有 IPP 的兩版真 Core 回歸另為 **2 passed**，收據列於本輪證據。
+
+最初三次未完成的 Shelly 測試分別缺少 transport 的 Store 綁定、重啟後 Docker 臨時連接埠改變，以及在原生探索載入依賴前取得基準；修正測試環境後完整重跑通過，原失敗保留於收據。合成設備、探索注入與 Supervisor 備份仍是 fixture；**回報型號不是實體世代鑑定**，原生 formatter 的不一致 RPC 回報已另行確認，不能把 Gen1 結果擴張為所有 Shelly 的零設備寫入保證。實體繼電器、RPC／藍牙流程、HAOS 備份還原與家庭現場均未驗收。
+
+本輪未部署 Dell、操作真實家庭、發布新版本或建立 USB／ISO。既有實機登入循環、真帳號與公開安裝互動路徑仍需各自驗證，不以本輪測試代替；Synology 多步帳密與雙重驗證尚未加入聊天接入。
+
+## 2026-10-19 常見網路設備辨識與聊天指引（未發行）
+
+來源 `df15d8f` 補上固定 IPP／IPPS 與 Matter 待配對服務查詢、同一 DNS 服務實例的 Synology 廠商分類，以及各類型的聊天下一步。網路線索與 HA 原生待接入候選分開顯示；同名不取得相同設備身分或接入批准。原始 TXT、憑證與廠商值後綴不保存，`_matter._tcp` 不新增待配對建議。
+
+[本輪證據](../evidence/network-guidance-20261019.json) 記錄 **300 項後端整合回歸通過**；最後調整白話提示後，受影響的 **146 項盤點／聊天測試通過**，兩者範圍重疊。包含合成封包與 loopback 傳輸、過期／部分資料、分享去密、同名不同來源，以及拒絕以網路 IPP 線索建立原生接入提案。獨立複查發現 DNS 顯示名稱會混淆不同原始標籤，已改以原始位元組標籤比對，補上句點／畸形 UTF-8 及跨封包案例，再次複查通過。
+
+最終編譯介面的 **83 項瀏覽器測試通過**，涵蓋新指引、既有探索／網路收集／盤點與接入進度；[390／768／1440 px 合成畫面](../evidence/ui/network-guidance-20261019/manifest.json) 已檢視並核對來源與圖片雜湊。早期四項新增瀏覽器案例使用了舊版 storage key，修正測試資料的 Owner 範圍後通過，保留原始失敗收據摘要。Ruff、TypeScript/Vite、52 份契約、工具鏈與封裝結構檢查通過，Controller／側欄資產與 Runner 封裝已更新。
+
+這些是隔離協定與介面測試，未掃描實際家庭、部署 Dell、接入實體印表機／NAS／Matter 或驗證真帳號。新的查詢需要更新 Host 收集器；Synology 僅比對同封包中的 PTR／TXT，資料分開或缺少時維持未知。IPv4 收集器不能證明 Matter／Thread 的 IPv6 通路；原生接入 adapter 的既有 Core 證據不當成本輪實體驗收。未建立新版 ISO、發布版本或合併遠端 PR。
+
+## 2026-10-19 接入進度續接與管家讀回（未發行）
+
+聊天新增跨對話的「設備接入進度」：展開才讀取清單，選定精確工作後讀回，Owner 可明確將該筆結果交給管家解讀。新的唯讀工具區分已保存進度與目前 HA 狀態，保留來源不完整、未知及尚未實體驗證；不取得批准或重送權限。Controller 先確認已安裝管家宣告此工具，舊版不支援時保留查閱及一般對話，不派出無法查詢的模型工作或要求重新登入。
+
+[本輪證據](../evidence/device-setup-continuity-20261019.json) 分別記錄後端整合回歸 **597 passed、6 skipped**，能力檢查變更後的相關回歸 **107 passed**，及最終權限／舊版續接檢查；這些範圍重疊，不相加。最終編譯介面的 **40 項瀏覽器測試通過**，涵蓋新對話、重新整理、精確選擇、草稿、回應遺失、舊版管家、斷線與撤銷。[390／768／1440 px 合成畫面](../evidence/ui/device-setup-history-20261019/manifest.json) 的圖片與前端來源雜湊已核對整合版本。
+
+共用讀回邏輯重構後，再測 Core **2026.10.1／2026.10.2**：兩項真 Core IPP 接入與十一項未知版本拒絕測試共 **13 passed**。每版實際原生 flow、aioipp、登錄與讀回收據均保存，測試容器已清除；探索事件、印表機與 Supervisor 備份是 fixture，服務物件重建不代表整台 Core／HAOS 重啟驗收。較早的 [版本矩陣](../evidence/device-setup-real-core-matrix-20261019.json) 保留當時來源，新的整合收據在本輪證據中，不混用。
+
+另有 **4 項實際 pinned Hermes／官方 MCP client 測試通過**，使用現有映像的依賴與唯讀掛入的新版 adapter，核對工具目錄及既有 `host.status` roundtrip；模型與 OAuth 回應為 fixture。新接入結果的 Gateway／MCP 行為由上述後端案例驗證，這不代表真雲端模型、重新打包映像或實體家庭驗收。Ruff、TypeScript/Vite、52 份契約、工具鏈與封裝結構檢查通過。
+
+本輪僅更新開發分支，未部署 Dell、更新家庭 HA、建立新 ISO 或發布新版；實機登入循環、真實設備、HAOS 備份還原及公開 USB 互動路徑仍需各自驗證。
+
+## 2026-10-19 管家優先設定與聊天內設備接入（未發行）
+
+本輪以 `9b2f8d46` 為基底，在獨立開發分支整合：新設定先準備 HAOS，再登入主要管家；明確分享 HA 設備、保存的網路盤點與家庭連線診斷；聊天內確認有界網路探索；針對已發現的 IPP 印表機，完成提案、Owner 批准、家庭設定備份、原生接入與精確讀回。舊設定紀錄及原工作識別保留，不自動重跑安裝或複製角色憑證。
+
+[驗證摘要](../evidence/butler-onboarding-20261019.json) 記錄 **476 項後端測試**、**44 項不同的瀏覽器測試**及 **1 項隔離真 Core 測試**。瀏覽器第一輪為 42 passed、1 failed：多網路選單缺少明確的無障礙標籤。修正並完成聊天版面調整後，相關 27 項重跑通過；先前通過的 17 項初始化案例未受後續聊天修改影響，不重複加總。[390／768／1440 px 合成畫面](../evidence/ui/butler-onboarding-20261019/manifest.json) 已保存；手機接入卡包含設備名稱，確認操作和草稿維持可見。
+
+[真 Core `2026.10.1` 測試](../evidence/device-setup-real-core-20261019.json) 使用未修改的原生 IPP config flow、aioipp 解碼、coordinator、HTTP／WebSocket API 及設備／實體登錄。透過標準 flow init 注入合成探索，連接容器內的 IPP 回應器，實際確認並讀回精確整合及 idle 狀態；重建服務後不重送批准。**印表機、探索來源及 Supervisor 備份回應為 fixture**，不能推定真實列印、整屋探索或 HAOS 備份還原成功。測試容器已清理；暫存成功收據按 pytest retention 移除，摘要如實保留此限制。
+
+TypeScript/Vite、Ruff、51 份契約、工具鏈與封裝結構檢查通過。此分支尚未執行完整 CI、Dell 部署、真帳號登入、新 USB 人工互動路徑或 ISO 驗收；既有實機登入問題仍需現場狀態驗證，不因本輪協定測試標成已修復。這次未建立新發行版，也未變更家庭設定。
+
+## 0.11.1 Host 更新候選（2026-10-19）
+
+候選基於主線 `9b2f8d4`，將 #122 的專用主機電源／網路政策（G15／G16）透過 #123 正式 Host bootstrap／bundle 路徑交付，保留既有 0.11.0 家庭的獨立身份驗證、圖形審閱與 AH-UPDATE USB 一次性遷移要求。正式公鑰已由 Ted 核准並釘選，私鑰保存在 repo 外的發行端；候選尚未簽署、發布或完成本版媒體／遷移驗收。
+
+候選另擴充精確的自動化寫入相容範圍，保留 Core 2026.10.1 並加入 2026.10.2。[隔離 Core 矩陣](../evidence/core-patch-matrix.json) 在 `8589bdf` 加本輪相容修正的工作樹執行，**36 passed、0 failed／error／skipped（323.62 秒）**：八項真 Core 案例涵蓋兩版各自的提案／批准／寫入、事件與重啟、Owner OAuth、原生通知及唯讀盤點，其餘 28 項為單元／契約測試。分版收據見 [Core .1](../evidence/real-core-integration.json)、[Core .2](../evidence/real-core-integration-2026.10.2.json)、[OAuth .1](../evidence/ha-onboarding-oauth.json) 與 [OAuth .2](../evidence/ha-onboarding-oauth-2026.10.2.json)；[.2 官方來源](../evidence/core-2026.10.2-source.json) 保留 tag／commit 與實際 image digest。
+
+Supervisor 備份回應仍為 fixture，HAOS／Supervisor 真備份與家庭端讀回不在此矩陣內；實體 Dell、真帳號與家庭、斷電恢復及 72 小時運作仍為 `not_run`。本輪未讀取家庭端點、不更新家庭 HA，不沿用舊 CI 作為新候選通過證據；最終提交的廣泛回歸、CI 與產物雜湊另記。不執行 Grok CLI，不變更歷史媒體、上游參考 lock 或獨立鎖定的 Home coding source。
+
 ## 2026-10-19 主線家庭接入修正
 
 本輪新增可撤銷的 [Host 登入 session](HOST_SESSIONS.md)、[明確分享的對話探索](DEVICE_DISCOVERY.md#對話中的唯讀探索)，並修正已連接家庭卻反覆回到初始化，以及 App 商店仍回舊版時停止重試的問題。商店刷新最多三次，Owner 可明確開啟新預算；原先已送出的安裝、啟動與更新仍先讀回，不能藉此重送。

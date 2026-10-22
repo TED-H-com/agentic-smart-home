@@ -1,5 +1,6 @@
 """Durability barriers at outgoing transport boundaries."""
 import asyncio
+import inspect
 
 import aiohttp
 
@@ -17,6 +18,10 @@ def client_session(store, **kwargs):
         request_context = context.trace_request_ctx
         if isinstance(request_context, dict) and request_context.get("notification_guard"):
             request_context["notification_guard"]()
+        if isinstance(request_context, dict) and request_context.get("send_guard"):
+            result = request_context["send_guard"]()
+            if inspect.isawaitable(result):
+                await result
 
     async def before_request(session, context, params):
         if params.method.upper() not in {"GET", "HEAD", "OPTIONS"}:

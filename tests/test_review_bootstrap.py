@@ -12,7 +12,14 @@ from agentic_controller.models import BootstrapStart
 from agentic_controller.runner import Runner, RunnerError
 from agentic_runner.app import Broker, create_api
 from fastapi import HTTPException
-from test_bootstrap import GatewayFixture, HermesFixture, HostFixture, RunnerFixture, start_at_install
+from test_bootstrap import (
+    GatewayFixture,
+    HermesFixture,
+    HostFixture,
+    RunnerFixture,
+    start_at_install,
+    start_legacy,
+)
 
 
 @pytest.fixture
@@ -34,7 +41,7 @@ def review_clock(monkeypatch):
 
 
 async def checkpoint_at(bootstrap, step):
-    await bootstrap.start(BootstrapStart(provider="codex", channel="web"), "review-start")
+    await start_legacy(bootstrap, BootstrapStart(provider="codex", channel="web"), "review-start")
     record = bootstrap.record()
     for item in record["steps"]:
         if STEPS.index(item["id"]) < STEPS.index(step):

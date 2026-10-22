@@ -65,6 +65,14 @@ def ssdp_packet(service="urn:schemas-upnp-org:device:Basic:1", usn="uuid:fixture
             + "\r\nX-Private-Token: hidden-secret\r\n\r\n").encode()
 
 
+def with_vendor_txt(packet, *fields, instance="Fixture NAS", service="_http._tcp.local.", copies=1, ttl=120):
+    header = list(struct.unpack_from("!6H", packet))
+    header[5] += copies
+    data = b"".join(bytes([len(field)]) + field for field in fields)
+    record = dns_name(instance + "." + service) + struct.pack("!HHIH", 16, 1, ttl, len(data)) + data
+    return struct.pack("!6H", *header) + packet[12:] + record * copies
+
+
 def test_scopes_only_current_physical_links_and_exact_local_ipv4(broker):
     service, raw, calls = broker
     raw["link"] += [link("wlp2s0"), link("docker0"), link("virbr0", linkinfo={"info_kind": "bridge"}),
@@ -133,6 +141,77 @@ def test_mdns_queries_fixed_services_qu_flag_and_compressed_ptr_ignores_txt():
     assert "api_key" not in json.dumps(result)
     assert discovery.parse_mdns(ptr_packet(ttl=0)) == []
     assert discovery.parse_mdns(ptr_packet(service="_unknown._tcp.local.")) == []
+
+
+@pytest.mark.parametrize("service", ["_ipp._tcp.local.", "_ipps._tcp.local.", "_matterc._udp.local."])
+def test_common_device_ptrs_are_queried_and_collected_without_txt(service):
+    packet = discovery.mdns_query(service)
+    name, position = discovery._name(packet, 12)
+    assert name == service and struct.unpack_from("!HH", packet, position) == (12, 0x8001)
+    assert discovery.parse_mdns(ptr_packet(service=service, name="Fixture shared service", txt=True)) == [
+        (service, "Fixture shared service")]
+    assert discovery.parse_mdns(ptr_packet(service=service, ttl=0)) == []
+
+
+@pytest.mark.parametrize("fields,expected", [
+    ((b"vendor=Synology", b"password=never-return-this"), {"vendor": "synology"}),
+    ((b"VeNdOr=synology-private-suffix",), {"vendor": "synology"}),
+    ((b"vendor=NotSynology",), {}), ((b"vendor=",), {}), ((b"vendor",), {}),
+    ((b"vendor=Synology", b"VENDOR=Other"), {}),
+    ((b"vendor=Synology", b"vendor=Synology"), {}), ((b"manufacturer=Synology",), {}),
+])
+def test_mdns_vendor_projects_only_fixed_classification_on_exact_ptr(fields, expected):
+    packet = with_vendor_txt(ptr_packet(service="_http._tcp.local.", name="Fixture NAS"), *fields)
+    assert discovery._mdns_observations(packet) == [("_http._tcp.local.", "Fixture NAS", expected)]
+    assert discovery.parse_mdns(packet) == [("_http._tcp.local.", "Fixture NAS")]
+
+
+@pytest.mark.parametrize("extra", [
+    {"instance": "Different NAS"}, {"service": "_ipp._tcp.local."}, {"copies": 2}, {"ttl": 0},
+])
+def test_mdns_vendor_cannot_bind_other_instance_service_ambiguous_or_expired_txt(extra):
+    packet = with_vendor_txt(ptr_packet(service="_http._tcp.local.", name="Fixture NAS"), b"vendor=Synology", **extra)
+    assert discovery._mdns_observations(packet) == [("_http._tcp.local.", "Fixture NAS", {})]
+
+
+def test_malformed_vendor_txt_cannot_supply_classification():
+    packet = with_vendor_txt(ptr_packet(service="_http._tcp.local.", name="Fixture NAS"), b"vendor=Synology")
+    # The record length is valid, but its first TXT string overstates its size.
+    packet = packet[:-16] + b"\xff" + packet[-15:]
+    assert discovery._mdns_observations(packet) == [("_http._tcp.local.", "Fixture NAS", {})]
+
+
+@pytest.mark.parametrize("ptr_labels,txt_labels", [
+    ([b"Fixture.NAS"], [b"Fixture", b"NAS"]),
+    ([b"Fixture\xffNAS"], [b"Fixture\xfeNAS"]),
+])
+def test_mdns_instance_matching_preserves_wire_label_boundaries_and_bytes(ptr_labels, txt_labels):
+    def wire(labels):
+        return b"".join(bytes([len(label)]) + label for label in labels) + b"\0"
+
+    service = [b"_http", b"_tcp", b"local"]
+    target = wire(ptr_labels + service)
+    ptr = wire(service) + struct.pack("!HHIH", 12, 1, 120, len(target)) + target
+    txt = b"\x0fvendor=Synology"
+    record = wire(txt_labels + service) + struct.pack("!HHIH", 16, 1, 120, len(txt)) + txt
+    packet = struct.pack("!6H", 0, 0x8400, 0, 1, 0, 1) + ptr + record
+    observations = discovery._mdns_observations(packet)
+    assert len(observations) == 1 and observations[0][2] == {}
+
+
+def test_mdns_vendor_has_no_cross_packet_memory_and_handles_record_order():
+    packet = ptr_packet(service="_http._tcp.local.", name="Fixture NAS")
+    combined = with_vendor_txt(packet, b"vendor=Synology")
+    ptr, txt = packet[12:], combined[len(packet):]
+    txt_only = struct.pack("!6H", 0, 0x8400, 0, 0, 0, 1) + txt
+    assert discovery._mdns_observations(txt_only) == []
+    assert discovery._mdns_observations(packet) == [("_http._tcp.local.", "Fixture NAS", {})]
+    # Rebuild the PTR uncompressed because its old compression offset changes.
+    target = dns_name("Fixture NAS._http._tcp.local.")
+    ptr = dns_name("_http._tcp.local.") + struct.pack("!HHIH", 12, 1, 120, len(target)) + target
+    reordered = struct.pack("!6H", 0, 0x8400, 0, 2, 0, 0) + txt + ptr
+    assert discovery._mdns_observations(reordered) == [("_http._tcp.local.", "Fixture NAS", {"vendor": "synology"})]
+    assert not discovery._synology_vendor(b"\x0fvendor=Synology\xfftruncated")
 
 
 @pytest.mark.parametrize("packet", [b"", b"\0" * 11, b"x" * (discovery.MAX_PACKET + 1),
@@ -326,6 +405,43 @@ def test_loopback_transport_full_scan_keeps_sources_separate_and_rejects_outside
     assert all(len(source["content_digest"]) == 64 for source in result["sources"])
     assert all(sock.closed for sock in sockets)
     assert not any(secret in json.dumps(result) for secret in ("secret", "api_key", "LOCATION"))
+
+
+def test_printer_proxy_and_matter_records_stay_separate_in_bounded_scan(broker, monkeypatch):
+    service, _, _ = broker
+    scope = service.scopes()["scopes"][0]
+    types = ["_ipp._tcp.local.", "_ipps._tcp.local.", "_matterc._udp.local.", "_matter._tcp.local."]
+    # A responder can proxy several services; its address/name is not device identity.
+    packets = [(ptr_packet(service=kind, name="Fixture shared service", txt=True), ("192.0.2.20", 5353))
+               for kind in types]
+    packets += [(ptr_packet(service="_ipp._tcp.local."), ("192.0.3.20", 5353)),
+                (ptr_packet(service="_matterc._udp.local."), ("192.0.2.21", 53))]
+    sockets = install_local_transport(service, monkeypatch, {"mdns": packets})
+    result = InventoryCollection.model_validate(service.scan({"scope_id": scope["id"]})).model_dump()
+    rows = result["observations"]
+    assert len(rows) == len(types) and len({row["id"] for row in rows}) == len(types)
+    assert {row["services"][0] for row in rows} == set(types)
+    assert all(row["address"] == "192.0.2.20" and row["reachability"] == "responded" for row in rows)
+    assert "api_key" not in json.dumps(result)
+    mdns = next(source for source in result["sources"] if source["id"] == "lan_mdns")
+    assert "mdns_address_is_responder_not_verified_device" in mdns["limitations"]
+    assert all(sock.closed for sock in sockets)
+
+
+def test_nas_vendor_scan_never_keeps_raw_txt_or_associates_by_address(broker, monkeypatch):
+    service, _, _ = broker
+    scope = service.scopes()["scopes"][0]
+    nas = with_vendor_txt(ptr_packet(service="_http._tcp.local.", name="Fixture NAS"),
+                          b"vendor=Synology-private-suffix", b"password=never-persist-this")
+    sockets = install_local_transport(service, monkeypatch, {"mdns": [
+        (nas, ("192.0.2.20", 5353)),
+        (ptr_packet(service="_http._tcp.local.", name="Other HTTP server"), ("192.0.2.20", 5353))]})
+    result = InventoryCollection.model_validate(service.scan({"scope_id": scope["id"]})).model_dump()
+    rows = {row["name"]: row for row in result["observations"]}
+    assert rows["Fixture NAS"]["metadata"] == {"service_type": "_http._tcp.local.", "vendor": "synology"}
+    assert rows["Other HTTP server"]["metadata"] == {"service_type": "_http._tcp.local."}
+    assert not any(secret in json.dumps(result) for secret in ("password", "never-persist", "private-suffix"))
+    assert all(sock.closed for sock in sockets)
 
 
 def test_multicast_partial_packets_dedup_and_row_limit(broker, monkeypatch):

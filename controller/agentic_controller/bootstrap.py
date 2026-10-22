@@ -1,4 +1,4 @@
-"""Durable CLI-first setup. Only fixed service adapters can perform setup actions.
+"""Durable household setup. Only fixed service adapters perform setup actions.
 
 The additive bootstrap_v1 record is independent of household policy and approvals.
 GET reads it without network calls or mutations. Explicit start authorizes the fixed
@@ -32,6 +32,11 @@ from .runner import RunnerError
 
 STEPS = ("network", "runner_pairing", "cli_auth", "cli_assist", "hermes_install",
          "hermes_auth", "channel", "ha_provision", "ha_native")
+# Records without a workflow retain the shipped CLI-first order and exact jobs.
+# Keep the public step IDs so older clients and persisted checkpoints remain readable.
+BUTLER_STEPS = ("network", "runner_pairing", "ha_provision", "hermes_install",
+                "hermes_auth", "ha_native", "cli_auth", "cli_assist", "channel")
+BUTLER_WORKFLOW = "butler_v1"
 VERIFY_MESSAGE = "這是 Hermes 模型連線驗證。請僅回覆「Hermes 已可回應」，不要呼叫工具、修改設定或操作家庭。"
 OBSERVATION_TIMEOUT = 120
 # Same tokens as the Runner. The controller image does not import the runner package.
@@ -43,6 +48,7 @@ AUTH_MESSAGES = {
     "cli_output_unrecognized": "無法確認登入結果，請稍後再試。",
     "timeout": "AI 帳號回應逾時，請稍後再試。",
 }
+AUTH_RETRY_REASONS = {"rate_limited", "network", "timeout", "cli_output_unrecognized"}
 RETRY_CODES = {
     "cli_assist_failed", "cli_assist_expired", "hermes_verification_failed",
     "hermes_install_failed", "ha_provision_failed", "hermes_rate_limited",
@@ -67,7 +73,7 @@ class Bootstrap:
     def public(self):
         record = self.record()
         if not record:
-            return BootstrapStatus(steps=[BootstrapStep(id=step) for step in STEPS]).model_dump()
+            return BootstrapStatus(channel="web", steps=[BootstrapStep(id=step) for step in BUTLER_STEPS]).model_dump()
         return BootstrapStatus.model_validate({key: value for key, value in record.items()
                                               if key in BootstrapStatus.model_fields}).model_dump()
 
@@ -134,10 +140,16 @@ class Bootstrap:
             if not record:
                 if self.store.setting("paused", False):
                     raise HTTPException(409, "請先恢復 AI，再開始設定")
+                steps = [BootstrapStep(id=step, state="skipped", code="coding_setup_deferred", verified_at=utcnow())
+                         if step in {"cli_auth", "cli_assist"} else
+                         BootstrapStep(id=step, state="skipped", code="channel_explicitly_skipped", verified_at=utcnow())
+                         if step == "channel" and body.channel == "web" else BootstrapStep(id=step)
+                         for step in BUTLER_STEPS]
                 record = {**BootstrapStatus(provider=body.provider, channel=body.channel,
-                    steps=[BootstrapStep(id=step) for step in STEPS]).model_dump(),
+                    steps=steps).model_dump(),
                     "id": "setup", "data_contract": 1, "run_id": uuid.uuid4().hex, "state": "running",
-                    "current_step": "network", "jobs": {}, "attempts": {}, "bridge_auto_enroll": True}
+                    "current_step": "network", "jobs": {}, "attempts": {}, "bridge_auto_enroll": True,
+                    "workflow": BUTLER_WORKFLOW}
                 self.save(record)
                 # Selecting the external audience is still a separate authenticated action.
                 self.store.set_setting("gateway", {**self.gateway.preferences().model_dump(),
@@ -185,8 +197,10 @@ class Bootstrap:
                 raise HTTPException(409, "請先開始設定")
             previous = self.store.request("bootstrap_preferences", key, digest(body.model_dump()))
             if not previous:
-                # A channel change cannot retract an already issued HA operation.
-                if any(step["state"] != "pending" for step in record["steps"] if step["id"] in {"ha_provision", "ha_native"}):
+                # New setup does not bind VM preparation to its optional channel.
+                # Preserve the original authorization rule for existing workflows.
+                if record["state"] == "completed" or (record.get("workflow") != BUTLER_WORKFLOW and any(
+                    step["state"] != "pending" for step in record["steps"] if step["id"] in {"ha_provision", "ha_native"})):
                     raise HTTPException(409, "家庭啟動已開始；請在通訊設定中變更通道")
                 if record["channel"] != body.channel and record["channel"] in {"line", "telegram"}:
                     await self.gateway.cancel_pairing(record["channel"])
@@ -345,7 +359,7 @@ class Bootstrap:
                 if not isinstance(platform, dict):
                     self.block(record, step, "host_upgrade_required", "主機服務尚未提供新版設定接口。")
                     return
-                for step in STEPS:
+                for step in BUTLER_STEPS if record.get("workflow") == BUTLER_WORKFLOW else STEPS:
                     checkpoint = next(item for item in record["steps"] if item["id"] == step)
                     if checkpoint["state"] in {"completed", "skipped"}:
                         continue
@@ -375,6 +389,9 @@ class Bootstrap:
                             return
                         if provider.get("status") != "connected":
                             reason = provider.get("reason")
+                            if reason in AUTH_RETRY_REASONS:
+                                self.block(record, step, reason, AUTH_MESSAGES[reason])
+                                return
                             if reason in AUTH_MESSAGES:
                                 message = AUTH_MESSAGES[reason]
                                 action = self.human("cli_login", message, provider=record["provider"], code=reason)
@@ -413,15 +430,17 @@ class Bootstrap:
                         self.checkpoint(record, step, "skipped" if record["channel"] == "web" else "completed",
                                         "channel_explicitly_skipped" if record["channel"] == "web" else "channel_connection_verified")
                     elif step == "ha_provision":
-                        # Recheck live gates immediately before any household platform action.
-                        auth_epoch = self.store.setting("hermes_auth_epoch")
-                        runtime = (await self.coordinator.capabilities())["runtime"]
-                        self.require_active()
-                        if (auth_epoch != self.store.setting("hermes_auth_epoch") or
-                            not self.channel_ready(record) or runtime.get("state") != "ready" or
-                            not runtime.get("auth_verified_at") or runtime.get("execution_state") == "stop_unconfirmed"):
-                            self.block(record, step, "setup_readiness_changed", "Hermes 或通道連線已改變；恢復連線後再重試。")
-                            return
+                        # New setup prepares the fixed HAOS VM without any model or
+                        # channel authorization. Existing workflows keep their gates.
+                        if record.get("workflow") != BUTLER_WORKFLOW:
+                            auth_epoch = self.store.setting("hermes_auth_epoch")
+                            runtime = (await self.coordinator.capabilities())["runtime"]
+                            self.require_active()
+                            if (auth_epoch != self.store.setting("hermes_auth_epoch") or
+                                not self.channel_ready(record) or runtime.get("state") != "ready" or
+                                not runtime.get("auth_verified_at") or runtime.get("execution_state") == "stop_unconfirmed"):
+                                self.block(record, step, "setup_readiness_changed", "Hermes 或通道連線已改變；恢復連線後再重試。")
+                                return
                         if observed.get("restore_pending") or observed.get("kvm") is not True:
                             self.block(record, step, "ha_host_not_ready", "請先完成主機虛擬化或恢復診斷，再重試。")
                             return

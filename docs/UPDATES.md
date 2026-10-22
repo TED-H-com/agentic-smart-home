@@ -2,6 +2,8 @@
 
 HA 保留官方更新；外層負責本產品的受測發行與已授權智能管家 App 的有限維護，見 [發行策略](RELEASE_POLICY.md)。不攔截 HA 更新，也不停止 Linux 安全更新。下文描述 **固定 Controller updater**（0.7.0 起），不是全系統更新／退版聲明。
 
+Host 程式與產品管理的 Linux 設定另走 [已簽章的主機更新](HOST_UPDATES.md)：核准後自動建立還原點、切換版本、驗證與失敗復原。正式公鑰已核准並釘選；既有 0.11.0 家庭主機仍須先取得經獨立身份驗證的圖形初始化套件，配合 **AH-UPDATE** USB 完成一次本人核准的 bootstrap。不以重跑 installer 或 Controller-only 更新冒充完成；簽署 Host bundle、bootstrap 套件及產品媒體尚未發布。
+
 Host 的 Controller 更新不會自動更新側欄 App 或 Home worker App。兩者的信任 repository 都是 `https://github.com/TED-H-com/agentic-smart-home#stable`（發布時 `stable` 指到與 `release/X.Y.Z` 相同的 commit），版本都來自 `agentic_controller.VERSION`。同一 repository 上較舊的安裝進入 `update_available`，Owner 以無 body 的 `POST /api/host/bridge/maintenance/update` 或 `POST /api/host/home-worker/maintenance/update` 更新到恰好該版本。商店 `version_latest` 較高時是 `*_release_ahead`，不安裝也不更新；較低時依保存的重試次數與退避重新載入商店（最多三次），仍較低則 `waiting`／`*_release_not_published`。舊的 `#release/X.Y.Z` 是另一個 App slug，進入 `needs_reconcile`／`*_release_channel_changed`，須在 HA 手動移除舊 App 再從管理中心啟用。不會自動解除安裝、加入 repository 或重裝，也不改權限或 options，沒有自動退版。真實 Supervisor 從 0.9.0 更新到下一版仍是 `not_run`。
 
 0.10.0 包含新的 Host 收集器及安裝前檢查，需要同版完整媒體；Controller-only 更新不能把舊 0.9.0 主機升成完整 0.10.0。當 `#stable` 推進到 0.10.0，舊 0.9.0 ISO 的新安裝可能遇到 `*_release_ahead` 而無法首次安裝 Apps。新主機須使用發布頁上已通過驗證的同版媒體；維護者必須先完成媒體與公開來源配套核對，再把它交給使用者。已使用的主機不得以再次 `host/install.py --apply` 代替升級。
@@ -31,19 +33,27 @@ Host 的 Controller 更新不會自動更新側欄 App 或 Home worker App。兩
 
 一般使用者從「設定 → 主機維護 → 版本」完成，不需要終端機或 sudo。這個路徑只允許信任**受信任安裝媒體已附帶的官方公鑰**，不能從瀏覽器、聊天、worker 或更新檔加入任意公鑰／repository。
 
-目前原始碼的官方來源描述檔尚未填入正式公鑰。公開 v0.9.0、v0.10.0、v0.11.0 都是工程預覽，現有資產沒有正式 Controller 更新簽章／公鑰。`SHA256SUMS` 與 bundle hashes 只能檢查檔案完整性，不是發行者身份簽章；保留 Ubuntu 的 signed boot chain 也不等於重新製作的產品 ISO 已簽章。因此本版會誠實顯示需要含官方更新來源憑證的受信任主機版本，不會把 GitHub 帳號、`stable` branch 或現場下載的 key 當作信任根。
+Ted 已於 **2026-10-19** 核准正式 Ed25519 **公鑰**及其 DER SHA-256 fingerprint；`host/official-update-channel.json` 已釘選兩者與精確 Controller image repository `ghcr.io/ted-h-com/agentic-smart-home-controller`，啟用原始碼中的官方更新來源。公鑰為：
 
-正式發行前，維護者必須核准 Ed25519 **公鑰**及其 DER SHA-256 fingerprint，將兩者與精確 image repository 一起放入 `host/official-update-channel.json`，再透過已驗證身份的簽署 image／ISO 或受控 Host 遷移交付。私鑰保留於發行端，本變更不產生、發布或保存正式私鑰。指定的未來 Controller image repository 為 `ghcr.io/ted-h-com/agentic-smart-home-controller`；這是固定來源契約，不是已有 image 或簽署 release 可下載的聲明。
+```pem
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEA1fUHnQTX7LEJxfdrkmuvpdPw7r8uBwozTfqns+na97c=
+-----END PUBLIC KEY-----
+```
 
-新安裝只有在媒體帶有有效、相符的官方 pin，且尚未存在本機信任設定時，才使用該 pin 建立預設來源。已存在的設定（包含明確清空／撤銷）不會被安裝預設值覆寫。既有安裝不因 Controller 或 Host 程式升級就自動加入信任。
+DER SHA-256 fingerprint：`18dd73f8b96d115d076be6b362cd62ed011c4be2b6dfdaf808e9b3e5a6a53d39`。正式私鑰由發行端持有，保存在本 repo 之外，不加入原始碼、產物內的來源或日誌。
 
-既有安裝的 Owner 必須分別批准：
+這項釘選不代表已有簽署產物可下載：**尚未發布以此正式金鑰簽署的 Controller image、Host bundle、bootstrap 套件或產品媒體**。既有工程預覽媒體也不會因此改變。`SHA256SUMS` 與 bundle hashes 只能檢查檔案完整性，不是發行者身份簽章；保留 Ubuntu 的 signed boot chain 也不等於重新製作的產品 ISO 已簽章。官方 pin 仍須透過已驗證身份的發行媒體或受控 Host 遷移交付，不把 GitHub 帳號、`stable` branch 或現場下載的 key 當作信任根。
+
+新安裝從經獨立身份驗證、帶有有效相符官方 pin 的媒體安裝啟用中的不可變 Host 更新執行器；尚未存在本機信任設定時，使用該 pin 建立預設來源。有效且明確設定 `pin: null`、`image_repository: null` 的工程 fixture，仍延後安裝啟用中的執行器。已存在的設定（包含明確清空／撤銷）不會被安裝預設值覆寫。既有安裝不因 Controller 或 Host 程式升級就自動加入信任。
+
+既有安裝使用 Controller-only 更新路徑時，Owner 必須分別批准下列操作；0.11.0 的一次性 Host bootstrap 則在其精確審閱中一併批准來源信任與該次遷移，流程見 [主機更新](HOST_UPDATES.md#existing-0110-household-first-time-bootstrap)。
 
 1. **信任官方更新來源**：在版本頁檢查 `TED-H-com/agentic-smart-home`、頻道、完整金鑰指紋及「只更新管理中心」範圍，按確認。這只保存媒體已附帶的 pin，不下載、不部署任何版本。確認綁定當前媒體 pin、本機信任版本與短效一次性憑據；重新登入、逾期或 pin 改變時必須重新檢查。
 2. **更新指定版本**：選取發行者提供的簽署更新說明檔。產品驗簽、核對不可變 image digest、相容性與隔離檢查後，再確認這個精確候選版本。信任來源不代表批准未來所有更新。
 3. **需要時退版**：另行檢查前一版本並確認新的退版批准；更新批准不兼作退版批准。
 
-舊 Host 不認得這些固定端點時，版本頁會說明需要受信任的主機更新。現有 Controller-only updater 無法交付 Host broker、安裝 pin 或整機遷移；不能在已使用的 Dell 上重跑 installer 代替遷移。正式公鑰、媒體身份簽署及安全 Host 遷移是仍需 Ted 核准／交付的前置條件，本 PR 不宣稱已讓舊裝置取得它們。
+舊 Host 不認得這些固定端點時，版本頁會說明需要受信任的主機更新。現有 Controller-only updater 無法交付 Host broker、安裝 pin 或整機遷移；不能在已使用的 Dell 上重跑 installer 代替遷移。正式公鑰已由 Ted 核准並釘選，但既有 0.11.0 安裝仍需經獨立身份驗證的圖形 bootstrap 配合 **AH-UPDATE** USB 交付 pin，由 Owner 在該次精確審閱中明確批准信任與遷移；不同的既有 key 不會被自行替換，來源信任須綁定該次明確批准；這與新安裝預設值保留既有空白信任設定的規則不同，詳見 [一次性遷移](HOST_UPDATES.md#existing-0110-household-first-time-bootstrap)。本變更不宣稱已交付簽署媒體或完成舊裝置遷移。
 
 本機 root 的進階救援工具仍保留 `update-publisher-inspect`、`update-publisher-add`、`update-publisher-revoke`；它們能管理自訂發行者，要求精確 review digest。這不是一般使用者的操作步驟。Web 的新端點只能批准固定官方 pin，沒有通用 key 匯入能力。信任檔仍是 root-only `/etc/agentic-home/update-publishers.json`。
 

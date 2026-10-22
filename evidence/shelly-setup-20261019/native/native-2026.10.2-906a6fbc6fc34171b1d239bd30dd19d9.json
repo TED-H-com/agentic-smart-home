@@ -1,0 +1,59 @@
+{
+  "expected_core": "2026.10.2",
+  "image": "ghcr.io/home-assistant/home-assistant:2026.10.2",
+  "image_id": "sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4",
+  "repo_digests": [
+    "ghcr.io/home-assistant/home-assistant@sha256:33afb0659d786213264c2211f8d91c5fe87461c56eba6a3a546eb05fc71e89f4"
+  ],
+  "run_id": "906a6fbc6fc34171b1d239bd30dd19d9",
+  "started_at": "2026-10-19T21:21:32.630886+00:00",
+  "core": "2026.10.2",
+  "mode": "native",
+  "model": "SHSW-1",
+  "reported_model": "Shelly 1",
+  "result": "all_runtime_assertions_passed",
+  "finished_at": "2026-10-19T21:21:56.755416+00:00",
+  "operations": {
+    "fixture_boot": 2,
+    "http:/shelly": 4,
+    "coap:/cit/s": 3,
+    "http:/settings": 3,
+    "http:/status": 3,
+    "http:/cit/d": 3
+  },
+  "device_count": 1,
+  "entity_count": 7,
+  "switch_state": "off",
+  "full_core_restart": true,
+  "confirmation_posts": 1,
+  "real": [
+    "pinned Core",
+    "native Shelly flow",
+    "unmodified aioshelly HTTP/CoIoT",
+    "native coordinator and relay entity",
+    "exact registry readback",
+    "full Core restart"
+  ],
+  "fixtures": [
+    "synthetic Zeroconf injection",
+    "loopback SHSW-1 HTTP and CoIoT responder"
+  ],
+  "not_tested": [
+    "physical Shelly",
+    "physical generation attestation",
+    "RPC/Bluetooth variants",
+    "LAN multicast discovery",
+    "Supervisor backup",
+    "HAOS",
+    "live household",
+    "product DeviceSetups service",
+    "relay actuation",
+    "unlisted Core versions"
+  ],
+  "source_sha256": {
+    "tests/test_device_setup_shelly_real_ha.py": "2d32c6c05ce36288a1aa88774860b0347f13a83799d7edf7f7adf02a6a820e14",
+    "tests/fixtures/agentic_shelly_fixture/__init__.py": "a86db4cd0b22452dd45b058a06eff3b2d4dcd976ba41f3bd5550a521929a757f",
+    "tests/fixtures/agentic_shelly_fixture/manifest.json": "ea0d811aa6ee2d86c23ab7c9dbb99ac96c7c43ce58696028782567692f65893d",
+    "controller/agentic_controller/device_setup.py": "7f36933267dcbc5df7c483d83286468dfefd2667979ff9a1a16b75a1667a3d3b"
+  }
+}

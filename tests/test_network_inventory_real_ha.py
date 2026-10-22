@@ -10,18 +10,18 @@ import aiohttp
 import httpx
 import pytest
 from agentic_controller.app import create_app
-from agentic_controller.ha import HomeAssistant
+from agentic_controller.ha import TESTED_CORE_VERSIONS, HomeAssistant
 from agentic_controller.store import Store
 from test_real_ha import real_container, wait_ready
 
 
-@pytest.fixture
+@pytest.fixture(params=sorted(TESTED_CORE_VERSIONS))
 def inventory_core(tmp_path, request):
     yield from real_container.__wrapped__(tmp_path, request)
 
 
 async def ready_inventory_registry(ha, *, timeout=60):
-    """Wait for Core 2026.10.1's startup flows before taking the no-write baseline."""
+    """Wait for Core's startup flows before taking the no-write baseline."""
     async def observe():
         while True:
             config = await ha.request("GET", "/config")
@@ -40,7 +40,7 @@ async def ready_inventory_registry(ha, *, timeout=60):
         raise AssertionError("Isolated Core startup registry did not become ready") from None
 
 
-async def test_real_core_inventory_handoff_reads_registry_without_configuring_device(inventory_core, tmp_path, monkeypatch):
+async def test_real_core_inventory_handoff_reads_registry_without_configuring_device(inventory_core, tmp_path, monkeypatch, request):
     _, base, _ = inventory_core
     await wait_ready(base)
     async with aiohttp.ClientSession() as session:
@@ -87,7 +87,8 @@ async def test_real_core_inventory_handoff_reads_registry_without_configuring_de
             assert readback["devices"] == [] and readback["device_count"] is None
             assert readback["physical_verification"] == "not_performed"
             native = [item for item in readback["sources"] if item["location"] == "home_assistant"]
-            assert all(item["state"] == "ok" and item["upstream_version"] == "2026.10.1" for item in native)
+            version = request.node.callspec.params["inventory_core"]
+            assert all(item["state"] == "ok" and item["upstream_version"] == version for item in native)
             rejected = await client.post(path + "/select", headers={"Idempotency-Key": "missing-entry"},
                 json={"expected_revision": 1, "entry_id": "not-a-real-entry"})
             assert rejected.status_code == 409

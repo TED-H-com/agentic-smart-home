@@ -26,7 +26,7 @@ def test_preallocation_refusal_keeps_identity_and_can_recover(tmp_path, monkeypa
     work = root / 'work'
     product = tmp_path / 'product'
     product.mkdir()
-    (product / 'images.lock.json').write_text(json.dumps({'agentic-home-runner:0.11.0': IMAGE}))
+    (product / 'images.lock.json').write_text(json.dumps({'agentic-home-runner:0.11.1': IMAGE}))
     state = {'fail': False, 'daemon': True, 'calls': []}
     original_stat, original_space = Path.stat, os.statvfs
 

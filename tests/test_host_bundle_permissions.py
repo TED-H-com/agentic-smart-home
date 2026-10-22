@@ -42,7 +42,7 @@ def test_bundle_public_modes_ignore_build_umask_without_chmod_cache(tmp_path, mo
     (upstream / "partial").mkdir()
     (upstream / "partial/.gitignore").write_bytes(b"not a build input")
     for name in ("README.md", "INSTALL.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md", "providers.lock.json",
-                 "upstream.lock.json", "channels.lock.json"):
+                 "upstream.lock.json", "channels.lock.json", "pyproject.toml"):
         (source / name).write_text("{}\n")
     (source / "host/bases.lock.json").write_text(json.dumps({"haos": {"filename": "haos.xz"}}))
     (source / "host/network.lock.json").write_text(json.dumps({"tailscale": {"filename": "tailscale.tgz"}}))
@@ -125,7 +125,16 @@ def test_media_build_validates_official_pin_before_any_artifact_fetch(tmp_path, 
         build.bundle(tmp_path / "never.tar")
 
 
-def test_unconfigured_official_media_does_not_invent_a_publisher():
+def test_official_media_validates_shipped_production_pin():
     value = build_module().validate_shipped_publisher(ROOT)
-    assert value["pin"] is None and value["image_repository"] is None
+    assert value["image_repository"] == "ghcr.io/ted-h-com/agentic-smart-home-controller"
+    assert value["pin"]["key_sha256"] == "18dd73f8b96d115d076be6b362cd62ed011c4be2b6dfdaf808e9b3e5a6a53d39"
     assert value["repository"] == "TED-H-com/agentic-smart-home"
+
+
+def test_unconfigured_official_media_does_not_invent_a_publisher(tmp_path):
+    value = json.loads((ROOT / "host/official-update-channel.json").read_text())
+    value.update(pin=None, image_repository=None)
+    (tmp_path / "host").mkdir()
+    (tmp_path / "host/official-update-channel.json").write_text(json.dumps(value))
+    assert build_module().validate_shipped_publisher(tmp_path) == value

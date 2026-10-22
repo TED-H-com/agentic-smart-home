@@ -30,7 +30,7 @@ from agentic_controller.ha import HAError, HomeAssistant
 ROOT = Path(__file__).parents[1]
 PYTHON = "python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd12803a5c4247979ac7655f4d641"
 BUILDER = "docker:29.7.2-cli@sha256:3f4743208d2338c934d7b8bcfbe1bb54c0b2355c510ad5e0f31c0c4a54bd704e"
-CONTROLLER = "agentic-home-controller:0.11.0"
+CONTROLLER = "agentic-home-controller:0.11.1"
 
 
 class NoControllerState:
@@ -469,7 +469,7 @@ async def test_real_haos_sidebar_bridge(tmp_path, request):
                 await ha.request("POST", "/store/reload", supervisor=True, timeout=60)
                 slug = "local_agentic_bridge"
                 catalog = await ha.request("GET", f"/store/addons/{slug}/info", supervisor=True)
-                assert catalog["version_latest"] == "0.11.0" and catalog["build"] is True
+                assert catalog["version_latest"] == "0.11.1" and catalog["build"] is True
                 phase("supervisor_app_install")
                 receipt = await ha.request("POST", f"/store/addons/{slug}/install", {"background": True}, supervisor=True)
                 assert isinstance(receipt, dict) and isinstance(receipt.get("job_id"), str)

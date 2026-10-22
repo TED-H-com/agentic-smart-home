@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from agentic_host import VERSION  # noqa: E402
 from agentic_host.appliance_power import reconcile_power  # noqa: E402
 from agentic_host.artifacts import sha256  # noqa: E402
-from agentic_host.manager import HostError, atomic, validate_profile  # noqa: E402
+from agentic_host.manager import HostError, Manager, atomic, validate_profile  # noqa: E402
 from agentic_host.publisher import install_official_default  # noqa: E402
 from agentic_host.source import provision_source  # noqa: E402
 
@@ -130,6 +130,11 @@ def install(profile, bases):
     install_official_default(TARGET, new_install=new_install)
     atomic("/etc/agentic-home/profile.json", profile)
     STATE.mkdir(parents=True, exist_ok=True)
+    from agentic_host.update_bootstrap import pristine
+    # Initial install only. Used households require the explicit authenticated
+    # bootstrap; rerunning install.py is never the Host migration mechanism.
+    if not TARGET.is_symlink():
+        pristine(Manager(root=STATE / "host", product=TARGET))
     os.environ["DEBIAN_FRONTEND"] = "noninteractive"
     run("apt-get", "update")
     # Pin the first boot's renderer/identity before desktop packages install NM's global default.
@@ -203,6 +208,10 @@ def install(profile, bases):
             raise HostError("Loaded image ID differs from release: " + tag)
     run("systemctl", "daemon-reload")
     run("systemctl", "enable", "--now", "agentic-home-host", "agentic-home-proxy")
+    run("systemctl", "enable", "agentic-home-update-recover")
+    # The fixed immutable-engine unit skips safely until a real pin installs
+    # its code. It remains available when the product tree is rolled back.
+    run("systemctl", "enable", "--now", "agentic-home-update-api")
     run("systemctl", "enable", "agentic-home")
     pair_runner()
     # Firstboot starts the outer services; restart also covers a repeated install. The durable

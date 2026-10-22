@@ -1,9 +1,12 @@
 """HTTP/Hermes/MCP discovery fixtures; no cloud, physical devices or HA writes."""
 import json
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+from agentic_controller import discovery_chat as chat_module
+from agentic_controller import network_inventory
 from agentic_controller.app import create_app
 from agentic_controller.ha import HAUnreachable
 from agentic_controller.mcp import TOOLS, create_mcp
@@ -56,9 +59,10 @@ async def rpc(client, arguments=None, method="tools/call"):
         "params": {"name": "home.discover", "arguments": arguments or {}} if method == "tools/call" else {}})
 
 
-async def active_grant(system, *, consent=True):
+async def active_grant(system, *, consent=True, environment=False):
     app, client, _, store, _ = system
-    response = await send(app, client, "找找可以加入的裝置", uuid.uuid4().hex, discover_devices=consent)
+    response = await send(app, client, "找找可以加入的裝置", uuid.uuid4().hex,
+                          discover_devices=consent, discover_environment=environment)
     item = store.conversation(id=response.json()["id"])
     token = app.state.coordinator.grant(item, uuid.uuid4().hex, uuid.uuid4().hex)
     return token, item
@@ -118,6 +122,51 @@ async def test_sharing_is_current_message_only_and_idempotency_binds_choice(disc
     assert len(ha.calls) == reads and len(tool_results) == 2
 
 
+@pytest.mark.parametrize("step", ["confirm_discovery", "credentials", "bluetooth_confirm", None])
+async def test_shelly_guidance_requires_native_confirmation_and_does_not_approve(discovery_chat, step):
+    app, client, ha, store, _ = discovery_chat
+    flow = ha.results["config_entries/flow/progress"][0]
+    flow.update(handler="shelly", step_id=step)
+    flow["context"]["title_placeholders"]["name"] = "shelly1-AABBCCDDEEFF"
+    response = await send(app, client, "探索家庭設備", "shelly-guidance", discover_devices=True)
+    item = store.conversation(id=response.json()["id"])
+    candidate = item["discovery"]["candidates"][0]
+    expected = "confirm_discovery" if step == "confirm_discovery" else None
+    assert candidate["confirmation_step"] == expected
+    assert candidate["title"] == "shelly1-[已隱藏位址]"
+    assert "AABBCCDDEEFF" not in json.dumps(item["discovery"])
+    assert candidate["next_step"] == (chat_module.SHELLY_SETUP_STEP if expected else chat_module.SETUP_STEP)
+    assert "Shelly 1" in chat_module.SHELLY_SETUP_STEP and "核對型號" in chat_module.SHELLY_SETUP_STEP
+    assert len(ha.calls) == 6 and not store.list("device_setup_v1") and not store.list("approval")
+    assert store.setting("policy") == {"entities": []}
+
+
+@pytest.mark.parametrize("method,step", [("ssdp", "link"), ("zeroconf", "link"), ("ssdp", "2sa"),
+    ("zeroconf", "user")])
+async def test_synology_guidance_uses_only_discovered_link_step(discovery_chat, method, step):
+    _, client, ha, store, _ = discovery_chat
+    flow = ha.results["config_entries/flow/progress"][0]
+    flow.update(handler="synology_dsm", step_id=step)
+    flow["context"].update(source=method, unique_id="001132AABBCC")
+    response = await send(discovery_chat[0], client, "探索家庭設備", "nas-guidance", discover_devices=True)
+    candidate = store.conversation(id=response.json()["id"])["discovery"]["candidates"][0]
+    expected = "選擇「協助設定」，在接入卡輸入 NAS 帳號密碼；帳號密碼不會傳給管家。"
+    assert candidate["confirmation_step"] == ("link" if step == "link" else None)
+    assert candidate["next_step"] == (expected if step == "link" else chat_module.SETUP_STEP)
+    assert not store.list("device_setup_v1") and not store.list("approval")
+
+
+@pytest.mark.parametrize("label,expected", [
+    ("shelly1-aabbccddeeff", "shelly1-[已隱藏位址]"),
+    ("Device 001122334455", "Device [已隱藏位址]"),
+    ("Device aa:bb:cc:dd:ee:ff", "Device [已隱藏位址]"),
+    ("Shelly 1", "Shelly 1"),
+    ("Model 1234567890", "Model 1234567890"),
+])
+def test_shared_labels_hide_compact_hardware_identifiers(label, expected):
+    assert chat_module.shared_label(label) == expected
+
+
 async def test_shared_candidate_continues_owner_tracking_with_fresh_identity_check(discovery_chat):
     app, client, ha, store, _ = discovery_chat
     response = await send(app, client, "請探索家庭設備", "setup-handoff", discover_devices=True)
@@ -140,12 +189,12 @@ async def test_default_false_retains_legacy_request_digest(discovery_chat):
     response = await send(app, client, "ordinary question", "legacy-key")
     item = store.conversation(id=response.json()["id"])
     legacy = ChatInput(message="ordinary question", coordinator="hermes").model_dump(
-        exclude={"reply_to", "new_conversation", "discover_devices"})
+        exclude={"reply_to", "new_conversation", "discover_devices", "discover_environment", "device_setup_id"})
     assert item["request_digest"] == digest(legacy)
     assert (await send(app, client, "ordinary question", "legacy-key", discover_devices=False)).status_code == 202
 
 
-@pytest.mark.parametrize("arguments", [{"discover_devices": True}, {"consent": True},
+@pytest.mark.parametrize("arguments", [{"discover_devices": True}, {"discover_environment": True}, {"consent": True},
     {"scope_id": "unreviewed-network"}, {"approved": True}, {"candidate_id": "pending"}])
 async def test_model_cannot_supply_sharing_scanning_or_setup_authority(discovery_chat, arguments):
     app, _, ha, _, _ = discovery_chat
@@ -277,3 +326,314 @@ async def test_revoked_grant_cannot_reuse_prior_turn_consent(discovery_chat):
     with pytest.raises(HTTPException):
         await app.state.coordinator.discovery.discover(token)
     assert len(ha.calls) == reads
+
+
+@pytest.fixture
+def environment_chat(discovery_chat, monkeypatch):
+    calls = []
+
+    async def diagnostic(method, path, body=None, **kwargs):
+        calls.append((method, path, body))
+        assert (method, path, body) == ("GET", "/network/ha-lan", None)
+        return {"contract_version": 1, "mode": "nat", "state": "disabled", "selected_interface_id": None,
+                "interface": None, "guest_mac": None, "interfaces": [], "vm_state": "running",
+                "can_configure": False, "limitations": []}
+
+    async def scan_forbidden(*args, **kwargs):
+        raise AssertionError("Environment sharing cannot start a network scan")
+
+    monkeypatch.setattr(chat_module, "broker_call", diagnostic)
+    monkeypatch.setattr(network_inventory, "broker_call", scan_forbidden)
+    return discovery_chat, calls
+
+
+async def import_saved(system, rows=None):
+    rows = rows if rows is not None else [{"name": "Saved Hue bridge", "services": ["_hue._tcp.local."],
+        "ip": "192.0.2.28", "mac": "02:00:00:00:00:28", "password": "private-import-password"}]
+    response = await system[1].post("/api/discovery/inventory/import",
+        json={"format": "json", "label": "Private router 192.0.2.1", "content": json.dumps(rows)},
+        headers={"Idempotency-Key": uuid.uuid4().hex})
+    assert response.status_code == 200, response.text
+    return system[3].list(network_inventory.KIND)[0]
+
+
+async def environment_result(system, key="environment", **flags):
+    response = await send(system[0], system[1], "看看家裡已知的設備，並協助接入", key,
+                          discover_environment=True, **flags)
+    assert response.status_code == 202
+    return system[3].conversation(id=response.json()["id"])["discovery"]
+
+
+@pytest.mark.parametrize("also_candidates", [False, True])
+async def test_environment_shares_existing_sources_without_control_permissions_or_scan(environment_chat, also_candidates):
+    system, calls = environment_chat
+    original = await import_saved(system)
+    result = await environment_result(system, discover_devices=also_candidates)
+    assert result["share_scope"] == "environment" and result["state"] == "ready"
+    environment = result["environment"]
+    assert environment["device_count"] == len(environment["devices"]) == 4
+    assert environment["integration_count"] == len(environment["integrations"]) == 2
+    assert environment["inventory_observation_count"] == 1 and environment["inventory_revision"] == 1
+    assert environment["inventory_observations"][0]["name"] == "Saved Hue bridge"
+    assert environment["inventory_observations"][0]["observed_at"] == original["observations"][0]["observed_at"]
+    assert environment["inventory_observations"][0]["reachability"] == "unknown"
+    assert result["candidate_count"] == 2
+    assert {item["source_id"] for item in result["candidates"]} == {"ha_discovery", "network_inventory"}
+    assert environment["network"]["state"] == "not_configured" and "NAT" in environment["network"]["next_step"]
+    assert calls == [("GET", "/network/ha-lan", None)] and len(system[2].calls) == 6
+    assert result["content_digest"] == digest({key: value for key, value in result.items() if key != "content_digest"})
+    raw = json.dumps(result)
+    assert all(value not in raw for value in ("192.0.2.28", "02:00:00:00:00:28", "Private router",
+                                              "hidden-secret", "fixture-private-token", "private-import-password", "light.one"))
+    assert system[3].setting("policy") == {"entities": []}
+    assert not any(system[3].list(kind) for kind in ("approval", "proposal", "discovery_setup"))
+
+
+async def test_common_network_packets_reach_chat_as_distinct_guidance_not_setup_authority(environment_chat, monkeypatch):
+    from test_host_discovery import discovery as host_discovery
+    from test_host_discovery import ptr_packet, with_vendor_txt
+    from test_network_inventory import collection
+
+    system, _ = environment_chat
+    app, client, ha, store, _ = system
+    payload = collection()
+    stamp = payload["observed_at"]
+    packets = [ptr_packet(service=service, name=name, txt=True) for service, name in [
+        ("_ipp._tcp.local.", "Shared printer"), ("_ipps._tcp.local.", "Shared printer"),
+        ("_matterc._udp.local.", "Pairing service"), ("_matter._tcp.local.", "Operational service")]]
+    packets.append(with_vendor_txt(ptr_packet(service="_http._tcp.local.", name="Fixture NAS"),
+                                  b"vendor=Synology-private-suffix", b"token=private-txt"))
+    payload["observations"] = []
+    for index, packet in enumerate(packets):
+        for service, name, metadata in host_discovery._mdns_observations(packet):
+            payload["observations"].append({"id": f"mdns_{index}", "source_id": "lan_mdns",
+                "scope_id": "fixture_lan", "address": "192.0.2.28", "name": name, "services": [service],
+                "observed_at": stamp, "reachability": "responded", "metadata": metadata})
+    for source in payload["sources"]:
+        source.update(state="ok", item_count=len(packets) if source["id"] == "lan_mdns" else 0,
+                      reason_code=None)
+    scan_calls = []
+
+    async def scan(method, path, body=None, **kwargs):
+        assert (method, path, body) == ("POST", "/discovery/scan", {"scope_id": "fixture_lan"})
+        scan_calls.append(path)
+        assert len(scan_calls) == 1, "Chat must not rescan the household"
+        return payload
+
+    monkeypatch.setattr(network_inventory, "broker_call", scan)
+    saved = await client.post("/api/discovery/inventory/scan", json={"scope_id": "fixture_lan"},
+                              headers={"Idempotency-Key": "explicit-fixture-scan"})
+    assert saved.status_code == 200
+    inventory = (await client.get("/api/discovery/inventory")).json()
+    flow = ha.results["config_entries/flow/progress"][0]
+    flow.update(handler="ipp")
+    flow["context"]["title_placeholders"]["name"] = "Shared printer"
+    result = await environment_result(system)
+    candidates = result["candidates"]
+    network = [item for item in candidates if item["source_id"] == "network_inventory"]
+    assert len(network) == 4 and len(candidates) == 5
+    assert len([item for item in candidates if item["title"] == "Shared printer"]) == 3
+    assert {item["integration_domain"] for item in network} == {"ipp", "synology_dsm", "matter"}
+    guidance = {item["id"]: item["next_step"] for item in inventory["recommendations"]}
+    assert all(item["next_step"] == guidance[item["id"]] for item in network)
+    assert not any(item["title"] == "Operational service" for item in candidates)
+    assert len(result["environment"]["inventory_observations"]) == 5
+    assert scan_calls == ["/discovery/scan"]
+    raw = json.dumps(result)
+    assert not any(secret in raw for secret in ("192.0.2.28", "private-suffix", "private-txt", "api_key"))
+    # Even a forged proposal for a network IPP clue cannot substitute for an HA flow.
+    ha.results["/config"]["version"] = "2026.10.2"
+    candidate = next(item for item in network if item["integration_domain"] == "ipp")
+    denied = await client.post("/api/device-setups", json={"candidate_id": candidate["id"]},
+                               headers={"Idempotency-Key": "network-clue-is-not-ha-flow"})
+    assert denied.status_code == 409 and denied.json()["detail"] == "device_setup_candidate_changed"
+    assert not any(store.list(kind) for kind in ("approval", "proposal", "device_setup_v1", "discovery_setup"))
+    assert store.setting("policy") == {"entities": []}
+
+
+async def test_environment_redacts_addresses_links_and_credentials_inside_display_fields(environment_chat):
+    system, _ = environment_chat
+    name = "Printer 192.0.2.28 02:00:00:00:00:28 fe80::beef https://private.invalid/?token=SECRET"
+    await import_saved(system, [{"name": name, "manufacturer": "token=SHOULD_HIDE", "model": "fixture-private-token",
+                                "services": ["_hue._tcp", "http://secret.invalid"]}])
+    system[2].results["config_entries/flow/progress"][0]["context"]["title_placeholders"]["name"] = name
+    system[2].results["config/device_registry/list"][0]["name"] = name
+    system[2].results["config_entries/get"][0]["title"] = name
+    result = await environment_result(system)
+    raw = json.dumps(result)
+    assert all(value not in raw for value in ("192.0.2.28", "02:00:00:00:00:28", "fe80::beef", "private.invalid",
+                                              "secret.invalid", "SECRET", "SHOULD_HIDE", "fixture-private-token"))
+    assert "Printer" in raw and "_hue._tcp" in raw
+
+
+async def test_legacy_candidate_consent_never_opens_environment_scope(environment_chat, monkeypatch):
+    system, calls = environment_chat
+    await import_saved(system)
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Saved inventory requires the explicit wider sharing scope")
+    monkeypatch.setattr(system[0].state.network_inventory, "view", forbidden)
+    response = await send(system[0], system[1], "只看 HA 候選", "legacy-sharing", discover_devices=True)
+    result = system[3].conversation(id=response.json()["id"])["discovery"]
+    assert result["share_scope"] == "ha_candidates" and result["environment"] is None and calls == []
+
+
+async def test_environment_scope_is_per_message_and_changes_receipt(environment_chat):
+    system, calls = environment_chat
+    app, client, _, store, _ = system
+    first = await send(app, client, "探索環境", "environment-key", discover_environment=True)
+    assert (await send(app, client, "探索環境", "environment-key", discover_environment=True)).json()["id"] == first.json()["id"]
+    assert (await send(app, client, "探索環境", "environment-key", discover_devices=True)).status_code == 409
+    second = await send(app, client, "再看看", "no-inherited-scope", reply_to=first.json()["id"])
+    assert store.conversation(id=second.json()["id"])["discovery"]["state"] == "consent_required"
+    assert len(calls) == 1
+
+
+async def test_environment_partial_ha_preserves_saved_and_registered_evidence(environment_chat):
+    system, _ = environment_chat
+    await import_saved(system)
+    system[2].results["config_entries/flow/progress"] = HAUnreachable("private-upstream-error")
+    system[2].results["config/device_registry/list"].append({"invalid": True})
+    result = await environment_result(system)
+    assert result["state"] == "ready" and result["candidate_count"] is None
+    assert result["environment"]["device_count"] is None and len(result["environment"]["devices"]) == 4
+    assert result["candidates"][0]["source_id"] == "network_inventory"
+    assert "private-upstream-error" not in json.dumps(result)
+
+
+async def test_environment_bounds_each_population_and_keeps_both_candidate_sources(environment_chat):
+    system, _ = environment_chat
+    await import_saved(system, [{"name": f"Hue {index}", "services": ["_hue._tcp"]} for index in range(20)])
+    system[2].results["config_entries/flow/progress"] = [{"flow_id": f"pending_{index}", "handler": "hue",
+        "context": {"source": "zeroconf"}} for index in range(20)]
+    for index in range(20):
+        system[2].results["config/device_registry/list"].append({"id": f"device_{index}", "name": "Fixture"})
+        system[2].results["config_entries/get"].append({"entry_id": f"entry_{index}", "domain": "fixture", "state": "loaded"})
+    result = await environment_result(system)
+    assert result["candidate_count"] == 40 and len(result["candidates"]) == 8 and result["truncated"]
+    assert {item["source_id"] for item in result["candidates"]} == {"ha_discovery", "network_inventory"}
+    environment = result["environment"]
+    assert environment["truncated"] and environment["device_count"] == 24 and environment["integration_count"] == 22
+    assert environment["inventory_observation_count"] == 20
+    assert all(len(environment[key]) == 16 for key in ("devices", "integrations", "inventory_observations"))
+
+
+@pytest.mark.parametrize("expired_source", [False, True])
+async def test_environment_saved_inventory_keeps_age_and_rejects_stale_recommendations(environment_chat, expired_source):
+    system, _ = environment_chat
+    old = (datetime.now(UTC) - timedelta(days=2)).isoformat()
+    record = await import_saved(system, [{"name": "Old Hue bridge", "services": ["_hue._tcp"], "last_seen": old}])
+    if expired_source:
+        record["sources"][0]["observed_at"] = old
+        record["observations"][0]["observed_at"] = old
+        system[3].put(network_inventory.KIND, record)
+    result = await environment_result(system)
+    assert all(item["source_id"] == "ha_discovery" for item in result["candidates"])
+    row = result["environment"]["inventory_observations"][0]
+    assert row["source_updated_at"] == old
+    if expired_source:
+        source = next(item for item in result["environment"]["inventory_sources"] if item["id"] == "router_import")
+        assert source["state"] == "expired" and source["observed_at"] == old
+        assert row["observed_at"] == old and result["candidate_count"] is None
+
+
+@pytest.mark.parametrize("change", ["revision", "expiry", "owner", "connection", "supervisor", "external", "logout"])
+async def test_environment_response_rechecks_saved_inventory_and_owner_authority(environment_chat, monkeypatch, change):
+    system, _ = environment_chat
+    app, _, ha, store, _ = system
+    record = await import_saved(system)
+    token, _ = await active_grant(system, environment=True)
+    original = store.durable
+
+    async def durability():
+        await original()
+        if change == "revision":
+            store.put(network_inventory.KIND, {**record, "revision": record["revision"] + 1})
+        elif change == "expiry":
+            record["sources"][0]["observed_at"] = (datetime.now(UTC) - timedelta(days=2)).isoformat()
+            store.put(network_inventory.KIND, record)
+        elif change == "owner":
+            ha.revoked = True
+        elif change == "connection":
+            ha.token = "changed-token"
+        elif change in {"supervisor", "external"}:
+            setattr(ha, change, "changed-address")
+        else:
+            store.set_setting("hermes_web_epoch", "logged-out")
+
+    monkeypatch.setattr(store, "durable", durability)
+    async with mcp_client(app, token) as client:
+        response = await rpc(client)
+    assert response.status_code == (409 if change in {"revision", "expiry"} else 403)
+    assert "Saved Hue bridge" not in response.text and "Same name" not in response.text
+
+
+async def test_environment_does_not_reuse_inventory_from_other_home_connection(environment_chat):
+    system, _ = environment_chat
+    await import_saved(system)
+    system[2].token = "new-home-token"
+    result = await environment_result(system)
+    assert result["environment"]["inventory_revision"] == 0
+    assert result["environment"]["inventory_observations"] == []
+
+
+async def test_environment_owner_unavailable_never_reads_saved_inventory(environment_chat, monkeypatch):
+    system, calls = environment_chat
+    token, _ = await active_grant(system)
+    item = system[3].conversation(id=system[0].state.coordinator.authorize(token)["message_id"])
+    system[3].put("conversation", {**item, "discover_environment": True})
+
+    async def offline(_):
+        raise HAUnreachable("private-owner-error")
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("No saved household observations without current Owner verification")
+
+    monkeypatch.setattr(system[2], "owner", offline)
+    monkeypatch.setattr(system[0].state.network_inventory, "view", forbidden)
+    result = await system[0].state.coordinator.discovery.discover(token)
+    assert result["state"] == "unavailable" and result["environment"] is None and calls == []
+
+
+@pytest.mark.parametrize("state", ["waiting_for_address", "adapter_selection_required", "callback_address_required", "ready"])
+async def test_environment_network_diagnostic_projects_prerequisite_without_addresses(environment_chat, monkeypatch, state):
+    system, _ = environment_chat
+
+    async def host(*args, **kwargs):
+        return {"contract_version": 1, "mode": "wired", "state": "configured", "selected_interface_id": "a" * 64,
+                "interface": "eth0", "guest_mac": "02:00:00:00:00:28", "interfaces": [
+                    {"id": "a" * 64, "label": "Private interface", "interface": "eth0", "address": "192.0.2.1",
+                     "network": "192.0.2.0/24"}], "vm_state": "running", "can_configure": False, "limitations": []}
+
+    async def home(*args, **kwargs):
+        return {"state": state, "reason": "fixture_prerequisite", "interface": "eth1", "ipv4": ["192.0.2.28"],
+                "internal_url": "http://192.0.2.28:8123"}
+
+    monkeypatch.setattr(chat_module, "broker_call", host)
+    monkeypatch.setattr(chat_module, "observe_home_lan", home)
+    result = await environment_result(system)
+    network = result["environment"]["network"]
+    assert network["state"] == state and network["mode"] == "wired" and network["next_step"]
+    assert all(value not in json.dumps(result) for value in ("192.0.2", "02:00:00:00:00:28", "Private interface", "eth1"))
+
+
+async def test_environment_network_failure_and_corrupt_inventory_preserve_ha_context(environment_chat, monkeypatch):
+    system, _ = environment_chat
+    record = await import_saved(system)
+    system[3].put(network_inventory.KIND, {**record, "version": 999})
+
+    async def unsupported(*args, **kwargs):
+        return {"contract_version": 999, "private": "private-network-error"}
+
+    monkeypatch.setattr(chat_module, "broker_call", unsupported)
+    result = await environment_result(system)
+    assert result["state"] == "ready" and result["candidate_count"] is None
+    environment = result["environment"]
+    assert environment["devices"] and environment["inventory_observations"] == []
+    assert {source["state"] for source in environment["inventory_sources"]} == {"unavailable"}
+    assert environment["network"]["state"] == "unavailable" and "NAT" not in environment["network"]["next_step"]
+    assert "private-network-error" not in json.dumps(result)
+
+
+def test_environment_sharing_does_not_switch_direct_coordinator():
+    body = ChatInput(message="探索設備", discover_environment=True)
+    assert body.coordinator == "direct"

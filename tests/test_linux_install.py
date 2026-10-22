@@ -39,7 +39,7 @@ UPDATE_DEADLINE_SECONDS = RUNTIME_MAX_SECONDS + 300
 INSTALL_CLEANUP_COMMAND_SECONDS = 30
 INSTALL_CONSOLE_BYTES = 65536
 INSTALL_DISPOSABLE_IMAGES = ("linux.qcow2", "test.iso", "nvram.fd")
-LAN_LAB_IMAGE = "agentic-home-lan-lab:0.11.0"
+LAN_LAB_IMAGE = "agentic-home-lan-lab:0.11.1"
 INSTALL_GUEST_MEMORY_MIB = 10240
 # The nested fixture needs page-cache/QEMU headroom above the 10 GiB guest.
 # The previous 12 GiB cgroup swapped QEMU despite spare physical host memory.
@@ -1127,7 +1127,7 @@ def test_full_linux_install_with_nested_haos(tmp_path, request):
     assert str(tmp_path).startswith(str(Path.home() / "agent-work/tmp/pytest"))
     profile = os.environ.get("AGENTIC_INSTALL_TEST_PROFILE", "laptop-amd64")
     assert profile in {"laptop-amd64", "server-amd64"}
-    iso = ROOT / "dist" / ("agentic-home-0.11.0-" + profile + ".iso")
+    iso = ROOT / "dist" / ("agentic-home-0.11.1-" + profile + ".iso")
     assert iso.exists()
     with iso.open("rb") as stream:
         iso_hash = hashlib.file_digest(stream, "sha256").hexdigest()
@@ -1244,9 +1244,9 @@ while data:=s.recv(65536):
         host = json.loads(command(*ssh, "agentic-home status"))
         assert not host["provisioned"] and host["kvm"]
         installed = json.loads(command(*ssh, "sudo cat /var/lib/agentic-home/installed.json"))
-        assert installed["version"] == "0.11.0" and installed["profile"] == profile
+        assert installed["version"] == "0.11.1" and installed["profile"] == profile
         image_lock = json.loads(command(*ssh, "cat /opt/agentic-home/images.lock.json"))
-        expected_tags = {f"agentic-home-{service}:0.11.0" for service in ("controller", "runner", "linejs", "hermes", "preview")}
+        expected_tags = {f"agentic-home-{service}:0.11.1" for service in ("controller", "runner", "linejs", "hermes", "preview")}
         assert set(image_lock) == expected_tags
         for tag, digest in image_lock.items():
             assert command(*ssh, "sudo docker image inspect --format '{{.Id}}' " + tag) == digest

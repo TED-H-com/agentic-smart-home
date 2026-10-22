@@ -154,6 +154,7 @@ def test_installer_pins_network_before_desktop_packages(tmp_path, monkeypatch):
     monkeypatch.setattr(installer, "STATE", tmp_path)
     monkeypatch.setattr(installer, "atomic", lambda *args: None)
     monkeypatch.setattr(installer, "run", run)
+    monkeypatch.setattr("agentic_host.update_bootstrap.pristine", lambda *args, **kwargs: None)
     monkeypatch.setattr("agentic_host.appliance_network.reconcile_network",
                         lambda: calls.append(("pin-network",)) or {"verified": True})
     with pytest.raises(DesktopReached):

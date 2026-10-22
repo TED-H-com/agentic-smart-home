@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-19",
+  "kind": "compiled_product_browser_protocol_fixture",
+  "source_base_commit": "f8e69cccaa93d396c4667535c8a2a07dab5c95df",
+  "source_files": [
+    {
+      "file": "web/src/device-setup.tsx",
+      "sha256": "2912630e903d23f5ef3b9ab6607968cb7dc983d329298cadabc95b096c0a407a"
+    },
+    {
+      "file": "web/src/device-setup-history.tsx",
+      "sha256": "8908b2da9c103a4ac72358003df8b266b25caa51f198fd6aa4e4879ddb7c7dcc"
+    },
+    {
+      "file": "web/src/device-setup.css",
+      "sha256": "c060dc93af17394ea52309940eeeca6748d23bf560a80a2e05485e0a87698dae"
+    },
+    {
+      "file": "web/src/gateway.tsx",
+      "sha256": "8bafc24c5ab0c8571de91b55ecf6f33da3d7fe053073baa6b503fb579f473938"
+    }
+  ],
+  "limitations": [
+    "All household, account, device, setup and model responses are synthetic.",
+    "These images do not establish real household access, printer behavior, backup/restore or model acceptance."
+  ],
+  "files": [
+    {
+      "file": "setup-history-synthetic-390.png",
+      "width": 390,
+      "sha256": "1329d7b3bd36009cb3e4049a2a33c92e400995143d782523e3df9f355754923b"
+    },
+    {
+      "file": "setup-history-synthetic-768.png",
+      "width": 768,
+      "sha256": "a0bd99cf0c73583bd7b2aa7c312941346a2b1132dcf7ed88cb9abf996169583f"
+    },
+    {
+      "file": "setup-history-synthetic-1440.png",
+      "width": 1440,
+      "sha256": "6863165ced64590e18a7dec1087b9646b856781f9148a47828242cfdf9597d33"
+    }
+  ],
+  "reviewed": [
+    "setup-history-synthetic-390.png",
+    "setup-history-synthetic-768.png",
+    "setup-history-synthetic-1440.png"
+  ]
+}

@@ -11,7 +11,7 @@ and role login must be verified before dispatch.
 Build from the product root:
 
 ```sh
-docker build -t agentic-home-hermes:0.11.0 hermes
+docker build -t agentic-home-hermes:0.11.1 hermes
 pytest-disktmp uv run pytest -q tests/test_hermes_runtime.py --containers
 ```
 
@@ -153,15 +153,32 @@ optional Codex app-server runtime with its separate native tool authority.
 
 Allowed tools are exactly `host.status`, `worker.capabilities`, `worker.submit`,
 `worker.status`, `worker.cancel`, `worker.result`, `case.evidence.read`,
-`home.observe`, `home.propose`, `home.proposal_status`, and `home.discover`. Household state observations
+`home.observe`, `home.propose`, `home.proposal_status`, `home.discover`, and
+`home.device_setup_status`. Household state observations
 are policy filtered; proposals reuse the Controller compiler and exact Owner
 approval flow. These tools cannot approve, apply, or call general HA services.
 `home.discover` returns a sharing action card until the current Owner message
-explicitly opts in. It then shares at most eight fresh HA discovery candidates
-and source coverage, independently of device control permissions. It never
-reads saved LAN inventory, scans networks, configures integrations, or grants
-device authority. Consent is not a tool argument and is not inherited by a
-follow-up message. Pairing remains the existing Owner/native HA setup flow.
+explicitly opts in. The original `discover_devices` scope shares at most eight
+fresh HA discovery candidates and source coverage, independently of device
+control permissions. The separate `discover_environment` scope also shares up
+to sixteen records each from HA devices, integrations, and the existing
+Owner/HA-bound network inventory, plus fixed read-only LAN diagnostics. Source
+times, expiry, incomplete coverage and truncation remain explicit. Saved
+observations are not a new scan or proof of physical identity/reachability.
+IP/MAC addresses, raw metadata, configuration credentials and source network
+labels are not shared. Owner/session/connection checks and inventory
+revision/expiry checks remain active through response durability. Neither scope
+configures integrations or grants device authority. Consent is not a tool
+argument and is not inherited by a follow-up message. Pairing requires the
+Owner's selection and an available supported setup flow.
+`home.device_setup_status` reads only the exact `device_setup_id` explicitly
+selected in the current Web/Hermes message. Without that selection it returns
+sharing instructions without listing or reading setups. The bounded projection
+separates saved setup progress from current integration/device readback and
+physical verification; it omits approval handles, backup IDs, addresses and
+credentials. It cannot approve, retry or reconcile an operation. Fresh Owner,
+home, turn/bridge and record-revision checks remain active through response
+durability; a later message does not inherit permission for a fresh read.
 Discovery is filtered, `enabled_toolsets` is only `mcp-agentic`, the upstream
 tool-search wrapper is disabled, and dispatch has an additional exact allowlist.
 Built-in terminal, filesystem, browser, coding, delegate, memory, skills,

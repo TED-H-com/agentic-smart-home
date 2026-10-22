@@ -1155,7 +1155,7 @@ def test_actual_installer_failure_still_cleans_up_when_diagnostics_break(tmp_pat
     for name in ("dist", "scripts", "evidence", "build", "tests"):
         (tmp_path / name).mkdir()
     (tmp_path / "tests/ha_lan_peer.py").write_text("raise AssertionError('fixture peer must not execute')\n")
-    (tmp_path / "dist/agentic-home-0.11.0-laptop-amd64.iso").write_bytes(b"fixture")
+    (tmp_path / "dist/agentic-home-0.11.1-laptop-amd64.iso").write_bytes(b"fixture")
     (tmp_path / "scripts/build_host.py").write_text(
         "def autoinstall(profile): return {'autoinstall': {'late-commands': [], 'interactive-sections': [], "
         "'early-commands': [['/usr/bin/python3', '/cdrom/agentic-home/live-preflight.py', "

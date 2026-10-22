@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "code_commit": "a7f89a4117e1b8cb23c37814ee3683dffd313bb7",
+  "classification": "synthetic_protocol_browser_evidence",
+  "viewports": {
+    "1440": [
+      1440,
+      900
+    ],
+    "768": [
+      768,
+      844
+    ],
+    "390": [
+      390,
+      844
+    ]
+  },
+  "source_sha256": {
+    "web/src/device-setup.tsx": "f257298f90322773b215e5de69295dc523dafaa52a3cbb3c09572380dac42aed",
+    "web/src/device-setup-history.tsx": "a52ae095b63393e0b85b8d1ecbf915a09226a8e7cf6981e8f488a7793b42dfbe",
+    "web/src/discovery.tsx": "8111d901d25e67ff6734d333c21eb9457081cbb8054c9fe146734d2d400f0e18",
+    "tests/test_shelly_device_setup_ui.py": "1bcee6b2db0b13c3f7c694558e520951be4ce8bef7fa20a7b958e1d11277a7d0",
+    "controller/agentic_controller/device_setup_adapters.py": "21eea322c7c16a820c5cd6fd85e398fab29412214dfd831ac26631cf3ccbb29b",
+    "controller/static/index.html": "584b9c5c1461095c1b4056ce3a1167ceb9de3672f55e8ccb78f4f7c25d9ed7cd",
+    "controller/static/assets/index-B_ff2UKm.js": "4b19d269c672bc5baf96b21229fa4b6375224db4a2dd085361128c8babd491f6",
+    "bridge/static/index.html": "584b9c5c1461095c1b4056ce3a1167ceb9de3672f55e8ccb78f4f7c25d9ed7cd",
+    "bridge/static/assets/index-B_ff2UKm.js": "4b19d269c672bc5baf96b21229fa4b6375224db4a2dd085361128c8babd491f6"
+  },
+  "run": {
+    "tests": 16,
+    "passed": 16,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "duration_seconds": 33.699,
+    "started_at": "2026-10-19T17:27:10.166400-04:00",
+    "junit_sha256": "e83549a7b4d9a0f2f80c29df513f58c2904783d95d17f827d5a8de13d924c4d9",
+    "test_modules": [
+      "tests.test_shelly_device_setup_ui"
+    ]
+  },
+  "images": [
+    {
+      "file": "shelly-proposal-synthetic-1440.png",
+      "sha256": "d0341857304b6990e303f1a82093b056812db09c06ecbd0dd572cb4606b8b391",
+      "synthetic": true
+    },
+    {
+      "file": "shelly-proposal-synthetic-390.png",
+      "sha256": "1170227e201235eae4bc39cbe0d2ebbd50ba7acc5dc8993aec56a07b051d8130",
+      "synthetic": true
+    },
+    {
+      "file": "shelly-proposal-synthetic-768.png",
+      "sha256": "72082b1cbb15e8c833353660142a64308c84aa994309646bc16b3145ff2d5403",
+      "synthetic": true
+    },
+    {
+      "file": "shelly-unsupported-synthetic-1440.png",
+      "sha256": "a2afd62c5ce372ea550e6f1d721cbe460a212bffe1af3770a1a9f50be3df01e8",
+      "synthetic": true
+    },
+    {
+      "file": "shelly-unsupported-synthetic-390.png",
+      "sha256": "58094085675f549aa577983bf8f78ade0d9bb71812f90da237d477d37b3d4610",
+      "synthetic": true
+    },
+    {
+      "file": "shelly-unsupported-synthetic-768.png",
+      "sha256": "e7a1c7ecfbc51a59c897ba8942025b24f432550991f8585c075d51ce78487356",
+      "synthetic": true
+    }
+  ],
+  "notes": [
+    "Actual production Shelly approval message is used; HA, accounts, devices and setup replies are synthetic.",
+    "All six captures visually inspected. Small viewports are scrolled to the approval or native fallback action within conversation history.",
+    "Device name, connection-configuration scope, HA-only backup scope and approval remain visible at 390 px; the card heading may be above the conversation viewport.",
+    "No horizontal overflow; action controls are at least 44 px. Capture does not establish physical functionality or an unscrolled first-run journey."
+  ]
+}

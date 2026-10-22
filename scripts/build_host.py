@@ -17,7 +17,7 @@ from agentic_host.artifacts import fetch, sha256  # noqa: E402
 from agentic_host.manager import validate_profile  # noqa: E402
 from agentic_host.publisher import validate_official_channel  # noqa: E402
 
-VERSION = "0.11.0"
+VERSION = "0.11.1"
 SKIP = {"__pycache__", "node_modules", ".pytest_cache", ".ruff_cache", "test-results"}
 
 
@@ -114,7 +114,7 @@ def bundle(destination):
     stage.mkdir(parents=True)
     for directory in ("host", "controller", "runner", "hermes", "bridge", "custom_components", "contracts", "docs", "scripts"):
         shutil.copytree(ROOT / directory, stage / directory, ignore=bundle_ignored)
-    for name in ("README.md", "INSTALL.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md", "providers.lock.json", "upstream.lock.json", "channels.lock.json"):
+    for name in ("README.md", "INSTALL.md", "PROJECT_PLAN.md", "PROJECT_SPEC.md", "providers.lock.json", "upstream.lock.json", "channels.lock.json", "pyproject.toml"):
         shutil.copyfile(ROOT / name, stage / name)
     assets = stage / "assets"
     assets.mkdir()

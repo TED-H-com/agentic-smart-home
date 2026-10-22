@@ -148,7 +148,11 @@ def validate_official_channel(value):
 
 
 def official_channel(product):
-    path = Path(product) / "host/official-update-channel.json"
+    product = Path(product)
+    if product.is_symlink():
+        from .update_bootstrap import active_product
+        product = active_product(product)
+    path = product / "host/official-update-channel.json"
     trusted_path(path)
     if path.stat().st_size > 16384:
         raise HostError("official_publisher_metadata_invalid")

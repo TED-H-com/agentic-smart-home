@@ -455,6 +455,10 @@ def test_update_source_commit_and_sync_are_plain_and_short():
         elif path == 'host/status':
             result = {'vm': 'running', 'provisioned': True, 'jobs': [], 'snapshots': [],
                       'profile': {'label': '家庭筆電', 'memory_mib': 4096, 'vcpus': 2}}
+        elif path == 'host-updates':
+            result = {'contract': 1, 'scope': 'host_bundle_same_schema', 'available': False, 'compatibility': None,
+                      'message': '主機需要先經你核准一次更新啟用；不需重裝。', 'records': [],
+                      'check': {'state': 'unavailable', 'message': ''}}
         elif path == 'updates/publisher':
             result = {'contract': 1, 'state': 'unavailable', 'code': 'official_publisher_pin_not_shipped',
                       'message': '需取得含官方更新來源憑證的受信任主機版本。',
@@ -581,6 +585,10 @@ def test_update_record_error_is_a_sentence_and_the_code_stays_folded():
         elif path == 'host/status':
             result = {'vm': 'running', 'provisioned': True, 'jobs': [], 'snapshots': [],
                       'profile': {'label': '家庭筆電', 'memory_mib': 4096, 'vcpus': 2}}
+        elif path == 'host-updates':
+            result = {'contract': 1, 'scope': 'host_bundle_same_schema', 'available': False, 'compatibility': None,
+                      'message': '主機需要先經你核准一次更新啟用；不需重裝。', 'records': [],
+                      'check': {'state': 'unavailable', 'message': ''}}
         elif path == 'updates/publisher':
             result = {'contract': 1, 'state': 'unavailable', 'code': 'official_publisher_pin_not_shipped',
                       'message': '需取得含官方更新來源憑證的受信任主機版本。',

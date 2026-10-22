@@ -272,7 +272,7 @@ class Updater:
         digest = hashlib.sha256(canonical(body["manifest"])).hexdigest()
         with self.lock:
             existing = self.records.get(digest)
-            if existing and (existing["state"] not in {"staged", "failed"} or
+            if existing and (existing["state"] not in {"staged", "failed", "rolled_back"} or
                              (existing["state"] == "staged" and existing.get("approval_expires_at", 0) > time.time())):
                 return self.public(existing)
             if any(v["state"] in {"staging", "deploying", "rolling_back", "needs_reconcile"} for v in self.records.values()):
@@ -537,6 +537,19 @@ class Updater:
                 time.sleep(1)
         raise UpdateError("update_health_failed") from last
 
+    def settled_baseline(self):
+        # Bootstrap restored a running HA VM. Keep the Controller running while
+        # its read-only HA connection recovers from that snapshot.
+        deadline = time.monotonic() + 180
+        while True:
+            baseline = self.health()
+            if baseline["ha"] == "connected":
+                return baseline
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise UpdateError("update_ha_baseline_unsettled")
+            time.sleep(min(5, remaining))
+
     def backup(self, destination):
         destination.touch(mode=0o600, exist_ok=False)
         with sqlite3.connect(self.database.as_uri() + "?mode=ro", uri=True) as source, sqlite3.connect(destination) as target:
@@ -633,11 +646,13 @@ class Updater:
         stopped, switched, gated, previous = False, False, False, None
         schema = record["manifest"]["compatibility"]["schema"]
         try:
+            if not rollback:
+                self.update(record, switched=False)
             previous = self.image()
             if not rollback and previous != record.get("base_image"):
                 raise UpdateError("update_base_revision_changed")
             try:
-                baseline = self.health()
+                baseline = self.settled_baseline() if not rollback and record.get("ha_baseline_running_required") else self.health()
             except UpdateError:
                 if not rollback:
                     raise
@@ -649,7 +664,7 @@ class Updater:
             if rollback and previous not in {record["manifest"]["image_id"], record["previous_image"]}:
                 raise UpdateError("update_rollback_revision_changed")
             target = record["previous_image"] if rollback else record["manifest"]["image_id"]
-            self.update(record, phase="stopping", baseline=baseline, **({"previous_image": previous} if not rollback else {}))
+            self.update(record, phase="stopping", baseline=baseline, switched=False, **({"previous_image": previous} if not rollback else {}))
             stopped = True
             self.stop()
             offline_check(self.database, schema, pause=True, gate=record["candidate_digest"])
@@ -658,13 +673,17 @@ class Updater:
             self.backup(snapshot)
             self.update(record, phase="probing", snapshot=snapshot.name)
             self.probe(target, schema)
-            self.update(record, phase="activating")
+            self.update(record, phase="activating", switched=True)
             # Persist intent before a compose call that might succeed remotely
             # and lose its response. Fallback must treat the candidate as used.
             switched = True
             self.activate(target)
             observed = self.health()
-            if observed["paused"] is not True or observed["ha"] != baseline["ha"] or observed["runner"] != baseline["runner"] or (not rollback and observed["version"] != record["manifest"]["version"]):
+            self.update(record, smoke_observed=observed)
+            # A recovered HA connection is the sole permitted status change.
+            ha_matches = observed["ha"] == baseline["ha"] or (baseline["ha"] == "unavailable" and observed["ha"] == "connected")
+            compatible = rollback or observed["ha"] != "connected" or observed["ha_version"] in record["manifest"]["compatibility"]["ha_core_versions"]
+            if observed["paused"] is not True or not ha_matches or not compatible or observed["runner"] != baseline["runner"] or (not rollback and observed["version"] != record["manifest"]["version"]):
                 raise UpdateError("update_smoke_mismatch")
             # Verify actual active artifact independently of the candidate HTTP report.
             if self.image() != target:

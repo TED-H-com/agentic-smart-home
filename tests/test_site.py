@@ -211,7 +211,7 @@ def test_workers_and_host(browser, origin):
     expect(ui.get_by_role('heading', name='示範主機', exact=True)).to_be_visible()
     ui.get_by_role('button', name='檢查連線', exact=True).click()
     expect(ui.get_by_text('主機與家庭都有回應。', exact=True)).to_be_visible()
-    ui.locator('summary').filter(has_text='版本 0.11.0').click()
+    ui.locator('summary').filter(has_text='版本 0.11.1').click()
     expect(ui.get_by_text('先檢查簽署的版本說明，確認後才更新。')).to_be_visible()
     ui.locator('summary').filter(has_text='快照 ·').click()
     expect(ui.get_by_role('button', name='選擇還原')).to_be_visible()
