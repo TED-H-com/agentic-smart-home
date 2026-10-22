@@ -37,17 +37,19 @@ export function HomeLanSettings(){
   }
   useEffect(()=>{alive.current=true;let timer:ReturnType<typeof setTimeout>;async function poll(){await refresh();if(alive.current)timer=setTimeout(poll,5000)}void poll();return()=>{alive.current=false;++serial.current;clearTimeout(timer)}},[]);
   async function save(disable=false){
+    if(!disable&&((selectionDirty.current||value?.interfaces.length!==1)&&!value?.interfaces.some(item=>item.id===choice)))return;
     setBusy(true);setError(null);
-    const selection=disable?'disabled':value?.interfaces.length===1?'auto':choice;
+    const selection=disable?'disabled':!selectionDirty.current&&value?.interfaces.length===1?'auto':choice;
     if(pending.current?.choice!==selection)pending.current={choice:selection,key:requestKey()};
     const body=disable?{action:'configure_lan',interface_id:null}:selection==='auto'?{action:'configure_lan'}:{action:'configure_lan',interface_id:choice};
     try{
       const result=await api('host/actions',body,false,pending.current.key);
-      if(alive.current){jobRef.current=result;setJob(result);pending.current=null;selectionDirty.current=false;await refresh()}
+      if(alive.current){jobRef.current=result;setJob(result);pending.current=null;await refresh()}
     }catch(e){if(alive.current)setError(plainError(e))}
     finally{if(alive.current)setBusy(false)}
   }
   const running=job?.state==='running',blocked=busy||running||readError||!(value?.can_connect??value?.can_configure);
+  const choiceAvailable=!!value?.interfaces.some(item=>item.id===choice),choiceMissing=!!choice&&!choiceAvailable;
   const wired=value?.mode==='wired'&&value.state==='configured';
   const home=value?.home,ip=home?.state==='ready'?home.ipv4?.[0]||home.ipv6?.[0]:value?.ha_lan_ip;
   const explain=ip?`HA 已連上家庭網路：${ip}`:homeCopy[home?.state||'']||'家庭啟動後會自動讀回區網位址。';
@@ -64,12 +66,14 @@ export function HomeLanSettings(){
       {wired&&<p role="status">{explain}</p>}
       {wired&&home?.state==='needs_home_setup'&&ip&&<p className="helper-text">{homeCopy.needs_home_setup}</p>}
       {!wired&&<p className="helper-text">連接期間家庭自動化會短暫暫停；未能連上時會自動恢復基本網路。</p>}
-      {value.interfaces.length>1&&<label>接到家庭路由器的網路線<select value={choice} disabled={!!blocked} onChange={event=>{selectionDirty.current=true;setChoice(event.target.value);setError(null);jobRef.current=null;setJob(null)}}>
+      {choiceMissing&&<p className="helper-text">原先選擇的網路卡目前無法使用，請重新選擇。</p>}
+      {(value.interfaces.length>1||selectionDirty.current||choiceMissing)&&<label>接到家庭路由器的網路線<select value={choice} disabled={!!blocked} onChange={event=>{selectionDirty.current=true;setChoice(event.target.value);setError(null);jobRef.current=null;setJob(null)}}>
         <option value="">選擇有線網路</option>
+        {choiceMissing&&<option value={choice} disabled>原先選擇的網路卡無法使用</option>}
         {value.interfaces.map(item=><option key={item.id} value={item.id}>{item.interface}{item.address?` · ${item.address}`:''}</option>)}
       </select></label>}
       {!value.interfaces.length&&<p className="helper-text">請插上網路線，或接上 USB 有線網路卡。</p>}
-      <Button onClick={()=>void save()} disabled={!!blocked||!!connectionComplete||!value.interfaces.length||(value.interfaces.length>1&&!choice)}>{busy||running?'正在連接…':'連上家庭網路'}</Button>
+      <Button onClick={()=>void save()} disabled={!!blocked||!!connectionComplete||!value.interfaces.length||((value.interfaces.length>1||selectionDirty.current)&&!choiceAvailable)}>{busy||running?'正在連接…':'連上家庭網路'}</Button>
       {wired&&<Button secondary disabled={!!blocked} onClick={()=>void save(true)}>使用基本網路</Button>}
       {wired&&<div className="service-row">
         {home?.state==='ready'&&<p className="helper-text">可到「裝置與服務」新增設備，再實測控制。</p>}

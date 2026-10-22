@@ -162,3 +162,27 @@ def test_legacy_incomplete_core_settings_offer_one_owner_reconnect(ui_page):  # 
     expect(page.get_by_role('button', name='連上家庭網路')).to_be_enabled()
     page.get_by_role('button', name='連上家庭網路').click()
     assert posts[0][0] == {'action': 'configure_lan'} and not errors
+
+
+@pytest.mark.parametrize('remaining', ['chosen', 'other'])
+def test_explicit_nic_selection_survives_inventory_changes(ui_page, remaining):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    other = {'id': 'b' * 64, 'label': 'USB', 'interface': 'enx2', 'address': None, 'network': None}
+    state['value']['interfaces'].append(other)
+    page.clock.run_for(5500)
+    selector = page.get_by_label('接到家庭路由器的網路線')
+    selector.select_option(CHOICE)
+    state['value']['interfaces'] = [state['value']['interfaces'][0] if remaining == 'chosen' else other]
+    page.clock.run_for(5500)
+    save = page.get_by_role('button', name='連上家庭網路')
+    if remaining == 'other':
+        expect(page.get_by_text('原先選擇的網路卡目前無法使用，請重新選擇。')).to_be_visible()
+        expect(selector).to_be_visible()
+        expect(save).to_be_disabled()
+        assert not posts
+        selector.select_option(other['id'])
+    expect(save).to_be_enabled()
+    save.click()
+    assert posts[0][0] == {'action': 'configure_lan', 'interface_id': CHOICE if remaining == 'chosen' else other['id']}
+    assert not errors
