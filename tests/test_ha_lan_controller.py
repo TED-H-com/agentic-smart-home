@@ -361,6 +361,8 @@ class ConvergingHA(NetworkHA):
         return await super().request(method, path, **kwargs)
 
     async def ws(self, command, **kwargs):
+        if guard := kwargs.pop('_send_guard', None):
+            await guard()
         if command == 'network/configure':
             self.mutations.append((command, copy.deepcopy(kwargs['config'])))
             self.network['configured_adapters'] = kwargs['config']['configured_adapters']
@@ -614,3 +616,122 @@ async def test_enabling_adapter_preserves_existing_owner_lan_url(network, store)
     assert result['state'] == 'ready'
     assert ha.mutations == [('network/configure', {'configured_adapters': ['end1']})]
     assert ha.internal_url == 'https://192.168.10.20:8443'
+
+
+@pytest.mark.parametrize('operation', ['converge', 'compensate'])
+@pytest.mark.parametrize('command', ['network/configure', 'config/core/update'])
+@pytest.mark.parametrize('barrier', ['connect', 'durable'])
+@pytest.mark.parametrize('fault', ['epoch', 'owner', 'attempt', 'host_mode', 'active_owner', 'connection'])
+async def test_lan_mutations_recheck_authority_at_transport_send(network, store, monkeypatch, operation, command, barrier, fault):
+    from agentic_controller.ha import HomeAssistant
+    from aiohttp import web
+
+    fixture = ConvergingHA()
+    fixture.internal_url = fixture.urls['internal'] = 'http://192.168.10.20'
+    if command == 'config/core/update' or operation == 'compensate':
+        fixture.network['adapters'][0]['enabled'] = True
+        fixture.network['configured_adapters'] = ['end1']
+    if command == 'config/core/update' and operation == 'converge':
+        fixture.internal_url = fixture.urls['internal'] = None
+    mutations = []
+    application = web.Application()
+    async def websocket(request):
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        await ws.send_json({'type': 'auth_required'})
+        assert (await ws.receive_json())['type'] == 'auth'
+        await ws.send_json({'type': 'auth_ok'})
+        async for message in ws:
+            frame = message.json()
+            kind = frame['type']
+            if kind == 'config/auth/list':
+                result = [fixture.owner_value]
+            elif kind in {'network', 'network/url'}:
+                result = fixture.network if kind == 'network' else fixture.urls
+            else:
+                mutations.append(frame)
+                result = await fixture.ws(kind, **{key: value for key, value in frame.items() if key not in {'id', 'type'}})
+            await ws.send_json({'id': frame['id'], 'type': 'result', 'success': True, 'result': result})
+        return ws
+    application.router.add_get('/websocket', websocket)
+    runner = web.AppRunner(application)
+    await runner.setup()
+    site = web.TCPSite(runner, '127.0.0.1', 0)
+    await site.start()
+    port = site._server.sockets[0].getsockname()[1]
+    ha = HomeAssistant('fixture', base=fixture.base, websocket=f'ws://127.0.0.1:{port}/websocket', external=True)
+    ha.store = store
+    # Only management reads are synthetic; every WS uses the real transport.
+    ha.request = fixture.request
+    await ha.start()
+    initial = attempt() if operation == 'converge' else {'mode': 'nat', 'attempt_id': None}
+    current = dict(initial)
+    async def check_host():
+        if current != initial:
+            raise ha_lan.ObservationInvalid('home_lan_attempt_changed')
+    if operation == 'compensate':
+        store.set_setting('home_lan_configuration_rollback', {
+            'attempt_id': 'b' * 64, 'owner': 'owner', 'epoch': store.setting('hermes_web_epoch'),
+            'connection': ha_lan.digest(tuple(getattr(ha, key) for key in ('token', 'base', 'websocket', 'supervisor', 'external'))),
+            'previous_adapters': [], 'previous_internal_url': None,
+            'target_adapters': ['end1'] if command == 'network/configure' else None,
+            'target_internal_url': fixture.internal_url if command == 'config/core/update' else None})
+    entered, release = asyncio.Event(), asyncio.Event()
+    armed = False
+    original_ws, original_connect, original_durable = ha.ws, ha.ws_connect, store.durable
+    async def arm(kind, **kwargs):
+        nonlocal armed
+        if kind == command:
+            armed = True
+        return await original_ws(kind, **kwargs)
+    async def pause(stage):
+        nonlocal armed
+        if armed and barrier == stage:
+            armed = False
+            entered.set()
+            await release.wait()
+    async def connect():
+        ws = await original_connect()
+        await pause('connect')
+        return ws
+    async def disk():
+        await original_durable()
+        await pause('durable')
+    monkeypatch.setattr(ha, 'ws', arm)
+    monkeypatch.setattr(ha, 'ws_connect', connect)
+    monkeypatch.setattr(store, 'durable', disk)
+    async def run():
+        if operation == 'converge':
+            return await ha_lan.converge_home_lan(ha, store, initial, check_host)
+        try:
+            await ha_lan.compensate_home_lan(ha, store, initial, check_host)
+        except ha_lan.ObservationInvalid as error:
+            return {'reason': str(error)}
+        return {'reason': 'unexpected_success'}
+    task = asyncio.create_task(run())
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        if fault in {'epoch', 'owner'}:
+            store.set_setting('hermes_web_epoch' if fault == 'epoch' else 'owner', 'changed')
+        elif fault == 'attempt':
+            current['attempt_id'] = 'c' * 64
+        elif fault == 'host_mode':
+            current['mode'] = 'nat' if operation == 'converge' else 'wired'
+        elif fault == 'active_owner':
+            fixture.owner_value['is_active'] = False
+        else:
+            ha.token = 'changed-fixture'
+        release.set()
+        result = await asyncio.wait_for(task, 5)
+        expected = ('home_lan_attempt_changed' if fault in {'attempt', 'host_mode'} else
+                    'home_owner_not_active' if fault == 'active_owner' else 'home_authority_changed')
+        assert result['reason'] == expected
+        assert mutations == []
+        assert store.setting('home_lan_configuration_rollback')
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        await ha.close()
+        await runner.cleanup()

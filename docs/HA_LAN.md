@@ -24,7 +24,7 @@ agentic-home network-select --help
 
 省略 `interface_id` 表示自動選擇唯一候選；明確的 JSON `null` 或 CLI `--disable-lan` 表示回復基本 NAT。多張候選不能猜測。CLI 選項依子命令分開；`--lan {dhcp,reservation}` 只屬於 `network-select`，設定的是 Linux 主機位址政策。
 
-Controller 經既有受保護 Host action API 提交一個持久工作；回應遺失時用原去重鍵取回同一工作，不重送不同操作。Host 仍核對產品 VM、磁碟、網路所有權、獨佔使用與每一步 XML 讀回。配置中的 journal 保留復原圍欄，不能藉刪紀錄繞過。
+Controller 經既有受保護 Host action API 提交一個持久工作；回應遺失時用原去重鍵取回同一工作，不重送不同操作。Host 仍核對產品 VM、磁碟、網路所有權、獨佔使用與每一步 XML 讀回。配置中的 journal 保留復原圍欄，不能藉刪紀錄繞過。每次 Core 網路寫入（含回復）在 WebSocket 連線及落盤等待之後、送出前再次核對 Owner、登入世代、家庭連線身份與 Host 操作；任一變動即停止該次寫入，保留固定原因代碼。
 
 ## 兩張網卡
 

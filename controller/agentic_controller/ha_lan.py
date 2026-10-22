@@ -134,6 +134,22 @@ class ObservationInvalid(ValueError):
     """Fixed reason code; raw network responses never escape this adapter."""
 
 
+class SendGuardRejected(HAError):
+    """Keep fixed guard reasons outside the transport's ValueError mapping."""
+
+
+async def guarded_mutation(ha, command, guard, **fields):
+    async def send_guard():
+        try:
+            await guard()
+        except ObservationInvalid as error:
+            raise SendGuardRejected(str(error)) from None
+    try:
+        return await ha.ws(command, _receive_timeout=OBSERVATION_SECONDS, _send_guard=send_guard, **fields)
+    except SendGuardRejected as error:
+        raise ObservationInvalid(str(error)) from None
+
+
 def observation(state, reason, **fields):
     return HomeLanObservation(state=state, reason=reason, **fields).model_dump(mode="json")
 
@@ -382,6 +398,11 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
                 or current.get("is_owner") is not True or current.get("is_active") is not True):
             raise ObservationInvalid("home_owner_not_active")
 
+    async def mutation_guard():
+        await check_owner()
+        await check_attempt()
+        guard()
+
     try:
         guest_mac = mac_address(host_status.get("guest_mac"))
         async with asyncio.timeout(30 if check_attempt else OBSERVATION_SECONDS):
@@ -428,10 +449,8 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
                     await durable(store)
                 for command, fields in ([('network/configure', {'config': {'configured_adapters': adapters}})] if adapters is not None else []) + (
                         [('config/core/update', {'internal_url': internal})] if internal is not None else []):
-                    await check_owner()
-                    await check_attempt()
-                    guard()
-                    await ha.ws(command, _receive_timeout=OBSERVATION_SECONDS, **fields)
+                    await mutation_guard()
+                    await guarded_mutation(ha, command, mutation_guard, **fields)
                     await check_owner()
                 if adapters is not None or internal is not None:
                     results = await asyncio.gather(
@@ -487,18 +506,20 @@ async def compensate_home_lan(ha, store, host_status, check_host=None):
         # converge_home_lan; it must never be compensated over a new live LAN.
         return
 
+    def local_guard():
+        if (store.setting("owner") != record["owner"] or store.setting("hermes_web_epoch") != record["epoch"]
+                or digest(tuple(getattr(ha, key, None) for key in ("token", "base", "websocket", "supervisor", "external"))) != record["connection"]):
+            raise ObservationInvalid("home_authority_changed")
+
     async def guard():
-        if check_host:
-            await check_host()
-        if (store.setting("owner") != record["owner"] or store.setting("hermes_web_epoch") != record["epoch"]
-                or digest(tuple(getattr(ha, key, None) for key in ("token", "base", "websocket", "supervisor", "external"))) != record["connection"]):
-            raise ObservationInvalid("home_authority_changed")
+        local_guard()
         owner = await ha.owner(record["owner"])
-        if (store.setting("owner") != record["owner"] or store.setting("hermes_web_epoch") != record["epoch"]
-                or digest(tuple(getattr(ha, key, None) for key in ("token", "base", "websocket", "supervisor", "external"))) != record["connection"]):
-            raise ObservationInvalid("home_authority_changed")
+        local_guard()
         if not isinstance(owner, dict) or owner.get("id") != record["owner"] or owner.get("is_owner") is not True or owner.get("is_active") is not True:
             raise ObservationInvalid("home_owner_not_active")
+        if check_host:
+            await check_host()
+        local_guard()
 
     await guard()
     await ha.ensure_write_compatibility()
@@ -506,10 +527,10 @@ async def compensate_home_lan(ha, store, host_status, check_host=None):
     config = await ha.request("GET", "/config", timeout=OBSERVATION_SECONDS)
     if record["target_adapters"] is not None and network.get("configured_adapters") == record["target_adapters"]:
         await guard()
-        await ha.ws("network/configure", config={"configured_adapters": record["previous_adapters"]}, _receive_timeout=OBSERVATION_SECONDS)
+        await guarded_mutation(ha, "network/configure", guard, config={"configured_adapters": record["previous_adapters"]})
     if record["target_internal_url"] is not None and config.get("internal_url") == record["target_internal_url"]:
         await guard()
-        await ha.ws("config/core/update", internal_url=record["previous_internal_url"], _receive_timeout=OBSERVATION_SECONDS)
+        await guarded_mutation(ha, "config/core/update", guard, internal_url=record["previous_internal_url"])
     await guard()
     store.set_setting("home_lan_configuration_rollback", None)
     await durable(store)
