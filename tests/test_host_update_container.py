@@ -132,7 +132,7 @@ def test_root_container_extract_switch_rollback_and_interrupted_executor(lab, tm
     version = tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]
     from test_host_update import files_for
     files = files_for(lab)
-    for name in ("__init__.py", "manager.py", "artifacts.py", "host_reconcile.py", "appliance_update.py",
+    for name in ("__init__.py", "manager.py", "cow.py", "artifacts.py", "host_reconcile.py", "appliance_update.py",
                  "appliance_network.py", "appliance_power.py"):
         files["host/agentic_host/" + name] = (root / "host/agentic_host" / name).read_bytes()
     files["host/managed-system.json"] = b'{"format":1,"files":[]}'
