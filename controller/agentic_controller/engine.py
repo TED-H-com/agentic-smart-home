@@ -83,8 +83,6 @@ class Engine:
             semantic = digest(intent.model_dump(exclude={"title", "resource_id"}))
             if mode == "upsert" and intent.resource_id is None:
                 for owned in self.store.list("owned", 10000):
-                    if owned.get("intent", {}).get("title") == intent.title:
-                        raise Rejected(f"名稱已存在：{intent.title}")
                     if owned.get("semantic") == semantic and owned.get("status") == "deployed":
                         live = await self.ha.config(owned["id"])
                         if digest(live) == owned["last_hash"]:

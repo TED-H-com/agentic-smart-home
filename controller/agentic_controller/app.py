@@ -630,22 +630,20 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
 
     @app.get("/api/automations")
     async def automations():
+        # These are local authorization facts, independent of HA availability.
         permissions = {p.entity_id for p in engine.policy().entities if p.read}
-        inventory = {e["entity_id"] for e in await ha.inventory()}
-        known = permissions & inventory
-
         result = []
         for owned in store.list("owned"):
             warnings = []
             intent = owned.get("intent")
             if intent:
                 trigger = intent.get("trigger", {}).get("entity_id")
-                if trigger and trigger not in known:
-                    warnings.append(f"觸發設備 {trigger} 已不存在或未授權")
+                if trigger and trigger not in permissions:
+                    warnings.append(f"觸發設備 {trigger} 目前未授權讀取")
                 for action in intent.get("actions", []):
                     target = action.get("entity_id")
-                    if target and target not in known:
-                        warnings.append(f"動作目標 {target} 已不存在或未授權")
+                    if target and target not in permissions:
+                        warnings.append(f"動作設備 {target} 目前未授權讀取")
             if warnings:
                 owned["warnings"] = warnings
             result.append(owned)
