@@ -86,7 +86,9 @@ def host_contract_app(receipt):
     app = web.Application()
     app.router.add_get('/status', status, allow_head=False)
     async def unsupported(request):
-        return web.Response(status=404)
+        # Match the Host broker's JSON error contract so the Controller can
+        # recognize an absent fast route and fall back to the legacy proof.
+        return web.json_response({'detail':'Unknown route'}, status=404)
     app.router.add_route('*', '/{tail:.*}', unsupported)
     return app
 '''
@@ -842,23 +844,45 @@ def test_owned_lifecycle_diagnostics_are_bounded_and_never_export_raw_fields(fai
 
 
 
-async def test_host_capability_fixture_uses_real_unix_http_and_exposes_no_actions(tmp_path):
+async def test_host_capability_fixture_uses_real_unix_http_and_exposes_no_actions(tmp_path, monkeypatch):
+    from agentic_controller import host
     from aiohttp import web
     namespace = {}
     exec(HOST_CONTRACT_FIXTURE, namespace)
     receipt = tmp_path / "receipt.json"
-    server = web.AppRunner(namespace["host_contract_app"](receipt))
+    calls = []
+
+    @web.middleware
+    async def observe(request, handler):
+        calls.append((request.method, request.path))
+        return await handler(request)
+
+    app = namespace["host_contract_app"](receipt)
+    app.middlewares.append(observe)
+    server = web.AppRunner(app)
     socket = tmp_path.parent / "bridge-contract.sock"
+    connector = aiohttp.UnixConnector
+
+    def fixed_connector(*, path):
+        assert path == "/run/agentic-home/host.sock"
+        return connector(path=str(socket))
+
+    monkeypatch.setattr(host.aiohttp, "UnixConnector", fixed_connector)
     await server.setup()
     try:
         await web.UnixSite(server, str(socket)).start()
-        async with aiohttp.ClientSession(connector=aiohttp.UnixConnector(path=str(socket))) as client:
-            async with client.get("http://localhost/status") as response:
-                assert response.status == 200
-                assert await response.json() == {"controller_update": {"ingress_bridge_contract": 1}}
+        # Exercise the production decoder and its absent-fast-route fallback,
+        # not just the legacy endpoint that used to hide an empty-404 mismatch.
+        assert await host.host_bridge_contract(store=NoControllerState()) == {
+            "controller_update": {"ingress_bridge_contract": 1}}
+        assert calls == [("GET", "/bridge-contract"), ("GET", "/status")]
+        async with aiohttp.ClientSession(connector=connector(path=str(socket))) as client:
             for method, path in (("POST", "/actions"), ("POST", "/status"), ("HEAD", "/status"), ("GET", "/unknown")):
                 async with client.request(method, "http://localhost" + path, json={}) as response:
                     assert response.status == 404
+                    assert response.content_type == "application/json"
+                    if method != "HEAD":
+                        assert await response.json() == {"detail": "Unknown route"}
         deadline = time.monotonic() + 10
         while not receipt.exists():
             assert time.monotonic() < deadline, "host_fixture_receipt_missing"
