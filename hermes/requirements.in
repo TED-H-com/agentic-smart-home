@@ -25,7 +25,8 @@ cryptography==50.0.2; python_version >= '3.14'
 tzdata==2025.3; sys_platform == 'win32' and python_version >= '3.14'
 psutil==7.2.2; sys_platform != 'android' and python_version >= '3.14'
 websockets==15.0.1; python_version >= '3.14'
-browser-harness==0.1.13; python_version >= '3.14'
+# Native browser tools are not exposed by this restricted runtime.
+# browser-harness 0.1.13 pins vulnerable Pillow; omit it rather than override its metadata.
 pathspec==1.1.1; python_version >= '3.14'
 fastapi>=0.104.0,<1; python_version >= '3.14'
 uvicorn>=0.31.0,<1; python_version >= '3.14'
@@ -39,7 +40,7 @@ winrt-windows-applicationmodel>=3.2.1,<4; sys_platform == 'win32' and python_ver
 winrt-windows-foundation>=3.2.1,<4; sys_platform == 'win32' and python_version >= '3.14'
 winrt-windows-foundation-collections>=3.2.1,<4; sys_platform == 'win32' and python_version >= '3.14'
 winrt-windows-services-store>=3.2.1,<4; sys_platform == 'win32' and python_version >= '3.14'
-Pillow==12.3.0; python_version >= '3.14'
+Pillow==13.0.0; python_version >= '3.14'
 pillow-heif>=1.4.0,<2; python_version >= '3.14'
 resvg-py==0.4.0; python_version >= '3.14'
 concurrent-log-handler==0.9.29; sys_platform == 'win32' and python_version >= '3.14'

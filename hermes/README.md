@@ -16,9 +16,10 @@ pytest-disktmp uv run pytest -q tests/test_hermes_runtime.py --containers
 ```
 
 Python 3.14 is required by this upstream revision. `requirements.in` records its
-core and MCP dependencies; `requirements.txt` locks all 77 resolved packages and
-hashes. Deliberate security overrides are recorded below and in
-`hermes.lock.json`. The upstream source is unmodified; source extraction omits
+core and MCP dependencies; `requirements.txt` locks all 74 resolved packages and
+hashes. Dependency security decisions are documented below;
+`hermes.lock.json` records the upstream source and earlier explicit overrides.
+The upstream source is unmodified; source extraction omits
 convenience symlinks. This service and its dependencies are separate from the
 Controller and household Runner images.
 
@@ -44,6 +45,30 @@ affected range ends at 2.13.0. An installed-package regression probe verifies
 that 2.15.0 preserves caller options and rejects an expired token after signature
 verification is re-enabled. These checks establish this reviewed lock's behavior;
 they are not a claim that every dependency is free of vulnerabilities.
+
+The 2026-10-23 Pillow update replaces 12.3.0 with 13.0.0 for
+[CVE-2026-112403](https://github.com/python-pillow/Pillow/security/advisories/GHSA-8g5g-8vmr-9782)
+and [CVE-2026-112397](https://github.com/python-pillow/Pillow/security/advisories/GHSA-58r4-6rv3-gfh8).
+The affected dependency was present; this does not establish an exploitable
+image-input path in the restricted product. Pillow 13 requires Python 3.11 or
+later and supports this runtime's Python 3.14.
+
+The restricted image omits upstream's `browser-harness==0.1.13` dependency,
+which [requires exactly Pillow 12.3.0](https://pypi.org/pypi/browser-harness/0.1.13/json).
+Native browser tools are not exposed by this adapter. Normal resolution also
+removes its exclusive `cdp-use==1.4.5` and `fetch-use==0.4.0` dependencies;
+all other 73 package versions remain unchanged. This is a packaging exception,
+not a metadata override or an upstream source change. `pillow-heif==1.8.1`
+remains compatible with the declared Pillow range. The pinned Hermes commit,
+MCP tool allowlist and guarded dispatch remain unchanged.
+
+The installed-image regression checks absent browser dependencies, the JPEG
+scanline geometry guard, empty and ordinary morphology, normal JPEG thumbnails,
+and PNG/HEIF roundtrips. Existing packaged tests cover nonroot startup,
+`pip check`, real upstream imports, the offline MCP/OAuth compatibility probe,
+and rejection of undeclared tools. These synthetic checks do not verify a real
+cloud account, household or previously built release image. A frozen release
+containing the old lock retains its original dependency limitations.
 
 Regenerate the hash lock while retaining compatible existing resolutions:
 
