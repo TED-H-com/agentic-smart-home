@@ -136,6 +136,14 @@ class Store:
     async def durable(self):
         await self._journal.durable()
 
+    def fail_journal(self, error):
+        """Fence writes and outgoing barriers when durability cannot be established.
+
+        A late disk commit cannot restore this Store's authority. Recovery opens
+        a new Store and must interpret any durable operation recovery markers.
+        """
+        self._journal.fail(error)
+
     def setting(self, key, default=None):
         row = self.db.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
         return json.loads(row[0]) if row else default

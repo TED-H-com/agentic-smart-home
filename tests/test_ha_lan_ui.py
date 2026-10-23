@@ -290,3 +290,21 @@ def test_failed_connection_reports_observed_recovery_or_unchanged_network(ui_pag
     if message and message.startswith('建立還原點'):
         page.screenshot(path='evidence/ui/ha-lan/unchanged-network-fixture.png', full_page=True)
     assert not errors
+
+
+@pytest.mark.parametrize('mode', ['wired', 'nat'])
+def test_uncertain_journal_requires_support_not_reauthorization(ui_page, mode):  # noqa: F811
+    page, origin = ui_page
+    state, posts, errors = mount(page, origin)
+    state['value'].update(mode=mode, state='configured' if mode == 'wired' else 'disabled',
+                          selected_interface_id=CHOICE, interface='enp2s0', vm_state='running',
+                          core_configuration_pending=True, ha_lan_ip='192.168.50.20',
+                          home={'state': 'unavailable', 'reason': 'home_lan_journal_recovery_required'})
+    page.clock.run_for(5500)
+    region = page.get_by_role('region', name='家庭區網接入')
+    expect(region.get_by_role('alert')).to_contain_text('家庭網路設定需要核對；請聯絡支援，保留目前設定。')
+    expect(region.get_by_text('需要核對', exact=True)).to_be_visible()
+    expect(region.get_by_text('已連接', exact=True)).to_have_count(0)
+    expect(region.get_by_text('HA 已連上家庭網路：', exact=False)).to_have_count(0)
+    expect(region.get_by_role('button', name='連上家庭網路')).to_be_disabled()
+    assert not posts and not errors

@@ -2,6 +2,7 @@
 import asyncio
 import copy
 import json
+import threading
 
 import pytest
 from agentic_controller import ha_lan
@@ -1539,7 +1540,8 @@ async def test_first_observation_unchanged_poll_does_not_write_baseline(network,
 
 
 @pytest.mark.parametrize('outcome', ['timeout', 'cancel', 'authority', 'barrier'])
-async def test_first_observation_flush_failure_preserves_original_outcome(network, store, monkeypatch, outcome):
+async def test_first_observation_flush_failure_preserves_original_outcome(journal_store, monkeypatch, outcome):
+    store = journal_store
     ha = ConvergingHA()
     original_request, original_durable = ha.request, ha_lan.durable
     waiting, release = asyncio.Event(), asyncio.Event()
@@ -1618,9 +1620,7 @@ async def test_first_observation_cancellation_waits_for_exit_flush(network, stor
         await asyncio.wait_for(waiting.wait(), 5)
         task.cancel()
         await asyncio.wait_for(flushing.wait(), 1)
-        assert flush_tasks[-1] is not task
-        task.cancel()
-        await asyncio.sleep(0)
+        assert flush_tasks[-1] is task
         assert not task.done()
         release.set()
         with pytest.raises(asyncio.CancelledError):
@@ -1637,3 +1637,356 @@ async def test_first_observation_cancellation_waits_for_exit_flush(network, stor
         if not task.done():
             task.cancel()
         await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.fixture
+def journal_store(tmp_path):
+    from agentic_controller.store import Store
+    store = Store(tmp_path / 'journal.sqlite3')
+    store.set_setting('owner', 'owner')
+    store.set_setting('hermes_web_epoch', 'fixture-epoch')
+    yield store
+    if store.failed:
+        with pytest.raises(RuntimeError, match='持久化失敗'):
+            store.close()
+    else:
+        store.close()
+
+
+@pytest.fixture
+def held_lan_writer(monkeypatch):
+    from agentic_controller import store_journal
+    entered, release = threading.Event(), threading.Event()
+    failure = []
+    def hold():
+        entered.set()
+        assert release.wait(10), 'test did not release writer'
+        if failure:
+            raise OSError('fixture disk failure')
+    def arm():
+        monkeypatch.setattr(store_journal, 'before_disk_commit', hold)
+    yield arm, entered, release, failure
+    release.set()
+
+
+@pytest.mark.parametrize('interruption', ['timeout', 'cancel', 'repeated_cancel'])
+@pytest.mark.parametrize('batch', ['summary', 'exit'])
+@pytest.mark.parametrize('disk_error', [False, True])
+async def test_stalled_observation_writer_is_bounded_and_restart_protects_owner(
+        journal_store, held_lan_writer, monkeypatch, caplog, interruption, batch, disk_error):
+    from agentic_controller import store_journal
+    from agentic_controller.store import Store
+    store, ha = journal_store, ConvergingHA()
+    arm, entered, release, failure = held_lan_writer
+    waiting, finishing = asyncio.Event(), asyncio.Event()
+    original_request, original_ws, original_finish = ha.request, ha.ws, ha_lan.finish_journal
+    async def request(method, path, **kwargs):
+        if path == '/network/info':
+            waiting.set()
+            await asyncio.Event().wait()
+        return await original_request(method, path, **kwargs)
+    async def ws(command, **kwargs):
+        if command == 'network' and batch == 'summary':
+            arm()
+        return await original_ws(command, **kwargs)
+    async def finish(*args, **kwargs):
+        finishing.set()
+        return await original_finish(*args, **kwargs)
+    async def check_host():
+        pass
+    ha.request, ha.ws = request, ws
+    monkeypatch.setattr(ha_lan, 'finish_journal', finish)
+    monkeypatch.setattr(ha_lan, 'JOURNAL_FINISH_SECONDS', .05)
+    if interruption == 'timeout':
+        timeout = asyncio.timeout
+        monkeypatch.setattr(asyncio, 'timeout', lambda delay: timeout(.15 if delay == 30 else delay))
+    task = asyncio.create_task(ha_lan.converge_home_lan(ha, store, attempt(), check_host))
+    try:
+        await asyncio.wait_for(waiting.wait(), 2)
+        if batch == 'exit':
+            await store.durable()
+            arm()
+        else:
+            assert await asyncio.to_thread(entered.wait, 2)
+        if interruption != 'timeout':
+            task.cancel()
+        await asyncio.wait_for(finishing.wait(), 2)
+        assert await asyncio.to_thread(entered.wait, 2)
+        if interruption == 'repeated_cancel':
+            task.cancel()
+            task.cancel()
+        # asyncio.wait does not cancel the subject on timeout: a hung finally
+        # would fail this assertion while its actual writer remains stalled.
+        done, _ = await asyncio.wait({task}, timeout=.5)
+        assert done == {task} and not release.is_set()
+        if interruption == 'timeout':
+            assert task.result()['reason'] == 'home_network_observation_unavailable'
+        else:
+            with pytest.raises(asyncio.CancelledError):
+                task.result()
+        assert store.failed and ha.mutations == []
+        assert 'Home LAN journal persistence failed' in caplog.text
+        with pytest.raises(RuntimeError, match='持久化失敗'):
+            store.set_setting('must-not-write', True)
+        with pytest.raises(RuntimeError, match='持久化失敗'):
+            await store.durable()
+        # The owner changes the exact field after we returned. A late commit
+        # must neither revive the failed Store nor turn this into a new baseline.
+        ha.network['configured_adapters'] = ['owner0']
+        if disk_error:
+            failure.append(True)
+        release.set()
+        with pytest.raises(RuntimeError, match='持久化失敗'):
+            await asyncio.to_thread(store.close)
+        assert store.failed
+        monkeypatch.setattr(store_journal, 'before_disk_commit', lambda: None)
+        ha.request, ha.ws = original_request, original_ws
+        fresh = Store(store.path)
+        try:
+            record = fresh.setting('home_lan_configuration_attempt')
+            assert bool(record.get('observations_pending')) == (batch == 'summary' or disk_error)
+            result = await ha_lan.converge_home_lan(ha, fresh, attempt(), check_host)
+            assert result['reason'] == ('home_lan_reauthorization_required' if record.get('observations_pending')
+                                        else 'home_lan_owner_conflict')
+            assert ha.mutations == [] and ha.network['configured_adapters'] == ['owner0']
+            # Storage recovery alone does not renew the interrupted authority;
+            # an explicit new Host attempt can authorize a new observed baseline.
+            result = await ha_lan.converge_home_lan(ha, fresh, {**attempt(), 'attempt_id': 'c' * 64}, check_host)
+            assert result['state'] == 'ready'
+        finally:
+            fresh.close()
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.parametrize('fault', ['conflict', 'cancel', 'lost_reply'])
+@pytest.mark.parametrize('cleanup', ['stall', 'blocked', 'error'])
+async def test_failed_effect_finalization_retains_primary_outcome_and_recovery_fence(
+        journal_store, held_lan_writer, monkeypatch, caplog, fault, cleanup):
+    from agentic_controller import store_journal
+    from agentic_controller.store import Store
+    store, ha = journal_store, ConvergingHA()
+    arm, entered, release, failure = held_lan_writer
+    original_ws, original_finish = ha.ws, ha_lan.finish_journal
+    async def finish(*args, **kwargs):
+        # Persist the conflict first so the held batch is deterministic.
+        await store.durable()
+        arm()
+        if cleanup == 'blocked':
+            store.set_setting('fixture-blocker', True)
+            assert await asyncio.to_thread(entered.wait, 2)
+        if cleanup == 'error':
+            failure.append(True)
+            release.set()
+        return await original_finish(*args, **kwargs)
+    async def ws(command, **kwargs):
+        if command != 'network/configure':
+            return await original_ws(command, **kwargs)
+        # The possible-effect record has already passed its real disk barrier.
+        if fault == 'conflict':
+            # The owner's value is deliberately exactly the planned target.
+            # Stale durable ownership must never allow restoring [] over it.
+            ha.network['configured_adapters'] = ['end1']
+            return await original_ws(command, **kwargs)
+        if fault == 'cancel':
+            ha.network['configured_adapters'] = ['end1']
+            raise asyncio.CancelledError()
+        await original_ws(command, **kwargs)
+        raise HAError('fixture reply lost')
+    async def check_host():
+        pass
+    ha.ws = ws
+    monkeypatch.setattr(ha_lan, 'finish_journal', finish)
+    monkeypatch.setattr(ha_lan, 'JOURNAL_FINISH_SECONDS', .05)
+    task = asyncio.create_task(ha_lan.converge_home_lan(ha, store, attempt(), check_host))
+    try:
+        assert await asyncio.to_thread(entered.wait, 2)
+        done, _ = await asyncio.wait({task}, timeout=.5)
+        assert done == {task}
+        if fault == 'cancel':
+            with pytest.raises(asyncio.CancelledError):
+                task.result()
+        else:
+            assert task.result()['reason'] == ('home_lan_owner_conflict' if fault == 'conflict'
+                                               else 'home_network_observation_unavailable')
+        assert store.failed and 'Home LAN journal persistence failed' in caplog.text
+        assert len(ha.mutations) == (1 if fault == 'lost_reply' else 0)
+        release.set()
+        with pytest.raises(RuntimeError, match='持久化失敗'):
+            await asyncio.to_thread(store.close)
+        monkeypatch.setattr(store_journal, 'before_disk_commit', lambda: None)
+        ha.ws = original_ws
+        monkeypatch.setattr(ha_lan, 'finish_journal', original_finish)
+        fresh = Store(store.path)
+        try:
+            record = fresh.setting('home_lan_configuration_rollback')
+            if cleanup != 'stall':
+                assert record['pending_field'] == 'target_adapters'
+                assert record['target_adapters'] == ['end1']
+                for current in (attempt(), {**attempt(), 'attempt_id': 'c' * 64}):
+                    result = await ha_lan.converge_home_lan(ha, fresh, current, check_host)
+                    assert result['reason'] == 'home_lan_journal_recovery_required'
+                with pytest.raises(ha_lan.ObservationInvalid, match='home_lan_journal_recovery_required'):
+                    await ha_lan.compensate_home_lan(ha, fresh, {'mode': 'nat'}, check_host)
+                assert fresh.setting('home_lan_configuration_rollback') == record
+                fresh.set_setting('owner', 'another-owner')
+                ha.base = 'http://192.168.177.3:80/api'
+                for current in (attempt(), {'mode': 'nat', 'state': 'disabled'}):
+                    observed = await ha_lan.observe_home_lan(ha, fresh, current)
+                    assert observed['reason'] == 'home_lan_journal_recovery_required'
+                assert fresh.setting('home_lan_configuration_rollback') == record
+            else:
+                # A late successful cleanup is safe: its entire transaction
+                # includes either the proven unsent revocation or sent claim.
+                assert bool(record) == (fault == 'lost_reply')
+                if record:
+                    assert not record.get('pending_field')
+                await ha_lan.compensate_home_lan(ha, fresh, {'mode': 'nat'}, check_host)
+            assert ha.network['configured_adapters'] == ([] if fault == 'lost_reply' and cleanup == 'stall' else ['end1'])
+            assert len(ha.mutations) == (2 if fault == 'lost_reply' and cleanup == 'stall' else 1 if fault == 'lost_reply' else 0)
+        finally:
+            fresh.close()
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_stalled_reauthorization_flush_is_bounded(journal_store, held_lan_writer, monkeypatch):
+    store, ha = journal_store, ConvergingHA()
+    arm, entered, release, _ = held_lan_writer
+    async def check_host():
+        pass
+    assert (await ha_lan.converge_home_lan(ha, store, attempt(), check_host))['state'] == 'ready'
+    store.set_setting('hermes_web_epoch', 'logged-out')
+    await store.durable()
+    arm()
+    monkeypatch.setattr(ha_lan, 'JOURNAL_FINISH_SECONDS', .05)
+    task = asyncio.create_task(ha_lan.converge_home_lan(ha, store, attempt(), check_host))
+    try:
+        assert await asyncio.to_thread(entered.wait, 2)
+        done, _ = await asyncio.wait({task}, timeout=.5)
+        assert done == {task} and task.result()['reason'] == 'home_lan_reauthorization_required'
+        assert store.failed
+    finally:
+        release.set()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+async def test_lan_watcher_shutdown_gather_finishes_while_writer_is_stalled(
+        journal_store, held_lan_writer, monkeypatch):
+    from agentic_controller import operations
+    store, ha = journal_store, ConvergingHA()
+    arm, entered, release, _ = held_lan_writer
+    original_ws, original_request = ha.ws, ha.request
+    async def broker(method, path, body=None, *, store):
+        assert method == 'GET' and path == '/network/ha-lan'
+        return {**host_contract(), **attempt()}
+    async def ws(command, **kwargs):
+        if command == 'network':
+            arm()
+        return await original_ws(command, **kwargs)
+    async def request(method, path, **kwargs):
+        if path == '/network/info':
+            await asyncio.Event().wait()
+        return await original_request(method, path, **kwargs)
+    ha.ws, ha.request = ws, request
+    monkeypatch.setattr(operations, 'broker_call', broker)
+    monkeypatch.setattr(ha_lan, 'JOURNAL_FINISH_SECONDS', .05)
+    watcher = asyncio.create_task(operations.maintain_home_lan(ha, store))
+    try:
+        assert await asyncio.to_thread(entered.wait, 2)
+        watcher.cancel()
+        shutdown = asyncio.gather(watcher, return_exceptions=True)
+        done, _ = await asyncio.wait({shutdown}, timeout=.5)
+        assert done == {shutdown} and isinstance(shutdown.result()[0], asyncio.CancelledError)
+        assert store.failed and ha.mutations == [] and not release.is_set()
+    finally:
+        release.set()
+        if not watcher.done():
+            watcher.cancel()
+        await asyncio.gather(watcher, return_exceptions=True)
+
+
+@pytest.mark.parametrize('stage', ['observations', 'effect'])
+@pytest.mark.parametrize('outcome', ['healthy', 'cancel', 'journal_failure'])
+async def test_active_convergence_status_does_not_misreport_durable_pending_recovery(
+        journal_store, stage, outcome):
+    from agentic_controller.store import Store
+    store, ha = journal_store, ConvergingHA()
+    waiting, release, cancelling, cancel_release = (asyncio.Event() for _ in range(4))
+    original_request, original_ws = ha.request, ha.ws
+    async def pause():
+        waiting.set()
+        try:
+            await release.wait()
+        except asyncio.CancelledError:
+            # Keep the exact transport task suspended during cancellation so
+            # concurrent reads must not mistake a cancelling writer for progress.
+            cancelling.set()
+            await cancel_release.wait()
+            raise
+    async def request(method, path, **kwargs):
+        if stage == 'observations' and path == '/network/info':
+            await pause()
+        return await original_request(method, path, **kwargs)
+    async def ws(command, **kwargs):
+        if stage == 'effect' and command == 'network/configure':
+            await pause()
+        return await original_ws(command, **kwargs)
+    async def check_host():
+        pass
+    ha.request, ha.ws = request, ws
+    operation = asyncio.create_task(ha_lan.converge_home_lan(ha, store, attempt(), check_host))
+    expected_recovery = ('home_lan_reauthorization_required' if stage == 'observations'
+                         else 'home_lan_journal_recovery_required')
+    try:
+        await asyncio.wait_for(waiting.wait(), 2)
+        await store.durable()
+        before = list(store.db.execute('SELECT key, value FROM settings'))
+        observed = await ha_lan.observe_home_lan(ha, store, attempt())
+        assert observed['reason'] == 'home_lan_configuration_in_progress'
+        assert list(store.db.execute('SELECT key, value FROM settings')) == before
+        assert ha.mutations == []
+        if stage == 'effect':
+            # The hint cannot bypass any mutation/recovery gate, or disguise
+            # the old operation when Host reports NAT or a different attempt.
+            assert (await ha_lan.converge_home_lan(ha, store, attempt(), check_host))['reason'] == expected_recovery
+            with pytest.raises(ha_lan.ObservationInvalid, match=expected_recovery):
+                await ha_lan.compensate_home_lan(ha, store, {'mode': 'nat'}, check_host)
+            for current in ({**attempt(), 'attempt_id': 'c' * 64}, {'mode': 'nat', 'state': 'disabled'}):
+                assert (await ha_lan.observe_home_lan(ha, store, current))['reason'] == expected_recovery
+            assert (await ha_lan.observe_home_lan(ha, store, attempt()))['reason'] == 'home_lan_configuration_in_progress'
+        # A different Store, even in the same process, has no proof that its
+        # persisted pending marker belongs to a currently running operation.
+        reopened = Store(store.path)
+        try:
+            assert (await ha_lan.observe_home_lan(ha, reopened, attempt()))['reason'] == expected_recovery
+        finally:
+            reopened.close()
+        if outcome == 'healthy':
+            release.set()
+            assert (await operation)['state'] == 'ready'
+            assert (await ha_lan.observe_home_lan(ha, store, attempt()))['state'] == 'ready'
+        else:
+            if outcome == 'journal_failure':
+                store.fail_journal(OSError('fixture journal failure'))
+                assert (await ha_lan.observe_home_lan(ha, store, attempt()))['reason'] == expected_recovery
+            operation.cancel()
+            await asyncio.wait_for(cancelling.wait(), 2)
+            assert (await ha_lan.observe_home_lan(ha, store, attempt()))['reason'] == expected_recovery
+            cancel_release.set()
+            with pytest.raises(asyncio.CancelledError):
+                await operation
+            assert ha.mutations == []
+        assert getattr(store, '_home_lan_operation', None) is None
+    finally:
+        release.set()
+        cancel_release.set()
+        if not operation.done():
+            operation.cancel()
+        await asyncio.gather(operation, return_exceptions=True)
