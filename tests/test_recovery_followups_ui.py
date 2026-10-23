@@ -633,35 +633,3 @@ def test_inventory_save_reply_keeps_newer_unsaved_permission_edits(recovery_brow
     page.get_by_role('button', name='儲存修改', exact=True).click()
     expect(page.get_by_text('設備授權有未儲存的修改', exact=True)).to_have_count(0)
     assert next(item for item in state['writes'][1][1]['entities'] if item['entity_id'] == 'light.demo_living_room')['read'] is False
-
-
-@pytest.mark.parametrize('home_state', ['connected', 'unavailable'])
-def test_automation_authorization_warning_present_and_cleared(recovery_browser, home_state):
-    page, origin, state = recovery_browser
-    state['data']['status']['ha']['status'] = home_state
-    rule = state['data']['automations']['automations'][0]
-    rule['intent']['actions'] = [{'entity_id': 'light.fixture_living_room', 'action': 'turn_on'}]
-    warnings = [f"觸發設備 {rule['intent']['trigger']['entity_id']} 目前未授權讀取",
-                '動作設備 light.fixture_living_room 目前未授權讀取']
-    rule['warnings'] = warnings
-    page.goto(origin + '/#automations')
-    row = page.locator('.automation-row').first
-    expect(row.get_by_role('heading', name=rule['intent']['title'])).to_be_visible()
-    for warning in warnings:
-        expect(row.get_by_text(warning, exact=True)).to_be_visible()
-    expect(row.get_by_role('link', name='設備頁')).to_have_attribute('href', '#inventory')
-    expect(row.get_by_text('此提示不會停用規則。', exact=False)).to_be_visible()
-    expect(row.get_by_role('button', name='預覽停用')).to_be_enabled()
-    shots(page, 'automation-read-authorization-' + home_state)
-    for width in (390, 768, 1440):
-        page.set_viewport_size({'width': width, 'height': 844})
-        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-    del rule['warnings']
-    # Revisiting the page reads current local authorization, even while HA is offline.
-    page.reload()
-    expect(row.get_by_role('heading', name=rule['intent']['title'])).to_be_visible()
-    expect(row.locator('.notice')).to_have_count(0)
-    expect(row.get_by_role('button', name='預覽停用')).to_be_enabled()
-    assert state['reads']['automations'] >= 2
-    assert not state['reads']['inventory']
-    assert not state['writes']

@@ -26,8 +26,6 @@ class Rejected(Exception):
 class Engine:
     def __init__(self, store, ha):
         self.store, self.ha = store, ha
-        # Device actions, automation changes, helper tests and reconciliation
-        # share one writer through send and readback; helper tests span devices.
         self.writer = asyncio.Lock()
 
     def policy(self):
@@ -90,6 +88,8 @@ class Engine:
                                 await commit_guard()
                             return self.store.transition(task, "succeeded", resource_id=owned["id"],
                                 message="相同規則已存在，未建立重複自動化", verification="existing_config_readback")
+                    if owned.get("intent", {}).get("title") == intent.title:
+                        raise Rejected(f"名稱已存在：{intent.title}")
             prior = await self.ha.config(resource_id)
             owned = self.store.get("owned", resource_id)
             prior_intent = owned["intent"] if owned else None

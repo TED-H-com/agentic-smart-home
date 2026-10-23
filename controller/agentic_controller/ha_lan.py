@@ -11,9 +11,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import ipaddress
-import logging
 import re
-import sys
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
@@ -24,7 +22,6 @@ from .ha import HAError
 from .models import digest, utcnow
 
 OBSERVATION_SECONDS = 8
-JOURNAL_FINISH_SECONDS = 5
 MAX_INTERFACES = 64
 MAX_ADDRESSES = 32
 MANAGEMENT_NETWORKS = (ipaddress.ip_network("192.168.177.0/24"), ipaddress.ip_network("172.30.32.0/23"))
@@ -389,28 +386,15 @@ async def converge_home_lan(ha, store, host_status, check_attempt):
     return await _home_lan(ha, store, host_status, check_attempt=check_attempt)
 
 
-async def finish_journal(store, update=None, *, preserve_error=False):
-    """Bound exit persistence without abandoning the Store's effect fence.
-
-    A second cancellation interrupts this wait too. The single writer may still
-    commit its in-flight batch, but fail_journal permanently blocks new writes
-    and barriers. Durable pending markers cover either possible disk outcome.
-    """
-    try:
-        if update:
-            update()
-        async with asyncio.timeout(JOURNAL_FINISH_SECONDS):
-            await durable(store)
-    except (Exception, asyncio.CancelledError) as error:
-        store.fail_journal(error)
-        logging.getLogger(__name__).error("Home LAN journal persistence failed")
-        if not preserve_error or isinstance(error, asyncio.CancelledError):
-            raise
-
-
 async def _home_lan(ha, store, host_status, *, check_attempt=None):
     if not isinstance(host_status, dict):
         return observation("unavailable", "host_contract_invalid")
+    if host_status.get("mode") == "nat" and host_status.get("state") == "disabled":
+        return observation("not_configured", "wired_lan_not_configured")
+    if host_status.get("mode") != "wired":
+        return observation("unavailable", "host_contract_invalid")
+    if host_status.get("state") != "configured":
+        return observation("unavailable", "host_lan_not_configured")
     owner = store.setting("owner")
     epoch = store.setting("hermes_web_epoch")
     connection = tuple(getattr(ha, key, None) for key in ("token", "base", "websocket", "supervisor", "external"))
@@ -418,34 +402,11 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
     attempt_record = store.setting("home_lan_configuration_attempt")
     pending = host_status.get("core_configuration_pending") is True
     same_attempt = bool(attempt_record and attempt_record.get("attempt_id") == host_status.get("attempt_id"))
-    active = getattr(store, "_home_lan_operation", None)
-    # This process-local hint changes only the read-only progress message. It
-    # grants no authority to mutate, compensate, or recover a persisted marker.
-    in_progress = bool(not check_attempt and active and pending and same_attempt
-                       and host_status.get("mode") == "wired" and host_status.get("state") == "configured"
-                       and active[1] == host_status.get("attempt_id")
-                       and not active[0].done() and not active[0].cancelling() and not store.failed
-                       and not attempt_record.get("revoked") and not attempt_record.get("conflicts")
-                       and all(attempt_record.get(key) == value for key, value in authority.items()))
-    rollback = store.setting("home_lan_configuration_rollback") or {}
-    if rollback.get("pending_field"):
-        return observation("unavailable", "home_lan_configuration_in_progress"
-                           if in_progress and rollback.get("attempt_id") == active[1]
-                           else "home_lan_journal_recovery_required")
-    if host_status.get("mode") == "nat" and host_status.get("state") == "disabled":
-        return observation("not_configured", "wired_lan_not_configured")
-    if host_status.get("mode") != "wired":
-        return observation("unavailable", "host_contract_invalid")
-    if host_status.get("state") != "configured":
-        return observation("unavailable", "host_lan_not_configured")
     if pending and same_attempt and (attempt_record.get("revoked") or attempt_record.get("conflicts")
-            or attempt_record.get("observations_pending")
             or any(attempt_record.get(key) != value for key, value in authority.items())):
-        if in_progress:
-            return observation("unavailable", "home_lan_configuration_in_progress")
         if check_attempt:
-            await finish_journal(store, lambda: store.set_setting(
-                "home_lan_configuration_attempt", {**attempt_record, "revoked": True}), preserve_error=True)
+            store.set_setting("home_lan_configuration_attempt", {**attempt_record, "revoked": True})
+            await durable(store)
         return observation("unavailable", "home_lan_reauthorization_required")
     if not owner:
         return observation("needs_home_setup", "home_owner_not_configured")
@@ -498,8 +459,6 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
     async def flush_attempt():
         nonlocal attempt_dirty
         if attempt_dirty:
-            attempt_record.pop("observations_pending", None)
-            store.set_setting("home_lan_configuration_attempt", attempt_record)
             await durable(store)
             attempt_dirty = False
 
@@ -509,11 +468,6 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
             raise ObservationInvalid("home_lan_owner_conflict")
 
     failed = False
-    operation = (asyncio.current_task(), host_status.get("attempt_id")) if check_attempt else None
-    if operation:
-        # Register only after recovery gates pass; a new caller encountering an
-        # old pending marker must never disguise it as current work.
-        store._home_lan_operation = operation
     try:
         guest_mac = mac_address(host_status.get("guest_mac"))
         async with asyncio.timeout(30 if check_attempt else OBSERVATION_SECONDS):
@@ -524,14 +478,6 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
                     await durable(store)
                 await check_attempt()
             await check_owner()
-            if check_attempt and not all(field in attempt_record.get("initial_fields", {})
-                                         for field in ("configured_adapters", "internal_url")):
-                # A restart must not treat a lost successful read as a fresh
-                # owner baseline. Persist this fence before starting the reads.
-                attempt_record["observations_pending"] = True
-                store.set_setting("home_lan_configuration_attempt", attempt_record)
-                await durable(store)
-                attempt_dirty = True
             results = await asyncio.gather(
                 ha.request("GET", "/network/info", supervisor=True, timeout=OBSERVATION_SECONDS),
                 initial_read(ha.ws("network", _receive_timeout=OBSERVATION_SECONDS), "configured_adapters", configured_adapters),
@@ -611,21 +557,14 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
 
                     # Journal one possible effect before send; discard only when
                     # the guard proves no frame was sent. Lost replies stay owned.
-                    possible = {**baseline, target_key: adapters if command == "network/configure" else internal}
-                    save_rollback(store, {**possible, "pending_field": target_key})
+                    save_rollback(store, {**baseline, target_key: adapters if command == "network/configure" else internal})
                     try:
                         await durable(store)
                         await guarded_mutation(ha, command, send_guard, **fields)
                     finally:
-                        # The durable provisional record is never authority to
-                        # restore/adopt a field after an interrupted cleanup.
-                        # Lost replies after the guard still retain ownership.
-                        await finish_journal(
-                            store, lambda record=possible if sending else baseline: save_rollback(store, record),
-                            preserve_error=sys.exception() is not None)
-                        if not store.failed:
-                            # This barrier also persisted any conflict fence.
-                            attempt_dirty = False
+                        if not sending:
+                            save_rollback(store, baseline)
+                            await durable(store)
                     baseline = store.setting("home_lan_configuration_rollback")
                     await check_owner()
                 if adapters is not None or internal is not None:
@@ -653,13 +592,25 @@ async def _home_lan(ha, store, host_status, *, check_attempt=None):
         failed = True
         raise
     finally:
-        if operation and getattr(store, "_home_lan_operation", None) is operation:
-            del store._home_lan_operation
-        if attempt_dirty and not store.failed:
-            def finish_attempt():
-                attempt_record.pop("observations_pending", None)
-                store.set_setting("home_lan_configuration_attempt", attempt_record)
-            await finish_journal(store, finish_attempt, preserve_error=failed)
+        if attempt_dirty:
+            flushing = asyncio.create_task(durable(store))
+            try:
+                # Finish interrupted observations even when the caller was cancelled.
+                await asyncio.shield(flushing)
+            except asyncio.CancelledError:
+                while not flushing.done():
+                    try:
+                        await asyncio.shield(flushing)
+                    except asyncio.CancelledError:
+                        continue
+                    except Exception:
+                        break
+                if not flushing.cancelled():
+                    flushing.exception()
+                raise
+            except Exception:
+                if not failed:
+                    raise
 
 
 def save_rollback(store, record):
@@ -689,8 +640,6 @@ async def compensate_home_lan(ha, store, host_status, check_host=None):
     record = store.setting("home_lan_configuration_rollback")
     if not record:
         return
-    if record.get("pending_field"):
-        raise ObservationInvalid("home_lan_journal_recovery_required")
     connection = tuple(getattr(ha, key, None) for key in ("token", "base", "websocket", "supervisor", "external"))
     epoch = store.setting("hermes_web_epoch")
     if store.setting("owner") != record["owner"] or digest(connection) != record["connection"]:

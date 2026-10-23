@@ -318,15 +318,6 @@ finally:
 '''
 
 
-def outer_scope_observation(container):
-    """Probe the actual outer container; exec failure is not negative DNS evidence."""
-    value = json.loads(docker('exec', container, 'python', '-c',
-        "import socket,json\ntry: socket.getaddrinfo('homeassistant',8123); value=True\nexcept OSError: value=False\nprint(json.dumps({'app_internal_dns_resolved':value}))",
-        timeout=5))
-    assert value['app_internal_dns_resolved'] is False, 'outer_scope_fixture_unexpected'
-    return value
-
-
 def saved_image_identity(path, reference):
     """Docker29 may expose an index as Id; compare exported OCI config bytes."""
     with tarfile.open(path, 'r:') as archive:
@@ -943,14 +934,10 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             identity.write_text(json.dumps({'owner': owner['id'], 'token': credentials['access_token'], 'access_key': access_key}))
             identity.chmod(0o600)
             (tmp_path / 'outer.py').write_text(OUTER)
-            # This outer fixture uses numeric-IP HA/Runner connections. Keep its
-            # negative App-DNS comparison independent of host DNS/search domains.
             docker('run', '-d', '--name', outer, '--network', network, '--ip', '192.168.177.1',
-                '--dns', '127.0.0.1', '--dns-search', '.', '--dns-option', 'timeout:1', '--dns-option', 'attempts:1',
                 '--memory', '768m', '--cpus', '1', '--pids-limit', '128', '--user', f'{os.getuid()}:{os.getgid()}',
                 '-p', '127.0.0.1::8099', '-e', 'PYTHONPATH=/app', '-e', 'AGENTIC_DATA=/lab/outer-data', '-e', 'AGENTIC_HOST_MODE=1',
                 '-v', f'{tmp_path}:/lab', controller_image, 'python', '/lab/outer.py', timeout=600)
-            evidence['outer_scope_preflight'] = outer_scope_observation(outer)
             outer_ports = json.loads(docker('inspect', outer))[0]['NetworkSettings']['Ports']
             origin = 'http://127.0.0.1:' + outer_ports['8099/tcp'][0]['HostPort']
             # The random host port is only a disposable transport forward.
@@ -1073,7 +1060,10 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
             source_lock = json.loads(remote('docker exec ' + app_container + ' cat /opt/agentic-worker/source.json', step='source_lock'))
             assert source_lock['commit'] == job['base_commit'] == startup_boundaries['source_commit']
             evidence['pinned_source'] = source_lock
-            evidence['outer_comparison'] = outer_scope_observation(outer)
+            outer_view = json.loads(docker('exec', outer, 'python', '-c',
+                "import socket,json\ntry: socket.getaddrinfo('homeassistant',8123); value=True\nexcept OSError: value=False\nprint(json.dumps({'app_internal_dns_resolved':value}))"))
+            assert outer_view['app_internal_dns_resolved'] is False, 'outer_scope_fixture_unexpected'
+            evidence['outer_comparison'] = outer_view
             evidence['checks']['additional_app_namespace_view'] = True
             checkpoint = await api('POST', '/api/worker/jobs/' + job['id'] + '/handoff', {})
             assert checkpoint['stop_confirmed'] and checkpoint['live_session'] is False
@@ -1269,52 +1259,6 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
         report.write_text(json.dumps(evidence, indent=2) + '\n')
         progress.unlink(missing_ok=True)
         assert all(cleanup.values()), 'owned_home_worker_resources_not_removed'
-
-
-@pytest.mark.parametrize('resolved', [False, True])
-def test_outer_scope_probe_keeps_real_lookup_and_rejects_positive_dns(monkeypatch, resolved):
-    import socket
-
-    def lookup(host, port):
-        assert (host, port) == ('homeassistant', 8123)
-        if not resolved:
-            raise socket.gaierror(socket.EAI_AGAIN, 'fixture DNS unavailable')
-        return [(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('192.0.2.1', port))]
-
-    def execute(*args, timeout):
-        assert args[:4] == ('exec', 'actual-outer', 'python', '-c')
-        assert len(args) == 5 and timeout == 5
-        output = io.StringIO()
-        with contextlib.redirect_stdout(output):
-            exec(args[4], {})
-        return output.getvalue()
-
-    monkeypatch.setattr(socket, 'getaddrinfo', lookup)
-    monkeypatch.setitem(globals(), 'docker', execute)
-    if resolved:
-        with pytest.raises(AssertionError, match='outer_scope_fixture_unexpected'):
-            outer_scope_observation('actual-outer')
-    else:
-        assert outer_scope_observation('actual-outer') == {'app_internal_dns_resolved': False}
-
-
-@pytest.mark.parametrize('value', [0, None, '', []])
-def test_outer_scope_probe_requires_explicit_false(monkeypatch, value):
-    monkeypatch.setitem(globals(), 'docker', lambda *args, **kwargs: json.dumps({'app_internal_dns_resolved': value}))
-    with pytest.raises(AssertionError, match='outer_scope_fixture_unexpected'):
-        outer_scope_observation('actual-outer')
-
-
-@pytest.mark.parametrize('error', [subprocess.TimeoutExpired('docker', 5),
-                                  AssertionError('fixture_command_failed_docker_1')])
-def test_outer_scope_probe_never_treats_exec_failure_as_dns_absence(monkeypatch, error):
-    def failed(*args, **kwargs):
-        raise error
-
-    monkeypatch.setitem(globals(), 'docker', failed)
-    with pytest.raises(type(error)) as caught:
-        outer_scope_observation('actual-outer')
-    assert caught.value is error
 
 
 def test_safe_job_projection_excludes_prompts_credentials_paths_and_model_claims():

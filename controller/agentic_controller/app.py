@@ -242,35 +242,9 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         try:
             peer = request.client.host if request.client else ""
             if request.url.path == "/health" and peer in {"127.0.0.1", "::1", ingress_ip}:
-                integ = getattr(notifications, "integration", None) if notifications else None
-                integrations = {
-                    "ha": {
-                        "status": "connected" if getattr(ha, "connected", False) else "unavailable",
-                        "last_poll_at": getattr(ha, "last_observed", None),
-                    },
-                    "runner": {
-                        "status": "paired" if store.setting("runner") else "unpaired",
-                        "last_poll_at": None,
-                    },
-                    "notifications": {
-                        "status": integ.state if integ else "disabled",
-                        "last_poll_at": integ.last_seen if integ else None,
-                    },
-                }
-                if gateway:
-                    for ch in ("line", "telegram", "discord"):
-                        state = gateway.states.get(ch, "disabled")
-                        enabled = gateway.config(ch).get("enabled", False)
-                        integrations[ch] = {
-                            "status": state if enabled else "disabled",
-                            "last_poll_at": gateway.channel_last_poll.get(ch) if enabled else None,
-                        }
-                return JSONResponse({
-                    "status": "failed" if store.failed else "ok",
-                    "version": VERSION,
-                    "host_update": host_update_health(),
-                    "integrations": integrations,
-                }, status_code=503 if store.failed else 200)
+                return JSONResponse({"status": "failed" if store.failed else "ok", "version": VERSION,
+                                     "host_update": host_update_health()},
+                                    status_code=503 if store.failed else 200)
             identity = bridge.identity(request) if bridge else None
             if identity:
                 request.state.bridge_identity = identity
@@ -630,20 +604,22 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
 
     @app.get("/api/automations")
     async def automations():
-        # These are local authorization facts, independent of HA availability.
         permissions = {p.entity_id for p in engine.policy().entities if p.read}
+        inventory = {e["entity_id"] for e in await ha.inventory()}
+        known = permissions & inventory
+
         result = []
         for owned in store.list("owned"):
             warnings = []
             intent = owned.get("intent")
             if intent:
                 trigger = intent.get("trigger", {}).get("entity_id")
-                if trigger and trigger not in permissions:
-                    warnings.append(f"觸發設備 {trigger} 目前未授權讀取")
+                if trigger and trigger not in known:
+                    warnings.append(f"觸發設備 {trigger} 已不存在或未授權")
                 for action in intent.get("actions", []):
                     target = action.get("entity_id")
-                    if target and target not in permissions:
-                        warnings.append(f"動作設備 {target} 目前未授權讀取")
+                    if target and target not in known:
+                        warnings.append(f"動作目標 {target} 已不存在或未授權")
             if warnings:
                 owned["warnings"] = warnings
             result.append(owned)

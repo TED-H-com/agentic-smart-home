@@ -81,46 +81,6 @@ pytest-disktmp uv run pytest -q --real-ha --containers
 
 測試範圍、VM 案例與無 wrapper 的等效命令見 [開發說明](docs/DEVELOPMENT.md)。
 
-## Health Endpoint
-
-系統提供 `/health` 端點報告系統及各整合與通訊管道的連線狀態與最後成功觀測/輪詢時間。
-
-`runner.status` 的 `paired` 只表示已有配對設定，未驗證 Runner 即時可達性。通道的一般斷線重試會保留上次成功觀測時間；明確重啟通道（例如更換憑證或對象）會清除時間，直到新連線成功觀測。尚未成功觀測時，`last_poll_at` 為 `null`。
-
-```json
-{
-  "status": "ok",
-  "version": "0.11.1",
-  "host_update": { ... },
-  "integrations": {
-    "ha": {
-      "status": "connected",
-      "last_poll_at": "2026-10-20T08:00:00Z"
-    },
-    "runner": {
-      "status": "paired",
-      "last_poll_at": null
-    },
-    "notifications": {
-      "status": "ready",
-      "last_poll_at": "2026-10-20T08:00:00Z"
-    },
-    "line": {
-      "status": "disabled",
-      "last_poll_at": null
-    },
-    "telegram": {
-      "status": "disabled",
-      "last_poll_at": null
-    },
-    "discord": {
-      "status": "disabled",
-      "last_poll_at": null
-    }
-  }
-}
-```
-
 ## 文件
 
 [安裝](INSTALL.md) · [更新紀錄](CHANGELOG.md) · [首次設定](docs/ONBOARDING.md) · [開發助手](docs/WORKERS.md) · [通訊與登入](docs/GATEWAY.md) · [更新](docs/UPDATES.md) · [救援](docs/OPERATIONS.md) · [Linux 架構](docs/LINUX_PRODUCT.md) · [家庭區網接入](docs/HA_LAN.md) · [驗證紀錄](docs/VERIFICATION.md) · [v3 驗收帳本](docs/v3/PROGRESS.md)

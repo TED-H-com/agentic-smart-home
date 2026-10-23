@@ -229,7 +229,9 @@ async def test_real_core_proposal_deploy_trigger_restart(real_container, core_ve
             await asyncio.sleep(0.1)
         assert after_restart, "Rule did not execute after real Core restart"
         task2 = engine.task("same rule again", "fixture")
-        duplicate = await engine.propose(task2, intent)
+        intent_duplicate = intent.model_copy()
+        intent_duplicate.title = "重新描述同一規則"
+        duplicate = await engine.propose(task2, intent_duplicate)
         assert duplicate["resource_id"] == p["resource_id"] and duplicate["state"] == "succeeded"
         image = IMAGE_REPOSITORY + ":" + core_version
         assert (await ha.request("GET", "/config"))["version"] == core_version

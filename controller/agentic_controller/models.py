@@ -543,6 +543,12 @@ class TimeWindow(Strict):
     after: Annotated[str, Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d$")]
     before: Annotated[str, Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d$")]
 
+    @model_validator(mode="after")
+    def valid_window(self):
+        if self.after == self.before:
+            raise ValueError("時間區段的開始與結束不能相同")
+        return self
+
 
 class DeviceAction(Strict):
     entity_id: EntityId

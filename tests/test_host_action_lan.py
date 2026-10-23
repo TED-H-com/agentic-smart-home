@@ -55,7 +55,7 @@ def test_omitted_interface_means_automatic_selection_and_explicit_null_still_dis
     assert 'interface_id' in disabled.model_fields_set and disabled.interface_id is None
 
 
-@pytest.mark.parametrize('fence', ['epoch', 'field', 'journal_wired', 'journal_nat'])
+@pytest.mark.parametrize('fence', ['epoch', 'field'])
 async def test_lan_get_reports_fenced_attempt_without_mutating(store, tmp_path, monkeypatch, fence):
     from agentic_controller import ha_lan
     from test_ha_lan_controller import ConvergingHA, attempt, host_contract
@@ -70,24 +70,17 @@ async def test_lan_get_reports_fenced_attempt_without_mutating(store, tmp_path, 
         if command == 'network/configure':
             if fence == 'epoch':
                 store.set_setting('hermes_web_epoch', 'logged-out')
-            elif fence == 'field':
+            else:
                 ha.network['configured_adapters'] = ['owner-selection']
         return await original(command, **kwargs)
     ha.ws = change
     async def guard():
         pass
     await ha_lan.converge_home_lan(ha, store, attempt(), guard)
-    if fence.startswith('journal'):
-        record = store.setting('home_lan_configuration_rollback')
-        store.set_setting('home_lan_configuration_rollback', {**record, 'pending_field': 'target_internal_url'})
     ha.mutations.clear()
     async def broker(method, path, **kwargs):
         assert (method, path) == ('GET', '/network/ha-lan')
-        status = {**host_contract(), **attempt()}
-        if fence == 'journal_nat':
-            status.update(mode='nat', state='disabled', attempt_id=None, core_configuration_pending=False,
-                          selected_interface_id=None, interface=None, guest_mac=None)
-        return status
+        return {**host_contract(), **attempt()}
     monkeypatch.setattr('agentic_controller.operations.broker_call', broker)
     app = create_app(store=store, ha=ha, host_mode=True)
     try:
@@ -98,8 +91,7 @@ async def test_lan_get_reports_fenced_attempt_without_mutating(store, tmp_path, 
             response = await client.get('/api/network/ha-lan')
             assert response.status_code == 200
             assert response.json()['home']['state'] == 'unavailable'
-            assert response.json()['home']['reason'] == ('home_lan_journal_recovery_required' if fence.startswith('journal')
-                                                        else 'home_lan_reauthorization_required')
+            assert response.json()['home']['reason'] == 'home_lan_reauthorization_required'
             assert list(store.db.execute('SELECT key, value FROM settings')) == before
             assert ha.mutations == []
     finally:
