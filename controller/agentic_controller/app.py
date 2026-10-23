@@ -604,7 +604,26 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
 
     @app.get("/api/automations")
     async def automations():
-        return {"automations": store.list("owned")}
+        permissions = {p.entity_id for p in engine.policy().entities if p.read}
+        inventory = {e["entity_id"] for e in await ha.inventory()}
+        known = permissions & inventory
+
+        result = []
+        for owned in store.list("owned"):
+            warnings = []
+            intent = owned.get("intent")
+            if intent:
+                trigger = intent.get("trigger", {}).get("entity_id")
+                if trigger and trigger not in known:
+                    warnings.append(f"觸發設備 {trigger} 已不存在或未授權")
+                for action in intent.get("actions", []):
+                    target = action.get("entity_id")
+                    if target and target not in known:
+                        warnings.append(f"動作目標 {target} 已不存在或未授權")
+            if warnings:
+                owned["warnings"] = warnings
+            result.append(owned)
+        return {"automations": result}
 
     @app.post("/api/automations/{id}/propose")
     async def control(id: str, body: ControlInput, request: Request):
