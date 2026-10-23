@@ -26,6 +26,8 @@ class Rejected(Exception):
 class Engine:
     def __init__(self, store, ha):
         self.store, self.ha = store, ha
+        # Device actions, automation changes, helper tests and reconciliation
+        # share one writer through send and readback; helper tests span devices.
         self.writer = asyncio.Lock()
 
     def policy(self):

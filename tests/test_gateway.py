@@ -826,6 +826,112 @@ async def test_telegram_and_discord_connect_errors_stay_distinct(system, store, 
     assert 'discord-secret' not in json.dumps(gateway.public())
 
 
+@pytest.fixture
+async def telegram_health(system, store, monkeypatch):
+    from agentic_controller import gateway as gateway_module
+    from agentic_controller.channels import ChannelError
+    from agentic_controller.models import digest
+
+    app, client, _, _ = system
+    gateway = app.state.gateway
+    polls, retries, resume_retry = asyncio.Queue(), asyncio.Queue(), asyncio.Queue()
+    invalid_tokens = set()
+    clock = {'now': '2026-10-20T08:00:00Z'}
+
+    async def replies(session, method, url, **kwargs):
+        if any('/bot' + token + '/' in url for token in invalid_tokens):
+            raise ChannelError('fixture invalid token', status=401)
+        operation = url.rsplit('/', 1)[-1]
+        if operation == 'getMe':
+            return {'ok': True, 'result': {'id': 1, 'is_bot': True}}
+        if operation == 'getWebhookInfo':
+            return {'ok': True, 'result': {'url': ''}}
+        assert operation == 'getUpdates'
+        reply = asyncio.get_running_loop().create_future()
+        polls.put_nowait(reply)
+        return await reply
+
+    async def retry_sleep(delay):
+        retries.put_nowait(delay)
+        await resume_retry.get()
+
+    async def restart(*, cursor=False, secret='12345:fixture'):
+        store.set_setting('channel_telegram', ChannelConfig(
+            enabled=True, secret=secret, chats=['1'], senders=['2']).model_dump())
+        if cursor:
+            store.set_setting('telegram_cursor_' + digest(secret), 100)
+        await gateway.restart('telegram')
+
+    async def next_poll():
+        return await asyncio.wait_for(polls.get(), 1)
+
+    async def failed():
+        await asyncio.wait_for(retries.get(), 1)
+
+    async def health():
+        response = await client.get('/health')
+        assert response.status_code == 200
+        return response.json()['integrations']['telegram']
+
+    monkeypatch.setattr('agentic_controller.channels.json_request', replies)
+    monkeypatch.setattr(gateway_module, 'utcnow', lambda: clock['now'])
+    monkeypatch.setattr(gateway_module, 'asyncio', SimpleNamespace(**{**vars(asyncio), 'sleep': retry_sleep}))
+    return SimpleNamespace(restart=restart, next_poll=next_poll, failed=failed, health=health,
+                           resume_retry=resume_retry, invalid_tokens=invalid_tokens, clock=clock)
+
+
+@pytest.mark.parametrize('cursor', [False, True])
+async def test_health_telegram_failed_first_poll_has_no_success_time(telegram_health, cursor):
+    from agentic_controller.channels import ChannelError
+
+    channel = telegram_health
+    await channel.restart(cursor=cursor)
+    poll = await channel.next_poll()
+    assert await channel.health() == {'status': 'connecting', 'last_poll_at': None}
+    poll.set_exception(ChannelError('fixture other poller', status=409))
+    await channel.failed()
+    assert await channel.health() == {'status': 'webhook_conflict', 'last_poll_at': None}
+
+
+@pytest.mark.parametrize('cursor', [False, True])
+async def test_health_telegram_empty_poll_and_reconnect_observations(telegram_health, cursor):
+    from agentic_controller.channels import ChannelError
+
+    channel = telegram_health
+    await channel.restart(cursor=cursor)
+    poll = await channel.next_poll()
+    poll.set_result({'ok': True, 'result': []})
+    poll = await channel.next_poll()
+    first = channel.clock['now']
+    assert await channel.health() == {'status': 'connected', 'last_poll_at': first}
+
+    channel.clock['now'] = '2026-10-20T08:05:00Z'
+    poll.set_exception(ChannelError('fixture other poller', status=409))
+    await channel.failed()
+    assert await channel.health() == {'status': 'webhook_conflict', 'last_poll_at': first}
+    channel.resume_retry.put_nowait(None)
+    poll = await channel.next_poll()
+    assert await channel.health() == {'status': 'webhook_conflict', 'last_poll_at': first}
+
+    poll.set_result({'ok': True, 'result': []})
+    await channel.next_poll()
+    assert await channel.health() == {'status': 'connected', 'last_poll_at': channel.clock['now']}
+
+
+async def test_health_telegram_replacement_cannot_inherit_old_account_observation(telegram_health):
+    channel = telegram_health
+    await channel.restart(cursor=True)
+    poll = await channel.next_poll()
+    poll.set_result({'ok': True, 'result': []})
+    await channel.next_poll()
+    assert (await channel.health())['last_poll_at'] == channel.clock['now']
+
+    channel.invalid_tokens.add('67890:fixture-invalid')
+    await channel.restart(secret='67890:fixture-invalid')
+    await channel.failed()
+    assert await channel.health() == {'status': 'invalid_token', 'last_poll_at': None}
+
+
 async def test_concurrent_submits_share_one_thread_and_one_execution(system):
     app, _, _, _ = system
     gateway = app.state.gateway
