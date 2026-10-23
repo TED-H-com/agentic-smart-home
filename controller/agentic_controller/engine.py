@@ -26,10 +26,9 @@ class Rejected(Exception):
 class Engine:
     def __init__(self, store, ha):
         self.store, self.ha = store, ha
+        # Device actions, automation changes, helper tests and reconciliation
+        # share one writer through send and readback; helper tests span devices.
         self.writer = asyncio.Lock()
-        self.device_locks = {}
-        self.device_sequences = {}
-        self.device_last_executed = {}
 
     def policy(self):
         return Policy.model_validate(self.store.setting("policy", {"entities": []}))
@@ -129,10 +128,6 @@ class Engine:
                          "停用規則" if final.get("initial_state") is False else "啟用規則", "觀測真實觸發"]),
                     "verification_plan": "觀測來源狀態轉換、規則 context 與目標狀態；不以 API 成功代替觸發",
                     "rollback_condition": "live config 必須仍等於本產品最後寫入的 hash"}
-        if action:
-            self.device_sequences[action.entity_id] = self.device_sequences.get(action.entity_id, 0) + 1
-            proposal["sequence"] = self.device_sequences[action.entity_id]
-
         proposal["digest"] = digest(proposal)
         if commit_guard:
             await commit_guard()
@@ -186,27 +181,11 @@ class Engine:
 
     async def deploy(self, proposal, principal):
         mutated = False
-
-        lock = self.writer
-        if proposal.get("action"):
-            entity_id = proposal["action"]["entity_id"]
-            if entity_id not in self.device_locks:
-                self.device_locks[entity_id] = asyncio.Lock()
-            lock = self.device_locks[entity_id]
-
-        async with lock:
+        async with self.writer:
             task = self.store.get("task", proposal["task_id"])
             try:
-                if proposal.get("action"):
-                    entity_id = proposal["action"]["entity_id"]
-                    seq = proposal.get("sequence", 0)
-                    if seq < self.device_last_executed.get(entity_id, 0):
-                        self.store.transition(task, "superseded", message="被較新的指令覆蓋，不執行")
-                        return
-                    self.device_last_executed[entity_id] = seq
-
                 await self.fresh(proposal, principal)
-                if proposal.get("action"):
+                if proposal["action"]:
                     action = proposal["action"]
                     self.journal(proposal, "service_prepared")
                     mutated = True
