@@ -1696,9 +1696,9 @@ async def test_stalled_observation_writer_is_bounded_and_restart_protects_owner(
         pass
     ha.request, ha.ws = request, ws
     monkeypatch.setattr(ha_lan, 'finish_journal', finish)
+    finish_seconds, timeout = ha_lan.JOURNAL_FINISH_SECONDS, asyncio.timeout
     monkeypatch.setattr(ha_lan, 'JOURNAL_FINISH_SECONDS', .05)
     if interruption == 'timeout':
-        timeout = asyncio.timeout
         monkeypatch.setattr(asyncio, 'timeout', lambda delay: timeout(.15 if delay == 30 else delay))
     task = asyncio.create_task(ha_lan.converge_home_lan(ha, store, attempt(), check_host))
     try:
@@ -1739,6 +1739,10 @@ async def test_stalled_observation_writer_is_bounded_and_restart_protects_owner(
         with pytest.raises(RuntimeError, match='持久化失敗'):
             await asyncio.to_thread(store.close)
         assert store.failed
+        # Accelerated deadlines belong to the stalled operation, not healthy
+        # recovery with a fresh Store and real disk persistence barriers.
+        monkeypatch.setattr(asyncio, 'timeout', timeout)
+        monkeypatch.setattr(ha_lan, 'JOURNAL_FINISH_SECONDS', finish_seconds)
         monkeypatch.setattr(store_journal, 'before_disk_commit', lambda: None)
         ha.request, ha.ws = original_request, original_ws
         fresh = Store(store.path)
