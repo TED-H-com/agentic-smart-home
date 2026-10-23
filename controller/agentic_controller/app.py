@@ -242,9 +242,34 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         try:
             peer = request.client.host if request.client else ""
             if request.url.path == "/health" and peer in {"127.0.0.1", "::1", ingress_ip}:
-                return JSONResponse({"status": "failed" if store.failed else "ok", "version": VERSION,
-                                     "host_update": host_update_health()},
-                                    status_code=503 if store.failed else 200)
+                integrations = {
+                    "ha": {
+                        "status": "connected" if getattr(ha, "connected", False) else "unavailable",
+                        "last_poll_at": getattr(ha, "last_observed", None),
+                    },
+                    "runner": {
+                        "status": "connected" if store.setting("runner") else "unpaired",
+                        "last_poll_at": None,
+                    },
+                    "notifications": {
+                        "status": getattr(notifications, "integration", None).state if notifications and getattr(notifications, "integration", None) else "disabled",
+                        "last_poll_at": getattr(notifications, "integration", None).last_seen if notifications and getattr(notifications, "integration", None) else None,
+                    },
+                }
+                if gateway:
+                    for ch in ("line", "telegram", "discord"):
+                        state = gateway.states.get(ch, "disabled")
+                        enabled = gateway.config(ch).get("enabled", False)
+                        integrations[ch] = {
+                            "status": state if enabled else "disabled",
+                            "last_poll_at": gateway.rates.get((ch, "last_poll_at")),
+                        }
+                return JSONResponse({
+                    "status": "failed" if store.failed else "ok",
+                    "version": VERSION,
+                    "host_update": host_update_health(),
+                    "integrations": integrations,
+                }, status_code=503 if store.failed else 200)
             identity = bridge.identity(request) if bridge else None
             if identity:
                 request.state.bridge_identity = identity

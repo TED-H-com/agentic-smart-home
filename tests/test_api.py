@@ -103,3 +103,18 @@ async def test_onboarding_does_not_count_excluded_entities_as_shared(store, ha):
         result = (await client.get('/api/status')).json()
         assert result['policy_entities'] == 2
         assert result['policy_readable'] == 1
+
+
+async def test_health_endpoint_integrations(store, ha):
+    async with await client_for(store, ha, ip="127.0.0.1") as client:
+        response = await client.get("/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert "integrations" in data
+        integrations = data["integrations"]
+        assert "ha" in integrations
+        assert "runner" in integrations
+        assert "notifications" in integrations
+        assert integrations["ha"]["status"] in {"connected", "unavailable"}
+        assert "last_poll_at" in integrations["ha"]
