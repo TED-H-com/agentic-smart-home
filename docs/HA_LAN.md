@@ -45,6 +45,8 @@ Controller 的 `home_lan_configuration_attempt` 設定獨立保存目前 Host `a
 
 收斂本體維持 30 秒期限；最後摘要或單欄位效果日誌的等待上限為五秒，已處理取消後最多再給這段時間，重複取消立即中止等待。早期撤銷操作的落盤也使用同一上限。不建立背景 flush task，不吞掉重複取消；最後日誌錯誤不覆蓋原本的 `home_lan_owner_conflict`、其他觀測失敗或既有取消，另以固定訊息 `Home LAN journal persistence failed` 記錄（不記原始例外／家庭設定）。新的取消仍優先傳遞。落盤錯誤、逾時或等待遭再次取消，會永久 fence 當前 Store：健康檢查失敗、所有新寫入與出站效果的 durable barrier 失敗。磁碟稍後恢復甚至完成原批次，也不自動恢復該 Store 的寫入權限。這個界限適用收斂與 watcher 取消等待；不宣稱同步 `Store.close()` 或作業系統磁碟 I/O 已可限時結束。
 
+正常收斂期間，唯讀狀態查詢只在同一 Store 的確切 task／attempt 仍執行、尚未取消、授權未變且 journal 正常時，將該次 pending 標記呈現為 `home_lan_configuration_in_progress`，沿用一般核對中的畫面，不要求重新授權或聯絡支援。此 process-local 提示在操作退出時清除，不寫進資料庫，也不影響任何收斂／補償寫入圍欄；不同 attempt、已取消或失敗的 task 及重啟後讀到的 pending 仍按下列復原規則處理。
+
 首次或缺少欄位的觀測之前，先將 `observations_pending=true` 落盤；成功摘要、衝突／撤銷圍欄及清除 pending 依同一 writer 的順序提交。最後清除所在的批次若稍後成功，前面的摘要也已保存；若前面的 I/O 失敗或清除仍在佇列而被 fail-stop 丟棄，磁碟上仍留下 pending。儲存問題排除、舊程序確實停止後，用同一資料庫重新啟動 Controller；同一 attempt 若仍有 pending，只能重新按「連上家庭網路」取得新的 Host attempt，不能只恢復磁碟或登入就重取基準。若晚到的完整提交已保存摘要並清除 pending，原 attempt 仍依原摘要比較 Owner 編輯。
 
 每次可能的 Core 效果先持久保存回復紀錄的 `pending_field`（`target_adapters` 或 `target_internal_url`）。送出 guard 已通過的效果即使回應遺失，仍在最後提交保留產品目標並清除 pending；確定未送出的效果則在同一步提交撤回該欄位的所有權。若最後提交失敗或遭丟棄，重新啟動後仍有 `pending_field` 就回報 `home_lan_journal_recovery_required`，保留完整回復紀錄，停止自動收斂、接續所有權及 NAT 補償；即使現值恰等於計畫目標，也不能證明是產品寫入。新的 Host attempt、Owner 或家庭連線不會略過這份未明紀錄。畫面顯示「家庭網路設定需要核對；請聯絡支援，保留目前設定。」並停用重新接入。此情況目前沒有自動解除或一般重試入口：支援須保留 journal，核對原 attempt、已送出證據、HA 目前設定及 Owner 的修改，再另行提出並取得明確授權的修復；不得靠刪 journal、恢復舊資料庫或僅比較目標值解除圍欄。這項保守限制避免把 Owner 恰好選定的目標值當作產品效果，也不把可能已送出的效果默默丟棄。
