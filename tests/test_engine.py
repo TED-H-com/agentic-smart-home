@@ -1,5 +1,4 @@
 import asyncio
-from agentic_controller.models import DeviceAction
 import time
 
 import pytest
@@ -7,6 +6,7 @@ from agentic_controller.engine import Rejected
 from agentic_controller.ha import HAError
 from agentic_controller.models import (
     AutomationIntent,
+    DeviceAction,
     EntityPermission,
     compile_automation,
     digest,
