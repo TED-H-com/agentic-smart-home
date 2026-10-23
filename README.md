@@ -83,7 +83,7 @@ pytest-disktmp uv run pytest -q --real-ha --containers
 
 ## Health Endpoint
 
-系统提供 `/health` 端點報告系統及各整合與通訊管道的連線狀態與最後成功觀測/輪詢時間。
+系統提供 `/health` 端點報告系統及各整合與通訊管道的連線狀態與最後成功觀測/輪詢時間。
 
 ```json
 {
@@ -96,7 +96,7 @@ pytest-disktmp uv run pytest -q --real-ha --containers
       "last_poll_at": "2026-10-20T08:00:00Z"
     },
     "runner": {
-      "status": "connected",
+      "status": "paired",
       "last_poll_at": null
     },
     "notifications": {

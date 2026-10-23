@@ -242,18 +242,19 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
         try:
             peer = request.client.host if request.client else ""
             if request.url.path == "/health" and peer in {"127.0.0.1", "::1", ingress_ip}:
+                integ = getattr(notifications, "integration", None) if notifications else None
                 integrations = {
                     "ha": {
                         "status": "connected" if getattr(ha, "connected", False) else "unavailable",
                         "last_poll_at": getattr(ha, "last_observed", None),
                     },
                     "runner": {
-                        "status": "connected" if store.setting("runner") else "unpaired",
+                        "status": "paired" if store.setting("runner") else "unpaired",
                         "last_poll_at": None,
                     },
                     "notifications": {
-                        "status": getattr(notifications, "integration", None).state if notifications and getattr(notifications, "integration", None) else "disabled",
-                        "last_poll_at": getattr(notifications, "integration", None).last_seen if notifications and getattr(notifications, "integration", None) else None,
+                        "status": integ.state if integ else "disabled",
+                        "last_poll_at": integ.last_seen if integ else None,
                     },
                 }
                 if gateway:
@@ -262,7 +263,7 @@ def create_app(*, store=None, ha=None, runner=None, ingress_ip="172.30.32.2", st
                         enabled = gateway.config(ch).get("enabled", False)
                         integrations[ch] = {
                             "status": state if enabled else "disabled",
-                            "last_poll_at": gateway.rates.get((ch, "last_poll_at")),
+                            "last_poll_at": gateway.channel_last_poll.get(ch) if enabled else None,
                         }
                 return JSONResponse({
                     "status": "failed" if store.failed else "ok",

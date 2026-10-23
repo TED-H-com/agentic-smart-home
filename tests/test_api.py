@@ -106,15 +106,34 @@ async def test_onboarding_does_not_count_excluded_entities_as_shared(store, ha):
 
 
 async def test_health_endpoint_integrations(store, ha):
+    # Test 1: Initial state (ha disconnected, runner unpaired, notifications disabled)
+    ha.connected = False
+    ha.last_observed = None
     async with await client_for(store, ha, ip="127.0.0.1") as client:
-        response = await client.get("/health")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "ok"
-        assert "integrations" in data
-        integrations = data["integrations"]
-        assert "ha" in integrations
-        assert "runner" in integrations
-        assert "notifications" in integrations
-        assert integrations["ha"]["status"] in {"connected", "unavailable"}
-        assert "last_poll_at" in integrations["ha"]
+        res1 = (await client.get("/health")).json()
+        assert res1["integrations"]["ha"] == {"status": "unavailable", "last_poll_at": None}
+        assert res1["integrations"]["runner"] == {"status": "unpaired", "last_poll_at": None}
+        assert res1["integrations"]["notifications"] == {"status": "disabled", "last_poll_at": None}
+
+    # Test 2: Active state with host_mode=True to test gateway channel status
+    ha.connected = True
+    ha.last_observed = "2026-10-20T08:00:00Z"
+    store.set_setting("runner", {"host": "test-runner", "fingerprint": "a" * 64, "token": "tok"})
+
+    app = create_app(store=store, ha=ha, host_mode=True)
+    if app.state.notifications:
+        app.state.notifications.integration.state = "ready"
+        app.state.notifications.integration.last_seen = "2026-10-20T08:05:00Z"
+    if app.state.gateway:
+        app.state.gateway.states["line"] = "connected"
+        app.state.gateway.channel_last_poll["line"] = "2026-10-20T08:06:00Z"
+        store.set_setting("channel_line", {"enabled": True, "chats": ["c1"], "secret": "s"})
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=("127.0.0.1", 1234)), base_url="http://localhost:8099") as client:
+        res2 = (await client.get("/health")).json()
+        assert res2["integrations"]["ha"] == {"status": "connected", "last_poll_at": "2026-10-20T08:00:00Z"}
+        assert res2["integrations"]["runner"] == {"status": "paired", "last_poll_at": None}
+        assert res2["integrations"]["notifications"] == {"status": "ready", "last_poll_at": "2026-10-20T08:05:00Z"}
+        assert res2["integrations"]["line"] == {"status": "connected", "last_poll_at": "2026-10-20T08:06:00Z"}
+        assert res2["integrations"]["telegram"] == {"status": "disabled", "last_poll_at": None}
+        assert res2["integrations"]["discord"] == {"status": "disabled", "last_poll_at": None}

@@ -229,6 +229,7 @@ class TelegramTransport:
                     "offset": offset, "timeout": 25, "allowed_updates": ["message"], "limit": 50})
                 if not result.get("ok"):
                     raise telegram_failure(result.get("error_code"), str(result.get("description") or "")[:180])
+                state("connected")
                 for update in result.get("result", []):
                     message = update.get("message", {})
                     sender = message.get("from", {})
@@ -278,7 +279,7 @@ class DiscordTransport:
                                 await receive(message["id"], chat, str(author.get("id", "")), message.get("content", ""))
                             cursors[chat] = message["id"]
                     self.store.set_setting(key, cursors)
-                state("connected")
+                    state("connected")
                 await asyncio.sleep(3)
 
     async def send(self, chat, text, *, guard=None):

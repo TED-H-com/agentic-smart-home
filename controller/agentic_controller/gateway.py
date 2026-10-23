@@ -84,6 +84,7 @@ class Gateway:
         self.line_config_lock = asyncio.Lock()
         self.plan_home, self.running = plan_home, running
         self.workers, self.states, self.transports, self.rates = {}, {}, {}, {}
+        self.channel_last_poll = {}
         self.line_login = None
         self.line_task = None
         self._reconcile_task = None
@@ -482,6 +483,8 @@ class Gateway:
                 self.states[name] = value
                 self.reasons.pop(name, None)
                 self.channel_messages.pop(name, None)
+                if value == "connected":
+                    self.channel_last_poll[name] = utcnow()
             async def receive(id, chat, sender, text, adapter=adapter):
                 nonlocal config
                 pairing = self.consume_pairing(name, id, chat, sender, text, config)
