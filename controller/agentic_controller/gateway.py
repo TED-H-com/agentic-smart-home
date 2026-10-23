@@ -84,6 +84,7 @@ class Gateway:
         self.line_config_lock = asyncio.Lock()
         self.plan_home, self.running = plan_home, running
         self.workers, self.states, self.transports, self.rates = {}, {}, {}, {}
+        self.channel_last_poll = {}
         self.line_login = None
         self.line_task = None
         self._reconcile_task = None
@@ -465,6 +466,9 @@ class Gateway:
             previous.cancel()
             await asyncio.gather(previous, return_exceptions=True)
         self.transports.pop(name, None)
+        # Explicit restarts can replace credentials or the channel audience.
+        # Ordinary retries within watch() retain the last successful observation.
+        self.channel_last_poll.pop(name, None)
         config = self.config(name)
         listen = config["enabled"] or self.pairing(name)["state"] == "pending"
         self.states[name] = "connecting" if listen else "disabled"
@@ -482,6 +486,8 @@ class Gateway:
                 self.states[name] = value
                 self.reasons.pop(name, None)
                 self.channel_messages.pop(name, None)
+                if value == "connected":
+                    self.channel_last_poll[name] = utcnow()
             async def receive(id, chat, sender, text, adapter=adapter):
                 nonlocal config
                 pairing = self.consume_pairing(name, id, chat, sender, text, config)
