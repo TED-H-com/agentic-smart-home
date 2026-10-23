@@ -1,0 +1,37 @@
+{
+  "input_sha256": "e57f32befe1f84eb513ac96aee2380147b95ba2794dc137c7690ce6cbf3f1cc1",
+  "verified_boolean_maps": {
+    "checks": {
+      "app_restart_preserves_options_and_outer_case": true,
+      "direct_app_forged_header_denied": true,
+      "host_management_and_cross_origin_denied": true,
+      "ingress_native_identity_overrides_forged_header": true,
+      "manual_stop_remains_stopped": true,
+      "same_outer_case_and_deduplicated_conversation": true,
+      "service_heartbeat_without_owner_capability": true,
+      "supervisor_app_contract": true,
+      "wrong_tls_pin_denied_and_recovered": true
+    },
+    "cleanup_steps": {
+      "disk_fixture_ownership_restored": true,
+      "ha_client_closed": true,
+      "network_removed": true,
+      "outer_removed": true,
+      "ownership_helper_removed": true,
+      "vm_removed": true
+    }
+  },
+  "verified_fields": {
+    "cleanup": true,
+    "cleanup_status": "passed",
+    "delivery": "local_source_fixture",
+    "kind": "real_haos_sidebar_bridge",
+    "native_browser.no_api_or_header_mocking": true,
+    "native_browser.status": "passed",
+    "outer_dependency_image": "sha256:cb0738f6c36ae09df8d1be2c54c2f22a63a51a45083a099c53e4d7fb5dcd4afa",
+    "outer_source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+    "outer_source_uncommitted": false,
+    "product_status": "passed",
+    "status": "passed"
+  }
+}

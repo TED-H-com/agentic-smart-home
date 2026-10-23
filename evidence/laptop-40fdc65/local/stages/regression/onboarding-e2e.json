@@ -1,0 +1,13 @@
+{
+  "input_sha256": "d4dda29b62c1500cac44c2d12453bfc1ed86ea511652562e851fbb48594fa26d",
+  "verified_boolean_maps": {},
+  "verified_fields": {
+    "excluded_cli_probes.grok": "not_run: owner instruction",
+    "kind": "composed_onboarding_e2e",
+    "mcp_case_run_message_verified": true,
+    "result": "passed",
+    "runtime_images.controller.image_id": "sha256:cb0738f6c36ae09df8d1be2c54c2f22a63a51a45083a099c53e4d7fb5dcd4afa",
+    "runtime_images.hermes.image_id": "sha256:63ec20ed3483f5ea9417e3e8851a02f664b69b6b03a5d730be4a098b207c4b1f",
+    "runtime_images.runner.image_id": "sha256:c7b456c6b246d02e07db689dc03a06d37201a6d0413eba3207ede75a5014937c"
+  }
+}

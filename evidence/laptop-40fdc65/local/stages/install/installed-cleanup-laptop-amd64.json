@@ -1,0 +1,10 @@
+{
+  "input_sha256": "08d356fbf912fdd96dd947be5d17809638ec5aaa43f8e6e130859196b6d15d82",
+  "verified_boolean_maps": {},
+  "verified_fields": {
+    "status": "passed",
+    "steps.remove_images.status": "passed",
+    "steps.vm_absent.exit_code": 0,
+    "steps.vm_absent.status": "passed"
+  }
+}

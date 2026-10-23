@@ -1,0 +1,13 @@
+{
+  "input_sha256": "e7abe5e6a7c82f731da9ebdca6c29583b334e74c0e6b7d37417d4372a953b523",
+  "verified_boolean_maps": {},
+  "verified_fields": {
+    "cleanup": "passed",
+    "independent_verifier": "passed",
+    "installed_source": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+    "job.stop_confirmed": true,
+    "source_unchanged": true,
+    "status": "passed",
+    "stopped_workspaces_reclaimed": true
+  }
+}

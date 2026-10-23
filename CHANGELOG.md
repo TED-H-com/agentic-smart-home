@@ -21,9 +21,9 @@
 - 將 #122 專用主機電源／網路政策（G15／G16）透過 #123 的正式 Host bootstrap 與受批准 Host bundle 更新路徑交付；既有 0.11.0 家庭使用一次經獨立身份驗證的圖形 bootstrap 與 AH-UPDATE USB，不重跑 installer。
 - 沿用 Ted 於 2026-10-19 核准的官方公鑰 pin；私鑰僅留在外部發行端。候選尚未簽署或發布，尚無本版媒體／遷移或實體家庭驗收，結果另見 [驗證紀錄](docs/VERIFICATION.md)。
 
-## 0.11.0 候選
+## 0.11.0 工程預覽
 
-本輪整合筆電試裝前的 issue／PR 候補修正，待同版媒體、公開 App 與驗證完成後交付；實際狀態見 [驗證紀錄](docs/VERIFICATION.md)。
+原版媒體已在 [v0.11.0](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.11.0) 發布為 prerelease；完整八階段 010 單輪通過，共 3,877 passed、8 skipped、0 failed／error。公開 App 010-001 亦單輪通過：enable 42、bridge-haos 40，共 82 passed、0 skipped／failed／error，清理與測試 overlay 還原完成。原始媒體及新增 verification ZIP 已各自通過 Linux 匿名下載、校驗與暫存清理。H6 CI 的 3,562 passed／12 skipped 與第 4–8 階段的 268 passed 診斷另列，不合併計數。分項來源與限制見 [驗證紀錄](docs/VERIFICATION.md) 及 [交付摘要](evidence/laptop-40fdc65/summary.json)。
 
 - HA 原生文字通知：從自動化呼叫已授權的收件人別名，沿用既有 LINE／Telegram／Discord 連線；提供原生狀態實體與可下載整合，不需把通訊憑證放進 HA。
 - 補齊首次設定、裝置碼登入與狀態頁在重開或短暫失聯後的自動恢復；保留明確的重新配對救援入口。

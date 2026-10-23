@@ -78,11 +78,41 @@ Supervisor 備份回應仍為 fixture，HAOS／Supervisor 真備份與家庭端�
 
 既有 stateless cookie 升級後須重新登入；成功登出才保證重啟後仍已撤銷。磁碟寫入失敗的登出回傳錯誤，安全降版限制見 session 文件。對話探索只讀取 HA 候選，不發送 LAN 掃描；帳號登入、配對與設備控制授權尚未合併成全程聊天操作。0.11.0 的下載分片與完整媒體驗收另由 [#118](https://github.com/TED-H-com/agentic-smart-home/issues/118) 追蹤。
 
-## 0.11.0 筆電候選
+## 0.11.0 筆電工程預覽
 
-候選整合 HA 原生文字通知與 issue／PR 中的恢復、商店重試、Host 證明及診斷缺口。目前仍在實作與驗證，尚未完成新的 ISO／公開 App／匿名下載驗收。下方 0.10.0 與通知 adapter 的既有證據不代替本版完整驗收；新候選的來源、媒體雜湊與各階段結果會另外記錄。
+[v0.11.0](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.11.0) 已公開為 prerelease，整合 HA 原生文字通知、恢復、商店重試、Host 證明及診斷修正。2026-10-23 完成單輪本機八階段、單輪公開 App 工程驗收，以及原始媒體和新增 verification ZIP 各自的 Linux 匿名下載驗證。精確來源、分項結果與限制見[交付摘要](../evidence/laptop-40fdc65/summary.json)及 [#118 追蹤紀錄](https://github.com/TED-H-com/agentic-smart-home/issues/118)。
 
-實體筆電、真模型／通訊帳號、單一燈具、兩次連續真工作及 72 小時運作保留為 `not_run`。本輪不執行 Grok CLI；不變更已發布 0.10.0 的來源或媒體。
+| 證據範圍 | 結果與範圍 |
+|---|---|
+| 原始附件與 Linux 匿名下載 | 77 份附件核對完成；實際公開下載工具取得並重組 ISO、TAR、source ZIP、SHA256SUMS，四份完整原檔及 USB 說明均通過獨立 SHA-256，暫存清理完成。[發布／下載收據](../evidence/laptop-40fdc65/release-publication/summary.json) |
+| 精確 H6 GitHub CI | [run 40009175991](https://github.com/TED-H-com/agentic-smart-home/actions/runs/40009175991) 為 **3,562 passed、12 skipped、0 failed／error**，打包成功；新增的八項 DNS fixture 回歸均通過。CI 跳過大型 HAOS 與完整 Linux 安裝，來源封裝屬於 H6。[CI 摘要](../evidence/laptop-40fdc65/ci/h6.json) |
+| H6 第 4–8 階段診斷 | home-worker-haos 122、haos-boundary 2、runner-build 102、bridge-haos 40、haos-vm 2，共 **268 passed**；清理與 overlay 還原完成。這是五階段診斷，`all_eight_passed=false`，不與 009 的前三階段拼接。[診斷紀錄](../evidence/laptop-40fdc65/history/diagnostic-h6-tail-001.json) |
+| 完整八階段 010 | 同一輪依序完成 install 1、regression 3,566（另 8 skipped）、enable 42、home-worker-haos 122、haos-boundary 2、runner-build 102、bridge-haos 40、haos-vm 2，共 **3,877 passed、8 skipped、0 failed／error**。13 個必要實測案例均通過，清理與八檔 overlay 還原完成，四份媒體前後雜湊及身分一致。[單輪本機收據](../evidence/laptop-40fdc65/local/qualification-summary.json) |
+| 公開 App、Home Worker 啟用與原生 HA 互動路徑 | 單輪 010-001 完成 enable 42、bridge-haos 40，共 **82 passed、0 skipped／failed／error**；兩個必要實測案例、清理與八檔 overlay 還原均通過。各階段前後的四次公開 `#stable` 觀測均為 F。[公開驗收收據](../evidence/laptop-40fdc65/public/summary.json) |
+| 新 verification ZIP 與其匿名下載 | ZIP 已發布，另以 Linux 上乾淨環境的 HTTPS curl 匿名下載；90,395 bytes、完整 SHA-256、46 成員 CRC／雜湊均通過，ext4 暫存已清理。此下載獨立於既有 77 份附件紀錄。[新增 ZIP 發布／下載收據](../evidence/laptop-40fdc65/release-publication/verification-zip.json) |
+
+010 的執行時間為 19:28:11.487–20:34:51.403 UTC。本機 Bridge 實際經 `native_sidebar_link` 進入原生 HA Ingress，完成登入、同一對話及重新載入，未模擬 API 或身份 header。Home Worker 的外層預檢與同案 DNS 觀測均為 false，App 內 DNS 為 true、Core 回應 HTTP 401／port 80；這是受控 fixture 條件。39 項獨立 source tests 已包含於 Home Worker 觀測，不加到 3,877 項總數。
+
+公開 010-001 的執行時間為 20:37:08.859–20:52:58.227 UTC。enable 使用公開 stable 來源完成實際 App 啟用、冷備份、完整重啟及恢復身分；公開 Bridge 也獨立觀測到 `native_sidebar_link`，完成原生 Owner 登入、實際 Ingress 互動與同案重新載入。[公開 Bridge 收據](../evidence/laptop-40fdc65/public/bridge-haos/bridge-haos.json)保留入口、編譯 UI 與畫面雜湊，不公開畫面或對話識別。模型推論與 Unix Host contract 仍是 fixture；公開模式的 wrong-TLS-pin 負向案例為 `not_run`，本機案例另有通過收據。本機、公開與下載結果分開記錄，不合併計數。
+
+四個來源身分分別保留：
+
+| 身分 | 精確來源 |
+|---|---|
+| F：凍結媒體與 Host／Controller 產品來源 | `40fdc65035ba082e5c875b739d34a3a7ee76d7c7` |
+| H6：八個測試檔案的核准 overlay | `05e64d584860e98a0f4cd3fb088008ce687e8724` |
+| M：已發布 `v0.11.0` tag | `df25dae051e2d067da97eb5b60852b2f7d37ea88` |
+| 封裝的 Home coding 公開來源 | `02ab744c8015cf38881e7127f62bb88164175a7b` |
+
+H6 只覆蓋八個核准測試檔案；本輪媒體驗收保留 F 產品來源、四份原始媒體與六個凍結映像身分，binding SHA-256 為 `f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1`。ISO 為 6,819,676,160 bytes，SHA-256 `d007bdcb24a702abff161a6abc7b97ef3905d271cd15558b83050ccf22376a85`；其餘媒體身分見下載收據。後續 companion 文件不回改 F source ZIP 的建置時快照，也不表示已升級凍結媒體相依或完成 0.11.1 驗收。公開 `#stable` 是移動分支，本輪保留了兩階段前後共四次來源觀測；這不是連續監測，讀回 commit 也不等於 Supervisor 以 commit digest 安裝。
+
+已確認的相依限制：F 的 [Hermes requirements](https://github.com/TED-H-com/agentic-smart-home/blob/40fdc65035ba082e5c875b739d34a3a7ee76d7c7/hermes/requirements.in#L42) 與 2026-10-23 靜態核對的[主線 `748e6c8ff266280815fea2de1bc7ca49f9c5b104`](https://github.com/TED-H-com/agentic-smart-home/blob/748e6c8ff266280815fea2de1bc7ca49f9c5b104/hermes/requirements.in#L42) 均釘選 Pillow 12.3.0，落在 [CVE-2026-112403](https://github.com/python-pillow/Pillow/security/advisories/GHSA-8g5g-8vmr-9782)、[CVE-2026-112397](https://github.com/python-pillow/Pillow/security/advisories/GHSA-58r4-6rv3-gfh8) 及 TIFF ColorMap 的 [CVE-2026-112896](https://github.com/python-pillow/Pillow/security/advisories/GHSA-pchr-8j38-3x4p) 三項公告的 `<=12.3.0` 影響範圍；首個修補版本均為 13.0.0。來源核對未動態證明產品可利用性，亦未執行 TIFF ColorMap 專項重現；工程驗收不表示相依沒有漏洞。主線相依修正由 [#139](https://github.com/TED-H-com/agentic-smart-home/pull/139) 另行處理，不改變凍結 F；其 certifi 2026.5.20 亦未包含 [#131](https://github.com/TED-H-com/agentic-smart-home/issues/131) 修正。已發布的 0.11.0 媒體不會隨主線相依修正更新，必須另建並另行驗證候選。
+
+[007](../evidence/laptop-40fdc65/history/qualification-reviewed-007.json)、[008](../evidence/laptop-40fdc65/history/qualification-reviewed-008.json)、[009](../evidence/laptop-40fdc65/history/qualification-reviewed-009.json) 的失敗結果保留。007 的硬連結／檔案 metadata 原因仍有不確定性；008 的 Host fixture 錯誤回應與 009 的外層 fixture 環境 DNS 假設分別由測試修正處理，未更改 F 產品或媒體。受控 DNS 的負向觀測只建立該 fixture 條件，不是一般安全邊界的證明。診斷內 39 項獨立 source tests 已包含於 Home Worker 觀測，不再加到 268 項 JUnit 計數。
+
+原始媒體的匿名下載使用 Linux 上的實際公開工具，當時 77 份附件共 9,592,760,568 bytes；新增 verification ZIP 不屬於該次下載。新 ZIP 的 SHA-256 為 `109b4fba131d49d7cb09122ee4c9c063080a515ff382e5af208244daf7235b25`，資產 ID 為 `670350904`。新增後為 [78 份附件](../evidence/laptop-40fdc65/release-publication/assets-after-verification-20261023.json)，共 9,592,850,963 bytes；原 77 份的 ID、名稱、大小、digest、state、updated_at 未變，新 ZIP 匿名下載前後的 78 份清單亦一致。ZIP 僅記錄本機驗收，內部 `public_channel_passed=false` 與 `anonymous_download_passed=false` 保持原值；發布後的下載證據另由 companion 收據連結。Windows／macOS 原生下載工具仍為 `not_run`。
+
+工程測試使用一次性 Linux／官方 HAOS VM、合成 LAN 與明示的模型／帳號 fixtures；Host contract fixture 不代替 installed Host 驗收。清理結論依各 fixture 收據與已知測試資源前綴的觀測，haos-boundary／haos-vm 的清理依外層 wrapper 觀測。實體 Dell／USB／網卡、真模型／通訊帳號、家庭設備／單一燈具、兩次連續真工作、E1／E2 整案及 72 小時運作保留為 `not_run`，不因工程計數升級產品驗收案例。Grok 真程序、版本探測、登入與推論均為 `not_run`；0.10.0 的歷史來源與媒體保持原樣。
 
 ## 主線：HA 原生文字通知 adapter 0.1.0
 

@@ -1,0 +1,160 @@
+{
+  "schema": 1,
+  "kind": "historical_failed_qualification_and_media_identity_investigation",
+  "attempt": "qualification-reviewed-007",
+  "status": "failed",
+  "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "harness_commit": "3f1d1c26baf6942b4ef7fdc2d1048c9960dfb691",
+  "candidate_manifest_input_sha256": "76a37e621668fa9d9dcbfc3faa518e7b575fe9a12312502262493c7e3c7df244",
+  "harness_binding_sha256": "a7a11ff0dba3db9a72df31ce0867f2c60b809db19d4311062d0336a945e278b7",
+  "orchestration_sha256": "a17de35f6ec4cd026656ea914740f4655ac537974fd064349781c452601e897a",
+  "started_at": "2026-10-19T04:01:57.645633+00:00",
+  "finished_at": "2026-10-19T04:29:12.167280+00:00",
+  "all_eight_passed": false,
+  "harness_overlay_restored": true,
+  "failure": {
+    "type": "RuntimeError",
+    "message": "Media changed during the locked suite",
+    "boundary": "After the recorded install stage and before any regression stage was recorded.",
+    "remaining_seven_stages_recorded": false,
+    "exact_changed_media_file": "not_proven",
+    "exact_changed_identity_fields": "not_proven",
+    "content_hash_change_at_failure": "not_proven"
+  },
+  "recorded_install_stage": {
+    "status": "passed",
+    "started_at": "2026-10-19T04:02:04.694843+00:00",
+    "finished_at": "2026-10-19T04:29:11.995314+00:00",
+    "process_exit_code": 0,
+    "junit": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "required_actual_test": "test_full_linux_install_with_nested_haos",
+    "cleanup": {
+      "observation_complete": true,
+      "owned_resources_absent": true,
+      "disk_basetemp_removed": true,
+      "filesystem": "ext4",
+      "scope": "known_test_name_prefixes_only"
+    },
+    "source_stage_sha256": "a943075f7adafc5e372659a674f0781c59c3307408d17da9fe26ee7bb99e4d89",
+    "source_junit_sha256": "1484757a765ca878da959c10c4b6569dd5fbaf5bc96b70396da0671b17456df4"
+  },
+  "guard_semantics": {
+    "identity_fields": [
+      "st_dev",
+      "st_ino",
+      "st_size",
+      "st_mtime_ns",
+      "st_ctime_ns"
+    ],
+    "nlink_compared_directly": false,
+    "initial_full_media_hash_verification_precedes_install": true,
+    "full_media_hash_not_recomputed_at_identity_failure": true,
+    "original_pre_run_identity_tuple_persisted_by_harness": false,
+    "source_artifact": "qualification-reviewed-007/orchestration.py",
+    "source_sha256": "a17de35f6ec4cd026656ea914740f4655ac537974fd064349781c452601e897a",
+    "identity_function_lines": [
+      273,
+      275
+    ],
+    "initial_hash_and_snapshot_lines": [
+      651,
+      653
+    ],
+    "identity_guard_lines": [
+      657,
+      659,
+      666,
+      668
+    ]
+  },
+  "later_observations": {
+    "observed_at": "2026-10-23T17:02:10.536606+00:00",
+    "hash_verification_completed_at": "2026-10-23T17:03:09.478856+00:00",
+    "all_four_retained_media_sizes_and_sha256_match_frozen_manifest": true,
+    "media": [
+      {
+        "name": "SHA256SUMS",
+        "bytes": 302,
+        "sha256": "9da972d20f4446461c9aa3b4fd6879d0a152955f99f4234d4d427e3929d82ee8",
+        "identity_stable_during_later_hash": true,
+        "nlink_at_later_audit": 2,
+        "mtime_at_later_audit": "2026-10-18T03:45:30.783207043Z",
+        "ctime_at_later_audit": "2026-10-19T04:05:56.676337209Z",
+        "same_inode_as_known_public_staging_copy": true
+      },
+      {
+        "name": "agentic-home-0.11.0-laptop-amd64.iso",
+        "bytes": 6819676160,
+        "sha256": "d007bdcb24a702abff161a6abc7b97ef3905d271cd15558b83050ccf22376a85",
+        "identity_stable_during_later_hash": true,
+        "nlink_at_later_audit": 2,
+        "mtime_at_later_audit": "2026-10-18T03:45:16.065772139Z",
+        "ctime_at_later_audit": "2026-10-19T04:05:56.676337209Z",
+        "same_inode_as_known_public_staging_copy": true
+      },
+      {
+        "name": "agentic-home-0.11.0-linux-amd64.tar",
+        "bytes": 2740183040,
+        "sha256": "0c94de22c4d9f7763a78ba476694c4b07e083d05e4526da4fbe8c70f06ae1895",
+        "identity_stable_during_later_hash": true,
+        "nlink_at_later_audit": 1,
+        "mtime_at_later_audit": "2026-10-18T03:38:00.099956545Z",
+        "ctime_at_later_audit": "2026-10-18T03:38:00.099956545Z",
+        "same_inode_as_known_public_staging_copy": null
+      },
+      {
+        "name": "agentic-home-0.11.0-source.zip",
+        "bytes": 32866471,
+        "sha256": "3ec9d8a64d57a2e1dc0329e3e18df1fdbff3972ad79636093716709ba7eb0af4",
+        "identity_stable_during_later_hash": true,
+        "nlink_at_later_audit": 1,
+        "mtime_at_later_audit": "2026-10-18T03:38:02.375002575Z",
+        "ctime_at_later_audit": "2026-10-18T03:38:02.375002575Z",
+        "same_inode_as_known_public_staging_copy": null
+      }
+    ],
+    "source_receipt_sha256": "b1f0dc73893237fe59bb71173a9a7b8e6477d1dc8d2ee69ad420b02f0cebf52d"
+  },
+  "cause_assessment": {
+    "classification": "filesystem_metadata_change_supported_but_exact_cause_unproven",
+    "supported_inference": "The ISO and SHA256SUMS later had two hard links, shared their inode with a public staging copy, and retained a ctime inside the failed install interval. A hard-link operation changing ctime is a plausible explanation for the strict identity guard despite later matching content hashes.",
+    "proven_scope": "The original attempt failed; the install receipt passed. Later hashes match the frozen manifest and later observations prove shared inodes.",
+    "not_proven": [
+      "Which file or tuple field differed at the failing guard.",
+      "The exact operation, process or actor that changed metadata.",
+      "Whether bytes changed transiently and were later restored."
+    ],
+    "missing_evidence": [
+      "The original before/after identity tuples at the failing comparison.",
+      "A contemporaneous filesystem operation audit or equivalent record establishing the metadata-changing operation."
+    ],
+    "later_preparation": "media-identity-preparation.json"
+  },
+  "source_receipts_sha256": {
+    "qualification-reviewed-007/summary.json": "8f668b52846574d2b4a6e3382611de9a57d5e577956b335b3221666640ba6456",
+    "qualification-reviewed-007/install/stage.json": "a943075f7adafc5e372659a674f0781c59c3307408d17da9fe26ee7bb99e4d89",
+    "qualification-reviewed-007/install/process/command.json": "c96585e80c6549189e1d8d06c27ddd023d857ea91698b3fdc431109bdb20b9ef",
+    "qualification-reviewed-007/install/junit.xml": "1484757a765ca878da959c10c4b6569dd5fbaf5bc96b70396da0671b17456df4",
+    "qualification-reviewed-007/install/evidence/linux-install.json": "240995ce04d0723b25d2c21722969fdec7fc3d9c84606945392b8b9601012273",
+    "qualification-reviewed-007/install/evidence/installed-cleanup-laptop-amd64.json": "08d356fbf912fdd96dd947be5d17809638ec5aaa43f8e6e130859196b6d15d82",
+    "qualification-reviewed-007/candidate-manifest.json": "76a37e621668fa9d9dcbfc3faa518e7b575fe9a12312502262493c7e3c7df244",
+    "qualification-reviewed-007/harness-binding.json": "a7a11ff0dba3db9a72df31ce0867f2c60b809db19d4311062d0336a945e278b7",
+    "qualification-reviewed-007/orchestration.py": "a17de35f6ec4cd026656ea914740f4655ac537974fd064349781c452601e897a",
+    "original-host-input-audit.json": "b1f0dc73893237fe59bb71173a9a7b8e6477d1dc8d2ee69ad420b02f0cebf52d",
+    "media-preparation.json": "449d8dac3f513bf3e96c3390771e281e9a015648f3fd169b8f9a09300e2e7c78"
+  },
+  "limitations": [
+    "Later matching hashes do not retroactively make qualification-reviewed-007 pass.",
+    "The later inode isolation is preparation evidence only; no subsequent qualification result is included.",
+    "Raw logs, local paths, host identities, network addresses and numeric device/inode identifiers are omitted."
+  ],
+  "excluded_cli_probes": {
+    "grok": "not_run: owner instruction"
+  }
+}

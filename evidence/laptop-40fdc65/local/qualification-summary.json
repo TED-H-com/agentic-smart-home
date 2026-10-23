@@ -1,0 +1,353 @@
+{
+  "all_eight_passed": true,
+  "anonymous_download_passed": false,
+  "candidate_manifest_input_sha256": "76a37e621668fa9d9dcbfc3faa518e7b575fe9a12312502262493c7e3c7df244",
+  "continuous_hardware_stability_claim": false,
+  "finished": "2026-10-23T20:34:51.403481+00:00",
+  "harness_binding_sha256": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+  "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+  "harness_overlay_restored": true,
+  "harness_scope": "Frozen F media and product source with eight reviewed H test-file overlays; the source archive remains F.",
+  "kind": "single_run_local_candidate_qualification",
+  "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "not_run": [
+    "Grok CLI",
+    "physical laptop",
+    "real cloud account login",
+    "household device acceptance",
+    "72-hour soak"
+  ],
+  "physical_laptop_passed": false,
+  "provenance": "One selected complete qualification directory; no claim of first-attempt success.",
+  "public_channel_passed": false,
+  "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "source_inputs_sha256": {
+    "bridge-haos/evidence-files.json": "bea234b477a23c3022487ecba9fdfcfd46d6ada258f6e929410ea209bd02ace2",
+    "bridge-haos/evidence/bridge-haos.json": "e57f32befe1f84eb513ac96aee2380147b95ba2794dc137c7690ce6cbf3f1cc1",
+    "bridge-haos/junit.xml": "0518600f32aedac7f70bfcd88e9115007849df38a7fdaa6abf279313ee2463d0",
+    "bridge-haos/process/command.json": "37499dd2b140ea455068cdc55b209cda50e57257819fcdb8cff7c2a15f21f2ee",
+    "bridge-haos/stage.json": "9992d65f42300c9bb1724a36ed3b6b06b6fb301f59597a4841ce91c1ed5f3250",
+    "candidate-manifest.json": "76a37e621668fa9d9dcbfc3faa518e7b575fe9a12312502262493c7e3c7df244",
+    "enable/evidence-files.json": "854c453c435c1cb28bd0ad771537ddc70935e547e9947f06cb4666422027a7ea",
+    "enable/evidence/home-worker-enable-haos.json": "3c0e9a0fba839800129f3bd8f24553e08a534ea85659d06970b8dc0a97f7201b",
+    "enable/junit.xml": "5239e989c478f24fcf974eef7d0e99730e1a5fb84959a75b0bc81ed87c17a8b2",
+    "enable/process/command.json": "e7519b0ad181e5f8573199599cc841af27cb3453c5ca82f8049d45d8c4b4e07b",
+    "enable/stage.json": "c3f512f1cd8632c737d973d12e60fc56c13c6dfd69f000559048b35488bfa02b",
+    "haos-boundary/evidence-files.json": "b8c29af996a7af82947ff7aa5010f116b0d6793dda6844523171d34124f89b24",
+    "haos-boundary/evidence/haos-app-boundary.json": "757a24a69867607811b558b76afe1eac1df572fe0190534d2ab6ebe8893a4878",
+    "haos-boundary/junit.xml": "6de2fb6c62645594c3d4fc68705166930a8711e28fba4c99da6b79a9da7ac0f4",
+    "haos-boundary/process/command.json": "e6715b9b5fad7902dc50c55be5fbac2681bf0034bdf90030bc2fba1eeaf4679d",
+    "haos-boundary/stage.json": "06d2a7ca44f9eb2c56bbe5618834143130cd6a76eb43d4fb205566f60e0fb38e",
+    "haos-vm/evidence-files.json": "a7c8c96014baa89b48e609dbdfbabde609a7dc3909c8356e5854646593120d10",
+    "haos-vm/evidence/haos-vm.json": "7005aa3b439d7b05d2d04d974c476a1e276f9113499b73e3868475868ef0fe7b",
+    "haos-vm/junit.xml": "bc2410d250fa274c6898de23f5d3de92e2dcbc6c082afc8e61fa6c84a046839a",
+    "haos-vm/process/command.json": "60c8e22736b54d866cb066d4d96caf5e404414eadfac7f008aa05286c749eedb",
+    "haos-vm/stage.json": "9adbf6bd93e12c4fc476b2740f7f10b2ffcbf868dd1d5c1044a9891721e7b546",
+    "harness-binding.json": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+    "harness-overlay.patch": "00ea2e85de8b8c098591078ed2ad232f2d73fa8e55805f8292874ef44e744a55",
+    "home-worker-haos/evidence-files.json": "e8c2a45b61799f465d6fa6bcee5a6969151297bbd5b21dd06e27a77203e58dad",
+    "home-worker-haos/evidence/home-worker-haos.json": "697a4233325a060d44357f439c22b77baa9a56a4080f3180fb198096bacfb04d",
+    "home-worker-haos/junit.xml": "4ddd34c273e299ac01ee93b93c6f1b67b77ea5d1aec1bf4b54d331e6f07b37aa",
+    "home-worker-haos/process/command.json": "c38baf5f0fa5d9843a633f63c0f37e6735d6e1fdad6cf81cb8f97edd28bec973",
+    "home-worker-haos/stage.json": "6face2b8dee89a55ac3a03e8324271903b3efc88ec4471f4b38eb83cb549c0fb",
+    "install/evidence-files.json": "3b5924ebcad94a4dc58b1ab7c2f8164aac252b6b392f17b2a3df07ea0208af70",
+    "install/evidence/installed-auth-laptop-amd64.json": "dde6cae66cf5e89d4d1a12cc6944e73cb75ffc147c363aa7316e4f2be80f65cb",
+    "install/evidence/installed-cleanup-laptop-amd64.json": "08d356fbf912fdd96dd947be5d17809638ec5aaa43f8e6e130859196b6d15d82",
+    "install/evidence/installed-coding-laptop-amd64.json": "e7abe5e6a7c82f731da9ebdca6c29583b334e74c0e6b7d37417d4372a953b523",
+    "install/evidence/installed-ha-lan-laptop-amd64.json": "a65f06effe5e2a56ae1a0e614d9903024ff816ba292c316240d72786acae088f",
+    "install/evidence/installed-hermes-laptop-amd64.json": "9b36a96deb3f4ce8529f75c681d31e9344e864e39d9f2d786096639fc2a97c3e",
+    "install/evidence/installed-rescue-laptop-amd64.json": "61298b9b62f59078a21e4e8cb0c319d425532fca5d1a8736a7831edb87a496c0",
+    "install/evidence/installed-sandbox-laptop-amd64.json": "74b86fb8a36049a37ea1e91d138e69eae365dd65ba3fa86dc9369da60227dc24",
+    "install/evidence/installed-update-laptop-amd64.json": "afb991cc08f7f6c04e482d23a9ab6f123bd7e4d074f42cb6cf5fecb9a27e5379",
+    "install/evidence/linux-install.json": "2862176c72dfbabf288fa6c2d1656ea692847db2b920489611ef5d69bf36987f",
+    "install/junit.xml": "60455301b90b05b1206e08b795d865366b08abd6cc674560903bfb803aa2ac73",
+    "install/process/command.json": "4bff4f7f3d3af628231b47cbd7d561c0260224da613a3233bee520a28602fe0c",
+    "install/stage.json": "fd9e33b74bb9dd7a223045c43055911dd37074333ae796d84aecaf290e0ae646",
+    "orchestration.py": "5fcbaddc7f183aa54c2724dba46a6fcc935da26d2a912444d12bb2614272ff06",
+    "regression/evidence-files.json": "0c6b925ae4a283b27157d9b0800111495bc6264f0bb9fbc08410ac62aa742c6f",
+    "regression/evidence/image-public-permissions-bridge.json": "37cbc862da02034fab6f907eb094ddb0e62a221fc7d9fb449b69d5cdd7b8434c",
+    "regression/evidence/image-public-permissions-controller.json": "75b70209fcb777c23a78fce0da77b15f8eeefe7ff0216604f0b1f072e394a65d",
+    "regression/evidence/image-public-permissions-hermes.json": "e6d68f079a85e3071c08ca02a6dc622b30ea70993f8bb2ca9a70fffda29a2f9e",
+    "regression/evidence/image-public-permissions-linejs.json": "cde0e21dabc0929fc58e48ca056b81c2432b52a24df3410993acb9a26e1f1c64",
+    "regression/evidence/image-public-permissions-preview.json": "f236691bcf4d363b7590f472aa176bf27a1f2936c21edcd8eb2b2a1da4718448",
+    "regression/evidence/image-public-permissions-runner.json": "9f768b8db1aa085c569f8652d2d0092f2c4b00ae27d1848d561ac28da2abf22e",
+    "regression/evidence/onboarding-e2e.json": "d4dda29b62c1500cac44c2d12453bfc1ed86ea511652562e851fbb48594fa26d",
+    "regression/evidence/real-core-integration.json": "41d3656c95ca5495829c94d8f14ffdd1b258d0aaadf5b3b5492b0efb95903f6f",
+    "regression/evidence/runner-container.json": "b671831eb82a1bced4c6045343d4f56563442415d3eede8cf4140d3b115bf025",
+    "regression/junit.xml": "caca2d59f85bc1a2f4502f20c2825275386eda42ff1a12b30561712783d0d224",
+    "regression/process/command.json": "cafe9c8acb0242034e75910dc46c845a1bbd6f43e7234a17955fdace0e72b303",
+    "regression/stage.json": "5c94e682f98b7cc4240a4f3cf11852d8d55a59da0b71a6240eb7d130a179de63",
+    "runner-build/evidence-files.json": "ccfffd1df424614bb0e9b510b29fbbb9e230065f3a2580e934fc0ce19430d6ef",
+    "runner-build/evidence/runner-supervisor-build.json": "62089722d2e8fd4b9febc1b336d83938081c51c51889ecfcaf6d79538b160c15",
+    "runner-build/junit.xml": "8b9988db2bf0b52b0de2280d1247c05cdc735c6c182c874529706c5ceb9ed0ef",
+    "runner-build/process/command.json": "1628963a4f225811c1ea10a1b1b121a5f60a7f2603029bbe3e8557c391e2e8d8",
+    "runner-build/stage.json": "7889c2422f02e101bd6ed10bedb1094c738f6b91a6addadcb41e13e5e630289c",
+    "summary.json": "80da3558095e66170dd0df8299c242508c4614f0ed7bbfe32e8831e7b5ab16ea"
+  },
+  "stages": [
+    {
+      "cleanup_scope": "known_test_name_prefixes_only",
+      "disk_basetemp_removed": true,
+      "excluded_cli_probes": {
+        "grok": "not_run: owner instruction"
+      },
+      "finished": "2026-10-23T19:50:50.200225+00:00",
+      "fixture_cleanup_basis": "fixture_receipts_and_wrapper_observation",
+      "harness_binding_sha256": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+      "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+      "junit": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 1
+      },
+      "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "primary_receipts": [
+        "linux-install.json",
+        "installed-cleanup-laptop-amd64.json",
+        "installed-auth-laptop-amd64.json",
+        "installed-sandbox-laptop-amd64.json",
+        "installed-coding-laptop-amd64.json",
+        "installed-update-laptop-amd64.json",
+        "installed-hermes-laptop-amd64.json",
+        "installed-ha-lan-laptop-amd64.json",
+        "installed-rescue-laptop-amd64.json"
+      ],
+      "public_channel_test": false,
+      "required_actual_tests_passed": [
+        "test_full_linux_install_with_nested_haos"
+      ],
+      "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "stage": "install",
+      "started": "2026-10-23T19:28:14.572893+00:00",
+      "status": "passed",
+      "wrapper_owned_resources_absent": true
+    },
+    {
+      "cleanup_scope": "known_test_name_prefixes_only",
+      "disk_basetemp_removed": true,
+      "excluded_cli_probes": {
+        "grok": "not_run: owner instruction"
+      },
+      "finished": "2026-10-23T20:10:46.120419+00:00",
+      "fixture_cleanup_basis": "mixed_per_fixture_receipts_and_wrapper_observation",
+      "harness_binding_sha256": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+      "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+      "junit": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 8,
+        "tests": 3574
+      },
+      "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "primary_receipts": [
+        "runner-container.json",
+        "real-core-integration.json",
+        "onboarding-e2e.json",
+        "image-public-permissions-controller.json",
+        "image-public-permissions-runner.json",
+        "image-public-permissions-linejs.json",
+        "image-public-permissions-hermes.json",
+        "image-public-permissions-preview.json",
+        "image-public-permissions-bridge.json"
+      ],
+      "public_channel_test": false,
+      "required_actual_tests_passed": [
+        "test_real_core_proposal_deploy_trigger_restart",
+        "test_packaged_native_actions_owner_queue_restart_and_storage_failure",
+        "test_composed_onboarding_browser_services_and_native_home",
+        "test_packaged_runner_cli_and_tls",
+        "test_packaged_linejs_gateway_boundary",
+        "test_actual_offline_preview_renderer"
+      ],
+      "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "stage": "regression",
+      "started": "2026-10-23T19:50:50.573376+00:00",
+      "status": "passed",
+      "wrapper_owned_resources_absent": true
+    },
+    {
+      "cleanup_scope": "known_test_name_prefixes_only",
+      "disk_basetemp_removed": true,
+      "excluded_cli_probes": {
+        "grok": "not_run: owner instruction"
+      },
+      "finished": "2026-10-23T20:21:27.198137+00:00",
+      "fixture_cleanup_basis": "fixture_receipts_and_wrapper_observation",
+      "harness_binding_sha256": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+      "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+      "junit": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 42
+      },
+      "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "primary_receipts": [
+        "home-worker-enable-haos.json"
+      ],
+      "public_channel_test": false,
+      "required_actual_tests_passed": [
+        "test_real_home_worker_enable_backup_reboot"
+      ],
+      "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "stage": "enable",
+      "started": "2026-10-23T20:10:46.488003+00:00",
+      "status": "passed",
+      "wrapper_owned_resources_absent": true
+    },
+    {
+      "cleanup_scope": "known_test_name_prefixes_only",
+      "disk_basetemp_removed": true,
+      "excluded_cli_probes": {
+        "grok": "not_run: owner instruction"
+      },
+      "finished": "2026-10-23T20:25:31.771860+00:00",
+      "fixture_cleanup_basis": "fixture_receipts_and_wrapper_observation",
+      "harness_binding_sha256": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+      "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+      "junit": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 122
+      },
+      "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "primary_receipts": [
+        "home-worker-haos.json"
+      ],
+      "public_channel_test": false,
+      "required_actual_tests_passed": [
+        "test_real_home_coding_worker_in_haos"
+      ],
+      "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "stage": "home-worker-haos",
+      "started": "2026-10-23T20:21:27.566732+00:00",
+      "status": "passed",
+      "wrapper_owned_resources_absent": true
+    },
+    {
+      "cleanup_scope": "known_test_name_prefixes_only",
+      "disk_basetemp_removed": true,
+      "excluded_cli_probes": {
+        "grok": "not_run: owner instruction"
+      },
+      "finished": "2026-10-23T20:27:04.733666+00:00",
+      "fixture_cleanup_basis": "wrapper_resource_observation_only",
+      "harness_binding_sha256": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+      "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+      "junit": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 2
+      },
+      "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "primary_receipts": [
+        "haos-app-boundary.json"
+      ],
+      "public_channel_test": false,
+      "required_actual_tests_passed": [
+        "test_actual_haos_app_boundary"
+      ],
+      "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "stage": "haos-boundary",
+      "started": "2026-10-23T20:25:32.148241+00:00",
+      "status": "passed",
+      "wrapper_owned_resources_absent": true
+    },
+    {
+      "cleanup_scope": "known_test_name_prefixes_only",
+      "disk_basetemp_removed": true,
+      "excluded_cli_probes": {
+        "grok": "not_run: owner instruction"
+      },
+      "finished": "2026-10-23T20:30:47.430487+00:00",
+      "fixture_cleanup_basis": "fixture_receipts_and_wrapper_observation",
+      "harness_binding_sha256": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+      "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+      "junit": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 102
+      },
+      "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "primary_receipts": [
+        "runner-supervisor-build.json"
+      ],
+      "public_channel_test": false,
+      "required_actual_tests_passed": [
+        "test_real_supervisor_builds_home_coding_app"
+      ],
+      "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "stage": "runner-build",
+      "started": "2026-10-23T20:27:05.105059+00:00",
+      "status": "passed",
+      "wrapper_owned_resources_absent": true
+    },
+    {
+      "cleanup_scope": "known_test_name_prefixes_only",
+      "disk_basetemp_removed": true,
+      "excluded_cli_probes": {
+        "grok": "not_run: owner instruction"
+      },
+      "finished": "2026-10-23T20:33:31.590484+00:00",
+      "fixture_cleanup_basis": "fixture_receipts_and_wrapper_observation",
+      "harness_binding_sha256": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+      "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+      "junit": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 40
+      },
+      "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "primary_receipts": [
+        "bridge-haos.json"
+      ],
+      "public_channel_test": false,
+      "required_actual_tests_passed": [
+        "test_real_haos_sidebar_bridge"
+      ],
+      "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "stage": "bridge-haos",
+      "started": "2026-10-23T20:30:47.789694+00:00",
+      "status": "passed",
+      "wrapper_owned_resources_absent": true
+    },
+    {
+      "cleanup_scope": "known_test_name_prefixes_only",
+      "disk_basetemp_removed": true,
+      "excluded_cli_probes": {
+        "grok": "not_run: owner instruction"
+      },
+      "finished": "2026-10-23T20:34:51.266044+00:00",
+      "fixture_cleanup_basis": "wrapper_resource_observation_only",
+      "harness_binding_sha256": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+      "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+      "junit": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 2
+      },
+      "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "primary_receipts": [
+        "haos-vm.json"
+      ],
+      "public_channel_test": false,
+      "required_actual_tests_passed": [
+        "test_real_haos_boot_owner_and_supervisor_backup"
+      ],
+      "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "stage": "haos-vm",
+      "started": "2026-10-23T20:33:31.917101+00:00",
+      "status": "passed",
+      "wrapper_owned_resources_absent": true
+    }
+  ],
+  "started": "2026-10-23T19:28:11.487317+00:00",
+  "status": "passed",
+  "version": "0.11.0"
+}

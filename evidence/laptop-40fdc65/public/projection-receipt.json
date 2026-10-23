@@ -1,0 +1,61 @@
+{
+  "input_hashes_unchanged": true,
+  "kind": "public_projection_receipt",
+  "members": {
+    "SHA256SUMS": {
+      "bytes": 1004,
+      "sha256": "4349d18822b5ff54b9927ccf4eef439a945eaa7ac19a49b1b83ced91a41aafc7"
+    },
+    "bridge-haos/after-boundary.json": {
+      "bytes": 677,
+      "sha256": "8267064c7b05343f5d4720bf4cf18afa8ba6fff38bdb485c077628c073ac7c4b"
+    },
+    "bridge-haos/before-boundary.json": {
+      "bytes": 677,
+      "sha256": "5e5d3e5b93862c988ad9c1ecb14186a0a24f942766d342d0dd577ba428cb15c4"
+    },
+    "bridge-haos/bridge-haos.json": {
+      "bytes": 2596,
+      "sha256": "d11303233979472b3eb93aedd43a314f4d0100d741067a9de2f2bd87415a018f"
+    },
+    "bridge-haos/junit.xml": {
+      "bytes": 2650,
+      "sha256": "f0769c96b7951a921b21f48ebf509a7a099eae9a4045631a188ffa9c8980d020"
+    },
+    "bridge-haos/stage.json": {
+      "bytes": 1049,
+      "sha256": "06e8e4f8c91444d49778067c0930446d8a9580c41c27504e23faf702da4dd50d"
+    },
+    "enable/after-boundary.json": {
+      "bytes": 677,
+      "sha256": "9548dfc012c71f032648266b5dc1644c3aeb9b80c46ef98cd25c8f66f897ea54"
+    },
+    "enable/before-boundary.json": {
+      "bytes": 677,
+      "sha256": "4439ac8fa23ff304f1ede37497d247d4cfa8751dce0b17304c08460c8ff4c652"
+    },
+    "enable/home-worker-enable-haos.json": {
+      "bytes": 1196,
+      "sha256": "fc8a364a98e559f4f4a27eff8693f3df7a215dbdc59954865de21df040019b27"
+    },
+    "enable/junit.xml": {
+      "bytes": 2574,
+      "sha256": "0aa223dd601f9ff01db7f482c4ba7a8c740a159691f3045236a633e62a32b781"
+    },
+    "enable/stage.json": {
+      "bytes": 1057,
+      "sha256": "138f210af410aea573a0fa4731d395c285952ff1c735dbb5e86b7a616b6f40df"
+    },
+    "summary.json": {
+      "bytes": 9159,
+      "sha256": "e40542187026a69062fae84f4f0a15871f4ebbae20a4302cc2d615e2b759b2d0"
+    }
+  },
+  "network_used": false,
+  "product_executed": false,
+  "projector_sha256": "a08f7e0fa9b06a4e0ae989dd01db89f6edd7ca25d3d49d55a9c30475599c0c7a",
+  "public_driver_sha256": "d41bfaf45085afefbd314c116f20ae48c387d693c94195e1037bea6dab4278d5",
+  "raw_logs_or_screenshots_copied": false,
+  "schema": 1,
+  "status": "passed"
+}

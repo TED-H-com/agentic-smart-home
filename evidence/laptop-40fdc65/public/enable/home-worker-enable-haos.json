@@ -1,0 +1,38 @@
+{
+  "checks": {
+    "bridge_auto_enroll": true,
+    "bridge_heartbeat": true,
+    "cold_backup": true,
+    "container_contract": true,
+    "exact_head": true,
+    "full_reboot": true,
+    "home_worker_enable": true,
+    "login_ready_contract": true,
+    "persisted_record": true,
+    "pinned_bases_preloaded": true,
+    "real_app_contract": true,
+    "recovery_identity": true,
+    "shared_repository": true,
+    "stable_branch_is_exact_head": true,
+    "supervisor_healthy": true,
+    "tls_fingerprint": true
+  },
+  "cleanup": {
+    "disk_fixture_ownership_restored": true,
+    "git_removed": true,
+    "network_removed": true,
+    "outer_removed": true,
+    "vm_removed": true
+  },
+  "input_sha256": "99f335445d0ad1def54ae5c3b3f2abd62c7664caec3f151f14cec09779d928c1",
+  "verified_fields": {
+    "delivery": "published_stable_branch",
+    "haos_image": "18.3",
+    "kind": "real_haos_home_worker_enable",
+    "method": "one_click_enable_cold_partial_backup_full_host_reboot",
+    "observed_from": "supervisor_git_store_outer_controller_and_app_container",
+    "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+    "status": "passed",
+    "target": "disposable_official_haos_vm"
+  }
+}

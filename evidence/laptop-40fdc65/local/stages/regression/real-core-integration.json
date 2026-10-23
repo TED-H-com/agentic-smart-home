@@ -1,0 +1,8 @@
+{
+  "input_sha256": "41d3656c95ca5495829c94d8f14ffdd1b258d0aaadf5b3b5492b0efb95903f6f",
+  "verified_boolean_maps": {},
+  "verified_fields": {
+    "after_restart_event_observed": true,
+    "before_restart_event_observed": true
+  }
+}

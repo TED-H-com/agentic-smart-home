@@ -1,0 +1,37 @@
+{
+  "input_sha256": "62089722d2e8fd4b9febc1b336d83938081c51c51889ecfcaf6d79538b160c15",
+  "verified_boolean_maps": {
+    "checks": {
+      "app_health_200": true,
+      "app_started": true,
+      "codex_version_pinned": true,
+      "container_contract": true,
+      "custom_apparmor_enforcing": true,
+      "docker_socket_absent": true,
+      "docker_socket_not_mounted": true,
+      "exact_head_source_delivered": true,
+      "image_version_label": true,
+      "pairing_fingerprint_matches_tls": true,
+      "pairing_published_to_own_options": true,
+      "pinned_bases_preloaded": true,
+      "real_app_contract_configured": true,
+      "real_app_contract_installed": true,
+      "store_catalog_build_version": true,
+      "supervisor_build_install_completed": true,
+      "supervisor_healthy": true,
+      "worker_source_matches_lock": true
+    },
+    "cleanup": {
+      "disk_fixture_ownership_restored": true,
+      "network_removed": true,
+      "vm_removed": true
+    }
+  },
+  "verified_fields": {
+    "delivery": "local_source_exact_head_files",
+    "kind": "real_haos_supervisor_app_build",
+    "runtime_source_uncommitted": false,
+    "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+    "status": "passed"
+  }
+}

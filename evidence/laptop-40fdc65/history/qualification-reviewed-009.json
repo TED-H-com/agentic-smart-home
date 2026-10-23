@@ -1,0 +1,310 @@
+{
+  "schema": 1,
+  "kind": "failed_media_qualification_history",
+  "run": "qualification-reviewed-009",
+  "status": "failed",
+  "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "harness_commit": "b89ca6dc522e1daab988d5c37cdca8610751404f",
+  "harness_binding_sha256": "2da04ffcba79f77d0cf3780fd8e7c63ff8d0261ac85c5f67b7c251dbf6502866",
+  "orchestration_sha256": "900683a77774e72d0a98a083daf1a8a33e810ee85a2f3709df16a0e79241546a",
+  "started_at": "2026-10-23T18:04:02.163860+00:00",
+  "finished_at": "2026-10-23T18:58:04.306412+00:00",
+  "all_eight_passed": false,
+  "public_channel_test": false,
+  "failure": {
+    "stage": "home-worker-haos",
+    "phase": "stored_same_case_observation",
+    "error_type": "AssertionError",
+    "error_code": "outer_scope_fixture_unexpected",
+    "required_actual_test": "test_real_home_coding_worker_in_haos",
+    "remaining_stages_not_started": [
+      "haos-boundary",
+      "runner-build",
+      "bridge-haos",
+      "haos-vm"
+    ]
+  },
+  "recorded_stages": [
+    {
+      "stage": "install",
+      "status": "passed",
+      "started_at": "2026-10-23T18:04:05.175045+00:00",
+      "finished_at": "2026-10-23T18:25:28.699226+00:00",
+      "process_exit_code": 0,
+      "junit": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 1
+      },
+      "cleanup": {
+        "observation_complete": true,
+        "owned_resources_absent": true,
+        "disk_basetemp_removed": true,
+        "scope": "known_test_name_prefixes_only"
+      }
+    },
+    {
+      "stage": "regression",
+      "status": "passed",
+      "started_at": "2026-10-23T18:25:29.051195+00:00",
+      "finished_at": "2026-10-23T18:45:10.634706+00:00",
+      "process_exit_code": 0,
+      "junit": {
+        "tests": 3566,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 8,
+        "passed": 3558
+      },
+      "cleanup": {
+        "observation_complete": true,
+        "owned_resources_absent": true,
+        "disk_basetemp_removed": true,
+        "scope": "known_test_name_prefixes_only"
+      }
+    },
+    {
+      "stage": "enable",
+      "status": "passed",
+      "started_at": "2026-10-23T18:45:11.002816+00:00",
+      "finished_at": "2026-10-23T18:55:31.417018+00:00",
+      "process_exit_code": 0,
+      "junit": {
+        "tests": 42,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 42
+      },
+      "cleanup": {
+        "observation_complete": true,
+        "owned_resources_absent": true,
+        "disk_basetemp_removed": true,
+        "scope": "known_test_name_prefixes_only"
+      }
+    },
+    {
+      "stage": "home-worker-haos",
+      "status": "failed",
+      "started_at": "2026-10-23T18:55:31.752295+00:00",
+      "finished_at": "2026-10-23T18:58:04.149688+00:00",
+      "process_exit_code": 1,
+      "junit": {
+        "tests": 114,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 113
+      },
+      "cleanup": {
+        "observation_complete": true,
+        "owned_resources_absent": true,
+        "disk_basetemp_removed": true,
+        "scope": "known_test_name_prefixes_only"
+      }
+    }
+  ],
+  "enable_fixture_cleanup": {
+    "outer_removed": true,
+    "git_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "home_worker_fixture_cleanup": {
+    "outer_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "harness_overlay_restored": true,
+  "media_observations": {
+    "scope": "External before/after snapshots plus the original harness checks; not continuous proof against transient modification.",
+    "identity_fields_compared": [
+      "device",
+      "inode",
+      "size",
+      "mtime_ns",
+      "ctime_ns"
+    ],
+    "all_four_media_match_frozen_manifest": true,
+    "all_four_before_after_identities_equal": true,
+    "diagnostic_errors": [],
+    "child_returncode": 1,
+    "wrapper_returncode": 1,
+    "files": [
+      {
+        "name": "agentic-home-0.11.0-linux-amd64.tar",
+        "bytes": 2740183040,
+        "sha256": "0c94de22c4d9f7763a78ba476694c4b07e083d05e4526da4fbe8c70f06ae1895",
+        "before_after_sha256_equal": true,
+        "before_after_identity_equal": true,
+        "both_hash_snapshots_stable": true
+      },
+      {
+        "name": "agentic-home-0.11.0-source.zip",
+        "bytes": 32866471,
+        "sha256": "3ec9d8a64d57a2e1dc0329e3e18df1fdbff3972ad79636093716709ba7eb0af4",
+        "before_after_sha256_equal": true,
+        "before_after_identity_equal": true,
+        "both_hash_snapshots_stable": true
+      },
+      {
+        "name": "agentic-home-0.11.0-laptop-amd64.iso",
+        "bytes": 6819676160,
+        "sha256": "d007bdcb24a702abff161a6abc7b97ef3905d271cd15558b83050ccf22376a85",
+        "before_after_sha256_equal": true,
+        "before_after_identity_equal": true,
+        "both_hash_snapshots_stable": true
+      },
+      {
+        "name": "SHA256SUMS",
+        "bytes": 302,
+        "sha256": "9da972d20f4446461c9aa3b4fd6879d0a152955f99f4234d4d427e3929d82ee8",
+        "before_after_sha256_equal": true,
+        "before_after_identity_equal": true,
+        "both_hash_snapshots_stable": true
+      }
+    ]
+  },
+  "completed_home_worker_observations": {
+    "scope": "Partial observations preceding the failed outer comparison; not a passed stage.",
+    "observed_from": "haos_app",
+    "cloud": "fixed_model_transport_no_real_cloud_account",
+    "checks": {
+      "product_image_layers_verified": true,
+      "distinct_actual_haos_app_namespaces": true,
+      "outer_controller_actual_pinned_tls_pairing": true,
+      "home_role_login_separate_from_unpaired_host": true,
+      "actual_codex_tools": true,
+      "actual_source_patch": true,
+      "independent_baseline_tests": true,
+      "same_case_tls_artifacts": true,
+      "worker_boundary_checks": true,
+      "same_case_observation_content_and_digest": true
+    },
+    "independent_tests_executed": 39,
+    "app_core_observation": {
+      "dns_resolved": true,
+      "reachable": true,
+      "timed_out": false,
+      "http_status": 401,
+      "http_port": 80,
+      "attempted_ports": [
+        80
+      ]
+    }
+  },
+  "cause_assessment": {
+    "classification": "outer_fixture_ambient_dns_assumption",
+    "mechanism": "The outer fixture inherited ambient DNS and search configuration. Its negative lookup assertion could therefore fail even after actual App execution, namespace distinction and same-case Core observations succeeded.",
+    "evidence_basis": "Source review and a separate DNS-only comparison using the same frozen Controller image found ambient resolution succeeded while explicitly controlled outer DNS did not resolve the probe name.",
+    "source_evidence": [
+      {
+        "commit": "b89ca6dc522e1daab988d5c37cdca8610751404f",
+        "path": "tests/test_home_worker_haos.py",
+        "sha256": "6da47b2a135bb97112f829e6339c31280be1987b0b872c1d20f03b665d76729b",
+        "line_ranges": [
+          [
+            937,
+            940
+          ],
+          [
+            1049,
+            1067
+          ]
+        ],
+        "observation": "The outer launch inherited DNS and the later negative lookup assertion depended on ambient name resolution."
+      }
+    ],
+    "minimal_dns_diagnostics": {
+      "started_at": "2026-10-23T19:00:38.824293+00:00",
+      "finished_at": "2026-10-23T19:00:39.817539+00:00",
+      "scope": "DNS lookup only in disposable containers on a disposable bridge; no product startup, device HTTP request or provider invocation.",
+      "controller_image_id": "sha256:cb0738f6c36ae09df8d1be2c54c2f22a63a51a45083a099c53e4d7fb5dcd4afa",
+      "variants": [
+        {
+          "variant": "ambient",
+          "process_exit_code": 0,
+          "resolved": true
+        },
+        {
+          "variant": "controlled_outer_dns",
+          "process_exit_code": 0,
+          "resolved": false
+        }
+      ],
+      "cleanup": {
+        "containers_absent": true,
+        "network_absent": true
+      },
+      "source_receipt_sha256": "2134bf613f8124644140ffca2175df6f3f9e015178ea17493a0a8b60c8dddad8"
+    },
+    "diagnostic_limit": "A controlled negative DNS comparison is a fixture condition, not proof that all outer environments cannot resolve the same name or that DNS failure alone establishes a security boundary."
+  },
+  "fixture_fix": {
+    "pull_request": "https://github.com/TED-H-com/agentic-smart-home/pull/137",
+    "main_based_patch_commit": "b2c81e7ef1be93c0c6ad30157cde647e294569ce",
+    "h6_overlay_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+    "changed_file": "tests/test_home_worker_haos.py",
+    "changed_file_sha256": "35deeb0b74ec4de0c255269887b9a989392877761b65bd920c533c9ad3de1855",
+    "behavior": "Configure DNS only for the outer fixture, add a bounded five-second probe on that actual container before the source job, and repeat the original strict negative comparison at the same-case evidence checkpoint. Keep App DNS and required numeric-address transports unchanged.",
+    "product_source_changed": false,
+    "frozen_media_changed": false,
+    "lightweight_verification": {
+      "passed": 263,
+      "skipped_heavy_tests": 5,
+      "new_negative_tests_included_in_passed": 8,
+      "lint": "passed",
+      "diff_check": "passed"
+    },
+    "modified_heavy_fixture_at_history_creation": "not_completed",
+    "eight_stage_rerun_required": true,
+    "subsequent_qualification_result": "not_asserted_by_this_history"
+  },
+  "source_receipts_sha256": {
+    "qualification-reviewed-009/summary.json": "ef2271233f298f439cad4089b29e7a4a04ff129778c3d8d3f9835d8e369792ff",
+    "qualification-reviewed-009/harness-binding.json": "2da04ffcba79f77d0cf3780fd8e7c63ff8d0261ac85c5f67b7c251dbf6502866",
+    "qualification-reviewed-009/candidate-manifest.json": "76a37e621668fa9d9dcbfc3faa518e7b575fe9a12312502262493c7e3c7df244",
+    "qualification-reviewed-009-diagnostics/receipt.json": "af988ddb2789cf942fcf5446ac5d2d175f1867f47bb64368a4c130884260e5ca",
+    "qualification-reviewed-009-diagnostics/before.json": "618661d40d94f7591ff8d58cd2f9a077820590bee6e4ae2c9b60f99c9d887783",
+    "qualification-reviewed-009-diagnostics/after.json": "7869fb9c7b2a89f26fcf832881cfac6458683357f5ac189d6c30de19436ebdc0",
+    "qualification-reviewed-009/orchestration.py": "900683a77774e72d0a98a083daf1a8a33e810ee85a2f3709df16a0e79241546a",
+    "qualification-reviewed-009/home-worker-haos/evidence/home-worker-haos.json": "f95e98faae645108c789328039b216d2033b5498a9d28c4ea76220e68fe28215",
+    "qualification-reviewed-009/enable/evidence/home-worker-enable-haos.json": "3587255ef842ac88de25b999aa29797006bb238a7811f94f680ffce0c705cd04",
+    "dns-scope-009.json": "2134bf613f8124644140ffca2175df6f3f9e015178ea17493a0a8b60c8dddad8",
+    "outer-dns-review/receipt.json": "1a936638a32d3ae18c931123aa0f2774989dd949d7b91a87ef6b15261ad3e650",
+    "outer-dns-review/report.md": "6d3729c496a498637dbd6ba3c2177ee5aa0793d4a02a0ca477219ef92b4d1b36",
+    "outer-dns-review/probe-pytest.log": "35f48fc0067f29b23dac2a498412a08066ff1a565402363d185936763d5316a5",
+    "outer-dns-review/probe-junit.xml": "032096d462ac24a3bc6eb1d1f1c8b7a051d91e34a584b75fc2636625d6e64cc8",
+    "outer-dns-review/stages4-8-lightweight-pytest.log": "ad166afa7c4043d8dcb19b49a052026b08da4d212a40ba89c6bd7e8a3c71329b",
+    "outer-dns-review/stages4-8-lightweight-junit.xml": "37596dd6490b9ff88159b484062a2803ed5a347bf68e18ef91801de192d46c7f",
+    "qualification-reviewed-009/install/stage.json": "82d71c454a7f23620fa40e7a16e5e1860cbd1a6c84ce340e25290e7dee37c008",
+    "qualification-reviewed-009/install/junit.xml": "27b14a203cf172b84a953691ad35009c02f4c80ac616018e6996a63306da1656",
+    "qualification-reviewed-009/install/process/command.json": "67d52149a1e8bfdf25a33b66ad132950676dff96bbceac149cc340b74d424868",
+    "qualification-reviewed-009/regression/stage.json": "5ee2134e317a978b28a7d3466be551e752596a3747d28d25d6892055910d5fb7",
+    "qualification-reviewed-009/regression/junit.xml": "d03529ed6831cb7caaf54a6a17bf419bfcdd0718b3e967558fb9072e57027f5b",
+    "qualification-reviewed-009/regression/process/command.json": "00b5220285b43fde12710c9d30dc4eef542e954a071f13488342a73cc0343ec5",
+    "qualification-reviewed-009/enable/stage.json": "83a92f982abbabc9894121b1912504222e838440574412c4bf08f477fc5fe63d",
+    "qualification-reviewed-009/enable/junit.xml": "6b8ad3e64d9333fb06af9d5510075d9132c29c56e291b038f693990ad165a941",
+    "qualification-reviewed-009/enable/process/command.json": "596b61184e1678b3ad37bd6596f6bcfa223079cf1160ece0e6f65d4711cd6c86",
+    "qualification-reviewed-009/home-worker-haos/stage.json": "96fe75019faa4d770d8b93fbda57570fce4725c1736ef4aecc6c48ac2695920c",
+    "qualification-reviewed-009/home-worker-haos/junit.xml": "8122423848065ccb89ba7cef87b0ee94e2da001cd3060686847b84e91c991031",
+    "qualification-reviewed-009/home-worker-haos/process/command.json": "da24b471ebe17a1fbbeda8c4198ce81e2726746fe19044ca0b13a2a71334e538"
+  },
+  "excluded_cli_probes": {
+    "grok": "not_run: owner instruction"
+  },
+  "limitations": [
+    "The recorded install, regression and enable passes do not make this failed eight-stage run pass.",
+    "The 113 passing helper cases and 39 independent source tests do not replace the failed actual Home Worker HAOS test.",
+    "The remaining four stages were not run in qualification-reviewed-009; no results from other runs are stitched into this history.",
+    "DNS-only diagnostics and lightweight tests do not establish a passing modified HAOS fixture, full qualification, public delivery, real cloud-account, household, physical-laptop or 72-hour acceptance.",
+    "H6 requires a fresh complete qualification. The modified heavy fixture has not completed; this record does not assert a later result.",
+    "Raw logs, screenshots, machine names, network addresses, process and job identifiers, local paths, prompts, credentials and numeric device/inode identities are omitted."
+  ],
+  "history_created_at": "2026-10-23T19:14:04.861141+00:00"
+}

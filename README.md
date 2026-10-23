@@ -6,7 +6,7 @@
 
 **0.11.1 候選**將 #122 的專用主機電源／網路政策（G15／G16）納入 #123 的正式 Host bootstrap 與受批准更新路徑，並沿用 0.11.0 的通知與恢復功能。這是待驗證、待發布的候選；既有家庭須走一次性圖形遷移，不重跑 installer。發布後可從 [v0.11.1 發布頁](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.11.1) 取得下載工具。候選的精確來源、媒體與測試結果見 [驗證紀錄](docs/VERIFICATION.md)；完成驗證與公開頻道銜接前，不將已合併功能視為可下載交付。
 
-既有 0.11.0 發布資產可在 [v0.11.0](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.11.0) 查閱；既有媒體與驗證紀錄保留。實體筆電、真帳號、家庭設備及 72 小時運作由 Owner 現場驗收。
+既有 [v0.11.0](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.11.0) 工程預覽已完成單輪本機八階段與單輪公開 App 工程驗收；原始媒體與新增驗證 ZIP 已各自通過 Linux 匿名下載與校驗。精確來源與限制見[驗證紀錄](docs/VERIFICATION.md)。既有媒體與歷史結果保留；實體筆電、真帳號、家庭設備及 72 小時運作由 Owner 現場驗收。
 
 ## 安裝
 
