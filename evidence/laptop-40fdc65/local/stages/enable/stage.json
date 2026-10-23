@@ -1,0 +1,30 @@
+{
+  "cleanup_scope": "known_test_name_prefixes_only",
+  "disk_basetemp_removed": true,
+  "excluded_cli_probes": {
+    "grok": "not_run: owner instruction"
+  },
+  "finished": "2026-10-23T20:21:27.198137+00:00",
+  "fixture_cleanup_basis": "fixture_receipts_and_wrapper_observation",
+  "harness_binding_sha256": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+  "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+  "junit": {
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "tests": 42
+  },
+  "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "primary_receipts": [
+    "home-worker-enable-haos.json"
+  ],
+  "public_channel_test": false,
+  "required_actual_tests_passed": [
+    "test_real_home_worker_enable_backup_reboot"
+  ],
+  "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "stage": "enable",
+  "started": "2026-10-23T20:10:46.488003+00:00",
+  "status": "passed",
+  "wrapper_owned_resources_absent": true
+}

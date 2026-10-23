@@ -1,0 +1,11 @@
+{
+  "input_sha256": "b671831eb82a1bced4c6045343d4f56563442415d3eede8cf4140d3b115bf025",
+  "verified_boolean_maps": {},
+  "verified_fields": {
+    "excluded_cli_probes.grok": "not_run: owner instruction",
+    "image": "sha256:c7b456c6b246d02e07db689dc03a06d37201a6d0413eba3207ede75a5014937c",
+    "structured_output": "passed",
+    "tls_pin_and_pairing": "passed",
+    "uid_and_secret_isolation": "passed"
+  }
+}

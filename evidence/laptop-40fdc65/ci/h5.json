@@ -1,0 +1,122 @@
+{
+  "schema": 1,
+  "kind": "reviewed_test_overlay_h5_ci_summary",
+  "status": "success",
+  "scope": "H5 push CI only; separate from H4 CI history, frozen F install media and eight-stage qualification.",
+  "observed_at": "2026-10-23T18:36:41.211355+00:00",
+  "identities": {
+    "test_overlay_h5_commit": "b89ca6dc522e1daab988d5c37cdca8610751404f",
+    "previous_test_overlay_h4_commit": "3f1d1c26baf6942b4ef7fdc2d1048c9960dfb691",
+    "frozen_media_f_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+    "harness_binding_sha256": "2da04ffcba79f77d0cf3780fd8e7c63ff8d0261ac85c5f67b7c251dbf6502866",
+    "harness_overlay_patch_sha256": "ec17f82c7fa46acc63afe8e6e0e29f54bb1a36f54787f45b26508801613b3980",
+    "candidate_manifest_sha256": "76a37e621668fa9d9dcbfc3faa518e7b575fe9a12312502262493c7e3c7df244",
+    "f_to_h5_diff_exactly_seven_bound_test_files": true
+  },
+  "run": {
+    "run_id": 40000949909,
+    "url": "https://github.com/TED-H-com/agentic-smart-home/actions/runs/40000949909",
+    "event": "push",
+    "attempt": 1,
+    "head_commit": "b89ca6dc522e1daab988d5c37cdca8610751404f",
+    "checkout_commit": "b89ca6dc522e1daab988d5c37cdca8610751404f",
+    "checkout_tree": "9042c02190c61d1f550b889d3c6368f7cf575916",
+    "conclusion": "success",
+    "job_conclusion": "success",
+    "created_at": "2026-10-23T18:09:08Z",
+    "updated_at": "2026-10-23T18:35:56Z",
+    "package": "success"
+  },
+  "checkout_verification": {
+    "basis": "Exact checkout commit printed by the job log; GitHub Git commit API tree matched the local immutable commit tree.",
+    "verified": true
+  },
+  "junit": {
+    "tests": 3566,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 12,
+    "passed": 3554,
+    "sha256": "8e210a02d114af03229a09bb5663f3e974f69bf72e05e7fcfcc2c6dffb396a9c",
+    "seconds": 1274.537
+  },
+  "ci_source_archive": {
+    "sha256": "8f97b4ad94712a20ec92184981a2da4a9e30d0c0e55071639937a6d08eee62e6",
+    "bytes": 33564922,
+    "manifest_sha256": "39ef0b0f1ac51be28099a72967c9e9e56951f57b099b0fe92fb8b4a7ffd2cd3a",
+    "manifest_entries": 1645,
+    "all_manifest_hashes_match": true,
+    "tracked_files_equal_h5": 1423,
+    "no_changed_tracked_non_evidence_files": true,
+    "seven_overlay_hashes_match_binding": {
+      "tests/installed_update_probe.py": true,
+      "tests/test_bridge_haos.py": true,
+      "tests/test_installed_lan_callback.py": true,
+      "tests/test_installed_probe_contract.py": true,
+      "tests/test_installed_shutdown_observation.py": true,
+      "tests/test_linux_install.py": true,
+      "tests/test_recovery_followups_ui.py": true
+    },
+    "critical_source_files_match_h5": [
+      "controller/agentic_controller/host.py",
+      "host/agentic_host/daemon.py",
+      "scripts/package.py",
+      ".github/workflows/ci.yml",
+      "tests/test_home_worker_enable_haos.py"
+    ],
+    "changed_tracked_evidence_files": 216,
+    "generated_untracked_files": 6,
+    "identity_scope": "CI-generated H5 source archive; not frozen F media."
+  },
+  "artifacts": [
+    {
+      "id": 12523726797,
+      "name": "TED-H-com~agentic-smart-home~1Y45Z3.dockerbuild",
+      "expired": false,
+      "size_in_bytes": 43356
+    },
+    {
+      "id": 12522889217,
+      "name": "agentic-home-0.11.0",
+      "expired": false,
+      "size_in_bytes": 63056862,
+      "downloaded_size": 63056862,
+      "sha256": "a70e2de4a7b1a0ae6eee538e5160382913091b132286c48efc3a3ef6741e4842",
+      "api_digest_matches": true
+    }
+  ],
+  "terminal_pytest": {
+    "passed": 3554,
+    "skipped": 12,
+    "warnings": 3,
+    "seconds": 1274.62,
+    "counts_match_junit": true
+  },
+  "host_fixture_regression": {
+    "classname": "tests.test_bridge_haos",
+    "testcase": "test_host_capability_fixture_uses_real_unix_http_and_exposes_no_actions",
+    "status": "passed",
+    "scope": "Production host_bridge_contract over real Unix HTTP against the synthetic Host fixture; not installed Host or HAOS acceptance."
+  },
+  "source_receipts_sha256": {
+    "artifact.zip": "a70e2de4a7b1a0ae6eee538e5160382913091b132286c48efc3a3ef6741e4842",
+    "artifacts.json": "eedb1f248b77b9e214a571b9dcb3c6df129607b53c35e163bf65cbe98f396005",
+    "commit-api.json": "afa3a781ea953c940a67133f8cc68c0995814133e19589c913bb9ab8508151ee",
+    "job.log": "4102f90029fe1c86cef8dcf145729e73cbb1813d3cf6b539bc7be1e2b12166de",
+    "jobs-final.json": "19971a7cae19194b041452ef6813fc24a8224368b1e22ac4343e7b7cebfde304",
+    "pytest.xml": "8e210a02d114af03229a09bb5663f3e974f69bf72e05e7fcfcc2c6dffb396a9c",
+    "run-final.json": "c49cb64a53e57e61304c24a61686b7b08b35feaea385602dabc7c6e5792749dd",
+    "source-manifest.json": "39ef0b0f1ac51be28099a72967c9e9e56951f57b099b0fe92fb8b4a7ffd2cd3a",
+    "source.zip": "8f97b4ad94712a20ec92184981a2da4a9e30d0c0e55071639937a6d08eee62e6",
+    "workflow-source.yml": "b8e95a88913bee0aaa50ad186f76764fba1690bc68b3f92dc818844f79aa8f3a",
+    "receipt.json": "6e2cbba4aec50c61b0dc8c9d87b619ec62158ee3fa6298f133765f9f71958732"
+  },
+  "verification": "Read-only API, job-log, ZIP manifest, immutable Git blob and JUnit checks. Downloaded ZIP files were not extracted or executed. No workflow retry or local product tests were performed by this observer.",
+  "limitations": [
+    "H5 CI success does not establish qualification of frozen F install media, later main or a public-channel download.",
+    "The 12 skips include the real HAOS and full Linux install cases. This workflow uses --real-ha --containers; it is not the eight-stage install-media/HAOS qualification and does not establish real-account, physical-device, household or 72-hour acceptance.",
+    "No result for qualification-reviewed-009 or any later qualification run is asserted.",
+    "The CI-generated source archive belongs to this H5 checkout and is not the original frozen F source archive.",
+    "Raw logs, screenshots, household data, runner identities and local filesystem paths are omitted."
+  ]
+}

@@ -1,0 +1,568 @@
+{
+  "schema": 1,
+  "kind": "historical_public_release_asset_inventory",
+  "repository": "TED-H-com/agentic-smart-home",
+  "version": "0.11.0",
+  "release_id": 416886339,
+  "tag": "v0.11.0",
+  "release_tag_commit": "df25dae051e2d067da97eb5b60852b2f7d37ea88",
+  "media_source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "observed_before": "2026-10-23T09:44:43.296410+00:00",
+  "observed_after": "2026-10-23T09:59:26.036037+00:00",
+  "asset_count": 77,
+  "total_asset_bytes": 9592760568,
+  "all_assets_uploaded": true,
+  "names_sizes_and_server_sha256_match_pinned_upload_plan": true,
+  "inventory_and_release_metadata_unchanged_between_observations": true,
+  "assets": [
+    {
+      "name": "SHA256SUMS",
+      "id": 655189399,
+      "bytes": 302,
+      "sha256": "9da972d20f4446461c9aa3b4fd6879d0a152955f99f4234d4d427e3929d82ee8",
+      "state": "uploaded"
+    },
+    {
+      "name": "USB-INSTRUCTIONS.zh-TW.md",
+      "id": 655189376,
+      "bytes": 5552,
+      "sha256": "0254728dc3156653a0b8b36cd977bb86a11417764bce3715a8c65ebb11b18929",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0001",
+      "id": 655191075,
+      "bytes": 134217728,
+      "sha256": "6bffaff4582816b8160d74150b6d922db50ec7290bc5f135c2c35f24b40e94ed",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0002",
+      "id": 655191076,
+      "bytes": 134217728,
+      "sha256": "e600176b1f8f79127d4d6d73ab0074de046044199a5aa7e867f27ea75af8108c",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0003",
+      "id": 655191077,
+      "bytes": 134217728,
+      "sha256": "312313b986422a9d4ba65e2ad21a355abc68130099371b4fa3c981bc70c45dcf",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0004",
+      "id": 655196283,
+      "bytes": 134217728,
+      "sha256": "c5950b7cb9a09f23d527e78a4951b88162e2f79c084eb6c8707b3f4fdc71bb28",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0005",
+      "id": 655196284,
+      "bytes": 134217728,
+      "sha256": "55085fb9a955da95fff56f0b11578675f5961d719b68d721701a452b4559c86b",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0006",
+      "id": 655196281,
+      "bytes": 134217728,
+      "sha256": "4488f7e05a3a0a2f58eab9fe54e2776b3ff7f2b3ee748d829cadd2b3e8119b8b",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0007",
+      "id": 655197938,
+      "bytes": 134217728,
+      "sha256": "46e5af1bfa8ab2b4f6a326615e09b7bd8165c6f395b71eea48340f9f94b4f0d1",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0008",
+      "id": 655197936,
+      "bytes": 134217728,
+      "sha256": "113dac15c0f32815b834d6b65024bdd19552b7d603ac186d2b0a915a4763c01d",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0009",
+      "id": 655197940,
+      "bytes": 134217728,
+      "sha256": "ee826dcdaacfdb83ce37c76989645c7d19e159e0256d4c37bdaf86ed70117cbb",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0010",
+      "id": 655199101,
+      "bytes": 134217728,
+      "sha256": "8473bd01cd13815e0686134b3333f7505a18202194e2e7feabc1faec62d6770f",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0011",
+      "id": 655199102,
+      "bytes": 134217728,
+      "sha256": "4a64381d4aabf1f12701972ee17c902ab107863b11fdad1ec8956b3a8e4b1d59",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0012",
+      "id": 655199104,
+      "bytes": 134217728,
+      "sha256": "455245de64c15292ffae3af946644a968c34087274785f79785f378e3ef63cb6",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0013",
+      "id": 656495178,
+      "bytes": 134217728,
+      "sha256": "53775dd0fb947ebe71c0e20572e11fce85e2e5340c46fd163b193194335a2370",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0014",
+      "id": 656495183,
+      "bytes": 134217728,
+      "sha256": "85180dcceb15a5df432a25a8869537cecba267a127f0f39351fb2cf95d5b2496",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0015",
+      "id": 656495182,
+      "bytes": 134217728,
+      "sha256": "a1aae046b1360a062d3484c36a1b77776f5b2113034709b2f5140da3f02cbf40",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0016",
+      "id": 656497192,
+      "bytes": 134217728,
+      "sha256": "46007aae1bf084a77c8d8e8bbe96036c5e1845d27042b043ebe41d8b8cb9815d",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0017",
+      "id": 656497188,
+      "bytes": 134217728,
+      "sha256": "bbdd89630663e441a3f88b457f91ffdc4f61fa6b30b8a3ed27d016260137e64d",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0018",
+      "id": 656497184,
+      "bytes": 134217728,
+      "sha256": "8eccc4cf21fd4aee316655cbea645c18c0c54e4b148f00c56b5980bf879f5cbe",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0019",
+      "id": 656504211,
+      "bytes": 134217728,
+      "sha256": "d555510d96e6dc32594b25b10ca8f0117c3fa5a8a62b21703164b355b8c34aab",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0020",
+      "id": 656504210,
+      "bytes": 134217728,
+      "sha256": "1fb5a46921352de1a2f9269a821c999da8954a036fc786975c7d177ef5452414",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0021",
+      "id": 656504219,
+      "bytes": 134217728,
+      "sha256": "87102eb424ca7b575d31607b97d3886dafb91fddce542af0d6cfff1229a34496",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0022",
+      "id": 656506706,
+      "bytes": 134217728,
+      "sha256": "8178ff54b2c5e313bf2985aed9e7f4facc4e42bf322645e1111b5888c5663c05",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0023",
+      "id": 656506707,
+      "bytes": 134217728,
+      "sha256": "9ce3463c05c8b61ce55ed5ce032740739431c950ed38eb8ad9d720af10655861",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0024",
+      "id": 656506718,
+      "bytes": 134217728,
+      "sha256": "e9e8ab86c3f5a407d18a7d4635b5a1988eac7ff88b01b3174fa020702ecdf925",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0025",
+      "id": 656513618,
+      "bytes": 134217728,
+      "sha256": "7eb2c2ccc95d73e9e218accd00aa827eeb5f98570582b264a880fcd0d7865f58",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0026",
+      "id": 656513614,
+      "bytes": 134217728,
+      "sha256": "98d7cd06abf5ec11cb9b2296625d7407700610192f1ff052df126d2a63400b46",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0027",
+      "id": 656513616,
+      "bytes": 134217728,
+      "sha256": "313ccf06de4deaab9a9ec174cdad0e64e94f979302ac702b992a6eb8a0802fc5",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0028",
+      "id": 656521412,
+      "bytes": 134217728,
+      "sha256": "621acd5b650a3b47cf85869165415d18fc56139cf5a09042cb9281d72e3911e7",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0029",
+      "id": 656521415,
+      "bytes": 134217728,
+      "sha256": "595d1aa09998091885ff2ff713aa7b49b6c9e5e98c908209bf549c27b8c31dc4",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0030",
+      "id": 656521411,
+      "bytes": 134217728,
+      "sha256": "a2b9d330173e963f1f8b91bce9eea7eee3ff09450124e620d4560db8455feb58",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0031",
+      "id": 656529262,
+      "bytes": 134217728,
+      "sha256": "07e549635919f27c8bd51f6a1c14a2589037cda2390a774388be842489b2557a",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0032",
+      "id": 656529260,
+      "bytes": 134217728,
+      "sha256": "d727bbf3ad99577a2afddc745a446ff6f680ff6db739acff3d0b06013a9dafac",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0033",
+      "id": 656529257,
+      "bytes": 134217728,
+      "sha256": "912d74ca104cd83c86bed81ae04498709b323c21b49edd4df8deaa85925ecf57",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0034",
+      "id": 656535763,
+      "bytes": 134217728,
+      "sha256": "8ebe765a9087e0c6f607fb2fa684799b876b98ab96f4e8c7cd319ed2aea9c968",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0035",
+      "id": 656535764,
+      "bytes": 134217728,
+      "sha256": "1f1e3717ffff63a3bc1842b1a2b9f93e524ed722e24e8bf2f2179e2ca433a9bf",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0036",
+      "id": 656535769,
+      "bytes": 134217728,
+      "sha256": "6c20d13126ff4c6223422a6c85a5815b5a270922b903b03701bfb46ae2c8d0fd",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0037",
+      "id": 656542131,
+      "bytes": 134217728,
+      "sha256": "4745028d1280dced7b1489e2e39054ed26ec7cc8e4829cf6a1e83bd7d4dd4c8b",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0038",
+      "id": 656542132,
+      "bytes": 134217728,
+      "sha256": "e1a76dae6c29f1e90f1c2935d35772f4ecd426417b4eb2d35b59f66d5e510ea2",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0039",
+      "id": 656542135,
+      "bytes": 134217728,
+      "sha256": "cbc3d9f42443ac2e166db14a2d9df3754e121b7e8a7f1a8618a853dcabdcc21e",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0040",
+      "id": 656544261,
+      "bytes": 134217728,
+      "sha256": "21336034294dff9d7d802409670366423248df63a208384f9abca78667d0c34a",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0041",
+      "id": 656544267,
+      "bytes": 134217728,
+      "sha256": "8af4b6fc67db235b5b29e95c7fa8513aa1fd78cbc93d76453b55e79eb001b324",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0042",
+      "id": 656544260,
+      "bytes": 134217728,
+      "sha256": "56ee3481d67407364d95d5bf4b9d97cd001f6455d04504beb1ab913ee007fafb",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0043",
+      "id": 656551857,
+      "bytes": 134217728,
+      "sha256": "6d5a40333c7c70ddf6a55c477897bd3c8a099d269dcd666fe3c1c9713ba56229",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0044",
+      "id": 656551856,
+      "bytes": 134217728,
+      "sha256": "f4e7a0e1560b576d42de8b236fd82a452ef75cde7372926bd50e0b252b2ded48",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0045",
+      "id": 656551860,
+      "bytes": 134217728,
+      "sha256": "037e0a597775dd8f0975a9fc9a394fedc549337649b37edc10a1195ddf590ca1",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0046",
+      "id": 656559054,
+      "bytes": 134217728,
+      "sha256": "f14658f306e67690011ea7f88ddb73bfa1a83e285acfa516214e4cedf4ac0cf1",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0047",
+      "id": 656559080,
+      "bytes": 134217728,
+      "sha256": "09bb06cfc4e9b747b40bfa8dc95419733ff037bf9e858946b33db6e8f2f344d0",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0048",
+      "id": 656559063,
+      "bytes": 134217728,
+      "sha256": "04d41bbdf660082b7e5701d4d8c932710b62a281e814dff9b8e93ad840cc1674",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0049",
+      "id": 656568015,
+      "bytes": 134217728,
+      "sha256": "308b11c100639a4e37993680c3aef1d493f028a76e4b8461be0c50fcc20bcce1",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0050",
+      "id": 656568009,
+      "bytes": 134217728,
+      "sha256": "a480bdabf4d9013aabf6d75f83a3b317542fbd74c63bcb0de2a4ef8854b42896",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso.part0051",
+      "id": 656568013,
+      "bytes": 108789760,
+      "sha256": "df48aeb0726a8e0158c5c49365da665b501a8da0b3b23fe7149bbd463fbaf447",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0001",
+      "id": 656577222,
+      "bytes": 134217728,
+      "sha256": "e9a8ca19737569514fa6b540e6fbffaa39c23b2c77f7f4bc8202e272e46490e5",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0002",
+      "id": 656577231,
+      "bytes": 134217728,
+      "sha256": "93c0efe290a897db15ee7dbc17796cc0f7d766b5be8e68c434b8f05845283ade",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0003",
+      "id": 656577228,
+      "bytes": 134217728,
+      "sha256": "8c2e9e9f71c807c3913a318727f6330f89b7f30e748e70219e746ac239b575de",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0004",
+      "id": 656579269,
+      "bytes": 134217728,
+      "sha256": "11541cf0913d641ef634c7536dc56163442fc3b801a84fa41fe0273c8f09423c",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0005",
+      "id": 656579268,
+      "bytes": 134217728,
+      "sha256": "131bec3ffee1db80bde6d0903ef25bc1d435b3329b861ef610d2825c4654ba7f",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0006",
+      "id": 656579267,
+      "bytes": 134217728,
+      "sha256": "177a167e1afa6a7fb045aa5756649e076cc56761d935099d1a147b1928642389",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0007",
+      "id": 656581671,
+      "bytes": 134217728,
+      "sha256": "8e2f5ba4878d78fdf3ed7b047f946524d71252262c87ecdee19fa7a7eca00375",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0008",
+      "id": 656581667,
+      "bytes": 134217728,
+      "sha256": "9211435ea735a94290bf97422642877caeff8256823a9d3a1e7ad33634cae699",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0009",
+      "id": 656581673,
+      "bytes": 134217728,
+      "sha256": "63d98919103e01c93c917fbd4ca3afaa4014a51749b8b182e68163771d2cbbe5",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0010",
+      "id": 656583910,
+      "bytes": 134217728,
+      "sha256": "b368f6ddf0119d5019450c8e160d8e410b325a615393c2efb7d47e028f04ad74",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0011",
+      "id": 656583912,
+      "bytes": 134217728,
+      "sha256": "1f72b500ad4df7f207a97cc1129a9c205449d9265cf60201b375cc354e9433af",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0012",
+      "id": 656583911,
+      "bytes": 134217728,
+      "sha256": "263d38885c1a7b25c6dc75f67be126d8ab1f82c4316ba543dedfe4a9d0193b5a",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0013",
+      "id": 656587048,
+      "bytes": 134217728,
+      "sha256": "632011bc05e1e908cf6cb514c00d0f2a19f924d1855d0cd695b762e5a8b8439d",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0014",
+      "id": 656587041,
+      "bytes": 134217728,
+      "sha256": "c2bebe8eb27fe3759ffd3d243011c8f37fc080787d65ba47218d9296fa4a5676",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0015",
+      "id": 656587042,
+      "bytes": 134217728,
+      "sha256": "26bad670a386150c7181f35fffe2346b08f3f25251c95f763f3d3834698f7f68",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0016",
+      "id": 656599791,
+      "bytes": 134217728,
+      "sha256": "404b2b3131cfaced1765ec193f55db41bfa396b9ce05995d12a5a12df44d82d0",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0017",
+      "id": 656599786,
+      "bytes": 134217728,
+      "sha256": "e1d1a744b7ec168860c9b2d5c1a87b0c89bf191b705f47f9151f2846a4cf0788",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0018",
+      "id": 656599790,
+      "bytes": 134217728,
+      "sha256": "6e21169a711f375bffc0e596567f7bc2c1c77dca448ad1f19851550d6828f57f",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0019",
+      "id": 656602667,
+      "bytes": 134217728,
+      "sha256": "51bfeeb11fd1db5f551aa340e71f71693b8654b4c12251a324bbfd3265c21718",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0020",
+      "id": 656602668,
+      "bytes": 134217728,
+      "sha256": "4be3b8421b12298cb53c8cdd0d4359fef03121d1d8287e139ef05ec1081aaa3f",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar.part0021",
+      "id": 656602670,
+      "bytes": 55828480,
+      "sha256": "a38cf3314fc0be0ee011080cf0ffdd0b47093266e46f18bc2a252332ef14b95e",
+      "state": "uploaded"
+    },
+    {
+      "name": "agentic-home-0.11.0-source.zip",
+      "id": 656605331,
+      "bytes": 32866471,
+      "sha256": "3ec9d8a64d57a2e1dc0329e3e18df1fdbff3972ad79636093716709ba7eb0af4",
+      "state": "uploaded"
+    },
+    {
+      "name": "download-0.11.0.py",
+      "id": 655189375,
+      "bytes": 13090,
+      "sha256": "f9d8dd3e3ab382d13d105bed01c2bef377f586c4ab2d5c334cd0e10f1b73638d",
+      "state": "uploaded"
+    },
+    {
+      "name": "release-parts.json",
+      "id": 655189380,
+      "bytes": 15953,
+      "sha256": "a440cdd9a791d47264755b8e72ea44e92d9fb0c3631221b93917561470a5b627",
+      "state": "uploaded"
+    }
+  ],
+  "source_receipts_sha256": {
+    "release-before.json": "31b3c1c4303a57762aae8a25ead56ac91b19b962893d1f64878f4bee567ef7e1",
+    "release-after.json": "0e6a67fe3b4dd186ec435be2f9bba8f8157a42fcda6827331986a6b427dbcf4e",
+    "expected-upload-plan.json": "c3b705b7eb679986dd859c32218322ca14ea3251aa6cbdb7292a92d4b3cc4c39"
+  },
+  "limitations": [
+    "This is the 77-asset inventory observed during the recorded anonymous download, not a claim about later release changes.",
+    "Server asset digests are metadata evidence; actual downloaded-byte verification is recorded separately in summary.json.",
+    "No verification ZIP was present in this inventory."
+  ]
+}

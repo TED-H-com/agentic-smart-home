@@ -1,0 +1,9 @@
+{
+  "input_sha256": "9b36a96deb3f4ce8529f75c681d31e9344e864e39d9f2d786096639fc2a97c3e",
+  "verified_boolean_maps": {},
+  "verified_fields": {
+    "cli_exit": 0,
+    "iso_sha256": "d007bdcb24a702abff161a6abc7b97ef3905d271cd15558b83050ccf22376a85",
+    "job.state": "succeeded"
+  }
+}

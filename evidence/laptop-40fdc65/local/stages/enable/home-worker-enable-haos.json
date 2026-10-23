@@ -1,0 +1,36 @@
+{
+  "input_sha256": "3c0e9a0fba839800129f3bd8f24553e08a534ea85659d06970b8dc0a97f7201b",
+  "verified_boolean_maps": {
+    "checks": {
+      "bridge_auto_enroll": true,
+      "bridge_heartbeat": true,
+      "cold_backup": true,
+      "container_contract": true,
+      "exact_head": true,
+      "full_reboot": true,
+      "home_worker_enable": true,
+      "login_ready_contract": true,
+      "persisted_record": true,
+      "pinned_bases_preloaded": true,
+      "real_app_contract": true,
+      "recovery_identity": true,
+      "shared_repository": true,
+      "stable_branch_is_exact_head": true,
+      "supervisor_healthy": true,
+      "tls_fingerprint": true
+    },
+    "cleanup": {
+      "disk_fixture_ownership_restored": true,
+      "git_removed": true,
+      "network_removed": true,
+      "outer_removed": true,
+      "vm_removed": true
+    }
+  },
+  "verified_fields": {
+    "delivery": "local_git_daemon_exact_head_stable_branch",
+    "kind": "real_haos_home_worker_enable",
+    "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+    "status": "passed"
+  }
+}

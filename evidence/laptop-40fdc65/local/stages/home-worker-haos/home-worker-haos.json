@@ -1,0 +1,78 @@
+{
+  "input_sha256": "697a4233325a060d44357f439c22b77baa9a56a4080f3180fb198096bacfb04d",
+  "verified_boolean_maps": {
+    "boundary_checks": {
+      "dev_outside_volume_readonly": true,
+      "docker_socket_absent": true,
+      "effective_capabilities_zero": true,
+      "fixture_parent_env_absent": true,
+      "git_metadata_read_only": true,
+      "hassio_env_absent": true,
+      "host_socket_absent": true,
+      "inherited_directory_fds_absent": true,
+      "lan_direct_network_denied": true,
+      "nested_user_namespace_denied": true,
+      "no_new_privileges": true,
+      "parent_environ_secret_unreadable": true,
+      "private_canary_secret_unreadable": true,
+      "private_coding_path_absent": true,
+      "private_workspace_fds_absent": true,
+      "public_direct_network_denied": true,
+      "role_auth_secret_unreadable": true,
+      "root_outside_volume_readonly": true,
+      "run_outside_volume_readonly": true,
+      "runner_key_secret_unreadable": true,
+      "seccomp_filter_active": true,
+      "shm_outside_volume_readonly": true,
+      "staging_path_absent": true,
+      "supervisor_env_absent": true,
+      "tmp_on_bounded_volume": true,
+      "uid_unprivileged": true,
+      "worker_cgroup_ns_distinct_from_app": true,
+      "worker_fuse_device_unavailable": true,
+      "worker_mnt_ns_distinct_from_app": true,
+      "worker_pid_ns_distinct_from_app": true
+    },
+    "checks": {
+      "abrupt_same_boot_restart_retains_lease_and_prevents_replay": true,
+      "actual_codex_tools": true,
+      "actual_source_patch": true,
+      "actual_tls_cancel_stops_descendants_and_releases_lease": true,
+      "additional_app_namespace_view": true,
+      "distinct_actual_haos_app_namespaces": true,
+      "fenced_checkpoint_handoff": true,
+      "graceful_app_restart_keeps_confirmed_stop_without_replay": true,
+      "home_role_login_separate_from_unpaired_host": true,
+      "independent_baseline_tests": true,
+      "outer_controller_actual_pinned_tls_pairing": true,
+      "product_image_layers_verified": true,
+      "same_case_observation_content_and_digest": true,
+      "same_case_tls_artifacts": true,
+      "worker_boundary_checks": true
+    },
+    "cleanup": {
+      "disk_fixture_ownership_restored": true,
+      "network_removed": true,
+      "outer_removed": true,
+      "vm_removed": true
+    },
+    "startup_boundaries.checks": {
+      "actual_cpu_throttling": true,
+      "actual_ext4_enospc": true,
+      "actual_memory_oom_kill": true,
+      "actual_pid_limit": true,
+      "descendant_cancel_and_cgroup_empty": true,
+      "worker_and_fuse_cgroups_reclaimed": true
+    }
+  },
+  "verified_fields": {
+    "controller_image_id": "sha256:cb0738f6c36ae09df8d1be2c54c2f22a63a51a45083a099c53e4d7fb5dcd4afa",
+    "kind": "real_haos_home_coding_worker",
+    "runner_base_image_id": "sha256:c7b456c6b246d02e07db689dc03a06d37201a6d0413eba3207ede75a5014937c",
+    "runtime_source_uncommitted": false,
+    "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+    "startup_boundaries.cleanup": "passed",
+    "startup_boundaries.status": "passed",
+    "status": "passed"
+  }
+}

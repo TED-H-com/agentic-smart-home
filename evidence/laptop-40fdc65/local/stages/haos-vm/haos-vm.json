@@ -1,0 +1,9 @@
+{
+  "input_sha256": "7005aa3b439d7b05d2d04d974c476a1e276f9113499b73e3868475868ef0fe7b",
+  "verified_boolean_maps": {},
+  "verified_fields": {
+    "backup_completed_and_readback": true,
+    "kind": "real_haos_kvm",
+    "owner_verified": true
+  }
+}

@@ -1457,15 +1457,19 @@ async def test_first_observation_survives_partial_gather(network, store, monkeyp
         return result
 
     ha.request, ha.ws = request, ws
+    original_timeout = asyncio.timeout
     if interruption == 'timeout':
-        original_timeout = asyncio.timeout
-        monkeypatch.setattr(asyncio, 'timeout', lambda delay: original_timeout(0.05 if delay == 30 else delay))
+        deadline = original_timeout(None)
+        monkeypatch.setattr(asyncio, 'timeout', lambda delay: deadline if delay == 30 else original_timeout(delay))
     async def check_host():
         pass
     task = asyncio.create_task(ha_lan.converge_home_lan(ha, store, attempt(), check_host))
     fresh = None
     try:
         await asyncio.wait_for(sibling_waiting.wait(), 5)
+        if interruption == 'timeout':
+            # Exercise the partial gather, after its real setup barriers finish.
+            deadline.reschedule(asyncio.get_running_loop().time() + .05)
         if interruption == 'cancel':
             task.cancel()
             with pytest.raises(asyncio.CancelledError):
@@ -1483,6 +1487,8 @@ async def test_first_observation_survives_partial_gather(network, store, monkeyp
             else:
                 ha.internal_url = ha.urls['internal'] = owner_value
         ha.request, ha.ws = original_request, original_ws
+        # The interrupted gather's short deadline must not constrain recovery.
+        monkeypatch.setattr(asyncio, 'timeout', original_timeout)
         fresh = Store(store.path) if restart else None
         active = fresh or store
         second = await ha_lan.converge_home_lan(ha, active, attempt(), check_host)
@@ -1565,12 +1571,16 @@ async def test_first_observation_flush_failure_preserves_original_outcome(journa
     monkeypatch.setattr(ha_lan, 'durable', durable)
     if outcome == 'timeout':
         original_timeout = asyncio.timeout
-        monkeypatch.setattr(asyncio, 'timeout', lambda delay: original_timeout(0.05 if delay == 30 else delay))
+        deadline = original_timeout(None)
+        monkeypatch.setattr(asyncio, 'timeout', lambda delay: deadline if delay == 30 else original_timeout(delay))
     async def check_host():
         pass
     task = asyncio.create_task(ha_lan.converge_home_lan(ha, store, attempt(), check_host))
     try:
         await asyncio.wait_for(waiting.wait(), 5)
+        if outcome == 'timeout':
+            # Start the fault after real setup barriers reach the target read.
+            deadline.reschedule(asyncio.get_running_loop().time() + .05)
         if outcome == 'cancel':
             task.cancel()
             with pytest.raises(asyncio.CancelledError):
@@ -1696,10 +1706,11 @@ async def test_stalled_observation_writer_is_bounded_and_restart_protects_owner(
         pass
     ha.request, ha.ws = request, ws
     monkeypatch.setattr(ha_lan, 'finish_journal', finish)
+    finish_seconds, timeout = ha_lan.JOURNAL_FINISH_SECONDS, asyncio.timeout
     monkeypatch.setattr(ha_lan, 'JOURNAL_FINISH_SECONDS', .05)
     if interruption == 'timeout':
-        timeout = asyncio.timeout
-        monkeypatch.setattr(asyncio, 'timeout', lambda delay: timeout(.15 if delay == 30 else delay))
+        deadline = timeout(None)
+        monkeypatch.setattr(asyncio, 'timeout', lambda delay: deadline if delay == 30 else timeout(delay))
     task = asyncio.create_task(ha_lan.converge_home_lan(ha, store, attempt(), check_host))
     try:
         await asyncio.wait_for(waiting.wait(), 2)
@@ -1708,7 +1719,10 @@ async def test_stalled_observation_writer_is_bounded_and_restart_protects_owner(
             arm()
         else:
             assert await asyncio.to_thread(entered.wait, 2)
-        if interruption != 'timeout':
+        if interruption == 'timeout':
+            # The exit batch begins only after expiry; its hook is armed above.
+            deadline.reschedule(asyncio.get_running_loop().time() + .15)
+        else:
             task.cancel()
         await asyncio.wait_for(finishing.wait(), 2)
         assert await asyncio.to_thread(entered.wait, 2)
@@ -1739,6 +1753,10 @@ async def test_stalled_observation_writer_is_bounded_and_restart_protects_owner(
         with pytest.raises(RuntimeError, match='持久化失敗'):
             await asyncio.to_thread(store.close)
         assert store.failed
+        # Accelerated deadlines belong to the stalled operation, not healthy
+        # recovery with a fresh Store and real disk persistence barriers.
+        monkeypatch.setattr(asyncio, 'timeout', timeout)
+        monkeypatch.setattr(ha_lan, 'JOURNAL_FINISH_SECONDS', finish_seconds)
         monkeypatch.setattr(store_journal, 'before_disk_commit', lambda: None)
         ha.request, ha.ws = original_request, original_ws
         fresh = Store(store.path)

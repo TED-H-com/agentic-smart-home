@@ -1,0 +1,11 @@
+{
+  "input_sha256": "f236691bcf4d363b7590f472aa176bf27a1f2936c21edcd8eb2b2a1da4718448",
+  "passed_check_count": 4,
+  "verified_boolean_maps": {},
+  "verified_fields": {
+    "app": "preview",
+    "cleanup.absent": true,
+    "image_id": "sha256:202af80a2ac4052081f98a3115424a0d7c61cff94a36750219dace748c7e2493",
+    "status": "passed"
+  }
+}

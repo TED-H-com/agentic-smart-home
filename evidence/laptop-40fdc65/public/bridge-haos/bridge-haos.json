@@ -1,0 +1,69 @@
+{
+  "checks": {
+    "app_restart_preserves_options_and_outer_case": true,
+    "direct_app_forged_header_denied": true,
+    "host_management_and_cross_origin_denied": true,
+    "ingress_native_identity_overrides_forged_header": true,
+    "manual_stop_remains_stopped": true,
+    "same_outer_case_and_deduplicated_conversation": true,
+    "service_heartbeat_without_owner_capability": true,
+    "supervisor_app_contract": true
+  },
+  "cleanup": {
+    "disk_fixture_ownership_restored": true,
+    "ha_client_closed": true,
+    "network_removed": true,
+    "outer_removed": true,
+    "ownership_helper_removed": true,
+    "vm_removed": true
+  },
+  "host_contract_fixture_verified": true,
+  "input_sha256": "d98742ac385092a71748999d90bc2e3adef82274bb423e7b2eecdf7d7f30c8d0",
+  "native_browser": {
+    "checks": {
+      "actual_ingress_post_csrf_and_origin": true,
+      "compiled_bridge_ui": true,
+      "existing_case_resumed": true,
+      "native_fullframe_screenshot": true,
+      "native_http_confirmation_needed": false,
+      "native_login_form_used": true,
+      "native_owner_login": true,
+      "reload_and_same_case_continuation": true
+    },
+    "compiled_js_sha256": "82b478b5ffbbf933b855db1d0c2985896e502e12dc1edbf8e645e5db750158c3",
+    "entry_method": "native_sidebar_link",
+    "kind": "native_ha_ingress_browser",
+    "no_api_or_header_mocking": true,
+    "observed_from": "chromium_native_ha_to_actual_ingress_app",
+    "screenshot": {
+      "bytes": 81691,
+      "copied_to_projection": false,
+      "name": "bridge-native-haos.png",
+      "sha256": "66e42f5f99a7dbde01b53c6000a2ec94b73b7275c84231ddf77961833ad158ce"
+    },
+    "status": "passed"
+  },
+  "public_repository": {
+    "commit_digest_pinned_by_supervisor": false,
+    "reference": "stable",
+    "source": "https://github.com/TED-H-com/agentic-smart-home#stable",
+    "source_build": true,
+    "version": "0.11.0"
+  },
+  "verified_fields": {
+    "cleanup": true,
+    "cleanup_status": "passed",
+    "delivery": "published_release_branch",
+    "haos_image": "18.3",
+    "inference": "protocol_fixture_no_cloud_account",
+    "kind": "real_haos_sidebar_bridge",
+    "observed_from": "haos_app_via_core_ingress_to_outer_pinned_tls",
+    "outer_dependency_image": "sha256:cb0738f6c36ae09df8d1be2c54c2f22a63a51a45083a099c53e4d7fb5dcd4afa",
+    "outer_source": "candidate_source_mounted_readonly",
+    "outer_source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+    "outer_source_uncommitted": false,
+    "product_status": "passed",
+    "status": "passed"
+  },
+  "wrong_tls_pin_negative_test": "not_run_in_public_mode"
+}

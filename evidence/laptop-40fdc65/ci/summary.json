@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "kind": "reviewed_test_overlay_ci_summary",
+  "status": "both_passed",
+  "scope": "Retained H4 push and pull-request CI receipts only; separate from frozen F media qualification and later main.",
+  "source_observed_at": "2026-10-18T10:21:50.438834+00:00",
+  "identities": {
+    "test_overlay_h4_commit": "3f1d1c26baf6942b4ef7fdc2d1048c9960dfb691",
+    "frozen_media_f_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+    "later_main_context_commit": "48c4d81a99e7a3cb32afeb551f24756cfac52055",
+    "later_main_ci_result": "not_assessed_by_this_summary",
+    "candidate_manifest_sha256": "76a37e621668fa9d9dcbfc3faa518e7b575fe9a12312502262493c7e3c7df244",
+    "harness_binding_sha256": "a7a11ff0dba3db9a72df31ce0867f2c60b809db19d4311062d0336a945e278b7",
+    "frozen_f_source_archive_sha256": "3ec9d8a64d57a2e1dc0329e3e18df1fdbff3972ad79636093716709ba7eb0af4"
+  },
+  "runs": [
+    {
+      "run_id": 39116626394,
+      "url": "https://github.com/TED-H-com/agentic-smart-home/actions/runs/39116626394",
+      "event": "push",
+      "attempt": 1,
+      "head_commit": "3f1d1c26baf6942b4ef7fdc2d1048c9960dfb691",
+      "checkout_commit": "3f1d1c26baf6942b4ef7fdc2d1048c9960dfb691",
+      "checkout_tree": "5b5912f71a31ee8decad86d13b2d84d5419abdbd",
+      "conclusion": "success",
+      "junit": {
+        "tests": 3566,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 12,
+        "passed": 3554,
+        "sha256": "5eac24db8ec6aaa43d71a3883f9727a9ece0b2fb3770d01f05378eac5d11c6ee"
+      },
+      "terminal_warnings": 3,
+      "test_seconds": 1488.41,
+      "package": "success",
+      "ci_source_archive": {
+        "sha256": "c02b9a39f1f10fbe40533a8c71a4ee4ac52035ea147d237070f2bab43a38934c",
+        "bytes": 33566641,
+        "identity_scope": "This CI checkout; not the frozen F source archive."
+      },
+      "source_receipt_sha256": "c4440c3dec9730bc4753779f6a0856fc148ee2e6bb3e0846308479290206a2e5"
+    },
+    {
+      "run_id": 39116628705,
+      "url": "https://github.com/TED-H-com/agentic-smart-home/actions/runs/39116628705",
+      "event": "pull_request",
+      "attempt": 1,
+      "head_commit": "3f1d1c26baf6942b4ef7fdc2d1048c9960dfb691",
+      "checkout_commit": "1deceaef7f2edc8f23ddbd3342a49a797965e650",
+      "checkout_tree": "5b5912f71a31ee8decad86d13b2d84d5419abdbd",
+      "conclusion": "success",
+      "junit": {
+        "tests": 3566,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 12,
+        "passed": 3554,
+        "sha256": "3513e93737dae76402ef1efc27b0946e4f714f8bb72cd6bd28da3f8ac63c5b22"
+      },
+      "terminal_warnings": 3,
+      "test_seconds": 1450.08,
+      "package": "success",
+      "ci_source_archive": {
+        "sha256": "b7c2aecbc019f0d30bca6a21e0f5f5114ab78ab053f46f7111163823a3fd46d1",
+        "bytes": 33562160,
+        "identity_scope": "This CI checkout; not the frozen F source archive."
+      },
+      "source_receipt_sha256": "6425c008adf2a8b416432d5f2cec8201f1d6b80dacae02bcfecb9c30903a3e3e"
+    }
+  ],
+  "checkout_tree_identity": {
+    "basis": "The retained terminal audit records GitHub API verification; both recorded checkout trees match. No fresh remote verification was performed for this summary.",
+    "recorded_github_api_verification": true,
+    "push_and_pull_request_checkout_trees_match": true
+  },
+  "source_receipts_sha256": {
+    "ci-3f1d1c2/terminal-audit.json": "5c80c713caabc90d5ef180b50c24017603abfd67e5c1e390510a2d0ae6e43be8",
+    "harness-binding-v3.json": "a7a11ff0dba3db9a72df31ce0867f2c60b809db19d4311062d0336a945e278b7",
+    "qualification-reviewed-007/candidate-manifest.json": "76a37e621668fa9d9dcbfc3faa518e7b575fe9a12312502262493c7e3c7df244"
+  },
+  "local_verification": "Retained receipt hashes, JUnit hashes and testcase counts, and CI source-archive hashes/sizes were checked while preparing this summary. No tests or remote operations were run.",
+  "limitations": [
+    "H4 CI success does not establish qualification of frozen F install media or the later main commit.",
+    "The pull-request run checked out its recorded merge commit, not H4 directly; the retained audit records matching trees.",
+    "No eight-stage media qualification result, including failed qualification-reviewed-008, is asserted here.",
+    "Remote run state and artifact availability were not refreshed; results reflect the retained 2026-10-18 receipts.",
+    "Raw logs, household data, local filesystem paths and host identities are omitted."
+  ]
+}

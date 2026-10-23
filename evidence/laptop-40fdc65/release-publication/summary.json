@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "kind": "public_release_download_summary",
+  "status": "passed",
+  "scope": "Published assets, actual Linux anonymous downloader, independent hashes and scratch cleanup only.",
+  "repository": "TED-H-com/agentic-smart-home",
+  "version": "0.11.0",
+  "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "candidate_manifest_sha256": "76a37e621668fa9d9dcbfc3faa518e7b575fe9a12312502262493c7e3c7df244",
+  "release": {
+    "tag": "v0.11.0",
+    "url": "https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.11.0",
+    "id": 416886339,
+    "release_tag_commit": "df25dae051e2d067da97eb5b60852b2f7d37ea88",
+    "media_source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+    "draft": false,
+    "prerelease": true,
+    "target_commitish_at_observation": "main",
+    "identity_basis": "The resolved release tag commit and frozen media source are distinct identities; target_commitish is not used as a commit pin."
+  },
+  "server_assets": {
+    "status": "passed",
+    "asset_count": 77,
+    "total_bytes": 9592760568,
+    "all_names_sizes_and_server_sha256_match_plan": true,
+    "all_assets_uploaded": true,
+    "inventory": "assets-20261023.json",
+    "inventory_sha256": "1aeb1242171c1a8129496ddb28fe16816eaf140671e7c4fbb4724c5a4a575183",
+    "observed_before": "2026-10-23T09:44:43.296410+00:00",
+    "observed_after": "2026-10-23T09:59:26.036037+00:00",
+    "verification_zip_in_inventory": false,
+    "upload_plan_sha256": "c3b705b7eb679986dd859c32218322ca14ea3251aa6cbdb7292a92d4b3cc4c39"
+  },
+  "anonymous_download": {
+    "status": "passed",
+    "started_at": "2026-10-23T09:44:42.616278+00:00",
+    "finished_at": "2026-10-23T09:59:26.488873+00:00",
+    "elapsed_seconds": 883.873,
+    "platform": {
+      "system": "Linux",
+      "machine": "x86_64",
+      "python": "3.14.4"
+    },
+    "credentials_or_cookie_headers_used": false,
+    "ambient_proxy_environment_used": false,
+    "isolated_home_and_no_preexisting_parts": true,
+    "downloader_interpreter_flags": [
+      "-I",
+      "-B"
+    ],
+    "downloader_media_selection": "all",
+    "downloader_exit_code": 0,
+    "published_downloader_completed": true,
+    "all_four_original_files_independently_sha256_verified": true,
+    "downloaded_sha256sums_matches_all_three_media_files": true,
+    "release_identity_and_inventory_unchanged": true,
+    "published_downloader": {
+      "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.11.0/download-0.11.0.py",
+      "size": 13090,
+      "sha256": "f9d8dd3e3ab382d13d105bed01c2bef377f586c4ab2d5c334cd0e10f1b73638d"
+    },
+    "downloaded_transport_manifest": {
+      "name": "release-parts.json",
+      "size": 15953,
+      "sha256": "a440cdd9a791d47264755b8e72ea44e92d9fb0c3631221b93917561470a5b627",
+      "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+      "release_tag": "v0.11.0"
+    },
+    "instructions": {
+      "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.11.0/USB-INSTRUCTIONS.zh-TW.md",
+      "size": 5552,
+      "sha256": "0254728dc3156653a0b8b36cd977bb86a11417764bce3715a8c65ebb11b18929",
+      "independent_hash_passed": true
+    },
+    "originals": [
+      {
+        "name": "SHA256SUMS",
+        "bytes": 302,
+        "sha256": "9da972d20f4446461c9aa3b4fd6879d0a152955f99f4234d4d427e3929d82ee8",
+        "independent_hash_passed": true
+      },
+      {
+        "name": "agentic-home-0.11.0-laptop-amd64.iso",
+        "bytes": 6819676160,
+        "sha256": "d007bdcb24a702abff161a6abc7b97ef3905d271cd15558b83050ccf22376a85",
+        "independent_hash_passed": true
+      },
+      {
+        "name": "agentic-home-0.11.0-linux-amd64.tar",
+        "bytes": 2740183040,
+        "sha256": "0c94de22c4d9f7763a78ba476694c4b07e083d05e4526da4fbe8c70f06ae1895",
+        "independent_hash_passed": true
+      },
+      {
+        "name": "agentic-home-0.11.0-source.zip",
+        "bytes": 32866471,
+        "sha256": "3ec9d8a64d57a2e1dc0329e3e18df1fdbff3972ad79636093716709ba7eb0af4",
+        "independent_hash_passed": true
+      }
+    ],
+    "source_receipt_sha256": "8f372e2b369c142925ca61509c0e99d6c1f9fb5fd4d1ca8b57550db76a742d19",
+    "iso_independent_receipt_sha256": "c1d2b6ff8a48930542e3cc9cd5b5cff5a3fa7a2f220b66a465915a20b34b6429"
+  },
+  "cleanup": {
+    "status": "passed",
+    "verification_scratch_removed": true,
+    "downloader_stopped": true,
+    "removed_logical_bytes": 19152601158,
+    "finished_at": "2026-10-23T09:59:26.484991+00:00",
+    "free_bytes_after": 69990494208,
+    "source_receipt_sha256": "2f13a4bf9141dc1f421a0ce65c64af13355776bd98011858dace74704339648e"
+  },
+  "source_receipts_sha256": {
+    "receipt.json": "8f372e2b369c142925ca61509c0e99d6c1f9fb5fd4d1ca8b57550db76a742d19",
+    "cleanup.json": "2f13a4bf9141dc1f421a0ce65c64af13355776bd98011858dace74704339648e",
+    "iso-independent-verification.json": "c1d2b6ff8a48930542e3cc9cd5b5cff5a3fa7a2f220b66a465915a20b34b6429",
+    "release-before.json": "31b3c1c4303a57762aae8a25ead56ac91b19b962893d1f64878f4bee567ef7e1",
+    "release-after.json": "0e6a67fe3b4dd186ec435be2f9bba8f8157a42fcda6827331986a6b427dbcf4e",
+    "expected-candidate-manifest.json": "76a37e621668fa9d9dcbfc3faa518e7b575fe9a12312502262493c7e3c7df244",
+    "expected-upload-plan.json": "c3b705b7eb679986dd859c32218322ca14ea3251aa6cbdb7292a92d4b3cc4c39",
+    "download-0.11.0.py": "f9d8dd3e3ab382d13d105bed01c2bef377f586c4ab2d5c334cd0e10f1b73638d",
+    "verify.py": "000b75d54c1ee8e33c457cc1b7ffb9c145d35b60609f1fdb34754c6e19072a10",
+    "downloaded-release-parts.json": "a440cdd9a791d47264755b8e72ea44e92d9fb0c3631221b93917561470a5b627",
+    "downloaded-SHA256SUMS": "9da972d20f4446461c9aa3b4fd6879d0a152955f99f4234d4d427e3929d82ee8",
+    "USB-INSTRUCTIONS.zh-TW.md": "0254728dc3156653a0b8b36cd977bb86a11417764bce3715a8c65ebb11b18929",
+    "evidence-sha256.json": "919e9b40581b1904cc566ca43413fda80ef5135327e33bdece9da02d54bb837f"
+  },
+  "limitations": [
+    "This result proves downloaded bytes match the frozen release identities; it does not prove installation, eight-stage qualification, public App or Home Worker acceptance.",
+    "Only the reviewed published downloader ran; downloaded product code was not executed.",
+    "The 77-asset observation excludes any later verification ZIP or other subsequently added assets.",
+    "This is a projection of retained receipts; media files were not downloaded or hashed again when preparing this companion.",
+    "Raw logs, local paths, host identities and environment values are omitted."
+  ],
+  "not_run": {
+    "native_windows_downloader": true,
+    "native_macos_downloader": true,
+    "physical_laptop_usb_nic": true,
+    "real_cloud_accounts_and_household_devices": true,
+    "continuous_72_hour_operation": true,
+    "actual_grok_cli": "not_run: owner instruction"
+  }
+}

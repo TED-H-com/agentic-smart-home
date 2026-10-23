@@ -1,0 +1,11 @@
+{
+  "input_sha256": "37cbc862da02034fab6f907eb094ddb0e62a221fc7d9fb449b69d5cdd7b8434c",
+  "passed_check_count": 5,
+  "verified_boolean_maps": {},
+  "verified_fields": {
+    "app": "bridge",
+    "cleanup.absent": true,
+    "image_id": "sha256:807d3f1b5dc4ee5535fb9291feb6963d63bf29b1d923570a1debe0a199c1502d",
+    "status": "passed"
+  }
+}

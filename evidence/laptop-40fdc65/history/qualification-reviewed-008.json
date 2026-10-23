@@ -1,0 +1,294 @@
+{
+  "schema": 1,
+  "kind": "failed_media_qualification_history",
+  "run": "qualification-reviewed-008",
+  "status": "failed",
+  "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "harness_commit": "3f1d1c26baf6942b4ef7fdc2d1048c9960dfb691",
+  "harness_binding_sha256": "a7a11ff0dba3db9a72df31ce0867f2c60b809db19d4311062d0336a945e278b7",
+  "orchestration_sha256": "a17de35f6ec4cd026656ea914740f4655ac537974fd064349781c452601e897a",
+  "started_at": "2026-10-23T17:08:25.091888+00:00",
+  "finished_at": "2026-10-23T17:50:45.195561+00:00",
+  "all_eight_passed": false,
+  "public_channel_test": false,
+  "failure": {
+    "stage": "enable",
+    "phase": "outer_candidate_controller",
+    "error_type": "AssertionError",
+    "error_code": "outer_controller_exited",
+    "required_actual_test": "test_real_home_worker_enable_backup_reboot",
+    "remaining_stages_not_started": [
+      "home-worker-haos",
+      "haos-boundary",
+      "runner-build",
+      "bridge-haos",
+      "haos-vm"
+    ]
+  },
+  "recorded_stages": [
+    {
+      "stage": "install",
+      "status": "passed",
+      "started_at": "2026-10-23T17:08:28.315824+00:00",
+      "finished_at": "2026-10-23T17:29:45.985103+00:00",
+      "process_exit_code": 0,
+      "junit": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 1
+      },
+      "cleanup": {
+        "observation_complete": true,
+        "owned_resources_absent": true,
+        "disk_basetemp_removed": true,
+        "scope": "known_test_name_prefixes_only"
+      }
+    },
+    {
+      "stage": "regression",
+      "status": "passed",
+      "started_at": "2026-10-23T17:29:46.332592+00:00",
+      "finished_at": "2026-10-23T17:49:25.245740+00:00",
+      "process_exit_code": 0,
+      "junit": {
+        "tests": 3566,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 8,
+        "passed": 3558
+      },
+      "cleanup": {
+        "observation_complete": true,
+        "owned_resources_absent": true,
+        "disk_basetemp_removed": true,
+        "scope": "known_test_name_prefixes_only"
+      }
+    },
+    {
+      "stage": "enable",
+      "status": "failed",
+      "started_at": "2026-10-23T17:49:25.555413+00:00",
+      "finished_at": "2026-10-23T17:50:45.063755+00:00",
+      "process_exit_code": 1,
+      "junit": {
+        "tests": 42,
+        "failures": 1,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 41
+      },
+      "cleanup": {
+        "observation_complete": true,
+        "owned_resources_absent": true,
+        "disk_basetemp_removed": true,
+        "scope": "known_test_name_prefixes_only"
+      }
+    }
+  ],
+  "enable_fixture_cleanup": {
+    "outer_removed": true,
+    "git_removed": true,
+    "vm_removed": true,
+    "disk_fixture_ownership_restored": true,
+    "network_removed": true
+  },
+  "harness_overlay_restored": true,
+  "media_observations": {
+    "scope": "External before/after snapshots plus the original harness checks; not continuous proof against transient modification.",
+    "identity_fields_compared": [
+      "device",
+      "inode",
+      "size",
+      "mtime_ns",
+      "ctime_ns"
+    ],
+    "all_four_media_match_frozen_manifest": true,
+    "all_four_before_after_identities_equal": true,
+    "diagnostic_errors": [],
+    "child_returncode": 1,
+    "wrapper_returncode": 1,
+    "files": [
+      {
+        "name": "agentic-home-0.11.0-linux-amd64.tar",
+        "bytes": 2740183040,
+        "sha256": "0c94de22c4d9f7763a78ba476694c4b07e083d05e4526da4fbe8c70f06ae1895",
+        "before_after_sha256_equal": true,
+        "before_after_identity_equal": true,
+        "both_hash_snapshots_stable": true
+      },
+      {
+        "name": "agentic-home-0.11.0-source.zip",
+        "bytes": 32866471,
+        "sha256": "3ec9d8a64d57a2e1dc0329e3e18df1fdbff3972ad79636093716709ba7eb0af4",
+        "before_after_sha256_equal": true,
+        "before_after_identity_equal": true,
+        "both_hash_snapshots_stable": true
+      },
+      {
+        "name": "agentic-home-0.11.0-laptop-amd64.iso",
+        "bytes": 6819676160,
+        "sha256": "d007bdcb24a702abff161a6abc7b97ef3905d271cd15558b83050ccf22376a85",
+        "before_after_sha256_equal": true,
+        "before_after_identity_equal": true,
+        "both_hash_snapshots_stable": true
+      },
+      {
+        "name": "SHA256SUMS",
+        "bytes": 302,
+        "sha256": "9da972d20f4446461c9aa3b4fd6879d0a152955f99f4234d4d427e3929d82ee8",
+        "before_after_sha256_equal": true,
+        "before_after_identity_equal": true,
+        "both_hash_snapshots_stable": true
+      }
+    ]
+  },
+  "cause_assessment": {
+    "classification": "host_contract_fixture_error_response_mismatch",
+    "mechanism": "The fixture returns an empty 404 for GET /bridge-contract. The unchanged Controller parses JSON first, producing ContentTypeError and HTTP 503 before the 404 fallback can reach /status. The enable outer script requires this Host proof before serving, so it exits. The production broker unknown-route response is JSON.",
+    "evidence_basis": "Source review and isolated original-versus-JSON404 startup diagnostics support this fixture root cause; changing the fixture response restores Host proof and the host deployment endpoint.",
+    "source_evidence": [
+      {
+        "commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+        "path": "tests/test_bridge_haos.py",
+        "sha256": "d639897091cf30c2326b866ffd8f9ed3883ee6bf9caa01842ed4a0c7aa3ff5f0",
+        "line_ranges": [
+          [
+            81,
+            90
+          ]
+        ],
+        "observation": "The Host contract fixture serves JSON status but an empty unsupported-route 404."
+      },
+      {
+        "commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+        "path": "tests/test_home_worker_enable_haos.py",
+        "sha256": "9c3e063edc36d2c75817e6be1ef5a13d66d48e48afef1fcfa15f68693e0e8777",
+        "line_ranges": [
+          [
+            193,
+            210
+          ]
+        ],
+        "observation": "Enable derives its outer script from the shared bridge fixture."
+      },
+      {
+        "commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+        "path": "controller/agentic_controller/host.py",
+        "sha256": "67f2d5ba08920ee10768a233af2a82e83e487f69ffc7a66a1ef006d4c1ff8a7f",
+        "line_ranges": [
+          [
+            126,
+            148
+          ]
+        ],
+        "observation": "The decoder reads JSON before checking HTTP status; only a decoded 404 selects legacy status fallback."
+      },
+      {
+        "commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+        "path": "host/agentic_host/daemon.py",
+        "sha256": "716914d284c2bd93626a561fb1045f0018b4821377f10b3a6f21db09b465372c",
+        "line_ranges": [
+          [
+            165,
+            171
+          ],
+          [
+            173,
+            186
+          ]
+        ],
+        "observation": "The actual broker sends application/json and an Unknown route detail for an unknown GET route."
+      }
+    ],
+    "minimal_startup_diagnostics": [
+      {
+        "variant": "original_empty_404",
+        "started_at": "2026-10-23T17:52:34.054225+00:00",
+        "finished_at": "2026-10-23T17:52:37.301237+00:00",
+        "network": "none",
+        "synthetic_identity_only": true,
+        "container_state": {
+          "Running": false,
+          "ExitCode": 1,
+          "OOMKilled": false
+        },
+        "cleanup": {
+          "container_absent": true,
+          "scratch_removed": true
+        },
+        "source_receipt_sha256": "7c20d2f30a48393329575c43e9c258bc796ca2a2caf39322b2176ad83eac510f"
+      },
+      {
+        "variant": "fixture_json_404",
+        "started_at": "2026-10-23T17:54:49.652764+00:00",
+        "finished_at": "2026-10-23T17:54:53.500512+00:00",
+        "network": "none",
+        "synthetic_identity_only": true,
+        "container_state": {
+          "Running": true,
+          "ExitCode": 0,
+          "OOMKilled": false
+        },
+        "cleanup": {
+          "container_absent": true,
+          "scratch_removed": true
+        },
+        "source_receipt_sha256": "c19608c195826df53ab2e90e876cc57161ae228436cf197e075b723f61639247",
+        "frozen_checkout_modified": false,
+        "host_contract": {
+          "kind": "unix_host_contract_fixture_not_installed_host",
+          "ingress_bridge_contract": 1,
+          "status_reads": 1
+        },
+        "deployment_probe_exit": 0,
+        "deployment_mode": "host"
+      }
+    ],
+    "diagnostic_limit": "The minimal startup receipts record network isolation, synthetic identity, process state, probes and cleanup; they do not independently record container image IDs or outer-script byte hashes."
+  },
+  "fixture_fix": {
+    "pull_request": "https://github.com/TED-H-com/agentic-smart-home/pull/136",
+    "main_based_patch_commit": "34e41597a99a1233bad91c118f4792133f10d33f",
+    "h5_overlay_commit": "b89ca6dc522e1daab988d5c37cdca8610751404f",
+    "changed_file": "tests/test_bridge_haos.py",
+    "behavior": "Return the same JSON 404 detail as the Host broker; extend the existing regression to call production host_bridge_contract over actual Unix HTTP and verify fallback order while actions remain unsupported.",
+    "product_source_changed": false,
+    "frozen_media_changed": false,
+    "eight_stage_rerun_required": true,
+    "subsequent_qualification_result": "not_asserted_by_this_history"
+  },
+  "source_receipts_sha256": {
+    "qualification-reviewed-008/summary.json": "25d1ecdd431095aff1771195af595efce850b2b78a07e46282ac0ac290d5031f",
+    "qualification-reviewed-008-diagnostics/receipt.json": "7fa3445a408548a4b2c61424b4383acd4d00a4ba217c614ce59a0293b25f2f5d",
+    "qualification-reviewed-008-diagnostics/before.json": "b28d187750e467c0bb08546a055408f66d7b6d3e7eabc6ae71475cb770a267f8",
+    "qualification-reviewed-008-diagnostics/after.json": "5859db9e2a7c297dfffa6d92f3d2cc2a92f118eec1172ca71083de2952f5465a",
+    "qualification-reviewed-008/candidate-manifest.json": "76a37e621668fa9d9dcbfc3faa518e7b575fe9a12312502262493c7e3c7df244",
+    "qualification-reviewed-008/harness-binding.json": "a7a11ff0dba3db9a72df31ce0867f2c60b809db19d4311062d0336a945e278b7",
+    "qualification-reviewed-008/orchestration.py": "a17de35f6ec4cd026656ea914740f4655ac537974fd064349781c452601e897a",
+    "qualification-reviewed-008/enable/evidence/home-worker-enable-haos.json": "d9b03e95b73f590a5dfc274298a3ac2788ccd4f5c791a210f802c26fb8dc669c",
+    "outer-startup-008.json": "7c20d2f30a48393329575c43e9c258bc796ca2a2caf39322b2176ad83eac510f",
+    "outer-startup-json404-008.json": "c19608c195826df53ab2e90e876cc57161ae228436cf197e075b723f61639247",
+    "qualification-reviewed-008/install/stage.json": "17f71a6652d4a15d7d2d23a5d6a531dfecb0f4d1e88a9a96464f23d3ae229719",
+    "qualification-reviewed-008/install/junit.xml": "99d6af6515e10ce0711f5b4200de1a04990b50af657acce38d6aeeaeec75a2d1",
+    "qualification-reviewed-008/install/process/command.json": "b527752cbb4611b7fa8c41f58d4e92bd474dc30c12cfd06c83e46ad90fe74617",
+    "qualification-reviewed-008/regression/stage.json": "168b53844507428bd02c3dbaa4a63a0693264fe4b196ce30e9f735a3970946ac",
+    "qualification-reviewed-008/regression/junit.xml": "b6e783338d367640cf750f30f02888865ab1c2c06be3235c661fd932d239646b",
+    "qualification-reviewed-008/regression/process/command.json": "159ccfbf80e49f6dfad151090feecae2c7de1ed8238dfcc5ffb5fe016f4c70bd",
+    "qualification-reviewed-008/enable/stage.json": "de88aa1d0c4274b63f62b337c78a9d95514297466d6db524357d97947de82c8f",
+    "qualification-reviewed-008/enable/junit.xml": "494d93891e19f97111e281d7d1fc685c79f2388e92ba2a9c2e9267dc50e982f7",
+    "qualification-reviewed-008/enable/process/command.json": "aa9cc75a5e818c6bdf0f5dfd5d48c663b91d41d58341b4940d780d103455f255"
+  },
+  "excluded_cli_probes": {
+    "grok": "not_run: owner instruction"
+  },
+  "limitations": [
+    "The recorded install and regression passes do not make this failed eight-stage run pass.",
+    "The 41 passing enable helper cases do not replace its one failed actual HAOS test.",
+    "Minimal startup diagnostics use synthetic identity and network none; they do not establish HAOS App, public delivery, real cloud-account, household, physical-laptop or 72-hour acceptance.",
+    "H5 requires a fresh complete qualification; no successful result for qualification-reviewed-009 is asserted here.",
+    "Raw logs, screenshots, local host paths, network addresses, process identifiers and numeric device/inode identities are omitted."
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "checks": {
+    "local_acceptance": true,
+    "policy": true,
+    "source_media_images": true,
+    "stable_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7"
+  },
+  "commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "errors": {},
+  "finished": "2026-10-23T20:52:58.218766+00:00",
+  "harness_binding_sha256": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+  "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+  "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "ref": "refs/heads/stable",
+  "remote": "https://github.com/TED-H-com/agentic-smart-home",
+  "started": "2026-10-23T20:52:55.268915+00:00",
+  "status": "passed"
+}

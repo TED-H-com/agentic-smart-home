@@ -1,0 +1,915 @@
+diff --git a/tests/installed_update_probe.py b/tests/installed_update_probe.py
+index 23721bf73924ef3c298d58b8d069a8acf226986e..1f22f7ea6d5d26b470fe6af3dde4899515d853bd 100644
+--- a/tests/installed_update_probe.py
++++ b/tests/installed_update_probe.py
+@@ -73,6 +73,8 @@ ERROR_TYPES = {"RuntimeError", "AssertionError", "HostError", "UpdateError", "OS
+                "PermissionError", "ImportError", "ModuleNotFoundError", "TimeoutExpired", "CalledProcessError",
+                "ValueError", "KeyError", "TypeError", "JSONDecodeError", "OperationalError", "SandboxError"}
+ LIFECYCLE_ACTIONS = {"provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes", "configure_lan"}
++CLI_JOB_ERRORS = {"host_job_submit_unconfirmed", "host_job_observation_unavailable", "host_job_response_invalid",
++                  "host_job_not_found", "host_job_read_refused", "host_job_id_invalid"}
+ HOST_CONTRACT_CHECKS = {"linux_runtime", "libvirt_connection", "libvirt_kvm", "route_json", "default_route",
+                         "sparse_copy", "qemu_image", "docker_limits", "compose_api"}
+ HOST_CONTRACT_ERRORS = {"command_missing", "permission_denied", "probe_timeout", "command_failed",
+@@ -477,6 +479,42 @@ def bridge_contract_probe(manager, original, base_tag, fixture, identity, databa
+     return receipt
+ 
+ 
++def cli_job_unconfirmed(stdout, stderr, *, expected_id=None):
++    """Recognize the fixed CLI message without exporting any surrounding text."""
++    streams = []
++    for value in (stdout, stderr):
++        if isinstance(value, bytes):
++            if len(value) > 65536:
++                return None
++            try:
++                value = value.decode("utf-8")
++            except UnicodeDecodeError:
++                return None
++        if not isinstance(value, str) or len(value.encode("utf-8", errors="replace")) > 65536:
++            return None
++        streams.append(value)
++    output, errors = streams
++    if expected_id is None:
++        handle = re.fullmatch(r"Operation ([a-f0-9]{32})\r?\n", output)
++        if handle is None:
++            return None
++        identifier = handle[1]
++    else:
++        if not isinstance(expected_id, str) or re.fullmatch(r"[a-f0-9]{32}", expected_id) is None or output:
++            return None
++        identifier = expected_id
++    pattern = (r"Job ([a-f0-9]{32}): completion is unconfirmed \((host_job_[a-z_]+)\)\. "
++               r"No operation was resubmitted\. Inspect with 'agentic-home job --id \1' "
++               r"or resume with 'agentic-home wait --id \1'\.")
++    messages = [line for line in errors.splitlines() if line.startswith("Job ")]
++    if len(messages) != 1:
++        return None
++    match = re.fullmatch(pattern, messages[0])
++    if match is None or match[1] != identifier or match[2] not in CLI_JOB_ERRORS:
++        return None
++    return {"id": identifier, "error_code": match[2]}
++
++
+ def lifecycle_receipt(value):
+     if not isinstance(value, dict):
+         return None
+diff --git a/tests/test_bridge_haos.py b/tests/test_bridge_haos.py
+index b2870779613ae6d2e9d4135393fdbdb5ed211b96..60c58d938c6a131afdb3b014e2afe0dedb43d0b7 100644
+--- a/tests/test_bridge_haos.py
++++ b/tests/test_bridge_haos.py
+@@ -86,7 +86,9 @@ def host_contract_app(receipt):
+     app = web.Application()
+     app.router.add_get('/status', status, allow_head=False)
+     async def unsupported(request):
+-        return web.Response(status=404)
++        # Match the Host broker's JSON error contract so the Controller can
++        # recognize an absent fast route and fall back to the legacy proof.
++        return web.json_response({'detail':'Unknown route'}, status=404)
+     app.router.add_route('*', '/{tail:.*}', unsupported)
+     return app
+ '''
+@@ -842,23 +844,45 @@ def test_owned_lifecycle_diagnostics_are_bounded_and_never_export_raw_fields(fai
+ 
+ 
+ 
+-async def test_host_capability_fixture_uses_real_unix_http_and_exposes_no_actions(tmp_path):
++async def test_host_capability_fixture_uses_real_unix_http_and_exposes_no_actions(tmp_path, monkeypatch):
++    from agentic_controller import host
+     from aiohttp import web
+     namespace = {}
+     exec(HOST_CONTRACT_FIXTURE, namespace)
+     receipt = tmp_path / "receipt.json"
+-    server = web.AppRunner(namespace["host_contract_app"](receipt))
++    calls = []
++
++    @web.middleware
++    async def observe(request, handler):
++        calls.append((request.method, request.path))
++        return await handler(request)
++
++    app = namespace["host_contract_app"](receipt)
++    app.middlewares.append(observe)
++    server = web.AppRunner(app)
+     socket = tmp_path.parent / "bridge-contract.sock"
++    connector = aiohttp.UnixConnector
++
++    def fixed_connector(*, path):
++        assert path == "/run/agentic-home/host.sock"
++        return connector(path=str(socket))
++
++    monkeypatch.setattr(host.aiohttp, "UnixConnector", fixed_connector)
+     await server.setup()
+     try:
+         await web.UnixSite(server, str(socket)).start()
+-        async with aiohttp.ClientSession(connector=aiohttp.UnixConnector(path=str(socket))) as client:
+-            async with client.get("http://localhost/status") as response:
+-                assert response.status == 200
+-                assert await response.json() == {"controller_update": {"ingress_bridge_contract": 1}}
++        # Exercise the production decoder and its absent-fast-route fallback,
++        # not just the legacy endpoint that used to hide an empty-404 mismatch.
++        assert await host.host_bridge_contract(store=NoControllerState()) == {
++            "controller_update": {"ingress_bridge_contract": 1}}
++        assert calls == [("GET", "/bridge-contract"), ("GET", "/status")]
++        async with aiohttp.ClientSession(connector=connector(path=str(socket))) as client:
+             for method, path in (("POST", "/actions"), ("POST", "/status"), ("HEAD", "/status"), ("GET", "/unknown")):
+                 async with client.request(method, "http://localhost" + path, json={}) as response:
+                     assert response.status == 404
++                    assert response.content_type == "application/json"
++                    if method != "HEAD":
++                        assert await response.json() == {"detail": "Unknown route"}
+         deadline = time.monotonic() + 10
+         while not receipt.exists():
+             assert time.monotonic() < deadline, "host_fixture_receipt_missing"
+diff --git a/tests/test_home_worker_haos.py b/tests/test_home_worker_haos.py
+index 40e05be7e6086c541be911ecc51069a3d2ae191b..051f999d66322365ee2c22574734fc15e0771e9c 100644
+--- a/tests/test_home_worker_haos.py
++++ b/tests/test_home_worker_haos.py
+@@ -318,6 +318,15 @@ finally:
+ '''
+ 
+ 
++def outer_scope_observation(container):
++    """Probe the actual outer container; exec failure is not negative DNS evidence."""
++    value = json.loads(docker('exec', container, 'python', '-c',
++        "import socket,json\ntry: socket.getaddrinfo('homeassistant',8123); value=True\nexcept OSError: value=False\nprint(json.dumps({'app_internal_dns_resolved':value}))",
++        timeout=5))
++    assert value['app_internal_dns_resolved'] is False, 'outer_scope_fixture_unexpected'
++    return value
++
++
+ def saved_image_identity(path, reference):
+     """Docker29 may expose an index as Id; compare exported OCI config bytes."""
+     with tarfile.open(path, 'r:') as archive:
+@@ -934,10 +943,14 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
+             identity.write_text(json.dumps({'owner': owner['id'], 'token': credentials['access_token'], 'access_key': access_key}))
+             identity.chmod(0o600)
+             (tmp_path / 'outer.py').write_text(OUTER)
++            # This outer fixture uses numeric-IP HA/Runner connections. Keep its
++            # negative App-DNS comparison independent of host DNS/search domains.
+             docker('run', '-d', '--name', outer, '--network', network, '--ip', '192.168.177.1',
++                '--dns', '127.0.0.1', '--dns-search', '.', '--dns-option', 'timeout:1', '--dns-option', 'attempts:1',
+                 '--memory', '768m', '--cpus', '1', '--pids-limit', '128', '--user', f'{os.getuid()}:{os.getgid()}',
+                 '-p', '127.0.0.1::8099', '-e', 'PYTHONPATH=/app', '-e', 'AGENTIC_DATA=/lab/outer-data', '-e', 'AGENTIC_HOST_MODE=1',
+                 '-v', f'{tmp_path}:/lab', controller_image, 'python', '/lab/outer.py', timeout=600)
++            evidence['outer_scope_preflight'] = outer_scope_observation(outer)
+             outer_ports = json.loads(docker('inspect', outer))[0]['NetworkSettings']['Ports']
+             origin = 'http://127.0.0.1:' + outer_ports['8099/tcp'][0]['HostPort']
+             # The random host port is only a disposable transport forward.
+@@ -1060,10 +1073,7 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
+             source_lock = json.loads(remote('docker exec ' + app_container + ' cat /opt/agentic-worker/source.json', step='source_lock'))
+             assert source_lock['commit'] == job['base_commit'] == startup_boundaries['source_commit']
+             evidence['pinned_source'] = source_lock
+-            outer_view = json.loads(docker('exec', outer, 'python', '-c',
+-                "import socket,json\ntry: socket.getaddrinfo('homeassistant',8123); value=True\nexcept OSError: value=False\nprint(json.dumps({'app_internal_dns_resolved':value}))"))
+-            assert outer_view['app_internal_dns_resolved'] is False, 'outer_scope_fixture_unexpected'
+-            evidence['outer_comparison'] = outer_view
++            evidence['outer_comparison'] = outer_scope_observation(outer)
+             evidence['checks']['additional_app_namespace_view'] = True
+             checkpoint = await api('POST', '/api/worker/jobs/' + job['id'] + '/handoff', {})
+             assert checkpoint['stop_confirmed'] and checkpoint['live_session'] is False
+@@ -1261,6 +1271,52 @@ async def test_real_home_coding_worker_in_haos(tmp_path, request):
+         assert all(cleanup.values()), 'owned_home_worker_resources_not_removed'
+ 
+ 
++@pytest.mark.parametrize('resolved', [False, True])
++def test_outer_scope_probe_keeps_real_lookup_and_rejects_positive_dns(monkeypatch, resolved):
++    import socket
++
++    def lookup(host, port):
++        assert (host, port) == ('homeassistant', 8123)
++        if not resolved:
++            raise socket.gaierror(socket.EAI_AGAIN, 'fixture DNS unavailable')
++        return [(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('192.0.2.1', port))]
++
++    def execute(*args, timeout):
++        assert args[:4] == ('exec', 'actual-outer', 'python', '-c')
++        assert len(args) == 5 and timeout == 5
++        output = io.StringIO()
++        with contextlib.redirect_stdout(output):
++            exec(args[4], {})
++        return output.getvalue()
++
++    monkeypatch.setattr(socket, 'getaddrinfo', lookup)
++    monkeypatch.setitem(globals(), 'docker', execute)
++    if resolved:
++        with pytest.raises(AssertionError, match='outer_scope_fixture_unexpected'):
++            outer_scope_observation('actual-outer')
++    else:
++        assert outer_scope_observation('actual-outer') == {'app_internal_dns_resolved': False}
++
++
++@pytest.mark.parametrize('value', [0, None, '', []])
++def test_outer_scope_probe_requires_explicit_false(monkeypatch, value):
++    monkeypatch.setitem(globals(), 'docker', lambda *args, **kwargs: json.dumps({'app_internal_dns_resolved': value}))
++    with pytest.raises(AssertionError, match='outer_scope_fixture_unexpected'):
++        outer_scope_observation('actual-outer')
++
++
++@pytest.mark.parametrize('error', [subprocess.TimeoutExpired('docker', 5),
++                                  AssertionError('fixture_command_failed_docker_1')])
++def test_outer_scope_probe_never_treats_exec_failure_as_dns_absence(monkeypatch, error):
++    def failed(*args, **kwargs):
++        raise error
++
++    monkeypatch.setitem(globals(), 'docker', failed)
++    with pytest.raises(type(error)) as caught:
++        outer_scope_observation('actual-outer')
++    assert caught.value is error
++
++
+ def test_safe_job_projection_excludes_prompts_credentials_paths_and_model_claims():
+     raw = {'id': 'a' * 32, 'case_id': 'b' * 32, 'state': 'stop_unconfirmed', 'stop_confirmed': False,
+            'runtime_location': 'haos_app', 'goal': 'private goal', 'authority': {'token': 'private secret'},
+diff --git a/tests/test_installed_lan_callback.py b/tests/test_installed_lan_callback.py
+index f2b1a475a81adf1bd8086b73da7056d1cc481f79..f77915099eb656d1ec89460da65ab59949d2a846 100644
+--- a/tests/test_installed_lan_callback.py
++++ b/tests/test_installed_lan_callback.py
+@@ -115,7 +115,7 @@ def test_private_partial_is_atomic_owner_only_and_stays_outside_package_inputs(t
+ def rehearsal(tmp_path, monkeypatch):
+     path = tmp_path / "partial.json"
+     calls, phases, snapshots = [], [], []
+-    state = {"failure_stage": "after_outer_reboot", "failure": subprocess.CalledProcessError(
++    state = {"shutdown_calls": [], "failure_stage": "after_outer_reboot", "failure": subprocess.CalledProcessError(
+         1, ["docker", "exec"], output=wire(), stderr="private original stderr")}
+     def command(*args, **options):
+         calls.append((args, options))
+@@ -142,6 +142,14 @@ def rehearsal(tmp_path, monkeypatch):
+         return ""
+     monkeypatch.setattr(install, "command", command)
+     def readiness(args, **options):
++        if args == ["ssh", "fixture", "agentic-home shutdown"]:
++            state["shutdown_calls"].append((args, options))
++            assert options["capture_output"] is True and options["text"] is True
++            assert 0 < options["timeout"] <= 240
++            identifier = f"{len(state['shutdown_calls']):032x}"
++            job = {"id": identifier, "request": {"id": identifier, "action": "shutdown", "snapshot": None},
++                   "state": "succeeded", "result": {"vm": "shut off"}}
++            return subprocess.CompletedProcess(args, 0, f"Operation {identifier}\n" + json.dumps(job), "")
+         assert args == ["ssh", "fixture", "python3 -"] and options["timeout"] == 15
+         return subprocess.CompletedProcess(args, 0, "", "")
+     monkeypatch.setattr(install.subprocess, "run", readiness)
+@@ -176,6 +184,7 @@ def test_failure_keeps_native_partial_and_original_exception_without_retry(rehea
+                 "malformed": "peer_process_failed", "false_success": "peer_process_failed"}[kind]
+     assert value["stages"][stage]["callback"] == {"status": "failed", "error_code": expected}
+     assert len(snapshots) == (1 if stage == "initial" else 2)
++    assert len(state["shutdown_calls"]) == 1
+     assert not any(args[-1] == "agentic-home configure_lan --disable-lan" for args, _ in calls)
+     if stage == "after_outer_reboot":
+         assert value["stages"]["initial"]["callback"]["status"] == "passed"
+@@ -188,6 +197,7 @@ def test_success_still_requires_both_callbacks_and_nat_removal_but_partial_is_ne
+     state["failure_stage"] = None
+     result = execute()
+     assert result["result"] == "passed" and result["removed"]["nat_gateway_restored"]
++    assert len(state["shutdown_calls"]) == 2
+     assert result["initial"]["native_callback_reachable_from_lan_peer"]
+     assert result["after_outer_reboot"]["native_callback_reachable_from_lan_peer"]
+     value = json.loads(path.read_text())
+@@ -206,6 +216,7 @@ def test_failed_checkpoint_write_cannot_replace_callback_failure(rehearsal, monk
+     with pytest.raises(subprocess.CalledProcessError) as caught:
+         execute()
+     assert caught.value is state["failure"]
++    assert len(state["shutdown_calls"]) == 1
+     value = json.loads(path.read_text())
+     assert value["stages"]["initial"]["callback"]["status"] == "passed"
+     assert value["stages"]["after_outer_reboot"]["native"] == NATIVE
+diff --git a/tests/test_installed_probe_contract.py b/tests/test_installed_probe_contract.py
+index ed77a2ce47b598e7bda04bea285deabeb3262261..a5f8e25def5d5432fe0b9a2c5986f18d3e20475e 100644
+--- a/tests/test_installed_probe_contract.py
++++ b/tests/test_installed_probe_contract.py
+@@ -686,6 +686,32 @@ def test_timeout_diagnostics_keep_partial_operation_id_and_failed_probe(tmp_path
+     assert "private" not in json.dumps(result)
+ 
+ 
++@pytest.mark.parametrize("code", ["host_job_submit_unconfirmed", "host_job_observation_unavailable",
++                                  "host_job_response_invalid", "host_job_not_found", "host_job_read_refused"])
++def test_install_failure_retains_exact_safe_cli_uncertainty_code(tmp_path, code):
++    from test_linux_install import record_install_failure
++
++    identifier = "c" * 32
++    stderr = ("private SSH warning\n"
++        f"Job {identifier}: completion is unconfirmed ({code}). No operation was resubmitted. "
++        f"Inspect with 'agentic-home job --id {identifier}' or resume with 'agentic-home wait --id {identifier}'.\n")
++    error = subprocess.CalledProcessError(2, ["ssh", "private-host", "agentic-home shutdown"],
++                                         output=f"Operation {identifier}\n", stderr=stderr)
++    result = record_install_failure(error, "wired_lan_remove_and_restore_nat", tmp_path / "failure.json", None)
++    assert result["cli_job_error"] == {"id": identifier, "error_code": code}
++    assert result["lifecycle_action"] == "shutdown" and result["lifecycle_receipt"]["id"] == identifier
++    assert "private" not in json.dumps(result)
++
++
++def test_install_failure_does_not_export_unknown_cli_error_or_mismatched_handle(tmp_path):
++    from test_linux_install import record_install_failure
++
++    error = subprocess.CalledProcessError(2, ["ssh", "agentic-home shutdown"],
++                                         output="Operation " + "a" * 32 + "\n", stderr="private unknown error")
++    result = record_install_failure(error, "wired_lan_remove_and_restore_nat", tmp_path / "failure.json", None)
++    assert result["cli_job_error"] is None and "private" not in json.dumps(result)
++
++
+ @pytest.mark.parametrize("arguments", ["--interface-id " + "b" * 64, "--disable-lan"])
+ def test_lan_command_failure_retains_action_and_identity_conflict_without_private_values(tmp_path, arguments):
+     from test_linux_install import record_install_failure
+diff --git a/tests/test_installed_shutdown_observation.py b/tests/test_installed_shutdown_observation.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..b92e5fea7225843ab9c86c47e6055e893a5dfd23
+--- /dev/null
++++ b/tests/test_installed_shutdown_observation.py
+@@ -0,0 +1,299 @@
++"""A lost shutdown reply may only resume its exact existing read-only job."""
++
++import copy
++import json
++import subprocess
++
++import pytest
++from installed_update_probe import cli_job_unconfirmed
++from test_linux_install import installed_shutdown
++
++ID = "a" * 32
++OTHER = "b" * 32
++PRIVATE = "private-stderr-host-path-and-token"
++
++
++class Clock:
++    value = 0.0
++
++    def __call__(self):
++        return self.value
++
++
++def message(code="host_job_submit_unconfirmed", identifier=ID):
++    return (
++        f"Job {identifier}: completion is unconfirmed ({code}). No operation was resubmitted. "
++        f"Inspect with 'agentic-home job --id {identifier}' or resume with "
++        f"'agentic-home wait --id {identifier}'.\n"
++    )
++
++
++def receipt():
++    return {
++        "id": ID,
++        "request": {"id": ID, "action": "shutdown", "snapshot": None},
++        "state": "succeeded",
++        "result": {"vm": "shut off"},
++    }
++
++
++def pending(code="host_job_submit_unconfirmed"):
++    return subprocess.CompletedProcess([], 2, f"Operation {ID}\n", PRIVATE + "\n" + message(code))
++
++
++def successful(*, initial=False):
++    return subprocess.CompletedProcess(
++        [], 0, (f"Operation {ID}\n" if initial else "") + json.dumps(receipt()), ""
++    )
++
++
++def sequence(responses, elapsed):
++    clock, calls = Clock(), []
++
++    def run(args, **kwargs):
++        index = len(calls)
++        calls.append((list(args), kwargs))
++        assert kwargs["capture_output"] is True and kwargs["text"] is True
++        clock.value += elapsed[index]
++        value = responses[index]
++        if isinstance(value, BaseException):
++            raise value
++        value.args = list(args)
++        return value
++
++    return clock, calls, run
++
++
++def test_acknowledged_shutdown_requires_no_second_command():
++    clock, calls, run = sequence([successful(initial=True)], [12])
++    result = installed_shutdown(["ssh", "fixture"], run=run, clock=clock)
++    assert [args[-1] for args, _ in calls] == ["agentic-home shutdown"]
++    assert result["status"] == "passed" and result["vm_shut_off"] is True
++    assert result["mutation_count"] == 1 and result["wait_count"] == 0
++
++
++@pytest.mark.parametrize("code", ["host_job_submit_unconfirmed", "host_job_observation_unavailable"])
++def test_same_id_wait_retains_uncertainty_and_uses_only_remaining_deadline(code):
++    clock, calls, run = sequence([pending(code), successful()], [34, 15])
++    observation, checkpoints = {}, []
++    result = installed_shutdown(
++        ["ssh", "fixture"],
++        run=run,
++        clock=clock,
++        observation=observation,
++        checkpoint=lambda: checkpoints.append(copy.deepcopy(observation)),
++    )
++    assert [args[-1] for args, _ in calls] == ["agentic-home shutdown", "agentic-home wait --id " + ID]
++    assert [kwargs["timeout"] for _, kwargs in calls] == [240, 206]
++    assert result["status"] == "passed" and result["vm_shut_off"] is True
++    assert result["operation_id"] == ID and result["initial_cli_error"] == code
++    assert result["initial_returncode"] == 2 and result["continuation_returncode"] == 0
++    assert result["mutation_count"] == result["wait_count"] == 1 and result["elapsed_seconds"] == 49
++    assert checkpoints[1]["status"] == "running" and checkpoints[1]["initial_cli_error"] == code
++    assert checkpoints[-1] == result and PRIVATE not in json.dumps(checkpoints)
++
++
++@pytest.mark.parametrize(
++    "defect",
++    [
++        "not_exit_two",
++        "no_handle",
++        "two_handles",
++        "wrong_handle",
++        "bad_handle",
++        "wrong_message_id",
++        "wrong_recovery_id",
++        "unknown_code",
++        "duplicate_message",
++        "invalid_response",
++        "not_found",
++        "refused",
++        "extra_stdout",
++        "truncated_message",
++    ],
++)
++def test_unconfirmed_call_without_exact_recoverable_contract_never_resubmits_or_waits(defect):
++    first = pending()
++    if defect == "not_exit_two":
++        first.returncode = 1
++    elif defect == "no_handle":
++        first.stdout = ""
++    elif defect == "two_handles":
++        first.stdout += first.stdout
++    elif defect == "wrong_handle":
++        first.stdout = f"Operation {OTHER}\n"
++    elif defect == "bad_handle":
++        first.stdout = "Operation a; shutdown\n"
++    elif defect == "wrong_message_id":
++        first.stderr = message(identifier=OTHER)
++    elif defect == "wrong_recovery_id":
++        first.stderr = message().replace("wait --id " + ID, "wait --id " + OTHER)
++    elif defect == "unknown_code":
++        first.stderr = message("host_job_" + PRIVATE)
++    elif defect == "duplicate_message":
++        first.stderr = message() * 2
++    elif defect == "invalid_response":
++        first.stderr = message("host_job_response_invalid")
++    elif defect == "not_found":
++        first.stderr = message("host_job_not_found")
++    elif defect == "refused":
++        first.stderr = message("host_job_read_refused")
++    elif defect == "extra_stdout":
++        first.stdout += PRIVATE
++    else:
++        first.stderr = message()[:-5]
++    clock, calls, run = sequence([first], [30])
++    observation = {}
++    with pytest.raises(subprocess.CalledProcessError):
++        installed_shutdown(["ssh"], run=run, clock=clock, observation=observation)
++    assert len(calls) == 1 and observation["wait_count"] == 0
++    assert observation["status"] == "failed" and observation["vm_shut_off"] is False
++    assert PRIVATE not in json.dumps(observation)
++
++
++@pytest.mark.parametrize(
++    "defect",
++    [
++        "missing_id",
++        "wrong_id",
++        "request_id",
++        "request_action",
++        "request_snapshot",
++        "missing_snapshot",
++        "extra_request",
++        "running",
++        "failed",
++        "needs_reconcile",
++        "unknown",
++        "running_vm",
++        "missing_result",
++        "extra_result",
++        "malformed_json",
++        "duplicate_json",
++        "oversized_json",
++    ],
++)
++def test_resumed_receipt_must_prove_exact_shutdown_and_terminal_vm_state(defect):
++    value = receipt()
++    if defect == "missing_id":
++        value.pop("id")
++    elif defect == "wrong_id":
++        value["id"] = OTHER
++    elif defect == "request_id":
++        value["request"]["id"] = OTHER
++    elif defect == "request_action":
++        value["request"]["action"] = "start"
++    elif defect == "request_snapshot":
++        value["request"]["snapshot"] = "other"
++    elif defect == "missing_snapshot":
++        value["request"].pop("snapshot")
++    elif defect == "extra_request":
++        value["request"]["interface_id"] = None
++    elif defect in ("running", "failed", "needs_reconcile", "unknown"):
++        value["state"] = defect
++    elif defect == "running_vm":
++        value["result"]["vm"] = "running"
++    elif defect == "missing_result":
++        value.pop("result")
++    elif defect == "extra_result":
++        value["result"]["private"] = PRIVATE
++    raw = json.dumps(value)
++    if defect == "malformed_json":
++        raw = PRIVATE
++    elif defect == "duplicate_json":
++        raw = raw[:-1] + ',"state":"succeeded"}'
++    elif defect == "oversized_json":
++        raw += " " * 65536
++    clock, calls, run = sequence([pending(), subprocess.CompletedProcess([], 0, raw, PRIVATE)], [30, 1])
++    observation = {}
++    with pytest.raises(subprocess.CalledProcessError) as caught:
++        installed_shutdown(["ssh"], run=run, clock=clock, observation=observation)
++    assert caught.value.returncode == 2 and caught.value.cmd[-1] == "agentic-home shutdown"
++    assert len(calls) == 2 and observation["error_code"] == "shutdown_receipt_invalid"
++    assert observation["status"] == "failed" and observation["vm_shut_off"] is False
++    assert PRIVATE not in json.dumps(observation)
++
++
++def test_zero_exit_without_exact_initial_receipt_is_not_success():
++    value = receipt()
++    value["id"] = OTHER
++    first = successful(initial=True)
++    first.stdout = f"Operation {ID}\n" + json.dumps(value)
++    clock, calls, run = sequence([first], [1])
++    with pytest.raises(AssertionError, match="^shutdown_receipt_invalid$"):
++        installed_shutdown(["ssh"], run=run, clock=clock)
++    assert len(calls) == 1
++
++
++@pytest.mark.parametrize(
++    "defect",
++    [
++        "initial_timeout",
++        "initial_budget_spent",
++        "wait_timeout",
++        "wait_finishes_late",
++        "wait_exit_two",
++        "wait_exit_one",
++        "wait_oserror",
++    ],
++)
++def test_read_failure_or_deadline_never_extends_budget_or_replays_shutdown(defect):
++    responses, elapsed = [pending(), successful()], [30, 1]
++    if defect == "initial_timeout":
++        responses[0] = subprocess.TimeoutExpired("private", 240)
++        elapsed[0] = 240
++    elif defect == "initial_budget_spent":
++        elapsed[0] = 240
++    elif defect == "wait_timeout":
++        responses[1] = subprocess.TimeoutExpired("private", 210)
++        elapsed[1] = 210
++    elif defect == "wait_finishes_late":
++        elapsed[1] = 211
++    elif defect == "wait_exit_two":
++        responses[1] = subprocess.CompletedProcess([], 2, "", message("host_job_observation_unavailable"))
++    elif defect == "wait_exit_one":
++        responses[1] = subprocess.CompletedProcess(
++            [], 1, json.dumps({**receipt(), "state": "failed"}), PRIVATE
++        )
++    else:
++        responses[1] = OSError(PRIVATE)
++    clock, calls, run = sequence(responses, elapsed)
++    observation = {}
++    with pytest.raises((subprocess.CalledProcessError, subprocess.TimeoutExpired)):
++        installed_shutdown(["ssh"], run=run, clock=clock, observation=observation)
++    assert sum(args[-1] == "agentic-home shutdown" for args, _ in calls) == 1
++    assert len(calls) == (1 if defect.startswith("initial") else 2)
++    assert observation["status"] == "failed" and observation["vm_shut_off"] is False
++    assert calls[0][1]["timeout"] == 240
++    if len(calls) == 2:
++        assert calls[1][1]["timeout"] == 210
++    if defect == "wait_exit_two":
++        assert observation["continuation_cli_error"] == "host_job_observation_unavailable"
++    assert PRIVATE not in json.dumps(observation)
++
++
++def test_checkpoint_failure_does_not_resubmit_or_hide_valid_shutdown_receipt():
++    clock, calls, run = sequence([pending(), successful()], [30, 1])
++
++    def broken():
++        raise OSError(PRIVATE)
++
++    result = installed_shutdown(["ssh"], run=run, clock=clock, checkpoint=broken)
++    assert result["status"] == "passed" and result["checkpoint_failed"] is True and len(calls) == 2
++    assert PRIVATE not in json.dumps(result)
++
++
++@pytest.mark.parametrize("stream", ["stdout", "stderr"])
++def test_cli_message_parser_rejects_unbounded_or_invalid_encoding(stream):
++    values = {"stdout": f"Operation {ID}\n", "stderr": message()}
++    for invalid in (b"\xff", "x" * 65537, None):
++        assert cli_job_unconfirmed(**{**values, stream: invalid}) is None
++
++
++def test_wait_classification_requires_empty_stdout_and_exact_expected_id():
++    assert cli_job_unconfirmed("", message(), expected_id=ID) == {
++        "id": ID,
++        "error_code": "host_job_submit_unconfirmed",
++    }
++    assert cli_job_unconfirmed("", message(), expected_id=OTHER) is None
++    assert cli_job_unconfirmed(f"Operation {ID}\n", message(), expected_id=ID) is None
+diff --git a/tests/test_linux_install.py b/tests/test_linux_install.py
+index 6f01df9d66ceccb6b8b5620d6a38f1342961b553..99005a401d7cdf129df164c99c1caacdc23e0187 100644
+--- a/tests/test_linux_install.py
++++ b/tests/test_linux_install.py
+@@ -507,6 +507,109 @@ def retain_lan_partial(path, value):
+             temporary.unlink(missing_ok=True)
+ 
+ 
++def installed_shutdown(ssh, *, observation=None, checkpoint=lambda: None, run=None, clock=time.monotonic):
++    """Submit once; a lost acknowledgment may only resume the same read-only job."""
++    from installed_update_probe import cli_job_unconfirmed
++
++    run = run or subprocess.run
++    started = clock()
++    deadline = started + 240
++    observed = observation if observation is not None else {}
++    observed.update(action="shutdown", status="running", deadline_seconds=240, mutation_count=0, wait_count=0,
++                    operation_id=None, initial_returncode=None, initial_cli_error=None,
++                    continuation_returncode=None, continuation_cli_error=None, error_code=None,
++                    vm_shut_off=False)
++    original = None
++
++    def retain():
++        observed["elapsed_seconds"] = round(clock() - started, 3)
++        try:
++            if checkpoint() is False:
++                observed["checkpoint_failed"] = True
++        except Exception:
++            observed["checkpoint_failed"] = True
++
++    def reject(code):
++        observed["error_code"] = code
++        raise AssertionError(code)
++
++    def invoke(command, counter):
++        remaining = deadline - clock()
++        if remaining <= 0:
++            reject("shutdown_observation_deadline")
++        observed[counter] += 1
++        return run([*ssh, command], capture_output=True, text=True, timeout=remaining)
++
++    def terminal(output, identifier):
++        def unique(pairs):
++            value = {}
++            for key, item in pairs:
++                if key in value:
++                    raise ValueError("duplicate key")
++                value[key] = item
++            return value
++        def invalid_constant(value):
++            raise ValueError("invalid JSON constant")
++        try:
++            if not isinstance(output, str) or len(output.encode()) > 65536:
++                reject("shutdown_receipt_invalid")
++            job = json.loads(output, object_pairs_hook=unique, parse_constant=invalid_constant)
++        except (ValueError, UnicodeError, RecursionError):
++            reject("shutdown_receipt_invalid")
++        expected = {"id": identifier, "action": "shutdown", "snapshot": None}
++        if (not isinstance(job, dict) or job.get("id") != identifier or job.get("request") != expected
++                or job.get("state") != "succeeded" or job.get("result") != {"vm": "shut off"}):
++            reject("shutdown_receipt_invalid")
++        if clock() >= deadline:
++            reject("shutdown_observation_deadline")
++
++    try:
++        retain()
++        first = invoke("agentic-home shutdown", "mutation_count")
++        observed["initial_returncode"] = first.returncode
++        if first.returncode == 0:
++            # Even a zero exit must prove this exact shutdown, not another job.
++            output = first.stdout if isinstance(first.stdout, str) else ""
++            match = re.fullmatch(r"Operation ([a-f0-9]{32})\r?\n([\s\S]+)", output)
++            if match is None:
++                reject("shutdown_receipt_invalid")
++            observed["operation_id"] = match[1]
++            terminal(match[2], match[1])
++        else:
++            original = subprocess.CalledProcessError(first.returncode, first.args, output=first.stdout, stderr=first.stderr)
++            uncertain = cli_job_unconfirmed(first.stdout, first.stderr) if first.returncode == 2 else None
++            if uncertain:
++                observed.update(operation_id=uncertain["id"], initial_cli_error=uncertain["error_code"])
++            if not uncertain or uncertain["error_code"] not in {
++                    "host_job_submit_unconfirmed", "host_job_observation_unavailable"}:
++                observed["error_code"] = "shutdown_initial_call_failed"
++                raise original
++            retain()
++            resumed = invoke("agentic-home wait --id " + uncertain["id"], "wait_count")
++            observed["continuation_returncode"] = resumed.returncode
++            if resumed.returncode != 0:
++                detail = cli_job_unconfirmed(resumed.stdout, resumed.stderr, expected_id=uncertain["id"])
++                observed["continuation_cli_error"] = detail["error_code"] if detail else None
++                observed["error_code"] = "shutdown_readonly_wait_failed"
++                raise subprocess.CalledProcessError(resumed.returncode, resumed.args,
++                                                   output=resumed.stdout, stderr=resumed.stderr)
++            terminal(resumed.stdout, uncertain["id"])
++        observed.update(status="passed", vm_shut_off=True)
++        return observed
++    except Exception as error:
++        observed["status"] = "failed"
++        if observed["error_code"] is None:
++            observed["error_code"] = ("shutdown_observation_deadline" if isinstance(error, subprocess.TimeoutExpired)
++                                      else "shutdown_observation_failed")
++        # Keep the original lost-response cause available to failure diagnostics;
++        # the private LAN checkpoint records the separate read-only outcome.
++        if original is not None and error is not original:
++            raise original from error
++        raise
++    finally:
++        retain()
++
++
+ def installed_lan(ssh, container, phase, image_ids, *, partial_path, profile, iso_hash):
+     """Actual second physical-from-guest NIC, native discovery, reboot, removal."""
+     report = {"kind": "real_installed_haos_wired_lan", "result": "running", "images": image_ids,
+@@ -519,6 +622,12 @@ def installed_lan(ssh, container, phase, image_ids, *, partial_path, profile, is
+                "profile": profile, "iso_sha256": iso_hash, "stages": {}}
+     retain_lan_partial(partial_path, partial)
+ 
++    def shutdown(stage):
++        observation = {}
++        partial.setdefault("shutdown_observations", {})[stage] = observation
++        report.setdefault("shutdown_observations", {})[stage] = observation
++        installed_shutdown(ssh, observation=observation, checkpoint=lambda: retain_lan_partial(partial_path, partial))
++
+     def probe(stage):
+         result = command(*ssh, compose + " exec -T -e AGENTIC_LAN_PROBE_PHASE=" + stage + " controller python -",
+                          input=source, timeout=900)
+@@ -576,7 +685,7 @@ def installed_lan(ssh, container, phase, image_ids, *, partial_path, profile, is
+     phase("wired_lan_native_owner_fixture")
+     report["owner"] = probe("onboard")
+     phase("wired_lan_select_and_start")
+-    command(*ssh, "agentic-home shutdown", timeout=240)
++    shutdown("before_lan_selection")
+     status = json.loads(command(*ssh, "agentic-home ha-lan", timeout=30))
+     choices = [row for row in status["interfaces"] if row["address"] == "198.18.42.10"]
+     assert len(choices) == 1 and re.fullmatch(r"[a-f0-9]{64}", choices[0]["id"])
+@@ -598,7 +707,7 @@ def installed_lan(ssh, container, phase, image_ids, *, partial_path, profile, is
+     phase("wired_lan_after_reboot_callback")
+     report["after_outer_reboot"] = callback(after_reboot, "after_outer_reboot")
+     phase("wired_lan_remove_and_restore_nat")
+-    command(*ssh, "agentic-home shutdown", timeout=240)
++    shutdown("before_nat_restoration")
+     command(*ssh, "agentic-home configure_lan --disable-lan", timeout=180)
+     command(*ssh, "agentic-home start", timeout=120)
+     wait_native("nat_after_wired_lan_removal")
+@@ -730,7 +839,12 @@ def failure_observation_public(value):
+ def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run,
+                            clock=time.monotonic, pause=time.sleep):
+     """Never retry effects; retain safe original diagnostics before VM teardown."""
+-    from installed_update_probe import LIFECYCLE_ACTIONS, lifecycle_receipt, process_diagnostics
++    from installed_update_probe import (
++        LIFECYCLE_ACTIONS,
++        cli_job_unconfirmed,
++        lifecycle_receipt,
++        process_diagnostics,
++    )
+ 
+     stdout, stderr = getattr(exc, "stdout", "") or "", getattr(exc, "stderr", "") or ""
+     # Keep the original exception intact, including malformed private streams.
+@@ -757,6 +871,8 @@ def record_install_failure(exc, phase, report, ssh, *, run=subprocess.run,
+                    (item == "configure_lan" and re.fullmatch(
+                        r"agentic-home configure_lan (?:--interface-id [a-f0-9]{64}|--disable-lan)", remote_command))), None)
+     result["lifecycle_action"] = action
++    if action is not None and process.returncode == 2:
++        result["cli_job_error"] = cli_job_unconfirmed(stdout, stderr)
+     output = stdout.decode(errors="replace") if isinstance(stdout, bytes) else stdout
+     receipt = None
+     if not lan_probe and isinstance(output, str) and len(output.encode()) <= 65536:
+diff --git a/tests/test_recovery_followups_ui.py b/tests/test_recovery_followups_ui.py
+index 4a3e180e57be656d65e597836e0b922cd4167ded..650952562730e13f0f900eba6cbfa697f135cd11 100644
+--- a/tests/test_recovery_followups_ui.py
++++ b/tests/test_recovery_followups_ui.py
+@@ -46,6 +46,7 @@ def recovery_browser(tmp_path, monkeypatch):
+             browser = playwright.chromium.launch()
+             page = browser.new_page(viewport={'width': 1440, 'height': 900})
+             page.clock.install()
++            page.expose_function('__heldRecoveryRequests', lambda path: len(state['hold'].get(path, [])))
+             page.route('**/api/**', route)
+             page.on('pageerror', lambda error: state['errors'].append(str(error)))
+             yield page, f'http://127.0.0.1:{server.server_port}', state
+@@ -62,6 +63,15 @@ def tick(page, milliseconds=5100):
+     page.wait_for_timeout(50)
+ 
+ 
++def wait_for_held(page, path):
++    # Pump Playwright events until the route handler has captured the request.
++    page.wait_for_function('''path => {
++        const counts = window.__heldRecoveryCounts ||= {};
++        window.__heldRecoveryRequests(path).then(count => counts[path] = count);
++        return counts[path] > 0;
++    }''', arg=path, timeout=5000)
++
++
+ def shots(page, name):
+     destination = os.environ.get('AGENTIC_RECOVERY_SCREENSHOTS')
+     if not destination:
+@@ -83,15 +93,18 @@ def test_selected_cli_recovers_without_restarting_setup(recovery_browser):
+     state['fail']['runtimes'] = 503
+     page.goto(origin + '/#onboarding')
+     button = page.locator('.bootstrap-auth').get_by_role('button', name='開始登入', exact=True)
++    error = page.locator('.bootstrap-auth .notice.error')
++    expect(error).to_have_text('暫時讀不到資料')
+     expect(button).to_be_disabled()
+     del state['fail']['runtimes']
+     state['data']['runtimes']['host'] = {'status': 'unavailable', 'providers': []}
+     tick(page)
++    expect(error).to_have_count(0)
+     expect(button).to_be_disabled()
+     state['data']['runtimes']['host'] = {'protocol': 1, 'providers': [{'provider': 'codex', 'status': 'needs_reauth'}]}
+     tick(page)
+     expect(button).to_be_enabled()
+-    expect(page.locator('.bootstrap-auth .notice.error')).to_have_count(0)
++    expect(error).to_have_count(0)
+     assert state['reads']['runtimes'] >= 3
+     assert not state['writes']
+ 
+@@ -227,6 +240,7 @@ def test_inventory_late_reload_preserves_unsaved_permissions(recovery_browser):
+     state['hold']['inventory'] = []
+     page.get_by_role('button', name='重新盤點', exact=True).click()
+     expect(page.get_by_role('button', name='盤點中…', exact=True)).to_be_visible()
++    wait_for_held(page, 'inventory')
+     permission.check()
+     held = state['hold'].pop('inventory')
+     assert len(held) == 1
+@@ -382,13 +396,12 @@ def test_restored_login_only_discards_confirmed_missing_handle(recovery_browser,
+         state['data'][path] = auth
+     page.add_init_script(f'sessionStorage.setItem({json.dumps(storage)}, {json.dumps("a" * 32)})')
+     page.goto(origin + '/#' + view)
+-    tick(page, 100)
+     if outcome == 'missing':
+-        assert page.evaluate('key => sessionStorage.getItem(key)', storage) is None
+         expect(page.get_by_text('官方授權已過期，請重新開始。' if kind == 'hermes' else '這次登入已過期，請重新登入。', exact=True)).to_be_visible()
++        assert page.evaluate('key => sessionStorage.getItem(key)', storage) is None
+     else:
+-        assert page.evaluate('key => sessionStorage.getItem(key)', storage) == 'a' * 32
+         expect(page.get_by_text('尚未確認前一次登入已停止，請重新開始。' if kind == 'hermes' else '尚未確認登入程序停止，請先核對後再登入。', exact=True)).to_be_visible()
++        assert page.evaluate('key => sessionStorage.getItem(key)', storage) == 'a' * 32
+     count = state['reads'][path]
+     tick(page, 30100)
+     assert state['reads'][path] == count
+@@ -417,11 +430,15 @@ def test_late_saved_login_read_cannot_revive_after_logout(recovery_browser, kind
+ 
+     state['handlers'][endpoint] = logout
+     page.goto(origin + '/#' + view)
+-    tick(page, 100)
++    wait_for_held(page, path)
+     assert len(state['hold'][path]) >= 1
+     panel = page.get_by_role('region', name='智能管家登入') if kind == 'hermes' else page.locator('.coding-signed')
+     panel.get_by_role('button', name='登出', exact=True).click()
+-    page.wait_for_timeout(100)
++    if kind == 'hermes':
++        expect(panel.get_by_text('已登出。', exact=True)).to_be_visible()
++    else:
++        expect(page.get_by_role('region', name='開發助手登入').get_by_role('button', name='開始登入', exact=True)).to_be_visible()
++    assert page.evaluate('key => sessionStorage.getItem(key)', storage) is None
+     held = state['hold'].pop(path)
+     for response in held:
+         response.fulfill(json=auth)
+@@ -443,6 +460,7 @@ def test_late_hermes_runtime_read_cannot_adopt_login_after_logout(recovery_brows
+     stale['runtime']['pending_auth'] = auth
+     state['hold']['hermes'] = []
+     tick(page, 10100)
++    wait_for_held(page, 'hermes')
+     held = state['hold'].pop('hermes')
+     assert len(held) == 1
+ 
+@@ -511,7 +529,7 @@ def test_provider_late_read_and_stale_runtime_cannot_revive_cleared_login(recove
+         tick(page, 2100)
+     else:
+         expect(panel.get_by_role('button', name='登出', exact=True)).to_be_visible()
+-        tick(page, 100)
++    wait_for_held(page, path)
+     held = state['hold'].pop(path)
+     assert held
+     endpoint = f'runtimes/host/providers/codex/auth/{auth["id"]}/cancel' if action == 'cancel' else 'runtimes/host/providers/codex/logout'
+@@ -522,7 +540,8 @@ def test_provider_late_read_and_stale_runtime_cannot_revive_cleared_login(recove
+ 
+     state['handlers'][endpoint] = clear
+     panel.get_by_role('button', name='取消登入' if action == 'cancel' else '登出', exact=True).click()
+-    page.wait_for_timeout(100)
++    expect(panel.get_by_role('button', name='開始登入', exact=True)).to_be_visible()
++    assert page.evaluate('key => sessionStorage.getItem(key)', storage) is None
+     before = state['reads'][path]
+     for response in held:
+         response.fulfill(json=auth)
+@@ -592,10 +611,11 @@ def test_inventory_save_reply_keeps_newer_unsaved_permission_edits(recovery_brow
+     page.get_by_role('button', name='重新盤點', exact=True).click()
+     expect(page.get_by_text('暫時讀不到資料', exact=True)).to_be_visible()
+     permission.check()
+-    pending = []
++    pending = state['hold']['policy'] = []
+     state['handlers']['policy'] = pending.append
+     page.get_by_role('button', name='儲存修改', exact=True).click()
+     expect(page.get_by_role('button', name='儲存中…', exact=True)).to_be_visible()
++    wait_for_held(page, 'policy')
+     assert len(pending) == 1
+     posted = state['writes'][0][1]
+     assert next(item for item in posted['entities'] if item['entity_id'] == 'light.demo_living_room')['read'] is True

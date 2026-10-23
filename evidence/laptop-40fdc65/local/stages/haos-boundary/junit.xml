@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuite name="haos-boundary" tests="2" failures="0" errors="0" skipped="0"><testcase classname="haos-boundary" name="test_cli_client_timeout_is_unconfirmed" /><testcase classname="haos-boundary" name="test_actual_haos_app_boundary" /></testsuite>

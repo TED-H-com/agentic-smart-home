@@ -1,0 +1,8 @@
+{
+  "input_sha256": "61298b9b62f59078a21e4e8cb0c319d425532fca5d1a8736a7831edb87a496c0",
+  "verified_boolean_maps": {},
+  "verified_fields": {
+    "controller_stopped": true,
+    "support_bundle": "created"
+  }
+}

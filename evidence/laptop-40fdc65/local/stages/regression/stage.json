@@ -1,0 +1,43 @@
+{
+  "cleanup_scope": "known_test_name_prefixes_only",
+  "disk_basetemp_removed": true,
+  "excluded_cli_probes": {
+    "grok": "not_run: owner instruction"
+  },
+  "finished": "2026-10-23T20:10:46.120419+00:00",
+  "fixture_cleanup_basis": "mixed_per_fixture_receipts_and_wrapper_observation",
+  "harness_binding_sha256": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+  "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+  "junit": {
+    "errors": 0,
+    "failures": 0,
+    "skipped": 8,
+    "tests": 3574
+  },
+  "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "primary_receipts": [
+    "runner-container.json",
+    "real-core-integration.json",
+    "onboarding-e2e.json",
+    "image-public-permissions-controller.json",
+    "image-public-permissions-runner.json",
+    "image-public-permissions-linejs.json",
+    "image-public-permissions-hermes.json",
+    "image-public-permissions-preview.json",
+    "image-public-permissions-bridge.json"
+  ],
+  "public_channel_test": false,
+  "required_actual_tests_passed": [
+    "test_real_core_proposal_deploy_trigger_restart",
+    "test_packaged_native_actions_owner_queue_restart_and_storage_failure",
+    "test_composed_onboarding_browser_services_and_native_home",
+    "test_packaged_runner_cli_and_tls",
+    "test_packaged_linejs_gateway_boundary",
+    "test_actual_offline_preview_renderer"
+  ],
+  "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "stage": "regression",
+  "started": "2026-10-23T19:50:50.573376+00:00",
+  "status": "passed",
+  "wrapper_owned_resources_absent": true
+}

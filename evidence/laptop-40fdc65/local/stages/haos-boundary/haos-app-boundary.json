@@ -1,0 +1,12 @@
+{
+  "input_sha256": "757a24a69867607811b558b76afe1eac1df572fe0190534d2ab6ebe8893a4878",
+  "verified_boolean_maps": {},
+  "verified_fields": {
+    "observed_from": "real_haos_app",
+    "profiles.narrow_sys_admin.docker_socket_present": false,
+    "profiles.narrow_sys_admin.observed_from": "haos_app",
+    "profiles.protected_baseline.docker_socket_present": false,
+    "profiles.protected_baseline.observed_from": "haos_app",
+    "runner_coding_executed": false
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "input_sha256": "75b70209fcb777c23a78fce0da77b15f8eeefe7ff0216604f0b1f072e394a65d",
+  "passed_check_count": 7,
+  "verified_boolean_maps": {},
+  "verified_fields": {
+    "app": "controller",
+    "cleanup.absent": true,
+    "image_id": "sha256:cb0738f6c36ae09df8d1be2c54c2f22a63a51a45083a099c53e4d7fb5dcd4afa",
+    "status": "passed"
+  }
+}

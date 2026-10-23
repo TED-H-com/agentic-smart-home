@@ -1,0 +1,300 @@
+{
+  "schema": 1,
+  "kind": "engineering_preview_delivery_summary",
+  "version": "0.11.0",
+  "updated_at": "2026-10-23T21:08:52.940444+00:00",
+  "status": "automated_engineering_acceptance_passed",
+  "release_url": "https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.11.0",
+  "identities": {
+    "media_source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+    "test_harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+    "release_tag_commit": "df25dae051e2d067da97eb5b60852b2f7d37ea88",
+    "packaged_home_coding_source_commit": "02ab744c8015cf38881e7127f62bb88164175a7b",
+    "candidate_manifest_input_sha256": "76a37e621668fa9d9dcbfc3faa518e7b575fe9a12312502262493c7e3c7df244",
+    "harness_binding_sha256": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+    "images": {
+      "agentic-home-bridge:0.11.0": "sha256:807d3f1b5dc4ee5535fb9291feb6963d63bf29b1d923570a1debe0a199c1502d",
+      "agentic-home-controller:0.11.0": "sha256:cb0738f6c36ae09df8d1be2c54c2f22a63a51a45083a099c53e4d7fb5dcd4afa",
+      "agentic-home-hermes:0.11.0": "sha256:63ec20ed3483f5ea9417e3e8851a02f664b69b6b03a5d730be4a098b207c4b1f",
+      "agentic-home-linejs:0.11.0": "sha256:26205fc84f51502add51b3b7598dd0736776e46197179b7237dd7e1fd616e4a1",
+      "agentic-home-preview:0.11.0": "sha256:202af80a2ac4052081f98a3115424a0d7c61cff94a36750219dace748c7e2493",
+      "agentic-home-runner:0.11.0": "sha256:c7b456c6b246d02e07db689dc03a06d37201a6d0413eba3207ede75a5014937c"
+    },
+    "media": {
+      "SHA256SUMS": {
+        "sha256": "9da972d20f4446461c9aa3b4fd6879d0a152955f99f4234d4d427e3929d82ee8",
+        "size": 302
+      },
+      "agentic-home-0.11.0-laptop-amd64.iso": {
+        "sha256": "d007bdcb24a702abff161a6abc7b97ef3905d271cd15558b83050ccf22376a85",
+        "size": 6819676160
+      },
+      "agentic-home-0.11.0-linux-amd64.tar": {
+        "sha256": "0c94de22c4d9f7763a78ba476694c4b07e083d05e4526da4fbe8c70f06ae1895",
+        "size": 2740183040
+      },
+      "agentic-home-0.11.0-source.zip": {
+        "sha256": "3ec9d8a64d57a2e1dc0329e3e18df1fdbff3972ad79636093716709ba7eb0af4",
+        "size": 32866471
+      }
+    }
+  },
+  "local_qualification": {
+    "status": "passed",
+    "all_eight_passed": true,
+    "single_complete_run": true,
+    "selected_run": "010",
+    "started": "2026-10-23T19:28:11.487317+00:00",
+    "finished": "2026-10-23T20:34:51.403481+00:00",
+    "counts": {
+      "tests": 3885,
+      "skipped": 8,
+      "failures": 0,
+      "errors": 0,
+      "passed": 3877
+    },
+    "stages": [
+      {
+        "stage": "install",
+        "counts": {
+          "tests": 1,
+          "skipped": 0,
+          "failures": 0,
+          "errors": 0,
+          "passed": 1
+        },
+        "status": "passed"
+      },
+      {
+        "stage": "regression",
+        "counts": {
+          "tests": 3574,
+          "skipped": 8,
+          "failures": 0,
+          "errors": 0,
+          "passed": 3566
+        },
+        "status": "passed"
+      },
+      {
+        "stage": "enable",
+        "counts": {
+          "tests": 42,
+          "skipped": 0,
+          "failures": 0,
+          "errors": 0,
+          "passed": 42
+        },
+        "status": "passed"
+      },
+      {
+        "stage": "home-worker-haos",
+        "counts": {
+          "tests": 122,
+          "skipped": 0,
+          "failures": 0,
+          "errors": 0,
+          "passed": 122
+        },
+        "status": "passed"
+      },
+      {
+        "stage": "haos-boundary",
+        "counts": {
+          "tests": 2,
+          "skipped": 0,
+          "failures": 0,
+          "errors": 0,
+          "passed": 2
+        },
+        "status": "passed"
+      },
+      {
+        "stage": "runner-build",
+        "counts": {
+          "tests": 102,
+          "skipped": 0,
+          "failures": 0,
+          "errors": 0,
+          "passed": 102
+        },
+        "status": "passed"
+      },
+      {
+        "stage": "bridge-haos",
+        "counts": {
+          "tests": 40,
+          "skipped": 0,
+          "failures": 0,
+          "errors": 0,
+          "passed": 40
+        },
+        "status": "passed"
+      },
+      {
+        "stage": "haos-vm",
+        "counts": {
+          "tests": 2,
+          "skipped": 0,
+          "failures": 0,
+          "errors": 0,
+          "passed": 2
+        },
+        "status": "passed"
+      }
+    ],
+    "harness_overlay_restored": true,
+    "external_media_sha256_and_stat_unchanged": true,
+    "evidence": {
+      "path": "local/qualification-summary.json",
+      "sha256": "3481c8826996bbf4a5eafed4bd182011b2e97afb90c042baef0b6ac1661a9428"
+    }
+  },
+  "public_app_qualification": {
+    "status": "passed",
+    "public_channel_passed": true,
+    "single_complete_run": true,
+    "selected_run": "010-001",
+    "started": "2026-10-23T20:37:08.859971+00:00",
+    "finished": "2026-10-23T20:52:58.227280+00:00",
+    "counts": {
+      "tests": 82,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "passed": 82
+    },
+    "stages": [
+      {
+        "stage": "enable",
+        "counts": {
+          "tests": 42,
+          "skipped": 0,
+          "failures": 0,
+          "errors": 0,
+          "passed": 42
+        },
+        "status": "passed"
+      },
+      {
+        "stage": "bridge-haos",
+        "counts": {
+          "tests": 40,
+          "skipped": 0,
+          "failures": 0,
+          "errors": 0,
+          "passed": 40
+        },
+        "status": "passed"
+      }
+    ],
+    "stable_commit_at_four_recorded_boundaries": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+    "supervisor_commit_digest_pinning": false,
+    "native_browser_entry_method": "native_sidebar_link",
+    "harness_overlay_restored": true,
+    "external_media_sha256_and_stat_unchanged": true,
+    "evidence": {
+      "path": "public/summary.json",
+      "sha256": "e40542187026a69062fae84f4f0a15871f4ebbae20a4302cc2d615e2b759b2d0"
+    }
+  },
+  "anonymous_download": {
+    "status": "passed",
+    "platform": "Linux x86_64",
+    "original_media_and_usb_instructions": {
+      "path": "release-publication/summary.json",
+      "sha256": "da32af872ffe82a9369504c210b3b5fa7e1748aa8b813bf71362ce32d1839f2c"
+    },
+    "original_asset_count_at_download": 77,
+    "verification_zip": {
+      "path": "release-publication/verification-zip.json",
+      "sha256": "0b249c459fbed025006e94dffed75f80ae9b722ef249a6b9ec67b16956873773"
+    },
+    "current_asset_count": 78,
+    "original_77_assets_unchanged": true,
+    "scratch_cleanup_passed": true
+  },
+  "verification_zip": {
+    "url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.11.0/agentic-home-0.11.0-verification.zip",
+    "bytes": 90395,
+    "sha256": "109b4fba131d49d7cb09122ee4c9c063080a515ff382e5af208244daf7235b25",
+    "member_count": 46,
+    "scope": "Immutable local-only qualification snapshot. Its public_channel_passed=false and anonymous_download_passed=false flags are preserved; later channel receipts are separate.",
+    "published_anonymous_download_passed": true,
+    "repository_members_byte_identical_to_archive": true
+  },
+  "separate_ci_evidence": {
+    "h4": {
+      "path": "ci/summary.json",
+      "sha256": "3ff237bf91b3a53a55f748f5407730df16ff93c64157fdb1ea52e6d675a5b917"
+    },
+    "h5": {
+      "path": "ci/h5.json",
+      "sha256": "7ff73d12b21829307a07fefe77c207cb53dc24115eb699319bbba3f83e8e64c6"
+    },
+    "h6": {
+      "path": "ci/h6.json",
+      "sha256": "1afcc665378043ed6541b09b39147ebaf9a6e685cfe5d60f969e2e882c980515"
+    }
+  },
+  "history": [
+    {
+      "path": "history/qualification-reviewed-007.json",
+      "sha256": "bafe7473c991112637a7bb43bae2276ddadfcd4db5a7ab7d01578b9708be4990"
+    },
+    {
+      "path": "history/media-identity-preparation.json",
+      "sha256": "2870db7d4ea83572a8fcfd63a7ddfaa07234faef578eaf5b177994b08ab4e3bc"
+    },
+    {
+      "path": "history/qualification-reviewed-008.json",
+      "sha256": "bc8a235918170d9fe1594af907d73ba38b4524ba936ab41ebf1123b5031865e8"
+    },
+    {
+      "path": "history/qualification-reviewed-009.json",
+      "sha256": "7041d19d58dc4101803655ea9ad94a80bd10bc61567e57517ccee1ede4772ae3"
+    },
+    {
+      "path": "history/diagnostic-h6-tail-001.json",
+      "sha256": "438c7fa2eef247f0021d7ce9c2fddb68b53f4176a53c9a5e20014768182a9e92"
+    }
+  ],
+  "known_frozen_media_dependency_limits": {
+    "pillow": {
+      "version": "12.3.0",
+      "fixed_version": "13.0.0",
+      "advisories": [
+        "GHSA-8g5g-8vmr-9782",
+        "GHSA-58r4-6rv3-gfh8",
+        "GHSA-pchr-8j38-3x4p",
+        "GHSA-65qm-jvmh-6pqg"
+      ],
+      "status": "affected_dependency_retained_in_frozen_media",
+      "source_fix_pr": 139
+    },
+    "certifi": {
+      "version": "2026.5.20",
+      "later_main_version": "2026.10.19",
+      "status": "frozen_media_does_not_include_later_main_update"
+    },
+    "policy": "Source fixes do not repair these frozen media. A separately built and verified candidate is required; preserve this historical evidence."
+  },
+  "not_run": {
+    "physical_dell_usb_nic": "not_run",
+    "real_cloud_accounts_and_household_devices": "not_run",
+    "continuous_72_hour_operation": "not_run",
+    "native_windows_downloader": "not_run",
+    "native_macos_downloader": "not_run",
+    "actual_grok_cli": "not_run: owner instruction",
+    "e1_e2_household_acceptance": "not_established"
+  },
+  "limitations": [
+    "Eight local stages, two public App stages and anonymous downloads are separate evidence channels; their test counts are not combined.",
+    "The selected full run passed after earlier failures; no claim of first-attempt success or cross-run continuation.",
+    "Public stable was F at four recorded boundaries; this does not establish continuous ref stability or atomic Supervisor commit/digest pinning.",
+    "Model transport and Host contract fixtures do not establish real cloud login, household approval, installed Host acceptance in public mode or physical hardware acceptance.",
+    "The public wrong-TLS-pin negative case was not run in public mode.",
+    "The immutable source archive and media remain F; H6 contains test-only overlays. Current main and the 0.11.1 candidate have separate provenance.",
+    "No raw logs, household conversation contents, credentials or screenshots are published in this companion."
+  ]
+}

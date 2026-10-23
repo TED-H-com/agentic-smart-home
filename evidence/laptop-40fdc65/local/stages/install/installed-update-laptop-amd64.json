@@ -1,0 +1,27 @@
+{
+  "input_sha256": "afb991cc08f7f6c04e482d23a9ab6f123bd7e4d074f42cb6cf5fecb9a27e5379",
+  "verified_boolean_maps": {
+    "bridge_update_contract.checks": {
+      "missing_contract_fixed_probe_rejected": true,
+      "missing_contract_import_error": true,
+      "missing_contract_without_history_passed": true,
+      "pending_maintenance_readonly": true,
+      "pending_maintenance_rejected": true,
+      "revoked_database_unchanged": true,
+      "revoked_history_marker_copied": true,
+      "supporting_fixed_probe_passed": true
+    },
+    "bridge_update_contract.cleanup": {
+      "fixture_image_absent": true,
+      "probe_containers_absent": true,
+      "probe_journal_absent": true,
+      "quota_volumes_absent": true,
+      "scratch_database_absent": true
+    }
+  },
+  "verified_fields": {
+    "diagnostics.cleanup_completed": true,
+    "diagnostics.cleanup_started": true,
+    "state": "passed"
+  }
+}

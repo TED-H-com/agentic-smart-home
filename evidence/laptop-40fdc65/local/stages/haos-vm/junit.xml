@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuite name="haos-vm" tests="2" failures="0" errors="0" skipped="0"><testcase classname="haos-vm" name="test_real_haos_boot_owner_and_supervisor_backup" /><testcase classname="haos-vm" name="test_refused_backup_keeps_only_its_job_names_stages_and_errors" /></testsuite>

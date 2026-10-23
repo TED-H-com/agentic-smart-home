@@ -1,0 +1,57 @@
+{
+  "schema": 2,
+  "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+  "candidate_manifest_sha256": "76a37e621668fa9d9dcbfc3faa518e7b575fe9a12312502262493c7e3c7df244",
+  "overlays": [
+    {
+      "path": "tests/installed_update_probe.py",
+      "status": "M",
+      "base_sha256": "a3c697c15c8a6ccf82a8fab82c20a597991949488ede30b2df8851fd3b94ca00",
+      "harness_sha256": "2decc36aac428c8b525377430e852e9cb33c09fd75f48f7d60437d9bbe969104"
+    },
+    {
+      "path": "tests/test_bridge_haos.py",
+      "status": "M",
+      "base_sha256": "d639897091cf30c2326b866ffd8f9ed3883ee6bf9caa01842ed4a0c7aa3ff5f0",
+      "harness_sha256": "06f8de043d06c6a3d9c3208f9bfb40f1700a7479c5e8cf0da708b2bd490e98d9"
+    },
+    {
+      "path": "tests/test_home_worker_haos.py",
+      "status": "M",
+      "base_sha256": "6da47b2a135bb97112f829e6339c31280be1987b0b872c1d20f03b665d76729b",
+      "harness_sha256": "35deeb0b74ec4de0c255269887b9a989392877761b65bd920c533c9ad3de1855"
+    },
+    {
+      "path": "tests/test_installed_lan_callback.py",
+      "status": "M",
+      "base_sha256": "091f704a8aebf7bd78354969639b5775336be92c4e7c95516e6471a5c65cd840",
+      "harness_sha256": "fcf570abb0ab422d6d987573d66393dc47cb4e48c42d9d82d1da37688bbc547f"
+    },
+    {
+      "path": "tests/test_installed_probe_contract.py",
+      "status": "M",
+      "base_sha256": "7a876d68c2f8ad948a72a800ba84d48db199a18373e1e381ae32f93263cfe7b9",
+      "harness_sha256": "f570c8136e3db79f03873d2ee7945a152069ebee757f8f186920a7f0917194f0"
+    },
+    {
+      "path": "tests/test_installed_shutdown_observation.py",
+      "status": "A",
+      "base_sha256": null,
+      "harness_sha256": "0a825027a19a49b3c0ab30bdc9eaae3e0ffc3f23ba86e2a19967d361e9c42408"
+    },
+    {
+      "path": "tests/test_linux_install.py",
+      "status": "M",
+      "base_sha256": "a6b327c5398d9cc2b51ad269a624ab19321255bb6abf4c58dda82a2606286cbe",
+      "harness_sha256": "6b5d4239efdb5596031de33cc4ee22680c610ae5af1bfdc55395ace27b565588"
+    },
+    {
+      "path": "tests/test_recovery_followups_ui.py",
+      "status": "M",
+      "base_sha256": "ae96b97a78fba04d57600e90d5e31f427347333da9af41a2f59bc0a75fb3ba44",
+      "harness_sha256": "40399ff8c6c795a2f49973377abd1b7182e31b963b17cf4fe58405081bfbacc6"
+    }
+  ],
+  "diff_sha256": "00ea2e85de8b8c098591078ed2ad232f2d73fa8e55805f8292874ef44e744a55"
+}

@@ -1,0 +1,486 @@
+{
+  "schema": 1,
+  "kind": "partial_media_qualification_diagnostic_history",
+  "run": "diagnostic-h6-tail-001",
+  "history_created_at": "2026-10-23T19:29:19.225904+00:00",
+  "status": "passed",
+  "scope": "Only stages 4 through 8 of a diagnostic invocation; not complete eight-stage qualification.",
+  "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+  "harness_binding_sha256": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+  "orchestration_sha256": "5fcbaddc7f183aa54c2724dba46a6fcc935da26d2a912444d12bb2614272ff06",
+  "harness_overlay_sha256": "00ea2e85de8b8c098591078ed2ad232f2d73fa8e55805f8292874ef44e744a55",
+  "started_at": "2026-10-23T19:14:29.694656+00:00",
+  "finished_at": "2026-10-23T19:26:09.759259+00:00",
+  "all_eight_passed": false,
+  "public_channel_test": false,
+  "selected_stages": [
+    "home-worker-haos",
+    "haos-boundary",
+    "runner-build",
+    "bridge-haos",
+    "haos-vm"
+  ],
+  "stages_not_run_in_this_diagnostic": [
+    "install",
+    "regression",
+    "enable"
+  ],
+  "recorded_stages": [
+    {
+      "stage": "home-worker-haos",
+      "status": "passed",
+      "started_at": "2026-10-23T19:14:32.845203+00:00",
+      "finished_at": "2026-10-23T19:18:23.543563+00:00",
+      "process_exit_code": 0,
+      "junit": {
+        "tests": 122,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 122
+      },
+      "required_actual_test": {
+        "classname": "tests.test_home_worker_haos",
+        "name": "test_real_home_coding_worker_in_haos",
+        "status": "passed"
+      },
+      "cleanup": {
+        "observation_complete": true,
+        "owned_resources_absent": true,
+        "disk_basetemp_removed": true,
+        "scope": "known_test_name_prefixes_only"
+      },
+      "product_observations": {
+        "home-worker-haos.json": {
+          "source_receipt_sha256": "62ca1e7014250d6fecf09b62f7f2087e2d1969d55f14aa5b06408f5ecb881573",
+          "fields": {
+            "kind": "real_haos_home_coding_worker",
+            "status": "passed",
+            "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+            "runtime_source_uncommitted": false,
+            "runner_base_image_id": "sha256:c7b456c6b246d02e07db689dc03a06d37201a6d0413eba3207ede75a5014937c",
+            "controller_image_id": "sha256:cb0738f6c36ae09df8d1be2c54c2f22a63a51a45083a099c53e4d7fb5dcd4afa",
+            "startup_boundaries.status": "passed",
+            "startup_boundaries.cleanup": "passed"
+          },
+          "checks": {
+            "checks": {
+              "abrupt_same_boot_restart_retains_lease_and_prevents_replay": true,
+              "actual_codex_tools": true,
+              "actual_source_patch": true,
+              "actual_tls_cancel_stops_descendants_and_releases_lease": true,
+              "additional_app_namespace_view": true,
+              "distinct_actual_haos_app_namespaces": true,
+              "fenced_checkpoint_handoff": true,
+              "graceful_app_restart_keeps_confirmed_stop_without_replay": true,
+              "home_role_login_separate_from_unpaired_host": true,
+              "independent_baseline_tests": true,
+              "outer_controller_actual_pinned_tls_pairing": true,
+              "product_image_layers_verified": true,
+              "same_case_observation_content_and_digest": true,
+              "same_case_tls_artifacts": true,
+              "worker_boundary_checks": true
+            },
+            "boundary_checks": {
+              "dev_outside_volume_readonly": true,
+              "docker_socket_absent": true,
+              "effective_capabilities_zero": true,
+              "fixture_parent_env_absent": true,
+              "git_metadata_read_only": true,
+              "hassio_env_absent": true,
+              "host_socket_absent": true,
+              "inherited_directory_fds_absent": true,
+              "lan_direct_network_denied": true,
+              "nested_user_namespace_denied": true,
+              "no_new_privileges": true,
+              "parent_environ_secret_unreadable": true,
+              "private_canary_secret_unreadable": true,
+              "private_coding_path_absent": true,
+              "private_workspace_fds_absent": true,
+              "public_direct_network_denied": true,
+              "role_auth_secret_unreadable": true,
+              "root_outside_volume_readonly": true,
+              "run_outside_volume_readonly": true,
+              "runner_key_secret_unreadable": true,
+              "seccomp_filter_active": true,
+              "shm_outside_volume_readonly": true,
+              "staging_path_absent": true,
+              "supervisor_env_absent": true,
+              "tmp_on_bounded_volume": true,
+              "uid_unprivileged": true,
+              "worker_cgroup_ns_distinct_from_app": true,
+              "worker_fuse_device_unavailable": true,
+              "worker_mnt_ns_distinct_from_app": true,
+              "worker_pid_ns_distinct_from_app": true
+            },
+            "startup_boundaries.checks": {
+              "actual_cpu_throttling": true,
+              "actual_ext4_enospc": true,
+              "actual_memory_oom_kill": true,
+              "actual_pid_limit": true,
+              "descendant_cancel_and_cgroup_empty": true,
+              "worker_and_fuse_cgroups_reclaimed": true
+            },
+            "cleanup": {
+              "disk_fixture_ownership_restored": true,
+              "network_removed": true,
+              "outer_removed": true,
+              "vm_removed": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "stage": "haos-boundary",
+      "status": "passed",
+      "started_at": "2026-10-23T19:18:23.909578+00:00",
+      "finished_at": "2026-10-23T19:19:46.336747+00:00",
+      "process_exit_code": 0,
+      "junit": {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 2
+      },
+      "required_actual_test": {
+        "classname": "tests.test_haos_boundary",
+        "name": "test_actual_haos_app_boundary",
+        "status": "passed"
+      },
+      "cleanup": {
+        "observation_complete": true,
+        "owned_resources_absent": true,
+        "disk_basetemp_removed": true,
+        "scope": "known_test_name_prefixes_only"
+      },
+      "product_observations": {
+        "haos-app-boundary.json": {
+          "source_receipt_sha256": "d01c3a41ebe3038d58f0b7c2d32512f62a56bc36099b6aed9b2c190b6bfd14f3",
+          "fields": {
+            "observed_from": "real_haos_app",
+            "runner_coding_executed": false,
+            "profiles.protected_baseline.observed_from": "haos_app",
+            "profiles.protected_baseline.docker_socket_present": false,
+            "profiles.narrow_sys_admin.observed_from": "haos_app",
+            "profiles.narrow_sys_admin.docker_socket_present": false
+          },
+          "checks": {}
+        }
+      }
+    },
+    {
+      "stage": "runner-build",
+      "status": "passed",
+      "started_at": "2026-10-23T19:19:46.715728+00:00",
+      "finished_at": "2026-10-23T19:22:28.856777+00:00",
+      "process_exit_code": 0,
+      "junit": {
+        "tests": 102,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 102
+      },
+      "required_actual_test": {
+        "classname": "tests.test_runner_supervisor_build",
+        "name": "test_real_supervisor_builds_home_coding_app",
+        "status": "passed"
+      },
+      "cleanup": {
+        "observation_complete": true,
+        "owned_resources_absent": true,
+        "disk_basetemp_removed": true,
+        "scope": "known_test_name_prefixes_only"
+      },
+      "product_observations": {
+        "runner-supervisor-build.json": {
+          "source_receipt_sha256": "5c44474900fe33857b08b573c587c82756632149efea609dd0eb110d0436513b",
+          "fields": {
+            "kind": "real_haos_supervisor_app_build",
+            "status": "passed",
+            "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+            "runtime_source_uncommitted": false,
+            "delivery": "local_source_exact_head_files"
+          },
+          "checks": {
+            "checks": {
+              "app_health_200": true,
+              "app_started": true,
+              "codex_version_pinned": true,
+              "container_contract": true,
+              "custom_apparmor_enforcing": true,
+              "docker_socket_absent": true,
+              "docker_socket_not_mounted": true,
+              "exact_head_source_delivered": true,
+              "image_version_label": true,
+              "pairing_fingerprint_matches_tls": true,
+              "pairing_published_to_own_options": true,
+              "pinned_bases_preloaded": true,
+              "real_app_contract_configured": true,
+              "real_app_contract_installed": true,
+              "store_catalog_build_version": true,
+              "supervisor_build_install_completed": true,
+              "supervisor_healthy": true,
+              "worker_source_matches_lock": true
+            },
+            "cleanup": {
+              "disk_fixture_ownership_restored": true,
+              "network_removed": true,
+              "vm_removed": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "stage": "bridge-haos",
+      "status": "passed",
+      "started_at": "2026-10-23T19:22:29.231524+00:00",
+      "finished_at": "2026-10-23T19:25:01.769110+00:00",
+      "process_exit_code": 0,
+      "junit": {
+        "tests": 40,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 40
+      },
+      "required_actual_test": {
+        "classname": "tests.test_bridge_haos",
+        "name": "test_real_haos_sidebar_bridge",
+        "status": "passed"
+      },
+      "cleanup": {
+        "observation_complete": true,
+        "owned_resources_absent": true,
+        "disk_basetemp_removed": true,
+        "scope": "known_test_name_prefixes_only"
+      },
+      "product_observations": {
+        "bridge-haos.json": {
+          "source_receipt_sha256": "e3ef937c26d58764a09fd2b5f4fb13d0eec652e1ad5ddf4bf4a967db54e02a03",
+          "fields": {
+            "kind": "real_haos_sidebar_bridge",
+            "status": "passed",
+            "product_status": "passed",
+            "cleanup_status": "passed",
+            "cleanup": true,
+            "outer_source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+            "outer_source_uncommitted": false,
+            "delivery": "local_source_fixture",
+            "outer_dependency_image": "sha256:cb0738f6c36ae09df8d1be2c54c2f22a63a51a45083a099c53e4d7fb5dcd4afa",
+            "native_browser.status": "passed",
+            "native_browser.no_api_or_header_mocking": true
+          },
+          "checks": {
+            "checks": {
+              "app_restart_preserves_options_and_outer_case": true,
+              "direct_app_forged_header_denied": true,
+              "host_management_and_cross_origin_denied": true,
+              "ingress_native_identity_overrides_forged_header": true,
+              "manual_stop_remains_stopped": true,
+              "same_outer_case_and_deduplicated_conversation": true,
+              "service_heartbeat_without_owner_capability": true,
+              "supervisor_app_contract": true,
+              "wrong_tls_pin_denied_and_recovered": true
+            },
+            "cleanup_steps": {
+              "disk_fixture_ownership_restored": true,
+              "ha_client_closed": true,
+              "network_removed": true,
+              "outer_removed": true,
+              "ownership_helper_removed": true,
+              "vm_removed": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "stage": "haos-vm",
+      "status": "passed",
+      "started_at": "2026-10-23T19:25:02.096836+00:00",
+      "finished_at": "2026-10-23T19:26:09.617555+00:00",
+      "process_exit_code": 0,
+      "junit": {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "passed": 2
+      },
+      "required_actual_test": {
+        "classname": "tests.test_haos_vm",
+        "name": "test_real_haos_boot_owner_and_supervisor_backup",
+        "status": "passed"
+      },
+      "cleanup": {
+        "observation_complete": true,
+        "owned_resources_absent": true,
+        "disk_basetemp_removed": true,
+        "scope": "known_test_name_prefixes_only"
+      },
+      "product_observations": {
+        "haos-vm.json": {
+          "source_receipt_sha256": "667319354e020745a8fa5d923bdd5e4d4cb66e1a45d602536d862dc393b6c86d",
+          "fields": {
+            "kind": "real_haos_kvm",
+            "owner_verified": true,
+            "backup_completed_and_readback": true
+          },
+          "checks": {}
+        }
+      }
+    }
+  ],
+  "harness_overlay_restored": true,
+  "frozen_checkout_clean": true,
+  "outer_dns_observations": {
+    "preflight_resolved": false,
+    "same_case_resolved": false,
+    "scope": "Actual outer container with explicitly controlled fixture DNS."
+  },
+  "app_core_observation": {
+    "dns_resolved": true,
+    "reachable": true,
+    "timed_out": false,
+    "http_status": 401,
+    "http_port": 80,
+    "attempted_ports": [
+      80
+    ],
+    "endpoints": [
+      {
+        "port": 80,
+        "reachable": true,
+        "http_status": 401,
+        "error_code": null
+      }
+    ]
+  },
+  "independent_source_tests_executed": 39,
+  "haos_boundary_profile_observations": {
+    "protected_baseline": {
+      "distinct_from_haos_host_cgroup_namespace": true,
+      "private_cgroup_root": true,
+      "new_mount_namespace": false
+    },
+    "narrow_sys_admin": {
+      "distinct_from_haos_host_cgroup_namespace": true,
+      "private_cgroup_root": true,
+      "new_mount_namespace": true,
+      "new_cgroup_mount": true,
+      "delegated_limits": true,
+      "memory_oom_kill": true
+    }
+  },
+  "media_observations": {
+    "scope": "External before/after snapshots plus original harness checks; not continuous proof against transient modification.",
+    "identity_fields_compared": [
+      "device",
+      "inode",
+      "size",
+      "mtime_ns",
+      "ctime_ns"
+    ],
+    "all_four_media_match_frozen_manifest": true,
+    "all_four_before_after_identities_equal": true,
+    "diagnostic_errors": [],
+    "child_returncode": 0,
+    "wrapper_returncode": 0,
+    "files": [
+      {
+        "name": "agentic-home-0.11.0-linux-amd64.tar",
+        "bytes": 2740183040,
+        "sha256": "0c94de22c4d9f7763a78ba476694c4b07e083d05e4526da4fbe8c70f06ae1895",
+        "before_after_sha256_equal": true,
+        "before_after_identity_equal": true,
+        "both_hash_snapshots_stable": true
+      },
+      {
+        "name": "agentic-home-0.11.0-source.zip",
+        "bytes": 32866471,
+        "sha256": "3ec9d8a64d57a2e1dc0329e3e18df1fdbff3972ad79636093716709ba7eb0af4",
+        "before_after_sha256_equal": true,
+        "before_after_identity_equal": true,
+        "both_hash_snapshots_stable": true
+      },
+      {
+        "name": "agentic-home-0.11.0-laptop-amd64.iso",
+        "bytes": 6819676160,
+        "sha256": "d007bdcb24a702abff161a6abc7b97ef3905d271cd15558b83050ccf22376a85",
+        "before_after_sha256_equal": true,
+        "before_after_identity_equal": true,
+        "both_hash_snapshots_stable": true
+      },
+      {
+        "name": "SHA256SUMS",
+        "bytes": 302,
+        "sha256": "9da972d20f4446461c9aa3b4fd6879d0a152955f99f4234d4d427e3929d82ee8",
+        "before_after_sha256_equal": true,
+        "before_after_identity_equal": true,
+        "both_hash_snapshots_stable": true
+      }
+    ]
+  },
+  "source_receipts_sha256": {
+    "retained-sha256.json": "e96bb60e3be25648ef580dd90df866633d867704659a65773809b03d74e6f64e",
+    "root-review.json": "efb93203f94de72fc3f4e612e3d150174db1a88b394489918046a147df6426eb",
+    "diagnostic-h6-tail-001/summary.json": "22359814c18c6eee96bec869c0adbf9c97915200680b1e6417364e19ad529551",
+    "diagnostic-h6-tail-001/harness-binding.json": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+    "diagnostic-h6-tail-001/candidate-manifest.json": "76a37e621668fa9d9dcbfc3faa518e7b575fe9a12312502262493c7e3c7df244",
+    "diagnostic-h6-tail-001-diagnostics/receipt.json": "387253cf208115436e51c496b1f1b5ce0c9615bb23e1ee9b38f0751cf69018c3",
+    "diagnostic-h6-tail-001-diagnostics/tail-final.json": "3d50570726beb6f0104d48265f901c5e332922cd8c0d6164931490e462ca25f8",
+    "diagnostic-h6-tail-001-diagnostics/before.json": "9dea0047c782150a50ebb15d52f65c7d5fe16dda5010c75b35c6a3bc9fce8f16",
+    "diagnostic-h6-tail-001-diagnostics/after.json": "428e903460664e9e0c907705d8e969535cdb671aac304cb056bb47e4b6a3eb23",
+    "diagnostic-h6-tail-001/orchestration.py": "5fcbaddc7f183aa54c2724dba46a6fcc935da26d2a912444d12bb2614272ff06",
+    "diagnostic-h6-tail-001/harness-overlay.patch": "00ea2e85de8b8c098591078ed2ad232f2d73fa8e55805f8292874ef44e744a55",
+    "diagnostic-h6-tail-001/home-worker-haos/stage.json": "891aeb824432cdfb9ba84b1372fb97b2c4cb9b13f2818d97f45be99a6eb81fcd",
+    "diagnostic-h6-tail-001/home-worker-haos/junit.xml": "3888926dba968144d7bdb9e42c15955c3ff49689af57a87179af186b6c18f097",
+    "diagnostic-h6-tail-001/home-worker-haos/process/resources-before.json": "18b09b3209cf2498384151e8cd10a4b1bb363bb474500456aa43c8b22a04e292",
+    "diagnostic-h6-tail-001/home-worker-haos/process/resources-after.json": "18b09b3209cf2498384151e8cd10a4b1bb363bb474500456aa43c8b22a04e292",
+    "diagnostic-h6-tail-001/home-worker-haos/evidence/home-worker-haos.json": "62ca1e7014250d6fecf09b62f7f2087e2d1969d55f14aa5b06408f5ecb881573",
+    "diagnostic-h6-tail-001/haos-boundary/stage.json": "6488bdbbfdfb8ff0d3808990b5f0bb65f629bbfcdd55f0c5b00bc125d0a8d927",
+    "diagnostic-h6-tail-001/haos-boundary/junit.xml": "839f0f4dd9a69c35d77ec4ef059ade804689c85ac21c14685f1555dc3fe33756",
+    "diagnostic-h6-tail-001/haos-boundary/process/resources-before.json": "18b09b3209cf2498384151e8cd10a4b1bb363bb474500456aa43c8b22a04e292",
+    "diagnostic-h6-tail-001/haos-boundary/process/resources-after.json": "18b09b3209cf2498384151e8cd10a4b1bb363bb474500456aa43c8b22a04e292",
+    "diagnostic-h6-tail-001/haos-boundary/evidence/haos-app-boundary.json": "d01c3a41ebe3038d58f0b7c2d32512f62a56bc36099b6aed9b2c190b6bfd14f3",
+    "diagnostic-h6-tail-001/runner-build/stage.json": "7fe5727eb29b21eecf74a78ced88b6cf57dc4d518fb3e6250180c6c5cddfd457",
+    "diagnostic-h6-tail-001/runner-build/junit.xml": "0a87c6d0222b720077d4b31ba317fd5fd5878684944e1926e03e2453fa82098e",
+    "diagnostic-h6-tail-001/runner-build/process/resources-before.json": "18b09b3209cf2498384151e8cd10a4b1bb363bb474500456aa43c8b22a04e292",
+    "diagnostic-h6-tail-001/runner-build/process/resources-after.json": "18b09b3209cf2498384151e8cd10a4b1bb363bb474500456aa43c8b22a04e292",
+    "diagnostic-h6-tail-001/runner-build/evidence/runner-supervisor-build.json": "5c44474900fe33857b08b573c587c82756632149efea609dd0eb110d0436513b",
+    "diagnostic-h6-tail-001/bridge-haos/stage.json": "48770dea9dd64f82ad5af68c6c1c216d2995c8479075989394d28e0af2cd6d3f",
+    "diagnostic-h6-tail-001/bridge-haos/junit.xml": "2b075357b5973a55ab16674434cdad2c301b64f7ce80609c615e01e807f1648c",
+    "diagnostic-h6-tail-001/bridge-haos/process/resources-before.json": "18b09b3209cf2498384151e8cd10a4b1bb363bb474500456aa43c8b22a04e292",
+    "diagnostic-h6-tail-001/bridge-haos/process/resources-after.json": "18b09b3209cf2498384151e8cd10a4b1bb363bb474500456aa43c8b22a04e292",
+    "diagnostic-h6-tail-001/bridge-haos/evidence/bridge-haos.json": "e3ef937c26d58764a09fd2b5f4fb13d0eec652e1ad5ddf4bf4a967db54e02a03",
+    "diagnostic-h6-tail-001/haos-vm/stage.json": "cc4575f7c5ab4401f5a2b4bc6e229a147ff129f3ebf8e4f1333d570e3bd3b605",
+    "diagnostic-h6-tail-001/haos-vm/junit.xml": "021d1e9cd23059da4e90428f1cd4e09c3e313f84edc55029d384dc3b34d0e4ea",
+    "diagnostic-h6-tail-001/haos-vm/process/resources-before.json": "18b09b3209cf2498384151e8cd10a4b1bb363bb474500456aa43c8b22a04e292",
+    "diagnostic-h6-tail-001/haos-vm/process/resources-after.json": "18b09b3209cf2498384151e8cd10a4b1bb363bb474500456aa43c8b22a04e292",
+    "diagnostic-h6-tail-001/haos-vm/evidence/haos-vm.json": "667319354e020745a8fa5d923bdd5e4d4cb66e1a45d602536d862dc393b6c86d"
+  },
+  "excluded_cli_probes": {
+    "grok": "not_run: owner instruction"
+  },
+  "subsequent_complete_run": {
+    "run": "qualification-reviewed-010",
+    "launch_reported_at": "2026-10-23T19:27:08+00:00",
+    "result": "not_asserted_by_this_history"
+  },
+  "limitations": [
+    "The diagnostic passed only its five selected stages. It does not establish all eight stages passed.",
+    "Results are not combined with qualification-reviewed-009; that original failed run remains failed.",
+    "A fresh complete qualification is required; the separately launched 010 run has no passing result asserted here.",
+    "The 39 independent source tests are nested in the Home Worker observation and are not added to the 268 JUnit cases.",
+    "The boundary-profile diagnostic does not execute Runner coding; actual coding evidence comes from the separate Home Worker stage.",
+    "Controlled fixture DNS failure is not a general security-boundary claim. App namespaces and same-case Core observations remain separate evidence.",
+    "This local diagnostic is not public-delivery, real-cloud-account, physical-household, physical-laptop or 72-hour acceptance.",
+    "Raw screenshots, logs, local paths, machine names, network addresses, process/job identifiers, prompts, credentials and numeric device/inode identities are omitted."
+  ]
+}

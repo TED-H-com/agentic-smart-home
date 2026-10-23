@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "kind": "same_media_inode_isolation_preparation",
+  "status": "passed",
+  "qualification_evidence": false,
+  "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "candidate_manifest_input_sha256": "76a37e621668fa9d9dcbfc3faa518e7b575fe9a12312502262493c7e3c7df244",
+  "started_at": "2026-10-23T17:06:25.216038+00:00",
+  "finished_at": "2026-10-23T17:06:34.127994+00:00",
+  "scope": "Media inode isolation before a subsequent qualification suite.",
+  "files": [
+    {
+      "name": "SHA256SUMS",
+      "bytes": 302,
+      "sha256": "9da972d20f4446461c9aa3b4fd6879d0a152955f99f4234d4d427e3929d82ee8",
+      "content_matches_original": true,
+      "nlink_before": 2,
+      "nlink_after": 1,
+      "replaced_with_independent_inode": true,
+      "device_unchanged": true,
+      "inode_changed": true,
+      "size_changed": false,
+      "mtime_changed": true,
+      "ctime_changed": true
+    },
+    {
+      "name": "agentic-home-0.11.0-laptop-amd64.iso",
+      "bytes": 6819676160,
+      "sha256": "d007bdcb24a702abff161a6abc7b97ef3905d271cd15558b83050ccf22376a85",
+      "content_matches_original": true,
+      "nlink_before": 2,
+      "nlink_after": 1,
+      "replaced_with_independent_inode": true,
+      "device_unchanged": true,
+      "inode_changed": true,
+      "size_changed": false,
+      "mtime_changed": true,
+      "ctime_changed": true
+    },
+    {
+      "name": "agentic-home-0.11.0-linux-amd64.tar",
+      "bytes": 2740183040,
+      "sha256": "0c94de22c4d9f7763a78ba476694c4b07e083d05e4526da4fbe8c70f06ae1895",
+      "content_matches_original": true,
+      "nlink_before": 1,
+      "nlink_after": 1,
+      "replaced_with_independent_inode": false,
+      "device_unchanged": true,
+      "inode_changed": false,
+      "size_changed": false,
+      "mtime_changed": false,
+      "ctime_changed": false
+    },
+    {
+      "name": "agentic-home-0.11.0-source.zip",
+      "bytes": 32866471,
+      "sha256": "3ec9d8a64d57a2e1dc0329e3e18df1fdbff3972ad79636093716709ba7eb0af4",
+      "content_matches_original": true,
+      "nlink_before": 1,
+      "nlink_after": 1,
+      "replaced_with_independent_inode": false,
+      "device_unchanged": true,
+      "inode_changed": false,
+      "size_changed": false,
+      "mtime_changed": false,
+      "ctime_changed": false
+    }
+  ],
+  "all_four_contents_match_original": true,
+  "all_four_link_counts_one_after_preparation": true,
+  "source_receipt_sha256": "449d8dac3f513bf3e96c3390771e281e9a015648f3fd169b8f9a09300e2e7c78",
+  "limitations": [
+    "The ISO and SHA256SUMS were replaced with independent inodes while preserving exact bytes; TAR and source ZIP retained their original inodes.",
+    "Changed filesystem metadata is expected for this preparation and must precede any new suite identity snapshot.",
+    "This preparation is not a completed qualification and does not alter the failed result of qualification-reviewed-007.",
+    "Numeric device/inode identifiers, local paths and host identities are omitted."
+  ]
+}

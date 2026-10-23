@@ -1,0 +1,29 @@
+{
+  "cleanup": {
+    "disk_basetemp_removed": true,
+    "fixture_cleanup_passed": true,
+    "owned_resources_absent": true,
+    "scope": "known_test_name_prefixes_only"
+  },
+  "excluded_cli_probes": {
+    "grok": "not_run: owner instruction"
+  },
+  "finished": "2026-10-23T20:52:58.218925+00:00",
+  "harness_binding_sha256": "f85a0fcd5339fb62baaaf51dc7fdae43dac4e05334c8a49c2ee1b423e50876c1",
+  "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+  "input_junit_sha256": "1ad41ed71a6839f56133b88a99ed1a634ec02b0dcc59cf9e5bae9abe9728865d",
+  "input_stage_sha256": "2cbe77cf7c4fafa2fae28f8a881b50c5e2d4f6f2bc0a604068a85e13794d0eef",
+  "junit": {
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "tests": 40
+  },
+  "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "public_channel_test": true,
+  "required_actual_test_passed": "test_real_haos_sidebar_bridge",
+  "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "stage": "bridge-haos",
+  "started": "2026-10-23T20:48:30.687510+00:00",
+  "status": "passed"
+}

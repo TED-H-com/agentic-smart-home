@@ -1,0 +1,20 @@
+{
+  "input_sha256": "2862176c72dfbabf288fa6c2d1656ea692847db2b920489611ef5d69bf36987f",
+  "verified_boolean_maps": {},
+  "verified_fields": {
+    "cloud_login": "not_run",
+    "cold_snapshot_restore": "passed",
+    "controller_update_rollback": "passed",
+    "firstboot": "passed",
+    "host_coding": "passed",
+    "installation": "passed",
+    "installed_version": "0.11.0",
+    "iso_sha256": "d007bdcb24a702abff161a6abc7b97ef3905d271cd15558b83050ccf22376a85",
+    "kind": "real_linux_install_nested_kvm",
+    "outer_reboot_haos_autostart": "passed",
+    "physical_laptop": "not_run",
+    "profile": "laptop-amd64",
+    "source_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+    "wired_lan_qualification": "passed"
+  }
+}

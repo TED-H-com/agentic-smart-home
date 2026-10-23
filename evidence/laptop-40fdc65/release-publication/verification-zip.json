@@ -1,0 +1,59 @@
+{
+  "started": "2026-10-23T20:43:02.038043+00:00",
+  "status": "passed",
+  "platform": "Linux",
+  "machine": "x86_64",
+  "python": "3.14.4",
+  "asset": {
+    "id": 670350904,
+    "name": "agentic-home-0.11.0-verification.zip",
+    "size": 90395,
+    "digest": "sha256:109b4fba131d49d7cb09122ee4c9c063080a515ff382e5af208244daf7235b25",
+    "state": "uploaded",
+    "browser_download_url": "https://github.com/TED-H-com/agentic-smart-home/releases/download/v0.11.0/agentic-home-0.11.0-verification.zip"
+  },
+  "original_asset_count": 77,
+  "current_asset_count": 78,
+  "original_assets_unchanged": true,
+  "scope": "New verification ZIP only; original media download is separately recorded",
+  "exit_code": 0,
+  "stdout": "200 90395\n",
+  "stderr": "",
+  "filesystem": "ext4",
+  "environment_keys": [
+    "HOME",
+    "LANG",
+    "PATH",
+    "TMPDIR"
+  ],
+  "empty_home_before_download": true,
+  "credentials_proxy_cookies_used": false,
+  "curl_config_disabled": true,
+  "sha256": "109b4fba131d49d7cb09122ee4c9c063080a515ff382e5af208244daf7235b25",
+  "member_count": 46,
+  "zip_crc_and_every_member_sha256_verified": true,
+  "archive_local_only_flags_preserved": true,
+  "finished": "2026-10-23T20:43:02.445113+00:00",
+  "scratch_removed": true,
+  "kind": "published_verification_zip_anonymous_download",
+  "method": "HTTPS curl with disabled config and clean environment; independent local SHA256 and ZIP member readback",
+  "release_tag": "v0.11.0",
+  "release_tag_commit": "df25dae051e2d067da97eb5b60852b2f7d37ea88",
+  "media_commit": "40fdc65035ba082e5c875b739d34a3a7ee76d7c7",
+  "harness_commit": "05e64d584860e98a0f4cd3fb088008ce687e8724",
+  "assets_unchanged_across_anonymous_download": true,
+  "stable_and_tag_unchanged": true,
+  "published_at": "2026-10-23T20:42:28.977240+00:00",
+  "input_sha256": {
+    "before-upload.json": "f4edf2ffa8aecc38670aecd4eff57ffe32602a39c9634991e32e9d52652c6009",
+    "upload.json": "19fe3b0fd03850c2432f68d68378331a03cdc57ea13586e80716292eb9ab7aea",
+    "after-upload.json": "fa117ca7936ddfc691538117b8277e53f187142aaf188c469dfb988422a8c6f9",
+    "anonymous-zip-download.json": "1ff17fc870e6a6b4ec4ab9096fecd6323fe7e51543cfae5b8788b894fe439c01",
+    "after-download.json": "e305f324e358f7f7058c51a39278e319fde61c10f9871c2bd48f5684f6084708"
+  },
+  "not_run": [
+    "native Windows download",
+    "native macOS download",
+    "product execution from this metadata ZIP"
+  ]
+}
