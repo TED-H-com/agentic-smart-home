@@ -53,6 +53,7 @@ export function HomeLanSettings(){
   const wired=value?.mode==='wired'&&value.state==='configured';
   const home=value?.home,ip=(home?.state==='ready'?home.ipv4?.[0]||home.ipv6?.[0]:null)||value?.ha_lan_ip;
   const reauthorization=home?.state==='unavailable'&&home.reason==='home_lan_reauthorization_required';
+  const journalRecovery=home?.state==='unavailable'&&home.reason==='home_lan_journal_recovery_required';
   const explain=reauthorization?'家庭網路設定已暫停；請再按一次「連上家庭網路」確認。':ip?`HA 已連上家庭網路：${ip}`:homeCopy[home?.state||'']||'已改用有線網路，正在確認家庭區網位址。';
   const connectionComplete=!reauthorization&&wired&&(home?.state==='ready'||value?.core_configuration_pending===true);
   const fallbackComplete=value?.fallback_complete===true&&value.mode==='nat'&&value.state==='disabled'&&value.vm_state==='running';
@@ -61,12 +62,13 @@ export function HomeLanSettings(){
   return <section className="maintenance-content" aria-label="家庭區網接入" aria-busy={busy}>
     <p>讓家庭連上家中設備；系統會自動備份、重新啟動並確認位址。</p>
     {readError&&<Notice error><p>暫時無法讀取家庭網路，恢復連線後會自動重試。</p></Notice>}
+    {journalRecovery&&<Notice error>家庭網路設定需要核對；請聯絡支援，保留目前設定。</Notice>}
     {error&&<Notice error reason={error.code}>{error.text}</Notice>}
     {fallbackComplete&&value?.message&&!failed&&<Notice>{value.message}</Notice>}
     {failed&&<Notice error reason={job.message}>{fallbackComplete?'家庭網路未能連上，已恢復基本網路，可稍後重試。':recoveryPending?'自動恢復尚未完成；資料已保留，可稍後重試或聯絡支援。':friendlySentence(job.message,'家庭網路未能連上，網路設定未變更，可稍後重試。')}</Notice>}
     {!value?<p role="status">正在檢查可用的有線網路…</p>:<>
-      <div className="section-heading"><h3>家庭網路</h3><Status value={running?'running':reauthorization?'blocked':value.state==='needs_reconcile'?'needs_reconcile':wired&&ip?'succeeded':wired?'running':'not_started'} label={running?'正在連接':reauthorization?'已暫停':value.state==='needs_reconcile'?'需要核對':wired&&ip?'已連接':wired?'正在確認':'尚未接入'}/></div>
-      {wired&&<p role="status">{explain}</p>}
+      <div className="section-heading"><h3>家庭網路</h3><Status value={running?'running':reauthorization?'blocked':journalRecovery?'needs_reconcile':value.state==='needs_reconcile'?'needs_reconcile':wired&&ip?'succeeded':wired?'running':'not_started'} label={running?'正在連接':reauthorization?'已暫停':journalRecovery?'需要核對':value.state==='needs_reconcile'?'需要核對':wired&&ip?'已連接':wired?'正在確認':'尚未接入'}/></div>
+      {wired&&!journalRecovery&&<p role="status">{explain}</p>}
       {wired&&home?.state==='needs_home_setup'&&ip&&<p className="helper-text">家庭已取得區網位址；完成家庭授權後會自動核對探索功能。</p>}
       {!wired&&<p className="helper-text">連接期間家庭自動化會短暫暫停；未能連上時會自動恢復基本網路。</p>}
       {choiceMissing&&<p className="helper-text">原先選擇的網路卡目前無法使用，請重新選擇。</p>}
@@ -76,7 +78,7 @@ export function HomeLanSettings(){
         {value.interfaces.map(item=><option key={item.id} value={item.id}>{item.interface}{item.address?` · ${item.address}`:''}</option>)}
       </select></label>}
       {!value.interfaces.length&&<p className="helper-text">請插上網路線，或接上 USB 有線網路卡。</p>}
-      <Button onClick={()=>void save()} disabled={!!blocked||!!connectionComplete||choiceMissing||!value.interfaces.length||((value.interfaces.length>1||selectionDirty.current)&&!choiceAvailable)}>{busy||running?'正在連接…':'連上家庭網路'}</Button>
+      <Button onClick={()=>void save()} disabled={!!blocked||journalRecovery||!!connectionComplete||choiceMissing||!value.interfaces.length||((value.interfaces.length>1||selectionDirty.current)&&!choiceAvailable)}>{busy||running?'正在連接…':'連上家庭網路'}</Button>
       {wired&&<Button secondary disabled={!!blocked} onClick={()=>void save(true)}>使用基本網路</Button>}
       {wired&&<div className="service-row">
         {home?.state==='ready'&&<p className="helper-text">可到「裝置與服務」新增設備，再實測控制。</p>}
