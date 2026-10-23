@@ -223,7 +223,9 @@ class TelegramTransport:
                                       str(sender.get("id", "")), text)
                 offset = max((u["update_id"] + 1 for u in initial.get("result", [])), default=0)
                 self.store.set_setting(key, offset)
-            state("connected")
+                state("connected")
+            # A saved cursor and successful identity checks do not prove polling
+            # still works; reconnects become connected after getUpdates succeeds.
             while True:
                 result = await self._call(session, "POST", self.base + "/getUpdates", json={
                     "offset": offset, "timeout": 25, "allowed_updates": ["message"], "limit": 50})

@@ -466,6 +466,9 @@ class Gateway:
             previous.cancel()
             await asyncio.gather(previous, return_exceptions=True)
         self.transports.pop(name, None)
+        # Explicit restarts can replace credentials or the channel audience.
+        # Ordinary retries within watch() retain the last successful observation.
+        self.channel_last_poll.pop(name, None)
         config = self.config(name)
         listen = config["enabled"] or self.pairing(name)["state"] == "pending"
         self.states[name] = "connecting" if listen else "disabled"

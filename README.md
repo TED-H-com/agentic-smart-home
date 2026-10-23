@@ -85,6 +85,8 @@ pytest-disktmp uv run pytest -q --real-ha --containers
 
 系統提供 `/health` 端點報告系統及各整合與通訊管道的連線狀態與最後成功觀測/輪詢時間。
 
+`runner.status` 的 `paired` 只表示已有配對設定，未驗證 Runner 即時可達性。通道的一般斷線重試會保留上次成功觀測時間；明確重啟通道（例如更換憑證或對象）會清除時間，直到新連線成功觀測。尚未成功觀測時，`last_poll_at` 為 `null`。
+
 ```json
 {
   "status": "ok",
