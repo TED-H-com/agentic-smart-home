@@ -313,6 +313,8 @@ async def test_exact_protocol_required(system, protocol):
 
 
 @pytest.mark.parametrize('path,method', [('/api/host', 'GET'), ('/api/host/bridge/maintenance', 'GET'),
+    ('/api/host/jobs/' + 'a' * 32, 'GET'), ('/api/host/status', 'GET'),
+    ('/api/network/ha-lan', 'GET'), ('/api/host/actions', 'POST'),
     ('/api/discovery', 'POST'), ('/api/discovery?refresh=true', 'GET'), ('/api/discovery/items', 'GET'),
     ('/api/workers', 'GET'), ('/api/worker/jobs', 'POST'), ('/api/hermes/auth', 'POST'),
     ('/api/gateway', 'GET'), ('/api/retention', 'POST'), ('/api/pause', 'POST'),

@@ -49,10 +49,10 @@ export function DiscoverDevicesAction({disabled,onDiscover}:{disabled:boolean;on
   return <div className="conversation-discover-action"><Button secondary type="button" disabled={disabled} onClick={onDiscover}>探索家庭設備</Button><p className="helper-text">分享設備名稱、已保存的網路盤點與家庭連線狀態，讓管家協助接入。</p></div>;
 }
 
-function EnvironmentContext({value}:{value:Environment}){
+function EnvironmentContext({value,disabled,onNetwork}:{value:Environment;disabled:boolean;onNetwork?:()=>void}){
   const network=value.network;
   return <section className="conversation-environment" aria-label="家庭環境">
-    {network&&network.state!=='ready'&&<Notice>{network.next_step}</Notice>}
+    {network&&network.state!=='ready'&&<Notice>{network.next_step}{onNetwork&&<Button secondary type="button" disabled={disabled} onClick={onNetwork}>查看家庭網路</Button>}</Notice>}
     {network?.state==='ready'&&<p className="helper-text">{network.next_step}</p>}
     {value.devices.length>0&&<details><summary>已登錄設備（{value.device_count??`${value.devices.length}+`}）</summary><ul>{value.devices.map(device=><li key={device.id}><strong>{device.name}</strong>{device.disabled?' · 已停用':device.available_entity_count===null?' · 狀態尚未確認':` · ${device.available_entity_count} 個功能目前可讀取`}</li>)}</ul></details>}
     {value.inventory_observations.length>0&&<details><summary>網路探索紀錄（{value.inventory_observation_count??`${value.inventory_observations.length}+`}）</summary><p className="helper-text">保存的服務紀錄可能來自同一台設備；接入前會重新確認。</p><ul>{value.inventory_observations.map(item=><li key={`${item.source_id}:${item.id}`}><strong>{item.name||item.manufacturer||'待確認的網路服務'}</strong><span> · {timestamp(item.observed_at)}</span></li>)}</ul></details>}
@@ -60,14 +60,14 @@ function EnvironmentContext({value}:{value:Environment}){
   </section>;
 }
 
-export function ConversationDiscovery({value,disabled,visible=true,onDiscover,onSelect}:{value:unknown;disabled:boolean;visible?:boolean;onDiscover:()=>void;onSelect:(candidate:Candidate)=>void}){
+export function ConversationDiscovery({value,disabled,visible=true,onDiscover,onSelect,onNetwork}:{value:unknown;disabled:boolean;visible?:boolean;onNetwork?:()=>void;onDiscover:()=>void;onSelect:(candidate:Candidate)=>void}){
   const data=parseConversationDiscovery(value);
   if(!data)return <section className="conversation-discovery" aria-label="設備探索結果"><Notice error>暫時無法讀取探索結果，請再試一次。</Notice><Button secondary type="button" disabled={disabled} onClick={onDiscover}>重試探索</Button></section>;
   if(data.state==='consent_required')return <section className="conversation-discovery" aria-label="設備探索授權"><DiscoverDevicesAction disabled={disabled} onDiscover={onDiscover}/></section>;
   const source=data.sources.find(item=>item.id==='ha_discovery');
   const incomplete=source?.state!=='ok'||source.truncated||data.candidate_count===null;
   return <section className="conversation-discovery" aria-label="設備探索結果">
-    {data.environment&&<EnvironmentContext value={data.environment}/>}
+    {data.environment&&<EnvironmentContext value={data.environment} disabled={disabled||!visible} onNetwork={onNetwork}/>}
     {data.state==='unavailable'?<><Notice>{friendlySentence(data.limitations[0],'家庭暫時沒有回應，尚無法確認有哪些設備。')}</Notice><Button secondary type="button" disabled={disabled} onClick={onDiscover}>重試探索</Button></>:<>
       <h3>設備接入線索</h3>
       {data.candidates.length?<ul className="conversation-discovery-candidates">{data.candidates.map(candidate=><li key={`${candidate.source_id}:${candidate.id}`}><div><strong>{candidate.title&&candidate.title!==candidate.integration_domain?candidate.title:candidate.integration_name}</strong>{candidate.title&&candidate.title!==candidate.integration_domain&&candidate.title!==candidate.integration_name&&<span>{candidate.integration_name}</span>}<span>{candidate.source_id==='network_inventory'?'保存的網路線索 · 尚未核對接入':'家庭發現 · 待確認接入'}</span><p>{candidate.next_step}</p></div>{supportsChatSetup(candidate)?<DeviceSetupPanel candidate={candidate} disabled={disabled} visible={visible}/>:<Button secondary type="button" disabled={disabled} onClick={()=>onSelect(candidate)}>{candidate.source_id==='network_inventory'?'請管家核對':'協助設定'}</Button>}</li>)}</ul>:<p>{incomplete?'探索資料尚未完整取得，目前無法確認待接入的設備。':'這次未找到待接入的設備；仍可能有需要登入或配對的設備。'}</p>}

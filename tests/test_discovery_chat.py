@@ -379,7 +379,8 @@ async def test_environment_shares_existing_sources_without_control_permissions_o
     assert environment["inventory_observations"][0]["reachability"] == "unknown"
     assert result["candidate_count"] == 2
     assert {item["source_id"] for item in result["candidates"]} == {"ha_discovery", "network_inventory"}
-    assert environment["network"]["state"] == "not_configured" and "NAT" in environment["network"]["next_step"]
+    assert environment["network"]["state"] == "not_configured" and environment["network"]["mode"] == "nat"
+    assert "接通家庭網路" in environment["network"]["next_step"]
     assert calls == [("GET", "/network/ha-lan", None)] and len(system[2].calls) == 6
     assert result["content_digest"] == digest({key: value for key, value in result.items() if key != "content_digest"})
     raw = json.dumps(result)

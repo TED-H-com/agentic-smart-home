@@ -20,11 +20,28 @@ export function createDemoModel():DemoModel{
   if(screenshot)Date.now=()=>clock;
   const time=(offset=0)=>new Date(clock+offset).toISOString();
   const data:Row=clone(fixtures);
+  // A frame shares its parent model; a full reload creates a new fictional household.
+  // Never resume an old browser handle against a fresh, empty in-memory job store.
+  const generation=crypto.getRandomValues(new Uint8Array(32));
+  const sessionScope=(surface:DemoSurface)=>hash(new Uint8Array([...generation,...new TextEncoder().encode(surface)]));
+  const outerScope=sessionScope('outer'),bridgeScope=sessionScope('bridge');
+  // Preserve only the blank Hermes-conversation choice between demo generations.
+  // Message/job handles and drafts belong to the discarded model and never migrate.
+  for(const [surface,scope] of [['outer',outerScope],['bridge',bridgeScope]]){
+    try{
+      const marker=`agentic-demo-conversation-scope-${surface}`,previous=sessionStorage.getItem(marker);
+      const saved=previous&&/^[a-f0-9]{64}$/.test(previous)?sessionStorage.getItem(`agentic-auth-conversations-${previous}`):null;
+      const choices=saved?JSON.parse(saved):null;
+      if(choices&&typeof choices==='object'&&!Array.isArray(choices)&&!Object.hasOwn(choices,'hermes-host-codex'))
+        sessionStorage.setItem(`agentic-auth-conversations-${scope}`,'{}');
+      sessionStorage.setItem(marker,scope);
+    }catch{/* The fictional household still works when browser storage is unavailable. */}
+  }
   // Preview fixtures are the base; timestamps and identifiers here are exclusively fictional.
   function redate(value:any):void{if(!value||typeof value!=='object')return;for(const key of Object.keys(value)){if(typeof value[key]==='string'&&/^2026-10-13T/.test(value[key]))value[key]=time();else redate(value[key])}}
   // Discovery keeps its fixed fictional observation time and matching digest.
   for(const key of Object.keys(data))if(key!=='discovery')redate(data[key]);
-  data.session.principal='demo-owner';data.session.csrf='demo-csrf';
+  data.session.principal='demo-owner';data.session.csrf='demo-csrf';data.session.storage_scope=outerScope;
   data.session.resume.message_id='3'.repeat(64);data.session.resume.thread_id='4'.repeat(64);data.session.resume.case_id='5'.repeat(32);
   const initialMessage=data['gateway/messages'].messages[0];Object.assign(initialMessage,{id:'3'.repeat(64),thread_id:'4'.repeat(64),case_id:'5'.repeat(32)});
   data['hermes/cases/'+'5'.repeat(32)]=data['hermes/cases/cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd'];
@@ -44,7 +61,7 @@ export function createDemoModel():DemoModel{
   data['host/diagnosis']={findings:[],synthetic_data:true};
   data['host/authorization']={state:'connected'};
   data['host/status'].snapshots=[{id:'6'.repeat(64),created_at:time(-86400000)}];
-  data['host/status'].jobs=[{id:'demo-snapshot',state:'succeeded',request:{action:'snapshot'},at:(clock-86400000)/1000,message:'示範快照已建立。'}];
+  data['host/status'].jobs=[{id:'demo-snapshot',state:'succeeded',request:{id:'demo-snapshot',action:'snapshot',snapshot:null},at:(clock-86400000)/1000,message:'示範快照已建立。'}];
   data.updates={trusted_publisher_configured:true,records:[]};
   data['host-updates']={contract:1,scope:'host_bundle_same_schema',available:false,compatibility:null,message:'主機需要先經你核准一次更新啟用；不需重裝。',records:[],check:{state:'unavailable',message:''}};
   data['updates/publisher']={contract:1,state:'unavailable',code:'official_publisher_pin_not_shipped',message:'需取得含官方更新來源憑證的受信任主機版本。',publisher:'ted-h-com-agentic-smart-home',repository:'TED-H-com/agentic-smart-home',channel:'stable',image_repository:null,key_sha256:null,review_digest:null,scope:'controller_only_same_schema',authority:'signed_controller_images_only'};
@@ -65,7 +82,7 @@ export function createDemoModel():DemoModel{
   const nextId=(length:number)=>(serial++).toString(16).padStart(length,'0');
   const inventoryRequest=inventoryRequests(data,time);
   const setupRequest=setupRequests(data,nextId,time);
-  const haLan=haLanRequests(data,time);
+  const haLan=haLanRequests(data,()=>new Date(screenshot?clock:Date.now()).toISOString());
   const entityDevices=new Map<string,string>(data.inventory.entities.map((item:Row,index:number)=>[item.entity_id,`demo-device-${index}`]));
   function proposal(title:string,mode='upsert',automation?:Row):Row{
     const id='demo-task-'+serial++,rule=clone(automation?.intent||intent);rule.title=title;
@@ -147,6 +164,8 @@ export function createDemoModel():DemoModel{
     const {content_digest:_prior,...snapshot}=data.discovery;data.discovery.content_digest=digest(snapshot);
   }
   function request(path:string,method:string,body:Row,surface:DemoSurface,key?:string){
+    if(surface!=='outer'&&(path.startsWith('host/')||path==='network/ha-lan'))
+      return {status:403,body:{detail:'請從主機桌面的管理與救援開啟家庭網路設定。'}};
     progress();let result:any,status=200;
     if((path==='notifications'||path==='notifications/config')&&surface!=='outer')
       return {status:403,body:{detail:'請從管理與救援開啟通知設定。'}};
@@ -159,7 +178,7 @@ export function createDemoModel():DemoModel{
     if(setup){if(method==='POST'&&setup.status===200)publish();return clone(setup)}
     if(method==='GET'){
       if(path==='deployment')result=surface==='bridge'?{mode:'bridge',authenticated:true,bridge_state:'ready'}:data.deployment;
-      else if(path==='session')result=surface==='bridge'?{...data.session,mode:'bridge',storage_scope:'7'.repeat(64)}:data.session;
+      else if(path==='session')result=surface==='bridge'?{...data.session,mode:'bridge',storage_scope:bridgeScope}:data.session;
       else if(path==='tasks')result={tasks};
       else if(path.startsWith('tasks/'))result=tasks.find(t=>t.id===path.slice(6));
       // Like the Controller's Gateway.present(): a saved proposal reply shows what its task says now.

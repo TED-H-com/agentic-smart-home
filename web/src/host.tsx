@@ -21,7 +21,7 @@ export function HostLogin({onLogin,expired=false,desktopError=false}:{onLogin:()
     </form><details><summary>找不到金鑰？</summary><p>打開家目錄的 <strong>Agentic-Home.txt</strong>，複製「主機登入金鑰」。</p><p>或在終端執行：</p><pre>sudo agentic-home access-key</pre><p className="helper-text">從另一台電腦使用時，請用 SSH tunnel 同時轉送 8099 與 8123。</p></details></main>;
 }
 
-export function HostPanel({onConnected,onAgent,appStatus}:{onConnected:()=>void;onAgent:()=>void;appStatus:any}){
+export function HostPanel({onConnected,onAgent,appStatus,storageScope}:{storageScope?:string;onConnected:()=>void;onAgent:()=>void;appStatus:any}){
   const [status,setStatus]=useState<any>(null),[token,setToken]=useState(''),[busy,setBusy]=useState('');
   const [error,setError]=useState<Fault|null>(null),[connectionError,setConnectionError]=useState<Fault|null>(null),[notice,setNotice]=useState('');
   // An answer-read failure clears itself once the next read of that answer succeeds.
@@ -69,7 +69,7 @@ export function HostPanel({onConnected,onAgent,appStatus}:{onConnected:()=>void;
     <details className="host-fold"><summary>快照 · {status?.snapshots?.length?`${status.snapshots.length} 份`:'尚無'}</summary><div className="maintenance-content"><p>建立快照會關閉家庭系統，期間家庭自動化會暫停。</p><button className="secondary" disabled={!!busy||running||unavailable||cowBlocked||!status?.provisioned} onClick={()=>action('snapshot')}>建立快照</button>
       {status?.snapshots?.length?<><p className="helper-text">還原會取代目前的家庭系統資料，請先正常關機。智能管家的紀錄不在快照內。</p>{status.snapshots.map((s:any)=><div className="service-row snapshot-row" key={s.id} title={s.id}><div className="section-heading"><code>{timestamp(typeof s.created_at==='number'?new Date(s.created_at*1000).toISOString():s.created_at)}</code><button className="secondary" disabled={!!busy||running||unavailable||status.vm!=='shut off'} onClick={()=>setRestore(s.id)}>選擇還原</button></div>{restore===s.id&&<div className="notice"><p>還原會取代目前的家庭系統資料。</p><div className="row-actions"><button className="danger" disabled={!!busy} onClick={()=>action('restore',s.id)}>還原這份快照</button><button className="secondary" type="button" onClick={()=>setRestore('')}>取消</button></div></div>}</div>)}</>:<p className="subtle">{status?'完成家庭設定後，可建立第一份快照。':'正在讀取快照…'}</p>}
     </div></details>
-    <MaintenanceSettings version={appStatus?.version}/>
+    <MaintenanceSettings storageScope={storageScope} version={appStatus?.version}/>
     <details className="host-history host-fold"><summary>操作紀錄 · {status?.jobs?.length?`${status.jobs.length} 筆`:'尚無'}</summary>{status?.jobs?.length?status.jobs.slice().reverse().map((job:any)=><div className="service-row" key={job.id}><div className="section-heading"><strong>{actionLabels[job.request.action]||job.request.action}</strong><span className={`status s-${job.state}`}>{jobLabels[job.state]||job.state}</span></div>{job.message&&<p>{job.message}</p>}<small>{time(job.at)}</small></div>):<p className="subtle">尚無操作紀錄。</p>}</details>
   </div>;
 }

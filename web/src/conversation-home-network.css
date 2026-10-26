@@ -1,0 +1,11 @@
+.conversation-home-network.is-open { flex-basis:100%; min-width:0; }
+.conversation-home-network-panel { border:1px solid var(--line); border-radius:var(--radius); padding:var(--s4); background:var(--surface); margin-top:var(--s3); }
+.conversation-home-network-panel .maintenance-content { padding:0; }
+.conversation-home-network-panel .section-heading { margin-top:var(--s3); }
+.conversation-home-network-panel .home-lan-continue { margin:var(--s4) 0; }
+.conversation-home-network-panel .home-lan-continue .helper-text { margin-bottom:var(--s2); }
+.conversation-home-network-panel button { margin:var(--s1) var(--s2) var(--s1) 0; }
+.conversation-home-network-panel select { max-width:100%; }
+.conversation-home-network-panel .service-row { padding:var(--s2) 0; }
+.conversation-home-network-panel .service-row .helper-text { margin-top:0; }
+.conversation-home-network-panel .service-row details { margin-top:var(--s2); }

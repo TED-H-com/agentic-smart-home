@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-10-26",
+  "base_commit": "e6808e94945b33aac0c78fd556e2447a3947f4c1",
+  "scope": "Unreleased host-chat household LAN connection and scope-bound exact-job recovery.",
+  "runs": [
+    {
+      "receipt": "backend-final.xml",
+      "sha256": "bd045af062d22c16ef970a819a1a91fbfb7ada6602024c746da557c55ae47930",
+      "test_files": [
+        "tests/test_host_job_routes.py",
+        "tests/test_host_sessions.py",
+        "tests/test_host_job_polling.py",
+        "tests/test_host_bridge_contract.py",
+        "tests/test_discovery_chat.py",
+        "tests/test_bridge_controller.py"
+      ],
+      "passed": 328,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "seconds": 58.655
+    },
+    {
+      "receipt": "adjacent-final.xml",
+      "sha256": "2e4fb56d3c52f4263983052b52bc1d85b88815159182692439120d54fc65db5a",
+      "test_files": [
+        "tests/test_ha_lan_controller.py",
+        "tests/test_host_ha_lan.py",
+        "tests/test_package_cache.py",
+        "tests/test_notification_delivery_package.py"
+      ],
+      "passed": 452,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "seconds": 16.726
+    },
+    {
+      "receipt": "browser-final.xml",
+      "sha256": "7f7c82f98f12c3e61edabedfc80e4365362b697e304635072640c7e323fdc4fe",
+      "test_files": [
+        "tests/test_conversation_home_network_ui.py",
+        "tests/test_ha_lan_ui.py"
+      ],
+      "passed": 61,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "seconds": 90.313
+    },
+    {
+      "receipt": "demo-full-final.xml",
+      "sha256": "faffee2ffe17604f226a51b6ebb105f8d736e1ed8c0e966dc13984ed68e54c33",
+      "source_commit": "03258c52619bd604a48515efeeff9b20a63b5a13",
+      "test_files": [
+        "tests/test_site.py",
+        "tests/test_native_demo.py"
+      ],
+      "passed": 43,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "seconds": 203.319
+    }
+  ],
+  "earlier_browser_regression": {
+    "passed": 80,
+    "receipt_sha256": "039345e862f67e4a790f645e4cc302bae3ffdea5b4b075fcda553b0fafe2017f",
+    "relation": "Earlier source revision; overlaps final browser suite and must not be added to its count."
+  },
+  "baseline_regression": {
+    "commit": "e6808e94945b33aac0c78fd556e2447a3947f4c1",
+    "result": "Reproduced lost operation progress after accepted configure_lan and browser reload.",
+    "receipt_sha256": "5dfdd84d4e0e594fdcbad7778960166ea433d57ef222aa203b120afa240e49fb"
+  },
+  "independent_review": {
+    "unresolved_findings": 0,
+    "fixed_findings": [
+      "late key rotation must durably revoke sessions before GET delivery",
+      "polling must not discard definite delayed POST rejection"
+    ],
+    "compiled_browser_replay": {
+      "case": "delayed_409_after_5_second_poll",
+      "result": "passed",
+      "poll_before_rejection": true,
+      "pending_identity_removed": true,
+      "connect_button_enabled": true,
+      "post_count": 1,
+      "automatic_discovery_messages": 0
+    },
+    "receipt_sha256": "7cfc827fae361fedcaa630f9e4e51da195ec50395d459e98845cd2f444023b54"
+  },
+  "source_sha256": {
+    "controller/agentic_controller/host.py": "d9ea8a9429ecfd134137d0c6fdf231ec4782668183be088323777299ce5d15d8",
+    "controller/agentic_controller/discovery_chat.py": "2927d40ff2d4b787351650dcc9008fc9c52fb5e66957787a9bbf29b0da3772ee",
+    "web/src/ha-lan.tsx": "75e7eebc2f0b18f6b9c107a9fc1ed295921f39b299f6f2c7ebec178a743391c3",
+    "web/src/conversation-home-network.tsx": "4854d0f804cddb3746e1541ea64397b07f8e97dba8daf9c6cddc4d0a111c8176",
+    "web/src/gateway.tsx": "2eab4f2fdff148bf76ac6f5e6d592939a584432e5b61b87db7d7566b3888f6cf",
+    "web/src/conversation-discovery.tsx": "b66070c9d0f606b86dec36e4edbc27a7e12d9e9b824e358da58c73bb545d0251",
+    "tests/test_host_job_routes.py": "c0b98fd5db8522a29f887c881eab135939f955279204a24ce313d67b1fbc5d5c",
+    "controller/static/index.html": "00d278270797010b00b3af393cbe5db0db33d51cce2808fe764c6d4a41255f48",
+    "controller/static/assets/index-D-ORex2u.js": "3a39a5394b72844d3d1471fab5f88ab51812760d22f3d9ad5b3384b671afac35",
+    "controller/static/assets/index-CEMYus5q.css": "3147d56452dd6ec572b8e45b47b79e63dd1bbb8a15d1fa1cdf504be202e3def3",
+    "web/demo/fake-api.ts": "e9e6ca16537b81419268c634bb6bfcc6fd778d903f7189afae0637fe56a3fe94",
+    "web/demo/ha-lan.ts": "9b6f7bd969ebec70227496db798350daa39bc06550da8771d1350245cbbf6836",
+    "tests/test_site.py": "7ffa8e2a04ae46a536e00f60d15c77eb330f8a43f0a9e7936910d1e44728fffe",
+    "tests/test_native_demo.py": "b6772f69d4f6d1bc7ecd9a0ca114ea6b7cf397ce4097243ee89f3233f589d342"
+  },
+  "screenshots": {
+    "source": "Compiled Chromium with synthetic protocol fixtures",
+    "widths": [
+      390,
+      768,
+      1440
+    ],
+    "reviewed": true,
+    "publication": "Retained with private local verification receipts; no household data."
+  },
+  "limitations": [
+    "Host effects and browser API responses use fixtures; storage durability tests use real SQLite on disk.",
+    "No new ISO, HAOS VM, physical NIC, household, cloud account, 72-hour or Windows acceptance.",
+    "No new release or stable/tag movement.",
+    "Grok CLI was not executed.",
+    "Raw local JUnit and review receipts retained outside the source archive."
+  ],
+  "frontend_receipt_sha256": "d696af1a0d5a6e260a831d7fe0fe13004f1fd3051459ff4c001423c43d5b95e1",
+  "initial_ci": {
+    "run": 40280848939,
+    "head": "a32c2ed2e73623a8c00426c49d68dfb928409ee7",
+    "passed": 5351,
+    "skipped": 13,
+    "failed": 3,
+    "failure": "Public demo did not provide current host storage scope and exact lifecycle job observations.",
+    "failed_log_sha256": "85b069b4ad6de48ec794748ad1dc7c295611b3da67a2bc978d1cd94bb498b46a",
+    "url": "https://github.com/TED-H-com/agentic-smart-home/actions/runs/40280848939",
+    "result": "failed; preserved independently from subsequent corrected-source validation"
+  },
+  "public_demo": {
+    "source_commit": "03258c52619bd604a48515efeeff9b20a63b5a13",
+    "independent_review": {
+      "unresolved_findings": 0,
+      "receipt_sha256": "506b5e4d7793ec1175d77518c58d6318ed06ca968f3ad3651f18a82cf14575f6"
+    },
+    "focused_regression": {
+      "passed": 10,
+      "deselected": 31,
+      "seconds": 30.22,
+      "receipt_sha256": "b983c0b1431943553c176ab6578e04fdd84b1015119600e70931f6b6ec7bbb3d",
+      "relation": "Overlaps the final full demo suite; do not add counts."
+    },
+    "baseline_failure": {
+      "failed": 1,
+      "seconds": 35.53,
+      "receipt_sha256": "f32e8f6e41dbd47f82d561c965856c05780bfb022898013b32c4ebe52461486f"
+    },
+    "screenshot_manifest": {
+      "path": "site/assets/screens/manifest.json",
+      "sha256": "f0759ddd5cb1f6bb4f896dd27fb570ccba663f6373539d3007ada278318a8598",
+      "generated_from_commit": "03258c52619bd604a48515efeeff9b20a63b5a13",
+      "files": 11,
+      "changed_png_files": [
+        "gateway.png",
+        "bridge.png"
+      ],
+      "reviewed": true
+    },
+    "limitations": "Browser-memory simulation; iframe reload preserves the model, full page reload starts a separate model. No household effects.",
+    "first_full_regression": {
+      "source_commit": "dc498c314c8e308cd93aa482ed9d8f835a2d2868",
+      "passed": 40,
+      "failed": 1,
+      "skipped": 0,
+      "seconds": 216.016,
+      "failure": "Full-page reload discarded an explicitly selected empty new conversation and restored the seeded demo conversation.",
+      "receipt": "demo-full-initial-failure.xml",
+      "receipt_sha256": "0b149ee2db34e60068eab342c844cb3721b1a8b62637dc031a71e1beb6e550c1"
+    },
+    "initial_source_commit": "dc498c314c8e308cd93aa482ed9d8f835a2d2868",
+    "followup_review": {
+      "source_commit": "03258c52619bd604a48515efeeff9b20a63b5a13",
+      "unresolved_findings": 0,
+      "resolved_finding": "Preserve the empty Hermes conversation selection even when a direct provider reply remains in the old map.",
+      "receipt_sha256": "923fc2f6a8028b6eddcbef8a3b06ecdc181dac461371e0645a3339f42d83ea54"
+    },
+    "followup_focused_regression": {
+      "passed": 6,
+      "deselected": 24,
+      "seconds": 30.02,
+      "receipt_sha256": "da587588aecd5972733e2e68a06fd74230409b95de41c3837ffb6341b71b3fd9",
+      "relation": "Overlaps final full demo suite; do not add counts."
+    },
+    "final_full_regression": {
+      "receipt": "demo-full-final.xml",
+      "passed": 43,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "source_commit": "03258c52619bd604a48515efeeff9b20a63b5a13"
+    }
+  }
+}

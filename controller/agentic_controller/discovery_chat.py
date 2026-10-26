@@ -64,13 +64,13 @@ ENVIRONMENT_LIMITATIONS = [
 INVENTORY_LABELS = {"lan_neighbors": "已儲存的鄰居表", "lan_mdns": "已儲存的 mDNS 觀察",
                     "lan_ssdp": "已儲存的 SSDP 觀察", "router_import": "已匯入的網路清單"}
 NETWORK_STEPS = {
-    "not_configured": "HAOS 目前使用隔離 NAT，尚未接上家庭有線網路。請從「主機／網路」檢查家庭 LAN 接入；變更前需確認。",
+    "not_configured": "家庭目前使用基本網路，尚未接上家中有線設備。可在主機的智能管家選擇「接通家庭網路」，確認後接入。",
     "needs_home_setup": "先完成家庭登入，再重新檢查 HA 的探索網路。",
-    "waiting_for_address": "HAOS 家庭網路尚未取得可用位址。請從「主機／網路」檢查接線與家庭 LAN 狀態。",
-    "adapter_selection_required": "HA 尚未啟用家庭 LAN 的探索介面。請從家庭網路設定確認探索介面，再重新探索。",
-    "callback_address_required": "HA 的內部回連位址尚未對應家庭 LAN。請從家庭網路設定確認內部位址，再繼續需要回連的整合。",
-    "ready": "已觀察到 HA 家庭 LAN 與探索介面設定；可從候選繼續接入，但尚未測試探索廣播與實體動作。",
-    "unavailable": "暫時無法確認 HA 的家庭網路狀態。請從「主機／網路」重新檢查；其他已取得的觀察仍可使用。",
+    "waiting_for_address": "家庭尚未取得可用位址。請檢查接線；主機智能管家的「家庭網路」會持續讀取進度。",
+    "adapter_selection_required": "家庭的設備探索設定尚未完成。請在主機智能管家的「家庭網路」確認進度，再繼續探索。",
+    "callback_address_required": "家庭本機網址尚未設定完成。請在主機智能管家的「家庭網路」確認進度，再繼續接入。",
+    "ready": "家庭網路與探索設定已就緒，可繼續探索設備；探索廣播及實體功能仍需實測。",
+    "unavailable": "暫時無法確認家庭網路。可在主機智能管家的「家庭網路」查看進度；其他已取得的觀察仍可使用。",
 }
 
 

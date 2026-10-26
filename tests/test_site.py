@@ -290,6 +290,7 @@ def test_ha_lan_one_action_connect_and_nat_return_is_browser_only(browser, origi
 
 def test_ha_lan_demo_rejects_unsafe_selection_and_reuses_jobs(browser, origin):
     from agentic_controller.ha_lan import HomeLanStatus
+    from agentic_controller.host import HostJobObservation
 
     page = browser.new_page()
     errors, external = watch(page, origin)
@@ -311,7 +312,15 @@ def test_ha_lan_demo_rejects_unsafe_selection_and_reuses_jobs(browser, origin):
         return value
 
     initial = request('network/ha-lan')['body']
+    initial_jobs = request('host/status')['body']['jobs']
+    initial_receipt = request('host/jobs/demo-snapshot')['body']
+    HostJobObservation.model_validate(initial_receipt)
+    assert request('host/jobs/unknown-demo-job')['status'] == 404
+    assert request('host/jobs/bad')['status'] == 400
+    assert request('host/status')['body']['jobs'] == initial_jobs
     change = {'action': 'configure_lan', 'interface_id': None}
+    assert submit(change, 'demo-snapshot')['status'] == 409
+    assert request('host/jobs/demo-snapshot')['body'] == initial_receipt
     assert submit(change, None)['status'] == 400
     assert submit({'action': 'configure_lan', 'interface_id': 'invalid'}, 'demo-invalid')['status'] == 422
     assert request('network/ha-lan')['body'] == initial
@@ -323,6 +332,10 @@ def test_ha_lan_demo_rejects_unsafe_selection_and_reuses_jobs(browser, origin):
         'status': 409, 'body': {'detail': 'ha_lan_selected_interface_unavailable'}}
     first = submit(change, 'demo-disable')
     assert first['status'] == 202 and submit(change, 'demo-disable') == first
+    receipt = request('host/jobs/demo-disable')
+    assert receipt == {'status': 200, 'body': first['body']}
+    HostJobObservation.model_validate(receipt['body'])
+    assert receipt['body']['request'] == {'id': 'demo-disable', **change}
     disabled = complete()
     assert disabled['mode'] == 'nat' and disabled['home']['internal_url'] is None
     configure = {'action': 'configure_lan', 'interface_id': initial['selected_interface_id']}
@@ -335,9 +348,33 @@ def test_ha_lan_demo_rejects_unsafe_selection_and_reuses_jobs(browser, origin):
     # Replaying completed work returns its original job, without undoing later state.
     repeated = submit(change, 'demo-disable')
     assert repeated['body']['id'] == first['body']['id'] and repeated['body']['state'] == 'succeeded'
+    receipt = request('host/jobs/demo-disable')['body']
+    HostJobObservation.model_validate(receipt)
+    assert receipt == {field: value for field, value in repeated['body'].items() if field != 'result'}
+    assert receipt['request'] == first['body']['request']
     assert request('network/ha-lan')['body']['mode'] == 'wired'
     jobs = request('host/status')['body']['jobs']
     assert [job['id'] for job in jobs].count('demo-disable') == 1
+    clean(page, errors, external)
+    page.close()
+
+
+def test_ha_lan_demo_bridge_cannot_read_or_change_host_state(browser, origin):
+    page = browser.new_page()
+    errors, external = watch(page, origin)
+    page.goto(f'{origin}/demo/?screenshot=1#/agentic-home')
+    bridge = product_frame(page, 'bridge')
+    before = page.evaluate("window.__agenticDemoModel.request('host/status','GET',{},'outer').body")
+    for path, method in [('host/actions', 'POST'), ('host/jobs/demo-snapshot', 'GET'),
+                         ('host/jobs/unknown-demo-job', 'GET'), ('host/status', 'GET'),
+                         ('network/ha-lan', 'GET')]:
+        status = bridge.evaluate("""async ([path,method]) => {
+            const response=await fetch('api/'+path,{method,headers:{'Content-Type':'application/json',
+                'Idempotency-Key':'demo-bridge-denied'},...(method==='POST'?{body:JSON.stringify({action:'shutdown'})}:{})});
+            return response.status;
+        }""", [path, method])
+        assert status == 403
+    assert page.evaluate("window.__agenticDemoModel.request('host/status','GET',{},'outer').body") == before
     clean(page, errors, external)
     page.close()
 
@@ -359,7 +396,7 @@ def test_bridge_and_entry_guard(browser, origin):
     expect(ui.get_by_text('示範家庭的玄關感應器可以在天黑後打開客廳燈嗎？')).to_be_visible()
     # Authorization cannot reach bootstrap's location.assign.
     result = ui.evaluate("async()=>{const r=await fetch('api/host/authorize',{method:'POST',body:'{}'});return {status:r.status,body:await r.json()}}")
-    assert result == {'status': 409, 'body': {'detail': '示範中無法進行這個操作。'}}
+    assert result == {'status': 403, 'body': {'detail': '請從主機桌面的管理與救援開啟家庭網路設定。'}}
     ui.get_by_role('link', name='回到家庭', exact=True).click()
     expect(page).to_have_url(f'{origin}/demo/#/lovelace/home')
     expect(page.get_by_role('heading', name='我的家', exact=True)).to_be_visible()

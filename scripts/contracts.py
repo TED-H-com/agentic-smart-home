@@ -17,7 +17,7 @@ from agentic_controller.device_setup import (
     DeviceSetupView,
 )
 from agentic_controller.ha_lan import HomeLanStatus
-from agentic_controller.host import HostAction
+from agentic_controller.host import HostAction, HostJobObservation
 from agentic_controller.models import (
     AutomationIntent,
     BootstrapStart,
@@ -87,6 +87,7 @@ def main():
                        "network-preferences-v1": NetworkPreferences.model_json_schema(),
                        "home-lan-status-v1": HomeLanStatus.model_json_schema(),
                        "host-action-v1": HostAction.model_json_schema(),
+                       "host-job-v1": HostJobObservation.model_json_schema(),
                        "controller-update-v1": UpdateStage.model_json_schema(),
                        "case-evidence-query-v1": EvidenceQuery.model_json_schema(),
                        "hermes-auth": HermesAuth.model_json_schema(),

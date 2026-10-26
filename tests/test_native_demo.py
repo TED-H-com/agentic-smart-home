@@ -1,6 +1,7 @@
 """The HA simulation and real product frames act on one synthetic household."""
 import hashlib
 import json
+import re
 
 import pytest
 from agentic_controller.notifications import NotificationsSnapshot
@@ -347,14 +348,116 @@ def test_reset_clears_device_changes_and_both_frame_drafts(browser, origin):
     bridge.locator('#gateway-message').fill('重設前的家庭草稿')
     outer = outer_entry(page)
     outer.locator('#gateway-message').fill('重設前的管理草稿')
+    old_scopes = [read_api(frame, 'session')['storage_scope'] for frame in (outer, bridge)]
+    assert all(re.fullmatch('[a-f0-9]{64}', scope) for scope in old_scopes)
+    assert old_scopes[0] != old_scopes[1]
+    receipt = page.evaluate("""() => {
+        const model=window.__agenticDemoModel,scope=model.request('session','GET',{},'outer').body.storage_scope;
+        const receipt=model.request('host/actions','POST',{action:'configure_lan'},'outer','demo-before-reset');
+        sessionStorage.setItem('agentic-home-network-job-'+scope,receipt.body.id);
+        return receipt;
+    }""")
+    assert receipt['status'] == 202
     page.get_by_role('button', name='重設', exact=True).click()
     expect(page).to_have_url(f'{origin}/demo/#/lovelace/home')
     expect(page.get_by_role('button', name='查看客廳燈', exact=True)).to_be_visible()
     expect(page.get_by_role('button', name='書桌燈電源', exact=True)).to_have_count(0)
     assert page.locator('iframe').count() == 0
+    assert page.evaluate("Object.keys(sessionStorage).filter(key=>key.startsWith('agentic-home-network-job-'))") == []
+    assert page.evaluate("window.__agenticDemoModel.request('host/jobs/demo-before-reset','GET',{},'outer').status") == 404
     native_nav(page, '智能管家')
-    expect(product_frame(page, 'bridge').locator('#gateway-message')).to_have_value('')
-    expect(outer_entry(page).locator('#gateway-message')).to_have_value('')
+    bridge = product_frame(page, 'bridge')
+    expect(bridge.locator('#gateway-message')).to_have_value('')
+    outer = outer_entry(page)
+    expect(outer.locator('#gateway-message')).to_have_value('')
+    new_scopes = [read_api(frame, 'session')['storage_scope'] for frame in (outer, bridge)]
+    assert all(re.fullmatch('[a-f0-9]{64}', scope) for scope in new_scopes)
+    assert not set(old_scopes).intersection(new_scopes)
+    assert new_scopes[0] != new_scopes[1]
+    clean(page, errors, external)
+    page.close()
+
+
+@pytest.mark.parametrize('unknown', [False, True], ids=['accepted-job', 'unknown-job'])
+def test_demo_network_job_frame_resume_and_full_reload_generation(browser, origin, unknown):
+    page = browser.new_page(viewport={'width': 390, 'height': 844})
+    errors, external = watch(page, origin)
+    page.clock.install(time='2026-10-26T12:00:00Z')
+    page.clock.pause_at('2026-10-26T12:00:01Z')
+    page.goto(f'{origin}/demo/?screenshot=1#host')
+    ui = product_frame(page)
+    scope = read_api(ui, 'session')['storage_scope']
+    assert re.fullmatch('[a-f0-9]{64}', scope)
+    key = 'agentic-home-network-job-' + scope
+    page.evaluate("""() => {
+        const model=window.__agenticDemoModel,request=model.request;
+        window.demoNetworkCalls=[];
+        model.request=(...args)=>{window.demoNetworkCalls.push({path:args[0],method:args[1],key:args[4]});return request(...args)};
+    }""")
+    if unknown:
+        identifier = 'demo-unknown-receipt'
+        page.evaluate('([key,id])=>sessionStorage.setItem(key,id)', [key, identifier])
+    else:
+        ui.locator('summary').filter(has_text='家庭區網接入').click()
+        ui.get_by_role('button', name='使用基本網路', exact=True).click()
+        expect(ui.get_by_role('button', name='正在連接…', exact=True)).to_be_disabled()
+        identifier = page.evaluate('key=>sessionStorage.getItem(key)', key)
+        assert identifier
+    # Only the product frame reloads: it must use the same model and exact saved receipt.
+    ui.goto(ui.url)
+    summary = ui.locator('summary').filter(has_text='家庭區網接入')
+    summary.wait_for()
+    if not summary.evaluate('el=>el.parentElement.open'):
+        summary.click()
+    expect(ui.get_by_role('region', name='家庭區網接入', exact=True)).to_be_visible()
+    page.clock.run_for(6500)
+    assert read_api(ui, 'session')['storage_scope'] == scope
+    assert page.evaluate('key=>sessionStorage.getItem(key)', key) == identifier
+    calls = page.evaluate('window.demoNetworkCalls')
+    assert any(call['path'] == 'host/jobs/' + identifier and call['method'] == 'GET' for call in calls)
+    assert len([call for call in calls if call['path'] == 'host/actions' and call['method'] == 'POST']) == (0 if unknown else 1)
+    if unknown:
+        expect(ui.get_by_role('button', name='使用基本網路', exact=True)).to_be_disabled()
+        assert read_api(ui, 'network/ha-lan')['mode'] == 'wired'
+    else:
+        expect(ui.get_by_role('button', name='連上家庭網路', exact=True)).to_be_enabled()
+        receipt = read_api(ui, 'host/jobs/' + identifier)
+        assert receipt['id'] == receipt['request']['id'] == identifier
+        assert receipt['state'] == 'succeeded' and receipt['request']['interface_id'] is None
+        assert read_api(ui, 'network/ha-lan')['mode'] == 'nat'
+    clean(page, errors, external)
+    # A full reload resets the fictional model; it cannot claim durable Host recovery.
+    page.reload()
+    ui = product_frame(page)
+    new_scope = read_api(ui, 'session')['storage_scope']
+    assert re.fullmatch('[a-f0-9]{64}', new_scope) and new_scope != scope
+    assert page.evaluate('key=>sessionStorage.getItem(key)', key) == identifier
+    assert page.evaluate('key=>sessionStorage.getItem(key)', 'agentic-home-network-job-' + new_scope) is None
+    response = page.evaluate("id=>window.__agenticDemoModel.request('host/jobs/'+id,'GET',{},'outer')", identifier)
+    assert response['status'] == 404
+    ui.locator('summary').filter(has_text='家庭區網接入').click()
+    expect(ui.get_by_role('button', name='使用基本網路', exact=True)).to_be_enabled()
+    assert len(read_api(ui, 'host/status')['jobs']) == 1
+    assert read_api(ui, 'network/ha-lan')['mode'] == 'wired'
+    clean(page, errors, external)
+    page.close()
+
+
+def test_demo_network_readback_stays_fresh_after_thirty_seconds(browser, origin):
+    page = browser.new_page(viewport={'width': 1440, 'height': 900})
+    errors, external = watch(page, origin)
+    page.clock.install()
+    page.goto(f'{origin}/demo/#gateway')
+    ui = product_frame(page)
+    initial = read_api(ui, 'network/ha-lan')['home']['observed_at']
+    page.clock.run_for(31000)
+    ui.get_by_role('button', name='接通家庭網路', exact=True).click()
+    panel = ui.get_by_role('region', name='接通家庭網路', exact=True)
+    expect(panel.get_by_role('button', name='繼續探索家庭設備', exact=True)).to_be_enabled()
+    observed = read_api(ui, 'network/ha-lan')['home']['observed_at']
+    assert observed > initial
+    assert ui.evaluate('at=>Math.abs(Date.now()-Date.parse(at))<1000', observed)
+    assert len(read_api(ui, 'host/status')['jobs']) == 1
     clean(page, errors, external)
     page.close()
 
@@ -556,6 +659,49 @@ def test_bridge_new_conversation_clears_parent_deep_link(browser, origin):
     expect(ui.locator('#gateway-message')).to_be_visible()
     expect(ui.locator('.assistant-question')).to_have_count(0)
     expect(page).to_have_url(f'{origin}/demo/#/agentic-home')
+    clean(page, errors, external)
+    page.close()
+
+
+@pytest.mark.parametrize('direct_reply', [False, True], ids=['blank-map', 'other-provider-reply'])
+def test_outer_blank_conversation_survives_reload_without_draft_and_reset_restores_demo(browser, origin, direct_reply):
+    page = browser.new_page(viewport={'width': 390, 'height': 844})
+    errors, external = watch(page, origin)
+    page.goto(f'{origin}/demo/#gateway')
+    ui = product_frame(page)
+    original_scope = read_api(ui, 'session')['storage_scope']
+    expect(ui.locator('.assistant-question')).to_have_count(1)
+    if direct_reply:
+        ui.locator('summary').filter(has_text='進階').click()
+        ui.get_by_label('對話方式', exact=True).select_option('direct')
+        ui.locator('#gateway-message').fill('示範開發對話')
+        ui.get_by_role('button', name='送出訊息', exact=True).click()
+        expect(ui.locator('#gateway-message')).to_have_value('')
+        stored = page.evaluate('scope=>JSON.parse(sessionStorage.getItem("agentic-auth-conversations-"+scope))', original_scope)
+        assert re.fullmatch('[a-f0-9]{64}', stored['host-codex'])
+        ui.get_by_label('對話方式', exact=True).select_option('hermes')
+    ui.get_by_role('button', name='新對話', exact=True).click()
+    ui.locator('#gateway-message').fill('這份草稿只留在目前的示範畫面')
+    if direct_reply:
+        stored = page.evaluate('scope=>JSON.parse(sessionStorage.getItem("agentic-auth-conversations-"+scope))', original_scope)
+        assert set(stored) == {'host-codex'}
+    page.reload()
+    ui = product_frame(page)
+    scope = read_api(ui, 'session')['storage_scope']
+    assert scope != original_scope
+    expect(ui.locator('#gateway-message')).to_have_value('')
+    expect(ui.locator('.assistant-question')).to_have_count(0)
+    assert page.evaluate('scope=>sessionStorage.getItem("agentic-auth-conversations-"+scope)', scope) == '{}'
+    home_entry(page)
+    native_nav(page, '智能管家')
+    expect(product_frame(page, 'bridge').locator('.assistant-question')).to_have_count(1)
+    expect(outer_entry(page).locator('.assistant-question')).to_have_count(0)
+    # Reset clears the navigation choice as well as the old model's memory.
+    page.get_by_role('button', name='重設', exact=True).click()
+    ui = outer_entry(page)
+    expect(ui.locator('.assistant-question')).to_have_count(1)
+    expect(ui.locator('#gateway-message')).to_have_value('')
+    assert read_api(ui, 'session')['storage_scope'] not in (original_scope, scope)
     clean(page, errors, external)
     page.close()
 
