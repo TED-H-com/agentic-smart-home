@@ -5,6 +5,7 @@ type Row=Record<string,any>;
 export function haLanRequests(data:Row,time:()=>string){
   const lan=data['network/ha-lan'],ready=structuredClone(lan.home),guestMac=lan.guest_mac;
   const receipts=new Map<string,{signature:string;job:Row}>();
+  const jobs=new Map<string,Row>(data['host/status'].jobs.map((job:Row)=>[job.id,job]));
   let pending:{job:Row;started:number}|null=null;
   const failure=(status:number,detail:string):DemoResponse=>({status,body:{detail}});
   function observe(){
@@ -31,7 +32,16 @@ export function haLanRequests(data:Row,time:()=>string){
     pending=null;return true;
   }
   function request(path:string,method:string,body:Row,key?:string):DemoResponse|undefined{
-    if(method==='GET'&&path==='network/ha-lan')return {status:200,body:lan};
+    if(method==='GET'&&path==='network/ha-lan'){observe();return {status:200,body:lan}}
+    if(method==='GET'&&path.startsWith('host/jobs/')){
+      const id=path.slice('host/jobs/'.length);
+      if(!/^[-_A-Za-z0-9]{8,100}$/.test(id))return failure(400,'host_job_id_invalid');
+      const job=jobs.get(id);
+      if(!job)return failure(404,'host_job_not_found');
+      // Match the Controller's exact typed receipt; arbitrary operation results stay private.
+      return {status:200,body:Object.fromEntries(['id','request','state','at','finished_at','message']
+        .filter(field=>Object.hasOwn(job,field)).map(field=>[field,job[field]]))};
+    }
     if(method!=='POST'||path!=='host/actions')return;
     if(!key||!/^[-_A-Za-z0-9]{8,100}$/.test(key))return failure(400,'host_action_idempotency_required');
     if(!['configure_lan','shutdown','start'].includes(body.action))return failure(409,'示範中無法進行這個操作。');
@@ -41,11 +51,12 @@ export function haLanRequests(data:Row,time:()=>string){
     const normalized=configure?{action:body.action,...(Object.hasOwn(body,'interface_id')?{interface_id:body.interface_id}:{})}:{action:body.action,snapshot:null};
     const signature=JSON.stringify(normalized),previous=receipts.get(key);
     if(previous)return previous.signature===signature?{status:202,body:previous.job}:failure(409,'host_action_request_conflict');
+    if(jobs.has(key))return failure(409,'host_action_request_conflict');
     if(pending)return failure(409,'host_action_in_progress');
     if(configure&&!Object.hasOwn(body,'interface_id')&&lan.interfaces.length!==1)return failure(409,'ha_lan_interface_selection_required');
     if(configure&&Object.hasOwn(body,'interface_id')&&body.interface_id!==null&&!lan.interfaces.some((item:Row)=>item.id===body.interface_id))return failure(409,'ha_lan_selected_interface_unavailable');
     const job={id:key,state:'running',request:{id:key,...normalized},at:Date.now()/1000};
-    data['host/status'].jobs.push(job);receipts.set(key,{signature,job});pending={job,started:performance.now()};
+    data['host/status'].jobs.push(job);jobs.set(key,job);receipts.set(key,{signature,job});pending={job,started:performance.now()};
     return {status:202,body:job};
   }
   observe();
