@@ -663,6 +663,49 @@ def test_bridge_new_conversation_clears_parent_deep_link(browser, origin):
     page.close()
 
 
+@pytest.mark.parametrize('direct_reply', [False, True], ids=['blank-map', 'other-provider-reply'])
+def test_outer_blank_conversation_survives_reload_without_draft_and_reset_restores_demo(browser, origin, direct_reply):
+    page = browser.new_page(viewport={'width': 390, 'height': 844})
+    errors, external = watch(page, origin)
+    page.goto(f'{origin}/demo/#gateway')
+    ui = product_frame(page)
+    original_scope = read_api(ui, 'session')['storage_scope']
+    expect(ui.locator('.assistant-question')).to_have_count(1)
+    if direct_reply:
+        ui.locator('summary').filter(has_text='進階').click()
+        ui.get_by_label('對話方式', exact=True).select_option('direct')
+        ui.locator('#gateway-message').fill('示範開發對話')
+        ui.get_by_role('button', name='送出訊息', exact=True).click()
+        expect(ui.locator('#gateway-message')).to_have_value('')
+        stored = page.evaluate('scope=>JSON.parse(sessionStorage.getItem("agentic-auth-conversations-"+scope))', original_scope)
+        assert re.fullmatch('[a-f0-9]{64}', stored['host-codex'])
+        ui.get_by_label('對話方式', exact=True).select_option('hermes')
+    ui.get_by_role('button', name='新對話', exact=True).click()
+    ui.locator('#gateway-message').fill('這份草稿只留在目前的示範畫面')
+    if direct_reply:
+        stored = page.evaluate('scope=>JSON.parse(sessionStorage.getItem("agentic-auth-conversations-"+scope))', original_scope)
+        assert set(stored) == {'host-codex'}
+    page.reload()
+    ui = product_frame(page)
+    scope = read_api(ui, 'session')['storage_scope']
+    assert scope != original_scope
+    expect(ui.locator('#gateway-message')).to_have_value('')
+    expect(ui.locator('.assistant-question')).to_have_count(0)
+    assert page.evaluate('scope=>sessionStorage.getItem("agentic-auth-conversations-"+scope)', scope) == '{}'
+    home_entry(page)
+    native_nav(page, '智能管家')
+    expect(product_frame(page, 'bridge').locator('.assistant-question')).to_have_count(1)
+    expect(outer_entry(page).locator('.assistant-question')).to_have_count(0)
+    # Reset clears the navigation choice as well as the old model's memory.
+    page.get_by_role('button', name='重設', exact=True).click()
+    ui = outer_entry(page)
+    expect(ui.locator('.assistant-question')).to_have_count(1)
+    expect(ui.locator('#gateway-message')).to_have_value('')
+    assert read_api(ui, 'session')['storage_scope'] not in (original_scope, scope)
+    clean(page, errors, external)
+    page.close()
+
+
 @pytest.mark.parametrize('query', ['frame=bridge', 'surface=bridge'])
 def test_legacy_bridge_links_preserve_selected_conversation(browser, origin, query):
     page = browser.new_page(viewport={'width': 390, 'height': 844})

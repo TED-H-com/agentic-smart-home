@@ -25,6 +25,18 @@ export function createDemoModel():DemoModel{
   const generation=crypto.getRandomValues(new Uint8Array(32));
   const sessionScope=(surface:DemoSurface)=>hash(new Uint8Array([...generation,...new TextEncoder().encode(surface)]));
   const outerScope=sessionScope('outer'),bridgeScope=sessionScope('bridge');
+  // Preserve only the blank Hermes-conversation choice between demo generations.
+  // Message/job handles and drafts belong to the discarded model and never migrate.
+  for(const [surface,scope] of [['outer',outerScope],['bridge',bridgeScope]]){
+    try{
+      const marker=`agentic-demo-conversation-scope-${surface}`,previous=sessionStorage.getItem(marker);
+      const saved=previous&&/^[a-f0-9]{64}$/.test(previous)?sessionStorage.getItem(`agentic-auth-conversations-${previous}`):null;
+      const choices=saved?JSON.parse(saved):null;
+      if(choices&&typeof choices==='object'&&!Array.isArray(choices)&&!Object.hasOwn(choices,'hermes-host-codex'))
+        sessionStorage.setItem(`agentic-auth-conversations-${scope}`,'{}');
+      sessionStorage.setItem(marker,scope);
+    }catch{/* The fictional household still works when browser storage is unavailable. */}
+  }
   // Preview fixtures are the base; timestamps and identifiers here are exclusively fictional.
   function redate(value:any):void{if(!value||typeof value!=='object')return;for(const key of Object.keys(value)){if(typeof value[key]==='string'&&/^2026-10-13T/.test(value[key]))value[key]=time();else redate(value[key])}}
   // Discovery keeps its fixed fictional observation time and matching digest.
