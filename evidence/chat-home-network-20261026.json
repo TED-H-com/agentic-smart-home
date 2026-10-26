@@ -48,6 +48,20 @@
       "failures": 0,
       "errors": 0,
       "seconds": 90.313
+    },
+    {
+      "receipt": "demo-full-final.xml",
+      "sha256": "faffee2ffe17604f226a51b6ebb105f8d736e1ed8c0e966dc13984ed68e54c33",
+      "source_commit": "03258c52619bd604a48515efeeff9b20a63b5a13",
+      "test_files": [
+        "tests/test_site.py",
+        "tests/test_native_demo.py"
+      ],
+      "passed": 43,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "seconds": 203.319
     }
   ],
   "earlier_browser_regression": {
@@ -87,7 +101,11 @@
     "tests/test_host_job_routes.py": "c0b98fd5db8522a29f887c881eab135939f955279204a24ce313d67b1fbc5d5c",
     "controller/static/index.html": "00d278270797010b00b3af393cbe5db0db33d51cce2808fe764c6d4a41255f48",
     "controller/static/assets/index-D-ORex2u.js": "3a39a5394b72844d3d1471fab5f88ab51812760d22f3d9ad5b3384b671afac35",
-    "controller/static/assets/index-CEMYus5q.css": "3147d56452dd6ec572b8e45b47b79e63dd1bbb8a15d1fa1cdf504be202e3def3"
+    "controller/static/assets/index-CEMYus5q.css": "3147d56452dd6ec572b8e45b47b79e63dd1bbb8a15d1fa1cdf504be202e3def3",
+    "web/demo/fake-api.ts": "e9e6ca16537b81419268c634bb6bfcc6fd778d903f7189afae0637fe56a3fe94",
+    "web/demo/ha-lan.ts": "9b6f7bd969ebec70227496db798350daa39bc06550da8771d1350245cbbf6836",
+    "tests/test_site.py": "7ffa8e2a04ae46a536e00f60d15c77eb330f8a43f0a9e7936910d1e44728fffe",
+    "tests/test_native_demo.py": "b6772f69d4f6d1bc7ecd9a0ca114ea6b7cf397ce4097243ee89f3233f589d342"
   },
   "screenshots": {
     "source": "Compiled Chromium with synthetic protocol fixtures",
@@ -106,5 +124,79 @@
     "Grok CLI was not executed.",
     "Raw local JUnit and review receipts retained outside the source archive."
   ],
-  "frontend_receipt_sha256": "d696af1a0d5a6e260a831d7fe0fe13004f1fd3051459ff4c001423c43d5b95e1"
+  "frontend_receipt_sha256": "d696af1a0d5a6e260a831d7fe0fe13004f1fd3051459ff4c001423c43d5b95e1",
+  "initial_ci": {
+    "run": 40280848939,
+    "head": "a32c2ed2e73623a8c00426c49d68dfb928409ee7",
+    "passed": 5351,
+    "skipped": 13,
+    "failed": 3,
+    "failure": "Public demo did not provide current host storage scope and exact lifecycle job observations.",
+    "failed_log_sha256": "85b069b4ad6de48ec794748ad1dc7c295611b3da67a2bc978d1cd94bb498b46a",
+    "url": "https://github.com/TED-H-com/agentic-smart-home/actions/runs/40280848939",
+    "result": "failed; preserved independently from subsequent corrected-source validation"
+  },
+  "public_demo": {
+    "source_commit": "03258c52619bd604a48515efeeff9b20a63b5a13",
+    "independent_review": {
+      "unresolved_findings": 0,
+      "receipt_sha256": "506b5e4d7793ec1175d77518c58d6318ed06ca968f3ad3651f18a82cf14575f6"
+    },
+    "focused_regression": {
+      "passed": 10,
+      "deselected": 31,
+      "seconds": 30.22,
+      "receipt_sha256": "b983c0b1431943553c176ab6578e04fdd84b1015119600e70931f6b6ec7bbb3d",
+      "relation": "Overlaps the final full demo suite; do not add counts."
+    },
+    "baseline_failure": {
+      "failed": 1,
+      "seconds": 35.53,
+      "receipt_sha256": "f32e8f6e41dbd47f82d561c965856c05780bfb022898013b32c4ebe52461486f"
+    },
+    "screenshot_manifest": {
+      "path": "site/assets/screens/manifest.json",
+      "sha256": "f0759ddd5cb1f6bb4f896dd27fb570ccba663f6373539d3007ada278318a8598",
+      "generated_from_commit": "03258c52619bd604a48515efeeff9b20a63b5a13",
+      "files": 11,
+      "changed_png_files": [
+        "gateway.png",
+        "bridge.png"
+      ],
+      "reviewed": true
+    },
+    "limitations": "Browser-memory simulation; iframe reload preserves the model, full page reload starts a separate model. No household effects.",
+    "first_full_regression": {
+      "source_commit": "dc498c314c8e308cd93aa482ed9d8f835a2d2868",
+      "passed": 40,
+      "failed": 1,
+      "skipped": 0,
+      "seconds": 216.016,
+      "failure": "Full-page reload discarded an explicitly selected empty new conversation and restored the seeded demo conversation.",
+      "receipt": "demo-full-initial-failure.xml",
+      "receipt_sha256": "0b149ee2db34e60068eab342c844cb3721b1a8b62637dc031a71e1beb6e550c1"
+    },
+    "initial_source_commit": "dc498c314c8e308cd93aa482ed9d8f835a2d2868",
+    "followup_review": {
+      "source_commit": "03258c52619bd604a48515efeeff9b20a63b5a13",
+      "unresolved_findings": 0,
+      "resolved_finding": "Preserve the empty Hermes conversation selection even when a direct provider reply remains in the old map.",
+      "receipt_sha256": "923fc2f6a8028b6eddcbef8a3b06ecdc181dac461371e0645a3339f42d83ea54"
+    },
+    "followup_focused_regression": {
+      "passed": 6,
+      "deselected": 24,
+      "seconds": 30.02,
+      "receipt_sha256": "da587588aecd5972733e2e68a06fd74230409b95de41c3837ffb6341b71b3fd9",
+      "relation": "Overlaps final full demo suite; do not add counts."
+    },
+    "final_full_regression": {
+      "receipt": "demo-full-final.xml",
+      "passed": 43,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "source_commit": "03258c52619bd604a48515efeeff9b20a63b5a13"
+    }
+  }
 }
