@@ -21,6 +21,7 @@ from pydantic import Field, model_validator
 from .durability import client_session, durable, file_io
 from .ha import HAError, HomeAssistant
 from .models import Strict
+from .response_durability import RESPONSE_GUARD
 from .runner import RunnerError, cancel_and_confirm
 
 STOP_UNCONFIRMED = "還在確認查詢已停止，請稍後再問一次。"
@@ -50,6 +51,27 @@ class HostAction(Strict):
                 raise ValueError("configure_lan does not accept a snapshot")
         elif "interface_id" in self.model_fields_set:
             raise ValueError("interface_id is only valid for configure_lan")
+        return self
+
+
+class HostJobRequest(HostAction):
+    id: str = Field(pattern=r"^[a-zA-Z0-9_-]{8,100}$")
+    action: Literal["provision", "start", "shutdown", "snapshot", "restore", "bootstrap_hermes", "configure_lan"]
+
+
+class HostJobObservation(Strict):
+    """Read-only lifecycle receipt; excludes arbitrary operation result payloads."""
+    id: str = Field(pattern=r"^[a-zA-Z0-9_-]{8,100}$")
+    request: HostJobRequest
+    state: Literal["running", "succeeded", "failed", "needs_reconcile"]
+    at: float = Field(strict=True, ge=0, allow_inf_nan=False)
+    finished_at: float | None = Field(default=None, strict=True, ge=0, allow_inf_nan=False)
+    message: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def same_operation(self):
+        if self.id != self.request.id:
+            raise ValueError("host job request identity mismatch")
         return self
 
 
@@ -397,6 +419,38 @@ def routes(app, auth, ha, store, runner, controller_id):
         result = await host_call(store=store)
         result["ha_connected"] = bool(store.setting("owner"))
         return result
+
+    @app.get("/api/host/jobs/{id}", response_model=HostJobObservation, response_model_exclude_unset=True)
+    async def lifecycle_job(id: str, request: Request):
+        # An opaque browser handle is only a lookup key, never authority to run
+        # an operation. Use the broker's exact receipt, not its recent-50 list.
+        if not re.fullmatch(r"[a-zA-Z0-9_-]{8,100}", id):
+            raise HTTPException(400, "主機工作識別碼無效")
+        session_id = getattr(request.state, "host_session_id", None)
+        owner, epoch = store.setting("owner"), store.setting("hermes_web_epoch")
+
+        async def guard():
+            if store.failed:
+                raise HTTPException(503, "主機登入狀態無法保存，請稍後再試")
+            if (not session_id or getattr(request.state, "bridge_identity", None) is not None
+                    or await auth.authenticate(request) != session_id or store.setting("owner") != owner
+                    or store.setting("hermes_web_epoch") != epoch):
+                raise HTTPException(403, "主機登入已變更，請重新登入後讀取進度")
+
+        request.scope[RESPONSE_GUARD] = guard
+        await guard()
+        try:
+            raw = await _host_call("GET", "/jobs/" + id, store=store)
+            await guard()
+            if not isinstance(raw, dict):
+                raise ValueError("invalid host receipt")
+            receipt = HostJobObservation.model_validate({key: value for key, value in raw.items()
+                                                        if key in HostJobObservation.model_fields})
+            if receipt.id != id:
+                raise ValueError("wrong host receipt")
+        except ValueError:
+            raise HTTPException(503, "主機工作進度尚未確認，請稍後再讀取") from None
+        return receipt.model_dump(exclude_unset=True)
 
     @app.post("/api/host/actions", status_code=202)
     async def action(body: HostAction, request: Request):

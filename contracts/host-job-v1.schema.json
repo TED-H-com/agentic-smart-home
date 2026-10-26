@@ -1,0 +1,120 @@
+{
+  "$defs": {
+    "HostJobRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "provision",
+            "start",
+            "shutdown",
+            "snapshot",
+            "restore",
+            "bootstrap_hermes",
+            "configure_lan"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-zA-Z0-9_-]{8,100}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "interface_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Interface Id"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9]{8}T[0-9]{6}Z-[a-f0-9]{8}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Snapshot"
+        }
+      },
+      "required": [
+        "action",
+        "id"
+      ],
+      "title": "HostJobRequest",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Read-only lifecycle receipt; excludes arbitrary operation result payloads.",
+  "properties": {
+    "at": {
+      "minimum": 0,
+      "title": "At",
+      "type": "number"
+    },
+    "finished_at": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finished At"
+    },
+    "id": {
+      "pattern": "^[a-zA-Z0-9_-]{8,100}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "message": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Message"
+    },
+    "request": {
+      "$ref": "#/$defs/HostJobRequest"
+    },
+    "state": {
+      "enum": [
+        "running",
+        "succeeded",
+        "failed",
+        "needs_reconcile"
+      ],
+      "title": "State",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "request",
+    "state",
+    "at"
+  ],
+  "title": "HostJobObservation",
+  "type": "object"
+}

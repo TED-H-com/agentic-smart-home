@@ -78,8 +78,8 @@ function App({hostMode=false,active=true,desktopEntry=false,onLogout}:{hostMode?
   {(view==='gateway'||gatewayMounted)&&<div hidden={view!=='gateway'}><GatewayPanel key={conversationSession?.storage_scope||'legacy'} visible={view==='gateway'&&active} hostMode={hostMode} conversationSession={conversationSession}/></div>}
   {view==='workers'&&<WorkerPanel/>}
   {view==='agents'&&<><HermesPanel/><RuntimePanel/></>}
-  {view==='onboarding'&&<Onboarding status={status} onChange={refreshStatus} navigate={navigate}/>}
-  {view==='host'&&<HostPanel appStatus={status} onConnected={refreshStatus} onAgent={()=>navigate('settings')}/>}
+  {view==='onboarding'&&<Onboarding storageScope={conversationSession?.storage_scope} status={status} onChange={refreshStatus} navigate={navigate}/>}
+  {view==='host'&&<HostPanel storageScope={conversationSession?.storage_scope} appStatus={status} onConnected={refreshStatus} onAgent={()=>navigate('settings')}/>}
   </div>}</main></div>
 }
 

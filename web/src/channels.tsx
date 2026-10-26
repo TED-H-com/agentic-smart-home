@@ -81,7 +81,7 @@ export function ChannelSettings({onChange,guided=false,initialChannel,onChannelC
   </section>
 }
 
-export function ManualOnboarding({status,onChange,navigate}:{status:any;onChange:()=>void;navigate:(view:View)=>void}){
+export function ManualOnboarding({status,onChange,navigate,storageScope}:{storageScope?:string;status:any;onChange:()=>void;navigate:(view:View)=>void}){
   const [step,setStep]=useState(0),[error,setError]=useState(''),[readError,setReadError]=useState('');
   const readEpoch=useRef(0),initialRead=useRef(true),changing=useRef(false);
   const titles=['Web','智能管家','通訊','家庭','對話'];
@@ -89,7 +89,7 @@ export function ManualOnboarding({status,onChange,navigate}:{status:any;onChange
   async function go(next:number){readEpoch.current++;changing.current=true;try{await api('gateway/onboarding',{step:next});initialRead.current=false;setStep(next);setError('');setReadError('')}catch(e){setError((e as Error).message)}finally{changing.current=false}}
   return <div className="onboarding"><ol className="onboarding-steps" aria-label="首次設定進度">{titles.map((title,index)=><li key={title}><button aria-current={step===index?'step':undefined} onClick={()=>go(index)}><span className="step-number">{index+1}</span><strong>{title}</strong></button></li>)}</ol>{error&&<Notice error>{error}</Notice>}{readError&&<Notice error>{readError}</Notice>}
     <div className="onboarding-body">{step===0&&<section><h2>你的家庭管理入口已經就緒</h2><p>這台主機已可對話，家庭可稍後連接。</p><details><summary>技術資料</summary><dl className="setup-facts"><div><dt>管理介面</dt><dd>http://localhost:8099</dd></div><div><dt>管理者驗證</dt><dd>已通過這台主機的登入金鑰驗證</dd></div></dl><p>在自己的電腦執行下列指令後，開啟 localhost:8099。</p><pre>ssh -L 8099:127.0.0.1:8099 -L 8123:127.0.0.1:8123 使用者@主機</pre></details></section>}
-    {step===1&&<><HermesPanel/><details><summary>進階：AI 帳號</summary><RuntimePanel only="host" onChange={onChange}/></details></>}{step===2&&<ChannelSettings onChange={onChange}/>}{step===3&&<><HostPanel appStatus={status} onConnected={onChange} onAgent={()=>document.getElementById('inner-agent')?.scrollIntoView({behavior:'smooth'})}/><div id="inner-agent"><RuntimePanel only="haos" onChange={onChange}/></div></>}
+    {step===1&&<><HermesPanel/><details><summary>進階：AI 帳號</summary><RuntimePanel only="host" onChange={onChange}/></details></>}{step===2&&<ChannelSettings onChange={onChange}/>}{step===3&&<><HostPanel storageScope={storageScope} appStatus={status} onConnected={onChange} onAgent={()=>document.getElementById('inner-agent')?.scrollIntoView({behavior:'smooth'})}/><div id="inner-agent"><RuntimePanel only="haos" onChange={onChange}/></div></>}
     {step===4&&<section><h2>開始對話</h2><p>家庭變更仍會先顯示提案，再由你批准。</p><div className="setup-facts"><p>智能管家 · 可回第二步查看登入狀態</p><p>通訊入口 · {status?.gateway?.selected?names[status.gateway.preferences.primary]:'尚未選定，Web 可直接使用'}</p><p>家庭 · {status?.ha?.status==='connected'?'已連接':'可稍後連接'}</p></div><Button onClick={()=>navigate('gateway')}>開始對話</Button></section>}</div>
     <div className="onboarding-actions">{step>0&&<Button secondary onClick={()=>go(step-1)}>上一步</Button>}{step<4&&<Button onClick={()=>go(step+1)}>{step===3?'繼續':'下一步'}</Button>}<button className="text-button" type="button" onClick={()=>navigate('gateway')}>稍後再設定</button></div></div>
 }

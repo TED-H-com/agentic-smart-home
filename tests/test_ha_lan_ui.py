@@ -30,12 +30,17 @@ def mount(page, origin):
         elif path == 'host/actions':
             body = request.post_data_json
             posts.append((body, request.headers.get('idempotency-key')))
-            state['job'] = {'id': posts[-1][1], 'state': 'running', 'request': body, 'at': 1792195200}
+            state['job'] = {'id': posts[-1][1], 'state': 'running', 'request': {'id': posts[-1][1], **body}, 'at': 1792195200}
             if state['lose']:
                 state['lose'] = False
                 route.abort()
                 return
             result = state['job']
+        elif path.startswith('host/jobs/'):
+            assert state['job'] and path == 'host/jobs/' + state['job']['id']
+            result = state['job']
+        elif path == 'session':
+            result = {**common(path), 'storage_scope': '1' * 64}
         elif path == 'host/status':
             result = {**common(path), 'jobs': [state['job']] if state['job'] else []}
         else:
@@ -53,7 +58,7 @@ def mount(page, origin):
     return state, posts, errors
 
 
-def test_explicit_wired_choice_job_readback_and_same_key_after_lost_response(ui_page):  # noqa: F811
+def test_explicit_wired_choice_reads_exact_job_after_lost_response(ui_page):  # noqa: F811
     page, origin = ui_page
     state, posts, errors = mount(page, origin)
     assert posts == []
@@ -62,10 +67,9 @@ def test_explicit_wired_choice_job_readback_and_same_key_after_lost_response(ui_
     expect(page.get_by_label('接到家庭路由器的網路線')).to_have_count(0)
     state['lose'] = True
     save.click()
-    expect(page.get_by_role('alert')).to_be_visible()
-    save.click()
+    expect(page.get_by_role('region', name='家庭區網接入')).to_have_attribute('aria-busy', 'false')
     expect(page.get_by_role('button', name='正在連接…')).to_be_disabled()
-    assert len(posts) == 2 and posts[0] == posts[1]
+    assert len(posts) == 1
     assert posts[0][0] == {'action': 'configure_lan'}
     assert posts[0][1]
     expect(page.get_by_role('region', name='家庭區網接入')).to_have_attribute('aria-busy', 'false')
