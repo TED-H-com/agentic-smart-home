@@ -31,6 +31,9 @@ ARCHIVE_BASE = "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/"
 MAX_ARCHIVE = 128 * 1024 * 1024
 MAX_SOURCE = 512 * 1024 * 1024
 HA_URL = "http://192.168.177.2:80/api/onboarding"
+# Liveness probe: HA removes /api/onboarding (404) once onboarding finishes,
+# so reachability is confirmed separately via the always-served frontend manifest.
+HA_MANIFEST_URL = "http://192.168.177.2:80/manifest.json"
 
 INSTALL_DIAGNOSTIC_PHASES = frozenset({
     "workspace_preparation", "image_inspection", "probe_preparation", "offline_probe",
@@ -206,6 +209,12 @@ def native_ha_status(opener=None):
             result["http_status"] = exc.code
         if exc.code == 404:
             result["contract"].update(state="route_absent", error_code="ha_onboarding_route_absent")
+            try:
+                with opener(HA_MANIFEST_URL, timeout=2) as response:
+                    if 200 <= getattr(response, "status", 200) < 300:
+                        result["reachable"] = True
+            except Exception:
+                pass
     except Exception:
         pass
     return result
