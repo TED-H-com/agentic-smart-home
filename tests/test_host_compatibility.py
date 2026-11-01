@@ -193,6 +193,13 @@ def test_onboarding_private_contract_distinguishes_change_absence_and_completion
     result = native_ha_status(absent)
     assert result["contract"]["state"] == "route_absent" and result["http_status"] == 404
     assert not result["reachable"] and not result["onboarding_complete"]
+    def absent_but_alive(url, *args, **kwargs):
+        if url.endswith("/manifest.json"):
+            return io.BytesIO(b"{}")
+        raise urllib.error.HTTPError("fixed", 404, "private", {}, None)
+    result = native_ha_status(absent_but_alive)
+    assert result["contract"]["state"] == "route_absent" and result["http_status"] == 404
+    assert result["reachable"] and not result["onboarding_complete"]
 
 
 @pytest.mark.parametrize("value", [[], {"format": "raw", "virtual-size": 1024},
