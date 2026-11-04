@@ -20,33 +20,36 @@
 
 ## 每天使用
 
-| 想做的事 | 去哪裡 |
-|---|---|
-| 開燈、看設備、日常自動化 | Home Assistant 原生畫面 |
-| 請管家幫忙、看提案並批准 | **智能管家**：HA 側欄或主機網頁；LINE 等通訊可以對話，批准一律在網頁 |
-| 找出可接入的設備 | **設備 → 探索更多設備**：選網路探索，或匯入路由器清單；追蹤原生 HA 設定與讀回結果 |
-| 修程式、查問題 | **設定 → 開發助手**：主機或家庭現場，成果依序是發現、測試、變更 |
-| 從 HA 自動化發送文字通知 | [原生文字通知](docs/HA_NOTIFICATIONS.md)：安裝整合、設定收件人別名，再呼叫原生動作 |
-| 更新、備份、救援 | **設定 → 主機維護**；Web 打不開時用 `sudo agentic-home diagnostics` |
+| 想做的事 | 去哪裡 | 範例與說明 |
+|---|---|---|
+| 開燈、看設備、日常自動化 | Home Assistant 原生畫面 | 檢視與控制家庭既有裝置，與一般的 HA 操作相同。 |
+| 請管家幫忙、看提案並批准 | **智能管家**：HA 側欄或主機網頁；LINE 等通訊可以對話，批准一律在網頁 | - **控制設備**：「幫我把客廳燈打開」<br>- **查詢狀態**：「現在家裡溫度幾度？」<br>- **自動化提案**：「每天早上八點自動拉開窗簾」<br>系統會先提供計畫，你批准後才會變更家庭設定。 |
+| 找出可接入的設備 | **設備 → 探索更多設備**：選網路探索，或匯入路由器清單；追蹤原生 HA 設定與讀回結果 | 系統可協助核對並提供設定建議。 |
+| 修程式、查問題 | **設定 → 開發助手**：主機或家庭現場，成果依序是發現、測試、變更 | 「找出為何前門感測器無法觸發自動化，並給出修復程式」。 |
+| 從 HA 自動化發送文字通知 | [原生文字通知](docs/HA_NOTIFICATIONS.md)：安裝整合、設定收件人別名，再呼叫原生動作 | 在自動化中設定收件人別名，例如當洗衣機完成時傳送文字。 |
+| 更新、備份、救援 | **設定 → 主機維護**；Web 打不開時用 `sudo agentic-home diagnostics` | 下載 Controller 加密備份、更新系統版本。 |
 
 家庭變更一律先顯示精確內容，由你批准；批准後系統備份、寫入，再確認狀態。Home Assistant、HAOS 與其他 App 照官方流程更新。
 
 官方更新來源的正式公鑰與 fingerprint 已由 Ted 於 2026-10-19 核准並釘選，私鑰由發行端保存在 repo 之外。尚未發布以此金鑰簽署的 Controller image、Host bundle、bootstrap 套件或產品媒體。既有 0.11.0 家庭主機需經獨立身份驗證的圖形 bootstrap 配合 **AH-UPDATE** USB，明確批准一次信任與遷移，不重跑 installer；詳見 [主機更新](docs/HOST_UPDATES.md#existing-0110-household-first-time-bootstrap) 與 [更新來源與批准](docs/UPDATES.md#官方更新來源與-owner-批准)。
 
-## 架構
+## 架構與核心模組
+
+系統在主機上運行多個獨立模組，以確保功能隔離與權限安全：
 
 ```text
 主機 Ubuntu Linux
-├── Controller：網頁、設定進度、對話、家庭提案與批准
-├── Hermes：智能管家，獨立登入，只用固定工具
-├── Host broker：隔離的開發助手、獨立驗證、預覽、HAOS VM 與更新
-├── Runner、LINE.js：受控 CLI 與可選的 LINE 連線
+├── Controller：管理中樞（網頁、設定進度、API Gateway、對話歷史與家庭政策批准）
+├── Hermes：AI 協調者（智能管家本體，獨立登入不共用金鑰，專責理解意圖與邏輯循環）
+├── Host broker：底層系統代理（隔離的開發助手環境、獨立基準驗證、預覽、HAOS VM 狀態與系統更新）
+├── Runner：受控的 CLI 與 AI 執行沙箱（開發助手實際運作的隔離環境）
+├── LINE.js：通訊整合（可選的 LINE 通訊連線）
 └── KVM → 官方 HAOS
-              ├── 智能管家側欄 App → 同一個外層對話
-              └── 家庭現場 App → 家裡的開發助手（獨立登入）
+              ├── 智能管家側欄 App (Bridge) → 透過安全通道將 HA 使用者連回外層的同一個對話
+              └── 家庭現場 App (HAOS App) → 運行在 HAOS 內的開發助手，提供近端隔離的研發環境（獨立登入）
 ```
 
-開發助手在沒有家庭權限的沙箱裡修改私有 clone；另一份沒有帳號、沒有網路的 clone 套用同一份修改，跑固定的基準測試。結果只是成果，不會自動部署。
+開發助手 (Runner) 在沒有家庭權限的沙箱裡修改私有 clone；另一份沒有帳號、沒有網路的 clone 套用同一份修改，跑固定的基準測試。結果只是成果，不會自動部署。
 
 ## 建置與測試
 
@@ -80,6 +83,13 @@ pytest-disktmp uv run pytest -q --real-ha --containers
 ```
 
 測試範圍、VM 案例與無 wrapper 的等效命令見 [開發說明](docs/DEVELOPMENT.md)。
+
+## API 契約與規格
+
+API 契約與主要設計原則詳見 [API 契約 (API_CONTRACT.md)](docs/API_CONTRACT.md)。
+系統的 OpenAPI 規格定義檔是唯一且精確的 API 參考來源，可於下列路徑取得：
+- `contracts/controller.openapi.json`
+- `contracts/host-controller.openapi.json`
 
 ## Health Endpoint
 
