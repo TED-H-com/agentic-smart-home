@@ -147,3 +147,45 @@ async def test_invalid_handshake_contract_stays_plain_error(store):
         with pytest.raises(HAError, match='握手無效') as error:
             await ha.ws('fixture')
         assert not isinstance(error.value, HAUnreachable)
+
+async def test_ws_connect_missing_auth_required(store):
+    async def handler(request):
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        await ws.send_json({"type": "wrong_type"})
+        await ws.close()
+        return ws
+
+    async with client(handler, store) as ha:
+        with pytest.raises(HAError, match="HA WebSocket 握手無效"):
+            await ha.ws_connect()
+
+async def test_ws_connect_auth_failed(store):
+    async def handler(request):
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        await ws.send_json({"type": "auth_required"})
+        await ws.receive_json()
+        await ws.send_json({"type": "auth_invalid"})
+        await ws.close()
+        return ws
+
+    async with client(handler, store) as ha:
+        with pytest.raises(HAError, match="HA WebSocket 認證失敗"):
+            await ha.ws_connect()
+
+async def test_ws_handshake_401(store):
+    async def handler(request):
+        return web.Response(status=401)
+
+    async with client(handler, store) as ha:
+        with pytest.raises(HAError, match="HA WebSocket 認證失敗"):
+            await ha.ws("get_states")
+
+async def test_ws_handshake_other_status(store):
+    async def handler(request):
+        return web.Response(status=500)
+
+    async with client(handler, store) as ha:
+        with pytest.raises(HAUnreachable, match="HA WebSocket 連線中斷"):
+            await ha.ws("get_states")
