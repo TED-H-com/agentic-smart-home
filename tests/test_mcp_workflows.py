@@ -89,7 +89,9 @@ async def test_mcp_workflows(mcp_app):
     transport = ASGITransport(app=mcp_app, client=("127.0.0.1", 40000))
     async with AsyncClient(transport=transport, base_url="http://127.0.0.1:8097") as client:
 
-        async def call_tool(name, arguments={}):
+        async def call_tool(name, arguments=None):
+            if arguments is None:
+                arguments = {}
             body = {
                 "jsonrpc": "2.0",
                 "id": 1,

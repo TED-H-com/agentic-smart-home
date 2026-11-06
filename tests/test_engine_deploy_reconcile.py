@@ -10,7 +10,6 @@ async def test_engine_deploy_happy_path(engine, intent, ha):
     engine.store.transition(task, "awaiting_approval")
     engine.approve(p, "owner", p["digest"], "key")
 
-    original_automation_entity = ha.automation_entity
     async def mock_automation_entity(resource_id, expected=None, attempts=20):
         return {"entity_id": f"automation.{resource_id}", "state": "on"}
     ha.automation_entity = mock_automation_entity
@@ -96,7 +95,6 @@ async def test_helper_test_happy_path(engine, intent, ha):
     intent.trigger.to_state = "on"
     intent.actions = [DeviceAction(entity_id=list(HELPERS)[1], action="turn_on")]
 
-    original_permitted = engine.permitted
     async def mock_permitted(*args, **kwargs):
         return {
             list(HELPERS)[0]: {"metadata_hash": "a1", "actions": ["turn_on", "turn_off"]},

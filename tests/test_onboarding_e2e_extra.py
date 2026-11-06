@@ -1,7 +1,8 @@
 import json
 
+import aiohttp
 import pytest
-from test_onboarding_e2e import BoundaryFixtures
+from test_onboarding_e2e import BoundaryFixtures, docker, eventually, rejection_shape, stack_file
 
 
 class DummyRequest:
@@ -83,9 +84,6 @@ async def test_boundary_fixtures_hermes_model():
     assert "[DONE]" in res.text
 
 
-from test_onboarding_e2e import eventually, rejection_shape, stack_file
-
-
 def test_stack_file():
     # Valid stack
     stack = "Error\n  at something (http://example.com/js/bundle.js?v=1:10:20)"
@@ -122,9 +120,6 @@ async def test_eventually():
         await eventually(call_fail, lambda x: x, timeout=0.1)
 
 
-from test_onboarding_e2e import docker
-
-
 @pytest.mark.asyncio
 async def test_docker():
     res = await docker("version")
@@ -132,8 +127,6 @@ async def test_docker():
 
     with pytest.raises(AssertionError, match="Docker command failed"):
         await docker("invalid_command_that_fails_docker")
-import aiohttp
-
 
 @pytest.mark.asyncio
 async def test_eventually_exception():
