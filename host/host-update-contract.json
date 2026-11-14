@@ -1,9 +1,0 @@
-{
-  "contract": 1,
-  "host_protocol": 1,
-  "controller_protocol": 1,
-  "controller_schema": 3,
-  "reconcile": 1,
-  "executor": 1,
-  "appliance_guard": 1
-}

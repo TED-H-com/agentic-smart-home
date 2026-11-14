@@ -1,0 +1,8 @@
+{
+  "comment": "Example only. Replace the URL on the guest. Do not put tokens in this file.",
+  "mcpServers": {
+    "home-assistant-test": {
+      "url": "http://HAOS-TEST-IP/api/mcp/assist"
+    }
+  }
+}

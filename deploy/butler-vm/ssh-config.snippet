@@ -1,0 +1,14 @@
+# Home butler VM on pve2 (castle cluster). Added 2026-11-14.
+# Path: box -> castle-ai4 (Tailscale) -> 192.168.103.105 (LAN)
+# After Tailscale is joined, add a butler / butler-ts alias with the 100.x address
+# and HostKeyAlias butler-vm so both paths share one known_hosts entry.
+Host butler-lan
+    HostName 192.168.103.105
+    HostKeyAlias butler-vm
+    User butler
+    IdentityFile ~/.ssh/id_ed25519_mgmt
+    IdentitiesOnly yes
+    StrictHostKeyChecking accept-new
+    ProxyJump castle-ai4
+    ServerAliveInterval 15
+    ServerAliveCountMax 4
