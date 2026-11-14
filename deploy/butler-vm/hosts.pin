@@ -1,0 +1,9 @@
+# castle-cluster-lan-hosts begin
+192.168.102.103 pve1.castle.lan pve1
+192.168.103.91 pve2.castle.lan pve2
+192.168.103.112 pve3.castle.lan pve3
+192.168.103.55 pve4.castle.lan pve4
+192.168.103.104 mgmt.castle.lan mgmt
+192.168.103.103 haos.castle.lan haos
+192.168.103.105 butler.castle.lan butler
+# castle-cluster-lan-hosts end

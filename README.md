@@ -1,138 +1,38 @@
-# Agentic Smart Home 0.11.1 工程預覽候選
+# 家用管家（Home butler）
 
-[專案介紹與互動示範](https://ted-h-com.github.io/agentic-smart-home/) · HA 介面模擬與產品管家介面，使用虛構資料。
+這個 repo 的主線已經改了。Home Assistant 用官方原版 HAOS，旁邊另開一台小 VM 跑 Hermes，透過 [Home Assistant 官方 MCP](https://www.home-assistant.io/integrations/mcp_server/) 讀狀態、控制設備。兩邊互不干擾：HA 升級不會弄壞管家，管家出問題也拖不垮 HA。
 
-一台 Linux 主機，裝好就有 Home Assistant 家庭、一個會用工具的智能管家，以及能自己調查與修改程式的開發助手。家裡的設備照 Home Assistant 原生方式運作；AI 只提出變更，由你批准後才寫入。
+舊的「自製 Linux 主機 OS + 內嵌 HAOS VM」那一條線沒有刪，收在：
 
-**0.11.1 候選**將 #122 的專用主機電源／網路政策（G15／G16）納入 #123 的正式 Host bootstrap 與受批准更新路徑，並沿用 0.11.0 的通知與恢復功能。這是待驗證、待發布的候選；既有家庭須走一次性圖形遷移，不重跑 installer。發布後可從 [v0.11.1 發布頁](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.11.1) 取得下載工具。候選的精確來源、媒體與測試結果見 [驗證紀錄](docs/VERIFICATION.md)；完成驗證與公開頻道銜接前，不將已合併功能視為可下載交付。
+- 分支 [`archive/agentic-host-os`](https://github.com/TED-H-com/agentic-smart-home/tree/archive/agentic-host-os)
+- 標籤 [`archive/os-appliance-v0.11.1`](https://github.com/TED-H-com/agentic-smart-home/releases/tag/archive/os-appliance-v0.11.1)
 
-既有 [v0.11.0](https://github.com/TED-H-com/agentic-smart-home/releases/tag/v0.11.0) 工程預覽已完成單輪本機八階段與單輪公開 App 工程驗收；原始媒體與新增驗證 ZIP 已各自通過 Linux 匿名下載與校驗。精確來源與限制見[驗證紀錄](docs/VERIFICATION.md)。既有媒體與歷史結果保留；實體筆電、真帳號、家庭設備及 72 小時運作由 Owner 現場驗收。
+詳見 [docs/ARCHIVE.md](docs/ARCHIVE.md)。
 
-## 安裝
+## 現況（castle 叢集，2026-11-14）
 
-準備一支可清除的 **32 GB USB**。可以直接在這台筆電的現有系統下載並製作 USB，再重新開機安裝；先備份要保留的資料，安裝會清除選定的內部磁碟。
+| 項目 | 內容 |
+|---|---|
+| 管家 VM | **butler**，VMID **102**，在 **pve2** |
+| 規格 | 4 核、8 GB（無 balloon）、64 GB 碟、Ubuntu 26.04 |
+| 區網 IP | `192.168.103.105/23`，閘道 `192.168.103.1` |
+| 正式 HAOS | VM **100**，在 **pve3**，`http://192.168.103.103`。主線腳本不會動它 |
+| 複製 / HA | 每 15 分鐘複製到 pve1、pve4；優先 pve2，備援 pve1（pve4 記憶體可能不夠同時跑 mgmt 8G + butler 8G） |
+| Hermes | v0.22.7 + 官方 `agy` CLI + `agy-openai-shim`（127.0.0.1:18795） |
+| 還沒做 | 管家尚未加入 Tailscale；尚未接正式 HA（沒有把權杖或 OAuth 寫進 git） |
 
-1. 從發布頁下載 `download-0.11.1.py`，依 [安裝步驟](INSTALL.md#下載與製作-usb) 下載、校驗並合併 ISO，寫入 USB。接上電源與有線網路，從 USB 開機；Dell 通常使用 F12 一次性開機選單。硬體檢查通過後，在 Ubuntu 安裝器選網路、磁碟和帳號。
-2. 重開機後登入桌面，**Agentic Home** 會自己打開。
-3. 按「開始設定」前先選家庭有線接入；接著照畫面完成：AI 帳號 → 智能管家 → 通訊（LINE、Telegram、Discord，或只用網頁）→ 家庭。
+## 目錄
 
-需求與詳細步驟見 [安裝](INSTALL.md)。
+- [`deploy/butler-vm/`](deploy/butler-vm/)：建立管家 VM 的 cloud-init、qm 腳本、複製與 HA、hosts、SSH 別名
+- [`hermes/`](hermes/)：技能、提示詞、SOUL、最小設定樣板（不含密鑰）
+- [`ha-mcp/`](ha-mcp/)：官方 MCP 的連線與權限說明（權杖與 OAuth 不進 git）
+- [`deploy/haos-test/`](deploy/haos-test/)：可拋棄的乾淨 HAOS 測試機（不要放 pve3，不要碰 VM 100）
+- [`docs/`](docs/)：部署 → 測試機 → 再接到家裡正式 HA
 
-## 每天使用
+## 建議順序
 
-| 想做的事 | 去哪裡 | 範例與說明 |
-|---|---|---|
-| 開燈、看設備、日常自動化 | Home Assistant 原生畫面 | 檢視與控制家庭既有裝置，與一般的 HA 操作相同。 |
-| 請管家幫忙、看提案並批准 | **智能管家**：HA 側欄或主機網頁；LINE 等通訊可以對話，批准一律在網頁 | - **控制設備**：「幫我把客廳燈打開」<br>- **查詢狀態**：「現在家裡溫度幾度？」<br>- **自動化提案**：「每天早上八點自動拉開窗簾」<br>系統會先提供計畫，你批准後才會變更家庭設定。 |
-| 找出可接入的設備 | **設備 → 探索更多設備**：選網路探索，或匯入路由器清單；追蹤原生 HA 設定與讀回結果 | 系統可協助核對並提供設定建議。 |
-| 修程式、查問題 | **設定 → 開發助手**：主機或家庭現場，成果依序是發現、測試、變更 | 「找出為何前門感測器無法觸發自動化，並給出修復程式」。 |
-| 從 HA 自動化發送文字通知 | [原生文字通知](docs/HA_NOTIFICATIONS.md)：安裝整合、設定收件人別名，再呼叫原生動作 | 在自動化中設定收件人別名，例如當洗衣機完成時傳送文字。 |
-| 更新、備份、救援 | **設定 → 主機維護**；Web 打不開時用 `sudo agentic-home diagnostics` | 下載 Controller 加密備份、更新系統版本。 |
+1. 部署或還原管家 VM（已開好的話只需維持快照與複製）
+2. 先在測試用 HAOS 上開官方 MCP，讓 Hermes 連測試機
+3. 確認沒問題，再由主人用安全方式把正式 HA 的授權交給管家（不要貼在聊天或 commit）
 
-家庭變更一律先顯示精確內容，由你批准；批准後系統備份、寫入，再確認狀態。Home Assistant、HAOS 與其他 App 照官方流程更新。
-
-官方更新來源的正式公鑰與 fingerprint 已由 Ted 於 2026-10-19 核准並釘選，私鑰由發行端保存在 repo 之外。尚未發布以此金鑰簽署的 Controller image、Host bundle、bootstrap 套件或產品媒體。既有 0.11.0 家庭主機需經獨立身份驗證的圖形 bootstrap 配合 **AH-UPDATE** USB，明確批准一次信任與遷移，不重跑 installer；詳見 [主機更新](docs/HOST_UPDATES.md#existing-0110-household-first-time-bootstrap) 與 [更新來源與批准](docs/UPDATES.md#官方更新來源與-owner-批准)。
-
-## 架構與核心模組
-
-系統在主機上運行多個獨立模組，以確保功能隔離與權限安全：
-
-```text
-主機 Ubuntu Linux
-├── Controller：管理中樞（網頁、設定進度、API Gateway、對話歷史與家庭政策批准）
-├── Hermes：AI 協調者（智能管家本體，獨立登入不共用金鑰，專責理解意圖與邏輯循環）
-├── Host broker：底層系統代理（隔離的開發助手環境、獨立基準驗證、預覽、HAOS VM 狀態與系統更新）
-├── Runner：受控的 CLI 與 AI 執行沙箱（開發助手實際運作的隔離環境）
-├── LINE.js：通訊整合（可選的 LINE 通訊連線）
-└── KVM → 官方 HAOS
-              ├── 智能管家側欄 App (Bridge) → 透過安全通道將 HA 使用者連回外層的同一個對話
-              └── 家庭現場 App (HAOS App) → 運行在 HAOS 內的開發助手，提供近端隔離的研發環境（獨立登入）
-```
-
-開發助手 (Runner) 在沒有家庭權限的沙箱裡修改私有 clone；另一份沒有帳號、沒有網路的 clone 套用同一份修改，跑固定的基準測試。結果只是成果，不會自動部署。
-
-## 建置與測試
-
-需要 Linux amd64、Python 3.13、Node 24、Docker。
-
-```bash
-uv sync --frozen
-npm ci --prefix web
-npm run build --prefix web
-uv run python scripts/contracts.py --check
-uv run python -c "import sys; sys.path.insert(0,'scripts'); from package import package_runner, package_bridge, package_notifications; package_runner(); package_bridge(); package_notifications()"
-uv run python scripts/controller_source.py
-for app in controller runner bridge hermes; do docker build -t agentic-home-$app:0.11.1 $app; done
-docker build -t agentic-home-linejs:0.11.1 host/linejs
-docker build -t agentic-home-preview:0.11.1 host/preview
-python3 scripts/build_host.py
-uv run python scripts/package.py
-```
-
-`dist/` 會有 `agentic-home-0.11.1-linux-amd64.tar`、source ZIP 和 `SHA256SUMS`。安裝媒體：
-
-```bash
-docker build -f host/Builder.Dockerfile -t agentic-home-builder:0.2.0 host
-python3 scripts/build_host.py --profile laptop-amd64 --iso --reuse-bundle
-```
-
-產品來源必須先提交；安裝包內含精確 HEAD 的 Git bundle，開發助手研究的就是這個版本。測試一律用磁碟暫存，不用 `/dev/shm` 或 tmpfs：
-
-```bash
-pytest-disktmp uv run pytest -q --real-ha --containers
-```
-
-測試範圍、VM 案例與無 wrapper 的等效命令見 [開發說明](docs/DEVELOPMENT.md)。
-
-## API 契約與規格
-
-API 契約與主要設計原則詳見 [API 契約 (API_CONTRACT.md)](docs/API_CONTRACT.md)。
-系統的 OpenAPI 規格定義檔是唯一且精確的 API 參考來源，可於下列路徑取得：
-- `contracts/controller.openapi.json`
-- `contracts/host-controller.openapi.json`
-
-## Health Endpoint
-
-系統提供 `/health` 端點報告系統及各整合與通訊管道的連線狀態與最後成功觀測/輪詢時間。
-
-`runner.status` 的 `paired` 只表示已有配對設定，未驗證 Runner 即時可達性。通道的一般斷線重試會保留上次成功觀測時間；明確重啟通道（例如更換憑證或對象）會清除時間，直到新連線成功觀測。尚未成功觀測時，`last_poll_at` 為 `null`。
-
-```json
-{
-  "status": "ok",
-  "version": "0.11.1",
-  "host_update": { ... },
-  "integrations": {
-    "ha": {
-      "status": "connected",
-      "last_poll_at": "2026-10-20T08:00:00Z"
-    },
-    "runner": {
-      "status": "paired",
-      "last_poll_at": null
-    },
-    "notifications": {
-      "status": "ready",
-      "last_poll_at": "2026-10-20T08:00:00Z"
-    },
-    "line": {
-      "status": "disabled",
-      "last_poll_at": null
-    },
-    "telegram": {
-      "status": "disabled",
-      "last_poll_at": null
-    },
-    "discord": {
-      "status": "disabled",
-      "last_poll_at": null
-    }
-  }
-}
-```
-
-## 文件
-
-[安裝](INSTALL.md) · [更新紀錄](CHANGELOG.md) · [首次設定](docs/ONBOARDING.md) · [開發助手](docs/WORKERS.md) · [通訊與登入](docs/GATEWAY.md) · [更新](docs/UPDATES.md) · [救援](docs/OPERATIONS.md) · [Linux 架構](docs/LINUX_PRODUCT.md) · [家庭區網接入](docs/HA_LAN.md) · [驗證紀錄](docs/VERIFICATION.md) · [v3 驗收帳本](docs/v3/PROGRESS.md)
-
-工程測試和真帳號、真家庭的驗收分開記錄；fixture 通過不等於你的家庭已驗收。
+細節見 [docs/DEPLOY.md](docs/DEPLOY.md)、[docs/TEST-HA.md](docs/TEST-HA.md)、[docs/CONNECT-REAL-HA.md](docs/CONNECT-REAL-HA.md)。

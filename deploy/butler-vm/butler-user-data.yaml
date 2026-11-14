@@ -1,0 +1,39 @@
+#cloud-config
+hostname: butler
+fqdn: butler.castle.lan
+manage_etc_hosts: true
+timezone: America/New_York
+ssh_pwauth: false
+disable_root: true
+users:
+  - name: butler
+    gecos: Home butler
+    groups: [sudo, adm]
+    shell: /bin/bash
+    lock_passwd: true
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIIeebOslEqvhv45zmwAYY348M/1SzjH8PZN2D11wfT9 castle4-pve-admin
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICGpri7FTVK/AB5ocuz4w7KQAdq5LL+Pdk6hKr37sX0a box-mgmt
+package_update: true
+package_upgrade: false
+packages:
+  - qemu-guest-agent
+  - unattended-upgrades
+  - git
+  - curl
+  - jq
+  - python3
+  - tmux
+apt:
+  conf: |
+    APT::Periodic::Update-Package-Lists "1";
+    APT::Periodic::Unattended-Upgrade "1";
+runcmd:
+  - systemctl enable --now qemu-guest-agent
+  - systemctl enable --now unattended-upgrades || true
+  - curl -fsSL https://tailscale.com/install.sh | sh
+  - mkdir -p /etc/ssh/sshd_config.d
+  - printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin no\n' > /etc/ssh/sshd_config.d/99-disable-password.conf
+  - systemctl reload ssh || systemctl reload sshd || true
+final_message: "butler cloud-init done after $UPTIME s"

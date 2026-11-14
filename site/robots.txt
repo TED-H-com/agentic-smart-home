@@ -1,3 +1,0 @@
-User-agent: *
-Allow: /
-Sitemap: https://ted-h-com.github.io/agentic-smart-home/sitemap.xml
